@@ -385,30 +385,38 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         return array(
             'success' => false,
             'message' => 'Header row not found',
+            'workbook_sheets' => $sheets_info,
+            'selected_sheet' => $selected_sheet_name,
+            'first_parsed_rows' => $first_non_empty,
             'diagnostics' => $diagnostics,
             'inserted' => 0,
             'updated' => 0,
+            'skipped' => 0,
+            'invalid' => 0,
             'errors' => array(),
         );
     }
 
     // Process rows after header
-    $inserted = 0; $updated = 0; $errors = array();
-    foreach ($sheetxml->sheetData->row as $row) {
+    $inserted = 0; $updated = 0; $skipped = 0; $invalid = 0; $errors = array();
+    $rows_to_process = $sheetxml->xpath('//x:sheetData/x:row');
+    foreach ($rows_to_process as $row) {
         $rnum = (int) $row['r'];
         if ($rnum <= $header_row_number) {
             continue;
         }
 
         $cells = array();
-        foreach ($row->c as $c) {
+        $cells_nodes = $row->xpath('x:c');
+        foreach ($cells_nodes as $c) {
             $r = (string) $c['r'];
             preg_match('/^([A-Z]+)\d+$/', $r, $m);
             $col = $m[1] ?? '';
             $t = (string) $c['t'];
             $v = '';
-            if (isset($c->v)) {
-                $raw = (string) $c->v;
+            $vnode = $c->xpath('x:v');
+            if (!empty($vnode)) {
+                $raw = (string) $vnode[0];
                 if ($t === 's') {
                     $idx = (int) $raw;
                     $v = $shared[$idx] ?? '';
@@ -416,9 +424,11 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
                     $v = $raw;
                 }
             } else {
-                $v = '';
-                if (isset($c->is)) {
-                    foreach ($c->is->t as $ttext) { $v .= (string) $ttext; }
+                $isnode = $c->xpath('x:is/x:t');
+                if (!empty($isnode)) {
+                    $parts = array();
+                    foreach ($isnode as $ttext) { $parts[] = (string) $ttext; }
+                    $v = implode('', $parts);
                 }
             }
             $cells[$col] = trim($v);
@@ -438,7 +448,8 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         if ($service_title === '') { $service_title = $cells['B'] ?? ''; }
         if ($category_val === '') { $category_val = $cells['A'] ?? ''; }
         if ($service_title === '') {
-            // likely a section header row like '  MANAGED IT SERVICES' in column A
+            // likely a section header row (skip without error)
+            $skipped++;
             continue;
         }
 
@@ -471,6 +482,7 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         $result = compuzign_cost_builder_import_service_row($row_data);
 
         if (is_wp_error($result)) {
+            $invalid++;
             $errors[] = $result->get_error_message();
         } elseif (isset($result['action'])) {
             if ($result['action'] === 'insert') { $inserted++; }
@@ -485,6 +497,12 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         'message' => empty($errors) ? 'Import completed.' : 'Import completed with errors.',
         'inserted' => $inserted,
         'updated' => $updated,
+        'skipped' => $skipped,
+        'invalid' => $invalid,
+        'workbook_sheets' => $sheets_info,
+        'selected_sheet' => $selected_sheet_name,
+        'first_parsed_rows' => $first_non_empty,
+        'header_detected' => $diagnostics['header_row'] ?? null,
         'errors' => $errors,
     );
 }

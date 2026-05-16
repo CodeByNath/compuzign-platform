@@ -19,11 +19,11 @@ function compuzign_cost_builder_register_rest_routes() {
     // Temporary admin-only importer trigger (one-time)
     register_rest_route(
         'compuzign/v1',
-        '/cost-builder/import-sample',
+        '/cost-builder/import-catalog',
         array(
             'methods' => 'POST',
-            'callback' => 'compuzign_cost_builder_rest_import_sample',
-            'permission_callback' => 'compuzign_cost_builder_import_sample_permission_callback',
+            'callback' => 'compuzign_cost_builder_rest_import_catalog',
+            'permission_callback' => 'compuzign_cost_builder_import_catalog_permission_callback',
         )
     );
 }
@@ -35,7 +35,7 @@ function compuzign_cost_builder_rest_cost_builder(WP_REST_Request $request) {
     return rest_ensure_response($response);
 }
 
-function compuzign_cost_builder_import_sample_permission_callback() {
+function compuzign_cost_builder_import_catalog_permission_callback() {
     if (!is_user_logged_in()) {
         return false;
     }
@@ -43,7 +43,7 @@ function compuzign_cost_builder_import_sample_permission_callback() {
     return current_user_can('manage_options');
 }
 
-function compuzign_cost_builder_rest_import_sample(WP_REST_Request $request) {
+function compuzign_cost_builder_rest_import_catalog(WP_REST_Request $request) {
     // Reset any previous one-off flag so the real workbook can be imported now
     delete_option('compuzign_cost_builder_sample_import_run');
 
