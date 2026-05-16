@@ -44,6 +44,9 @@ function compuzign_cost_builder_import_sample_permission_callback() {
 }
 
 function compuzign_cost_builder_rest_import_sample(WP_REST_Request $request) {
+    // Reset any previous one-off flag so the real workbook can be imported now
+    delete_option('compuzign_cost_builder_sample_import_run');
+
     $option = get_option('compuzign_cost_builder_sample_import_run', false);
     if ($option) {
         return rest_ensure_response(array('success' => false, 'message' => 'Import already run.'));
@@ -56,7 +59,11 @@ function compuzign_cost_builder_rest_import_sample(WP_REST_Request $request) {
     $xlsx = trailingslashit(COMPUZIGN_COST_BUILDER_PATH) . 'CompuZign_Service_Catalog.xlsx';
 
     if (!file_exists($xlsx) || !is_readable($xlsx)) {
-        return rest_ensure_response(array('success' => false, 'message' => 'Workbook not found or unreadable.', 'path' => $xlsx));
+        return rest_ensure_response(array(
+            'success' => false,
+            'message' => 'Workbook not found or unreadable. Please ensure the file exists at COMPUZIGN_COST_BUILDER_PATH . "CompuZign_Service_Catalog.xlsx"',
+            'path' => $xlsx,
+        ));
     }
 
     if (!function_exists('compuzign_cost_builder_import_service_catalog_from_csv')) {

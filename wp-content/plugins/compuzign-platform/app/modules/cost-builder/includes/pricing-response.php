@@ -21,7 +21,15 @@ function compuzign_cost_builder_get_service_payload($post): array
     }
 
     $meta = get_post_meta($post->ID, 'cz_service_meta', true) ?: array();
-    $pricing = get_post_meta($post->ID, 'cz_service_pricing', true) ?: array();
+    // Prefer an explicit getter if available, otherwise read post meta
+    if (function_exists('compuzign_cost_builder_get_service_pricing')) {
+        $pricing = compuzign_cost_builder_get_service_pricing($post);
+    } else {
+        $pricing = get_post_meta($post->ID, 'cz_service_pricing', true) ?: array();
+    }
+
+    // Normalize pricing to ensure expected shape (never return empty array)
+    $pricing = compuzign_cost_builder_normalize_pricing($pricing);
 
     $terms = wp_get_post_terms($post->ID, 'cz_service_category', array('fields' => 'all')) ?: array();
     $categories = array();
@@ -53,6 +61,50 @@ function compuzign_cost_builder_get_service_payload($post): array
         ),
         'pricing' => $pricing,
     );
+}
+
+/**
+ * Normalize a pricing structure to ensure the frontend shape is always present.
+ *
+ * @param mixed $pricing
+ * @return array
+ */
+function compuzign_cost_builder_normalize_pricing($pricing): array
+{
+    $default_tier = array('price' => null, 'features' => array());
+
+    $tiers = array(
+        'basic' => $default_tier,
+        'standard' => $default_tier,
+        'premium' => $default_tier,
+        'enterprise' => $default_tier,
+    );
+
+    $bundle = array('title' => '', 'description' => '', 'price' => null);
+
+    if (!is_array($pricing)) {
+        return array('tiers' => $tiers, 'bundle' => $bundle);
+    }
+
+    // Allow older data where tiers might be nested differently
+    $in_tiers = $pricing['tiers'] ?? $pricing;
+
+    $out_tiers = array();
+    foreach (array('basic', 'standard', 'premium', 'enterprise') as $k) {
+        $src = $in_tiers[$k] ?? array();
+        $price = isset($src['price']) ? compuzign_cost_builder_parse_price($src['price']) : null;
+        $features = isset($src['features']) && is_array($src['features']) ? array_values($src['features']) : array();
+        $out_tiers[$k] = array('price' => $price, 'features' => $features);
+    }
+
+    $bundle_src = $pricing['bundle'] ?? array();
+    $out_bundle = array(
+        'title' => $bundle_src['title'] ?? '',
+        'description' => $bundle_src['description'] ?? '',
+        'price' => isset($bundle_src['price']) ? compuzign_cost_builder_parse_price($bundle_src['price']) : null,
+    );
+
+    return array('tiers' => $out_tiers, 'bundle' => $out_bundle);
 }
 
 /**
