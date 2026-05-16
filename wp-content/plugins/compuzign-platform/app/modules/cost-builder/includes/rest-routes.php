@@ -20,10 +20,7 @@ function compuzign_cost_builder_register_rest_routes() {
 add_action('rest_api_init', 'compuzign_cost_builder_register_rest_routes');
 
 function compuzign_cost_builder_rest_cost_builder(WP_REST_Request $request) {
-    return rest_ensure_response(
-        array(
-            'success' => true,
-            'message' => 'CompuZign Cost Builder route is available.',
-        )
-    );
+    $response = compuzign_cost_builder_get_cost_builder_service_response();
+
+    return rest_ensure_response($response);
 }
