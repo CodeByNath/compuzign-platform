@@ -1,0 +1,65 @@
+/* CompuZign Atomic Engine — Design Tokens */
+:root {
+  /* Brand */
+  --cz-color-bg: #050505;
+  --cz-color-bg-soft: #0a0a0a;
+  --cz-color-surface: #101010;
+  --cz-color-surface-2: #171717;
+  --cz-color-surface-3: #202020;
+  --cz-color-text: #ffffff;
+  --cz-color-muted: #a6a6a6;
+  --cz-color-muted-2: #737373;
+  --cz-color-line: rgba(255,255,255,.11);
+  --cz-color-line-strong: rgba(255,255,255,.18);
+  --cz-color-accent: #ffda17;
+  --cz-color-accent-soft: #ffe45c;
+  --cz-color-accent-dark: #b89400;
+  --cz-color-success: #65d98a;
+  --cz-color-danger: #ff6161;
+
+  /* Typography */
+  --cz-font-main: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cz-font-size-xs: .73rem;
+  --cz-font-size-sm: .86rem;
+  --cz-font-size-md: .94rem;
+  --cz-font-size-base: 1rem;
+  --cz-font-size-lg: 1.08rem;
+  --cz-line-height-body: 1.75;
+
+  /* Spacing */
+  --cz-space-1: 4px;
+  --cz-space-2: 8px;
+  --cz-space-3: 12px;
+  --cz-space-4: 16px;
+  --cz-space-5: 20px;
+  --cz-space-6: 24px;
+  --cz-space-7: 28px;
+  --cz-space-8: 32px;
+  --cz-space-10: 40px;
+  --cz-space-12: 48px;
+  --cz-space-16: 64px;
+  --cz-section-space: 128px;
+
+  /* Layout */
+  --cz-container: min(1440px, 92vw);
+  --cz-sidebar-width: 360px;
+  --cz-grid-gap: 34px;
+
+  /* Radius */
+  --cz-radius-sm: 12px;
+  --cz-radius-md: 18px;
+  --cz-radius-lg: 24px;
+  --cz-radius-xl: 28px;
+  --cz-radius-2xl: 32px;
+  --cz-radius-pill: 999px;
+
+  /* Motion */
+  --cz-ease: cubic-bezier(.16,1,.3,1);
+  --cz-transition-fast: .2s var(--cz-ease);
+  --cz-transition: .3s var(--cz-ease);
+  --cz-transition-slow: .45s var(--cz-ease);
+
+  /* Shadows */
+  --cz-shadow-card: 0 24px 90px rgba(0,0,0,.45);
+  --cz-shadow-accent: 0 18px 50px rgba(255,218,23,.22);
+}

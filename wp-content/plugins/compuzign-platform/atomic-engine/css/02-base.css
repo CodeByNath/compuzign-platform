@@ -1,0 +1,62 @@
+/* CompuZign Atomic Engine — Base */
+body {
+  font-family: var(--cz-font-main);
+  background: var(--cz-color-bg);
+  color: var(--cz-color-text);
+}
+
+.cz-page {
+  background: var(--cz-color-bg);
+  color: var(--cz-color-text);
+}
+
+.cz-muted {
+  color: var(--cz-color-muted);
+}
+
+.cz-accent {
+  color: var(--cz-color-accent);
+}
+
+.cz-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cz-color-accent);
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  font-size: var(--cz-font-size-xs);
+  font-weight: 800;
+  margin-bottom: 26px;
+}
+
+.cz-eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 3px;
+  background: var(--cz-color-accent);
+  display: inline-block;
+}
+
+.cz-eyebrow.is-small {
+  font-size: .68rem;
+  margin-bottom: 14px;
+}
+
+.cz-heading-xl {
+  font-size: clamp(3rem, 6vw, 6.7rem);
+  line-height: .94;
+  letter-spacing: -.075em;
+}
+
+.cz-heading-lg {
+  font-size: clamp(2.2rem, 4vw, 4.8rem);
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+
+.cz-copy {
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-lg);
+  line-height: var(--cz-line-height-body);
+}

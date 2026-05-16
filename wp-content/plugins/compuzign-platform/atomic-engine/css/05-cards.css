@@ -1,0 +1,52 @@
+/* CompuZign Atomic Engine — Cards */
+.cz-card {
+  border: 1px solid var(--cz-color-line);
+  border-radius: var(--cz-radius-xl);
+  background: rgba(255,255,255,.04);
+  box-shadow: var(--cz-shadow-card);
+}
+
+.cz-card-soft {
+  border: 1px solid var(--cz-color-line);
+  border-radius: var(--cz-radius-lg);
+  background: var(--cz-color-surface);
+}
+
+.cz-card-header {
+  padding: var(--cz-space-8);
+  border-bottom: 1px solid var(--cz-color-line);
+}
+
+.cz-card-body {
+  padding: var(--cz-space-8);
+}
+
+.cz-card-footer {
+  padding: var(--cz-space-6) var(--cz-space-8);
+  border-top: 1px solid var(--cz-color-line);
+}
+
+.cz-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--cz-radius-pill);
+  padding: 8px 12px;
+  font-size: .75rem;
+  font-weight: 850;
+  border: 1px solid var(--cz-color-line);
+  color: var(--cz-color-muted);
+  background: rgba(255,255,255,.04);
+}
+
+.cz-badge-accent {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-divider {
+  height: 1px;
+  background: var(--cz-color-line);
+  width: 100%;
+}

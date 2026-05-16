@@ -1,0 +1,53 @@
+/* CompuZign Atomic Engine — Modals */
+.cz-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(12px);
+}
+
+.cz-modal.is-active,
+.cz-modal.active {
+  display: flex;
+}
+
+.cz-modal-box {
+  width: min(760px, 100%);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-2xl);
+  background: var(--cz-color-surface);
+  box-shadow: var(--cz-shadow-card);
+  padding: 34px;
+  position: relative;
+}
+
+.cz-modal-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+
+.cz-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+@media (max-width: 640px) {
+  .cz-modal-box {
+    padding: 26px 20px;
+  }
+
+  .cz-modal-actions .cz-btn {
+    width: 100%;
+  }
+}

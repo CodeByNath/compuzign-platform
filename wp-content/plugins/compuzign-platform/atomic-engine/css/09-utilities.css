@@ -1,0 +1,52 @@
+/* CompuZign Atomic Engine — Utilities */
+.cz-hidden {
+  display: none !important;
+}
+
+.cz-text-center {
+  text-align: center;
+}
+
+.cz-full {
+  width: 100%;
+}
+
+.cz-sticky {
+  position: sticky;
+  top: 24px;
+}
+
+.cz-surface {
+  background: var(--cz-color-surface);
+}
+
+.cz-surface-2 {
+  background: var(--cz-color-surface-2);
+}
+
+.cz-border {
+  border: 1px solid var(--cz-color-line);
+}
+
+.cz-border-strong {
+  border: 1px solid var(--cz-color-line-strong);
+}
+
+.cz-radius {
+  border-radius: var(--cz-radius-xl);
+}
+
+.cz-radius-pill {
+  border-radius: var(--cz-radius-pill);
+}
+
+.cz-shadow {
+  box-shadow: var(--cz-shadow-card);
+}
+
+.cz-mt-4 { margin-top: var(--cz-space-4); }
+.cz-mt-6 { margin-top: var(--cz-space-6); }
+.cz-mt-8 { margin-top: var(--cz-space-8); }
+.cz-mb-4 { margin-bottom: var(--cz-space-4); }
+.cz-mb-6 { margin-bottom: var(--cz-space-6); }
+.cz-mb-8 { margin-bottom: var(--cz-space-8); }

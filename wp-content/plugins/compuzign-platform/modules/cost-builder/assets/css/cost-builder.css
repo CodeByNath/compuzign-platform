@@ -1,0 +1,83 @@
+/* CompuZign Cost Builder Module — module-specific layer */
+
+.cost-builder-platform {
+  background: var(--cz-color-bg);
+  color: var(--cz-color-text);
+}
+
+.cb-hero {
+  padding: 150px 0 70px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,218,23,.18), transparent 28%),
+    radial-gradient(circle at 80% 10%, rgba(255,255,255,.06), transparent 22%),
+    linear-gradient(180deg, #050505, #0b0b0b);
+  border-bottom: 1px solid var(--cz-color-line);
+}
+
+.cb-hero h1 {
+  max-width: 900px;
+  font-size: clamp(3rem, 6vw, 6.7rem);
+  line-height: .94;
+  letter-spacing: -.075em;
+  margin-bottom: 24px;
+}
+
+.cb-hero p {
+  max-width: 760px;
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-lg);
+  line-height: var(--cz-line-height-body);
+  margin-bottom: 32px;
+}
+
+.cb-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cz-sidebar-width);
+  gap: var(--cz-grid-gap);
+  align-items: start;
+  padding-top: 48px;
+  padding-bottom: 110px;
+}
+
+.cb-section-head {
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-2xl);
+  padding: 34px;
+  background: rgba(255,255,255,.04);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cz-sidebar-width);
+  gap: 30px;
+  margin-bottom: 28px;
+}
+
+.cb-quote-sidebar {
+  position: sticky;
+  top: 24px;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-2xl);
+  background: rgba(255,255,255,.04);
+  box-shadow: var(--cz-shadow-card);
+  padding: 24px;
+}
+
+@media (max-width: 1024px) {
+  .cb-layout,
+  .cb-section-head {
+    grid-template-columns: 1fr;
+  }
+
+  .cb-quote-sidebar {
+    position: relative;
+    top: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .cb-hero {
+    padding: 110px 0 56px;
+  }
+
+  .cb-layout {
+    padding-bottom: 80px;
+  }
+}

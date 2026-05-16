@@ -1,0 +1,69 @@
+/* CompuZign Atomic Engine — Buttons */
+.cz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 22px;
+  border-radius: var(--cz-radius-pill);
+  border: 1px solid transparent;
+  font-weight: 800;
+  font-size: var(--cz-font-size-md);
+  transition: all var(--cz-transition);
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.cz-btn-primary {
+  background: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-btn-primary:hover {
+  background: #fff;
+  color: #000;
+  transform: translateY(-3px);
+  box-shadow: var(--cz-shadow-accent);
+}
+
+.cz-btn-secondary {
+  border-color: var(--cz-color-line-strong);
+  color: #fff;
+  background: rgba(255,255,255,.03);
+}
+
+.cz-btn-secondary:hover {
+  border-color: #fff;
+  background: #fff;
+  color: #000;
+  transform: translateY(-3px);
+}
+
+.cz-btn-ghost {
+  border-color: var(--cz-color-line);
+  color: var(--cz-color-text);
+  background: transparent;
+}
+
+.cz-btn-ghost:hover {
+  border-color: var(--cz-color-accent);
+  color: var(--cz-color-accent);
+}
+
+.cz-icon-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--cz-radius-pill);
+  border: 1px solid var(--cz-color-line);
+  background: rgba(255,255,255,.04);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cz-btn:focus:not(:focus-visible),
+.cz-icon-btn:focus:not(:focus-visible) {
+  outline: none;
+}

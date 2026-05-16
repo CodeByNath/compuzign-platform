@@ -1,0 +1,47 @@
+/* CompuZign Atomic Engine — Tabs / Chips */
+.cz-tabs,
+.cz-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cz-chip {
+  border: 1px solid var(--cz-color-line-strong);
+  background: rgba(255,255,255,.04);
+  color: #fff;
+  padding: 13px 18px;
+  border-radius: var(--cz-radius-pill);
+  font-weight: 850;
+  cursor: pointer;
+  transition: all var(--cz-transition);
+}
+
+.cz-chip:hover,
+.cz-chip.is-active,
+.cz-chip.active {
+  background: var(--cz-color-accent);
+  color: #000;
+  border-color: var(--cz-color-accent);
+  transform: translateY(-2px);
+}
+
+.cz-sub-tab {
+  border: 1px solid var(--cz-color-line);
+  background: var(--cz-color-surface);
+  color: #d8d8d8;
+  border-radius: var(--cz-radius-pill);
+  padding: 11px 15px;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 800;
+  cursor: pointer;
+  transition: all var(--cz-transition-fast);
+}
+
+.cz-sub-tab:hover,
+.cz-sub-tab.is-active,
+.cz-sub-tab.active {
+  border-color: rgba(255,218,23,.55);
+  background: rgba(255,218,23,.1);
+  color: var(--cz-color-accent);
+}
