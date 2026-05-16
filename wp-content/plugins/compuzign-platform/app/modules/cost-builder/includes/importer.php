@@ -17,6 +17,12 @@ if (file_exists($meta_fields_file)) {
 
 function compuzign_cost_builder_import_service_catalog_from_csv(string $csv_path): array
 {
+    // If an xlsx file is provided, delegate to the XLSX importer
+    $lower = strtolower($csv_path ?? '');
+    if (substr($lower, -5) === '.xlsx') {
+        return compuzign_cost_builder_import_service_catalog_from_xlsx($csv_path);
+    }
+
     if (!file_exists($csv_path) || !is_readable($csv_path)) {
         return array(
             'success' => false,
@@ -77,6 +83,249 @@ function compuzign_cost_builder_import_service_catalog_from_csv(string $csv_path
     }
 
     fclose($handle);
+
+    return array(
+        'success' => empty($errors),
+        'message' => empty($errors) ? 'Import completed.' : 'Import completed with errors.',
+        'inserted' => $inserted,
+        'updated' => $updated,
+        'errors' => $errors,
+    );
+}
+
+
+/**
+ * Import services from an Excel workbook (.xlsx) using the Service Catalog sheet.
+ * Keeps the existing importer flow by producing rows compatible with
+ * compuzign_cost_builder_import_service_row().
+ *
+ * @param string $xlsx_path
+ * @return array
+ */
+function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_path): array
+{
+    if (!file_exists($xlsx_path) || !is_readable($xlsx_path)) {
+        return array(
+            'success' => false,
+            'message' => 'XLSX file does not exist or is not readable.',
+            'inserted' => 0,
+            'updated' => 0,
+            'errors' => array(),
+        );
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($xlsx_path) !== true) {
+        return array(
+            'success' => false,
+            'message' => 'Unable to open XLSX file.',
+            'inserted' => 0,
+            'updated' => 0,
+            'errors' => array(),
+        );
+    }
+
+    // Load shared strings
+    $shared = array();
+    if (($idx = $zip->locateName('xl/sharedStrings.xml')) !== false) {
+        $sxml = simplexml_load_string($zip->getFromIndex($idx));
+        $sxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        foreach ($sxml->si as $si) {
+            $texts = '';
+            foreach ($si->xpath('.//x:t') as $t) {
+                $texts .= (string) $t;
+            }
+            $shared[] = $texts;
+        }
+    }
+
+    // Map workbook rels to sheet targets
+    $rels = array();
+    if (($ridx = $zip->locateName('xl/_rels/workbook.xml.rels')) !== false) {
+        $relsxml = simplexml_load_string($zip->getFromIndex($ridx));
+        $relsxml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/package/2006/relationships');
+        foreach ($relsxml->Relationship as $rel) {
+            $attrs = $rel->attributes();
+            $rels[(string) $attrs['Id']] = (string) $attrs['Target'];
+        }
+    }
+
+    // Read workbook to find the Service Catalog sheet
+    $sheet_target = null;
+    if (($wbidx = $zip->locateName('xl/workbook.xml')) !== false) {
+        $wbxml = simplexml_load_string($zip->getFromIndex($wbidx));
+        $wbxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        foreach ($wbxml->sheets->sheet as $sheet) {
+            $name = (string) $sheet['name'];
+            $rid = (string) $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+            $target = $rels[$rid] ?? '';
+            if (stripos($name, 'service catalog') !== false) {
+                $sheet_target = $target;
+                break;
+            }
+            // fallback: pick the first sheet if nothing matches
+            if ($sheet_target === null) {
+                $sheet_target = $target;
+            }
+        }
+    }
+
+    if (!$sheet_target) {
+        $zip->close();
+        return array(
+            'success' => false,
+            'message' => 'Service Catalog sheet not found in workbook.',
+            'inserted' => 0,
+            'updated' => 0,
+            'errors' => array(),
+        );
+    }
+
+    $sheet_path = preg_match('#^xl/#', $sheet_target) ? $sheet_target : 'xl/' . ltrim($sheet_target, '/');
+    if (($sidx = $zip->locateName($sheet_path)) === false) {
+        $zip->close();
+        return array('success' => false, 'message' => 'Sheet XML not found', 'inserted' => 0, 'updated' => 0, 'errors' => array());
+    }
+
+    $sheetxml = simplexml_load_string($zip->getFromIndex($sidx));
+    $sheetxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+
+    // Find header row by looking for the 'Service Category' or 'Service Name' header
+    $header_map = array();
+    $header_row_number = null;
+    foreach ($sheetxml->sheetData->row as $row) {
+        $rnum = (string) $row['r'];
+        $cells = array();
+        foreach ($row->c as $c) {
+            $r = (string) $c['r'];
+            preg_match('/^([A-Z]+)\d+$/', $r, $m);
+            $col = $m[1] ?? '';
+            $t = (string) $c['t'];
+            $v = '';
+            if (isset($c->v)) {
+                $raw = (string) $c->v;
+                if ($t === 's') {
+                    $idx = (int) $raw;
+                    $v = $shared[$idx] ?? '';
+                } else {
+                    $v = $raw;
+                }
+            } else {
+                // inline string
+                $v = '';
+                foreach ($c->is->t as $ttext) {
+                    $v .= (string) $ttext;
+                }
+            }
+            $cells[$col] = trim($v);
+        }
+
+        // check for header indicators
+        $first = $cells['A'] ?? '';
+        $second = $cells['B'] ?? '';
+        if (strcasecmp($first, 'Service Category') === 0 || strcasecmp($second, 'Service Name') === 0) {
+            $header_row_number = (int) $rnum;
+            // build header_map of column letters to normalized keys
+            // Expected columns: A: Service Category, B: Service Name, C: Description,
+            // D: Basic, E: Standard, F: Premium, G: Enterprise, H: Billing Cycle,
+            // I: SLA / Uptime, J: Notes
+            $header_map = array(
+                'A' => 'category',
+                'B' => 'service_title',
+                'C' => 'long_description',
+                'D' => 'basic_price',
+                'E' => 'standard_price',
+                'F' => 'premium_price',
+                'G' => 'enterprise_price',
+                'H' => 'billing_cycle',
+                'I' => 'uptime',
+                'J' => 'notes',
+            );
+            break;
+        }
+    }
+
+    if ($header_row_number === null) {
+        $zip->close();
+        return array('success' => false, 'message' => 'Header row not found', 'inserted' => 0, 'updated' => 0, 'errors' => array());
+    }
+
+    // Process rows after header
+    $inserted = 0; $updated = 0; $errors = array();
+    foreach ($sheetxml->sheetData->row as $row) {
+        $rnum = (int) $row['r'];
+        if ($rnum <= $header_row_number) {
+            continue;
+        }
+
+        $cells = array();
+        foreach ($row->c as $c) {
+            $r = (string) $c['r'];
+            preg_match('/^([A-Z]+)\d+$/', $r, $m);
+            $col = $m[1] ?? '';
+            $t = (string) $c['t'];
+            $v = '';
+            if (isset($c->v)) {
+                $raw = (string) $c->v;
+                if ($t === 's') {
+                    $idx = (int) $raw;
+                    $v = $shared[$idx] ?? '';
+                } else {
+                    $v = $raw;
+                }
+            } else {
+                $v = '';
+                if (isset($c->is)) {
+                    foreach ($c->is->t as $ttext) { $v .= (string) $ttext; }
+                }
+            }
+            $cells[$col] = trim($v);
+        }
+
+        // Build normalized row data
+        $service_title = $cells['B'] ?? '';
+        if ($service_title === '') {
+            // likely a section header row like '  MANAGED IT SERVICES' in column A
+            continue;
+        }
+
+        $row_data = array(
+            'category' => $cells['A'] ?? '',
+            'service_title' => $service_title,
+            'service_slug' => '',
+            'short_description' => '',
+            'long_description' => $cells['C'] ?? '',
+            'billing_cycle' => $cells['H'] ?? '',
+            'sla' => '',
+            'uptime' => $cells['I'] ?? '',
+            'notes' => $cells['J'] ?? '',
+            'popular_tier' => '',
+            'sort_order' => 0,
+            'is_active' => '1',
+            'basic_price' => $cells['D'] ?? '',
+            'standard_price' => $cells['E'] ?? '',
+            'premium_price' => $cells['F'] ?? '',
+            'enterprise_price' => $cells['G'] ?? '',
+            'basic_features' => '',
+            'standard_features' => '',
+            'premium_features' => '',
+            'enterprise_features' => '',
+            'bundle_title' => '',
+            'bundle_description' => '',
+            'bundle_price' => '',
+        );
+
+        $result = compuzign_cost_builder_import_service_row($row_data);
+
+        if (is_wp_error($result)) {
+            $errors[] = $result->get_error_message();
+        } elseif (isset($result['action'])) {
+            if ($result['action'] === 'insert') { $inserted++; }
+            elseif ($result['action'] === 'update') { $updated++; }
+        }
+    }
+
+    $zip->close();
 
     return array(
         'success' => empty($errors),
