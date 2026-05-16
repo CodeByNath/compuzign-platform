@@ -8,18 +8,17 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
 
+    steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: ${{ secrets.HOSTINGER_PORT }}
           script: |
-            cd ~/public_html/compuzign
-            git pull origin main
-            echo "Deployment complete"
+            cd /home/u938717127/domains/weerax.com/public_html/compuzign
+            git fetch origin main
+            git checkout -f origin/main -- wp-content/plugins/compuzign-platform
+            git checkout -f origin/main -- wp-content/themes/compuzign-theme
