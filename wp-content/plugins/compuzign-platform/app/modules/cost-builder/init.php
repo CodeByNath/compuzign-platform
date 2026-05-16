@@ -12,6 +12,28 @@ if (!defined('COMPUZIGN_COST_BUILDER_URL')) {
     define('COMPUZIGN_COST_BUILDER_URL', COMPUZIGN_PLUGIN_URL . 'app/modules/cost-builder/');
 }
 
+$cost_builder_includes = COMPUZIGN_COST_BUILDER_PATH . 'includes/';
+$meta_fields_file = $cost_builder_includes . 'meta-fields.php';
+$pricing_response_file = $cost_builder_includes . 'pricing-response.php';
+$rest_routes_file = $cost_builder_includes . 'rest-routes.php';
+$importer_file = $cost_builder_includes . 'importer.php';
+
+if (file_exists($meta_fields_file)) {
+    require_once $meta_fields_file;
+}
+
+if (file_exists($pricing_response_file)) {
+    require_once $pricing_response_file;
+}
+
+if (file_exists($rest_routes_file)) {
+    require_once $rest_routes_file;
+}
+
+if (file_exists($importer_file)) {
+    require_once $importer_file;
+}
+
 $cost_builder_logic = COMPUZIGN_COST_BUILDER_PATH . 'logic';
 if (is_dir($cost_builder_logic)) {
     foreach (glob(trailingslashit($cost_builder_logic) . '*.php') as $logic_file) {
