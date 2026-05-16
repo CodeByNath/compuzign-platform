@@ -10,6 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: wp-content/plugins/compuzign-platform
+
+      - name: Build frontend assets
+        run: npm run build
+        working-directory: wp-content/plugins/compuzign-platform
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
