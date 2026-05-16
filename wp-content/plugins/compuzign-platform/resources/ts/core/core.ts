@@ -1,4 +1,4 @@
-import '../css/core.css';
+import '../../css/core.css';
 import { initQuoteBuilder } from '../components/quote-builder/index';
 
 declare global {
