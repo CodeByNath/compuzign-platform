@@ -146,26 +146,49 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         $relsxml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/package/2006/relationships');
         foreach ($relsxml->Relationship as $rel) {
             $attrs = $rel->attributes();
-            $rels[(string) $attrs['Id']] = (string) $attrs['Target'];
+            $id = (string) $attrs['Id'];
+            $target = (string) $attrs['Target'];
+            // normalize target
+            $target = preg_replace('#^/+#', '', $target);
+            $rels[$id] = $target;
         }
     }
 
-    // Read workbook to find the Service Catalog sheet
+    // Read workbook to list sheets and find the one named 'Service Catalog'
     $sheet_target = null;
+    $selected_sheet_name = null;
+    $sheets_info = array();
     if (($wbidx = $zip->locateName('xl/workbook.xml')) !== false) {
         $wbxml = simplexml_load_string($zip->getFromIndex($wbidx));
         $wbxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
         foreach ($wbxml->sheets->sheet as $sheet) {
             $name = (string) $sheet['name'];
-            $rid = (string) $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+            // relationship id may be in the relationships namespace
+            $rid = '';
+            $attrs = $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+            if ($attrs && isset($attrs['id'])) {
+                $rid = (string) $attrs['id'];
+            } else {
+                $attrs2 = $sheet->attributes();
+                $rid = (string) $attrs2['r:id'] ?? (string) $attrs2['id'] ?? '';
+            }
             $target = $rels[$rid] ?? '';
+            // normalize target to xl/ path
+            $path = $target;
+            if ($path && strpos($path, 'xl/') !== 0) {
+                $path = 'xl/' . ltrim($path, '/');
+            }
+            $sheets_info[] = array('name' => $name, 'rid' => $rid, 'target' => $path ?: $target);
+
             if (stripos($name, 'service catalog') !== false) {
                 $sheet_target = $target;
+                $selected_sheet_name = $name;
                 break;
             }
-            // fallback: pick the first sheet if nothing matches
             if ($sheet_target === null) {
+                // fallback to first sheet target but continue searching for exact match
                 $sheet_target = $target;
+                $selected_sheet_name = $name;
             }
         }
     }
@@ -184,7 +207,15 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
     $sheet_path = preg_match('#^xl/#', $sheet_target) ? $sheet_target : 'xl/' . ltrim($sheet_target, '/');
     if (($sidx = $zip->locateName($sheet_path)) === false) {
         $zip->close();
-        return array('success' => false, 'message' => 'Sheet XML not found', 'inserted' => 0, 'updated' => 0, 'errors' => array());
+        return array(
+            'success' => false,
+            'message' => 'Sheet XML not found',
+            'sheet_target' => $sheet_target,
+            'sheets' => $sheets_info,
+            'inserted' => 0,
+            'updated' => 0,
+            'errors' => array(),
+        );
     }
 
     $sheetxml = simplexml_load_string($zip->getFromIndex($sidx));
@@ -194,8 +225,9 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
     $header_map = array();
     $header_row_number = null;
     $diagnostics = array(
-        'sheet_name' => $sheetxml->sheetPr->codeName ?? ($sheet_target ?? ''),
-        'sheet_path' => $sheet_path,
+        'selected_sheet_name' => $selected_sheet_name,
+        'selected_sheet_path' => $sheet_path,
+        'sheets' => $sheets_info,
         'scanned_rows' => array(),
         'first_non_empty_rows' => array(),
     );
@@ -229,23 +261,26 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
 
     $row_count = 0;
     $first_non_empty = array();
-    foreach ($sheetxml->sheetData->row as $row) {
+    // Use XPath to reliably find row nodes with namespace
+    $rows = $sheetxml->xpath('//x:sheetData/x:row');
+    foreach ($rows as $row) {
         $row_count++;
         if ($row_count > 30) {
             break;
         }
-
         $rnum = (string) $row['r'];
         $cells = array();
         $cell_texts = array();
-        foreach ($row->c as $c) {
+        $cells_nodes = $row->xpath('x:c');
+        foreach ($cells_nodes as $c) {
             $r = (string) $c['r'];
             preg_match('/^([A-Z]+)\d+$/', $r, $m);
             $col = $m[1] ?? '';
             $t = (string) $c['t'];
             $v = '';
-            if (isset($c->v)) {
-                $raw = (string) $c->v;
+            $vnode = $c->xpath('x:v');
+            if (!empty($vnode)) {
+                $raw = (string) $vnode[0];
                 if ($t === 's') {
                     $idx = (int) $raw;
                     $v = $shared[$idx] ?? '';
@@ -253,12 +288,12 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
                     $v = $raw;
                 }
             } else {
-                // inline string
-                $v = '';
-                if (isset($c->is)) {
-                    foreach ($c->is->t as $ttext) {
-                        $v .= (string) $ttext;
-                    }
+                // inlineStr support
+                $isnode = $c->xpath('x:is/x:t');
+                if (!empty($isnode)) {
+                    $parts = array();
+                    foreach ($isnode as $ttext) { $parts[] = (string) $ttext; }
+                    $v = implode('', $parts);
                 }
             }
             $v_trim = trim((string) $v);
