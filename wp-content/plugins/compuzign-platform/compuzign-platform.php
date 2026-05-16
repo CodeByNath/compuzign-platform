@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: CompuZign Platform
- * Description: Core application platform.
+ * Description: Core application platform for CompuZign.
  * Version: 1.0.0
  */
 
