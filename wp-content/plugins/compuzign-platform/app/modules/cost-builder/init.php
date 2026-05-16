@@ -18,6 +18,8 @@ $pricing_response_file = $cost_builder_includes . 'pricing-response.php';
 $rest_routes_file = $cost_builder_includes . 'rest-routes.php';
 $importer_file = $cost_builder_includes . 'importer.php';
 
+error_log('compuzign_cost_builder_init loaded');
+
 if (file_exists($meta_fields_file)) {
     require_once $meta_fields_file;
 }
