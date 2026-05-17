@@ -16,30 +16,13 @@ function compuzign_cost_builder_register_rest_routes() {
             'permission_callback' => '__return_true',
         )
     );
-    // Temporary admin-only importer trigger (one-time) — TEMPORARILY DISABLED
-    // register_rest_route(
-    //     'compuzign/v1',
-    //     '/cost-builder/import-catalog',
-    //     array(
-    //         'methods' => 'POST',
-    //         'callback' => 'compuzign_cost_builder_rest_import_catalog',
-    //         'permission_callback' => 'compuzign_cost_builder_import_catalog_permission_callback',
-    //     )
-    // );
-
-    // Fallback: return error JSON instead of executing import
     register_rest_route(
         'compuzign/v1',
         '/cost-builder/import-catalog',
         array(
             'methods' => 'POST',
-            'callback' => function () {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => 'Import route temporarily disabled for debugging.',
-                ));
-            },
-            'permission_callback' => '__return_true',
+            'callback' => 'compuzign_cost_builder_rest_import_catalog',
+            'permission_callback' => 'compuzign_cost_builder_import_catalog_permission_callback',
         )
     );
 

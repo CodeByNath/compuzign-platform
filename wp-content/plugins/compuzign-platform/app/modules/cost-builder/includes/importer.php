@@ -130,9 +130,18 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
     if (($idx = $zip->locateName('xl/sharedStrings.xml')) !== false) {
         $sxml = simplexml_load_string($zip->getFromIndex($idx));
         $sxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-        foreach ($sxml->si as $si) {
+        // Use XPath (not property access) so namespace context is inherited by child xpath() calls
+        $si_list = $sxml->xpath('//x:si');
+        if (empty($si_list)) {
+            $si_list = $sxml->xpath('//*[local-name()="si"]');
+        }
+        foreach ($si_list as $si) {
             $texts = '';
-            foreach ($si->xpath('.//x:t') as $t) {
+            $t_nodes = $si->xpath('.//x:t');
+            if (empty($t_nodes)) {
+                $t_nodes = $si->xpath('.//*[local-name()="t"]');
+            }
+            foreach ($t_nodes as $t) {
                 $texts .= (string) $t;
             }
             $shared[] = $texts;
@@ -865,9 +874,18 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
     if (($idx = $zip->locateName('xl/sharedStrings.xml')) !== false) {
         $sxml = simplexml_load_string($zip->getFromIndex($idx));
         $sxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-        foreach ($sxml->si as $si) {
+        // Use XPath (not property access) so namespace context is inherited by child xpath() calls
+        $si_list = $sxml->xpath('//x:si');
+        if (empty($si_list)) {
+            $si_list = $sxml->xpath('//*[local-name()="si"]');
+        }
+        foreach ($si_list as $si) {
             $texts = '';
-            foreach ($si->xpath('.//x:t') as $t) {
+            $t_nodes = $si->xpath('.//x:t');
+            if (empty($t_nodes)) {
+                $t_nodes = $si->xpath('.//*[local-name()="t"]');
+            }
+            foreach ($t_nodes as $t) {
                 $texts .= (string) $t;
             }
             $shared[] = $texts;
@@ -984,6 +1002,7 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
     }
 
     $row_count = 0;
+    $scanned_rows = array();
     foreach ($rows as $row) {
         $row_count++;
         if ($row_count > 30) {
@@ -1085,6 +1104,8 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
             $norms[] = $normalize($ct);
         }
 
+        $scanned_rows[] = array('r' => $rnum, 'cells' => $cell_texts, 'normalized' => $norms);
+
         $has_service_category = false;
         $has_service_name = false;
         foreach ($norms as $n) {
@@ -1131,6 +1152,10 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
         return array(
             'success' => false,
             'message' => 'Header row not found.',
+            'shared_strings_count' => count($shared),
+            'shared_strings_sample' => array_slice($shared, 0, 15),
+            'rows_found' => $row_count,
+            'scanned_rows' => $scanned_rows,
         );
     }
 
