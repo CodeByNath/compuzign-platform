@@ -347,13 +347,16 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
                 $cell_texts[] = $v_trim;
             }
         } else {
-            // SimpleXML — use children($NS) to avoid xpath namespace-inheritance issues
-            $rnum = (string) $row['r'];
+            // SimpleXML — use children($NS) to avoid xpath namespace-inheritance issues.
+            // Attributes r/t/s are unnamespaced; must use $c->attributes() (no-namespace form)
+            // because $c['attr'] on a children($NS) element looks in the NS context, not no-NS.
+            $rnum = (string) $row->attributes()['r'];
             foreach ($row->children($XLSX_NS) as $c) {
-                $r_attr = (string) $c['r'];
+                $c_attrs = $c->attributes();
+                $r_attr  = (string) ($c_attrs['r'] ?? '');
+                $t       = (string) ($c_attrs['t'] ?? '');
                 preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
-                $t = (string) $c['t'];
                 $v = '';
                 $c_ch = $c->children($XLSX_NS);
                 if (count($c_ch->v) > 0) {
@@ -499,12 +502,13 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
                 $cells[$col] = trim((string) $v);
             }
         } else {
-            // SimpleXML — use children($NS) to avoid xpath namespace-inheritance issues
+            // SimpleXML — use children($NS) + attributes() (no-namespace form)
             foreach ($row->children($XLSX_NS) as $c) {
-                $r_attr = (string) $c['r'];
+                $c_attrs = $c->attributes();
+                $r_attr  = (string) ($c_attrs['r'] ?? '');
+                $t       = (string) ($c_attrs['t'] ?? '');
                 preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
-                $t = (string) $c['t'];
                 $v = '';
                 $c_ch = $c->children($XLSX_NS);
                 if (count($c_ch->v) > 0) {
@@ -1046,25 +1050,21 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
                 $cell_texts[] = $v_trim;
             }
         } else {
-            // SimpleXML path — use children($NS) to avoid xpath namespace-inheritance issues.
-            // $row->xpath('x:c') silently returns false here because XPath-result nodes in PHP
-            // do not automatically carry the parent's registered namespace prefixes.
-            $rnum = (string) $row['r'];
+            // SimpleXML path — use children($NS) + attributes() (no-namespace form).
+            // $c['r'] / $c['t'] on children($NS) elements silently returns '' because PHP
+            // looks in the NS context; r/t/s are unnamespaced, so use $c->attributes().
+            $rnum = (string) $row->attributes()['r'];
             foreach ($row->children($XLSX_NS) as $c) {
-                $r_attr = (string) $c['r'];
+                $c_attrs = $c->attributes();
+                $r_attr  = (string) ($c_attrs['r'] ?? '');
+                $t       = (string) ($c_attrs['t'] ?? '');
                 preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
-                $t = (string) $c['t'];
                 $v = '';
-                // <v> and <is> are direct children; property access works by local name
                 $c_ch = $c->children($XLSX_NS);
                 if (count($c_ch->v) > 0) {
                     $raw = (string) $c_ch->v;
-                    if ($t === 's') {
-                        $v = $shared[(int) $raw] ?? '';
-                    } else {
-                        $v = $raw;
-                    }
+                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
                 } elseif (count($c_ch->is) > 0) {
                     $parts = array();
                     foreach ($c_ch->is->children($XLSX_NS) as $tnode) {
@@ -1087,39 +1087,49 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
 
         // Capture row 4 diagnostics
         if ($rnum === '4') {
-            $raw_values = array();
-            $resolved = array();
-            $refs = array();
-            $types = array();
+            $raw_values    = array();
+            $resolved      = array();
+            $refs          = array();
+            $types         = array();
+            $attrs_dump    = array();
             if ($row instanceof DOMElement) {
                 foreach ($row->childNodes as $cnode) {
                     if (!($cnode instanceof DOMElement) || strtolower($cnode->localName ?? '') !== 'c') { continue; }
-                    $refs[] = $cnode->getAttribute('r');
-                    $types[] = $cnode->getAttribute('t') ?: 'n';
+                    $ref = $cnode->getAttribute('r');
+                    $typ = $cnode->getAttribute('t') ?: 'n';
+                    $refs[]      = $ref;
+                    $types[]     = $typ;
+                    $attrs_dump[] = array('r' => $ref, 't' => $cnode->getAttribute('t'), 's' => $cnode->getAttribute('s'));
                     $rv = '';
                     foreach ($cnode->childNodes as $ch) {
                         if ($ch instanceof DOMElement && strtolower($ch->localName ?? '') === 'v') { $rv = $ch->textContent; break; }
                     }
                     $raw_values[] = $rv;
-                    $resolved[] = $cnode->getAttribute('t') === 's' ? ($shared[(int)$rv] ?? '') : $rv;
+                    $resolved[]   = $typ === 's' ? ($shared[(int)$rv] ?? '') : $rv;
                 }
             } else {
                 foreach ($row->children($XLSX_NS) as $c) {
-                    $refs[] = (string) $c['r'];
-                    $types[] = (string) $c['t'] ?: 'n';
+                    $ca   = $c->attributes();
+                    $ref  = (string) ($ca['r'] ?? '');
+                    $typ  = (string) ($ca['t'] ?? '') ?: 'n';
+                    $refs[]       = $ref;
+                    $types[]      = $typ;
+                    $attrs_dump[] = array('r' => $ref, 't' => (string)($ca['t'] ?? ''), 's' => (string)($ca['s'] ?? ''));
                     $c_ch = $c->children($XLSX_NS);
-                    $rv = count($c_ch->v) > 0 ? (string) $c_ch->v : '';
+                    $rv   = count($c_ch->v) > 0 ? (string) $c_ch->v : '';
                     $raw_values[] = $rv;
-                    $resolved[] = (string) $c['t'] === 's' ? ($shared[(int)$rv] ?? '') : $rv;
+                    $resolved[]   = $typ === 's' ? ($shared[(int)$rv] ?? '') : $rv;
                 }
             }
             $row4_diag = array(
-                'row4_raw_xml'        => substr($sheet_raw, strpos($sheet_raw, 'r="4"') - 5, 600),
-                'row4_cell_count'     => count($refs),
-                'row4_cell_refs'      => $refs,
-                'row4_cell_types'     => $types,
-                'row4_raw_values'     => $raw_values,
-                'row4_resolved_values'=> $resolved,
+                'row4_raw_xml'               => substr($sheet_raw, strpos($sheet_raw, 'r="4"') - 5, 600),
+                'row4_cell_count'            => count($refs),
+                'row4_cell_refs'             => $refs,
+                'row4_cell_types'            => $types,
+                'row4_raw_values'            => $raw_values,
+                'row4_resolved_values'       => $resolved,
+                'row4_attributes_dump'       => $attrs_dump,
+                'row4_detected_types_after_fix' => $types,
             );
         }
 
@@ -1263,19 +1273,16 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
             }
         } else {
             foreach ($row->children($XLSX_NS) as $c) {
-                $r_attr = (string) $c['r'];
+                $c_attrs = $c->attributes();
+                $r_attr  = (string) ($c_attrs['r'] ?? '');
+                $t       = (string) ($c_attrs['t'] ?? '');
                 preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
-                $t = (string) $c['t'];
                 $v = '';
                 $c_ch = $c->children($XLSX_NS);
                 if (count($c_ch->v) > 0) {
                     $raw = (string) $c_ch->v;
-                    if ($t === 's') {
-                        $v = $shared[(int) $raw] ?? '';
-                    } else {
-                        $v = $raw;
-                    }
+                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
                 } elseif (count($c_ch->is) > 0) {
                     $parts = array();
                     foreach ($c_ch->is->children($XLSX_NS) as $tnode) {
