@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Core;
 
 use CompuZign\Platform\Modules\CostBuilder\CostBuilderModule;
+use CompuZign\Platform\Modules\Homepage\HomepageModule;
 
 final class Plugin
 {
@@ -19,6 +20,7 @@ final class Plugin
         (new TaxonomyRegistrar())->register();
         (new AssetLoader())->register();
         (new CostBuilderModule())->register();
+        (new HomepageModule())->register();
 
         add_action('rest_api_init', [self::class, 'registerCoreRoutes']);
     }

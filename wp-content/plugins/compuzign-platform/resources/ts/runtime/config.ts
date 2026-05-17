@@ -5,6 +5,8 @@
 export interface RuntimeConfig {
   apiRoot: string;
   nonce: string;
+  contactUrl?: string;
+  costBuilderUrl?: string;
 }
 
 // window.CompuZignConfig is globally declared in api/client.ts.

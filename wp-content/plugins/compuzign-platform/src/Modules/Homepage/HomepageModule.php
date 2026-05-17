@@ -1,0 +1,59 @@
+<?php
+
+namespace CompuZign\Platform\Modules\Homepage;
+
+class HomepageModule
+{
+    public function register(): void
+    {
+        add_shortcode('compuzign_hero',              [$this, 'renderHero']);
+        add_shortcode('compuzign_stats',             [$this, 'renderStats']);
+        add_shortcode('compuzign_services_overview', [$this, 'renderServicesOverview']);
+        add_shortcode('compuzign_cta_band',          [$this, 'renderCtaBand']);
+    }
+
+    public function renderHero(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('hero');
+    }
+
+    public function renderStats(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('stats');
+    }
+
+    public function renderServicesOverview(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('services-overview');
+    }
+
+    public function renderCtaBand(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('cta-band');
+    }
+
+    private function enqueueAssets(): void
+    {
+        if (wp_style_is('compuzign-homepage', 'registered')) {
+            wp_enqueue_style('compuzign-homepage');
+        }
+        if (wp_script_is('compuzign-homepage', 'registered')) {
+            wp_enqueue_script('compuzign-homepage');
+        }
+    }
+
+    private function renderTemplate(string $name): string
+    {
+        $path = COMPUZIGN_APP_PATH . 'modules/homepage/templates/' . $name . '.php';
+
+        ob_start();
+        if (file_exists($path)) {
+            include $path;
+        }
+        return (string) ob_get_clean();
+    }
+}

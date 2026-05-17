@@ -14,8 +14,9 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       input: {
-        core: 'resources/ts/core/core.ts',
-        'cost-builder': 'resources/ts/modules/cost-builder.ts',
+        core:             'resources/ts/core/core.ts',
+        'cost-builder':  'resources/ts/modules/cost-builder.ts',
+        homepage:        'resources/ts/modules/homepage.ts',
       },
       output: {
         entryFileNames: 'js/[name].js',
