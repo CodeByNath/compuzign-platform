@@ -1,0 +1,17 @@
+{
+    "name": "compuzign/platform",
+    "description": "CompuZign Platform WordPress Plugin",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CompuZign\\Platform\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "allow-plugins": {}
+    }
+}

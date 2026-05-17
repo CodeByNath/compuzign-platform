@@ -24,4 +24,8 @@ define('COMPUZIGN_DIST_URL', COMPUZIGN_PLUGIN_URL . 'dist/');
 define('COMPUZIGN_ATOMIC_ENGINE_PATH', COMPUZIGN_PLUGIN_PATH . 'atomic-engine/');
 define('COMPUZIGN_ATOMIC_ENGINE_URL', COMPUZIGN_PLUGIN_URL . 'atomic-engine/');
 
+if (file_exists(COMPUZIGN_PLUGIN_PATH . 'vendor/autoload.php')) {
+    require_once COMPUZIGN_PLUGIN_PATH . 'vendor/autoload.php';
+}
+
 require_once COMPUZIGN_APP_PATH . 'bootstrap/init.php';
