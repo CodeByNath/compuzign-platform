@@ -15,9 +15,29 @@ class AssetLoader
     public function enqueue(): void
     {
         $this->enqueueAtomicStyles();
+        $this->outputRuntimeConfig();
         $this->enqueueDistAssets();
         $this->registerCostBuilderAssets();
         $this->registerHomepageAssets();
+    }
+
+    /**
+     * Outputs window.CompuZignConfig unconditionally via a no-src script handle.
+     * Decoupled from any dist file existing — the config is always on the page.
+     */
+    private function outputRuntimeConfig(): void
+    {
+        wp_register_script('compuzign-config', false, [], null, true);
+        wp_enqueue_script('compuzign-config');
+
+        $config = wp_json_encode([
+            'apiRoot'        => esc_url_raw(rest_url('compuzign/v1/')),
+            'nonce'          => wp_create_nonce('wp_rest'),
+            'contactUrl'     => esc_url(apply_filters('compuzign_contact_url', home_url('/contact/'))),
+            'costBuilderUrl' => esc_url(apply_filters('compuzign_cost_builder_url', home_url('/services/'))),
+        ]);
+
+        wp_add_inline_script('compuzign-config', 'window.CompuZignConfig = ' . $config . ';');
     }
 
     public function setModuleType(string $tag, string $handle): string
@@ -53,14 +73,7 @@ class AssetLoader
         $distUrl  = COMPUZIGN_DIST_URL;
 
         if (file_exists($distPath . 'js/core.js')) {
-            wp_enqueue_script('compuzign-core', $distUrl . 'js/core.js', [], COMPUZIGN_PLUGIN_VERSION, true);
-
-            wp_localize_script('compuzign-core', 'CompuZignConfig', [
-                'apiRoot'        => esc_url_raw(rest_url('compuzign/v1/')),
-                'nonce'          => wp_create_nonce('wp_rest'),
-                'contactUrl'     => esc_url(apply_filters('compuzign_contact_url', home_url('/contact/'))),
-                'costBuilderUrl' => esc_url(apply_filters('compuzign_cost_builder_url', home_url('/services/'))),
-            ]);
+            wp_enqueue_script('compuzign-core', $distUrl . 'js/core.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
         }
 
         if (file_exists($distPath . 'css/core.css')) {
@@ -82,9 +95,9 @@ class AssetLoader
         }
 
         if (file_exists($distPath . 'js/cost-builder.js')) {
-            wp_register_script('compuzign-cost-builder', $distUrl . 'js/cost-builder.js', ['compuzign-core'], COMPUZIGN_PLUGIN_VERSION, true);
+            wp_register_script('compuzign-cost-builder', $distUrl . 'js/cost-builder.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
         } elseif (file_exists($fallbackPath . 'js/cost-builder.js')) {
-            wp_register_script('compuzign-cost-builder', $fallbackUrl . 'js/cost-builder.js', ['compuzign-core'], COMPUZIGN_PLUGIN_VERSION, true);
+            wp_register_script('compuzign-cost-builder', $fallbackUrl . 'js/cost-builder.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
         }
     }
 
@@ -98,7 +111,7 @@ class AssetLoader
         }
 
         if (file_exists($distPath . 'js/homepage.js')) {
-            wp_register_script('compuzign-homepage', $distUrl . 'js/homepage.js', ['compuzign-core'], COMPUZIGN_PLUGIN_VERSION, true);
+            wp_register_script('compuzign-homepage', $distUrl . 'js/homepage.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
         }
     }
 }
