@@ -430,39 +430,103 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
 
     // Process rows after header
     $inserted = 0; $updated = 0; $skipped = 0; $invalid = 0; $errors = array();
+
+    // Get all rows with fallback logic (same as header detection)
     $rows_to_process = $sheetxml->xpath('//x:sheetData/x:row');
+
+    // Fallback to local-name XPath
+    if (empty($rows_to_process)) {
+        $rows_to_process = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
+    }
+
+    // Final fallback to DOM local-name query
+    if (empty($rows_to_process)) {
+        libxml_use_internal_errors(true);
+        $doc = new DOMDocument();
+        $doc->loadXML($sheet_raw);
+        $xpathdom = new DOMXPath($doc);
+        $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
+        $rows_to_process = array();
+        foreach ($rows_dom as $rd) { $rows_to_process[] = $rd; }
+    }
+
     foreach ($rows_to_process as $row) {
-        $rnum = (int) $row['r'];
+        $rnum_val = null;
+        if ($row instanceof DOMElement) {
+            $rnum_val = $row->getAttribute('r');
+        } else {
+            $rnum_val = (string) $row['r'];
+        }
+        $rnum = (int) $rnum_val;
         if ($rnum <= $header_row_number) {
             continue;
         }
 
         $cells = array();
-        $cells_nodes = $row->xpath('x:c');
-        foreach ($cells_nodes as $c) {
-            $r = (string) $c['r'];
-            preg_match('/^([A-Z]+)\d+$/', $r, $m);
-            $col = $m[1] ?? '';
-            $t = (string) $c['t'];
-            $v = '';
-            $vnode = $c->xpath('x:v');
-            if (!empty($vnode)) {
-                $raw = (string) $vnode[0];
-                if ($t === 's') {
-                    $idx = (int) $raw;
-                    $v = $shared[$idx] ?? '';
-                } else {
-                    $v = $raw;
+
+        // Handle both DOMElement and SimpleXMLElement
+        if ($row instanceof DOMElement) {
+            foreach ($row->childNodes as $cnode) {
+                if (!($cnode instanceof DOMElement)) { continue; }
+                $local = $cnode->localName ?? $cnode->nodeName;
+                if (strtolower($local) !== 'c') { continue; }
+                $r = $cnode->getAttribute('r');
+                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+                $col = $m[1] ?? '';
+                $t = $cnode->getAttribute('t');
+                $v = '';
+                // find v child
+                foreach ($cnode->childNodes as $child) {
+                    if (!($child instanceof DOMElement)) { continue; }
+                    $ln = $child->localName ?? $child->nodeName;
+                    if (strtolower($ln) === 'v') { $v = $child->textContent; break; }
                 }
-            } else {
-                $isnode = $c->xpath('x:is/x:t');
-                if (!empty($isnode)) {
-                    $parts = array();
-                    foreach ($isnode as $ttext) { $parts[] = (string) $ttext; }
-                    $v = implode('', $parts);
+                // inlineStr
+                if ($v === '') {
+                    foreach ($cnode->childNodes as $child) {
+                        if (!($child instanceof DOMElement)) { continue; }
+                        $ln = $child->localName ?? $child->nodeName;
+                        if (strtolower($ln) === 'is') {
+                            $parts = array();
+                            foreach ($child->childNodes as $tt) {
+                                if ($tt instanceof DOMElement && strtolower($tt->localName) === 't') { $parts[] = $tt->textContent; }
+                            }
+                            $v = implode('', $parts);
+                        }
+                    }
                 }
+                if ($t === 's') { $idx = (int) $v; $v = $shared[$idx] ?? ''; }
+                $cells[$col] = trim((string) $v);
             }
-            $cells[$col] = trim($v);
+        } else {
+            // SimpleXML
+            $cells_nodes = $row->xpath('x:c');
+            if ($cells_nodes === false) { $cells_nodes = array(); }
+            foreach ($cells_nodes as $c) {
+                $r = (string) $c['r'];
+                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+                $col = $m[1] ?? '';
+                $t = (string) $c['t'];
+                $v = '';
+                $vnode = $c->xpath('x:v');
+                if (!empty($vnode)) {
+                    $raw = (string) $vnode[0];
+                    if ($t === 's') {
+                        $idx = (int) $raw;
+                        $v = $shared[$idx] ?? '';
+                    } else {
+                        $v = $raw;
+                    }
+                } else {
+                    $isnode = $c->xpath('x:is/x:t');
+                    if (!empty($isnode)) {
+                        $parts = array();
+                        foreach ($isnode as $ttext) { $parts[] = (string) $ttext; }
+                        $v = implode('', $parts);
+                    }
+                }
+                $cells[$col] = trim((string) $v);
+            }
         }
 
         // Build normalized row data
