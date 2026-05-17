@@ -821,19 +821,21 @@ function compuzign_cost_builder_parse_bool($value): bool
     return in_array($value, array('1', 'true', 'yes', 'on'), true);
 }
 
-function compuzign_cost_builder_parse_price($value)
-{
-    $value = trim((string) $value);
-    if ($value === '') {
-        return null;
-    }
+if (!function_exists('compuzign_cost_builder_parse_price')) {
+    function compuzign_cost_builder_parse_price($value)
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
 
-    $value = preg_replace('/[^0-9\.\-]/', '', $value);
-    if ($value === '' || !is_numeric($value)) {
-        return null;
-    }
+        $value = preg_replace('/[^0-9\.\-]/', '', $value);
+        if ($value === '' || !is_numeric($value)) {
+            return null;
+        }
 
-    return floatval($value);
+        return floatval($value);
+    }
 }
 
 function compuzign_cost_builder_parse_list_value($value): array

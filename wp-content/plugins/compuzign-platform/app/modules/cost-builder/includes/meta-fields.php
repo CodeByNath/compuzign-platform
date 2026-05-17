@@ -143,19 +143,21 @@ function compuzign_cost_builder_sanitize_service_pricing($pricing): array
     return compuzign_cost_builder_normalize_service_pricing($pricing);
 }
 
-function compuzign_cost_builder_parse_price($value)
-{
-    $value = trim((string) $value);
-    if ($value === '') {
-        return null;
-    }
+if (!function_exists('compuzign_cost_builder_parse_price')) {
+    function compuzign_cost_builder_parse_price($value)
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
 
-    $value = preg_replace('/[^0-9\.\-]/', '', $value);
-    if ($value === '' || !is_numeric($value)) {
-        return null;
-    }
+        $value = preg_replace('/[^0-9\.\-]/', '', $value);
+        if ($value === '' || !is_numeric($value)) {
+            return null;
+        }
 
-    return floatval($value);
+        return floatval($value);
+    }
 }
 
 function compuzign_cost_builder_register_service_meta()
