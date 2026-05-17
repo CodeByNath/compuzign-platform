@@ -821,22 +821,6 @@ function compuzign_cost_builder_parse_bool($value): bool
     return in_array($value, array('1', 'true', 'yes', 'on'), true);
 }
 
-if (!function_exists('compuzign_cost_builder_parse_price')) {
-    function compuzign_cost_builder_parse_price($value)
-    {
-        $value = trim((string) $value);
-        if ($value === '') {
-            return null;
-        }
-
-        $value = preg_replace('/[^0-9\.\-]/', '', $value);
-        if ($value === '' || !is_numeric($value)) {
-            return null;
-        }
-
-        return floatval($value);
-    }
-}
 
 function compuzign_cost_builder_parse_list_value($value): array
 {
@@ -856,4 +840,436 @@ function compuzign_cost_builder_parse_list_value($value): array
     }
 
     return array_values(array_unique($clean));
+}
+
+function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path): array
+{
+    if (!file_exists($xlsx_path) || !is_readable($xlsx_path)) {
+        return array(
+            'success' => false,
+            'message' => 'XLSX file does not exist or is not readable.',
+            'path' => $xlsx_path,
+        );
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($xlsx_path) !== true) {
+        return array(
+            'success' => false,
+            'message' => 'Unable to open XLSX file.',
+        );
+    }
+
+    // Load shared strings
+    $shared = array();
+    if (($idx = $zip->locateName('xl/sharedStrings.xml')) !== false) {
+        $sxml = simplexml_load_string($zip->getFromIndex($idx));
+        $sxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        foreach ($sxml->si as $si) {
+            $texts = '';
+            foreach ($si->xpath('.//x:t') as $t) {
+                $texts .= (string) $t;
+            }
+            $shared[] = $texts;
+        }
+    }
+
+    // Map workbook rels
+    $rels = array();
+    if (($ridx = $zip->locateName('xl/_rels/workbook.xml.rels')) !== false) {
+        $relsxml = simplexml_load_string($zip->getFromIndex($ridx));
+        $relsxml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/package/2006/relationships');
+        foreach ($relsxml->Relationship as $rel) {
+            $attrs = $rel->attributes();
+            $id = (string) $attrs['Id'];
+            $target = (string) $attrs['Target'];
+            $target = preg_replace('#^/+#', '', $target);
+            $rels[$id] = $target;
+        }
+    }
+
+    // Find Service Catalog sheet
+    $sheet_target = null;
+    if (($wbidx = $zip->locateName('xl/workbook.xml')) !== false) {
+        $wbxml = simplexml_load_string($zip->getFromIndex($wbidx));
+        $wbxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        foreach ($wbxml->sheets->sheet as $sheet) {
+            $name = (string) $sheet['name'];
+            $attrs = $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+            $rid = '';
+            if ($attrs && isset($attrs['id'])) {
+                $rid = (string) $attrs['id'];
+            } else {
+                $attrs2 = $sheet->attributes();
+                $rid = (string) $attrs2['r:id'] ?? (string) $attrs2['id'] ?? '';
+            }
+            $target = $rels[$rid] ?? '';
+            if (stripos($name, 'service catalog') !== false) {
+                $sheet_target = $target;
+                break;
+            }
+            if ($sheet_target === null) {
+                $sheet_target = $target;
+            }
+        }
+    }
+
+    if (!$sheet_target) {
+        $zip->close();
+        return array(
+            'success' => false,
+            'message' => 'Service Catalog sheet not found.',
+        );
+    }
+
+    $sheet_path = preg_match('#^xl/#', $sheet_target) ? $sheet_target : 'xl/' . ltrim($sheet_target, '/');
+    if (($sidx = $zip->locateName($sheet_path)) === false) {
+        $zip->close();
+        return array(
+            'success' => false,
+            'message' => 'Sheet XML not found.',
+        );
+    }
+
+    $sheet_raw = $zip->getFromIndex($sidx);
+    $sheetxml = simplexml_load_string($sheet_raw);
+    $sheetxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+
+    // Find header row
+    $header_map = array();
+    $header_row_number = null;
+    $sample_rows = array();
+
+    $normalize = function ($s) {
+        $s = trim((string) $s);
+        $s = preg_replace('/\s+/u', ' ', $s);
+        $s = trim($s);
+        $s = strtolower($s);
+        return $s;
+    };
+
+    $known_headers = array(
+        'service category' => 'category',
+        'service category:' => 'category',
+        'service name' => 'service_title',
+        'service name:' => 'service_title',
+        'description' => 'long_description',
+        'basic' => 'basic_price',
+        'standard' => 'standard_price',
+        'premium' => 'premium_price',
+        'enterprise' => 'enterprise_price',
+        'billing cycle' => 'billing_cycle',
+        'billing cycle:' => 'billing_cycle',
+        'sla / uptime' => 'uptime',
+        'sla' => 'uptime',
+        'uptime' => 'uptime',
+        'notes' => 'notes',
+    );
+
+    // Scan rows for header
+    $rows = $sheetxml->xpath('//x:sheetData/x:row');
+    if (empty($rows)) {
+        $rows = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
+    }
+    if (empty($rows)) {
+        libxml_use_internal_errors(true);
+        $doc = new DOMDocument();
+        $doc->loadXML($sheet_raw);
+        $xpathdom = new DOMXPath($doc);
+        $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
+        $rows = array();
+        foreach ($rows_dom as $rd) {
+            $rows[] = $rd;
+        }
+    }
+
+    $row_count = 0;
+    foreach ($rows as $row) {
+        $row_count++;
+        if ($row_count > 30) {
+            break;
+        }
+
+        $cells = array();
+        $cell_texts = array();
+
+        if ($row instanceof DOMElement) {
+            $rnum = $row->getAttribute('r');
+            foreach ($row->childNodes as $cnode) {
+                if (!($cnode instanceof DOMElement)) {
+                    continue;
+                }
+                $local = $cnode->localName ?? $cnode->nodeName;
+                if (strtolower($local) !== 'c') {
+                    continue;
+                }
+                $r = $cnode->getAttribute('r');
+                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+                $col = $m[1] ?? '';
+                $t = $cnode->getAttribute('t');
+                $v = '';
+                foreach ($cnode->childNodes as $child) {
+                    if (!($child instanceof DOMElement)) {
+                        continue;
+                    }
+                    $ln = $child->localName ?? $child->nodeName;
+                    if (strtolower($ln) === 'v') {
+                        $v = $child->textContent;
+                        break;
+                    }
+                }
+                if ($v === '') {
+                    foreach ($cnode->childNodes as $child) {
+                        if (!($child instanceof DOMElement)) {
+                            continue;
+                        }
+                        $ln = $child->localName ?? $child->nodeName;
+                        if (strtolower($ln) === 'is') {
+                            $parts = array();
+                            foreach ($child->childNodes as $tt) {
+                                if ($tt instanceof DOMElement && strtolower($tt->localName) === 't') {
+                                    $parts[] = $tt->textContent;
+                                }
+                            }
+                            $v = implode('', $parts);
+                        }
+                    }
+                }
+                if ($t === 's') {
+                    $idx = (int) $v;
+                    $v = $shared[$idx] ?? '';
+                }
+                $v_trim = trim((string) $v);
+                $cells[$col] = $v_trim;
+                $cell_texts[] = $v_trim;
+            }
+        } else {
+            $rnum = (string) $row['r'];
+            $cells_nodes = $row->xpath('x:c');
+            if ($cells_nodes === false) {
+                $cells_nodes = array();
+            }
+            foreach ($cells_nodes as $c) {
+                $r = (string) $c['r'];
+                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+                $col = $m[1] ?? '';
+                $t = (string) $c['t'];
+                $v = '';
+                $vnode = $c->xpath('x:v');
+                if (!empty($vnode)) {
+                    $raw = (string) $vnode[0];
+                    if ($t === 's') {
+                        $idx = (int) $raw;
+                        $v = $shared[$idx] ?? '';
+                    } else {
+                        $v = $raw;
+                    }
+                } else {
+                    $isnode = $c->xpath('x:is/x:t');
+                    if (!empty($isnode)) {
+                        $parts = array();
+                        foreach ($isnode as $ttext) {
+                            $parts[] = (string) $ttext;
+                        }
+                        $v = implode('', $parts);
+                    }
+                }
+                $v_trim = trim((string) $v);
+                $cells[$col] = $v_trim;
+                $cell_texts[] = $v_trim;
+            }
+        }
+
+        $norms = array();
+        foreach ($cell_texts as $ct) {
+            $norms[] = $normalize($ct);
+        }
+
+        $has_service_category = false;
+        $has_service_name = false;
+        foreach ($norms as $n) {
+            if (strpos($n, 'service category') !== false) {
+                $has_service_category = true;
+            }
+            if (strpos($n, 'service name') !== false) {
+                $has_service_name = true;
+            }
+        }
+
+        if ($has_service_category || $has_service_name) {
+            $header_row_number = (int) $rnum;
+            $header_map = array();
+            foreach ($cells as $col => $cellVal) {
+                $nv = $normalize($cellVal);
+                foreach ($known_headers as $k => $internal) {
+                    if ($nv === $k || strpos($nv, $k) !== false) {
+                        $header_map[$col] = $internal;
+                        break;
+                    }
+                }
+            }
+            if (empty($header_map)) {
+                $header_map = array(
+                    'A' => 'category',
+                    'B' => 'service_title',
+                    'C' => 'long_description',
+                    'D' => 'basic_price',
+                    'E' => 'standard_price',
+                    'F' => 'premium_price',
+                    'G' => 'enterprise_price',
+                    'H' => 'billing_cycle',
+                    'I' => 'uptime',
+                    'J' => 'notes',
+                );
+            }
+            break;
+        }
+    }
+
+    if ($header_row_number === null) {
+        $zip->close();
+        return array(
+            'success' => false,
+            'message' => 'Header row not found.',
+        );
+    }
+
+    // Extract sample data rows (first 10)
+    $data_rows = $sheetxml->xpath('//x:sheetData/x:row');
+    if (empty($data_rows)) {
+        $data_rows = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
+    }
+    if (empty($data_rows)) {
+        libxml_use_internal_errors(true);
+        $doc = new DOMDocument();
+        $doc->loadXML($sheet_raw);
+        $xpathdom = new DOMXPath($doc);
+        $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
+        $data_rows = array();
+        foreach ($rows_dom as $rd) {
+            $data_rows[] = $rd;
+        }
+    }
+
+    $sample_count = 0;
+    foreach ($data_rows as $row) {
+        $rnum_val = null;
+        if ($row instanceof DOMElement) {
+            $rnum_val = $row->getAttribute('r');
+        } else {
+            $rnum_val = (string) $row['r'];
+        }
+        $rnum = (int) $rnum_val;
+
+        if ($rnum <= $header_row_number) {
+            continue;
+        }
+
+        if ($sample_count >= 10) {
+            break;
+        }
+
+        $cells = array();
+
+        if ($row instanceof DOMElement) {
+            foreach ($row->childNodes as $cnode) {
+                if (!($cnode instanceof DOMElement)) {
+                    continue;
+                }
+                $local = $cnode->localName ?? $cnode->nodeName;
+                if (strtolower($local) !== 'c') {
+                    continue;
+                }
+                $r = $cnode->getAttribute('r');
+                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+                $col = $m[1] ?? '';
+                $t = $cnode->getAttribute('t');
+                $v = '';
+                foreach ($cnode->childNodes as $child) {
+                    if (!($child instanceof DOMElement)) {
+                        continue;
+                    }
+                    $ln = $child->localName ?? $child->nodeName;
+                    if (strtolower($ln) === 'v') {
+                        $v = $child->textContent;
+                        break;
+                    }
+                }
+                if ($v === '') {
+                    foreach ($cnode->childNodes as $child) {
+                        if (!($child instanceof DOMElement)) {
+                            continue;
+                        }
+                        $ln = $child->localName ?? $child->nodeName;
+                        if (strtolower($ln) === 'is') {
+                            $parts = array();
+                            foreach ($child->childNodes as $tt) {
+                                if ($tt instanceof DOMElement && strtolower($tt->localName) === 't') {
+                                    $parts[] = $tt->textContent;
+                                }
+                            }
+                            $v = implode('', $parts);
+                        }
+                    }
+                }
+                if ($t === 's') {
+                    $idx = (int) $v;
+                    $v = $shared[$idx] ?? '';
+                }
+                $cells[$col] = trim((string) $v);
+            }
+        } else {
+            $cells_nodes = $row->xpath('x:c');
+            if ($cells_nodes === false) {
+                $cells_nodes = array();
+            }
+            foreach ($cells_nodes as $c) {
+                $r = (string) $c['r'];
+                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+                $col = $m[1] ?? '';
+                $t = (string) $c['t'];
+                $v = '';
+                $vnode = $c->xpath('x:v');
+                if (!empty($vnode)) {
+                    $raw = (string) $vnode[0];
+                    if ($t === 's') {
+                        $idx = (int) $raw;
+                        $v = $shared[$idx] ?? '';
+                    } else {
+                        $v = $raw;
+                    }
+                } else {
+                    $isnode = $c->xpath('x:is/x:t');
+                    if (!empty($isnode)) {
+                        $parts = array();
+                        foreach ($isnode as $ttext) {
+                            $parts[] = (string) $ttext;
+                        }
+                        $v = implode('', $parts);
+                    }
+                }
+                $cells[$col] = trim((string) $v);
+            }
+        }
+
+        $row_data = array();
+        foreach ($cells as $col => $val) {
+            $key = $header_map[$col] ?? $col;
+            $row_data[$key] = $val;
+        }
+
+        $sample_rows[] = $row_data;
+        $sample_count++;
+    }
+
+    $zip->close();
+
+    return array(
+        'success' => true,
+        'message' => 'Dry-run parsing successful. No posts or metadata created.',
+        'header_map' => $header_map,
+        'header_row_number' => $header_row_number,
+        'sample_rows' => $sample_rows,
+        'sample_rows_count' => count($sample_rows),
+    );
 }
