@@ -1,31 +1,11 @@
 import '../../css/modules/cost-builder.css';
+import { registry } from '@/runtime/registry';
+import { CostBuilderApp } from '@/components/cost-builder/CostBuilderApp';
 
-declare global {
-  interface Window {
-    CompuZign?: any;
-  }
-}
-
-export interface CostBuilderApp {
-  loaded: boolean;
-  services: string[];
-  init: () => void;
-}
-
-const costBuilder: CostBuilderApp = {
-  loaded: true,
-  services: [],
-  init() {
-    console.log('CompuZign Cost Builder module initialized');
-  }
-};
-
-const app: any = window.CompuZign || {};
-window.CompuZign = {
-  ...app,
-  CostBuilder: costBuilder
-};
-
-window.CompuZign.CostBuilder?.init?.();
-
-export default costBuilder;
+registry.register({
+  id: 'cost-builder',
+  component: CostBuilderApp,
+  conditions: [
+    { type: 'shortcode', mountId: 'compuzign-cost-builder' },
+  ],
+});

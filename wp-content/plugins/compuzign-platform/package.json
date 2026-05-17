@@ -7,7 +7,12 @@
     "dev": "vite"
   },
   "devDependencies": {
+    "@preact/preset-vite": "^2.10.5",
+    "@types/node": "^25.8.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.1"
+  },
+  "dependencies": {
+    "preact": "^10.29.1"
   }
 }

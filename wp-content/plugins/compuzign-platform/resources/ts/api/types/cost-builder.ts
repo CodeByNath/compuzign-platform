@@ -1,0 +1,62 @@
+export type TierId = 'basic' | 'standard' | 'premium' | 'enterprise';
+
+export interface Category {
+  id: number | null;
+  name: string;
+  slug: string;
+}
+
+export interface Tier {
+  id: TierId;
+  title: string;
+}
+
+export interface ServiceMeta {
+  short_description: string;
+  long_description: string;
+  billing_cycle: string;
+  sla: string;
+  uptime: string;
+  notes: string;
+  popular_tier: TierId | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface PricingTierData {
+  price: number | null;
+  features: string[];
+}
+
+export interface ServicePricing {
+  tiers: Record<TierId, PricingTierData>;
+  bundle: {
+    title: string;
+    description: string;
+    price: number | null;
+  };
+}
+
+export interface ServiceItem {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  categories: Category[];
+  meta: ServiceMeta;
+  pricing: ServicePricing;
+}
+
+export interface ServicesByCategory {
+  category_id: number | null;
+  category_name: string;
+  category_slug: string;
+  services: ServiceItem[];
+}
+
+export interface CostBuilderResponse {
+  categories: Category[];
+  tiers: Tier[];
+  services_by_category: ServicesByCategory[];
+}
