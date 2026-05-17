@@ -299,6 +299,7 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         foreach ($rows_dom as $rd) { $rows[] = $rd; }
     }
 
+    $XLSX_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
     foreach ($rows as $row) {
         $row_count++;
         if ($row_count > 30) {
@@ -346,34 +347,24 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
                 $cell_texts[] = $v_trim;
             }
         } else {
-            // SimpleXML
+            // SimpleXML — use children($NS) to avoid xpath namespace-inheritance issues
             $rnum = (string) $row['r'];
-            $cells_nodes = $row->xpath('x:c');
-            if ($cells_nodes === false) { $cells_nodes = array(); }
-            foreach ($cells_nodes as $c) {
-                $r = (string) $c['r'];
-                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+            foreach ($row->children($XLSX_NS) as $c) {
+                $r_attr = (string) $c['r'];
+                preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
                 $t = (string) $c['t'];
                 $v = '';
-                $vnode = $c->xpath('x:v');
-                if (!empty($vnode)) {
-                    $raw = (string) $vnode[0];
-                    if ($t === 's') {
-                        $idx = (int) $raw;
-                        $v = $shared[$idx] ?? '';
-                    } else {
-                        $v = $raw;
-                    }
-                } else {
-                    $isnode = $c->xpath('x:is/x:t');
-                    if (!empty($isnode)) {
-                        $parts = array();
-                        foreach ($isnode as $ttext) { $parts[] = (string) $ttext; }
-                        $v = implode('', $parts);
-                    }
+                $c_ch = $c->children($XLSX_NS);
+                if (count($c_ch->v) > 0) {
+                    $raw = (string) $c_ch->v;
+                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
+                } elseif (count($c_ch->is) > 0) {
+                    $parts = array();
+                    foreach ($c_ch->is->children($XLSX_NS) as $tnode) { $parts[] = (string) $tnode; }
+                    $v = implode('', $parts);
                 }
-                $v_trim = trim((string) $v);
+                $v_trim = trim($v);
                 $cells[$col] = $v_trim;
                 $cell_texts[] = $v_trim;
             }
@@ -508,33 +499,23 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
                 $cells[$col] = trim((string) $v);
             }
         } else {
-            // SimpleXML
-            $cells_nodes = $row->xpath('x:c');
-            if ($cells_nodes === false) { $cells_nodes = array(); }
-            foreach ($cells_nodes as $c) {
-                $r = (string) $c['r'];
-                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+            // SimpleXML — use children($NS) to avoid xpath namespace-inheritance issues
+            foreach ($row->children($XLSX_NS) as $c) {
+                $r_attr = (string) $c['r'];
+                preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
                 $t = (string) $c['t'];
                 $v = '';
-                $vnode = $c->xpath('x:v');
-                if (!empty($vnode)) {
-                    $raw = (string) $vnode[0];
-                    if ($t === 's') {
-                        $idx = (int) $raw;
-                        $v = $shared[$idx] ?? '';
-                    } else {
-                        $v = $raw;
-                    }
-                } else {
-                    $isnode = $c->xpath('x:is/x:t');
-                    if (!empty($isnode)) {
-                        $parts = array();
-                        foreach ($isnode as $ttext) { $parts[] = (string) $ttext; }
-                        $v = implode('', $parts);
-                    }
+                $c_ch = $c->children($XLSX_NS);
+                if (count($c_ch->v) > 0) {
+                    $raw = (string) $c_ch->v;
+                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
+                } elseif (count($c_ch->is) > 0) {
+                    $parts = array();
+                    foreach ($c_ch->is->children($XLSX_NS) as $tnode) { $parts[] = (string) $tnode; }
+                    $v = implode('', $parts);
                 }
-                $cells[$col] = trim((string) $v);
+                $cells[$col] = trim($v);
             }
         }
 
@@ -1001,8 +982,10 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
         }
     }
 
+    $XLSX_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
     $row_count = 0;
     $scanned_rows = array();
+    $row4_diag = null;
     foreach ($rows as $row) {
         $row_count++;
         if ($row_count > 30) {
@@ -1063,37 +1046,33 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
                 $cell_texts[] = $v_trim;
             }
         } else {
+            // SimpleXML path — use children($NS) to avoid xpath namespace-inheritance issues.
+            // $row->xpath('x:c') silently returns false here because XPath-result nodes in PHP
+            // do not automatically carry the parent's registered namespace prefixes.
             $rnum = (string) $row['r'];
-            $cells_nodes = $row->xpath('x:c');
-            if ($cells_nodes === false) {
-                $cells_nodes = array();
-            }
-            foreach ($cells_nodes as $c) {
-                $r = (string) $c['r'];
-                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+            foreach ($row->children($XLSX_NS) as $c) {
+                $r_attr = (string) $c['r'];
+                preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
                 $t = (string) $c['t'];
                 $v = '';
-                $vnode = $c->xpath('x:v');
-                if (!empty($vnode)) {
-                    $raw = (string) $vnode[0];
+                // <v> and <is> are direct children; property access works by local name
+                $c_ch = $c->children($XLSX_NS);
+                if (count($c_ch->v) > 0) {
+                    $raw = (string) $c_ch->v;
                     if ($t === 's') {
-                        $idx = (int) $raw;
-                        $v = $shared[$idx] ?? '';
+                        $v = $shared[(int) $raw] ?? '';
                     } else {
                         $v = $raw;
                     }
-                } else {
-                    $isnode = $c->xpath('x:is/x:t');
-                    if (!empty($isnode)) {
-                        $parts = array();
-                        foreach ($isnode as $ttext) {
-                            $parts[] = (string) $ttext;
-                        }
-                        $v = implode('', $parts);
+                } elseif (count($c_ch->is) > 0) {
+                    $parts = array();
+                    foreach ($c_ch->is->children($XLSX_NS) as $tnode) {
+                        $parts[] = (string) $tnode;
                     }
+                    $v = implode('', $parts);
                 }
-                $v_trim = trim((string) $v);
+                $v_trim = trim($v);
                 $cells[$col] = $v_trim;
                 $cell_texts[] = $v_trim;
             }
@@ -1105,6 +1084,44 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
         }
 
         $scanned_rows[] = array('r' => $rnum, 'cells' => $cell_texts, 'normalized' => $norms);
+
+        // Capture row 4 diagnostics
+        if ($rnum === '4') {
+            $raw_values = array();
+            $resolved = array();
+            $refs = array();
+            $types = array();
+            if ($row instanceof DOMElement) {
+                foreach ($row->childNodes as $cnode) {
+                    if (!($cnode instanceof DOMElement) || strtolower($cnode->localName ?? '') !== 'c') { continue; }
+                    $refs[] = $cnode->getAttribute('r');
+                    $types[] = $cnode->getAttribute('t') ?: 'n';
+                    $rv = '';
+                    foreach ($cnode->childNodes as $ch) {
+                        if ($ch instanceof DOMElement && strtolower($ch->localName ?? '') === 'v') { $rv = $ch->textContent; break; }
+                    }
+                    $raw_values[] = $rv;
+                    $resolved[] = $cnode->getAttribute('t') === 's' ? ($shared[(int)$rv] ?? '') : $rv;
+                }
+            } else {
+                foreach ($row->children($XLSX_NS) as $c) {
+                    $refs[] = (string) $c['r'];
+                    $types[] = (string) $c['t'] ?: 'n';
+                    $c_ch = $c->children($XLSX_NS);
+                    $rv = count($c_ch->v) > 0 ? (string) $c_ch->v : '';
+                    $raw_values[] = $rv;
+                    $resolved[] = (string) $c['t'] === 's' ? ($shared[(int)$rv] ?? '') : $rv;
+                }
+            }
+            $row4_diag = array(
+                'row4_raw_xml'        => substr($sheet_raw, strpos($sheet_raw, 'r="4"') - 5, 600),
+                'row4_cell_count'     => count($refs),
+                'row4_cell_refs'      => $refs,
+                'row4_cell_types'     => $types,
+                'row4_raw_values'     => $raw_values,
+                'row4_resolved_values'=> $resolved,
+            );
+        }
 
         $has_service_category = false;
         $has_service_name = false;
@@ -1156,6 +1173,7 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
             'shared_strings_sample' => array_slice($shared, 0, 15),
             'rows_found' => $row_count,
             'scanned_rows' => $scanned_rows,
+            'row4_diagnostics' => $row4_diag,
         );
     }
 
@@ -1244,36 +1262,28 @@ function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path
                 $cells[$col] = trim((string) $v);
             }
         } else {
-            $cells_nodes = $row->xpath('x:c');
-            if ($cells_nodes === false) {
-                $cells_nodes = array();
-            }
-            foreach ($cells_nodes as $c) {
-                $r = (string) $c['r'];
-                preg_match('/^([A-Z]+)\d+$/', $r, $m);
+            foreach ($row->children($XLSX_NS) as $c) {
+                $r_attr = (string) $c['r'];
+                preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
                 $col = $m[1] ?? '';
                 $t = (string) $c['t'];
                 $v = '';
-                $vnode = $c->xpath('x:v');
-                if (!empty($vnode)) {
-                    $raw = (string) $vnode[0];
+                $c_ch = $c->children($XLSX_NS);
+                if (count($c_ch->v) > 0) {
+                    $raw = (string) $c_ch->v;
                     if ($t === 's') {
-                        $idx = (int) $raw;
-                        $v = $shared[$idx] ?? '';
+                        $v = $shared[(int) $raw] ?? '';
                     } else {
                         $v = $raw;
                     }
-                } else {
-                    $isnode = $c->xpath('x:is/x:t');
-                    if (!empty($isnode)) {
-                        $parts = array();
-                        foreach ($isnode as $ttext) {
-                            $parts[] = (string) $ttext;
-                        }
-                        $v = implode('', $parts);
+                } elseif (count($c_ch->is) > 0) {
+                    $parts = array();
+                    foreach ($c_ch->is->children($XLSX_NS) as $tnode) {
+                        $parts[] = (string) $tnode;
                     }
+                    $v = implode('', $parts);
                 }
-                $cells[$col] = trim((string) $v);
+                $cells[$col] = trim($v);
             }
         }
 
