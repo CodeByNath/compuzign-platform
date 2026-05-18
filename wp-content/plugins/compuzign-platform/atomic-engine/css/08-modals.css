@@ -42,12 +42,20 @@
   margin-top: 22px;
 }
 
-@media (max-width: 640px) {
+.cz-modal-box {
+  padding: 26px 20px;
+}
+
+.cz-modal-actions .cz-btn {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
   .cz-modal-box {
-    padding: 26px 20px;
+    padding: 34px;
   }
 
   .cz-modal-actions .cz-btn {
-    width: 100%;
+    width: auto;
   }
 }

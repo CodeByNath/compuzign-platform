@@ -64,7 +64,7 @@
 /* Sidebar layout: stacked on mobile, two-column at laptop+ */
 .cz-layout-sidebar {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cz-grid-gap);
   align-items: start;
 }

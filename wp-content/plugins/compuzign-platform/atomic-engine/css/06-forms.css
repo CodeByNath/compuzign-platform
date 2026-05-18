@@ -26,8 +26,14 @@
 
 .cz-form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .cz-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .cz-form-grid .is-full {
@@ -40,10 +46,4 @@
   font-size: var(--cz-font-size-sm);
   font-weight: 800;
   margin-bottom: 8px;
-}
-
-@media (max-width: 640px) {
-  .cz-form-grid {
-    grid-template-columns: 1fr;
-  }
 }

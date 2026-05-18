@@ -120,7 +120,7 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
 }
 
-/* Service card extends cz-card */
+/* Service card extends cz-card; min-width: 0 allows auto-fit grid column to shrink it */
 .cz-service-card {
   display: flex;
   flex-direction: column;
@@ -129,6 +129,7 @@
   transition: transform var(--cz-transition), border-color var(--cz-transition);
   text-decoration: none;
   color: inherit;
+  min-width: 0;
 }
 
 .cz-service-card:hover {
