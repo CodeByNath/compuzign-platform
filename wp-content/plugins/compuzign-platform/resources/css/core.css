@@ -14,6 +14,6 @@ body,
 .site-main,
 main,
 .entry-content {
-  background: var(--cz-color-bg) !important;
+  background-color: var(--cz-color-bg) !important;
   color: var(--cz-color-text);
 }
