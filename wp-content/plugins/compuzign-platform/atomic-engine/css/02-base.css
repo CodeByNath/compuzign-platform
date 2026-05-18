@@ -1,8 +1,22 @@
 /* CompuZign Atomic Engine — Base */
-body {
-  font-family: var(--cz-font-main);
+
+/* Platform canvas — override any theme shell that sets a white background */
+html,
+body,
+#page,
+.site,
+.site-content,
+#content,
+.content-area,
+.site-main,
+main,
+.entry-content {
   background: var(--cz-color-bg);
   color: var(--cz-color-text);
+}
+
+body {
+  font-family: var(--cz-font-main);
 }
 
 .cz-page {
