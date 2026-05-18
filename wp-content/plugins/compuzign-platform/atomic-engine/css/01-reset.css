@@ -1,26 +1,41 @@
 /* CompuZign Atomic Engine — Reset */
+
+/* 1. Box sizing */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
+/* 2. Margin / padding reset */
 * {
   margin: 0;
   padding: 0;
 }
 
+/* 3. Base HTML — text-size-adjust prevents mobile browsers from inflating font sizes */
 html {
-  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
+/* 4. Smooth scrolling — guarded so reduced-motion users get instant jumps */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* 5. Body — min-height uses dvh (dynamic viewport) to handle mobile chrome correctly */
 body {
   min-width: 320px;
+  min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+/* 7. Responsive media defaults */
 img,
 picture,
 svg,
@@ -30,6 +45,21 @@ canvas {
   max-width: 100%;
 }
 
+/* 6. Text wrap — balance headings, pretty-wrap long prose */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+/* 8. Font inheritance for form elements */
 button,
 input,
 select,
@@ -37,20 +67,32 @@ textarea {
   font: inherit;
 }
 
-button {
-  cursor: pointer;
+/* 9. Textarea — prevent browser-default collapse; allow only vertical resize */
+textarea {
+  min-height: 4em;
+  resize: vertical;
 }
 
+/* 10. Anchor neutralization */
 a {
   color: inherit;
   text-decoration: none;
 }
 
+/* 11. Basic button reset */
+button {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+}
+
+/* Atomic Engine token — selection highlight */
 ::selection {
   background: var(--cz-color-accent);
   color: #000;
 }
 
+/* Atomic Engine token — custom scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
 }
