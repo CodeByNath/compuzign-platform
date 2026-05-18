@@ -13,6 +13,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--cz-space-8);
+  max-width: 100%;
 }
 
 .cz-hero__heading {
@@ -33,6 +34,7 @@
   width: 100%;
   justify-content: center;
   gap: var(--cz-space-4);
+  min-width: 0;
 }
 
 .cz-hero__actions .cz-btn {
@@ -57,18 +59,19 @@
   padding: var(--cz-space-16) 0;
   border-top: 1px solid var(--cz-color-line);
   border-bottom: 1px solid var(--cz-color-line);
+  overflow: hidden;
 }
 
 /* Mobile-first: 2 columns base, 4 at tablet+ — gap is fluid via token */
 .cz-stats__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--cz-grid-gap);
 }
 
 @media (min-width: 768px) {
   .cz-stats__grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -78,6 +81,7 @@
   align-items: center;
   text-align: center;
   gap: var(--cz-space-2);
+  min-width: 0;
 }
 
 .cz-stats__value {
@@ -96,6 +100,7 @@
 /* ─── Services overview ──────────────────────────────────────────────── */
 .cz-services-overview {
   padding: var(--cz-section-space) 0;
+  overflow: hidden;
 }
 
 .cz-services-overview__header {
@@ -177,6 +182,7 @@
   padding: var(--cz-section-space) 0;
   background: linear-gradient(135deg, rgba(255, 218, 23, .055) 0%, transparent 55%);
   border-top: 1px solid var(--cz-color-line);
+  overflow: hidden;
 }
 
 .cz-cta-band__inner {
@@ -185,6 +191,7 @@
   align-items: center;
   text-align: center;
   gap: var(--cz-space-8);
+  max-width: 100%;
 }
 
 .cz-cta-band__heading {
@@ -202,6 +209,7 @@
   width: 100%;
   justify-content: center;
   gap: var(--cz-space-4);
+  min-width: 0;
 }
 
 .cz-cta-band__actions .cz-btn {
