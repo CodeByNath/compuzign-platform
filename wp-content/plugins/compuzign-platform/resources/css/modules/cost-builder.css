@@ -60,8 +60,9 @@
   }
 }
 
-/* Service grid */
+/* Service grid: intrinsic columns — cards sit side-by-side only when each has ≥620px */
 .cz-cost-builder__grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 620px), 1fr));
   gap: var(--cz-grid-gap);
 }
 
@@ -96,24 +97,12 @@
   font-size: var(--cz-font-size-sm);
 }
 
-/* Pricing tiers: mobile-first column progression */
+/* Pricing tiers: intrinsic columns — responds to card width, not viewport */
 .cz-cost-builder__tiers {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: var(--cz-space-2);
   margin-top: var(--cz-space-4);
-}
-
-@media (min-width: 480px) {
-  .cz-cost-builder__tiers {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1200px) {
-  .cz-cost-builder__tiers {
-    grid-template-columns: repeat(4, 1fr);
-  }
 }
 
 .cz-cost-builder__tier {
