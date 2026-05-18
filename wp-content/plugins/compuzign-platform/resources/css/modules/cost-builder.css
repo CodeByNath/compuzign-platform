@@ -336,7 +336,7 @@
 }
 
 /* Responsive */
-@media (max-width: 900px) {
+@media (max-width: 1400px) {
   .cz-cost-builder__tiers {
     grid-template-columns: repeat(2, 1fr);
   }

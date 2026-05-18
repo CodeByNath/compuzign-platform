@@ -61,9 +61,28 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: border-color var(--cz-transition-fast), color var(--cz-transition-fast);
+}
+
+.cz-icon-btn:hover {
+  border-color: var(--cz-color-accent);
+  color: var(--cz-color-accent);
+}
+
+.cz-btn:disabled,
+.cz-btn[disabled] {
+  opacity: .38;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .cz-btn:focus:not(:focus-visible),
 .cz-icon-btn:focus:not(:focus-visible) {
   outline: none;
+}
+
+.cz-btn:focus-visible,
+.cz-icon-btn:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 3px;
 }
