@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CompuZign Platform
  * Description: Core application platform.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Text Domain: compuzign-platform
  */
 
@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('COMPUZIGN_PLUGIN_VERSION')) {
-    define('COMPUZIGN_PLUGIN_VERSION', '1.0.0');
+    define('COMPUZIGN_PLUGIN_VERSION', '1.0.1');
 }
 
 define('COMPUZIGN_PLUGIN_FILE', __FILE__);
