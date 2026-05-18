@@ -26,21 +26,29 @@
   font-size: var(--cz-font-size-lg);
 }
 
+/* Mobile-first: buttons stack vertically; go inline at tablet+ */
 .cz-hero__actions {
-  flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   justify-content: center;
   gap: var(--cz-space-4);
 }
 
-@media (max-width: 700px) {
+.cz-hero__actions .cz-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
   .cz-hero__actions {
-    flex-direction: column;
-    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: auto;
   }
 
   .cz-hero__actions .cz-btn {
-    width: 100%;
-    justify-content: center;
+    width: auto;
   }
 }
 
@@ -51,10 +59,17 @@
   border-bottom: 1px solid var(--cz-color-line);
 }
 
+/* Mobile-first: 2 columns base, 4 at tablet+ — gap is fluid via token */
 .cz-stats__grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--cz-grid-gap);
+}
+
+@media (min-width: 768px) {
+  .cz-stats__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .cz-stats__item {
@@ -76,13 +91,6 @@
 .cz-stats__label {
   font-size: var(--cz-font-size-sm);
   color: var(--cz-color-muted);
-}
-
-@media (max-width: 700px) {
-  .cz-stats__grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--cz-space-8);
-  }
 }
 
 /* ─── Services overview ──────────────────────────────────────────────── */
@@ -181,20 +189,28 @@
   max-width: 48ch;
 }
 
+/* Mobile-first: buttons stack vertically; go inline at tablet+ */
 .cz-cta-band__actions {
-  flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   justify-content: center;
   gap: var(--cz-space-4);
 }
 
-@media (max-width: 700px) {
+.cz-cta-band__actions .cz-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
   .cz-cta-band__actions {
-    flex-direction: column;
-    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: auto;
   }
 
   .cz-cta-band__actions .cz-btn {
-    width: 100%;
-    justify-content: center;
+    width: auto;
   }
 }

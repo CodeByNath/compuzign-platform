@@ -41,15 +41,22 @@
   margin-bottom: var(--cz-space-8);
 }
 
-/* Body — uses cz-layout-sidebar when quote is active; sidebar stacks above grid on mobile */
+/* Body — uses cz-layout-sidebar when quote is active */
 .cz-cost-builder__body {
   align-items: start;
 }
 
-@media (max-width: 1024px) {
+/* Mobile-first: sidebar stacks above service grid, no sticky */
+.cz-cost-builder__sidebar {
+  order: -1;
+  position: static;
+}
+
+@media (min-width: 1024px) {
   .cz-cost-builder__sidebar {
-    order: -1;
-    position: static !important;
+    order: 0;
+    position: sticky;
+    top: 24px;
   }
 }
 
@@ -63,12 +70,12 @@
   text-align: center;
 }
 
-/* Service card */
+/* Service card: padding scales fluidly with available space */
 .cz-cost-builder__card {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-4);
-  padding: var(--cz-space-6);
+  padding: clamp(var(--cz-space-4), 2vw, var(--cz-space-6));
   transition: box-shadow var(--cz-transition-fast), border-color var(--cz-transition-fast);
 }
 
@@ -89,12 +96,24 @@
   font-size: var(--cz-font-size-sm);
 }
 
-/* Pricing tiers */
+/* Pricing tiers: mobile-first column progression */
 .cz-cost-builder__tiers {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr;
   gap: var(--cz-space-2);
   margin-top: var(--cz-space-4);
+}
+
+@media (min-width: 480px) {
+  .cz-cost-builder__tiers {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .cz-cost-builder__tiers {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .cz-cost-builder__tier {
@@ -333,21 +352,4 @@
   width: 100%;
   justify-content: center;
   text-decoration: none;
-}
-
-/* Responsive */
-@media (max-width: 1400px) {
-  .cz-cost-builder__tiers {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .cz-cost-builder__tiers {
-    grid-template-columns: 1fr;
-  }
-
-  .cz-cost-builder__card {
-    padding: var(--cz-space-4);
-  }
 }

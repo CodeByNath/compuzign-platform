@@ -1,35 +1,78 @@
 /* CompuZign Atomic Engine — Layout */
+
+/* Container: fluid gutters via token — grows from fixed 16px to ~4% as space allows */
 .cz-container {
   width: var(--cz-container);
   margin-inline: auto;
 }
 
+/* Section: fluid vertical padding via token — no breakpoint needed */
 .cz-section {
   padding: var(--cz-section-space) 0;
 }
 
+/* Base grid — gap only, no column definition */
 .cz-grid {
   display: grid;
   gap: var(--cz-grid-gap);
 }
 
+/* Grid helpers: 1 column base, progressively enhanced with min-width queries */
+
 .cz-grid-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .cz-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .cz-grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .cz-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .cz-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .cz-grid-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
+@media (min-width: 640px) {
+  .cz-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .cz-grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Sidebar layout: stacked on mobile, two-column at laptop+ */
 .cz-layout-sidebar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--cz-sidebar-width);
+  grid-template-columns: 1fr;
   gap: var(--cz-grid-gap);
   align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .cz-layout-sidebar {
+    grid-template-columns: minmax(0, 1fr) var(--cz-sidebar-width);
+  }
 }
 
 .cz-stack {
@@ -48,31 +91,4 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--cz-space-4);
-}
-
-@media (max-width: 1024px) {
-  .cz-layout-sidebar {
-    grid-template-columns: 1fr;
-  }
-
-  .cz-grid-4,
-  .cz-grid-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 700px) {
-  .cz-container {
-    width: min(100% - 32px, 1440px);
-  }
-
-  .cz-section {
-    padding: 88px 0;
-  }
-
-  .cz-grid-2,
-  .cz-grid-3,
-  .cz-grid-4 {
-    grid-template-columns: 1fr;
-  }
 }

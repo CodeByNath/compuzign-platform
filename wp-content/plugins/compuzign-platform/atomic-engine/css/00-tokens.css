@@ -39,12 +39,12 @@
   --cz-space-10: 40px;
   --cz-space-12: 48px;
   --cz-space-16: 64px;
-  --cz-section-space: 128px;
+  --cz-section-space: clamp(72px, 10vw, 128px);
 
   /* Layout */
-  --cz-container: min(1440px, 92vw);
+  --cz-container: min(100% - max(32px, 8vw), 1440px);
   --cz-sidebar-width: 360px;
-  --cz-grid-gap: 34px;
+  --cz-grid-gap: clamp(20px, 2.5vw, 34px);
 
   /* Radius */
   --cz-radius-sm: 12px;
