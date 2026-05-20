@@ -74,9 +74,8 @@
 
 }
 
-/* Service grid: intrinsic columns — cards sit side-by-side only when each has ≥620px */
+/* Service grid: columns owned by cz-grid-2; component only adds gap and containment */
 .cz-cost-builder__grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 620px), 1fr));
   gap: var(--cz-grid-gap);
   min-width: 0;
 }
