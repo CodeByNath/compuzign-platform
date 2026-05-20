@@ -34,7 +34,7 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
   return (
     <Card class={`cz-cost-builder__card${selectedTierId ? ' cz-cost-builder__card--selected' : ''}`}>
       <div class="cz-cost-builder__card-header">
-        <h3 class="cz-heading-md">{service.title}</h3>
+        <h3 class="cz-heading-sm">{service.title}</h3>
         {meta.popular_tier !== null && <Badge variant="accent">Popular</Badge>}
       </div>
       {meta.short_description && (

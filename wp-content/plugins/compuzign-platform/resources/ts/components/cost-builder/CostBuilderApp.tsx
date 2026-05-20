@@ -76,7 +76,7 @@ export function CostBuilderApp() {
           )}
         </div>
         {hasQuote && (
-          <aside class="cz-cost-builder__sidebar cz-sticky">
+          <aside class="cz-cost-builder__sidebar">
             <QuoteSummary
               items={quoteItems}
               contactUrl={config?.contactUrl}

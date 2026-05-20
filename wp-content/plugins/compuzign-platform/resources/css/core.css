@@ -2,18 +2,3 @@
 .cb-core {
   display: block;
 }
-
-/* Platform canvas — override theme shell backgrounds with !important */
-html,
-body,
-#page,
-.site,
-.site-content,
-#content,
-.content-area,
-.site-main,
-main,
-.entry-content {
-  background-color: var(--cz-color-bg) !important;
-  color: var(--cz-color-text);
-}
