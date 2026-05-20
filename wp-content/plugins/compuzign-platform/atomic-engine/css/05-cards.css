@@ -45,6 +45,18 @@
   color: #000;
 }
 
+.cz-badge-success {
+  background: rgba(101, 217, 138, .12);
+  border-color: rgba(101, 217, 138, .3);
+  color: var(--cz-color-success);
+}
+
+.cz-badge-danger {
+  background: rgba(255, 97, 97, .12);
+  border-color: rgba(255, 97, 97, .3);
+  color: var(--cz-color-danger);
+}
+
 .cz-divider {
   height: 1px;
   background: var(--cz-color-line);

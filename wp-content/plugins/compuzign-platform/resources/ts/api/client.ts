@@ -1,6 +1,8 @@
 interface CompuZignConfig {
   apiRoot: string;
   nonce: string;
+  contactUrl?: string;
+  costBuilderUrl?: string;
 }
 
 declare global {

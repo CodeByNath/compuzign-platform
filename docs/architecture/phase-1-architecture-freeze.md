@@ -732,3 +732,61 @@ Do not modify before delivery:
 - boot sequence
 - Vite entry structure
 - runtime config contract
+
+---
+
+# 13. Phase 1 Frontend Shell & Intrinsic Layout Addendum
+
+## 13.1 Shell Theme Decision
+Phase 1 now uses a minimal CompuZign Shell theme.
+
+The theme owns only:
+- document structure
+- wp_head()
+- wp_footer()
+- body_class()
+- wp_body_open()
+- the_content()
+
+The plugin continues to own:
+- Atomic Engine
+- frontend runtime
+- modules
+- styling
+- layout systems
+- interaction logic
+
+## 13.2 Layered Frontend Ownership
+No frontend element should land directly on body without passing through controlled layers:
+
+body
+→ shell
+→ runtime mount
+→ section/block
+→ component
+→ module
+→ element
+→ atom
+
+## 13.3 Responsive System Direction
+Phase 1 responsive work follows this rule:
+
+- breakpoints only for real layout mode changes
+- tokens control spacing, sizing, rhythm, radius, motion
+- complex modules own local layout ecosystems
+- generic grid utilities remain primitives only
+- sections own containment
+- containers remain safe width primitives
+
+## 13.4 Current Layout Stabilization
+Recent Phase 1-safe refinements include:
+- dark platform canvas
+- shell theme separation
+- Atomic Engine reset refinement
+- fluid container/spacing/gap tokens
+- intrinsic Cost Builder grids
+- homepage section containment
+- min-width: 0 containment chain
+- equal-height tier card behavior
+
+These are considered delivery-safe refinements, not architecture expansion.

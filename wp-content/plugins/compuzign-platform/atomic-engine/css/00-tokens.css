@@ -27,19 +27,38 @@
   --cz-font-size-xl: 1.4rem;
   --cz-line-height-body: 1.75;
 
-  /* Spacing */
-  --cz-space-1: 4px;
-  --cz-space-2: 8px;
-  --cz-space-3: 12px;
-  --cz-space-4: 16px;
-  --cz-space-5: 20px;
-  --cz-space-6: 24px;
-  --cz-space-7: 28px;
-  --cz-space-8: 32px;
-  --cz-space-10: 40px;
-  --cz-space-12: 48px;
-  --cz-space-16: 64px;
+  /* Rhythm — foundation unit. All spatial values are multiples of this. */
+  --cz-rhythm: 4px;
+
+  /* Spacing — numeric scale. Every value is an exact rhythm multiple. */
+  --cz-space-1: 4px;    /*  1 × rhythm */
+  --cz-space-2: 8px;    /*  2 × rhythm */
+  --cz-space-3: 12px;   /*  3 × rhythm */
+  --cz-space-4: 16px;   /*  4 × rhythm */
+  --cz-space-5: 20px;   /*  5 × rhythm */
+  --cz-space-6: 24px;   /*  6 × rhythm */
+  --cz-space-7: 28px;   /*  7 × rhythm */
+  --cz-space-8: 32px;   /*  8 × rhythm */
+  --cz-space-10: 40px;  /* 10 × rhythm */
+  --cz-space-12: 48px;  /* 12 × rhythm */
+  --cz-space-16: 64px;  /* 16 × rhythm */
   --cz-section-space: clamp(72px, 10vw, 128px);
+
+  /* Spacing contract — named aliases over the numeric scale.
+     These are the universal contract levels for the spacing family.
+     xs through xl are equal evolutionary levels, not equal dimensions.
+     xs   =  1 rhythm  =  4px
+     sm   =  2 rhythm  =  8px
+     base =  4 rhythm  = 16px
+     md   =  6 rhythm  = 24px
+     lg   =  8 rhythm  = 32px
+     xl   = 12 rhythm  = 48px  */
+  --cz-space-xs:   var(--cz-space-1);
+  --cz-space-sm:   var(--cz-space-2);
+  --cz-space-base: var(--cz-space-4);
+  --cz-space-md:   var(--cz-space-6);
+  --cz-space-lg:   var(--cz-space-8);
+  --cz-space-xl:   var(--cz-space-12);
 
   /* Layout */
   --cz-container: min(100% - max(32px, 8vw), 1440px);
