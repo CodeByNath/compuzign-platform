@@ -65,11 +65,21 @@
     top: 24px;
   }
 
-  /* Sidebar context: force 2×2 tier layout — card content ~515px at this breakpoint.
-     Base tier identity (128px) applies when no sidebar is present. */
+  /* Sidebar context: grid owns the 2×2 layout — tier container is the layout authority. */
+  .cz-layout-sidebar .cz-cost-builder__tiers {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cz-space-2);
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+  }
+
   .cz-layout-sidebar .cz-cost-builder__tier {
-    flex: 1 0 calc(50% - var(--cz-space-1));
-    max-width: calc(50% - var(--cz-space-1));
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 100%;
   }
 }
 
