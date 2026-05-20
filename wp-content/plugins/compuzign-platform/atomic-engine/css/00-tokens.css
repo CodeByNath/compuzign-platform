@@ -63,11 +63,11 @@
   /* Layout */
   --cz-container: min(100% - max(32px, 8vw), 1440px);
   --cz-sidebar-width: 360px;
-  --cz-grid-gap: clamp(20px, 2.5vw, 34px);
+  --cz-grid-gap: clamp(20px, 2.5vw, 32px);
 
   /* Radius */
   --cz-radius-sm: 12px;
-  --cz-radius-md: 18px;
+  --cz-radius-md: 20px;
   --cz-radius-lg: 24px;
   --cz-radius-xl: 28px;
   --cz-radius-2xl: 32px;
@@ -81,5 +81,5 @@
 
   /* Shadows */
   --cz-shadow-card: 0 24px 90px rgba(0,0,0,.45);
-  --cz-shadow-accent: 0 18px 50px rgba(255,218,23,.22);
+  --cz-shadow-accent: 0 16px 50px rgba(255,218,23,.22);
 }
