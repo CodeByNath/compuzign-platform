@@ -65,6 +65,13 @@
     top: 24px;
   }
 
+  /* Sidebar context: one service card per row — sidebar column leaves insufficient width for two cards. */
+  .cz-layout-sidebar .cz-cost-builder__grid {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
+
   /* Sidebar context: grid owns the 2×2 layout — tier container is the layout authority. */
   .cz-layout-sidebar .cz-cost-builder__tiers {
     display: grid;
