@@ -41,6 +41,14 @@
   margin-bottom: var(--cz-space-8);
 }
 
+/* Subcategory navigation — service chips below main category tabs */
+.cz-cost-builder__subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cz-space-3);
+  margin-bottom: var(--cz-space-6);
+}
+
 /* Body — uses cz-layout-sidebar when quote is active */
 .cz-cost-builder__body {
   align-items: start;
@@ -120,33 +128,41 @@
   font-size: var(--cz-font-size-sm);
 }
 
+/* Tier strip: always horizontal above 767px — scrolls if constrained, sidebar does not control this */
 .cz-cost-builder__tiers {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--cz-space-2);
+  display: flex;
+  gap: var(--cz-space-3);
+  overflow-x: auto;
   margin-top: var(--cz-space-4);
   min-width: 0;
 }
 
-@media (min-width: 640px) {
+@media (max-width: 767px) {
   .cz-cost-builder__tiers {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    flex-direction: column;
+    overflow-x: visible;
   }
 }
 
-.cz-layout-sidebar .cz-cost-builder__tiers {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
 .cz-cost-builder__tier {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
+  flex: 1 1 180px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
   padding: var(--cz-space-3);
   background: var(--cz-color-surface-2);
   border-radius: var(--cz-radius-sm);
   border: 1px solid var(--cz-color-line);
   transition: border-color var(--cz-transition-fast), background var(--cz-transition-fast);
+}
+
+@media (max-width: 767px) {
+  .cz-cost-builder__tier {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 .cz-cost-builder__tier--popular {
