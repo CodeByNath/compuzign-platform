@@ -65,7 +65,7 @@
     top: 24px;
   }
 
-  /* Sidebar context: one service card per row — sidebar column leaves insufficient width for two cards. */
+  /* Sidebar context: reinforce containment — minmax(0,1fr) ensures grid can shrink below content width in constrained track */
   .cz-layout-sidebar .cz-cost-builder__grid {
     grid-template-columns: minmax(0, 1fr);
     width: 100%;
@@ -74,8 +74,10 @@
 
 }
 
-/* Service grid: columns owned by cz-grid-2; component only adds gap and containment */
+/* Service grid: module-owned 1-column layout — full width per service card for 4-tier comparison row */
 .cz-cost-builder__grid {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: var(--cz-grid-gap);
   min-width: 0;
 }

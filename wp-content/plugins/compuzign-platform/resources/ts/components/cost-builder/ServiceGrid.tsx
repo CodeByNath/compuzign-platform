@@ -16,7 +16,7 @@ export function ServiceGrid({ services, tiers, quoteItems, onAddToQuote, onRemov
   }
 
   return (
-    <div class="cz-cost-builder__grid cz-grid cz-grid-3">
+    <div class="cz-cost-builder__grid">
       {services.map((service) => {
         const selectedTierId = quoteItems.find((q) => q.serviceId === service.id)?.tierId ?? null;
         return (
