@@ -119,7 +119,7 @@
 }
 
 .cz-cost-builder__tier {
-  flex: 1 0 120px;                          /* 30 × rhythm — birth size contract */
+  flex: 1 0 128px;                          /* 32 × rhythm — system chain: 4→8→16→32→64→128 */
   max-width: calc(50% - var(--cz-space-1)); /* orphan cap: never wider than a 2-col slot */
   display: flex;
   flex-direction: column;
