@@ -47,6 +47,11 @@
   min-width: 0;
 }
 
+/* Main content column — must consent to shrink inside the sidebar grid track */
+.cz-cost-builder__main {
+  min-width: 0;
+}
+
 /* Mobile-first: sidebar stacks above service grid, no sticky */
 .cz-cost-builder__sidebar {
   order: -1;
@@ -58,6 +63,13 @@
     order: 0;
     position: sticky;
     top: 24px;
+  }
+
+  /* Sidebar context: force 2×2 tier layout — card content ~515px at this breakpoint.
+     Base tier identity (128px) applies when no sidebar is present. */
+  .cz-layout-sidebar .cz-cost-builder__tier {
+    flex: 1 0 calc(50% - var(--cz-space-1));
+    max-width: calc(50% - var(--cz-space-1));
   }
 }
 
