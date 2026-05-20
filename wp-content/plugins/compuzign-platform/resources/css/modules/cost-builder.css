@@ -122,10 +122,16 @@
 
 .cz-cost-builder__tiers {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--cz-space-2);
   margin-top: var(--cz-space-4);
   min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .cz-cost-builder__tiers {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .cz-layout-sidebar .cz-cost-builder__tiers {
@@ -208,7 +214,6 @@
   color: var(--cz-color-muted);
   cursor: pointer;
   transition: border-color var(--cz-transition-fast), background var(--cz-transition-fast), color var(--cz-transition-fast);
-  white-space: nowrap;
 }
 
 .cz-cost-builder__tier-action:hover {
