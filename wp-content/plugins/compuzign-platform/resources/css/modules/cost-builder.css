@@ -144,21 +144,18 @@
   font-size: var(--cz-font-size-sm);
 }
 
-/* Pricing tiers: intrinsic columns — responds to card width, not viewport.
-   align-items: stretch ensures equal-height cards within each row; flex-column + margin-top: auto
-   on the action button handles button alignment within each card. */
 .cz-cost-builder__tiers {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--cz-space-2);
-  margin-top: var(--cz-space-4);
+  width: 100%;
   min-width: 0;
 }
 
 .cz-cost-builder__tier {
-  flex: 1 0 128px;                          /* 32 × rhythm — system chain: 4→8→16→32→64→128 */
-  max-width: calc(50% - var(--cz-space-1)); /* orphan cap: never wider than a 2-col slot */
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-2);
