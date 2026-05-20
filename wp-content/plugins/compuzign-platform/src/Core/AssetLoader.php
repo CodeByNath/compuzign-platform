@@ -73,11 +73,11 @@ class AssetLoader
         $distUrl  = COMPUZIGN_DIST_URL;
 
         if (file_exists($distPath . 'js/core.js')) {
-            wp_enqueue_script('compuzign-core', $distUrl . 'js/core.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
+            wp_enqueue_script('compuzign-core', $distUrl . 'js/core.js', ['compuzign-config'], filemtime($distPath . 'js/core.js'), true);
         }
 
         if (file_exists($distPath . 'css/core.css')) {
-            wp_enqueue_style('compuzign-core', $distUrl . 'css/core.css', ['compuzign-atomic-00'], COMPUZIGN_PLUGIN_VERSION);
+            wp_enqueue_style('compuzign-core', $distUrl . 'css/core.css', ['compuzign-atomic-00'], filemtime($distPath . 'css/core.css'));
         }
     }
 
@@ -89,15 +89,15 @@ class AssetLoader
         $fallbackUrl  = COMPUZIGN_APP_URL . 'modules/cost-builder/assets/';
 
         if (file_exists($distPath . 'css/cost-builder.css')) {
-            wp_register_style('compuzign-cost-builder', $distUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], COMPUZIGN_PLUGIN_VERSION);
+            wp_register_style('compuzign-cost-builder', $distUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], filemtime($distPath . 'css/cost-builder.css'));
         } elseif (file_exists($fallbackPath . 'css/cost-builder.css')) {
-            wp_register_style('compuzign-cost-builder', $fallbackUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], COMPUZIGN_PLUGIN_VERSION);
+            wp_register_style('compuzign-cost-builder', $fallbackUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], filemtime($fallbackPath . 'css/cost-builder.css'));
         }
 
         if (file_exists($distPath . 'js/cost-builder.js')) {
-            wp_register_script('compuzign-cost-builder', $distUrl . 'js/cost-builder.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
+            wp_register_script('compuzign-cost-builder', $distUrl . 'js/cost-builder.js', ['compuzign-config'], filemtime($distPath . 'js/cost-builder.js'), true);
         } elseif (file_exists($fallbackPath . 'js/cost-builder.js')) {
-            wp_register_script('compuzign-cost-builder', $fallbackUrl . 'js/cost-builder.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
+            wp_register_script('compuzign-cost-builder', $fallbackUrl . 'js/cost-builder.js', ['compuzign-config'], filemtime($fallbackPath . 'js/cost-builder.js'), true);
         }
     }
 
@@ -107,11 +107,11 @@ class AssetLoader
         $distUrl  = COMPUZIGN_DIST_URL;
 
         if (file_exists($distPath . 'css/homepage.css')) {
-            wp_register_style('compuzign-homepage', $distUrl . 'css/homepage.css', ['compuzign-atomic-09'], COMPUZIGN_PLUGIN_VERSION);
+            wp_register_style('compuzign-homepage', $distUrl . 'css/homepage.css', ['compuzign-atomic-09'], filemtime($distPath . 'css/homepage.css'));
         }
 
         if (file_exists($distPath . 'js/homepage.js')) {
-            wp_register_script('compuzign-homepage', $distUrl . 'js/homepage.js', ['compuzign-config'], COMPUZIGN_PLUGIN_VERSION, true);
+            wp_register_script('compuzign-homepage', $distUrl . 'js/homepage.js', ['compuzign-config'], filemtime($distPath . 'js/homepage.js'), true);
         }
     }
 }
