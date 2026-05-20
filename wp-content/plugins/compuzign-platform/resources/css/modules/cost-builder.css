@@ -110,8 +110,8 @@
    align-items: stretch ensures equal-height cards within each row; flex-column + margin-top: auto
    on the action button handles button alignment within each card. */
 .cz-cost-builder__tiers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: var(--cz-space-2);
   margin-top: var(--cz-space-4);
@@ -119,6 +119,8 @@
 }
 
 .cz-cost-builder__tier {
+  flex: 1 0 120px;                          /* 30 × rhythm — birth size contract */
+  max-width: calc(50% - var(--cz-space-1)); /* orphan cap: never wider than a 2-col slot */
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-2);
