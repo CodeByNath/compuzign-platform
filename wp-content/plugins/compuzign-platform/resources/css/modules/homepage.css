@@ -331,6 +331,58 @@
   }
 }
 
+/* ─── Homepage Intro ─────────────────────────────────────────────────── */
+.cz-home-intro {
+  padding: var(--cz-section-space) 0;
+}
+
+/* Base (mobile): single column, heading above copy */
+.cz-home-intro__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--cz-space-16);
+  align-items: start;
+}
+
+/* Heading size tuned for editorial weight — slightly taller than cz-heading-xl default */
+.cz-home-intro__heading {
+  font-size: clamp(3.1rem, 6.8vw, 6.6rem);
+  line-height: .96;
+  margin-top: 0;
+}
+
+/* Yellow accent bar below the heading */
+.cz-home-intro__accent {
+  height: 6px;
+  width: 72px;
+  background: var(--cz-color-accent);
+  margin-top: 34px;
+}
+
+/* Long-form copy: lighter than --cz-color-muted for comfortable reading depth */
+.cz-home-intro__copy {
+  font-size: 1.1rem;
+  line-height: 1.9;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.cz-home-intro__copy p + p {
+  margin-top: var(--cz-space-6);
+}
+
+.cz-home-intro__copy strong {
+  color: var(--cz-color-text);
+  font-weight: 700;
+}
+
+/* Desktop: asymmetric two-column — left heading block, right copy */
+@media (min-width: 900px) {
+  .cz-home-intro__grid {
+    grid-template-columns: .78fr 1.22fr;
+    gap: 78px;
+  }
+}
+
 /* ─── Stats ─────────────────────────────────────────────────────────── */
 .cz-stats {
   padding: var(--cz-space-16) 0;

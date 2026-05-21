@@ -4,12 +4,19 @@ import { Hero } from '@/components/homepage/Hero';
 import { StatsBar } from '@/components/homepage/StatsBar';
 import { ServicesOverview } from '@/components/homepage/ServicesOverview';
 import { TrustStrip } from '@/components/homepage/TrustStrip';
+import { HomeIntro } from '@/components/homepage/HomeIntro';
 import { CtaBand } from '@/components/homepage/CtaBand';
 
 registry.register({
   id: 'hero',
   component: Hero,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-hero' }],
+});
+
+registry.register({
+  id: 'intro',
+  component: HomeIntro,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-intro' }],
 });
 
 registry.register({

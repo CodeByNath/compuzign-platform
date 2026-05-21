@@ -8,6 +8,7 @@ class HomepageModule
     {
         add_shortcode('compuzign_hero',              [$this, 'renderHero']);
         add_shortcode('compuzign_trust',             [$this, 'renderTrust']);
+        add_shortcode('compuzign_intro',             [$this, 'renderIntro']);
         add_shortcode('compuzign_stats',             [$this, 'renderStats']);
         add_shortcode('compuzign_services_overview', [$this, 'renderServicesOverview']);
         add_shortcode('compuzign_cta_band',          [$this, 'renderCtaBand']);
@@ -23,6 +24,12 @@ class HomepageModule
     {
         $this->enqueueAssets();
         return $this->renderTemplate('trust');
+    }
+
+    public function renderIntro(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('intro');
     }
 
     public function renderStats(): string
