@@ -27,7 +27,7 @@ jobs:
         working-directory: wp-content/plugins/compuzign-platform
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
@@ -38,3 +38,4 @@ jobs:
             git fetch origin main
             git checkout -f origin/main -- wp-content/plugins/compuzign-platform
             git checkout -f origin/main -- wp-content/themes/compuzign-theme
+            git checkout -f origin/main -- wp-content/themes/compuzign-shell

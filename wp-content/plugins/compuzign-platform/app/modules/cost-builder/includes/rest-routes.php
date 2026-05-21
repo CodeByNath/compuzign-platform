@@ -5,8 +5,6 @@ if (!defined('ABSPATH')) {
 }
 
 function compuzign_cost_builder_register_rest_routes() {
-    error_log('compuzign_cost_builder_register_rest_routes loaded');
-
     register_rest_route(
         'compuzign/v1',
         '/cost-builder',
@@ -72,7 +70,6 @@ function compuzign_cost_builder_rest_import_catalog(WP_REST_Request $request) {
         return rest_ensure_response(array(
             'success' => false,
             'message' => 'Workbook not found or unreadable. Please ensure the file exists at COMPUZIGN_COST_BUILDER_PATH . "CompuZign_Service_Catalog.xlsx"',
-            'path' => $xlsx,
         ));
     }
 
@@ -100,7 +97,6 @@ function compuzign_cost_builder_rest_import_catalog_dry_run(WP_REST_Request $req
         return rest_ensure_response(array(
             'success' => false,
             'message' => 'Workbook not found or unreadable.',
-            'path' => $xlsx,
         ));
     }
 

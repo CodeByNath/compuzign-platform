@@ -39,7 +39,6 @@ final class Plugin
         return rest_ensure_response([
             'success' => true,
             'message' => 'CompuZign API is healthy.',
-            'version' => COMPUZIGN_PLUGIN_VERSION,
         ]);
     }
 }

@@ -11,5 +11,5 @@
 <?php wp_body_open(); ?>
 
 <header class="cz-site-header">
-	<?php echo do_shortcode( '[compuzign_header]' ); ?>
+	<?php do_action( 'compuzign_header' ); ?>
 </header>
