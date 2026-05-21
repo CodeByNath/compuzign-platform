@@ -258,15 +258,16 @@
   background: var(--cz-color-bg-soft);
 }
 
-/* Grid: no gap — borders serve as dividers */
+/* No gap — cell borders are the dividers */
 .cz-home-trust__grid {
   display: grid;
   grid-template-columns: 1fr;
 }
 
-/* Base (mobile): horizontal rule between each item */
+/* Base (mobile-first): stacked with a bottom rule between items */
 .cz-home-trust__item {
   padding: var(--cz-space-7) var(--cz-space-6);
+  text-align: left;
   border-bottom: 1px solid var(--cz-color-line);
 }
 
@@ -274,10 +275,11 @@
   border-bottom: none;
 }
 
+/* 1.05rem matches prototype spec — no exact token maps to this value */
 .cz-home-trust__title {
   display: block;
   color: var(--cz-color-text);
-  font-size: var(--cz-font-size-base);
+  font-size: 1.05rem;
   font-weight: 700;
   margin-bottom: var(--cz-space-2);
 }
@@ -289,28 +291,37 @@
   line-height: 1.45;
 }
 
-/* Tablet: 2 columns — vertical divider between columns, horizontal between rows */
+/* Tablet: 2 columns — column divider on odd items, row divider between the two rows */
 @media (min-width: 640px) {
   .cz-home-trust__grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .cz-home-trust__item {
+    border-bottom: 1px solid var(--cz-color-line);
+    border-right: none;
   }
 
   .cz-home-trust__item:nth-child(odd) {
     border-right: 1px solid var(--cz-color-line);
   }
 
+  /* Last two items form the bottom row — no bottom rule needed */
   .cz-home-trust__item:nth-last-child(-n+2) {
     border-bottom: none;
   }
 }
 
-/* Desktop: 4 columns — vertical dividers only, last item has none */
+/* Desktop: 4 columns — vertical dividers only */
 @media (min-width: 1024px) {
   .cz-home-trust__grid {
     grid-template-columns: repeat(4, 1fr);
   }
 
-  .cz-home-trust__item {
+  /* Reset all borders then apply only the column dividers */
+  .cz-home-trust__item,
+  .cz-home-trust__item:nth-child(odd),
+  .cz-home-trust__item:nth-last-child(-n+2) {
     border-bottom: none;
     border-right: 1px solid var(--cz-color-line);
   }
