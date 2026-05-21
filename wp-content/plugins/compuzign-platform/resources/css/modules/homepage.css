@@ -657,6 +657,17 @@
 }
 
 /* Mobile: index | name+desc stacked | arrow — 3 column */
+.cz-home-svc__row,
+.cz-home-svc__row:hover,
+.cz-home-svc__row:focus,
+.cz-home-svc__row:visited {
+  text-decoration: none;
+}
+
+.cz-home-svc__row * {
+  text-decoration: none;
+}
+
 .cz-home-svc__row {
   display: grid;
   grid-template-columns: 48px 1fr 54px;
@@ -665,7 +676,6 @@
   align-items: start;
   padding: 22px 0;
   border-bottom: 1px solid var(--cz-color-line);
-  text-decoration: none;
   color: inherit;
   cursor: pointer;
   transition: background .25s;
