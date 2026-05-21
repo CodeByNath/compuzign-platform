@@ -120,11 +120,6 @@
   max-width: 48ch;
 }
 
-/* Services grid: intrinsic columns — overrides cz-grid-4 viewport rules in cascade */
-.cz-services-overview__grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-}
-
 /* Service card extends cz-card; min-width: 0 allows auto-fit grid column to shrink it */
 .cz-service-card {
   display: flex;
