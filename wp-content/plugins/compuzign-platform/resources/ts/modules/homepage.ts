@@ -5,6 +5,7 @@ import { StatsBar } from '@/components/homepage/StatsBar';
 import { ServicesOverview } from '@/components/homepage/ServicesOverview';
 import { TrustStrip } from '@/components/homepage/TrustStrip';
 import { HomeIntro } from '@/components/homepage/HomeIntro';
+import { WhyChoose } from '@/components/homepage/WhyChoose';
 import { CtaBand } from '@/components/homepage/CtaBand';
 
 registry.register({
@@ -17,6 +18,12 @@ registry.register({
   id: 'intro',
   component: HomeIntro,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-intro' }],
+});
+
+registry.register({
+  id: 'why',
+  component: WhyChoose,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-why' }],
 });
 
 registry.register({
