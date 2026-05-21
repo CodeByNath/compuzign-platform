@@ -6,6 +6,7 @@ import { ServicesOverview } from '@/components/homepage/ServicesOverview';
 import { TrustStrip } from '@/components/homepage/TrustStrip';
 import { HomeIntro } from '@/components/homepage/HomeIntro';
 import { WhyChoose } from '@/components/homepage/WhyChoose';
+import { ServicesEditorial } from '@/components/homepage/ServicesEditorial';
 import { CtaBand } from '@/components/homepage/CtaBand';
 
 registry.register({
@@ -24,6 +25,12 @@ registry.register({
   id: 'why',
   component: WhyChoose,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-why' }],
+});
+
+registry.register({
+  id: 'services-list',
+  component: ServicesEditorial,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-services-list' }],
 });
 
 registry.register({
