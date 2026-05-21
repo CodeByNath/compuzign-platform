@@ -3,12 +3,19 @@ import { registry } from '@/runtime/registry';
 import { Hero } from '@/components/homepage/Hero';
 import { StatsBar } from '@/components/homepage/StatsBar';
 import { ServicesOverview } from '@/components/homepage/ServicesOverview';
+import { TrustStrip } from '@/components/homepage/TrustStrip';
 import { CtaBand } from '@/components/homepage/CtaBand';
 
 registry.register({
   id: 'hero',
   component: Hero,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-hero' }],
+});
+
+registry.register({
+  id: 'trust',
+  component: TrustStrip,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-trust' }],
 });
 
 registry.register({

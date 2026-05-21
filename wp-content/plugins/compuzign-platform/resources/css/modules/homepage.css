@@ -251,6 +251,75 @@
   }
 }
 
+/* ─── Trust Strip ────────────────────────────────────────────────────── */
+.cz-home-trust {
+  border-top: 1px solid var(--cz-color-line);
+  border-bottom: 1px solid var(--cz-color-line);
+  background: var(--cz-color-bg-soft);
+}
+
+/* Grid: no gap — borders serve as dividers */
+.cz-home-trust__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+/* Base (mobile): horizontal rule between each item */
+.cz-home-trust__item {
+  padding: var(--cz-space-7) var(--cz-space-6);
+  border-bottom: 1px solid var(--cz-color-line);
+}
+
+.cz-home-trust__item:last-child {
+  border-bottom: none;
+}
+
+.cz-home-trust__title {
+  display: block;
+  color: var(--cz-color-text);
+  font-size: var(--cz-font-size-base);
+  font-weight: 700;
+  margin-bottom: var(--cz-space-2);
+}
+
+.cz-home-trust__desc {
+  display: block;
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-sm);
+  line-height: 1.45;
+}
+
+/* Tablet: 2 columns — vertical divider between columns, horizontal between rows */
+@media (min-width: 640px) {
+  .cz-home-trust__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cz-home-trust__item:nth-child(odd) {
+    border-right: 1px solid var(--cz-color-line);
+  }
+
+  .cz-home-trust__item:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+}
+
+/* Desktop: 4 columns — vertical dividers only, last item has none */
+@media (min-width: 1024px) {
+  .cz-home-trust__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .cz-home-trust__item {
+    border-bottom: none;
+    border-right: 1px solid var(--cz-color-line);
+  }
+
+  .cz-home-trust__item:last-child {
+    border-right: none;
+  }
+}
+
 /* ─── Stats ─────────────────────────────────────────────────────────── */
 .cz-stats {
   padding: var(--cz-space-16) 0;
