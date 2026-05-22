@@ -6,9 +6,10 @@ interface QuoteSummaryProps {
   contactUrl: string | undefined;
   onRemove: (serviceId: number) => void;
   onClear: () => void;
+  onOpenPdfModal: () => void;
 }
 
-export function QuoteSummary({ items, contactUrl, onRemove, onClear }: QuoteSummaryProps) {
+export function QuoteSummary({ items, contactUrl, onRemove, onClear, onOpenPdfModal }: QuoteSummaryProps) {
   const pricedItems = items.filter((item) => item.price !== null);
   const hasUnpriced = pricedItems.length < items.length;
   const monthlyTotal = pricedItems.reduce((sum, item) => sum + (item.price as number), 0);
@@ -16,7 +17,12 @@ export function QuoteSummary({ items, contactUrl, onRemove, onClear }: QuoteSumm
   return (
     <div class="cz-quote-summary">
       <div class="cz-quote-summary__header">
-        <h3 class="cz-heading-sm">Your Quote</h3>
+        <h3 class="cz-heading-sm">
+          Your Quote
+          {items.length > 0 && (
+            <span class="cz-quote-summary__badge">{items.length}</span>
+          )}
+        </h3>
         <button type="button" class="cz-quote-summary__clear" onClick={onClear}>
           Clear all
         </button>
@@ -57,13 +63,20 @@ export function QuoteSummary({ items, contactUrl, onRemove, onClear }: QuoteSumm
               : formatPrice(monthlyTotal)}
           </span>
         </div>
+        <button
+          type="button"
+          class="cz-btn cz-btn-secondary cz-quote-summary__pdf"
+          onClick={onOpenPdfModal}
+        >
+          Generate PDF Quote
+        </button>
         {contactUrl ? (
           <a href={contactUrl} class="cz-btn cz-btn-primary cz-quote-summary__cta">
-            Request a Quote
+            Request Consultation
           </a>
         ) : (
           <button type="button" class="cz-btn cz-btn-primary cz-quote-summary__cta" disabled>
-            Request a Quote
+            Request Consultation
           </button>
         )}
       </div>

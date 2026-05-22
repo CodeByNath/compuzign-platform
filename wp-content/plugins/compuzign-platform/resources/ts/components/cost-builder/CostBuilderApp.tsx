@@ -6,6 +6,11 @@ import { CategoryNav } from './CategoryNav';
 import { SubcategoryNav } from './SubcategoryNav';
 import { ServiceCard } from './ServiceCard';
 import { QuoteSummary } from './QuoteSummary';
+import { HeroArea } from './HeroArea';
+import { RecommendedBundle } from './RecommendedBundle';
+import { PdfModal } from './PdfModal';
+import { FaqAccordion } from './FaqAccordion';
+import { ComparePlans } from './ComparePlans';
 import type { QuoteItem } from './types';
 
 export function CostBuilderApp() {
@@ -13,6 +18,7 @@ export function CostBuilderApp() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const addToQuote = (item: QuoteItem) => {
     setQuoteItems((prev) => [
@@ -68,6 +74,7 @@ export function CostBuilderApp() {
 
   return (
     <div class="cz-cost-builder">
+      <HeroArea />
       <CategoryNav
         categories={data.categories}
         activeSlug={currentSlug}
@@ -81,13 +88,21 @@ export function CostBuilderApp() {
       <div class={hasQuote ? 'cz-layout-sidebar cz-cost-builder__body' : 'cz-cost-builder__body'}>
         <div class="cz-cost-builder__main">
           {activeService ? (
-            <ServiceCard
-              service={activeService}
-              tiers={data.tiers}
-              selectedTierId={quoteItems.find((q) => q.serviceId === activeService.id)?.tierId ?? null}
-              onAddToQuote={addToQuote}
-              onRemoveFromQuote={removeFromQuote}
-            />
+            <>
+              <ServiceCard
+                service={activeService}
+                tiers={data.tiers}
+                selectedTierId={quoteItems.find((q) => q.serviceId === activeService.id)?.tierId ?? null}
+                onAddToQuote={addToQuote}
+                onRemoveFromQuote={removeFromQuote}
+              />
+              <RecommendedBundle
+                service={activeService}
+                isInQuote={quoteItems.some((q) => q.serviceId === -(activeService.id))}
+                onAdd={addToQuote}
+                onRemove={removeFromQuote}
+              />
+            </>
           ) : (
             <p class="cz-muted cz-cost-builder__empty">No services in this category.</p>
           )}
@@ -99,10 +114,18 @@ export function CostBuilderApp() {
               contactUrl={config?.contactUrl}
               onRemove={removeFromQuote}
               onClear={() => setQuoteItems([])}
+              onOpenPdfModal={() => setIsPdfModalOpen(true)}
             />
           </aside>
         )}
       </div>
+      <ComparePlans />
+      <FaqAccordion />
+      <PdfModal
+        isOpen={isPdfModalOpen}
+        items={quoteItems}
+        onClose={() => setIsPdfModalOpen(false)}
+      />
     </div>
   );
 }

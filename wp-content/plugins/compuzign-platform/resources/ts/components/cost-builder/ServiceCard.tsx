@@ -2,12 +2,12 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { PricingTiers } from './PricingTiers';
 import type { ServiceItem, Tier, TierId } from '@/api/types/cost-builder';
-import type { QuoteItem } from './types';
+import type { QuoteItem, QuoteItemTierId } from './types';
 
 interface ServiceCardProps {
   service: ServiceItem;
   tiers: Tier[];
-  selectedTierId: TierId | null;
+  selectedTierId: QuoteItemTierId | null;
   onAddToQuote: (item: QuoteItem) => void;
   onRemoveFromQuote: (serviceId: number) => void;
 }
@@ -31,16 +31,29 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
     });
   };
 
+  const tierSelected = selectedTierId !== null && selectedTierId !== 'bundle';
+
   return (
-    <Card class={`cz-cost-builder__card${selectedTierId ? ' cz-cost-builder__card--selected' : ''}`}>
+    <Card class={`cz-cost-builder__card${tierSelected ? ' cz-cost-builder__card--selected' : ''}`}>
       <div class="cz-cost-builder__card-header">
-        <h3 class="cz-heading-sm">{service.title}</h3>
+        <div class="cz-cost-builder__card-meta">
+          {service.categories[0] && (
+            <span class="cz-cost-builder__card-eyebrow">{service.categories[0].name}</span>
+          )}
+          <h3 class="cz-heading-sm">{service.title}</h3>
+        </div>
         {meta.popular_tier !== null && <Badge variant="accent">Popular</Badge>}
       </div>
       {meta.short_description && (
         <p class="cz-copy cz-cost-builder__description">
           {meta.short_description}
         </p>
+      )}
+      {meta.billing_cycle && (
+        <div class="cz-cost-builder__billing-cycle">
+          <span class="cz-cost-builder__billing-label">Billing:</span>
+          <span class="cz-cost-builder__billing-value">{meta.billing_cycle}</span>
+        </div>
       )}
       <PricingTiers
         tiers={tiers}
