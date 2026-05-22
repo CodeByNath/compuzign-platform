@@ -3,6 +3,7 @@
 /* Root */
 .cz-cost-builder {
   padding: var(--cz-space-8) 0;
+  overflow-x: clip; /* prevents tier carousel from causing accidental horizontal body scroll; clip does not block position:sticky or position:fixed */
 }
 
 .cz-cost-builder--loading,
@@ -67,9 +68,10 @@
 
 @media (min-width: 1024px) {
   .cz-cost-builder__sidebar {
-    order: 0;
     position: sticky;
-    top: 24px;
+    top: var(--cz-space-6);
+    max-height: calc(100vh - var(--cz-space-12));
+    overflow-y: auto;
   }
 
   /* Sidebar context: reinforce containment — minmax(0,1fr) ensures grid can shrink below content width in constrained track */
@@ -263,7 +265,7 @@
 /* Tier action button */
 .cz-cost-builder__tier-action {
   margin-top: auto;
-  padding: var(--cz-space-2) var(--cz-space-2);
+  padding: var(--cz-space-2) var(--cz-space-3);
   font-size: var(--cz-font-size-xs);
   font-weight: 600;
   text-align: center;
@@ -328,6 +330,7 @@
   padding: 0;
   max-height: 340px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .cz-quote-summary__item {
@@ -592,6 +595,19 @@
   color: var(--cz-color-accent);
 }
 
+@media (max-width: 640px) {
+  .cz-cost-builder__bundle-inner {
+    flex-direction: column;
+  }
+
+  .cz-cost-builder__bundle-footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
 /* ─── Compare Plans ─── */
 
 .cz-cost-builder__compare {
@@ -609,6 +625,8 @@
   overflow-x: auto;
   border-radius: var(--cz-radius-md);
   border: 1px solid var(--cz-color-line);
+  scrollbar-width: thin;
+  scrollbar-color: var(--cz-color-line-strong) transparent;
 }
 
 .cz-cost-builder__compare-table {
@@ -708,6 +726,7 @@
   border: none;
   color: var(--cz-color-text);
   font-size: var(--cz-font-size-base);
+  font-family: inherit;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -749,7 +768,7 @@
 }
 
 .cz-cost-builder__faq-item.is-open .cz-cost-builder__faq-panel {
-  max-height: 300px;
+  max-height: 500px; /* increased from 300px — gives headroom if FAQ answers grow */
   padding: 0 var(--cz-space-6) var(--cz-space-5);
 }
 
@@ -938,6 +957,11 @@
 .cz-pdf-modal__input:focus {
   outline: none;
   border-color: var(--cz-color-accent);
+  box-shadow: 0 0 0 3px rgba(255, 218, 23, .12);
+}
+
+.cz-pdf-modal__input::placeholder {
+  color: var(--cz-color-muted-2);
 }
 
 .cz-pdf-modal__textarea {
@@ -949,4 +973,17 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--cz-space-3);
+}
+
+/* ─── Accessibility & Focus Polish ─── */
+
+/* Consistent focus-visible rings across all interactive Cost Builder elements */
+.cz-cost-builder__tier-action:focus-visible,
+.cz-cost-builder__tiers-nav:focus-visible,
+.cz-cost-builder__faq-trigger:focus-visible,
+.cz-quote-summary__remove:focus-visible,
+.cz-quote-summary__clear:focus-visible,
+.cz-pdf-modal__close:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { formatPrice } from '@/utils/format';
 import type { QuoteItem } from './types';
 
@@ -8,14 +8,56 @@ interface PdfModalProps {
   onClose: () => void;
 }
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 export function PdfModal({ isOpen, items, onClose }: PdfModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
+
+    // Lock body scroll while modal is open
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // Focus first focusable element on open
+    const getFocusable = () =>
+      Array.from(
+        modalRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? [],
+      );
+    getFocusable()[0]?.focus();
+
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      // Focus trap: cycle Tab/Shift+Tab within the modal
+      if (e.key === 'Tab') {
+        const els = getFocusable();
+        if (els.length === 0) return;
+        const first = els[0];
+        const last = els[els.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
     };
+
     document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', handleKey);
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -36,6 +78,7 @@ export function PdfModal({ isOpen, items, onClose }: PdfModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Generate PDF Quote"
+        ref={modalRef}
         onClick={(e) => e.stopPropagation()}
       >
         <div class="cz-pdf-modal__header">
