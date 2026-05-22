@@ -10,6 +10,7 @@ import { ServicesEditorial } from '@/components/homepage/ServicesEditorial';
 import { CtaBand } from '@/components/homepage/CtaBand';
 import { ResultsMetrics } from '@/components/homepage/ResultsMetrics';
 import { IndustriesGrid } from '@/components/homepage/IndustriesGrid';
+import { CaseStudies } from '@/components/homepage/CaseStudies';
 
 registry.register({
   id: 'hero',
@@ -63,6 +64,12 @@ registry.register({
   id: 'industries',
   component: IndustriesGrid,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-industries' }],
+});
+
+registry.register({
+  id: 'case-studies',
+  component: CaseStudies,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-case-studies' }],
 });
 
 registry.register({

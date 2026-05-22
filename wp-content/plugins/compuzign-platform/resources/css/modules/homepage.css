@@ -1034,3 +1034,141 @@
     transition: none;
   }
 }
+
+/* ─── Case Studies ───────────────────────────────────────────────────── */
+.cz-home-cases {
+  padding: var(--cz-section-space) 0;
+}
+
+/* Mobile-first: single column */
+.cz-home-cases__wrap {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+.cz-home-cases__heading {
+  margin-top: var(--cz-space-5);
+  margin-bottom: var(--cz-space-10);
+  max-width: 22ch;
+}
+
+.cz-home-cases__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cz-home-cases__tab {
+  text-align: left;
+  border: 1px solid var(--cz-color-line);
+  background: var(--cz-color-bg-soft);
+  color: var(--cz-color-text);
+  padding: 18px 20px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: inherit;
+  transition: border-color .25s, background .25s;
+}
+
+.cz-home-cases__tab--active,
+.cz-home-cases__tab:hover {
+  border-color: var(--cz-color-accent);
+  background: rgba(255, 218, 23, .08);
+}
+
+.cz-home-cases__card {
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: 30px;
+  background: var(--cz-color-bg);
+  padding: 42px;
+  min-height: 300px;
+}
+
+.cz-home-cases__label {
+  color: var(--cz-color-accent);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: .76rem;
+  margin: 0 0 24px;
+}
+
+.cz-home-cases__title {
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+  letter-spacing: -.06em;
+  line-height: 1.04;
+  margin: 0 0 22px;
+}
+
+.cz-home-cases__body {
+  color: var(--cz-color-muted);
+  line-height: 1.8;
+  margin: 0 0 28px;
+}
+
+.cz-home-cases__note {
+  color: var(--cz-color-muted);
+  font-size: .82rem;
+  font-style: italic;
+  margin: 0;
+  opacity: .65;
+}
+
+.cz-home-cases__testimonials {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.cz-home-cases__quote {
+  border: 1px solid var(--cz-color-line);
+  background: rgba(255, 255, 255, .035);
+  border-radius: 22px;
+  padding: 24px;
+}
+
+.cz-home-cases__blockquote {
+  color: var(--cz-color-text);
+  line-height: 1.65;
+  font-size: .94rem;
+  margin: 0;
+}
+
+.cz-home-cases__cite {
+  display: block;
+  margin-top: 18px;
+  color: var(--cz-color-accent);
+  font-style: normal;
+  font-weight: 800;
+  font-size: .82rem;
+}
+
+/* Tablet: testimonials go 2-up */
+@media (min-width: 640px) {
+  .cz-home-cases__testimonials {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Desktop: two-column left/right split */
+@media (min-width: 1024px) {
+  .cz-home-cases__wrap {
+    grid-template-columns: 1fr 1.15fr;
+    gap: 70px;
+  }
+
+  .cz-home-cases__card {
+    min-height: 420px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-home-cases__tab {
+    transition: none;
+  }
+}
