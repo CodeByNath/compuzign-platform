@@ -8,6 +8,7 @@ import { HomeIntro } from '@/components/homepage/HomeIntro';
 import { WhyChoose } from '@/components/homepage/WhyChoose';
 import { ServicesEditorial } from '@/components/homepage/ServicesEditorial';
 import { CtaBand } from '@/components/homepage/CtaBand';
+import { ResultsMetrics } from '@/components/homepage/ResultsMetrics';
 
 registry.register({
   id: 'hero',
@@ -49,6 +50,12 @@ registry.register({
   id: 'services-overview',
   component: ServicesOverview,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-services-overview' }],
+});
+
+registry.register({
+  id: 'results',
+  component: ResultsMetrics,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-results' }],
 });
 
 registry.register({
