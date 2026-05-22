@@ -1173,6 +1173,50 @@
   }
 }
 
+/* ─── Support Bar ────────────────────────────────────────────────────── */
+.cz-home-support {
+  border-top: 1px solid var(--cz-color-line);
+  background: var(--cz-color-bg-soft);
+  padding: 32px 0;
+}
+
+.cz-home-support__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cz-home-support__heading {
+  font-size: 1.4rem;
+  letter-spacing: -.04em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.cz-home-support__copy {
+  color: var(--cz-color-muted);
+  margin: 6px 0 0;
+  line-height: 1.6;
+}
+
+.cz-home-support__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+  .cz-home-support__inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .cz-home-support__actions {
+    flex-shrink: 0;
+  }
+}
+
 /* ─── Assessment ─────────────────────────────────────────────────────── */
 .cz-home-assessment {
   padding: var(--cz-section-space) 0;

@@ -12,6 +12,7 @@ import { ResultsMetrics } from '@/components/homepage/ResultsMetrics';
 import { IndustriesGrid } from '@/components/homepage/IndustriesGrid';
 import { CaseStudies } from '@/components/homepage/CaseStudies';
 import { AssessmentForm } from '@/components/homepage/AssessmentForm';
+import { SupportBar } from '@/components/homepage/SupportBar';
 
 registry.register({
   id: 'hero',
@@ -77,6 +78,12 @@ registry.register({
   id: 'assessment',
   component: AssessmentForm,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-assessment' }],
+});
+
+registry.register({
+  id: 'support-bar',
+  component: SupportBar,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-support-bar' }],
 });
 
 registry.register({
