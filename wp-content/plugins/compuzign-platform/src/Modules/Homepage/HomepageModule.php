@@ -14,6 +14,7 @@ class HomepageModule
         add_shortcode('compuzign_stats',             [$this, 'renderStats']);
         add_shortcode('compuzign_services_overview', [$this, 'renderServicesOverview']);
         add_shortcode('compuzign_results',           [$this, 'renderResults']);
+        add_shortcode('compuzign_industries',        [$this, 'renderIndustries']);
         add_shortcode('compuzign_cta_band',          [$this, 'renderCtaBand']);
     }
 
@@ -63,6 +64,12 @@ class HomepageModule
     {
         $this->enqueueAssets();
         return $this->renderTemplate('results');
+    }
+
+    public function renderIndustries(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('industries');
     }
 
     public function renderCtaBand(): string

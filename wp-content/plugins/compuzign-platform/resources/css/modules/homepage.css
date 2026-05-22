@@ -910,3 +910,127 @@
     transition: none;
   }
 }
+
+/* ─── Industries ─────────────────────────────────────────────────────── */
+.cz-home-industries {
+  padding: var(--cz-section-space) 0;
+}
+
+.cz-home-industries__header {
+  margin-bottom: 58px;
+}
+
+.cz-home-industries__heading {
+  margin-top: var(--cz-space-5);
+  max-width: 26ch;
+}
+
+/* Mobile-first: single column */
+.cz-home-industries__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.cz-home-industries__card {
+  min-height: 220px;
+  border: 1px solid var(--cz-color-line);
+  background: var(--cz-color-bg-soft);
+  border-radius: 22px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .3s cubic-bezier(.16, 1, .3, 1),
+              border-color .3s cubic-bezier(.16, 1, .3, 1);
+}
+
+/* Radial glow — hidden until hover */
+.cz-home-industries__card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 218, 23, .12), transparent 55%);
+  opacity: 0;
+  transition: opacity .3s cubic-bezier(.16, 1, .3, 1);
+  pointer-events: none;
+}
+
+.cz-home-industries__card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255, 218, 23, .45);
+}
+
+.cz-home-industries__card:hover::before {
+  opacity: 1;
+}
+
+.cz-home-industries__number {
+  display: block;
+  color: var(--cz-color-accent);
+  font-size: var(--cz-font-size-sm);
+  font-weight: 900;
+  letter-spacing: .04em;
+  position: relative;
+}
+
+.cz-home-industries__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.2;
+  margin: 0 0 10px;
+  position: relative;
+}
+
+.cz-home-industries__copy {
+  color: var(--cz-color-muted);
+  font-size: .91rem;
+  line-height: 1.55;
+  margin: 0;
+  position: relative;
+}
+
+/* Tablet: 2-column */
+@media (min-width: 640px) {
+  .cz-home-industries__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Desktop: asymmetric 7-column grid — cards 01 and 04 span 2 */
+@media (min-width: 1100px) {
+  .cz-home-industries__grid {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 14px;
+  }
+
+  /* Row 1: [01:2][02:1][03:1][04:2][05:1] = 7 cols */
+  .cz-home-industries__card:nth-child(1),
+  .cz-home-industries__card:nth-child(4) {
+    grid-column: span 2;
+  }
+
+  /* Row 2: [06:3][07:4] = 7 cols */
+  .cz-home-industries__card:nth-child(6) {
+    grid-column: span 3;
+  }
+
+  .cz-home-industries__card:nth-child(7) {
+    grid-column: span 4;
+  }
+
+  .cz-home-industries__card {
+    min-height: 260px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-home-industries__card,
+  .cz-home-industries__card::before {
+    transition: none;
+  }
+}

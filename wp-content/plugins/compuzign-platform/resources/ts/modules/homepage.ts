@@ -9,6 +9,7 @@ import { WhyChoose } from '@/components/homepage/WhyChoose';
 import { ServicesEditorial } from '@/components/homepage/ServicesEditorial';
 import { CtaBand } from '@/components/homepage/CtaBand';
 import { ResultsMetrics } from '@/components/homepage/ResultsMetrics';
+import { IndustriesGrid } from '@/components/homepage/IndustriesGrid';
 
 registry.register({
   id: 'hero',
@@ -56,6 +57,12 @@ registry.register({
   id: 'results',
   component: ResultsMetrics,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-results' }],
+});
+
+registry.register({
+  id: 'industries',
+  component: IndustriesGrid,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-industries' }],
 });
 
 registry.register({
