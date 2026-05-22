@@ -16,6 +16,7 @@ class HomepageModule
         add_shortcode('compuzign_results',           [$this, 'renderResults']);
         add_shortcode('compuzign_industries',        [$this, 'renderIndustries']);
         add_shortcode('compuzign_case_studies',      [$this, 'renderCaseStudies']);
+        add_shortcode('compuzign_assessment',        [$this, 'renderAssessment']);
         add_shortcode('compuzign_cta_band',          [$this, 'renderCtaBand']);
     }
 
@@ -77,6 +78,12 @@ class HomepageModule
     {
         $this->enqueueAssets();
         return $this->renderTemplate('case-studies');
+    }
+
+    public function renderAssessment(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('assessment');
     }
 
     public function renderCtaBand(): string

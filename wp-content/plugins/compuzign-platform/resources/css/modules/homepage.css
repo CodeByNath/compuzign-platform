@@ -1172,3 +1172,137 @@
     transition: none;
   }
 }
+
+/* ─── Assessment ─────────────────────────────────────────────────────── */
+.cz-home-assessment {
+  padding: var(--cz-section-space) 0;
+  background:
+    radial-gradient(circle at 80% 40%, rgba(255, 218, 23, .18), transparent 28%),
+    linear-gradient(180deg, var(--cz-color-bg-soft) 0%, var(--cz-color-bg) 100%);
+}
+
+.cz-home-assessment__box {
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: 34px;
+  padding: 36px 28px;
+  background: rgba(255, 255, 255, .04);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.cz-home-assessment__heading {
+  margin-top: var(--cz-space-5);
+  margin-bottom: var(--cz-space-6);
+  max-width: 24ch;
+}
+
+.cz-home-assessment__intro {
+  color: var(--cz-color-muted);
+  line-height: 1.75;
+  max-width: 52ch;
+  margin: 0;
+}
+
+/* Checklist */
+.cz-home-assessment__checks {
+  list-style: none;
+  margin: var(--cz-space-6) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.cz-home-assessment__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--cz-color-muted);
+  line-height: 1.45;
+  font-size: var(--cz-font-size-md);
+}
+
+.cz-home-assessment__check::before {
+  content: "✓";
+  color: #000;
+  background: var(--cz-color-accent);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: .72rem;
+  font-weight: 900;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+/* Form card */
+.cz-home-assessment__form {
+  background: var(--cz-color-bg-soft);
+  border: 1px solid var(--cz-color-line);
+  border-radius: 26px;
+  padding: 28px;
+}
+
+.cz-home-assessment__field {
+  margin-bottom: 14px;
+}
+
+.cz-home-assessment__input,
+.cz-home-assessment__select {
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--cz-color-line);
+  background: var(--cz-color-surface);
+  color: var(--cz-color-text);
+  font-family: inherit;
+  font-size: var(--cz-font-size-base);
+  outline: 0;
+  box-sizing: border-box;
+  transition: border-color .2s;
+}
+
+.cz-home-assessment__input::placeholder {
+  color: var(--cz-color-muted);
+}
+
+.cz-home-assessment__select {
+  appearance: none;
+  cursor: pointer;
+  color: var(--cz-color-muted);
+}
+
+.cz-home-assessment__select:valid {
+  color: var(--cz-color-text);
+}
+
+.cz-home-assessment__input:focus,
+.cz-home-assessment__select:focus {
+  border-color: var(--cz-color-accent);
+}
+
+.cz-home-assessment__submit {
+  width: 100%;
+  margin-top: 6px;
+  justify-content: center;
+}
+
+/* Tablet: checklist goes 2-col */
+@media (min-width: 640px) {
+  .cz-home-assessment__checks {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Desktop: two-column split — content left, form right */
+@media (min-width: 1024px) {
+  .cz-home-assessment__box {
+    grid-template-columns: 1fr .85fr;
+    gap: 50px;
+    padding: 62px;
+  }
+}

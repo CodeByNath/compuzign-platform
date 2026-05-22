@@ -11,6 +11,7 @@ import { CtaBand } from '@/components/homepage/CtaBand';
 import { ResultsMetrics } from '@/components/homepage/ResultsMetrics';
 import { IndustriesGrid } from '@/components/homepage/IndustriesGrid';
 import { CaseStudies } from '@/components/homepage/CaseStudies';
+import { AssessmentForm } from '@/components/homepage/AssessmentForm';
 
 registry.register({
   id: 'hero',
@@ -70,6 +71,12 @@ registry.register({
   id: 'case-studies',
   component: CaseStudies,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-case-studies' }],
+});
+
+registry.register({
+  id: 'assessment',
+  component: AssessmentForm,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-assessment' }],
 });
 
 registry.register({
