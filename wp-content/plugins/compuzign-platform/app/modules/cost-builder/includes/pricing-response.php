@@ -44,31 +44,60 @@ function compuzign_cost_builder_get_service_payload($post): array
     }
 
     // Resolve inclusions: prefer explicit cz_service_inclusions meta, fall back to tier derivation
-    $raw_explicit = get_post_meta($post->ID, 'cz_service_inclusions', true) ?: array();
-    $inclusions   = array();
+    $raw_explicit   = get_post_meta($post->ID, 'cz_service_inclusions', true) ?: array();
+    $inclusions     = array();
+    $tier_overrides = array('basic' => array(), 'standard' => array(), 'premium' => array(), 'enterprise' => array());
 
     if (!empty($raw_explicit) && is_array($raw_explicit)) {
-        $tier_overrides = array('basic' => array(), 'standard' => array(), 'premium' => array(), 'enterprise' => array());
-        foreach ($raw_explicit as $item) {
-            if (!is_array($item)) continue;
-            $inc_id    = trim($item['id'] ?? '');
-            $inc_label = trim($item['label'] ?? '');
-            if ($inc_id === '' || $inc_label === '') continue;
-            $inc          = array('id' => $inc_id, 'label' => $inc_label);
-            $inclusions[] = $inc;
-            $inc_tiers = isset($item['tiers']) && is_array($item['tiers']) ? $item['tiers'] : array_keys($tier_overrides);
-            foreach ($inc_tiers as $t) {
-                if (isset($tier_overrides[$t])) {
-                    $tier_overrides[$t][] = $inc;
+        // Normalized format: {inclusions: [{id, label}], tier_inclusions: {tierId: [id,...]}}
+        if (isset($raw_explicit['inclusions']) && is_array($raw_explicit['inclusions'])) {
+            $lookup = array();
+            foreach ($raw_explicit['inclusions'] as $item) {
+                if (!is_array($item)) continue;
+                $inc_id    = trim($item['id'] ?? '');
+                $inc_label = trim($item['label'] ?? '');
+                if ($inc_id === '' || $inc_label === '') continue;
+                $inc             = array('id' => $inc_id, 'label' => $inc_label);
+                $lookup[$inc_id] = $inc;
+                $inclusions[]    = $inc;
+            }
+            $tier_map = isset($raw_explicit['tier_inclusions']) && is_array($raw_explicit['tier_inclusions'])
+                ? $raw_explicit['tier_inclusions']
+                : array();
+            foreach (array_keys($tier_overrides) as $t) {
+                foreach ($tier_map[$t] ?? array() as $id) {
+                    if (isset($lookup[$id])) {
+                        $tier_overrides[$t][] = $lookup[$id];
+                    }
+                }
+            }
+        } else {
+            // Legacy format: [{id, label, tiers?: [...]}, ...]
+            foreach ($raw_explicit as $item) {
+                if (!is_array($item)) continue;
+                $inc_id    = trim($item['id'] ?? '');
+                $inc_label = trim($item['label'] ?? '');
+                if ($inc_id === '' || $inc_label === '') continue;
+                $inc          = array('id' => $inc_id, 'label' => $inc_label);
+                $inclusions[] = $inc;
+                $inc_tiers    = isset($item['tiers']) && is_array($item['tiers'])
+                    ? $item['tiers']
+                    : array_keys($tier_overrides);
+                foreach ($inc_tiers as $t) {
+                    if (isset($tier_overrides[$t])) {
+                        $tier_overrides[$t][] = $inc;
+                    }
                 }
             }
         }
+
         foreach ($tier_overrides as $tier_id => $tier_incs) {
             if (isset($pricing['tiers'][$tier_id])) {
                 $pricing['tiers'][$tier_id]['inclusions'] = $tier_incs;
             }
         }
     } else {
+        // Derive from normalized tier inclusions (fallback)
         $seen_ids = array();
         foreach (array('basic', 'standard', 'premium', 'enterprise') as $k) {
             foreach ($pricing['tiers'][$k]['inclusions'] as $inc) {

@@ -164,15 +164,24 @@ class PricingBuilder
 
     /**
      * Resolve explicit inclusions from cz_service_inclusions meta.
-     * Pool format: [{id, label, tiers?: ['basic','standard',...]}]
+     *
+     * Supports two formats:
+     *   Normalized: {inclusions: [{id, label}], tier_inclusions: {basic: [id,...], ...}}
+     *   Legacy:     [{id, label, tiers?: ['basic','standard',...]}]
+     *
      * Returns [$servicePool, $perTierMap].
      */
-    private function resolveExplicitInclusions(array $pool): array
+    private function resolveExplicitInclusions(array $raw): array
     {
+        if (isset($raw['inclusions']) && is_array($raw['inclusions'])) {
+            return $this->resolveNormalizedInclusions($raw);
+        }
+
+        // Legacy format: per-inclusion tiers[] array
         $servicePool    = [];
         $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []];
 
-        foreach ($pool as $item) {
+        foreach ($raw as $item) {
             if (!is_array($item)) {
                 continue;
             }
@@ -182,7 +191,7 @@ class PricingBuilder
                 continue;
             }
 
-            $inc          = ['id' => $id, 'label' => $label];
+            $inc           = ['id' => $id, 'label' => $label];
             $servicePool[] = $inc;
 
             $assignedTiers = isset($item['tiers']) && is_array($item['tiers'])
@@ -192,6 +201,45 @@ class PricingBuilder
             foreach ($assignedTiers as $tierId) {
                 if (isset($tierInclusions[$tierId])) {
                     $tierInclusions[$tierId][] = $inc;
+                }
+            }
+        }
+
+        return [$servicePool, $tierInclusions];
+    }
+
+    /**
+     * Resolve normalized format: {inclusions: [{id, label}], tier_inclusions: {tierId: [id,...]}}
+     * Returns [$servicePool, $perTierMap].
+     */
+    private function resolveNormalizedInclusions(array $raw): array
+    {
+        $lookup      = [];
+        $servicePool = [];
+
+        foreach ($raw['inclusions'] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $id    = trim($item['id'] ?? '');
+            $label = trim($item['label'] ?? '');
+            if ($id === '' || $label === '') {
+                continue;
+            }
+            $inc           = ['id' => $id, 'label' => $label];
+            $lookup[$id]   = $inc;
+            $servicePool[] = $inc;
+        }
+
+        $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []];
+        $tierMap        = isset($raw['tier_inclusions']) && is_array($raw['tier_inclusions'])
+            ? $raw['tier_inclusions']
+            : [];
+
+        foreach (array_keys($tierInclusions) as $tierId) {
+            foreach ($tierMap[$tierId] ?? [] as $id) {
+                if (isset($lookup[$id])) {
+                    $tierInclusions[$tierId][] = $lookup[$id];
                 }
             }
         }

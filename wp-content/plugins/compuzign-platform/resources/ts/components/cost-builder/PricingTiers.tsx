@@ -38,6 +38,9 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
           const isPopular = tier.id === popularTier;
           const isSelected = tier.id === selectedTierId;
           const isHoveringSelected = isSelected && hoveredTierId === tier.id;
+          const displayList = data?.inclusions?.length
+            ? data.inclusions.map((inc) => inc.label)
+            : (data?.features ?? []);
 
           return (
             <div
@@ -62,10 +65,10 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
                   <span class="cz-cost-builder__tier-cycle">{suffix}</span>
                 )}
               </div>
-              {data?.features && data.features.length > 0 && (
+              {displayList.length > 0 && (
                 <ul class="cz-cost-builder__tier-features">
-                  {data.features.map((f, i) => (
-                    <li key={i}>{f}</li>
+                  {displayList.map((label, i) => (
+                    <li key={i}>{label}</li>
                   ))}
                 </ul>
               )}

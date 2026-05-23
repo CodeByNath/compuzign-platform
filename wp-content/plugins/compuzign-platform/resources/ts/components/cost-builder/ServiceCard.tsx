@@ -20,15 +20,18 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
       return;
     }
     const tier = tiers.find((t) => t.id === tierId);
+    const tierData = pricing.tiers[tierId];
     onAddToQuote({
       serviceId: service.id,
       serviceTitle: service.title,
       tierId,
       tierTitle: tier?.title ?? tierId,
-      price: pricing.tiers[tierId]?.price ?? null,
+      price: tierData?.price ?? null,
       billingCycle: meta.billing_cycle,
       categoryName: service.categories[0]?.name ?? '',
-      features: pricing.tiers[tierId]?.features ?? [],
+      features: tierData?.inclusions?.length
+        ? tierData.inclusions.map((inc) => inc.label)
+        : (tierData?.features ?? []),
     });
   };
 
