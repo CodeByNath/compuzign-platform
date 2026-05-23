@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'wp-content/plugins/compuzign-platform/**'
+      - 'wp-content/themes/compuzign-theme/**'
+      - 'wp-content/themes/compuzign-shell/**'
+      - '.github/workflows/deploy.yml'
 
 jobs:
   deploy:
