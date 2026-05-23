@@ -19,6 +19,7 @@ class HomepageModule
         add_shortcode('compuzign_assessment',        [$this, 'renderAssessment']);
         add_shortcode('compuzign_support_bar',       [$this, 'renderSupportBar']);
         add_shortcode('compuzign_cta_band',          [$this, 'renderCtaBand']);
+        add_shortcode('compuzign_configurator',      [$this, 'renderConfigurator']);
     }
 
     public function renderHero(): string
@@ -97,6 +98,12 @@ class HomepageModule
     {
         $this->enqueueAssets();
         return $this->renderTemplate('cta-band');
+    }
+
+    public function renderConfigurator(): string
+    {
+        $this->enqueueAssets();
+        return $this->renderTemplate('configurator');
     }
 
     private function enqueueAssets(): void

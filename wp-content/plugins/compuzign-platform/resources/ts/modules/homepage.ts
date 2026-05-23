@@ -13,6 +13,7 @@ import { IndustriesGrid } from '@/components/homepage/IndustriesGrid';
 import { CaseStudies } from '@/components/homepage/CaseStudies';
 import { AssessmentForm } from '@/components/homepage/AssessmentForm';
 import { SupportBar } from '@/components/homepage/SupportBar';
+import { HomeConfigurator } from '@/components/homepage/HomeConfigurator';
 
 registry.register({
   id: 'hero',
@@ -90,4 +91,10 @@ registry.register({
   id: 'cta-band',
   component: CtaBand,
   conditions: [{ type: 'shortcode', mountId: 'compuzign-cta-band' }],
+});
+
+registry.register({
+  id: 'configurator',
+  component: HomeConfigurator,
+  conditions: [{ type: 'shortcode', mountId: 'compuzign-configurator' }],
 });
