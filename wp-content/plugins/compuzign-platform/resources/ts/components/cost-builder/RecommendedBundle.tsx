@@ -1,4 +1,4 @@
-import { formatPrice } from '@/utils/format';
+import { formatPrice, formatCycleLabel } from '@/utils/format';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { QuoteItem } from './types';
 
@@ -27,6 +27,8 @@ export function RecommendedBundle({ service, isInQuote, onAdd, onRemove }: Recom
         tierTitle: 'Bundle',
         price: bundle.price,
         billingCycle: service.meta.billing_cycle,
+        categoryName: service.categories[0]?.name ?? '',
+        features: [],
       });
     }
   };
@@ -45,7 +47,11 @@ export function RecommendedBundle({ service, isInQuote, onAdd, onRemove }: Recom
           {bundle.price !== null && (
             <span class="cz-cost-builder__bundle-price">
               {formatPrice(bundle.price)}
-              <span class="cz-cost-builder__bundle-cycle"> / mo</span>
+              {formatCycleLabel(service.meta.billing_cycle) && (
+                <span class="cz-cost-builder__bundle-cycle">
+                  {' '}{formatCycleLabel(service.meta.billing_cycle)}
+                </span>
+              )}
             </span>
           )}
           <button

@@ -1,3 +1,7 @@
+// TEMPORARY: Tier and feature data are statically defined here pending a compare-plans API.
+// Long-term: TIERS should derive from the cost-builder tiers payload; FEATURES should derive
+// from tier-level feature inclusions grouped by service category (ComparePlansBuilder →
+// GET /compuzign/v1/compare-plans). The popular column should reflect popular_tier from the API.
 const TIERS = ['Basic', 'Standard', 'Premium', 'Enterprise'] as const;
 
 const FEATURES: Array<{

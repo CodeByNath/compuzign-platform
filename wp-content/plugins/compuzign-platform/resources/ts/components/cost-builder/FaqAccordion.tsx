@@ -1,5 +1,8 @@
 import { useState } from 'preact/hooks';
 
+// TEMPORARY: FAQ content is statically defined here pending a service-owned data layer.
+// Long-term: FAQs belong to cz_service post meta, shaped by PricingBuilder, and delivered
+// via the cost-builder API endpoint. This component should consume props, not own content.
 const FAQ = [
   {
     q: 'What is included in Managed IT Services?',

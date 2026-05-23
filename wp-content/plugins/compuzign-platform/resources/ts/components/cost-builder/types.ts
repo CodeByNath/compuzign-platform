@@ -10,4 +10,6 @@ export interface QuoteItem {
   tierTitle: string;
   price: number | null;
   billingCycle: string;
+  categoryName: string;
+  features: string[];
 }

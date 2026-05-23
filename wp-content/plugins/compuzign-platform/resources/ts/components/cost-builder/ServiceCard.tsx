@@ -28,6 +28,8 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
       tierTitle: tier?.title ?? tierId,
       price: pricing.tiers[tierId]?.price ?? null,
       billingCycle: meta.billing_cycle,
+      categoryName: service.categories[0]?.name ?? '',
+      features: pricing.tiers[tierId]?.features ?? [],
     });
   };
 

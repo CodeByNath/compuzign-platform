@@ -1,6 +1,6 @@
 import { useRef } from 'preact/hooks';
 import { Badge } from '@/components/ui/Badge';
-import { formatPrice } from '@/utils/format';
+import { formatPrice, formatCycleLabel } from '@/utils/format';
 import type { Tier, ServicePricing, TierId } from '@/api/types/cost-builder';
 import type { QuoteItemTierId } from './types';
 
@@ -13,15 +13,8 @@ interface PricingTiersProps {
   onSelect: (tierId: TierId) => void;
 }
 
-const cycleLabel: Record<string, string> = {
-  monthly:    '/ mo',
-  annual:     '/ yr',
-  quarterly:  '/ qtr',
-  'one-time': '',
-};
-
 export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, billingCycle, onSelect }: PricingTiersProps) {
-  const suffix = cycleLabel[billingCycle] ?? '';
+  const suffix = formatCycleLabel(billingCycle);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: 1 | -1) => {

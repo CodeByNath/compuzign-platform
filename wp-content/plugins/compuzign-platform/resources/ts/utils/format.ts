@@ -11,3 +11,14 @@ export function formatPrice(price: number | null | undefined): string {
 export function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+const CYCLE_LABELS: Record<string, string> = {
+  monthly:    '/ mo',
+  annual:     '/ yr',
+  quarterly:  '/ qtr',
+  'one-time': '',
+};
+
+export function formatCycleLabel(billingCycle: string): string {
+  return CYCLE_LABELS[billingCycle] ?? '';
+}
