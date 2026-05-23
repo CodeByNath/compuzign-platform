@@ -23,6 +23,14 @@ class CostBuilderModule
             require_once $importerFile;
         }
 
+        // Load all logic files (seed scripts, one-time data ops)
+        $logicDir = COMPUZIGN_COST_BUILDER_PATH . 'logic';
+        if (is_dir($logicDir)) {
+            foreach (glob(trailingslashit($logicDir) . '*.php') as $logicFile) {
+                require_once $logicFile;
+            }
+        }
+
         $repository = new ServiceRepository();
         $builder    = new PricingBuilder($repository);
         $importer   = new CatalogImporter();
