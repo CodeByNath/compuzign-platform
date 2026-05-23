@@ -34,7 +34,7 @@ class AssetLoader
             'apiRoot'        => esc_url_raw(rest_url('compuzign/v1/')),
             'nonce'          => wp_create_nonce('wp_rest'),
             'contactUrl'     => esc_url(apply_filters('compuzign_contact_url', home_url('/contact/'))),
-            'costBuilderUrl' => esc_url(apply_filters('compuzign_cost_builder_url', home_url('/services/'))),
+            'costBuilderUrl' => esc_url(apply_filters('compuzign_cost_builder_url', home_url('/pricing/'))),
         ]);
 
         wp_add_inline_script('compuzign-config', 'window.CompuZignConfig = ' . $config . ';');
