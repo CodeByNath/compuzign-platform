@@ -7,9 +7,29 @@ if (!defined('ABSPATH')) {
 error_log('[CZ Seed] seed-managed-endpoint-protection.php loaded');
 
 /**
+ * Returns true only when basic/standard/premium prices match canonical values.
+ * A row that exists but has all-null prices is treated as incorrect.
+ */
+function compuzign_seed_mep_pricing_correct($raw): bool
+{
+    if (!is_array($raw)) {
+        return false;
+    }
+    $tiers    = isset($raw['tiers']) && is_array($raw['tiers']) ? $raw['tiers'] : $raw;
+    $expected = array('basic' => 15.0, 'standard' => 45.0, 'premium' => 89.0);
+    foreach ($expected as $tier => $price) {
+        $stored = isset($tiers[$tier]['price']) ? (float) $tiers[$tier]['price'] : null;
+        if ($stored !== $price) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * One-time seed for Managed Endpoint Protection relational ecosystem data.
  * Stores canonical pricing, inclusions (pool + tier assignment), and FAQs on the service post.
- * Idempotent and repairable: seeds only the meta keys that are missing.
+ * Idempotent and repairable: seeds only the meta keys that are missing or incorrect.
  * Priority 20 ensures cz_service post type is registered before we query.
  */
 function compuzign_seed_managed_endpoint_protection(): void
@@ -25,19 +45,21 @@ function compuzign_seed_managed_endpoint_protection(): void
     error_log('[CZ Seed] post found ID=' . $post->ID);
 
     $hasInclusions = !empty(get_post_meta($post->ID, 'cz_service_inclusions', true));
-    $hasPricing    = !empty(get_post_meta($post->ID, 'cz_service_pricing', true));
+    $hasPricing    = compuzign_seed_mep_pricing_correct(get_post_meta($post->ID, 'cz_service_pricing', true));
     $hasFaqs       = !empty(get_post_meta($post->ID, 'cz_service_faqs', true));
+
+    error_log('[CZ Seed] state — inclusions=' . ($hasInclusions ? 'ok' : 'missing') . ' pricing=' . ($hasPricing ? 'ok' : 'missing/incorrect') . ' faqs=' . ($hasFaqs ? 'ok' : 'missing'));
 
     if ($hasInclusions && $hasPricing && $hasFaqs) {
         if (!get_option('cz_seed_mep_done')) {
             update_option('cz_seed_mep_done', true);
         }
-        error_log('[CZ Seed] all meta present — skipping');
+        error_log('[CZ Seed] all meta correct — skipping');
         return;
     }
 
     if (get_option('cz_seed_mep_done')) {
-        error_log('[CZ Seed] option set but meta incomplete — repairing');
+        error_log('[CZ Seed] option set but meta missing or incorrect — repairing');
     }
 
     // Seed pricing: basic $15/mo, standard $45/mo, premium $89/mo, enterprise contact
