@@ -126,16 +126,31 @@ function compuzign_cost_builder_get_service_payload($post): array
         }
     }
 
+    // Compute service availability: needs a non-empty inclusions pool and at least one tier with inclusions
+    $has_tier_inclusions = false;
+    foreach (array('basic', 'standard', 'premium', 'enterprise') as $t) {
+        if (!empty($pricing['tiers'][$t]['inclusions'])) {
+            $has_tier_inclusions = true;
+            break;
+        }
+    }
+    $is_available = !empty($inclusions) && $has_tier_inclusions;
+    $availability = array(
+        'is_available' => $is_available,
+        'message'      => $is_available ? '' : 'Currently this service is not available.',
+    );
+
     return array(
-        'id'         => (int) $post->ID,
-        'title'      => $post->post_title,
-        'slug'       => $post->post_name,
-        'excerpt'    => $post->post_excerpt,
-        'content'    => $post->post_content,
-        'categories' => $categories,
-        'inclusions' => $inclusions,
-        'faqs'       => $faqs,
-        'meta'       => array(
+        'id'           => (int) $post->ID,
+        'title'        => $post->post_title,
+        'slug'         => $post->post_name,
+        'excerpt'      => $post->post_excerpt,
+        'content'      => $post->post_content,
+        'categories'   => $categories,
+        'inclusions'   => $inclusions,
+        'faqs'         => $faqs,
+        'availability' => $availability,
+        'meta'         => array(
             'short_description' => $meta['short_description'] ?? '',
             'long_description'  => $meta['long_description'] ?? '',
             'billing_cycle'     => $meta['billing_cycle'] ?? 'monthly',

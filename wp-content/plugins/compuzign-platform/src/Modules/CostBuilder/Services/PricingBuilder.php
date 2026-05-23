@@ -105,16 +105,33 @@ class PricingBuilder
             $inclusions = $this->collectInclusions($pricing['tiers']);
         }
 
+        $faqs = $this->normalizeFaqs($this->repository->getFaqs($post->ID));
+
+        // Compute service availability: needs inclusions pool and at least one tier with inclusions
+        $hasTierInclusions = false;
+        foreach (['basic', 'standard', 'premium', 'enterprise'] as $tierId) {
+            if (!empty($pricing['tiers'][$tierId]['inclusions'])) {
+                $hasTierInclusions = true;
+                break;
+            }
+        }
+        $isAvailable  = !empty($inclusions) && $hasTierInclusions;
+        $availability = [
+            'is_available' => $isAvailable,
+            'message'      => $isAvailable ? '' : 'Currently this service is not available.',
+        ];
+
         return [
-            'id'         => (int) $post->ID,
-            'title'      => $post->post_title,
-            'slug'       => $post->post_name,
-            'excerpt'    => $post->post_excerpt,
-            'content'    => $post->post_content,
-            'categories' => $categories,
-            'inclusions' => $inclusions,
-            'faqs'       => $this->normalizeFaqs($this->repository->getFaqs($post->ID)),
-            'meta'       => [
+            'id'           => (int) $post->ID,
+            'title'        => $post->post_title,
+            'slug'         => $post->post_name,
+            'excerpt'      => $post->post_excerpt,
+            'content'      => $post->post_content,
+            'categories'   => $categories,
+            'inclusions'   => $inclusions,
+            'faqs'         => $faqs,
+            'availability' => $availability,
+            'meta'         => [
                 'short_description' => $meta['short_description'] ?? '',
                 'long_description'  => $meta['long_description'] ?? '',
                 'billing_cycle'     => $meta['billing_cycle'] ?? 'monthly',

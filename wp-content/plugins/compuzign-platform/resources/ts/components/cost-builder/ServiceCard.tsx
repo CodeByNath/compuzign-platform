@@ -12,7 +12,25 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRemoveFromQuote }: ServiceCardProps) {
-  const { meta, pricing } = service;
+  const { meta, pricing, availability } = service;
+
+  if (!availability.is_available) {
+    return (
+      <Card class="cz-cost-builder__card cz-cost-builder__card--unavailable">
+        <div class="cz-cost-builder__card-header">
+          <div class="cz-cost-builder__card-meta">
+            {service.categories[0] && (
+              <span class="cz-cost-builder__card-eyebrow">{service.categories[0].name}</span>
+            )}
+            <h3 class="cz-heading-sm">{service.title}</h3>
+          </div>
+        </div>
+        <p class="cz-copy cz-cost-builder__unavailable-message">
+          {availability.message || 'This service is not currently available.'}
+        </p>
+      </Card>
+    );
+  }
 
   const handleSelect = (tierId: TierId) => {
     if (selectedTierId === tierId) {

@@ -50,6 +50,11 @@ export interface ServicePricing {
   };
 }
 
+export interface ServiceAvailability {
+  is_available: boolean;
+  message: string;
+}
+
 export interface ServiceItem {
   id: number;
   title: string;
@@ -59,6 +64,7 @@ export interface ServiceItem {
   categories: Category[];
   inclusions: ServiceInclusion[];
   faqs: ServiceFaq[];
+  availability: ServiceAvailability;
   meta: ServiceMeta;
   pricing: ServicePricing;
 }

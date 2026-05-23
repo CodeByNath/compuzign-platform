@@ -126,6 +126,17 @@
   box-shadow: 0 0 0 1px var(--cz-color-accent);
 }
 
+.cz-cost-builder__card--unavailable {
+  opacity: 0.6;
+}
+
+.cz-cost-builder__unavailable-message {
+  margin: 0;
+  font-size: var(--cz-font-size-sm);
+  color: var(--cz-color-muted, #888);
+  font-style: italic;
+}
+
 /* Card header: min-width: 0 as flex child; heading inside must also be 0 to allow wrapping */
 .cz-cost-builder__card-header {
   display: flex;
