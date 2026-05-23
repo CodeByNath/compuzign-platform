@@ -128,8 +128,8 @@ export function CostBuilderApp() {
           )}
         </aside>
       </div>
-      <ComparePlans />
-      <FaqAccordion />
+      <ComparePlans service={activeService} tiers={data.tiers} />
+      <FaqAccordion faqs={activeService?.faqs ?? []} />
       <MobileQuoteBar items={quoteItems} summaryId={QUOTE_SUMMARY_ID} />
       <PdfModal
         isOpen={isPdfModalOpen}
