@@ -82,9 +82,10 @@ class PricingBuilder
 
     public function buildServicePayload(\WP_Post $post): array
     {
-        $meta    = $this->repository->getMeta($post->ID);
-        $pricing = $this->normalizePricing($this->repository->getPricing($post->ID));
-        $terms   = $this->repository->getCategories($post->ID);
+        $meta         = $this->repository->getMeta($post->ID);
+        $billingCycle = $meta['billing_cycle'] ?? 'monthly';
+        $pricing      = $this->normalizePricing($this->repository->getPricing($post->ID), $billingCycle);
+        $terms        = $this->repository->getCategories($post->ID);
 
         $categories = array_map(fn($t) => [
             'id'   => (int) $t->term_id,
@@ -99,6 +100,8 @@ class PricingBuilder
             'excerpt'    => $post->post_excerpt,
             'content'    => $post->post_content,
             'categories' => $categories,
+            'inclusions' => $this->collectInclusions($pricing['tiers']),
+            'faqs'       => [],
             'meta'       => [
                 'short_description' => $meta['short_description'] ?? '',
                 'long_description'  => $meta['long_description'] ?? '',
@@ -114,16 +117,20 @@ class PricingBuilder
         ];
     }
 
-    public function normalizePricing(array $pricing): array
+    public function normalizePricing(array $pricing, string $billingCycle = 'monthly'): array
     {
         $inTiers  = $pricing['tiers'] ?? $pricing;
         $outTiers = [];
 
         foreach (['basic', 'standard', 'premium', 'enterprise'] as $k) {
-            $src        = $inTiers[$k] ?? [];
+            $src      = $inTiers[$k] ?? [];
+            $features = isset($src['features']) && is_array($src['features']) ? array_values($src['features']) : [];
+
             $outTiers[$k] = [
-                'price'    => PriceParser::parse($src['price'] ?? null),
-                'features' => isset($src['features']) && is_array($src['features']) ? array_values($src['features']) : [],
+                'price'         => PriceParser::parse($src['price'] ?? null),
+                'billing_cycle' => $billingCycle,
+                'inclusions'    => array_map(fn($f) => ['id' => sanitize_title($f), 'label' => $f], $features),
+                'features'      => $features,
             ];
         }
 
@@ -137,5 +144,20 @@ class PricingBuilder
                 'price'       => PriceParser::parse($bundleSrc['price'] ?? null),
             ],
         ];
+    }
+
+    private function collectInclusions(array $tiers): array
+    {
+        $seen   = [];
+        $result = [];
+        foreach ($tiers as $tierData) {
+            foreach ($tierData['inclusions'] as $inc) {
+                if (!isset($seen[$inc['id']])) {
+                    $seen[$inc['id']] = true;
+                    $result[]         = $inc;
+                }
+            }
+        }
+        return $result;
     }
 }

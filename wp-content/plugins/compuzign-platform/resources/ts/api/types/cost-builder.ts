@@ -11,6 +11,17 @@ export interface Tier {
   title: string;
 }
 
+export interface ServiceInclusion {
+  id: string;
+  label: string;
+}
+
+export interface ServiceFaq {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export interface ServiceMeta {
   short_description: string;
   long_description: string;
@@ -25,7 +36,9 @@ export interface ServiceMeta {
 
 export interface PricingTierData {
   price: number | null;
-  features: string[];
+  billing_cycle: string;
+  inclusions: ServiceInclusion[];
+  features: string[]; // transitional compatibility — prefer inclusions
 }
 
 export interface ServicePricing {
@@ -44,6 +57,8 @@ export interface ServiceItem {
   excerpt: string;
   content: string;
   categories: Category[];
+  inclusions: ServiceInclusion[];
+  faqs: ServiceFaq[];
   meta: ServiceMeta;
   pricing: ServicePricing;
 }

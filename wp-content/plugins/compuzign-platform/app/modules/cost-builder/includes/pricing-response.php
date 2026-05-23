@@ -28,8 +28,10 @@ function compuzign_cost_builder_get_service_payload($post): array
         $pricing = get_post_meta($post->ID, 'cz_service_pricing', true) ?: array();
     }
 
+    $billing_cycle = $meta['billing_cycle'] ?? 'monthly';
+
     // Normalize pricing to ensure expected shape (never return empty array)
-    $pricing = compuzign_cost_builder_normalize_pricing($pricing);
+    $pricing = compuzign_cost_builder_normalize_pricing($pricing, $billing_cycle);
 
     $terms = wp_get_post_terms($post->ID, 'cz_service_category', array('fields' => 'all')) ?: array();
     $categories = array();
@@ -41,23 +43,37 @@ function compuzign_cost_builder_get_service_payload($post): array
         );
     }
 
+    // Derive service-level inclusions: deduped union across all tier inclusions
+    $inclusions = array();
+    $seen_ids   = array();
+    foreach (array('basic', 'standard', 'premium', 'enterprise') as $k) {
+        foreach ($pricing['tiers'][$k]['inclusions'] as $inc) {
+            if (!in_array($inc['id'], $seen_ids, true)) {
+                $seen_ids[]   = $inc['id'];
+                $inclusions[] = $inc;
+            }
+        }
+    }
+
     return array(
-        'id' => (int) $post->ID,
-        'title' => $post->post_title,
-        'slug' => $post->post_name,
-        'excerpt' => $post->post_excerpt,
-        'content' => $post->post_content,
+        'id'         => (int) $post->ID,
+        'title'      => $post->post_title,
+        'slug'       => $post->post_name,
+        'excerpt'    => $post->post_excerpt,
+        'content'    => $post->post_content,
         'categories' => $categories,
-        'meta' => array(
+        'inclusions' => $inclusions,
+        'faqs'       => array(),
+        'meta'       => array(
             'short_description' => $meta['short_description'] ?? '',
-            'long_description' => $meta['long_description'] ?? '',
-            'billing_cycle' => $meta['billing_cycle'] ?? 'monthly',
-            'sla' => $meta['sla'] ?? '',
-            'uptime' => $meta['uptime'] ?? '',
-            'notes' => $meta['notes'] ?? '',
-            'popular_tier' => $meta['popular_tier'] ?? null,
-            'sort_order' => isset($meta['sort_order']) ? (int) $meta['sort_order'] : 0,
-            'is_active' => isset($meta['is_active']) ? (bool) $meta['is_active'] : true,
+            'long_description'  => $meta['long_description'] ?? '',
+            'billing_cycle'     => $meta['billing_cycle'] ?? 'monthly',
+            'sla'               => $meta['sla'] ?? '',
+            'uptime'            => $meta['uptime'] ?? '',
+            'notes'             => $meta['notes'] ?? '',
+            'popular_tier'      => $meta['popular_tier'] ?? null,
+            'sort_order'        => isset($meta['sort_order']) ? (int) $meta['sort_order'] : 0,
+            'is_active'         => isset($meta['is_active']) ? (bool) $meta['is_active'] : true,
         ),
         'pricing' => $pricing,
     );
@@ -69,9 +85,9 @@ function compuzign_cost_builder_get_service_payload($post): array
  * @param mixed $pricing
  * @return array
  */
-function compuzign_cost_builder_normalize_pricing($pricing): array
+function compuzign_cost_builder_normalize_pricing($pricing, string $billing_cycle = 'monthly'): array
 {
-    $default_tier = array('price' => null, 'features' => array());
+    $default_tier = array('price' => null, 'billing_cycle' => $billing_cycle, 'inclusions' => array(), 'features' => array());
 
     $tiers = array(
         'basic' => $default_tier,
@@ -91,10 +107,21 @@ function compuzign_cost_builder_normalize_pricing($pricing): array
 
     $out_tiers = array();
     foreach (array('basic', 'standard', 'premium', 'enterprise') as $k) {
-        $src = $in_tiers[$k] ?? array();
-        $price = isset($src['price']) ? compuzign_cost_builder_parse_price($src['price']) : null;
+        $src      = $in_tiers[$k] ?? array();
+        $price    = isset($src['price']) ? compuzign_cost_builder_parse_price($src['price']) : null;
         $features = isset($src['features']) && is_array($src['features']) ? array_values($src['features']) : array();
-        $out_tiers[$k] = array('price' => $price, 'features' => $features);
+
+        $inclusions = array();
+        foreach ($features as $f) {
+            $inclusions[] = array('id' => sanitize_title($f), 'label' => $f);
+        }
+
+        $out_tiers[$k] = array(
+            'price'         => $price,
+            'billing_cycle' => $billing_cycle,
+            'inclusions'    => $inclusions,
+            'features'      => $features,
+        );
     }
 
     $bundle_src = $pricing['bundle'] ?? array();
