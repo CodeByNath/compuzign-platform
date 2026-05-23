@@ -64,6 +64,9 @@ function compuzign_seed_managed_endpoint_protection(): void
 
     // Seed pricing: basic $15/mo, standard $45/mo, premium $89/mo, enterprise contact
     if (!$hasPricing) {
+        $raw_before = get_post_meta($post->ID, 'cz_service_pricing', true);
+        error_log('[CZ Seed] cz_service_pricing BEFORE repair: ' . json_encode($raw_before));
+
         $pricing = array(
             'tiers' => array(
                 'basic'      => array('price' => 15,   'features' => array()),
@@ -73,8 +76,13 @@ function compuzign_seed_managed_endpoint_protection(): void
             ),
             'bundle' => array(),
         );
+        error_log('[CZ Seed] writing cz_service_pricing payload: ' . json_encode($pricing));
+
         $pricing_result = update_post_meta($post->ID, 'cz_service_pricing', $pricing);
         error_log('[CZ Seed] update_post_meta cz_service_pricing result=' . var_export($pricing_result, true));
+
+        $raw_after = get_post_meta($post->ID, 'cz_service_pricing', true);
+        error_log('[CZ Seed] cz_service_pricing AFTER repair: ' . json_encode($raw_after));
     }
 
     // Canonical inclusions pool + per-tier assignment map

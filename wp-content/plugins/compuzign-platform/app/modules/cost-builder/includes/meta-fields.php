@@ -124,11 +124,19 @@ function compuzign_cost_builder_get_service_meta($post_id): array
 
 function compuzign_cost_builder_get_service_pricing($post_id): array
 {
-    if (is_numeric($post_id)) {
+    // Accept WP_Post objects — pricing-response.php passes the full post, not just the ID
+    if ($post_id instanceof WP_Post) {
+        error_log('[CZ Meta] get_service_pricing: received WP_Post, extracting ID=' . $post_id->ID);
+        $post_id = $post_id->ID;
+    } elseif (is_numeric($post_id)) {
         $post_id = (int) $post_id;
+    } else {
+        error_log('[CZ Meta] get_service_pricing: unexpected type=' . gettype($post_id) . ' — returning empty');
+        return compuzign_cost_builder_normalize_service_pricing(array());
     }
 
     $pricing = get_post_meta($post_id, 'cz_service_pricing', true) ?: array();
+    error_log('[CZ Meta] get_service_pricing: post_id=' . $post_id . ' raw=' . json_encode($pricing));
 
     return compuzign_cost_builder_normalize_service_pricing($pricing);
 }
