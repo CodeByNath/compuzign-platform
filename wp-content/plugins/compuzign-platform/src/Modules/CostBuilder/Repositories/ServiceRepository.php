@@ -43,4 +43,14 @@ class ServiceRepository
         $term = get_term_by('slug', $slug, self::CATEGORY_TAXONOMY);
         return ($term && !is_wp_error($term)) ? $term : null;
     }
+
+    public function getInclusions(int $postId): array
+    {
+        return get_post_meta($postId, 'cz_service_inclusions', true) ?: [];
+    }
+
+    public function getFaqs(int $postId): array
+    {
+        return get_post_meta($postId, 'cz_service_faqs', true) ?: [];
+    }
 }

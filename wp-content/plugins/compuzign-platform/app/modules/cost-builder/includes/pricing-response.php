@@ -43,15 +43,57 @@ function compuzign_cost_builder_get_service_payload($post): array
         );
     }
 
-    // Derive service-level inclusions: deduped union across all tier inclusions
-    $inclusions = array();
-    $seen_ids   = array();
-    foreach (array('basic', 'standard', 'premium', 'enterprise') as $k) {
-        foreach ($pricing['tiers'][$k]['inclusions'] as $inc) {
-            if (!in_array($inc['id'], $seen_ids, true)) {
-                $seen_ids[]   = $inc['id'];
-                $inclusions[] = $inc;
+    // Resolve inclusions: prefer explicit cz_service_inclusions meta, fall back to tier derivation
+    $raw_explicit = get_post_meta($post->ID, 'cz_service_inclusions', true) ?: array();
+    $inclusions   = array();
+
+    if (!empty($raw_explicit) && is_array($raw_explicit)) {
+        $tier_overrides = array('basic' => array(), 'standard' => array(), 'premium' => array(), 'enterprise' => array());
+        foreach ($raw_explicit as $item) {
+            if (!is_array($item)) continue;
+            $inc_id    = trim($item['id'] ?? '');
+            $inc_label = trim($item['label'] ?? '');
+            if ($inc_id === '' || $inc_label === '') continue;
+            $inc          = array('id' => $inc_id, 'label' => $inc_label);
+            $inclusions[] = $inc;
+            $inc_tiers = isset($item['tiers']) && is_array($item['tiers']) ? $item['tiers'] : array_keys($tier_overrides);
+            foreach ($inc_tiers as $t) {
+                if (isset($tier_overrides[$t])) {
+                    $tier_overrides[$t][] = $inc;
+                }
             }
+        }
+        foreach ($tier_overrides as $tier_id => $tier_incs) {
+            if (isset($pricing['tiers'][$tier_id])) {
+                $pricing['tiers'][$tier_id]['inclusions'] = $tier_incs;
+            }
+        }
+    } else {
+        $seen_ids = array();
+        foreach (array('basic', 'standard', 'premium', 'enterprise') as $k) {
+            foreach ($pricing['tiers'][$k]['inclusions'] as $inc) {
+                if ($inc['label'] !== '' && !in_array($inc['id'], $seen_ids, true)) {
+                    $seen_ids[]   = $inc['id'];
+                    $inclusions[] = $inc;
+                }
+            }
+        }
+    }
+
+    // Resolve FAQs from cz_service_faqs meta
+    $raw_faqs = get_post_meta($post->ID, 'cz_service_faqs', true) ?: array();
+    $faqs     = array();
+    if (is_array($raw_faqs)) {
+        foreach ($raw_faqs as $item) {
+            if (!is_array($item)) continue;
+            $question = trim($item['question'] ?? '');
+            $answer   = trim($item['answer'] ?? '');
+            if ($question === '') continue;
+            $faqs[] = array(
+                'id'       => (isset($item['id']) && $item['id'] !== '') ? (string) $item['id'] : sanitize_title($question),
+                'question' => $question,
+                'answer'   => $answer,
+            );
         }
     }
 
@@ -63,7 +105,7 @@ function compuzign_cost_builder_get_service_payload($post): array
         'content'    => $post->post_content,
         'categories' => $categories,
         'inclusions' => $inclusions,
-        'faqs'       => array(),
+        'faqs'       => $faqs,
         'meta'       => array(
             'short_description' => $meta['short_description'] ?? '',
             'long_description'  => $meta['long_description'] ?? '',
@@ -109,7 +151,10 @@ function compuzign_cost_builder_normalize_pricing($pricing, string $billing_cycl
     foreach (array('basic', 'standard', 'premium', 'enterprise') as $k) {
         $src      = $in_tiers[$k] ?? array();
         $price    = isset($src['price']) ? compuzign_cost_builder_parse_price($src['price']) : null;
-        $features = isset($src['features']) && is_array($src['features']) ? array_values($src['features']) : array();
+
+        // Filter empty/whitespace strings before deriving inclusions
+        $raw_features = isset($src['features']) && is_array($src['features']) ? $src['features'] : array();
+        $features     = array_values(array_filter(array_map('trim', $raw_features), function ($f) { return $f !== ''; }));
 
         $inclusions = array();
         foreach ($features as $f) {

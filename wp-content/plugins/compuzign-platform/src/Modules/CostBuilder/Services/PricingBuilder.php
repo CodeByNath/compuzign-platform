@@ -93,6 +93,18 @@ class PricingBuilder
             'slug' => $t->slug,
         ], $terms);
 
+        $rawExplicit = $this->repository->getInclusions($post->ID);
+        if (!empty($rawExplicit)) {
+            [$inclusions, $tierInclusions] = $this->resolveExplicitInclusions($rawExplicit);
+            foreach ($tierInclusions as $tierId => $tierIncs) {
+                if (isset($pricing['tiers'][$tierId])) {
+                    $pricing['tiers'][$tierId]['inclusions'] = $tierIncs;
+                }
+            }
+        } else {
+            $inclusions = $this->collectInclusions($pricing['tiers']);
+        }
+
         return [
             'id'         => (int) $post->ID,
             'title'      => $post->post_title,
@@ -100,8 +112,8 @@ class PricingBuilder
             'excerpt'    => $post->post_excerpt,
             'content'    => $post->post_content,
             'categories' => $categories,
-            'inclusions' => $this->collectInclusions($pricing['tiers']),
-            'faqs'       => [],
+            'inclusions' => $inclusions,
+            'faqs'       => $this->normalizeFaqs($this->repository->getFaqs($post->ID)),
             'meta'       => [
                 'short_description' => $meta['short_description'] ?? '',
                 'long_description'  => $meta['long_description'] ?? '',
@@ -123,8 +135,12 @@ class PricingBuilder
         $outTiers = [];
 
         foreach (['basic', 'standard', 'premium', 'enterprise'] as $k) {
-            $src      = $inTiers[$k] ?? [];
-            $features = isset($src['features']) && is_array($src['features']) ? array_values($src['features']) : [];
+            $src = $inTiers[$k] ?? [];
+
+            // Filter empty/whitespace strings before deriving inclusions
+            $features = isset($src['features']) && is_array($src['features'])
+                ? array_values(array_filter(array_map('trim', $src['features']), fn($f) => $f !== ''))
+                : [];
 
             $outTiers[$k] = [
                 'price'         => PriceParser::parse($src['price'] ?? null),
@@ -146,17 +162,75 @@ class PricingBuilder
         ];
     }
 
+    /**
+     * Resolve explicit inclusions from cz_service_inclusions meta.
+     * Pool format: [{id, label, tiers?: ['basic','standard',...]}]
+     * Returns [$servicePool, $perTierMap].
+     */
+    private function resolveExplicitInclusions(array $pool): array
+    {
+        $servicePool    = [];
+        $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []];
+
+        foreach ($pool as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $id    = trim($item['id'] ?? '');
+            $label = trim($item['label'] ?? '');
+            if ($id === '' || $label === '') {
+                continue;
+            }
+
+            $inc          = ['id' => $id, 'label' => $label];
+            $servicePool[] = $inc;
+
+            $assignedTiers = isset($item['tiers']) && is_array($item['tiers'])
+                ? $item['tiers']
+                : array_keys($tierInclusions);
+
+            foreach ($assignedTiers as $tierId) {
+                if (isset($tierInclusions[$tierId])) {
+                    $tierInclusions[$tierId][] = $inc;
+                }
+            }
+        }
+
+        return [$servicePool, $tierInclusions];
+    }
+
     private function collectInclusions(array $tiers): array
     {
         $seen   = [];
         $result = [];
         foreach ($tiers as $tierData) {
             foreach ($tierData['inclusions'] as $inc) {
-                if (!isset($seen[$inc['id']])) {
+                if ($inc['label'] !== '' && !isset($seen[$inc['id']])) {
                     $seen[$inc['id']] = true;
                     $result[]         = $inc;
                 }
             }
+        }
+        return $result;
+    }
+
+    private function normalizeFaqs(array $rawFaqs): array
+    {
+        $result = [];
+        foreach ($rawFaqs as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $question = trim($item['question'] ?? '');
+            $answer   = trim($item['answer'] ?? '');
+            if ($question === '') {
+                continue;
+            }
+            $result[] = [
+                'id'       => (isset($item['id']) && $item['id'] !== '') ? (string) $item['id'] : sanitize_title($question),
+                'question' => $question,
+                'answer'   => $answer,
+            ];
         }
         return $result;
     }
