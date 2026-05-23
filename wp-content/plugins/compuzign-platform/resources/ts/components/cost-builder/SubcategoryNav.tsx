@@ -1,3 +1,4 @@
+import { decodeHtml } from '@/utils/format';
 import type { ServiceItem } from '@/api/types/cost-builder';
 
 interface SubcategoryNavProps {
@@ -19,7 +20,7 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
           class={['cz-sub-tab', s.id === activeId && 'is-active'].filter(Boolean).join(' ')}
           onClick={() => onChange(s.id)}
         >
-          {s.title}
+          {decodeHtml(s.title)}
         </button>
       ))}
     </nav>

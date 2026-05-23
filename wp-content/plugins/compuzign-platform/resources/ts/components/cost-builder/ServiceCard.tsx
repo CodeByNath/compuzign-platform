@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/Card';
 import { PricingTiers } from './PricingTiers';
+import { decodeHtml } from '@/utils/format';
 import type { ServiceItem, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItem, QuoteItemTierId } from './types';
 
@@ -20,9 +21,9 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
         <div class="cz-cost-builder__card-header">
           <div class="cz-cost-builder__card-meta">
             {service.categories[0] && (
-              <span class="cz-cost-builder__card-eyebrow">{service.categories[0].name}</span>
+              <span class="cz-cost-builder__card-eyebrow">{decodeHtml(service.categories[0].name)}</span>
             )}
-            <h3 class="cz-heading-sm">{service.title}</h3>
+            <h3 class="cz-heading-sm">{decodeHtml(service.title)}</h3>
           </div>
         </div>
         <p class="cz-copy cz-cost-builder__unavailable-message">
@@ -41,12 +42,12 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
     const tierData = pricing.tiers[tierId];
     onAddToQuote({
       serviceId: service.id,
-      serviceTitle: service.title,
+      serviceTitle: decodeHtml(service.title),
       tierId,
       tierTitle: tier?.title ?? tierId,
       price: tierData?.price ?? null,
       billingCycle: meta.billing_cycle,
-      categoryName: service.categories[0]?.name ?? '',
+      categoryName: decodeHtml(service.categories[0]?.name ?? ''),
       features: tierData?.inclusions?.length
         ? tierData.inclusions.map((inc) => inc.label)
         : (tierData?.features ?? []),
@@ -60,9 +61,9 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
       <div class="cz-cost-builder__card-header">
         <div class="cz-cost-builder__card-meta">
           {service.categories[0] && (
-            <span class="cz-cost-builder__card-eyebrow">{service.categories[0].name}</span>
+            <span class="cz-cost-builder__card-eyebrow">{decodeHtml(service.categories[0].name)}</span>
           )}
-          <h3 class="cz-heading-sm">{service.title}</h3>
+          <h3 class="cz-heading-sm">{decodeHtml(service.title)}</h3>
         </div>
       </div>
       {meta.short_description && (

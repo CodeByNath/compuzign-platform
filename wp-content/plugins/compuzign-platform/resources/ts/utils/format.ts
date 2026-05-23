@@ -1,3 +1,9 @@
+export function decodeHtml(value: string): string {
+  const txt = document.createElement('textarea');
+  txt.innerHTML = value;
+  return txt.value;
+}
+
 export function formatPrice(price: number | null | undefined): string {
   if (price === null || price === undefined) return 'Contact Us';
   return new Intl.NumberFormat('en-US', {
