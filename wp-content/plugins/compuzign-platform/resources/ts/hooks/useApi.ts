@@ -6,7 +6,12 @@ export interface ApiState<T> {
   error: string | null;
 }
 
-export function useApi<T>(fetcher: () => Promise<T>): ApiState<T> {
+export interface ApiResult<T> extends ApiState<T> {
+  refetch: () => void;
+}
+
+export function useApi<T>(fetcher: () => Promise<T>): ApiResult<T> {
+  const [retryKey, setRetryKey] = useState(0);
   const [state, setState] = useState<ApiState<T>>({
     data: null,
     loading: true,
@@ -15,6 +20,7 @@ export function useApi<T>(fetcher: () => Promise<T>): ApiState<T> {
 
   useEffect(() => {
     let cancelled = false;
+    setState({ data: null, loading: true, error: null });
 
     fetcher()
       .then((data) => {
@@ -31,7 +37,7 @@ export function useApi<T>(fetcher: () => Promise<T>): ApiState<T> {
     return () => {
       cancelled = true;
     };
-  }, []); // intentionally run once on mount — fetcher must be a stable reference
+  }, [retryKey]); // fetcher must be a stable reference; retryKey triggers re-fetch on demand
 
-  return state;
+  return { ...state, refetch: () => setRetryKey((k) => k + 1) };
 }

@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { QuoteItem } from './types';
@@ -11,6 +12,8 @@ interface RecommendedBundleProps {
 
 export function RecommendedBundle({ service, isInQuote, onAdd, onRemove }: RecommendedBundleProps) {
   const { bundle } = service.pricing;
+  const [hoveringAdded, setHoveringAdded] = useState(false);
+
   if (!bundle.title) return null;
 
   // Bundles use a negative service ID so they coexist alongside tier selections in the quote
@@ -32,6 +35,8 @@ export function RecommendedBundle({ service, isInQuote, onAdd, onRemove }: Recom
       });
     }
   };
+
+  const isRemoving = isInQuote && hoveringAdded;
 
   return (
     <div class="cz-cost-builder__bundle">
@@ -56,10 +61,16 @@ export function RecommendedBundle({ service, isInQuote, onAdd, onRemove }: Recom
           )}
           <button
             type="button"
-            class={`cz-btn cz-btn-secondary cz-cost-builder__bundle-cta${isInQuote ? ' is-selected' : ''}`}
+            class={[
+              'cz-btn cz-btn-secondary cz-cost-builder__bundle-cta',
+              isInQuote && 'is-selected',
+              isRemoving && 'is-removing',
+            ].filter(Boolean).join(' ')}
             onClick={handleToggle}
+            onMouseEnter={() => setHoveringAdded(true)}
+            onMouseLeave={() => setHoveringAdded(false)}
           >
-            {isInQuote ? '✓ Bundle Added' : 'Add Bundle'}
+            {isRemoving ? '× Remove' : isInQuote ? '✓ Bundle Added' : 'Add Bundle'}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
-import { formatPrice } from '@/utils/format';
+import { useState } from 'preact/hooks';
+import { formatPrice, formatCycleLabel } from '@/utils/format';
 import type { QuoteItem } from './types';
 
 interface QuoteSummaryProps {
@@ -10,9 +11,24 @@ interface QuoteSummaryProps {
 }
 
 export function QuoteSummary({ items, contactUrl, onRemove, onClear, onOpenPdfModal }: QuoteSummaryProps) {
+  const [clearPending, setClearPending] = useState(false);
+
+  const handleClear = () => {
+    onClear();
+    setClearPending(false);
+  };
+
   const pricedItems = items.filter((item) => item.price !== null);
-  const hasUnpriced = pricedItems.length < items.length;
-  const monthlyTotal = pricedItems.reduce((sum, item) => sum + (item.price as number), 0);
+  const unpricedItems = items.filter((item) => item.price === null);
+
+  // Group priced items by billing cycle → supports mixed-cycle quotes correctly
+  const cycleGroups = pricedItems.reduce<Record<string, number>>((acc, item) => {
+    acc[item.billingCycle] = (acc[item.billingCycle] ?? 0) + (item.price as number);
+    return acc;
+  }, {});
+  const cycleEntries = Object.entries(cycleGroups);
+  const hasMixedCycles = cycleEntries.length > 1;
+  const singleCycle = cycleEntries.length === 1 ? cycleEntries[0] : null;
 
   return (
     <div class="cz-quote-summary">
@@ -23,46 +39,108 @@ export function QuoteSummary({ items, contactUrl, onRemove, onClear, onOpenPdfMo
             <span class="cz-quote-summary__badge">{items.length}</span>
           )}
         </h3>
-        <button type="button" class="cz-quote-summary__clear" onClick={onClear}>
-          Clear all
-        </button>
+        {clearPending ? (
+          <div class="cz-quote-summary__clear-group">
+            <button type="button" class="cz-quote-summary__clear-yes" onClick={handleClear}>
+              Clear all?
+            </button>
+            <button type="button" class="cz-quote-summary__clear-cancel" onClick={() => setClearPending(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button type="button" class="cz-quote-summary__clear" onClick={() => setClearPending(true)}>
+            Clear all
+          </button>
+        )}
       </div>
 
       <ul class="cz-quote-summary__list">
-        {items.map((item) => (
-          <li key={item.serviceId} class="cz-quote-summary__item">
-            <div class="cz-quote-summary__item-info">
-              <span class="cz-quote-summary__item-title">{item.serviceTitle}</span>
-              <span class="cz-quote-summary__item-tier">{item.tierTitle}</span>
-            </div>
-            <div class="cz-quote-summary__item-right">
-              <span class="cz-quote-summary__item-price">
-                {item.price !== null ? formatPrice(item.price) : 'Custom'}
-              </span>
-              <button
-                type="button"
-                class="cz-quote-summary__remove"
-                onClick={() => onRemove(item.serviceId)}
-                aria-label={`Remove ${item.serviceTitle}`}
-              >
-                ×
-              </button>
-            </div>
-          </li>
-        ))}
+        {items.map((item) => {
+          const cycleSuffix = formatCycleLabel(item.billingCycle);
+          return (
+            <li key={item.serviceId} class="cz-quote-summary__item">
+              <div class="cz-quote-summary__item-info">
+                <span class="cz-quote-summary__item-title">{item.serviceTitle}</span>
+                <span class="cz-quote-summary__item-tier">{item.tierTitle}</span>
+              </div>
+              <div class="cz-quote-summary__item-right">
+                <span class="cz-quote-summary__item-price">
+                  {item.price !== null ? (
+                    <>
+                      {formatPrice(item.price)}
+                      {cycleSuffix && (
+                        <span class="cz-quote-summary__item-cycle">{' '}{cycleSuffix}</span>
+                      )}
+                    </>
+                  ) : 'Custom'}
+                </span>
+                <button
+                  type="button"
+                  class="cz-quote-summary__remove"
+                  onClick={() => onRemove(item.serviceId)}
+                  aria-label={`Remove ${item.serviceTitle}`}
+                >
+                  ×
+                </button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       <div class="cz-quote-summary__footer">
         <div class="cz-quote-summary__total">
-          <span class="cz-quote-summary__total-label">
-            {hasUnpriced ? 'Estimate (custom pricing applies)' : 'Est. monthly total'}
-          </span>
-          <span class="cz-quote-summary__total-price">
-            {hasUnpriced && monthlyTotal === 0
-              ? 'Contact Us'
-              : formatPrice(monthlyTotal)}
-          </span>
+          {cycleEntries.length === 0 ? (
+            <>
+              <span class="cz-quote-summary__total-label">Pricing on request</span>
+              <span class="cz-quote-summary__total-price">Contact Us</span>
+            </>
+          ) : hasMixedCycles ? (
+            <>
+              <span class="cz-quote-summary__total-label">
+                Estimated totals{unpricedItems.length > 0 ? ' (custom pricing applies)' : ''}
+              </span>
+              {cycleEntries.map(([cycle, total]) => {
+                const suffix = formatCycleLabel(cycle);
+                return (
+                  <div key={cycle} class="cz-quote-summary__cycle-row">
+                    <span class="cz-quote-summary__cycle-name">{cycle}</span>
+                    <span class="cz-quote-summary__cycle-amount">
+                      {formatPrice(total)}{suffix ? ` ${suffix}` : ''}
+                    </span>
+                  </div>
+                );
+              })}
+              {unpricedItems.length > 0 && (
+                <span class="cz-quote-summary__custom-note">
+                  + {unpricedItems.length} item{unpricedItems.length === 1 ? '' : 's'} at custom pricing
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <span class="cz-quote-summary__total-label">
+                Est. {singleCycle![0]} total
+                {unpricedItems.length > 0 ? ' (custom pricing applies)' : ''}
+              </span>
+              <span class="cz-quote-summary__total-price">
+                {formatPrice(singleCycle![1])}
+                {formatCycleLabel(singleCycle![0]) && (
+                  <span class="cz-quote-summary__total-cycle">
+                    {' '}{formatCycleLabel(singleCycle![0])}
+                  </span>
+                )}
+              </span>
+              {unpricedItems.length > 0 && (
+                <span class="cz-quote-summary__custom-note">
+                  + {unpricedItems.length} item{unpricedItems.length === 1 ? '' : 's'} at custom pricing
+                </span>
+              )}
+            </>
+          )}
         </div>
+
         <button
           type="button"
           class="cz-btn cz-btn-secondary cz-quote-summary__pdf"

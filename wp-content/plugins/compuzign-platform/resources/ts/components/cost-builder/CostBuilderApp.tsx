@@ -11,10 +11,13 @@ import { RecommendedBundle } from './RecommendedBundle';
 import { PdfModal } from './PdfModal';
 import { FaqAccordion } from './FaqAccordion';
 import { ComparePlans } from './ComparePlans';
+import { MobileQuoteBar } from './MobileQuoteBar';
 import type { QuoteItem } from './types';
 
+const QUOTE_SUMMARY_ID = 'cz-quote-summary';
+
 export function CostBuilderApp() {
-  const { data, loading, error } = useCostBuilder();
+  const { data, loading, error, refetch } = useCostBuilder();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
@@ -49,7 +52,12 @@ export function CostBuilderApp() {
   if (error) {
     return (
       <div class="cz-cost-builder cz-cost-builder--error">
-        <p class="cz-muted">Unable to load services. Please try again later.</p>
+        <div class="cz-cost-builder__error-content">
+          <p class="cz-muted">Unable to load services. Please try again.</p>
+          <button type="button" class="cz-btn cz-btn-secondary" onClick={refetch}>
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -73,7 +81,7 @@ export function CostBuilderApp() {
   const hasQuote = quoteItems.length > 0;
 
   return (
-    <div class="cz-cost-builder">
+    <div class={`cz-cost-builder${hasQuote ? ' cz-cost-builder--has-quote' : ''}`}>
       <HeroArea />
       <CategoryNav
         categories={data.categories}
@@ -85,7 +93,7 @@ export function CostBuilderApp() {
         activeId={currentServiceId}
         onChange={setActiveServiceId}
       />
-      <div class={hasQuote ? 'cz-layout-sidebar cz-cost-builder__body' : 'cz-cost-builder__body'}>
+      <div class="cz-layout-sidebar cz-cost-builder__body">
         <div class="cz-cost-builder__main">
           {activeService ? (
             <>
@@ -107,8 +115,9 @@ export function CostBuilderApp() {
             <p class="cz-muted cz-cost-builder__empty">No services in this category.</p>
           )}
         </div>
-        {hasQuote && (
-          <aside class="cz-cost-builder__sidebar">
+        {/* Aside is always in the DOM; CSS drives column width via --has-quote on root */}
+        <aside class="cz-cost-builder__sidebar" id={QUOTE_SUMMARY_ID}>
+          {hasQuote && (
             <QuoteSummary
               items={quoteItems}
               contactUrl={config?.contactUrl}
@@ -116,11 +125,12 @@ export function CostBuilderApp() {
               onClear={() => setQuoteItems([])}
               onOpenPdfModal={() => setIsPdfModalOpen(true)}
             />
-          </aside>
-        )}
+          )}
+        </aside>
       </div>
       <ComparePlans />
       <FaqAccordion />
+      <MobileQuoteBar items={quoteItems} summaryId={QUOTE_SUMMARY_ID} />
       <PdfModal
         isOpen={isPdfModalOpen}
         items={quoteItems}

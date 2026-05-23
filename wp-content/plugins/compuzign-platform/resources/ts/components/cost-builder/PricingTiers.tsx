@@ -1,4 +1,4 @@
-import { useRef } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import type { Tier, ServicePricing, TierId } from '@/api/types/cost-builder';
@@ -16,6 +16,7 @@ interface PricingTiersProps {
 export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, billingCycle, onSelect }: PricingTiersProps) {
   const suffix = formatCycleLabel(billingCycle);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [hoveredTierId, setHoveredTierId] = useState<TierId | null>(null);
 
   const scroll = (dir: 1 | -1) => {
     scrollRef.current?.scrollBy({ left: dir * 220, behavior: 'smooth' });
@@ -36,6 +37,7 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
           const data = pricing.tiers[tier.id];
           const isPopular = tier.id === popularTier;
           const isSelected = tier.id === selectedTierId;
+          const isHoveringSelected = isSelected && hoveredTierId === tier.id;
 
           return (
             <div
@@ -69,10 +71,12 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
               )}
               <button
                 type="button"
-                class={`cz-cost-builder__tier-action${isSelected ? ' is-selected' : ''}`}
+                class={`cz-cost-builder__tier-action${isSelected ? ' is-selected' : ''}${isHoveringSelected ? ' is-removing' : ''}`}
                 onClick={() => onSelect(tier.id)}
+                onMouseEnter={() => setHoveredTierId(tier.id)}
+                onMouseLeave={() => setHoveredTierId(null)}
               >
-                {isSelected ? '✓ Selected' : 'Add to Quote'}
+                {isHoveringSelected ? '× Remove' : isSelected ? '✓ Selected' : 'Add to Quote'}
               </button>
             </div>
           );

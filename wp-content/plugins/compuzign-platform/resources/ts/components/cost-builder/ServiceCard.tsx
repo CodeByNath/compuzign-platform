@@ -1,5 +1,4 @@
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { PricingTiers } from './PricingTiers';
 import type { ServiceItem, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItem, QuoteItemTierId } from './types';
@@ -44,7 +43,6 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
           )}
           <h3 class="cz-heading-sm">{service.title}</h3>
         </div>
-        {meta.popular_tier !== null && <Badge variant="accent">Popular</Badge>}
       </div>
       {meta.short_description && (
         <p class="cz-copy cz-cost-builder__description">

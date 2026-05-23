@@ -67,20 +67,35 @@
 }
 
 @media (min-width: 1024px) {
+  /* Override cz-layout-sidebar column definition for the cost-builder body.
+     Sidebar column starts at 0px and expands when --has-quote is on the root. */
+  .cz-cost-builder .cz-cost-builder__body {
+    grid-template-columns: minmax(0, 1fr) 0px;
+    transition: grid-template-columns 0.35s var(--cz-ease);
+  }
+
+  .cz-cost-builder--has-quote .cz-cost-builder__body {
+    grid-template-columns: minmax(0, 1fr) var(--cz-sidebar-width);
+  }
+
+  /* Sidebar: clipped at 0px width, sticky + visible only when quote is active */
   .cz-cost-builder__sidebar {
+    overflow: clip;
+    min-width: 0;
+  }
+
+  .cz-cost-builder--has-quote .cz-cost-builder__sidebar {
     position: sticky;
     top: var(--cz-space-6);
     max-height: calc(100vh - var(--cz-space-12));
     overflow-y: auto;
+    animation: cz-sidebar-in 0.35s var(--cz-ease) forwards;
   }
+}
 
-  /* Sidebar context: reinforce containment — minmax(0,1fr) ensures grid can shrink below content width in constrained track */
-  .cz-layout-sidebar .cz-cost-builder__grid {
-    grid-template-columns: minmax(0, 1fr);
-    width: 100%;
-    min-width: 0;
-  }
-
+@keyframes cz-sidebar-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 /* Service grid: module-owned 1-column layout — full width per service card for 4-tier comparison row */
@@ -288,9 +303,11 @@
   color: #000;
 }
 
-.cz-cost-builder__tier-action.is-selected:hover {
-  background: transparent;
-  color: var(--cz-color-accent);
+.cz-cost-builder__tier-action.is-selected:hover,
+.cz-cost-builder__tier-action.is-removing {
+  background: rgba(255, 97, 97, 0.08);
+  border-color: var(--cz-color-danger);
+  color: var(--cz-color-danger);
 }
 
 /* Quote summary sidebar */
@@ -593,6 +610,13 @@
 .cz-cost-builder__bundle-cta.is-selected {
   border-color: var(--cz-color-accent);
   color: var(--cz-color-accent);
+}
+
+.cz-cost-builder__bundle-cta.is-selected:hover,
+.cz-cost-builder__bundle-cta.is-removing {
+  background: rgba(255, 97, 97, 0.08);
+  border-color: var(--cz-color-danger);
+  color: var(--cz-color-danger);
 }
 
 @media (max-width: 640px) {
@@ -986,4 +1010,199 @@
 .cz-pdf-modal__close:focus-visible {
   outline: 2px solid var(--cz-color-accent);
   outline-offset: 2px;
+}
+
+/* ─── Error State ─── */
+
+.cz-cost-builder__error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cz-space-4);
+  text-align: center;
+}
+
+/* ─── Quote Summary — Billing Cycle Display ─── */
+
+/* Muted cycle suffix next to price in line items (e.g. "$100 / mo") */
+.cz-quote-summary__item-cycle {
+  font-size: var(--cz-font-size-xs);
+  font-weight: 400;
+  color: var(--cz-color-muted);
+}
+
+/* Mixed-cycle totals: one row per cycle */
+.cz-quote-summary__cycle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--cz-space-2);
+  margin-top: var(--cz-space-2);
+}
+
+.cz-quote-summary__cycle-name {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+  text-transform: capitalize;
+}
+
+.cz-quote-summary__cycle-amount {
+  font-size: var(--cz-font-size-lg);
+  font-weight: 700;
+  color: var(--cz-color-accent);
+  white-space: nowrap;
+}
+
+/* Muted cycle suffix on single-cycle total price */
+.cz-quote-summary__total-cycle {
+  font-size: var(--cz-font-size-xs);
+  font-weight: 400;
+  color: var(--cz-color-muted);
+}
+
+/* Custom-pricing note below totals */
+.cz-quote-summary__custom-note {
+  display: block;
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted-2);
+  margin-top: var(--cz-space-2);
+}
+
+/* ─── Mobile Quote Bar ─── */
+
+/* Fixed bottom bar — hidden at desktop, visible on mobile/tablet */
+.cz-mobile-quote-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cz-space-4);
+  padding: var(--cz-space-3) var(--cz-space-5);
+  background: var(--cz-color-surface-2);
+  border-top: 1px solid var(--cz-color-line-strong);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, .4);
+  animation: cz-bar-slide-up var(--cz-transition) forwards;
+}
+
+@keyframes cz-bar-slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@media (min-width: 1024px) {
+  .cz-mobile-quote-bar {
+    display: none;
+  }
+}
+
+.cz-mobile-quote-bar__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cz-mobile-quote-bar__count {
+  font-size: var(--cz-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-color-muted);
+}
+
+.cz-mobile-quote-bar__total {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-mobile-quote-bar__btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Bottom padding so page content is not hidden behind the fixed bar */
+@media (max-width: 1023px) {
+  .cz-cost-builder--has-quote {
+    padding-bottom: 72px;
+  }
+}
+
+/* ─── Tier Carousel Nav — Sidebar Breakpoint Fix ─── */
+
+/* At 1024px+ the main column narrows when the quote sidebar is active.
+   4 tiers at min-width 180px may not fit, so reveal the scroll arrows. */
+@media (min-width: 1024px) {
+  .cz-cost-builder--has-quote .cz-cost-builder__tiers-nav {
+    display: flex;
+  }
+}
+
+/* ─── Tier Feature Scanability ─── */
+
+/* Explicit stretch ensures all tier cards in a row reach the same height,
+   keeping the Add-to-Quote button baseline-aligned across tiers. */
+.cz-cost-builder__tiers {
+  align-items: stretch;
+}
+
+/* Checkmark prefix on feature items */
+.cz-cost-builder__tier-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cz-space-1);
+}
+
+.cz-cost-builder__tier-features li::before {
+  content: '✓';
+  flex-shrink: 0;
+  color: var(--cz-color-accent);
+  font-size: var(--cz-font-size-xs);
+  line-height: inherit;
+}
+
+/* ─── Clear-All Confirmation ─── */
+
+.cz-quote-summary__clear-group {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-3);
+}
+
+.cz-quote-summary__clear-yes {
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  color: var(--cz-color-danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  transition: opacity var(--cz-transition-fast);
+}
+
+.cz-quote-summary__clear-yes:hover {
+  opacity: 0.8;
+}
+
+.cz-quote-summary__clear-cancel {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  transition: color var(--cz-transition-fast);
+}
+
+.cz-quote-summary__clear-cancel:hover {
+  color: var(--cz-color-text);
 }
