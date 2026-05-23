@@ -4,8 +4,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-error_log('[CZ Seed] seed-managed-endpoint-protection.php loaded');
-
 /**
  * Returns true only when basic/standard/premium prices match canonical values.
  * A row that exists but has all-null prices is treated as incorrect.
@@ -34,39 +32,24 @@ function compuzign_seed_mep_pricing_correct($raw): bool
  */
 function compuzign_seed_managed_endpoint_protection(): void
 {
-    error_log('[CZ Seed] init hook fired');
-
     $post = get_page_by_path('managed-endpoint-protection', OBJECT, 'cz_service');
     if (!$post) {
-        error_log('[CZ Seed] post not found by slug managed-endpoint-protection (cz_service) — will retry');
         return;
     }
-
-    error_log('[CZ Seed] post found ID=' . $post->ID);
 
     $hasInclusions = !empty(get_post_meta($post->ID, 'cz_service_inclusions', true));
     $hasPricing    = compuzign_seed_mep_pricing_correct(get_post_meta($post->ID, 'cz_service_pricing', true));
     $hasFaqs       = !empty(get_post_meta($post->ID, 'cz_service_faqs', true));
 
-    error_log('[CZ Seed] state — inclusions=' . ($hasInclusions ? 'ok' : 'missing') . ' pricing=' . ($hasPricing ? 'ok' : 'missing/incorrect') . ' faqs=' . ($hasFaqs ? 'ok' : 'missing'));
-
     if ($hasInclusions && $hasPricing && $hasFaqs) {
         if (!get_option('cz_seed_mep_done')) {
             update_option('cz_seed_mep_done', true);
         }
-        error_log('[CZ Seed] all meta correct — skipping');
         return;
-    }
-
-    if (get_option('cz_seed_mep_done')) {
-        error_log('[CZ Seed] option set but meta missing or incorrect — repairing');
     }
 
     // Seed pricing: basic $15/mo, standard $45/mo, premium $89/mo, enterprise contact
     if (!$hasPricing) {
-        $raw_before = get_post_meta($post->ID, 'cz_service_pricing', true);
-        error_log('[CZ Seed] cz_service_pricing BEFORE repair: ' . json_encode($raw_before));
-
         $pricing = array(
             'tiers' => array(
                 'basic'      => array('price' => 15,   'features' => array()),
@@ -76,13 +59,7 @@ function compuzign_seed_managed_endpoint_protection(): void
             ),
             'bundle' => array(),
         );
-        error_log('[CZ Seed] writing cz_service_pricing payload: ' . json_encode($pricing));
-
-        $pricing_result = update_post_meta($post->ID, 'cz_service_pricing', $pricing);
-        error_log('[CZ Seed] update_post_meta cz_service_pricing result=' . var_export($pricing_result, true));
-
-        $raw_after = get_post_meta($post->ID, 'cz_service_pricing', true);
-        error_log('[CZ Seed] cz_service_pricing AFTER repair: ' . json_encode($raw_after));
+        update_post_meta($post->ID, 'cz_service_pricing', $pricing);
     }
 
     // Canonical inclusions pool + per-tier assignment map
@@ -130,8 +107,7 @@ function compuzign_seed_managed_endpoint_protection(): void
                 ),
             ),
         );
-        $inc_result = update_post_meta($post->ID, 'cz_service_inclusions', $inclusions);
-        error_log('[CZ Seed] update_post_meta cz_service_inclusions result=' . var_export($inc_result, true));
+        update_post_meta($post->ID, 'cz_service_inclusions', $inclusions);
     }
 
     if (!$hasFaqs) {
@@ -157,11 +133,9 @@ function compuzign_seed_managed_endpoint_protection(): void
                 'answer'   => 'Yes. Enterprise tier support can include custom endpoint policies, priority incident response, and broader security alignment.',
             ),
         );
-        $faq_result = update_post_meta($post->ID, 'cz_service_faqs', $faqs);
-        error_log('[CZ Seed] update_post_meta cz_service_faqs result=' . var_export($faq_result, true));
+        update_post_meta($post->ID, 'cz_service_faqs', $faqs);
     }
 
     update_option('cz_seed_mep_done', true);
-    error_log('[CZ Seed] seed complete for post ID=' . $post->ID);
 }
 add_action('init', 'compuzign_seed_managed_endpoint_protection', 20);
