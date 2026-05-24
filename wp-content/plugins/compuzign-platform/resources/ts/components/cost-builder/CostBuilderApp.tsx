@@ -1,6 +1,5 @@
 import { useState } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
-import { getRuntimeConfig } from '@/runtime/config';
 import { Spinner } from '@/components/ui/Spinner';
 import { CategoryNav } from './CategoryNav';
 import { SubcategoryNav } from './SubcategoryNav';
@@ -8,10 +7,10 @@ import { ServiceCard } from './ServiceCard';
 import { QuoteSummary } from './QuoteSummary';
 import { HeroArea } from './HeroArea';
 import { RecommendedBundle } from './RecommendedBundle';
-import { PdfModal } from './PdfModal';
 import { FaqAccordion } from './FaqAccordion';
 import { ComparePlans } from './ComparePlans';
 import { MobileQuoteBar } from './MobileQuoteBar';
+import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 import type { QuoteItem } from './types';
 
 const QUOTE_SUMMARY_ID = 'cz-quote-summary';
@@ -21,7 +20,7 @@ export function CostBuilderApp() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isFlowOpen, setIsFlowOpen] = useState(false);
 
   const addToQuote = (item: QuoteItem) => {
     setQuoteItems((prev) => [
@@ -77,7 +76,7 @@ export function CostBuilderApp() {
   const services = categoryGroup?.services ?? [];
   const currentServiceId = activeServiceId ?? services[0]?.id ?? null;
   const activeService = services.find((s) => s.id === currentServiceId) ?? services[0] ?? null;
-  const config = getRuntimeConfig();
+  const allServices = data.services_by_category.flatMap((g) => g.services);
   const hasQuote = quoteItems.length > 0;
 
   return (
@@ -120,10 +119,9 @@ export function CostBuilderApp() {
           {hasQuote && (
             <QuoteSummary
               items={quoteItems}
-              contactUrl={config?.contactUrl}
               onRemove={removeFromQuote}
               onClear={() => setQuoteItems([])}
-              onOpenPdfModal={() => setIsPdfModalOpen(true)}
+              onOpenReview={() => setIsFlowOpen(true)}
             />
           )}
         </aside>
@@ -131,10 +129,10 @@ export function CostBuilderApp() {
       <ComparePlans service={activeService} tiers={data.tiers} />
       <FaqAccordion faqs={activeService?.faqs ?? []} />
       <MobileQuoteBar items={quoteItems} summaryId={QUOTE_SUMMARY_ID} />
-      <PdfModal
-        isOpen={isPdfModalOpen}
-        items={quoteItems}
-        onClose={() => setIsPdfModalOpen(false)}
+      <RequestFlowModal
+        isOpen={isFlowOpen}
+        context={{ type: 'quote_cart', items: quoteItems, services: allServices }}
+        onClose={() => setIsFlowOpen(false)}
       />
     </div>
   );

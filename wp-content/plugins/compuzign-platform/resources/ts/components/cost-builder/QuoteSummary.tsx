@@ -1,16 +1,16 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
+import { calcQuoteTotals } from '@/utils/quote';
 import type { QuoteItem } from './types';
 
 interface QuoteSummaryProps {
   items: QuoteItem[];
-  contactUrl: string | undefined;
   onRemove: (serviceId: number) => void;
   onClear: () => void;
-  onOpenPdfModal: () => void;
+  onOpenReview: () => void;
 }
 
-export function QuoteSummary({ items, contactUrl, onRemove, onClear, onOpenPdfModal }: QuoteSummaryProps) {
+export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSummaryProps) {
   const [clearPending, setClearPending] = useState(false);
 
   const handleClear = () => {
@@ -18,17 +18,7 @@ export function QuoteSummary({ items, contactUrl, onRemove, onClear, onOpenPdfMo
     setClearPending(false);
   };
 
-  const pricedItems = items.filter((item) => item.price !== null);
-  const unpricedItems = items.filter((item) => item.price === null);
-
-  // Group priced items by billing cycle → supports mixed-cycle quotes correctly
-  const cycleGroups = pricedItems.reduce<Record<string, number>>((acc, item) => {
-    acc[item.billingCycle] = (acc[item.billingCycle] ?? 0) + (item.price as number);
-    return acc;
-  }, {});
-  const cycleEntries = Object.entries(cycleGroups);
-  const hasMixedCycles = cycleEntries.length > 1;
-  const singleCycle = cycleEntries.length === 1 ? cycleEntries[0] : null;
+  const { unpricedItems, cycleEntries, hasMixedCycles, singleCycle } = calcQuoteTotals(items);
 
   return (
     <div class="cz-quote-summary">
@@ -143,20 +133,11 @@ export function QuoteSummary({ items, contactUrl, onRemove, onClear, onOpenPdfMo
 
         <button
           type="button"
-          class="cz-btn cz-btn-secondary cz-quote-summary__pdf"
-          onClick={onOpenPdfModal}
+          class="cz-btn cz-btn-primary cz-quote-summary__cta"
+          onClick={onOpenReview}
         >
-          Generate PDF Quote
+          Review &amp; Finalise Quote
         </button>
-        {contactUrl ? (
-          <a href={contactUrl} class="cz-btn cz-btn-primary cz-quote-summary__cta">
-            Request Consultation
-          </a>
-        ) : (
-          <button type="button" class="cz-btn cz-btn-primary cz-quote-summary__cta" disabled>
-            Request Consultation
-          </button>
-        )}
       </div>
     </div>
   );
