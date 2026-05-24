@@ -46,10 +46,25 @@ export function RequestFlowModal({ isOpen, context, onClose }: RequestFlowModalP
 
     document.addEventListener('keydown', handleKey);
 
-    // Print class — scopes @media print rules so they only blank the page
-    // when this modal is actually open (prevents affecting unrelated prints).
-    const beforePrint = () => document.body.classList.add('cz-printing');
-    const afterPrint  = () => document.body.classList.remove('cz-printing');
+    // Print portal: clone .cz-proposal into a direct <body> child so that
+    // display:none on all other body children fully removes WP wrappers from
+    // print layout. (visibility:hidden kept them in flow — causing blank pages.)
+    const printRoot = document.createElement('div');
+    printRoot.id = 'cz-print-root';
+    document.body.appendChild(printRoot);
+
+    const beforePrint = () => {
+      const proposal = modalRef.current?.querySelector<HTMLElement>('.cz-proposal');
+      if (proposal) {
+        printRoot.innerHTML = '';
+        printRoot.appendChild(proposal.cloneNode(true));
+      }
+      document.body.classList.add('cz-printing');
+    };
+    const afterPrint = () => {
+      document.body.classList.remove('cz-printing');
+      printRoot.innerHTML = '';
+    };
     window.addEventListener('beforeprint', beforePrint);
     window.addEventListener('afterprint', afterPrint);
 
@@ -60,6 +75,7 @@ export function RequestFlowModal({ isOpen, context, onClose }: RequestFlowModalP
       window.removeEventListener('beforeprint', beforePrint);
       window.removeEventListener('afterprint', afterPrint);
       document.body.classList.remove('cz-printing');
+      printRoot.remove();
     };
   }, [isOpen]);
 
