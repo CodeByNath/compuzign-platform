@@ -1238,7 +1238,6 @@
   background: var(--cz-color-surface);
   overflow: hidden;
   border-radius: var(--cz-radius-xl);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
 }
 
 .cz-rf-modal::before {
@@ -1282,6 +1281,7 @@
   font-size: var(--cz-font-size-lg);
   font-weight: 700;
   color: var(--cz-color-text);
+  text-align: center;
 }
 
 .cz-rf-header__sub {
@@ -1289,6 +1289,7 @@
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted);
   line-height: 1.4;
+  text-align: center;
 }
 
 .cz-rf-header__close {
@@ -1387,13 +1388,12 @@
 .cz-rf-right {
   width: clamp(300px, 32%, 420px);
   flex-shrink: 0;
-  overflow-y: auto;
-  padding: var(--cz-space-5);
+  align-self: flex-start;
+  padding: var(--cz-space-5) var(--cz-space-5) var(--cz-space-8);
   margin: var(--cz-space-4);
-  background: var(--cz-color-surface-2);
+  background: var(--cz-color-surface);
   border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-xl);
-  box-shadow: var(--cz-shadow-card);
 }
 
 /* ─── Request Flow — Contact Form ─── */
@@ -1518,8 +1518,7 @@
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding: 0 var(--cz-space-6) var(--cz-space-4);
-  border-bottom: 1px solid var(--cz-color-line);
+  padding: var(--cz-space-6) var(--cz-space-4) var(--cz-space-8);
   background: var(--cz-color-surface);
 }
 
@@ -1804,8 +1803,7 @@
 .cz-os {
   display: flex;
   flex-direction: column;
-  gap: var(--cz-space-5);
-  min-height: 100%;
+  gap: var(--cz-space-8);
 }
 
 .cz-os__header {
