@@ -45,10 +45,21 @@ export function RequestFlowModal({ isOpen, context, onClose }: RequestFlowModalP
     };
 
     document.addEventListener('keydown', handleKey);
+
+    // Print class — scopes @media print rules so they only blank the page
+    // when this modal is actually open (prevents affecting unrelated prints).
+    const beforePrint = () => document.body.classList.add('cz-printing');
+    const afterPrint  = () => document.body.classList.remove('cz-printing');
+    window.addEventListener('beforeprint', beforePrint);
+    window.addEventListener('afterprint', afterPrint);
+
     return () => {
       clearTimeout(focusTimer);
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('beforeprint', beforePrint);
+      window.removeEventListener('afterprint', afterPrint);
+      document.body.classList.remove('cz-printing');
     };
   }, [isOpen]);
 

@@ -1880,41 +1880,102 @@
 
 /* ─── Print — Proposal Only ─── */
 
+/* ─── Print — Proposal Only ─── */
+/*
+ * Root cause of repeated pages: position:fixed on .cz-rf-backdrop causes
+ * browsers to render it (and all visible descendants) once per printed page.
+ *
+ * Fix strategy:
+ *  1. Unconditionally convert backdrop to position:static — prevents repetition
+ *     regardless of whether JS fires.
+ *  2. Flatten the modal stack so the proposal flows as a normal document block.
+ *  3. Hide modal chrome (header + left panel) with display:none.
+ *  4. When the modal is open (body.cz-printing added by RequestFlowModal via
+ *     window.beforeprint), blank all WP page content with visibility:hidden,
+ *     then reveal only the proposal chain. This prevents WP nav/footer from
+ *     showing in the print but keeps them in layout (they become invisible
+ *     not removed, which may produce a short blank margin before the proposal
+ *     on some themes — acceptable and not fixable with CSS alone).
+ *
+ * Browser caveat: URL, page number, and date in print headers/footers are
+ * injected by the browser and cannot be removed via CSS. Users should uncheck
+ * "Headers and footers" in the browser print dialog (Chrome: More settings →
+ * Headers and footers; Firefox/Safari: similar option in Page Setup).
+ */
+
+@page {
+  margin: 1.5cm;
+}
+
 @media print {
-  /* Visibility trick: blank the whole page, then reveal only the proposal */
-  body * {
-    visibility: hidden;
+
+  /* ── 1. Core fix: un-fix the backdrop so it never repeats per page ── */
+  .cz-rf-backdrop {
+    position: static !important;
+    background: none !important;
+    backdrop-filter: none !important;
   }
 
+  /* ── 2. Flatten the modal stack to normal block flow ── */
+  .cz-rf-modal,
+  .cz-rf-layout,
+  .cz-rf-body,
+  .cz-rf-right {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* ── 3. Hide modal chrome and WP admin bar ── */
+  .cz-rf-header,
+  .cz-rf-left,
   #wpadminbar {
     display: none !important;
   }
 
-  .cz-proposal,
-  .cz-proposal * {
-    visibility: visible;
+  /* ── 4. When modal is open: blank WP page content visually ── */
+  body.cz-printing * {
+    visibility: hidden !important;
   }
 
+  /* Reveal the full ancestor chain down to the proposal */
+  body.cz-printing .cz-rf-backdrop,
+  body.cz-printing .cz-rf-modal,
+  body.cz-printing .cz-rf-layout,
+  body.cz-printing .cz-rf-body,
+  body.cz-printing .cz-rf-right,
+  body.cz-printing .cz-proposal,
+  body.cz-printing .cz-proposal * {
+    visibility: visible !important;
+  }
+
+  /* ── 5. Proposal document styles for print ── */
   .cz-proposal {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    padding: 1cm;
-    box-shadow: none;
-    border-radius: 0;
-    gap: 0.8cm;
-    font-size: 10pt;
-    color: #000000;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    gap: 0.5cm !important;
+    font-size: 9.5pt !important;
+    color: #000 !important;
+    background: #fff !important;
   }
 
+  .cz-proposal__service-row {
+    padding: 0.25cm 0.4cm !important;
+  }
+
+  .cz-proposal__features {
+    padding: 0.2cm 0.4cm !important;
+  }
+
+  /* ── 6. Page-break control ── */
   .cz-proposal__service,
   .cz-proposal__addon,
   .cz-proposal__totals,
   .cz-proposal__footer {
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
