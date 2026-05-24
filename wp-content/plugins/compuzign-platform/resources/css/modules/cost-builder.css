@@ -1337,12 +1337,10 @@
   min-width: 380px;
   border-right: none;
   background: var(--cz-color-surface);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .cz-rf-left__scroll {
-  flex: 1;
-  overflow-y: auto;
   padding: var(--cz-space-6);
 }
 
@@ -1389,6 +1387,8 @@
   width: clamp(380px, 32%, 420px);
   flex-shrink: 0;
   align-self: flex-start;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
   padding: var(--cz-space-5) var(--cz-space-5) var(--cz-space-8);
   margin: var(--cz-space-4);
   background: var(--cz-color-surface);
@@ -1608,8 +1608,6 @@
 .cz-rf-review-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
   width: 100%;
   max-width: 640px;
   margin-left: auto;
@@ -2589,13 +2587,10 @@
      readability on wide portrait tablets (e.g. 768px+) */
   .cz-rf-contact-panel,
   .cz-rf-review-panel {
-    height: auto;
-    overflow: visible;
     max-width: 640px;
   }
 
   .cz-rf-left__scroll {
-    overflow-y: visible;
     padding: var(--cz-space-5);
   }
 
