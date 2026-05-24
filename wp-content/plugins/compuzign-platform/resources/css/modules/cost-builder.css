@@ -1386,7 +1386,7 @@
 
 /* Right panel — floating support card; elevated above the canvas */
 .cz-rf-right {
-  width: clamp(300px, 32%, 420px);
+  width: clamp(380px, 32%, 420px);
   flex-shrink: 0;
   align-self: flex-start;
   padding: var(--cz-space-5) var(--cz-space-5) var(--cz-space-8);
