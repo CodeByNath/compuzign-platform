@@ -1300,7 +1300,7 @@
   font-size: 1.25rem;
   line-height: 1;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, .12);
+  border: 1px solid var(--cz-color-line);
   border-radius: 50%;
   color: var(--cz-color-muted);
   cursor: pointer;
@@ -1390,9 +1390,9 @@
   padding: var(--cz-space-5);
   margin: var(--cz-space-4);
   background: var(--cz-color-surface-2);
-  border: 1px solid rgba(255, 255, 255, .08);
+  border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-xl);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, .45);
+  box-shadow: var(--cz-shadow-card);
 }
 
 /* ─── Request Flow — Contact Form ─── */
@@ -1426,7 +1426,7 @@
   width: 100%;
   box-sizing: border-box;
   background: var(--cz-color-surface-2);
-  border: 1px solid rgba(255, 255, 255, .12);
+  border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-md);
   padding: var(--cz-space-3) var(--cz-space-4);
   color: var(--cz-color-text);
@@ -1518,7 +1518,7 @@
   display: flex;
   justify-content: center;
   padding: 0 var(--cz-space-6) var(--cz-space-4);
-  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  border-bottom: 1px solid var(--cz-color-line);
   background: var(--cz-color-surface);
 }
 
@@ -1545,7 +1545,7 @@
   display: block;
   width: 40px;
   height: 1px;
-  background: rgba(255, 255, 255, .1);
+  background: var(--cz-color-line);
   margin-right: var(--cz-space-3);
   flex-shrink: 0;
 }
@@ -1564,7 +1564,7 @@
   border-radius: 50%;
   font-size: var(--cz-font-size-xs);
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, .15);
+  border: 1px solid var(--cz-color-line);
   color: var(--cz-color-muted);
   background: var(--cz-color-surface-2);
   flex-shrink: 0;
@@ -1679,7 +1679,7 @@
   gap: var(--cz-space-3);
   padding: var(--cz-space-3) var(--cz-space-4);
   background: var(--cz-color-surface-2);
-  border: 1px solid rgba(255, 255, 255, .08);
+  border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-md);
 }
 
@@ -1723,7 +1723,7 @@
   align-items: center;
   gap: var(--cz-space-3);
   padding: var(--cz-space-4) var(--cz-space-6);
-  border-top: 1px solid rgba(255, 255, 255, .06);
+  border-top: 1px solid var(--cz-color-line);
 }
 
 /* ─── Request Flow — Review Panel (Step 2 left) ─── */
@@ -1740,7 +1740,7 @@
   flex-direction: column;
   padding: var(--cz-space-4);
   background: var(--cz-color-surface-2);
-  border: 1px solid rgba(255, 255, 255, .08);
+  border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-md);
   box-shadow: inset 3px 0 0 rgba(255, 218, 23, .2);
 }
@@ -1841,7 +1841,7 @@
   gap: var(--cz-space-3);
   padding: var(--cz-space-3) var(--cz-space-4);
   background: var(--cz-color-surface);
-  border: 1px solid rgba(255, 255, 255, .07);
+  border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-md);
   box-shadow: inset 3px 0 0 rgba(255, 218, 23, .28);
 }
@@ -1947,7 +1947,7 @@
   gap: var(--cz-space-3);
   padding: var(--cz-space-3) var(--cz-space-4);
   background: var(--cz-color-surface);
-  border: 1px solid rgba(255, 255, 255, .06);
+  border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-md);
 }
 
@@ -2003,7 +2003,7 @@
   border-radius: 4px;
   background: var(--cz-color-surface-2);
   color: var(--cz-color-muted);
-  border: 1px solid rgba(255, 255, 255, .08);
+  border: 1px solid var(--cz-color-line);
 }
 
 .cz-os__service-price {
@@ -2036,7 +2036,7 @@
   gap: var(--cz-space-3);
   padding: var(--cz-space-2) var(--cz-space-4);
   background: var(--cz-color-surface);
-  border: 1px solid rgba(255, 255, 255, .06);
+  border: 1px solid var(--cz-color-line);
   border-left: 3px solid rgba(255, 218, 23, .28);
   border-radius: var(--cz-radius-md);
 }
@@ -2582,7 +2582,7 @@
     min-width: 0;
     flex-shrink: 0;
     border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, .07);
+    border-bottom: 1px solid var(--cz-color-line);
     overflow: visible;
   }
 
@@ -2614,7 +2614,7 @@
     border-radius: 0;
     border: none;
     box-shadow: none;
-    border-top: 1px solid rgba(255, 255, 255, .07);
+    border-top: 1px solid var(--cz-color-line);
   }
 
   /* Single-column trust blocks on narrow screens */
