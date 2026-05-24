@@ -1327,13 +1327,13 @@
   overflow: hidden;
 }
 
-/* Left panel — onboarding / form */
+/* Left panel — onboarding canvas; always wider than the support rail */
 .cz-rf-left {
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-width: 300px;
-  border-right: 1px solid var(--cz-color-line-strong);
+  min-width: 380px;
+  border-right: 1px solid rgba(255, 255, 255, .07);
   background: var(--cz-color-surface-2);
   overflow: hidden;
 }
@@ -1382,9 +1382,9 @@
   margin: 0;
 }
 
-/* Right panel — persistent order summary */
+/* Right panel — adaptive support rail; scales with modal, caps at 420px */
 .cz-rf-right {
-  width: 420px;
+  width: clamp(300px, 32%, 420px);
   flex-shrink: 0;
   overflow-y: auto;
   padding: var(--cz-space-6);
@@ -1599,17 +1599,26 @@
 
 /* ─── Request Flow — Contact Panel (Step 1 left) ─── */
 
+/* Panels constrained to a readable form width; centred within the onboarding canvas */
 .cz-rf-contact-panel,
 .cz-rf-review-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  width: 100%;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .cz-rf-success {
   flex: 1;
   overflow-y: auto;
+  width: 100%;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Intro block — icon + heading */
@@ -2517,10 +2526,33 @@
   color: #555555;
 }
 
-/* ─── Request Flow — Mobile Stack ─── */
+/* ─── Request Flow — Intermediate (tablet-landscape / small laptop) ─── */
 
-@media (max-width: 767px) {
-  /* Full-screen modal on mobile — no padding or radius */
+@media (min-width: 900px) and (max-width: 1099px) {
+  /* Reduce backdrop breathing room so the modal has more usable area */
+  .cz-rf-backdrop {
+    padding: 16px;
+  }
+
+  /* Tighter internal padding at this width range */
+  .cz-rf-left__scroll,
+  .cz-rf-right {
+    padding: var(--cz-space-5);
+  }
+
+  .cz-rf-left__nav {
+    padding: var(--cz-space-4) var(--cz-space-5);
+  }
+
+  .cz-rf-intro {
+    padding: var(--cz-space-5) var(--cz-space-5) var(--cz-space-3);
+  }
+}
+
+/* ─── Request Flow — Stacked (≤899px: phones + portrait tablets) ─── */
+
+@media (max-width: 899px) {
+  /* Full-screen modal — no wasted backdrop space */
   .cz-rf-backdrop {
     padding: 0;
   }
@@ -2541,14 +2573,17 @@
     min-width: 0;
     flex-shrink: 0;
     border-right: none;
-    border-bottom: 1px solid var(--cz-color-line-strong);
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
     overflow: visible;
   }
 
+  /* In stacked mode panels fill the full width; max-width still protects form
+     readability on wide portrait tablets (e.g. 768px+) */
   .cz-rf-contact-panel,
   .cz-rf-review-panel {
     height: auto;
     overflow: visible;
+    max-width: 640px;
   }
 
   .cz-rf-left__scroll {
@@ -2572,12 +2607,12 @@
     grid-template-columns: 1fr;
   }
 
-  /* Hide step descriptions — labels only on mobile */
+  /* Hide step descriptions — labels only */
   .cz-si__desc {
     display: none;
   }
 
-  /* Compact step connector on small screens */
+  /* Compact step connector */
   .cz-si__step + .cz-si__step::before {
     width: 24px;
   }
