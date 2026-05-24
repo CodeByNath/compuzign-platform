@@ -1223,13 +1223,12 @@
 .cz-rf-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, .85);
+  background: var(--cz-color-surface);
   z-index: 9100;
   display: flex;
   align-items: stretch;
   justify-content: center;
   padding: 24px;
-  backdrop-filter: blur(4px);
 }
 
 .cz-rf-modal {
@@ -1257,6 +1256,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: var(--cz-color-surface);
 }
 
 /* Sticky header — part of the canvas, not a separate frame bar */
@@ -1325,6 +1325,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  background: var(--cz-color-surface);
 }
 
 /* Left panel — the onboarding canvas; merges with modal background */
