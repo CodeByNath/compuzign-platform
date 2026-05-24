@@ -2048,6 +2048,10 @@
   margin-top: var(--cz-space-2);
 }
 
+.cz-os__expand-body--hidden {
+  display: none;
+}
+
 /* Totals card */
 .cz-os__total {
   padding: var(--cz-space-4);

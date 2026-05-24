@@ -155,18 +155,19 @@ export function OrderSummary({
           })}
         </div>
 
-        {/* Inline full quote expansion */}
-        {isExpanded && (
-          <div class="cz-os__expand-body">
-            <QuoteProposalPreview
-              items={items}
-              services={services}
-              contact={contact}
-              quoteDate={quoteDate}
-              quoteRef={quoteRef}
-            />
-          </div>
-        )}
+        {/* Always in DOM so print portal can clone .cz-proposal regardless of expand state */}
+        <div
+          class={`cz-os__expand-body${isExpanded ? '' : ' cz-os__expand-body--hidden'}`}
+          aria-hidden={isExpanded ? undefined : 'true'}
+        >
+          <QuoteProposalPreview
+            items={items}
+            services={services}
+            contact={contact}
+            quoteDate={quoteDate}
+            quoteRef={quoteRef}
+          />
+        </div>
       </div>
 
       {/* ── Totals ── */}
