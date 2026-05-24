@@ -5,11 +5,12 @@ interface ContactFormProps {
   values: ContactFormValues;
   onChange: (values: ContactFormValues) => void;
   disabled?: boolean;
+  submitAttempted?: boolean;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function ContactForm({ values, onChange, disabled = false }: ContactFormProps) {
+export function ContactForm({ values, onChange, disabled = false, submitAttempted = false }: ContactFormProps) {
   const [touched, setTouched] = useState<Partial<Record<keyof ContactFormValues, true>>>({});
 
   const set = (field: keyof ContactFormValues) => (e: Event) => {
@@ -20,9 +21,9 @@ export function ContactForm({ values, onChange, disabled = false }: ContactFormP
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const contactInvalid = !!touched.contact && !values.contact.trim();
-  const emailInvalid   = !!touched.email   && !!values.email && !EMAIL_RE.test(values.email);
-  const emailMissing   = !!touched.email   && !values.email;
+  const contactInvalid = (!!touched.contact || submitAttempted) && !values.contact.trim();
+  const emailMissing   = (!!touched.email   || submitAttempted) && !values.email;
+  const emailInvalid   = (!!touched.email   || submitAttempted) && !!values.email && !EMAIL_RE.test(values.email);
 
   return (
     <div class="cz-rf-form">
