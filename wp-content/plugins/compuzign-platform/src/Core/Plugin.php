@@ -19,6 +19,7 @@ final class Plugin
 
         (new PostTypeRegistrar())->register();
         (new TaxonomyRegistrar())->register();
+        (new MailService())->register();
         (new AssetLoader())->register();
         (new CostBuilderModule())->register();
         (new HomepageModule())->register();

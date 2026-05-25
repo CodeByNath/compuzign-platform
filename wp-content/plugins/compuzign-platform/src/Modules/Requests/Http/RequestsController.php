@@ -14,12 +14,41 @@ class RequestsController
         register_rest_route('compuzign/v1', '/requests/submit', [
             'methods'             => 'POST',
             'callback'            => [$this, 'submitRequest'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'verifyNonce'],
         ]);
+    }
+
+    /**
+     * Requires a valid WordPress REST nonce sent as X-WP-Nonce.
+     * The nonce is available on every page via window.CompuZignConfig.nonce.
+     * Rejects requests that arrive without a nonce (direct API calls, bots).
+     */
+    public function verifyNonce(\WP_REST_Request $request): bool
+    {
+        $nonce = $request->get_header('X-WP-Nonce');
+
+        if (empty($nonce)) {
+            return false;
+        }
+
+        return wp_verify_nonce($nonce, 'wp_rest') !== false;
     }
 
     public function submitRequest(\WP_REST_Request $request): \WP_REST_Response
     {
+        // ── Rate limit: 5 submissions per IP per 60 minutes ──────────────────
+        $ipKey = 'cz_rl_' . md5($_SERVER['REMOTE_ADDR'] ?? '');
+        $count = (int) get_transient($ipKey);
+
+        if ($count >= 5) {
+            return new \WP_REST_Response(
+                ['success' => false, 'message' => 'Too many submissions. Please try again later.'],
+                429
+            );
+        }
+
+        set_transient($ipKey, $count + 1, HOUR_IN_SECONDS);
+
         // ── Type guard ──────────────────────────────────────────────────────
         $type = sanitize_text_field((string) $request->get_param('type'));
         if ($type !== 'quote_cart') {
