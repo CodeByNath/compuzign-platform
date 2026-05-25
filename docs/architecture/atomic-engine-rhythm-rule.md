@@ -215,3 +215,15 @@ These are the next formalizations after Phase 1 freeze lifts:
 5. Align form field padding to rhythm-safe values.
 6. Align chip/tab padding to rhythm-safe values.
 7. Resolve `--cz-font-size-md` vs `--cz-font-size-base` naming ambiguity.
+
+---
+
+## Ownership Boundary
+
+Atomic Engine is owned by the platform plugin.
+
+The WordPress theme shell (`compuzign-shell`) does not own any part of the visual system. It does not define tokens, load Atomic Engine files, or override design system rules. The shell is visually passive — it provides document structure and lifecycle hooks only.
+
+All Atomic Engine CSS loads through the plugin's `AssetLoader` via `wp_enqueue_scripts`. The shell's `wp_head()` call is the delivery mechanism; the shell is not the source.
+
+The shell must remain visually inert. Any CSS rule, token override, or styling logic placed in the theme layer violates this boundary and must be relocated to the plugin.

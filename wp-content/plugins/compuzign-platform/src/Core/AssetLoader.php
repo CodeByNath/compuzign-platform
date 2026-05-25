@@ -88,12 +88,14 @@ class AssetLoader
         $fallbackPath = COMPUZIGN_APP_PATH . 'modules/cost-builder/assets/';
         $fallbackUrl  = COMPUZIGN_APP_URL . 'modules/cost-builder/assets/';
 
+        // CSS: enqueued globally so it lands in <head> before shortcodes fire.
         if (file_exists($distPath . 'css/cost-builder.css')) {
-            wp_register_style('compuzign-cost-builder', $distUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], filemtime($distPath . 'css/cost-builder.css'));
+            wp_enqueue_style('compuzign-cost-builder', $distUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], filemtime($distPath . 'css/cost-builder.css'));
         } elseif (file_exists($fallbackPath . 'css/cost-builder.css')) {
-            wp_register_style('compuzign-cost-builder', $fallbackUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], filemtime($fallbackPath . 'css/cost-builder.css'));
+            wp_enqueue_style('compuzign-cost-builder', $fallbackUrl . 'css/cost-builder.css', ['compuzign-atomic-09'], filemtime($fallbackPath . 'css/cost-builder.css'));
         }
 
+        // JS: register-only; shortcode handler enqueues it after the mount div is in the DOM.
         if (file_exists($distPath . 'js/cost-builder.js')) {
             wp_register_script('compuzign-cost-builder', $distUrl . 'js/cost-builder.js', ['compuzign-config'], filemtime($distPath . 'js/cost-builder.js'), true);
         } elseif (file_exists($fallbackPath . 'js/cost-builder.js')) {
@@ -106,10 +108,12 @@ class AssetLoader
         $distPath = COMPUZIGN_DIST_PATH;
         $distUrl  = COMPUZIGN_DIST_URL;
 
+        // CSS: enqueued globally so it lands in <head> before shortcodes fire.
         if (file_exists($distPath . 'css/homepage.css')) {
-            wp_register_style('compuzign-homepage', $distUrl . 'css/homepage.css', ['compuzign-atomic-09'], filemtime($distPath . 'css/homepage.css'));
+            wp_enqueue_style('compuzign-homepage', $distUrl . 'css/homepage.css', ['compuzign-atomic-09'], filemtime($distPath . 'css/homepage.css'));
         }
 
+        // JS: register-only; shortcode handler enqueues it after the mount div is in the DOM.
         if (file_exists($distPath . 'js/homepage.js')) {
             wp_register_script('compuzign-homepage', $distUrl . 'js/homepage.js', ['compuzign-config'], filemtime($distPath . 'js/homepage.js'), true);
         }

@@ -496,3 +496,148 @@ The goal of future development is:
 * keep business truth centralized
 * allow consumers to evolve independently
 * preserve modular fault isolation
+
+---
+
+# 18. Shell Runtime Architecture Standard
+
+## Purpose
+
+The frontend runtime operates through a passive shell architecture.
+
+The WordPress theme layer acts only as:
+
+* compatibility layer
+* template transport
+* lifecycle bridge
+* routing surface
+
+The plugin is the application platform. The shell enables it.
+
+---
+
+## Shell Responsibilities
+
+`compuzign-shell` owns only:
+
+* template hierarchy participation
+* routing compatibility
+* `wp_head()`
+* `wp_footer()`
+* `wp_body_open()`
+* `body_class()`
+* `the_content()`
+* passive mount surfaces for shortcodes
+* lifecycle compatibility hooks (`compuzign_header`, `compuzign_footer`, `compuzign_404`)
+
+---
+
+## Plugin Responsibilities
+
+The platform plugin owns everything else:
+
+* Atomic Engine design system
+* frontend runtime
+* onboarding systems
+* operational UI
+* request flows
+* pricing systems
+* PDFs
+* emails
+* runtime configuration (`window.CompuZignConfig`)
+* frontend state
+* REST APIs
+* business logic
+
+---
+
+## Canonical Rule
+
+**Frontend rendering authority belongs to the platform plugin.**
+
+The shell provides the routing surface. The plugin provides the experience.
+
+This rule must not be violated. Any feature, UI element, styling system, or business logic found in the theme layer is architecture drift and must be moved to the plugin.
+
+---
+
+## Rendering Flow
+
+```txt
+WordPress Route
+→ Shell Template
+→ the_content()
+→ shortcode mount surface
+→ platform plugin runtime
+→ mounted application module
+```
+
+---
+
+## Asset Lifecycle Standard
+
+Required frontend CSS must be available before module mounting.
+
+Correct model:
+
+```txt
+CSS  → globally enqueued before wp_head()
+JS   → lazily enqueued by shortcode, after mount div is in the DOM
+```
+
+CSS must not depend on shortcode execution timing. Shortcode execution happens after `wp_head()` has already fired. Any CSS enqueued during shortcode processing will miss the `<head>` on WordPress versions below 6.0.
+
+---
+
+## Shell Constraints
+
+The shell must never:
+
+* own business logic
+* own onboarding flows
+* own frontend UI systems
+* duplicate Atomic Engine
+* bypass `the_content()`
+* enqueue its own CSS outside of `add_theme_support` declarations
+* become tightly coupled to frontend module internals
+
+---
+
+## Minimum Template Coverage
+
+Required files for a valid shell:
+
+* `index.php` — fallback route handler
+* `page.php` — WordPress pages (must include `have_posts()` guard)
+* `single.php` — single posts and CPTs
+* `404.php` — not-found surface (fires `compuzign_404` action)
+* `header.php` — document open, `wp_head()`, `wp_body_open()`
+* `footer.php` — `wp_footer()`, document close
+* `functions.php` — theme supports only, no enqueue logic
+
+---
+
+## Required Theme Supports
+
+The shell must declare:
+
+* `title-tag` — allows plugins to inject `<title>`
+* `post-thumbnails` — SEO and social meta compatibility
+* `automatic-feed-links` — RSS feed link injection
+* `wp-block-styles` — Gutenberg block stylesheet compatibility
+* `html5` — clean markup for search forms, comments, gallery, caption, style, script
+
+---
+
+## Runtime Stability Goal
+
+The shell exists to safely support:
+
+* shortcode mounting
+* frontend hydration
+* onboarding systems
+* customer portals
+* CRM integrations
+* future runtime-driven interfaces
+
+without frontend ownership moving into the theme layer.

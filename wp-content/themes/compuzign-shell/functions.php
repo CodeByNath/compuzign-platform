@@ -13,6 +13,12 @@ add_action( 'after_setup_theme', function () {
 	// Featured image support (used by SEO plugins and social meta).
 	add_theme_support( 'post-thumbnails' );
 
+	// RSS feed links auto-injected into wp_head().
+	add_theme_support( 'automatic-feed-links' );
+
+	// Apply WordPress's own block stylesheet so Gutenberg blocks render correctly.
+	add_theme_support( 'wp-block-styles' );
+
 	// Clean HTML5 output for core-generated markup.
 	add_theme_support( 'html5', [
 		'search-form',

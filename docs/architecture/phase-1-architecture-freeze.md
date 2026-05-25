@@ -158,11 +158,11 @@ The result is a small, efficient frontend payload suitable for WordPress-hosted 
 
 ## 2.10 Progressive Frontend Migration Strategy
 
-The current architecture allows legacy frontend systems, temporary Elementor layouts, and modern runtime modules to coexist during migration.
+The current architecture allows legacy frontend systems and modern runtime modules to coexist during migration.
 
-Elementor is currently treated as a temporary page/layout shell.
+WordPress pages and content now act primarily as controlled routing and content surfaces. Frontend rendering is owned by the platform runtime.
 
-The long-term frontend should move toward Atomic Engine + runtime modules + controlled templates.
+The long-term frontend continues toward Atomic Engine + runtime modules + controlled templates delivered through the platform plugin, not the theme layer.
 
 ---
 
@@ -735,6 +735,16 @@ Do not modify before delivery:
 
 ---
 
+## Canonical Rendering Authority
+
+**Frontend rendering authority belongs to the platform plugin.**
+
+The shell provides the WordPress routing surface. The plugin provides the application experience.
+
+This is an explicit architectural rule. It must not be violated. Any UI, styling, or business logic found in the theme layer is architecture drift and must be relocated to the plugin.
+
+---
+
 # 13. Phase 1 Frontend Shell & Intrinsic Layout Addendum
 
 ## 13.1 Shell Theme Decision
@@ -790,3 +800,31 @@ Recent Phase 1-safe refinements include:
 - equal-height tier card behavior
 
 These are considered delivery-safe refinements, not architecture expansion.
+
+## 13.5 Shell Stabilisation — Completed
+
+Shell stabilisation was completed after Phase 1 frontend shell separation.
+
+### Root Cause Resolved
+
+The frontend disappearing issue was traced to activating `compuzign-theme` (an old dummy stub with only `style.css`) instead of `compuzign-shell`. Activating the correct shell immediately restored correct rendering. No shell architecture changes were required to fix the issue.
+
+### Changes Applied
+
+* `compuzign-theme` removed entirely — `compuzign-shell` is now the only theme in the repository
+* `page.php` — `have_posts()` guard added
+* `single.php` — created; handles single posts and all CPT single routes
+* `404.php` — created; fires `compuzign_404` action as a passive plugin surface
+* `functions.php` — `automatic-feed-links` and `wp-block-styles` theme supports added
+* `AssetLoader` CSS lifecycle corrected — homepage and cost-builder CSS now globally enqueued before `wp_head()` fires; JS remains lazily enqueued by shortcodes
+
+### Architecture Validated
+
+* shell/plugin separation confirmed stable
+* platform plugin remains sole rendering authority
+* shortcode mounting, frontend hydration, and JS module mounting all function correctly under `compuzign-shell`
+* lifecycle hooks (`wp_head`, `wp_footer`, `wp_body_open`, `body_class`) confirmed compatible
+
+### Shell Remains Intentionally Minimal
+
+The shell does not own any frontend logic, visual system, or business behaviour. These constraints are permanent, not temporary. See Architecture Standards v1, Section 18.
