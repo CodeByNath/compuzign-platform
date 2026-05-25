@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
+import { saveCart, loadCart, clearCart } from '@/utils/cartStorage';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { Spinner } from '@/components/ui/Spinner';
 import { CategoryNav } from './CategoryNav';
@@ -19,8 +20,16 @@ export function CostBuilderApp() {
   const { data, loading, error, refetch } = useCostBuilder();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(() => loadCart());
   const [isFlowOpen, setIsFlowOpen] = useState(false);
+
+  useEffect(() => {
+    if (quoteItems.length === 0) {
+      clearCart();
+    } else {
+      saveCart(quoteItems);
+    }
+  }, [quoteItems]);
 
   const addToQuote = (item: QuoteItem) => {
     setQuoteItems((prev) => [
@@ -133,6 +142,10 @@ export function CostBuilderApp() {
         isOpen={isFlowOpen}
         context={{ type: 'quote_cart', items: quoteItems, services: allServices }}
         onClose={() => setIsFlowOpen(false)}
+        onSubmitSuccess={() => {
+          clearCart();
+          setQuoteItems([]);
+        }}
       />
     </div>
   );

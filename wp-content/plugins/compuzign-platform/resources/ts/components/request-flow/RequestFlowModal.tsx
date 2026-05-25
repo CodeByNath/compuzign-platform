@@ -3,15 +3,16 @@ import type { RequestFlowContext } from './types';
 import { QuoteCartFlow } from './QuoteCartFlow';
 
 interface RequestFlowModalProps {
-  isOpen: boolean;
-  context: RequestFlowContext;
-  onClose: () => void;
+  isOpen:           boolean;
+  context:          RequestFlowContext;
+  onClose:          () => void;
+  onSubmitSuccess?: () => void;
 }
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-export function RequestFlowModal({ isOpen, context, onClose }: RequestFlowModalProps) {
+export function RequestFlowModal({ isOpen, context, onClose, onSubmitSuccess }: RequestFlowModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,7 +85,7 @@ export function RequestFlowModal({ isOpen, context, onClose }: RequestFlowModalP
   const renderInterior = () => {
     switch (context.type) {
       case 'quote_cart':
-        return <QuoteCartFlow context={context} onClose={onClose} />;
+        return <QuoteCartFlow context={context} onClose={onClose} onSubmitSuccess={onSubmitSuccess} />;
       default:
         return null;
     }

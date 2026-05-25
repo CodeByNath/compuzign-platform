@@ -6,8 +6,9 @@ import { StepIndicator } from './StepIndicator';
 import type { ContactFormValues, RequestFlowContext } from './types';
 
 interface QuoteCartFlowProps {
-  context: Extract<RequestFlowContext, { type: 'quote_cart' }>;
-  onClose: () => void;
+  context:          Extract<RequestFlowContext, { type: 'quote_cart' }>;
+  onClose:          () => void;
+  onSubmitSuccess?: () => void;
 }
 
 type Step        = 'contact' | 'review';
@@ -65,7 +66,7 @@ const IconClock = () => (
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function QuoteCartFlow({ context, onClose }: QuoteCartFlowProps) {
+export function QuoteCartFlow({ context, onClose, onSubmitSuccess }: QuoteCartFlowProps) {
   const [contact,           setContact]           = useState<ContactFormValues>(EMPTY_CONTACT);
   const [step,              setStep]              = useState<Step>('contact');
   const [submitState,       setSubmitState]       = useState<SubmitState>('idle');
@@ -109,6 +110,7 @@ export function QuoteCartFlow({ context, onClose }: QuoteCartFlowProps) {
         quote_ref: quoteRef,
       });
       setSubmitState('success');
+      onSubmitSuccess?.();
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : 'Something went wrong. Please try again.',
