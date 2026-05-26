@@ -6,6 +6,8 @@ class MailService
 {
     public function register(): void
     {
+        Health::register('mail', static fn() => defined('CZ_SMTP_HOST'));
+
         if (!defined('CZ_SMTP_HOST')) {
             return;
         }

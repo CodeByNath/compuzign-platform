@@ -32,6 +32,11 @@ function compuzign_seed_mep_pricing_correct($raw): bool
  */
 function compuzign_seed_managed_endpoint_protection(): void
 {
+    // Short-circuit on every subsequent boot once the seed has completed.
+    if (get_option('cz_seed_mep_done')) {
+        return;
+    }
+
     $post = get_page_by_path('managed-endpoint-protection', OBJECT, 'cz_service');
     if (!$post) {
         return;
@@ -42,9 +47,7 @@ function compuzign_seed_managed_endpoint_protection(): void
     $hasFaqs       = !empty(get_post_meta($post->ID, 'cz_service_faqs', true));
 
     if ($hasInclusions && $hasPricing && $hasFaqs) {
-        if (!get_option('cz_seed_mep_done')) {
-            update_option('cz_seed_mep_done', true);
-        }
+        update_option('cz_seed_mep_done', true);
         return;
     }
 

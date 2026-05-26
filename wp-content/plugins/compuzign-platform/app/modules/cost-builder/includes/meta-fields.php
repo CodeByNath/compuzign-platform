@@ -149,126 +149,13 @@ function compuzign_cost_builder_sanitize_service_pricing($pricing): array
 }
 
 if (!function_exists('compuzign_cost_builder_parse_price')) {
-    function compuzign_cost_builder_parse_price($value)
+    function compuzign_cost_builder_parse_price($value): ?float
     {
-        $value = trim((string) $value);
-        if ($value === '') {
-            return null;
-        }
-
-        $value = preg_replace('/[^0-9\.\-]/', '', $value);
-        if ($value === '' || !is_numeric($value)) {
-            return null;
-        }
-
-        return floatval($value);
+        return \CompuZign\Platform\Modules\CostBuilder\Support\PriceParser::parse($value);
     }
 }
 
-function compuzign_cost_builder_register_service_meta()
-{
-    $defaults = compuzign_cost_builder_get_default_meta();
-    $default_pricing = compuzign_cost_builder_get_default_pricing();
-
-    register_post_meta(
-        'cz_service',
-        'cz_service_meta',
-        array(
-            'type' => 'object',
-            'single' => true,
-            'default' => $defaults,
-            'show_in_rest' => array(
-                'schema' => array(
-                    'type' => 'object',
-                    'properties' => array(
-                        'short_description' => array('type' => 'string'),
-                        'long_description' => array('type' => 'string'),
-                        'billing_cycle' => array('type' => 'string'),
-                        'sla' => array('type' => 'string'),
-                        'uptime' => array('type' => 'string'),
-                        'notes' => array('type' => 'string'),
-                        'popular_tier' => array(
-                            'type' => 'string',
-                            'enum' => compuzign_cost_builder_get_allowed_tiers(),
-                        ),
-                        'sort_order' => array('type' => 'integer'),
-                        'is_active' => array('type' => 'boolean'),
-                    ),
-                ),
-            ),
-            'sanitize_callback' => 'compuzign_cost_builder_sanitize_service_meta',
-        )
-    );
-
-    register_post_meta(
-        'cz_service',
-        'cz_service_pricing',
-        array(
-            'type' => 'object',
-            'single' => true,
-            'default' => $default_pricing,
-            'show_in_rest' => array(
-                'schema' => array(
-                    'type' => 'object',
-                    'properties' => array(
-                        'tiers' => array(
-                            'type' => 'object',
-                            'properties' => array(
-                                'basic' => array(
-                                    'type' => 'object',
-                                    'properties' => array(
-                                        'price' => array('type' => array('number', 'null')),
-                                        'features' => array(
-                                            'type' => 'array',
-                                            'items' => array('type' => 'string'),
-                                        ),
-                                    ),
-                                ),
-                                'standard' => array(
-                                    'type' => 'object',
-                                    'properties' => array(
-                                        'price' => array('type' => array('number', 'null')),
-                                        'features' => array(
-                                            'type' => 'array',
-                                            'items' => array('type' => 'string'),
-                                        ),
-                                    ),
-                                ),
-                                'premium' => array(
-                                    'type' => 'object',
-                                    'properties' => array(
-                                        'price' => array('type' => array('number', 'null')),
-                                        'features' => array(
-                                            'type' => 'array',
-                                            'items' => array('type' => 'string'),
-                                        ),
-                                    ),
-                                ),
-                                'enterprise' => array(
-                                    'type' => 'object',
-                                    'properties' => array(
-                                        'price' => array('type' => array('number', 'null')),
-                                        'features' => array(
-                                            'type' => 'array',
-                                            'items' => array('type' => 'string'),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                        'bundle' => array(
-                            'type' => 'object',
-                            'properties' => array(
-                                'title' => array('type' => 'string'),
-                                'description' => array('type' => 'string'),
-                                'price' => array('type' => array('number', 'null')),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            'sanitize_callback' => 'compuzign_cost_builder_sanitize_service_pricing',
-        )
-    );
-}
-add_action('init', 'compuzign_cost_builder_register_service_meta');
+// Post meta registration is handled by MetaSchema::register() in CostBuilderModule.
+// compuzign_cost_builder_sanitize_service_meta() and compuzign_cost_builder_sanitize_service_pricing()
+// are kept as named callbacks for any legacy register_post_meta calls; they delegate to the
+// normalise functions above and are safe to retain.

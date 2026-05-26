@@ -2,10 +2,12 @@
 
 namespace CompuZign\Platform\Modules\CostBuilder;
 
+use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\Modules\CostBuilder\Http\CostBuilderController;
 use CompuZign\Platform\Modules\CostBuilder\Repositories\ServiceRepository;
 use CompuZign\Platform\Modules\CostBuilder\Services\CatalogImporter;
 use CompuZign\Platform\Modules\CostBuilder\Services\PricingBuilder;
+use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
 
 class CostBuilderModule
 {
@@ -16,12 +18,14 @@ class CostBuilderModule
             define('COMPUZIGN_COST_BUILDER_URL',  COMPUZIGN_PLUGIN_URL . 'app/modules/cost-builder/');
         }
 
-        // Phase 1: importer.php self-loads meta-fields.php, which handles post meta
-        // registration. MetaSchema::register() replaces this in Phase 2.
+        // importer.php loads meta-fields.php (helper functions for import/normalise).
+        // MetaSchema::register() owns post meta registration; meta-fields.php no longer hooks.
         $importerFile = COMPUZIGN_COST_BUILDER_PATH . 'includes/importer.php';
         if (file_exists($importerFile)) {
             require_once $importerFile;
         }
+
+        (new MetaSchema())->register();
 
         // Load all logic files (seed scripts, one-time data ops)
         $logicDir = COMPUZIGN_COST_BUILDER_PATH . 'logic';
@@ -38,6 +42,8 @@ class CostBuilderModule
         (new CostBuilderController($builder, $importer))->register();
 
         add_shortcode('compuzign_cost_builder', [$this, 'renderShortcode']);
+
+        Health::register('cost_builder', static fn() => post_type_exists('cz_service'));
     }
 
     public function renderShortcode(): string

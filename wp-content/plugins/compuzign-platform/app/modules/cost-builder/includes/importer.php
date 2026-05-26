@@ -94,49 +94,76 @@ function compuzign_cost_builder_import_service_catalog_from_csv(string $csv_path
 }
 
 
+// ── XLSX row query helper ──────────────────────────────────────────────────
+
 /**
- * Import services from an Excel workbook (.xlsx) using the Service Catalog sheet.
- * Keeps the existing importer flow by producing rows compatible with
- * compuzign_cost_builder_import_service_row().
- *
- * @param string $xlsx_path
- * @return array
+ * Query sheetData rows from a parsed sheet XML with three-level fallback:
+ * namespaced XPath → local-name XPath → DOM.
  */
-function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_path): array
+function compuzign_cost_builder_xlsx_query_rows(SimpleXMLElement $sheetxml, string $sheet_raw): array
+{
+    $rows = $sheetxml->xpath('//x:sheetData/x:row');
+    if (!empty($rows)) {
+        return $rows;
+    }
+
+    $rows = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
+    if (!empty($rows)) {
+        return $rows;
+    }
+
+    libxml_use_internal_errors(true);
+    $doc = new DOMDocument();
+    $doc->loadXML($sheet_raw);
+    $xpathdom = new DOMXPath($doc);
+    $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
+    $rows = array();
+    foreach ($rows_dom as $rd) {
+        $rows[] = $rd;
+    }
+    return $rows;
+}
+
+// ── PARSE STAGE ────────────────────────────────────────────────────────────
+
+/**
+ * Parse stage: open XLSX, find the Service Catalog sheet, detect the header row,
+ * and extract all data rows as structured arrays compatible with
+ * compuzign_cost_builder_import_service_row(). No posts are created or updated.
+ *
+ * Returns on error:
+ *   ['success' => false, 'message' => string, ...diagnostic fields]
+ *
+ * Returns on success:
+ *   ['success' => true, 'header_map' => array, 'header_row_number' => int,
+ *    'rows' => array, 'skipped' => int, 'workbook_sheets' => array,
+ *    'selected_sheet' => string|null, 'first_non_empty_rows' => array,
+ *    'scanned_rows' => array, 'header_detected' => array]
+ */
+function compuzign_cost_builder_parse_xlsx_rows(string $xlsx_path): array
 {
     if (!file_exists($xlsx_path) || !is_readable($xlsx_path)) {
-        return array(
-            'success' => false,
-            'message' => 'XLSX file does not exist or is not readable.',
-            'inserted' => 0,
-            'updated' => 0,
-            'errors' => array(),
-        );
+        return array('success' => false, 'message' => 'XLSX file does not exist or is not readable.');
     }
 
     $zip = new ZipArchive();
     if ($zip->open($xlsx_path) !== true) {
-        return array(
-            'success' => false,
-            'message' => 'Unable to open XLSX file.',
-            'inserted' => 0,
-            'updated' => 0,
-            'errors' => array(),
-        );
+        return array('success' => false, 'message' => 'Unable to open XLSX file.');
     }
 
-    // Load shared strings
+    $XLSX_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+
+    // Shared strings
     $shared = array();
     if (($idx = $zip->locateName('xl/sharedStrings.xml')) !== false) {
         $sxml = simplexml_load_string($zip->getFromIndex($idx));
-        $sxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-        // Use XPath (not property access) so namespace context is inherited by child xpath() calls
+        $sxml->registerXPathNamespace('x', $XLSX_NS);
         $si_list = $sxml->xpath('//x:si');
         if (empty($si_list)) {
             $si_list = $sxml->xpath('//*[local-name()="si"]');
         }
         foreach ($si_list as $si) {
-            $texts = '';
+            $texts   = '';
             $t_nodes = $si->xpath('.//x:t');
             if (empty($t_nodes)) {
                 $t_nodes = $si->xpath('.//*[local-name()="t"]');
@@ -148,55 +175,47 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         }
     }
 
-    // Map workbook rels to sheet targets
+    // Workbook rels
     $rels = array();
     if (($ridx = $zip->locateName('xl/_rels/workbook.xml.rels')) !== false) {
         $relsxml = simplexml_load_string($zip->getFromIndex($ridx));
-        $relsxml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/package/2006/relationships');
         foreach ($relsxml->Relationship as $rel) {
-            $attrs = $rel->attributes();
-            $id = (string) $attrs['Id'];
-            $target = (string) $attrs['Target'];
-            // normalize target
-            $target = preg_replace('#^/+#', '', $target);
+            $attrs  = $rel->attributes();
+            $id     = (string) $attrs['Id'];
+            $target = preg_replace('#^/+#', '', (string) $attrs['Target']);
             $rels[$id] = $target;
         }
     }
 
-    // Read workbook to list sheets and find the one named 'Service Catalog'
-    $sheet_target = null;
+    // Find Service Catalog sheet (fallback to first sheet)
+    $sheet_target        = null;
     $selected_sheet_name = null;
-    $sheets_info = array();
+    $sheets_info         = array();
+
     if (($wbidx = $zip->locateName('xl/workbook.xml')) !== false) {
         $wbxml = simplexml_load_string($zip->getFromIndex($wbidx));
-        $wbxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        $wbxml->registerXPathNamespace('x', $XLSX_NS);
         foreach ($wbxml->sheets->sheet as $sheet) {
-            $name = (string) $sheet['name'];
-            // relationship id may be in the relationships namespace
-            $rid = '';
+            $name  = (string) $sheet['name'];
+            $rid   = '';
             $attrs = $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
             if ($attrs && isset($attrs['id'])) {
                 $rid = (string) $attrs['id'];
             } else {
                 $attrs2 = $sheet->attributes();
-                $rid = (string) $attrs2['r:id'] ?? (string) $attrs2['id'] ?? '';
+                $rid    = (string) $attrs2['r:id'] ?? (string) $attrs2['id'] ?? '';
             }
             $target = $rels[$rid] ?? '';
-            // normalize target to xl/ path
-            $path = $target;
-            if ($path && strpos($path, 'xl/') !== 0) {
-                $path = 'xl/' . ltrim($path, '/');
-            }
+            $path   = ($target && strpos($target, 'xl/') !== 0) ? 'xl/' . ltrim($target, '/') : $target;
             $sheets_info[] = array('name' => $name, 'rid' => $rid, 'target' => $path ?: $target);
 
             if (stripos($name, 'service catalog') !== false) {
-                $sheet_target = $target;
+                $sheet_target        = $target;
                 $selected_sheet_name = $name;
                 break;
             }
             if ($sheet_target === null) {
-                // fallback to first sheet target but continue searching for exact match
-                $sheet_target = $target;
+                $sheet_target        = $target;
                 $selected_sheet_name = $name;
             }
         }
@@ -204,135 +223,41 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
 
     if (!$sheet_target) {
         $zip->close();
-        return array(
-            'success' => false,
-            'message' => 'Service Catalog sheet not found in workbook.',
-            'inserted' => 0,
-            'updated' => 0,
-            'errors' => array(),
-        );
+        return array('success' => false, 'message' => 'Service Catalog sheet not found in workbook.', 'workbook_sheets' => $sheets_info);
     }
 
     $sheet_path = preg_match('#^xl/#', $sheet_target) ? $sheet_target : 'xl/' . ltrim($sheet_target, '/');
     if (($sidx = $zip->locateName($sheet_path)) === false) {
         $zip->close();
-        return array(
-            'success' => false,
-            'message' => 'Sheet XML not found',
-            'sheet_target' => $sheet_target,
-            'sheets' => $sheets_info,
-            'inserted' => 0,
-            'updated' => 0,
-            'errors' => array(),
-        );
+        return array('success' => false, 'message' => 'Sheet XML not found.', 'sheet_target' => $sheet_target, 'sheets' => $sheets_info);
     }
 
-    $sheetxml = simplexml_load_string($zip->getFromIndex($sidx));
-    $sheetxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-
-    // Find header row by scanning the first 30 rows and matching known header names
-    $header_map = array();
-    $header_row_number = null;
-    $diagnostics = array(
-        'selected_sheet_name' => $selected_sheet_name,
-        'selected_sheet_path' => $sheet_path,
-        'sheets' => $sheets_info,
-        'scanned_rows' => array(),
-        'first_non_empty_rows' => array(),
-    );
-
-    $normalize = function ($s) {
-        $s = trim((string) $s);
-        $s = preg_replace('/\s+/u', ' ', $s);
-        $s = trim($s);
-        $s = strtolower($s);
-        return $s;
-    };
-
-    // Known headers mapped to internal keys
-    $known_headers = array(
-        'service category' => 'category',
-        'service category:' => 'category',
-        'service name' => 'service_title',
-        'service name:' => 'service_title',
-        'description' => 'long_description',
-        'basic' => 'basic_price',
-        'standard' => 'standard_price',
-        'premium' => 'premium_price',
-        'enterprise' => 'enterprise_price',
-        'billing cycle' => 'billing_cycle',
-        'billing cycle:' => 'billing_cycle',
-        'sla / uptime' => 'uptime',
-        'sla' => 'uptime',
-        'uptime' => 'uptime',
-        'notes' => 'notes',
-    );
-
-    $row_count = 0;
-    $first_non_empty = array();
-
-    // store raw sheet xml head for diagnostics
     $sheet_raw = $zip->getFromIndex($sidx);
-    $diagnostics['sheet_xml_head'] = substr($sheet_raw, 0, 500);
+    $sheetxml  = simplexml_load_string($sheet_raw);
+    $sheetxml->registerXPathNamespace('x', $XLSX_NS);
 
-    // Try namespaced XPath first
-    $rows = $sheetxml->xpath('//x:sheetData/x:row');
-    $sheetData_exists = !empty($sheetxml->xpath('//x:sheetData'));
-    $diagnostics['sheetData_exists'] = $sheetData_exists;
-    $diagnostics['rows_found_xpath'] = $rows ? count($rows) : 0;
-
-    // Fallback to local-name XPath
-    if (empty($rows)) {
-        $rows = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
-        $diagnostics['rows_found_localname'] = $rows ? count($rows) : 0;
-    }
-
-    // Final fallback to DOM local-name query
-    if (empty($rows)) {
-        libxml_use_internal_errors(true);
-        $doc = new DOMDocument();
-        $doc->loadXML($sheet_raw);
-        $xpathdom = new DOMXPath($doc);
-        $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
-        $diagnostics['rows_found_dom'] = $rows_dom->length;
-        $rows = array();
-        foreach ($rows_dom as $rd) { $rows[] = $rd; }
-    }
-
-    $XLSX_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-    foreach ($rows as $row) {
-        $row_count++;
-        if ($row_count > 30) {
-            break;
-        }
-
+    // Cell reader: handles both DOMElement and SimpleXMLElement rows
+    $read_cells = function ($row) use ($shared, $XLSX_NS): array {
         $cells = array();
-        $cell_texts = array();
+        $texts = array();
 
-        // two possible row node types: SimpleXMLElement or DOMElement
         if ($row instanceof DOMElement) {
-            $rnum = $row->getAttribute('r');
             foreach ($row->childNodes as $cnode) {
                 if (!($cnode instanceof DOMElement)) { continue; }
-                $local = $cnode->localName ?? $cnode->nodeName;
-                if (strtolower($local) !== 'c') { continue; }
+                if (strtolower($cnode->localName ?? $cnode->nodeName) !== 'c') { continue; }
                 $r = $cnode->getAttribute('r');
                 preg_match('/^([A-Z]+)\d+$/', $r, $m);
                 $col = $m[1] ?? '';
-                $t = $cnode->getAttribute('t');
-                $v = '';
-                // find v child
+                $t   = $cnode->getAttribute('t');
+                $v   = '';
                 foreach ($cnode->childNodes as $child) {
                     if (!($child instanceof DOMElement)) { continue; }
-                    $ln = $child->localName ?? $child->nodeName;
-                    if (strtolower($ln) === 'v') { $v = $child->textContent; break; }
+                    if (strtolower($child->localName ?? $child->nodeName) === 'v') { $v = $child->textContent; break; }
                 }
-                // inlineStr
                 if ($v === '') {
                     foreach ($cnode->childNodes as $child) {
                         if (!($child instanceof DOMElement)) { continue; }
-                        $ln = $child->localName ?? $child->nodeName;
-                        if (strtolower($ln) === 'is') {
+                        if (strtolower($child->localName ?? $child->nodeName) === 'is') {
                             $parts = array();
                             foreach ($child->childNodes as $tt) {
                                 if ($tt instanceof DOMElement && strtolower($tt->localName) === 't') { $parts[] = $tt->textContent; }
@@ -341,63 +266,93 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
                         }
                     }
                 }
-                if ($t === 's') { $idx = (int) $v; $v = $shared[$idx] ?? ''; }
-                $v_trim = trim((string) $v);
-                $cells[$col] = $v_trim;
-                $cell_texts[] = $v_trim;
+                if ($t === 's') { $v = $shared[(int) $v] ?? ''; }
+                $v = trim((string) $v);
+                $cells[$col] = $v;
+                $texts[]     = $v;
             }
         } else {
-            // SimpleXML — use children($NS) to avoid xpath namespace-inheritance issues.
-            // Attributes r/t/s are unnamespaced; must use $c->attributes() (no-namespace form)
-            // because $c['attr'] on a children($NS) element looks in the NS context, not no-NS.
-            $rnum = (string) $row->attributes()['r'];
+            // SimpleXML — use children($NS) + attributes() (unnamespaced attrs)
             foreach ($row->children($XLSX_NS) as $c) {
                 $c_attrs = $c->attributes();
                 $r_attr  = (string) ($c_attrs['r'] ?? '');
                 $t       = (string) ($c_attrs['t'] ?? '');
                 preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
-                $col = $m[1] ?? '';
-                $v = '';
+                $col  = $m[1] ?? '';
+                $v    = '';
                 $c_ch = $c->children($XLSX_NS);
                 if (count($c_ch->v) > 0) {
                     $raw = (string) $c_ch->v;
-                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
+                    $v   = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
                 } elseif (count($c_ch->is) > 0) {
                     $parts = array();
                     foreach ($c_ch->is->children($XLSX_NS) as $tnode) { $parts[] = (string) $tnode; }
                     $v = implode('', $parts);
                 }
-                $v_trim = trim($v);
-                $cells[$col] = $v_trim;
-                $cell_texts[] = $v_trim;
+                $v           = trim($v);
+                $cells[$col] = $v;
+                $texts[]     = $v;
             }
         }
 
-        // record scanned row diagnostics
-        $diagnostics['scanned_rows'][] = array('r' => $rnum, 'cells' => $cell_texts);
+        return array('cells' => $cells, 'texts' => $texts);
+    };
+
+    $get_rnum = function ($row): string {
+        return ($row instanceof DOMElement) ? $row->getAttribute('r') : (string) ($row->attributes()['r'] ?? '');
+    };
+
+    $normalize = function (string $s): string {
+        $s = trim($s);
+        $s = preg_replace('/\s+/u', ' ', $s);
+        return strtolower(trim($s));
+    };
+
+    $known_headers = array(
+        'service category' => 'category', 'service category:' => 'category',
+        'service name'     => 'service_title', 'service name:' => 'service_title',
+        'description'      => 'long_description',
+        'basic'            => 'basic_price',    'standard'     => 'standard_price',
+        'premium'          => 'premium_price',  'enterprise'   => 'enterprise_price',
+        'billing cycle'    => 'billing_cycle',  'billing cycle:' => 'billing_cycle',
+        'sla / uptime'     => 'uptime',         'sla'          => 'uptime',
+        'uptime'           => 'uptime',         'notes'        => 'notes',
+    );
+
+    $all_rows          = compuzign_cost_builder_xlsx_query_rows($sheetxml, $sheet_raw);
+    $header_map        = array();
+    $header_row_number = null;
+    $scanned_rows      = array();
+    $first_non_empty   = array();
+
+    // Scan first 30 rows to locate the header row
+    foreach ($all_rows as $row) {
+        $rnum_str = $get_rnum($row);
+        if ((int) $rnum_str > 30) { break; }
+
+        $parsed     = $read_cells($row);
+        $cells      = $parsed['cells'];
+        $cell_texts = $parsed['texts'];
+        $norms      = array_map($normalize, $cell_texts);
+
+        $scanned_rows[] = array('r' => $rnum_str, 'cells' => $cell_texts, 'normalized' => $norms);
+
         if (count($first_non_empty) < 10) {
-            $nonempty = array_filter($cell_texts, function ($x) { return strlen(trim($x)) > 0; });
+            $nonempty = array_filter($cell_texts, fn($x) => strlen(trim($x)) > 0);
             if (!empty($nonempty)) {
-                $first_non_empty[] = array('r' => $rnum, 'cells' => $cell_texts);
+                $first_non_empty[] = array('r' => $rnum_str, 'cells' => $cell_texts);
             }
         }
 
-        // Build normalized texts map for the row to search for headers
-        $norms = array();
-        foreach ($cell_texts as $ct) { $norms[] = $normalize($ct); }
-        $diagnostics['scanned_rows'][count($diagnostics['scanned_rows'])-1]['normalized'] = $norms;
-
-        // Try to detect header row
-        $has_service_category = false; $has_service_name = false;
+        $has_service_category = false;
+        $has_service_name     = false;
         foreach ($norms as $n) {
             if (strpos($n, 'service category') !== false) { $has_service_category = true; }
-            if (strpos($n, 'service name') !== false) { $has_service_name = true; }
+            if (strpos($n, 'service name') !== false)     { $has_service_name = true; }
         }
 
         if ($has_service_category || $has_service_name) {
-            $header_row_number = (int) $rnum;
-            $header_map = array();
-            // Build header map from $cells
+            $header_row_number = (int) $rnum_str;
             foreach ($cells as $col => $cellVal) {
                 $nv = $normalize($cellVal);
                 foreach ($known_headers as $k => $internal) {
@@ -407,169 +362,123 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
             if (empty($header_map)) {
                 $header_map = array('A'=>'category','B'=>'service_title','C'=>'long_description','D'=>'basic_price','E'=>'standard_price','F'=>'premium_price','G'=>'enterprise_price','H'=>'billing_cycle','I'=>'uptime','J'=>'notes');
             }
-            $diagnostics['header_row'] = array('r'=>$header_row_number,'map'=>$header_map,'raw_cells'=>$cell_texts,'normalized'=>$norms);
             break;
         }
     }
 
-    $diagnostics['first_non_empty_rows'] = $first_non_empty;
-
     if ($header_row_number === null) {
         $zip->close();
         return array(
-            'success' => false,
-            'message' => 'Header row not found',
-            'workbook_sheets' => $sheets_info,
-            'selected_sheet' => $selected_sheet_name,
-            'first_parsed_rows' => $first_non_empty,
-            'diagnostics' => $diagnostics,
-            'inserted' => 0,
-            'updated' => 0,
-            'skipped' => 0,
-            'invalid' => 0,
-            'errors' => array(),
+            'success'              => false,
+            'message'              => 'Header row not found.',
+            'workbook_sheets'      => $sheets_info,
+            'selected_sheet'       => $selected_sheet_name,
+            'first_non_empty_rows' => $first_non_empty,
+            'scanned_rows'         => $scanned_rows,
         );
     }
 
-    // Process rows after header
-    $inserted = 0; $updated = 0; $skipped = 0; $invalid = 0; $errors = array();
+    // Extract data rows into row_data arrays (PERSIST STAGE INPUT)
+    $rows_out = array();
+    $skipped  = 0;
 
-    // Get all rows with fallback logic (same as header detection)
-    $rows_to_process = $sheetxml->xpath('//x:sheetData/x:row');
+    foreach ($all_rows as $row) {
+        $rnum = (int) $get_rnum($row);
+        if ($rnum <= $header_row_number) { continue; }
 
-    // Fallback to local-name XPath
-    if (empty($rows_to_process)) {
-        $rows_to_process = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
-    }
+        $cells = $read_cells($row)['cells'];
 
-    // Final fallback to DOM local-name query
-    if (empty($rows_to_process)) {
-        libxml_use_internal_errors(true);
-        $doc = new DOMDocument();
-        $doc->loadXML($sheet_raw);
-        $xpathdom = new DOMXPath($doc);
-        $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
-        $rows_to_process = array();
-        foreach ($rows_dom as $rd) { $rows_to_process[] = $rd; }
-    }
-
-    foreach ($rows_to_process as $row) {
-        $rnum_val = null;
-        if ($row instanceof DOMElement) {
-            $rnum_val = $row->getAttribute('r');
-        } else {
-            $rnum_val = (string) $row['r'];
-        }
-        $rnum = (int) $rnum_val;
-        if ($rnum <= $header_row_number) {
-            continue;
-        }
-
-        $cells = array();
-
-        // Handle both DOMElement and SimpleXMLElement
-        if ($row instanceof DOMElement) {
-            foreach ($row->childNodes as $cnode) {
-                if (!($cnode instanceof DOMElement)) { continue; }
-                $local = $cnode->localName ?? $cnode->nodeName;
-                if (strtolower($local) !== 'c') { continue; }
-                $r = $cnode->getAttribute('r');
-                preg_match('/^([A-Z]+)\d+$/', $r, $m);
-                $col = $m[1] ?? '';
-                $t = $cnode->getAttribute('t');
-                $v = '';
-                // find v child
-                foreach ($cnode->childNodes as $child) {
-                    if (!($child instanceof DOMElement)) { continue; }
-                    $ln = $child->localName ?? $child->nodeName;
-                    if (strtolower($ln) === 'v') { $v = $child->textContent; break; }
-                }
-                // inlineStr
-                if ($v === '') {
-                    foreach ($cnode->childNodes as $child) {
-                        if (!($child instanceof DOMElement)) { continue; }
-                        $ln = $child->localName ?? $child->nodeName;
-                        if (strtolower($ln) === 'is') {
-                            $parts = array();
-                            foreach ($child->childNodes as $tt) {
-                                if ($tt instanceof DOMElement && strtolower($tt->localName) === 't') { $parts[] = $tt->textContent; }
-                            }
-                            $v = implode('', $parts);
-                        }
-                    }
-                }
-                if ($t === 's') { $idx = (int) $v; $v = $shared[$idx] ?? ''; }
-                $cells[$col] = trim((string) $v);
-            }
-        } else {
-            // SimpleXML — use children($NS) + attributes() (no-namespace form)
-            foreach ($row->children($XLSX_NS) as $c) {
-                $c_attrs = $c->attributes();
-                $r_attr  = (string) ($c_attrs['r'] ?? '');
-                $t       = (string) ($c_attrs['t'] ?? '');
-                preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
-                $col = $m[1] ?? '';
-                $v = '';
-                $c_ch = $c->children($XLSX_NS);
-                if (count($c_ch->v) > 0) {
-                    $raw = (string) $c_ch->v;
-                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
-                } elseif (count($c_ch->is) > 0) {
-                    $parts = array();
-                    foreach ($c_ch->is->children($XLSX_NS) as $tnode) { $parts[] = (string) $tnode; }
-                    $v = implode('', $parts);
-                }
-                $cells[$col] = trim($v);
-            }
-        }
-
-        // Build normalized row data
-        // Determine service title column by header_map
-        // Find the column letter mapped to service_title
         $service_title = '';
-        $category_val = '';
+        $category_val  = '';
         foreach ($cells as $col => $val) {
             $mapped = $header_map[$col] ?? null;
             if ($mapped === 'service_title') { $service_title = $val; }
-            if ($mapped === 'category') { $category_val = $val; }
+            if ($mapped === 'category')      { $category_val  = $val; }
         }
-        // Fallback to B/A if detection failed
         if ($service_title === '') { $service_title = $cells['B'] ?? ''; }
-        if ($category_val === '') { $category_val = $cells['A'] ?? ''; }
+        if ($category_val  === '') { $category_val  = $cells['A'] ?? ''; }
+
         if ($service_title === '') {
-            // likely a section header row (skip without error)
             $skipped++;
             continue;
         }
 
-        $row_data = array(
-            'category' => $category_val,
-            'service_title' => $service_title,
-            'service_slug' => '',
-            'short_description' => '',
-            'long_description' => $cells['C'] ?? '',
-            'billing_cycle' => $cells['H'] ?? '',
-            'sla' => '',
-            'uptime' => $cells['I'] ?? '',
-            'notes' => $cells['J'] ?? '',
-            'popular_tier' => '',
-            'sort_order' => 0,
-            'is_active' => '1',
-            'basic_price' => $cells['D'] ?? '',
-            'standard_price' => $cells['E'] ?? '',
-            'premium_price' => $cells['F'] ?? '',
-            'enterprise_price' => $cells['G'] ?? '',
-            'basic_features' => '',
-            'standard_features' => '',
-            'premium_features' => '',
+        $rows_out[] = array(
+            'category'            => $category_val,
+            'service_title'       => $service_title,
+            'service_slug'        => '',
+            'short_description'   => '',
+            'long_description'    => $cells['C'] ?? '',
+            'billing_cycle'       => $cells['H'] ?? '',
+            'sla'                 => '',
+            'uptime'              => $cells['I'] ?? '',
+            'notes'               => $cells['J'] ?? '',
+            'popular_tier'        => '',
+            'sort_order'          => 0,
+            'is_active'           => '1',
+            'basic_price'         => $cells['D'] ?? '',
+            'standard_price'      => $cells['E'] ?? '',
+            'premium_price'       => $cells['F'] ?? '',
+            'enterprise_price'    => $cells['G'] ?? '',
+            'basic_features'      => '',
+            'standard_features'   => '',
+            'premium_features'    => '',
             'enterprise_features' => '',
-            'bundle_title' => '',
-            'bundle_description' => '',
-            'bundle_price' => '',
+            'bundle_title'        => '',
+            'bundle_description'  => '',
+            'bundle_price'        => '',
         );
+    }
 
+    $zip->close();
+
+    return array(
+        'success'              => true,
+        'header_map'           => $header_map,
+        'header_row_number'    => $header_row_number,
+        'header_detected'      => array('r' => $header_row_number, 'map' => $header_map),
+        'rows'                 => $rows_out,
+        'skipped'              => $skipped,
+        'workbook_sheets'      => $sheets_info,
+        'selected_sheet'       => $selected_sheet_name,
+        'first_non_empty_rows' => $first_non_empty,
+        'scanned_rows'         => $scanned_rows,
+    );
+}
+
+// ── PERSIST STAGE ──────────────────────────────────────────────────────────
+
+/**
+ * Import services from an Excel workbook (.xlsx) using the Service Catalog sheet.
+ * Delegates parsing to compuzign_cost_builder_parse_xlsx_rows(), then persists
+ * each row via compuzign_cost_builder_import_service_row().
+ *
+ * @param string $xlsx_path
+ * @return array
+ */
+function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_path): array
+{
+    $parsed = compuzign_cost_builder_parse_xlsx_rows($xlsx_path);
+
+    if (!$parsed['success']) {
+        return array(
+            'success'  => false,
+            'message'  => $parsed['message'],
+            'inserted' => 0,
+            'updated'  => 0,
+            'skipped'  => 0,
+            'invalid'  => 0,
+            'errors'   => array(),
+        );
+    }
+
+    $inserted = 0;
+    $updated  = 0;
+    $invalid  = 0;
+    $errors   = array();
+
+    foreach ($parsed['rows'] as $row_data) {
         $result = compuzign_cost_builder_import_service_row($row_data);
-
         if (is_wp_error($result)) {
             $invalid++;
             $errors[] = $result->get_error_message();
@@ -579,20 +488,18 @@ function compuzign_cost_builder_import_service_catalog_from_xlsx(string $xlsx_pa
         }
     }
 
-    $zip->close();
-
     return array(
-        'success' => empty($errors),
-        'message' => empty($errors) ? 'Import completed.' : 'Import completed with errors.',
-        'inserted' => $inserted,
-        'updated' => $updated,
-        'skipped' => $skipped,
-        'invalid' => $invalid,
-        'workbook_sheets' => $sheets_info,
-        'selected_sheet' => $selected_sheet_name,
-        'first_parsed_rows' => $first_non_empty,
-        'header_detected' => $diagnostics['header_row'] ?? null,
-        'errors' => $errors,
+        'success'           => empty($errors),
+        'message'           => empty($errors) ? 'Import completed.' : 'Import completed with errors.',
+        'inserted'          => $inserted,
+        'updated'           => $updated,
+        'skipped'           => $parsed['skipped'],
+        'invalid'           => $invalid,
+        'workbook_sheets'   => $parsed['workbook_sheets'],
+        'selected_sheet'    => $parsed['selected_sheet'],
+        'first_parsed_rows' => $parsed['first_non_empty_rows'],
+        'header_detected'   => $parsed['header_detected'],
+        'errors'            => $errors,
     );
 }
 
@@ -838,480 +745,25 @@ function compuzign_cost_builder_parse_list_value($value): array
 
 function compuzign_cost_builder_import_service_catalog_dry_run(string $xlsx_path): array
 {
-    if (!file_exists($xlsx_path) || !is_readable($xlsx_path)) {
+    $parsed = compuzign_cost_builder_parse_xlsx_rows($xlsx_path);
+
+    if (!$parsed['success']) {
         return array(
-            'success' => false,
-            'message' => 'XLSX file does not exist or is not readable.',
-            'path' => $xlsx_path,
+            'success'              => false,
+            'message'              => $parsed['message'],
+            'scanned_rows'         => $parsed['scanned_rows'] ?? array(),
+            'workbook_sheets'      => $parsed['workbook_sheets'] ?? array(),
+            'selected_sheet'       => $parsed['selected_sheet'] ?? null,
+            'first_non_empty_rows' => $parsed['first_non_empty_rows'] ?? array(),
         );
     }
-
-    $zip = new ZipArchive();
-    if ($zip->open($xlsx_path) !== true) {
-        return array(
-            'success' => false,
-            'message' => 'Unable to open XLSX file.',
-        );
-    }
-
-    // Load shared strings
-    $shared = array();
-    if (($idx = $zip->locateName('xl/sharedStrings.xml')) !== false) {
-        $sxml = simplexml_load_string($zip->getFromIndex($idx));
-        $sxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-        // Use XPath (not property access) so namespace context is inherited by child xpath() calls
-        $si_list = $sxml->xpath('//x:si');
-        if (empty($si_list)) {
-            $si_list = $sxml->xpath('//*[local-name()="si"]');
-        }
-        foreach ($si_list as $si) {
-            $texts = '';
-            $t_nodes = $si->xpath('.//x:t');
-            if (empty($t_nodes)) {
-                $t_nodes = $si->xpath('.//*[local-name()="t"]');
-            }
-            foreach ($t_nodes as $t) {
-                $texts .= (string) $t;
-            }
-            $shared[] = $texts;
-        }
-    }
-
-    // Map workbook rels
-    $rels = array();
-    if (($ridx = $zip->locateName('xl/_rels/workbook.xml.rels')) !== false) {
-        $relsxml = simplexml_load_string($zip->getFromIndex($ridx));
-        $relsxml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/package/2006/relationships');
-        foreach ($relsxml->Relationship as $rel) {
-            $attrs = $rel->attributes();
-            $id = (string) $attrs['Id'];
-            $target = (string) $attrs['Target'];
-            $target = preg_replace('#^/+#', '', $target);
-            $rels[$id] = $target;
-        }
-    }
-
-    // Find Service Catalog sheet
-    $sheet_target = null;
-    if (($wbidx = $zip->locateName('xl/workbook.xml')) !== false) {
-        $wbxml = simplexml_load_string($zip->getFromIndex($wbidx));
-        $wbxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-        foreach ($wbxml->sheets->sheet as $sheet) {
-            $name = (string) $sheet['name'];
-            $attrs = $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
-            $rid = '';
-            if ($attrs && isset($attrs['id'])) {
-                $rid = (string) $attrs['id'];
-            } else {
-                $attrs2 = $sheet->attributes();
-                $rid = (string) $attrs2['r:id'] ?? (string) $attrs2['id'] ?? '';
-            }
-            $target = $rels[$rid] ?? '';
-            if (stripos($name, 'service catalog') !== false) {
-                $sheet_target = $target;
-                break;
-            }
-            if ($sheet_target === null) {
-                $sheet_target = $target;
-            }
-        }
-    }
-
-    if (!$sheet_target) {
-        $zip->close();
-        return array(
-            'success' => false,
-            'message' => 'Service Catalog sheet not found.',
-        );
-    }
-
-    $sheet_path = preg_match('#^xl/#', $sheet_target) ? $sheet_target : 'xl/' . ltrim($sheet_target, '/');
-    if (($sidx = $zip->locateName($sheet_path)) === false) {
-        $zip->close();
-        return array(
-            'success' => false,
-            'message' => 'Sheet XML not found.',
-        );
-    }
-
-    $sheet_raw = $zip->getFromIndex($sidx);
-    $sheetxml = simplexml_load_string($sheet_raw);
-    $sheetxml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-
-    // Find header row
-    $header_map = array();
-    $header_row_number = null;
-    $sample_rows = array();
-
-    $normalize = function ($s) {
-        $s = trim((string) $s);
-        $s = preg_replace('/\s+/u', ' ', $s);
-        $s = trim($s);
-        $s = strtolower($s);
-        return $s;
-    };
-
-    $known_headers = array(
-        'service category' => 'category',
-        'service category:' => 'category',
-        'service name' => 'service_title',
-        'service name:' => 'service_title',
-        'description' => 'long_description',
-        'basic' => 'basic_price',
-        'standard' => 'standard_price',
-        'premium' => 'premium_price',
-        'enterprise' => 'enterprise_price',
-        'billing cycle' => 'billing_cycle',
-        'billing cycle:' => 'billing_cycle',
-        'sla / uptime' => 'uptime',
-        'sla' => 'uptime',
-        'uptime' => 'uptime',
-        'notes' => 'notes',
-    );
-
-    // Scan rows for header
-    $rows = $sheetxml->xpath('//x:sheetData/x:row');
-    if (empty($rows)) {
-        $rows = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
-    }
-    if (empty($rows)) {
-        libxml_use_internal_errors(true);
-        $doc = new DOMDocument();
-        $doc->loadXML($sheet_raw);
-        $xpathdom = new DOMXPath($doc);
-        $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
-        $rows = array();
-        foreach ($rows_dom as $rd) {
-            $rows[] = $rd;
-        }
-    }
-
-    $XLSX_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-    $row_count = 0;
-    $scanned_rows = array();
-    $row4_diag = null;
-    foreach ($rows as $row) {
-        $row_count++;
-        if ($row_count > 30) {
-            break;
-        }
-
-        $cells = array();
-        $cell_texts = array();
-
-        if ($row instanceof DOMElement) {
-            $rnum = $row->getAttribute('r');
-            foreach ($row->childNodes as $cnode) {
-                if (!($cnode instanceof DOMElement)) {
-                    continue;
-                }
-                $local = $cnode->localName ?? $cnode->nodeName;
-                if (strtolower($local) !== 'c') {
-                    continue;
-                }
-                $r = $cnode->getAttribute('r');
-                preg_match('/^([A-Z]+)\d+$/', $r, $m);
-                $col = $m[1] ?? '';
-                $t = $cnode->getAttribute('t');
-                $v = '';
-                foreach ($cnode->childNodes as $child) {
-                    if (!($child instanceof DOMElement)) {
-                        continue;
-                    }
-                    $ln = $child->localName ?? $child->nodeName;
-                    if (strtolower($ln) === 'v') {
-                        $v = $child->textContent;
-                        break;
-                    }
-                }
-                if ($v === '') {
-                    foreach ($cnode->childNodes as $child) {
-                        if (!($child instanceof DOMElement)) {
-                            continue;
-                        }
-                        $ln = $child->localName ?? $child->nodeName;
-                        if (strtolower($ln) === 'is') {
-                            $parts = array();
-                            foreach ($child->childNodes as $tt) {
-                                if ($tt instanceof DOMElement && strtolower($tt->localName) === 't') {
-                                    $parts[] = $tt->textContent;
-                                }
-                            }
-                            $v = implode('', $parts);
-                        }
-                    }
-                }
-                if ($t === 's') {
-                    $idx = (int) $v;
-                    $v = $shared[$idx] ?? '';
-                }
-                $v_trim = trim((string) $v);
-                $cells[$col] = $v_trim;
-                $cell_texts[] = $v_trim;
-            }
-        } else {
-            // SimpleXML path — use children($NS) + attributes() (no-namespace form).
-            // $c['r'] / $c['t'] on children($NS) elements silently returns '' because PHP
-            // looks in the NS context; r/t/s are unnamespaced, so use $c->attributes().
-            $rnum = (string) $row->attributes()['r'];
-            foreach ($row->children($XLSX_NS) as $c) {
-                $c_attrs = $c->attributes();
-                $r_attr  = (string) ($c_attrs['r'] ?? '');
-                $t       = (string) ($c_attrs['t'] ?? '');
-                preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
-                $col = $m[1] ?? '';
-                $v = '';
-                $c_ch = $c->children($XLSX_NS);
-                if (count($c_ch->v) > 0) {
-                    $raw = (string) $c_ch->v;
-                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
-                } elseif (count($c_ch->is) > 0) {
-                    $parts = array();
-                    foreach ($c_ch->is->children($XLSX_NS) as $tnode) {
-                        $parts[] = (string) $tnode;
-                    }
-                    $v = implode('', $parts);
-                }
-                $v_trim = trim($v);
-                $cells[$col] = $v_trim;
-                $cell_texts[] = $v_trim;
-            }
-        }
-
-        $norms = array();
-        foreach ($cell_texts as $ct) {
-            $norms[] = $normalize($ct);
-        }
-
-        $scanned_rows[] = array('r' => $rnum, 'cells' => $cell_texts, 'normalized' => $norms);
-
-        // Capture row 4 diagnostics
-        if ($rnum === '4') {
-            $raw_values    = array();
-            $resolved      = array();
-            $refs          = array();
-            $types         = array();
-            $attrs_dump    = array();
-            if ($row instanceof DOMElement) {
-                foreach ($row->childNodes as $cnode) {
-                    if (!($cnode instanceof DOMElement) || strtolower($cnode->localName ?? '') !== 'c') { continue; }
-                    $ref = $cnode->getAttribute('r');
-                    $typ = $cnode->getAttribute('t') ?: 'n';
-                    $refs[]      = $ref;
-                    $types[]     = $typ;
-                    $attrs_dump[] = array('r' => $ref, 't' => $cnode->getAttribute('t'), 's' => $cnode->getAttribute('s'));
-                    $rv = '';
-                    foreach ($cnode->childNodes as $ch) {
-                        if ($ch instanceof DOMElement && strtolower($ch->localName ?? '') === 'v') { $rv = $ch->textContent; break; }
-                    }
-                    $raw_values[] = $rv;
-                    $resolved[]   = $typ === 's' ? ($shared[(int)$rv] ?? '') : $rv;
-                }
-            } else {
-                foreach ($row->children($XLSX_NS) as $c) {
-                    $ca   = $c->attributes();
-                    $ref  = (string) ($ca['r'] ?? '');
-                    $typ  = (string) ($ca['t'] ?? '') ?: 'n';
-                    $refs[]       = $ref;
-                    $types[]      = $typ;
-                    $attrs_dump[] = array('r' => $ref, 't' => (string)($ca['t'] ?? ''), 's' => (string)($ca['s'] ?? ''));
-                    $c_ch = $c->children($XLSX_NS);
-                    $rv   = count($c_ch->v) > 0 ? (string) $c_ch->v : '';
-                    $raw_values[] = $rv;
-                    $resolved[]   = $typ === 's' ? ($shared[(int)$rv] ?? '') : $rv;
-                }
-            }
-            $row4_diag = array(
-                'row4_raw_xml'               => substr($sheet_raw, strpos($sheet_raw, 'r="4"') - 5, 600),
-                'row4_cell_count'            => count($refs),
-                'row4_cell_refs'             => $refs,
-                'row4_cell_types'            => $types,
-                'row4_raw_values'            => $raw_values,
-                'row4_resolved_values'       => $resolved,
-                'row4_attributes_dump'       => $attrs_dump,
-                'row4_detected_types_after_fix' => $types,
-            );
-        }
-
-        $has_service_category = false;
-        $has_service_name = false;
-        foreach ($norms as $n) {
-            if (strpos($n, 'service category') !== false) {
-                $has_service_category = true;
-            }
-            if (strpos($n, 'service name') !== false) {
-                $has_service_name = true;
-            }
-        }
-
-        if ($has_service_category || $has_service_name) {
-            $header_row_number = (int) $rnum;
-            $header_map = array();
-            foreach ($cells as $col => $cellVal) {
-                $nv = $normalize($cellVal);
-                foreach ($known_headers as $k => $internal) {
-                    if ($nv === $k || strpos($nv, $k) !== false) {
-                        $header_map[$col] = $internal;
-                        break;
-                    }
-                }
-            }
-            if (empty($header_map)) {
-                $header_map = array(
-                    'A' => 'category',
-                    'B' => 'service_title',
-                    'C' => 'long_description',
-                    'D' => 'basic_price',
-                    'E' => 'standard_price',
-                    'F' => 'premium_price',
-                    'G' => 'enterprise_price',
-                    'H' => 'billing_cycle',
-                    'I' => 'uptime',
-                    'J' => 'notes',
-                );
-            }
-            break;
-        }
-    }
-
-    if ($header_row_number === null) {
-        $zip->close();
-        return array(
-            'success' => false,
-            'message' => 'Header row not found.',
-            'shared_strings_count' => count($shared),
-            'shared_strings_sample' => array_slice($shared, 0, 15),
-            'rows_found' => $row_count,
-            'scanned_rows' => $scanned_rows,
-            'row4_diagnostics' => $row4_diag,
-        );
-    }
-
-    // Extract sample data rows (first 10)
-    $data_rows = $sheetxml->xpath('//x:sheetData/x:row');
-    if (empty($data_rows)) {
-        $data_rows = $sheetxml->xpath('//*[local-name()="sheetData"]/*[local-name()="row"]');
-    }
-    if (empty($data_rows)) {
-        libxml_use_internal_errors(true);
-        $doc = new DOMDocument();
-        $doc->loadXML($sheet_raw);
-        $xpathdom = new DOMXPath($doc);
-        $rows_dom = $xpathdom->query('//*[local-name()="sheetData"]/*[local-name()="row"]');
-        $data_rows = array();
-        foreach ($rows_dom as $rd) {
-            $data_rows[] = $rd;
-        }
-    }
-
-    $sample_count = 0;
-    foreach ($data_rows as $row) {
-        $rnum_val = null;
-        if ($row instanceof DOMElement) {
-            $rnum_val = $row->getAttribute('r');
-        } else {
-            $rnum_val = (string) $row['r'];
-        }
-        $rnum = (int) $rnum_val;
-
-        if ($rnum <= $header_row_number) {
-            continue;
-        }
-
-        if ($sample_count >= 10) {
-            break;
-        }
-
-        $cells = array();
-
-        if ($row instanceof DOMElement) {
-            foreach ($row->childNodes as $cnode) {
-                if (!($cnode instanceof DOMElement)) {
-                    continue;
-                }
-                $local = $cnode->localName ?? $cnode->nodeName;
-                if (strtolower($local) !== 'c') {
-                    continue;
-                }
-                $r = $cnode->getAttribute('r');
-                preg_match('/^([A-Z]+)\d+$/', $r, $m);
-                $col = $m[1] ?? '';
-                $t = $cnode->getAttribute('t');
-                $v = '';
-                foreach ($cnode->childNodes as $child) {
-                    if (!($child instanceof DOMElement)) {
-                        continue;
-                    }
-                    $ln = $child->localName ?? $child->nodeName;
-                    if (strtolower($ln) === 'v') {
-                        $v = $child->textContent;
-                        break;
-                    }
-                }
-                if ($v === '') {
-                    foreach ($cnode->childNodes as $child) {
-                        if (!($child instanceof DOMElement)) {
-                            continue;
-                        }
-                        $ln = $child->localName ?? $child->nodeName;
-                        if (strtolower($ln) === 'is') {
-                            $parts = array();
-                            foreach ($child->childNodes as $tt) {
-                                if ($tt instanceof DOMElement && strtolower($tt->localName) === 't') {
-                                    $parts[] = $tt->textContent;
-                                }
-                            }
-                            $v = implode('', $parts);
-                        }
-                    }
-                }
-                if ($t === 's') {
-                    $idx = (int) $v;
-                    $v = $shared[$idx] ?? '';
-                }
-                $cells[$col] = trim((string) $v);
-            }
-        } else {
-            foreach ($row->children($XLSX_NS) as $c) {
-                $c_attrs = $c->attributes();
-                $r_attr  = (string) ($c_attrs['r'] ?? '');
-                $t       = (string) ($c_attrs['t'] ?? '');
-                preg_match('/^([A-Z]+)\d+$/', $r_attr, $m);
-                $col = $m[1] ?? '';
-                $v = '';
-                $c_ch = $c->children($XLSX_NS);
-                if (count($c_ch->v) > 0) {
-                    $raw = (string) $c_ch->v;
-                    $v = $t === 's' ? ($shared[(int) $raw] ?? '') : $raw;
-                } elseif (count($c_ch->is) > 0) {
-                    $parts = array();
-                    foreach ($c_ch->is->children($XLSX_NS) as $tnode) {
-                        $parts[] = (string) $tnode;
-                    }
-                    $v = implode('', $parts);
-                }
-                $cells[$col] = trim($v);
-            }
-        }
-
-        $row_data = array();
-        foreach ($cells as $col => $val) {
-            $key = $header_map[$col] ?? $col;
-            $row_data[$key] = $val;
-        }
-
-        $sample_rows[] = $row_data;
-        $sample_count++;
-    }
-
-    $zip->close();
 
     return array(
-        'success' => true,
-        'message' => 'Dry-run parsing successful. No posts or metadata created.',
-        'header_map' => $header_map,
-        'header_row_number' => $header_row_number,
-        'sample_rows' => $sample_rows,
-        'sample_rows_count' => count($sample_rows),
+        'success'           => true,
+        'message'           => 'Dry-run parsing successful. No posts or metadata created.',
+        'header_map'        => $parsed['header_map'],
+        'header_row_number' => $parsed['header_row_number'],
+        'sample_rows'       => array_slice($parsed['rows'], 0, 10),
+        'sample_rows_count' => min(count($parsed['rows']), 10),
     );
 }
