@@ -7,7 +7,6 @@ on:
       - main
     paths:
       - 'wp-content/plugins/compuzign-platform/**'
-      - 'wp-content/themes/compuzign-theme/**'
       - 'wp-content/themes/compuzign-shell/**'
       - '.github/workflows/deploy.yml'
 
@@ -61,9 +60,9 @@ jobs:
 
             echo "Checking out plugin/theme paths:"
             git checkout -f origin/main -- wp-content/plugins/compuzign-platform
-            git checkout -f origin/main -- wp-content/themes/compuzign-theme
             git checkout -f origin/main -- wp-content/themes/compuzign-shell
 
             echo "Verify deployed files:"
-            grep -n "WP_Post" wp-content/plugins/compuzign-platform/app/modules/cost-builder/includes/meta-fields.php || true
-            grep -n "compuzign_seed_mep_pricing_correct" wp-content/plugins/compuzign-platform/app/modules/cost-builder/logic/seed-managed-endpoint-protection.php || true
+            test -f wp-content/plugins/compuzign-platform/src/Core/Health.php && echo "Health.php deployed"
+            test -f wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php && echo "RequestSchema.php deployed"
+            test -f wp-content/plugins/compuzign-platform/src/Modules/Requests/Notifications/NotificationTemplates.php && echo "NotificationTemplates.php deployed"
