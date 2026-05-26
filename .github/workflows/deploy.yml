@@ -41,28 +41,9 @@ jobs:
           script: |
             cd /home/u938717127/domains/weerax.com/public_html/compuzign
 
-            echo "PWD:"
-            pwd
-
-            echo "Before fetch:"
-            git status --short
-            git branch -vv
-            git rev-parse HEAD || true
-            git rev-parse origin/main || true
-            git log --oneline -5 origin/main || true
-
-            echo "Fetching:"
             git fetch --verbose origin main
 
-            echo "After fetch:"
-            git rev-parse origin/main
-            git log --oneline -5 origin/main
-
-            echo "Checking out plugin/theme paths:"
             git checkout -f origin/main -- wp-content/plugins/compuzign-platform
             git checkout -f origin/main -- wp-content/themes/compuzign-shell
 
-            echo "Verify deployed files:"
-            test -f wp-content/plugins/compuzign-platform/src/Core/Health.php && echo "Health.php deployed"
-            test -f wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php && echo "RequestSchema.php deployed"
-            test -f wp-content/plugins/compuzign-platform/src/Modules/Requests/Notifications/NotificationTemplates.php && echo "NotificationTemplates.php deployed"
+            echo "Deploy complete"
