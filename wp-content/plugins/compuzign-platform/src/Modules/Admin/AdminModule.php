@@ -15,7 +15,21 @@ class AdminModule
 
         add_shortcode('compuzign_admin', [$this, 'renderShortcode']);
 
+        add_filter('body_class', [$this, 'addBodyClass']);
+
         Health::register('admin', static fn() => true);
+    }
+
+    /** @param string[] $classes */
+    public function addBodyClass(array $classes): array
+    {
+        if (is_page()) {
+            $post = get_post();
+            if ($post && has_shortcode($post->post_content, 'compuzign_admin')) {
+                $classes[] = 'compuzign-admin-page';
+            }
+        }
+        return $classes;
     }
 
     public function renderShortcode(): string

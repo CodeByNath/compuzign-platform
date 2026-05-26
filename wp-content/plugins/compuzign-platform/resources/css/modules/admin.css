@@ -53,7 +53,7 @@
   width: var(--admin-sidebar-collapsed-w);
 }
 
-.cz-admin-sidebar__brand {
+.cz-admin-sidebar__logo {
   height: var(--admin-topbar-h);
   display: flex;
   align-items: center;
@@ -64,7 +64,7 @@
   overflow: hidden;
 }
 
-.cz-admin-sidebar__logo {
+.cz-admin-sidebar__logo-mark {
   width: 28px;
   height: 28px;
   background: var(--admin-accent);
@@ -78,7 +78,7 @@
   flex-shrink: 0;
 }
 
-.cz-admin-sidebar__wordmark {
+.cz-admin-sidebar__logo-text {
   font-size: 13px;
   font-weight: 600;
   color: var(--admin-text);
@@ -88,7 +88,7 @@
   transition: opacity 0.15s ease;
 }
 
-.cz-admin-root--collapsed .cz-admin-sidebar__wordmark {
+.cz-admin-root--collapsed .cz-admin-sidebar__logo-text {
   opacity: 0;
   pointer-events: none;
 }
@@ -120,7 +120,7 @@
   opacity: 0;
 }
 
-.cz-admin-sidebar__item {
+.cz-admin-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -138,32 +138,32 @@
   overflow: hidden;
 }
 
-.cz-admin-sidebar__item:hover {
+.cz-admin-nav-item:hover {
   background: rgba(255,255,255,0.05);
   color: var(--admin-text);
 }
 
-.cz-admin-sidebar__item--active {
+.cz-admin-nav-item--active {
   background: rgba(92,110,245,0.12);
   color: var(--admin-accent-hover);
   border-right-color: var(--admin-accent);
 }
 
-.cz-admin-sidebar__item-icon {
+.cz-admin-nav-item__icon {
   font-size: 15px;
   flex-shrink: 0;
   width: 20px;
   text-align: center;
 }
 
-.cz-admin-sidebar__item-label {
+.cz-admin-nav-item__label {
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 1;
   transition: opacity 0.15s ease;
 }
 
-.cz-admin-root--collapsed .cz-admin-sidebar__item-label {
+.cz-admin-root--collapsed .cz-admin-nav-item__label {
   opacity: 0;
   pointer-events: none;
 }
@@ -224,7 +224,7 @@
   z-index: 50;
 }
 
-.cz-admin-topbar__toggle {
+.cz-admin-topbar__menu-btn {
   background: transparent;
   border: none;
   color: var(--admin-text-muted);
@@ -236,7 +236,7 @@
   transition: color 0.12s;
 }
 
-.cz-admin-topbar__toggle:hover {
+.cz-admin-topbar__menu-btn:hover {
   color: var(--admin-text);
 }
 
@@ -244,6 +244,13 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--admin-text);
+}
+
+.cz-admin-topbar__meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--admin-text-faint);
+  letter-spacing: 0.04em;
 }
 
 /* ── Status strip ───────────────────────────────────────────────────────────── */
@@ -1519,4 +1526,54 @@
   font-size: 11px;
   font-family: ui-monospace, 'SF Mono', monospace;
   color: var(--admin-text);
+}
+
+/* ── Layout escape + admin page overrides ────────────────────────────────────── */
+
+/* Mount point is a plain block — AdminShell manages its own root div */
+#compuzign-admin {
+  display: block;
+  width: 100%;
+  max-width: none;
+}
+
+/* AdminShell root must always be full-width */
+.cz-admin-root {
+  width: 100%;
+  max-width: none;
+}
+
+/* Suppress any theme container constraints on the admin page */
+body.compuzign-admin-page main,
+body.compuzign-admin-page #main,
+body.compuzign-admin-page #content,
+body.compuzign-admin-page .site-main,
+body.compuzign-admin-page .entry-content,
+body.compuzign-admin-page .wp-block-group,
+body.compuzign-admin-page .alignfull {
+  max-width: none !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Hide any residual site chrome that bypassed the page template */
+body.compuzign-admin-page .cz-site-header,
+body.compuzign-admin-page .site-header,
+body.compuzign-admin-page header.site-header,
+body.compuzign-admin-page .cz-site-footer,
+body.compuzign-admin-page .site-footer,
+body.compuzign-admin-page footer.site-footer {
+  display: none !important;
+}
+
+/* WP admin bar offset — body.admin-bar gets margin-top:32px from WordPress core */
+.admin-bar .cz-admin-sidebar {
+  top: 32px;
+}
+
+@media screen and (max-width: 782px) {
+  .admin-bar .cz-admin-sidebar {
+    top: 46px;
+  }
 }
