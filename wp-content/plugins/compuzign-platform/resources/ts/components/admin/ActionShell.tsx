@@ -27,6 +27,7 @@ export interface ActionConfig {
   title: string;
   steps: ActionStep[];
   confirmClose?: boolean;
+  initialStepData?: Record<string, unknown>;
   onComplete?: (stepData: Record<string, unknown>) => void;
 }
 
@@ -38,7 +39,7 @@ interface Props {
 
 export function ActionShell({ config, onClose, onComplete }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [stepData, setStepDataMap] = useState<Record<string, unknown>>({});
+  const [stepData, setStepDataMap] = useState<Record<string, unknown>>(config.initialStepData ?? {});
   const [progress, setProgressState] = useState<ActionProgress>('idle');
   const [message, setMessage] = useState('');
 

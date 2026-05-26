@@ -36,3 +36,45 @@ export const WORKSTATIONS: WorkstationDef[] = [
 export const WORKSTATION_LABELS: Record<WorkstationId, string> = Object.fromEntries(
   WORKSTATIONS.map((w) => [w.id, w.label]),
 ) as Record<WorkstationId, string>;
+
+// ── Requests river types ─────────────────────────────────────────────────────
+
+export interface RequestLine {
+  serviceId: number;
+  serviceTitle: string;
+  categoryName: string;
+  tierTitle: string;
+  tierId: string;
+  price: number | null;
+  billingCycle: string;
+  features: string[];
+}
+
+export interface RequestEntry {
+  quote_ref: string;
+  type: string;
+  contact: string;
+  company: string;
+  email: string;
+  phone: string;
+  notes: string;
+  items: RequestLine[];
+  submitted: string;
+}
+
+export interface RequestSummary {
+  quote_ref: string;
+  contact: string;
+  company: string;
+  email: string;
+  phone: string;
+  submitted: string;
+  item_count: number;
+  total: number | null;
+}
+
+export interface AdminRequestsResponse {
+  success: boolean;
+  requests: RequestSummary[];
+  total: number;
+}

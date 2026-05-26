@@ -4,12 +4,14 @@ namespace CompuZign\Platform\Modules\Admin;
 
 use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\Modules\Admin\Http\AdminController;
+use CompuZign\Platform\Modules\Admin\Http\AdminRequestsController;
 
 class AdminModule
 {
     public function register(): void
     {
         (new AdminController())->register();
+        (new AdminRequestsController())->register();
 
         add_shortcode('compuzign_admin', [$this, 'renderShortcode']);
 
