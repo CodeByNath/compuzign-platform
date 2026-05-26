@@ -65,4 +65,4 @@ jobs:
             echo "Verify deployed files:"
             test -f wp-content/plugins/compuzign-platform/src/Core/Health.php && echo "Health.php deployed"
             test -f wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php && echo "RequestSchema.php deployed"
-            test -f wp-content/plugins/compuzign-platform/src/Modules/Requests/Notifications/NotificationTemplates.php && echo "NotificationTemplates.php deployed"
+            test -f wp-content/plugins/compuzign-platform/src/Modules/Requests/Notifications/NotificationTemplates.php && echo "NotificationTemplates.php deployed"Tue May 26 22:10:01 AEST 2026
