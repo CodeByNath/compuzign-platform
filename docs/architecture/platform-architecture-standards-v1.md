@@ -640,4 +640,4 @@ The shell exists to safely support:
 * CRM integrations
 * future runtime-driven interfaces
 
-without frontend ownership moving into the theme layer.
+without frontend ownership moving into the theme layer..
