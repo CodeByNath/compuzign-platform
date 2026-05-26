@@ -1,0 +1,1 @@
+function r(t){const n=document.createElement("textarea");return n.innerHTML=t,n.value}function a(t){return t==null?"Contact Us":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:0,maximumFractionDigits:0}).format(t)}const e={monthly:"/ mo",annual:"/ yr",quarterly:"/ qtr","one-time":""};function o(t){return e[t]??""}export{a,r as d,o as f};

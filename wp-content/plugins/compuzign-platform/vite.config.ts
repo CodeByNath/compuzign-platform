@@ -17,6 +17,7 @@ export default defineConfig({
         core:             'resources/ts/core/core.ts',
         'cost-builder':  'resources/ts/modules/cost-builder.ts',
         homepage:        'resources/ts/modules/homepage.ts',
+        admin:           'resources/ts/modules/admin.ts',
       },
       output: {
         entryFileNames: 'js/[name].js',

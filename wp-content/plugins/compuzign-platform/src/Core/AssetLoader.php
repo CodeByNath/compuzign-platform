@@ -4,7 +4,7 @@ namespace CompuZign\Platform\Core;
 
 class AssetLoader
 {
-    private const MODULE_HANDLES = ['compuzign-homepage', 'compuzign-cost-builder'];
+    private const MODULE_HANDLES = ['compuzign-homepage', 'compuzign-cost-builder', 'compuzign-admin'];
 
     public function register(): void
     {
@@ -19,6 +19,7 @@ class AssetLoader
         $this->enqueueDistAssets();
         $this->registerCostBuilderAssets();
         $this->registerHomepageAssets();
+        $this->registerAdminAssets();
     }
 
     /**
@@ -116,6 +117,22 @@ class AssetLoader
         // JS: register-only; shortcode handler enqueues it after the mount div is in the DOM.
         if (file_exists($distPath . 'js/homepage.js')) {
             wp_register_script('compuzign-homepage', $distUrl . 'js/homepage.js', ['compuzign-config'], filemtime($distPath . 'js/homepage.js'), true);
+        }
+    }
+
+    private function registerAdminAssets(): void
+    {
+        $distPath = COMPUZIGN_DIST_PATH;
+        $distUrl  = COMPUZIGN_DIST_URL;
+
+        // CSS: register-only; admin shortcode enqueues when the page is an admin page.
+        if (file_exists($distPath . 'css/admin.css')) {
+            wp_register_style('compuzign-admin', $distUrl . 'css/admin.css', [], filemtime($distPath . 'css/admin.css'));
+        }
+
+        // JS: register-only; admin shortcode enqueues after mount div is in the DOM.
+        if (file_exists($distPath . 'js/admin.js')) {
+            wp_register_script('compuzign-admin', $distUrl . 'js/admin.js', ['compuzign-config'], filemtime($distPath . 'js/admin.js'), true);
         }
     }
 }
