@@ -12,7 +12,7 @@ class PostTypeRegistrar
     public function registerPostTypes(): void
     {
         register_post_type('cz_surface_package', [
-            'labels'       => [
+            'labels'             => [
                 'name'               => 'Surface Packages',
                 'singular_name'      => 'Surface Package',
                 'add_new_item'       => 'Add New Surface Package',
@@ -23,23 +23,15 @@ class PostTypeRegistrar
                 'not_found'          => 'No surface packages found.',
                 'not_found_in_trash' => 'No surface packages in trash.',
             ],
-            'public'                => false,
-            'publicly_queryable'    => false,
-            'show_ui'               => false,
-            'show_in_nav_menus'     => false,
-            'show_in_rest'          => false,
-            'has_archive'           => false,
-            'rewrite'               => false,
-            'query_var'             => false,
-            'supports'              => ['title'],
-            'capability_type'       => 'post',
-            'capabilities'          => [
-                'create_posts' => 'manage_options',
-                'edit_post'    => 'manage_options',
-                'delete_post'  => 'manage_options',
-                'read_post'    => 'manage_options',
-            ],
-            'map_meta_cap'          => true,
+            'public'             => false,
+            'publicly_queryable' => false,
+            'show_ui'            => false,
+            'show_in_nav_menus'  => false,
+            'show_in_rest'       => false,
+            'has_archive'        => false,
+            'rewrite'            => false,
+            'query_var'          => false,
+            'supports'           => ['title'],
         ]);
 
         register_post_type('cz_service', [

@@ -41,7 +41,16 @@ class AdminModule
         }
 
         if (!current_user_can('manage_options')) {
-            return '<div class="cz-admin-gate cz-admin-gate--denied"><p>Access restricted.</p></div>';
+            $debug = '';
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $user  = wp_get_current_user();
+                $debug = '<p class="cz-admin-gate__debug" style="font-size:12px;opacity:.6;">'
+                    . 'Debug &mdash; user_id: ' . (int) $user->ID
+                    . ' | roles: ' . esc_html(implode(', ', (array) $user->roles))
+                    . ' | manage_options: no'
+                    . '</p>';
+            }
+            return '<div class="cz-admin-gate cz-admin-gate--denied"><p>Access restricted.</p>' . $debug . '</div>';
         }
 
         if (wp_style_is('compuzign-admin', 'registered')) {
