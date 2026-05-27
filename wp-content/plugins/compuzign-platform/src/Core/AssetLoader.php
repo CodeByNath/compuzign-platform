@@ -133,6 +133,16 @@ class AssetLoader
         // JS: register-only; admin shortcode enqueues after mount div is in the DOM.
         if (file_exists($distPath . 'js/admin.js')) {
             wp_register_script('compuzign-admin', $distUrl . 'js/admin.js', ['compuzign-config'], filemtime($distPath . 'js/admin.js'), true);
+
+            // Localize admin runtime config so window.CompuZignAdmin is available
+            // on the admin page. Outputs only when compuzign-admin is enqueued
+            // (i.e., only on /admin-command-centre via the shortcode).
+            // The nonce must be generated here — wp_create_nonce requires a
+            // loaded user context, which exists at wp_enqueue_scripts time.
+            wp_localize_script('compuzign-admin', 'CompuZignAdmin', [
+                'restUrl' => esc_url_raw(rest_url('compuzign/v1/')),
+                'nonce'   => wp_create_nonce('wp_rest'),
+            ]);
         }
     }
 }

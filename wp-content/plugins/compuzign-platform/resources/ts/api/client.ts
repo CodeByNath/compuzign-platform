@@ -5,9 +5,15 @@ interface CompuZignConfig {
   costBuilderUrl?: string;
 }
 
+interface CompuZignAdminConfig {
+  restUrl: string;
+  nonce: string;
+}
+
 declare global {
   interface Window {
     CompuZignConfig?: CompuZignConfig;
+    CompuZignAdmin?: CompuZignAdminConfig;
   }
 }
 
@@ -27,6 +33,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   const res = await fetch(url, {
     method,
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
       'X-WP-Nonce': nonce,

@@ -71,6 +71,17 @@ export interface RequestSummary {
   submitted: string;
   item_count: number;
   total: number | null;
+  // Additive — Phase 1B: true when a Water record exists for this intake item.
+  is_accepted?: boolean;
+}
+
+export interface AcceptIntakeResponse {
+  success: boolean;
+  post_id: number;
+  quote_ref: string;
+  status: string;
+  accepted_at: string;
+  already_accepted: boolean;
 }
 
 export interface AdminRequestsResponse {
