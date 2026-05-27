@@ -4,6 +4,7 @@ namespace CompuZign\Platform\Modules\CostBuilder\Services;
 
 use CompuZign\Platform\Modules\CostBuilder\Repositories\ServiceRepository;
 use CompuZign\Platform\Modules\CostBuilder\Support\PriceParser;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
 class PricingBuilder
 {
@@ -21,10 +22,27 @@ class PricingBuilder
         ['id' => 'enterprise', 'title' => 'Enterprise'],
     ];
 
-    public function __construct(private ServiceRepository $repository) {}
+    /**
+     * In-memory map of service_id → active surface package meta.
+     * Populated once per buildResponse() call; used for O(1) lookups in buildServicePayload().
+     * Empty array = no active packages → legacy fallback for every service.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private array $packageMap = [];
+
+    public function __construct(
+        private ServiceRepository $repository,
+        private PackageRepository $packageRepository
+    ) {}
 
     public function buildResponse(): array
     {
+        // ── Bridge: load all active surface packages once, indexed by service ID ─
+        // When no packages exist this returns [] in a single lightweight query.
+        // All per-service lookups inside buildServicePayload() are O(1) array access.
+        $this->packageMap = $this->packageRepository->findAllActiveIndexedByServiceId();
+
         $categories         = [];
         $servicesByCategory = [];
 
@@ -60,6 +78,9 @@ class PricingBuilder
                 $payloads[] = $this->buildServicePayload($post);
             }
 
+            // sort_order in the compiled payload reflects the surface package's sort_position
+            // when a package is active, or the canonical meta sort_order as fallback —
+            // the overlay in buildServicePayload() normalises this before we sort.
             usort($payloads, fn($a, $b) =>
                 ($a['meta']['sort_order'] ?? 0) <=> ($b['meta']['sort_order'] ?? 0)
                 ?: strcmp($a['title'], $b['title'])
@@ -82,6 +103,7 @@ class PricingBuilder
 
     public function buildServicePayload(\WP_Post $post): array
     {
+        // ── Legacy compilation (unchanged) ────────────────────────────────────
         $meta         = $this->repository->getMeta($post->ID);
         $billingCycle = $meta['billing_cycle'] ?? 'monthly';
         $pricing      = $this->normalizePricing($this->repository->getPricing($post->ID), $billingCycle);
@@ -107,7 +129,6 @@ class PricingBuilder
 
         $faqs = $this->normalizeFaqs($this->repository->getFaqs($post->ID));
 
-        // Compute service availability: needs inclusions pool and at least one tier with inclusions
         $hasTierInclusions = false;
         foreach (['basic', 'standard', 'premium', 'enterprise'] as $tierId) {
             if (!empty($pricing['tiers'][$tierId]['inclusions'])) {
@@ -121,7 +142,7 @@ class PricingBuilder
             'message'      => $isAvailable ? '' : 'Currently this service is not available.',
         ];
 
-        return [
+        $payload = [
             'id'           => (int) $post->ID,
             'title'        => $post->post_title,
             'slug'         => $post->post_name,
@@ -144,7 +165,93 @@ class PricingBuilder
             ],
             'pricing' => $pricing,
         ];
+
+        // ── Bridge overlay ─────────────────────────────────────────────────────
+        // Only executes when an active surface package exists for this service.
+        // When packageMap is empty (no packages created yet) this branch is never
+        // reached and the payload above is returned byte-for-byte as legacy output.
+        $package = $this->packageMap[$post->ID] ?? null;
+        if ($package !== null) {
+            $payload = $this->overlayPackage($payload, $package);
+        }
+
+        return $payload;
     }
+
+    // ── Bridge ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Apply surface package fields on top of a fully-compiled legacy payload.
+     *
+     * Only surface fields are replaced; canonical fields (title, description,
+     * canonical inclusions pool, FAQs, SLA, categories, is_active, billing_cycle
+     * on the service canonical record) are never touched by the overlay.
+     *
+     * Per-tier price overlay triggers only when the package tier has a non-null
+     * price, allowing partial packages that configure only some tiers.
+     *
+     * @param  array<string, mixed> $payload compiled legacy payload
+     * @param  array<string, mixed> $package active cz_package meta array
+     * @return array<string, mixed>
+     */
+    private function overlayPackage(array $payload, array $package): array
+    {
+        // ── Tier pricing, billing cycle, inclusions ───────────────────────────
+        foreach (['basic', 'standard', 'premium', 'enterprise'] as $tierId) {
+            $pkgTier = $package['tiers'][$tierId] ?? null;
+            if ($pkgTier === null || !isset($payload['pricing']['tiers'][$tierId])) {
+                continue;
+            }
+
+            // Price: overlay only when the package explicitly provides a value.
+            // null price in the package means "not configured; keep legacy price."
+            if ($pkgTier['price'] !== null) {
+                $payload['pricing']['tiers'][$tierId]['price'] = $pkgTier['price'];
+            }
+
+            // Billing cycle: overlay when the package provides an explicit override.
+            if (!empty($pkgTier['billing_cycle'])) {
+                $payload['pricing']['tiers'][$tierId]['billing_cycle'] = $pkgTier['billing_cycle'];
+            }
+
+            // Inclusions: overlay when the package provides a non-empty set.
+            // Empty inclusions_override = keep canonical inclusions for this tier.
+            if (!empty($pkgTier['inclusions_override'])) {
+                $payload['pricing']['tiers'][$tierId]['inclusions'] = $pkgTier['inclusions_override'];
+                $payload['pricing']['tiers'][$tierId]['features']   = array_map(
+                    fn(array $inc) => $inc['label'],
+                    $pkgTier['inclusions_override']
+                );
+            } elseif (!empty($pkgTier['features'])) {
+                $payload['pricing']['tiers'][$tierId]['features'] = $pkgTier['features'];
+            }
+        }
+
+        // ── Bundle ────────────────────────────────────────────────────────────
+        // Overlay when the package defines a bundle title or an explicit price.
+        $bundle = $package['bundle'] ?? [];
+        if (!empty($bundle['title']) || $bundle['price'] !== null) {
+            $payload['pricing']['bundle'] = [
+                'title'       => $bundle['title']       ?? '',
+                'description' => $bundle['description'] ?? '',
+                'price'       => $bundle['price']        ?? null,
+            ];
+        }
+
+        // ── Popular tier ──────────────────────────────────────────────────────
+        if (!empty($package['popular_tier'])) {
+            $payload['meta']['popular_tier'] = $package['popular_tier'];
+        }
+
+        // ── Sort order ────────────────────────────────────────────────────────
+        // sort_position from the package always overrides the canonical sort_order.
+        // This ensures usort() in buildResponse() uses the surface ordering.
+        $payload['meta']['sort_order'] = (int) ($package['sort_position'] ?? $payload['meta']['sort_order']);
+
+        return $payload;
+    }
+
+    // ── Legacy internals (unchanged) ──────────────────────────────────────────
 
     public function normalizePricing(array $pricing, string $billingCycle = 'monthly'): array
     {
@@ -154,7 +261,6 @@ class PricingBuilder
         foreach (['basic', 'standard', 'premium', 'enterprise'] as $k) {
             $src = $inTiers[$k] ?? [];
 
-            // Filter empty/whitespace strings before deriving inclusions
             $features = isset($src['features']) && is_array($src['features'])
                 ? array_values(array_filter(array_map('trim', $src['features']), fn($f) => $f !== ''))
                 : [];
@@ -194,7 +300,6 @@ class PricingBuilder
             return $this->resolveNormalizedInclusions($raw);
         }
 
-        // Legacy format: per-inclusion tiers[] array
         $servicePool    = [];
         $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []];
 

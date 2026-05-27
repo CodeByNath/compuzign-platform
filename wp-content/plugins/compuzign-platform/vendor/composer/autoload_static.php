@@ -23,9 +23,14 @@ class ComposerStaticInit25c428a2b6f44f8556177741aef0a658
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'CompuZign\\Platform\\Core\\AssetLoader' => __DIR__ . '/../..' . '/src/Core/AssetLoader.php',
+        'CompuZign\\Platform\\Core\\Health' => __DIR__ . '/../..' . '/src/Core/Health.php',
+        'CompuZign\\Platform\\Core\\MailService' => __DIR__ . '/../..' . '/src/Core/MailService.php',
         'CompuZign\\Platform\\Core\\Plugin' => __DIR__ . '/../..' . '/src/Core/Plugin.php',
         'CompuZign\\Platform\\Core\\PostTypeRegistrar' => __DIR__ . '/../..' . '/src/Core/PostTypeRegistrar.php',
         'CompuZign\\Platform\\Core\\TaxonomyRegistrar' => __DIR__ . '/../..' . '/src/Core/TaxonomyRegistrar.php',
+        'CompuZign\\Platform\\Modules\\Admin\\AdminModule' => __DIR__ . '/../..' . '/src/Modules/Admin/AdminModule.php',
+        'CompuZign\\Platform\\Modules\\Admin\\Http\\AdminController' => __DIR__ . '/../..' . '/src/Modules/Admin/Http/AdminController.php',
+        'CompuZign\\Platform\\Modules\\Admin\\Http\\AdminRequestsController' => __DIR__ . '/../..' . '/src/Modules/Admin/Http/AdminRequestsController.php',
         'CompuZign\\Platform\\Modules\\CostBuilder\\CostBuilderModule' => __DIR__ . '/../..' . '/src/Modules/CostBuilder/CostBuilderModule.php',
         'CompuZign\\Platform\\Modules\\CostBuilder\\Http\\CostBuilderController' => __DIR__ . '/../..' . '/src/Modules/CostBuilder/Http/CostBuilderController.php',
         'CompuZign\\Platform\\Modules\\CostBuilder\\Repositories\\ServiceRepository' => __DIR__ . '/../..' . '/src/Modules/CostBuilder/Repositories/ServiceRepository.php',
@@ -33,6 +38,14 @@ class ComposerStaticInit25c428a2b6f44f8556177741aef0a658
         'CompuZign\\Platform\\Modules\\CostBuilder\\Services\\PricingBuilder' => __DIR__ . '/../..' . '/src/Modules/CostBuilder/Services/PricingBuilder.php',
         'CompuZign\\Platform\\Modules\\CostBuilder\\Support\\MetaSchema' => __DIR__ . '/../..' . '/src/Modules/CostBuilder/Support/MetaSchema.php',
         'CompuZign\\Platform\\Modules\\CostBuilder\\Support\\PriceParser' => __DIR__ . '/../..' . '/src/Modules/CostBuilder/Support/PriceParser.php',
+        'CompuZign\\Platform\\Modules\\Homepage\\HomepageModule' => __DIR__ . '/../..' . '/src/Modules/Homepage/HomepageModule.php',
+        'CompuZign\\Platform\\Modules\\Requests\\Http\\RequestsController' => __DIR__ . '/../..' . '/src/Modules/Requests/Http/RequestsController.php',
+        'CompuZign\\Platform\\Modules\\Requests\\Notifications\\NotificationTemplates' => __DIR__ . '/../..' . '/src/Modules/Requests/Notifications/NotificationTemplates.php',
+        'CompuZign\\Platform\\Modules\\Requests\\RequestsModule' => __DIR__ . '/../..' . '/src/Modules/Requests/RequestsModule.php',
+        'CompuZign\\Platform\\Modules\\Requests\\Support\\RequestSchema' => __DIR__ . '/../..' . '/src/Modules/Requests/Support/RequestSchema.php',
+        'CompuZign\\Platform\\Modules\\SurfacePackages\\Repositories\\PackageRepository' => __DIR__ . '/../..' . '/src/Modules/SurfacePackages/Repositories/PackageRepository.php',
+        'CompuZign\\Platform\\Modules\\SurfacePackages\\Support\\PackageSchema' => __DIR__ . '/../..' . '/src/Modules/SurfacePackages/Support/PackageSchema.php',
+        'CompuZign\\Platform\\Modules\\SurfacePackages\\SurfacePackagesModule' => __DIR__ . '/../..' . '/src/Modules/SurfacePackages/SurfacePackagesModule.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

@@ -6,6 +6,7 @@ use CompuZign\Platform\Modules\Admin\AdminModule;
 use CompuZign\Platform\Modules\CostBuilder\CostBuilderModule;
 use CompuZign\Platform\Modules\Homepage\HomepageModule;
 use CompuZign\Platform\Modules\Requests\RequestsModule;
+use CompuZign\Platform\Modules\SurfacePackages\SurfacePackagesModule;
 use CompuZign\Platform\Core\Health;
 
 final class Plugin
@@ -23,6 +24,7 @@ final class Plugin
         (new TaxonomyRegistrar())->register();
         (new MailService())->register();
         (new AssetLoader())->register();
+        (new SurfacePackagesModule())->register();
         (new CostBuilderModule())->register();
         (new HomepageModule())->register();
         (new RequestsModule())->register();

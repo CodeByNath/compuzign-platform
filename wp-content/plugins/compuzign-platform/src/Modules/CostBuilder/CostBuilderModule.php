@@ -8,6 +8,7 @@ use CompuZign\Platform\Modules\CostBuilder\Repositories\ServiceRepository;
 use CompuZign\Platform\Modules\CostBuilder\Services\CatalogImporter;
 use CompuZign\Platform\Modules\CostBuilder\Services\PricingBuilder;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
 class CostBuilderModule
 {
@@ -35,9 +36,10 @@ class CostBuilderModule
             }
         }
 
-        $repository = new ServiceRepository();
-        $builder    = new PricingBuilder($repository);
-        $importer   = new CatalogImporter();
+        $repository        = new ServiceRepository();
+        $packageRepository = new PackageRepository();
+        $builder           = new PricingBuilder($repository, $packageRepository);
+        $importer          = new CatalogImporter();
 
         (new CostBuilderController($builder, $importer))->register();
 
