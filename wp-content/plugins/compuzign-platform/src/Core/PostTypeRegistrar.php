@@ -34,6 +34,29 @@ class PostTypeRegistrar
             'supports'           => ['title'],
         ]);
 
+        register_post_type('cz_request', [
+            'labels'             => [
+                'name'               => 'Requests',
+                'singular_name'      => 'Request',
+                'add_new_item'       => 'Add New Request',
+                'edit_item'          => 'Edit Request',
+                'new_item'           => 'New Request',
+                'view_item'          => 'View Request',
+                'search_items'       => 'Search Requests',
+                'not_found'          => 'No requests found.',
+                'not_found_in_trash' => 'No requests in trash.',
+            ],
+            'public'             => false,
+            'publicly_queryable' => false,
+            'show_ui'            => false,
+            'show_in_nav_menus'  => false,
+            'show_in_rest'       => false,
+            'has_archive'        => false,
+            'rewrite'            => false,
+            'query_var'          => false,
+            'supports'           => ['title'],
+        ]);
+
         register_post_type('cz_service', [
             'labels'       => [
                 'name'               => 'Services',
