@@ -32,10 +32,10 @@ class RequestRepository
             return $existing;
         }
 
-        // Augment the payload with promoted_at; all other fields stay identical
+        // Augment the payload with accepted_at; all other fields stay identical
         // to the transient schema so future consumers can read either source.
         $data                = $payload;
-        $data['promoted_at'] = current_time('mysql');
+        $data['accepted_at'] = current_time('mysql');
 
         $postId = wp_insert_post([
             'post_type'   => self::POST_TYPE,
@@ -82,7 +82,7 @@ class RequestRepository
     }
 
     /**
-     * Return a single stored request by quote_ref, or null if not promoted.
+     * Return a single stored managed request by quote_ref, or null if not yet accepted.
      *
      * @return array<string, mixed>|null
      */
@@ -122,6 +122,34 @@ class RequestRepository
         return (bool) update_post_meta($postId, self::META_STATUS, $status);
     }
 
+    /**
+     * Return all quote_ref values that have a corresponding Water record.
+     *
+     * Used by the intake list to derive is_accepted per item without N+1 queries.
+     * Single JOIN query across postmeta + posts.
+     *
+     * @return string[]
+     */
+    public function findAllAcceptedRefs(): array
+    {
+        global $wpdb;
+
+        $refs = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT pm.meta_value
+                 FROM {$wpdb->postmeta} pm
+                 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+                 WHERE p.post_type = %s
+                   AND p.post_status = 'publish'
+                   AND pm.meta_key = %s",
+                self::POST_TYPE,
+                self::META_REF
+            )
+        );
+
+        return array_values(array_filter((array) $refs));
+    }
+
     // ── Private ───────────────────────────────────────────────────────────────
 
     /** Exact-match lookup by cz_request_ref meta. Returns post ID or null. */
@@ -157,7 +185,7 @@ class RequestRepository
             'post_id'     => (int) $post->ID,
             'quote_ref'   => $ref ?: $post->post_title,
             'status'      => ($status !== '' && $status !== false) ? $status : RequestLifecycle::STATUS_NEW,
-            'promoted_at' => is_array($data) ? ($data['promoted_at'] ?? '') : '',
+            'accepted_at' => is_array($data) ? ($data['accepted_at'] ?? '') : '',
             'data'        => is_array($data) ? $data : [],
         ];
     }
