@@ -1201,6 +1201,30 @@
   font-weight: 500;
 }
 
+/* ── Intake acceptance strip ────────────────────────────────────────────────── */
+.cz-req-intake-status {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-3);
+  padding: 10px var(--cz-space-5);
+  background: var(--admin-surface-2);
+  border-bottom: 1px solid var(--admin-border);
+  font-size: 13px;
+  color: var(--admin-text-muted);
+}
+
+.cz-req-intake-status--accepted {
+  background: var(--admin-success-a07);
+  border-bottom-color: var(--admin-success-a20);
+  color: var(--admin-success);
+}
+
+.cz-req-intake-status__dot {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 /* ── Health workstation ─────────────────────────────────────────────────────── */
 .cz-health-status-banner {
   display: flex;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { fetchAdminRequests, fetchAdminRequest } from '@/api/endpoints/admin';
+import { fetchAdminRequests, fetchAdminRequest, acceptIntakeRequest } from '@/api/endpoints/admin';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { RequestEntry, RequestSummary } from '@/api/types/admin';
@@ -13,8 +13,13 @@ interface Props {
 // ── Request detail step ───────────────────────────────────────────────────────
 
 function RequestDetailStep({ ctx }: { ctx: StepContext }) {
+  const ref        = ctx.stepData.ref as string;
+  const isAccepted = ctx.stepData.isAccepted as boolean;
+  const onAccepted = ctx.stepData.onAccepted as (() => void) | undefined;
+
   const [request, setRequest] = useState<RequestEntry | null>(null);
-  const ref = ctx.stepData.ref as string;
+  const [accepting, setAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   useEffect(() => {
     ctx.setProgress('loading', 'Loading…');
@@ -28,6 +33,20 @@ function RequestDetailStep({ ctx }: { ctx: StepContext }) {
         ctx.setProgress('error', msg);
       });
   }, [ref]);
+
+  const handleAccept = async () => {
+    setAccepting(true);
+    setAcceptError(null);
+    try {
+      await acceptIntakeRequest(ref);
+      ctx.setStepData('isAccepted', true);
+      onAccepted?.();
+    } catch (err) {
+      setAcceptError(err instanceof Error ? err.message : 'Failed to accept request.');
+    } finally {
+      setAccepting(false);
+    }
+  };
 
   if (ctx.progress === 'loading') {
     return (
@@ -43,11 +62,22 @@ function RequestDetailStep({ ctx }: { ctx: StepContext }) {
 
   if (!request) return null;
 
-  const total = request.items.reduce((sum, item) => sum + (item.price ?? 0), 0);
+  const total    = request.items.reduce((sum, item) => sum + (item.price ?? 0), 0);
   const hasTotal = request.items.some((i) => i.price !== null);
 
   return (
     <div class="cz-req-detail">
+
+      {/* ── Intake acceptance status strip ─────────────────────────── */}
+      <div class={`cz-req-intake-status${isAccepted ? ' cz-req-intake-status--accepted' : ''}`}>
+        <span class="cz-req-intake-status__dot">{isAccepted ? '✓' : '○'}</span>
+        <span>
+          {isAccepted
+            ? 'Accepted — stored as managed request'
+            : 'Intake only — not yet accepted by admin'}
+        </span>
+      </div>
+
       <div class="cz-req-detail__section">
         <p class="cz-req-detail__section-title">Contact</p>
         <div class="cz-req-contact-grid">
@@ -126,7 +156,23 @@ function RequestDetailStep({ ctx }: { ctx: StepContext }) {
         </div>
       </div>
 
+      {acceptError && (
+        <div class="cz-admin-error-msg" style="margin:0 20px 16px">
+          {acceptError}
+        </div>
+      )}
+
       <div class="cz-action-shell__footer">
+        {!isAccepted && (
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--primary"
+            onClick={handleAccept}
+            disabled={accepting}
+          >
+            {accepting ? 'Accepting…' : 'Accept Request'}
+          </button>
+        )}
         <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
           Close
         </button>
@@ -149,7 +195,11 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
       id: `request-${summary.quote_ref}`,
       mode: 'drawer',
       title: `Quote — ${summary.quote_ref}`,
-      initialStepData: { ref: summary.quote_ref },
+      initialStepData: {
+        ref:         summary.quote_ref,
+        isAccepted:  summary.is_accepted ?? false,
+        onAccepted:  refetch,
+      },
       steps: [
         {
           id: 'detail',
