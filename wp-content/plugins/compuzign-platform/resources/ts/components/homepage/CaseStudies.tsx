@@ -1,4 +1,6 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
+
+const AUTO_MS = 4000;
 
 const STORIES = [
   {
@@ -34,7 +36,36 @@ const TESTIMONIALS = [
 
 export function CaseStudies() {
   const [active, setActive] = useState(0);
-  const story = STORIES[active];
+  const story    = STORIES[active];
+  const hovering = useRef(false);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const ivRef    = useRef<number | null>(null);
+
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function startInterval() {
+    if (reducedMotion) return;
+    if (ivRef.current !== null) clearInterval(ivRef.current);
+    ivRef.current = window.setInterval(() => {
+      if (hovering.current) return;
+      setActive(prev => (prev + 1) % STORIES.length);
+    }, AUTO_MS);
+  }
+
+  useEffect(() => {
+    startInterval();
+    return () => { if (ivRef.current !== null) clearInterval(ivRef.current); };
+  }, []);
+
+  function handleTabClick(i: number) {
+    setActive(i);
+    startInterval(); // reset the 4 s countdown on manual interaction
+    if (window.innerWidth <= 1024 && rightRef.current) {
+      rightRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
 
   return (
     <section class="cz-home-cases" id="case-studies">
@@ -46,14 +77,20 @@ export function CaseStudies() {
             <h2 class="cz-heading-xl cz-home-cases__heading">
               Real results across three continents.
             </h2>
-            <div class="cz-home-cases__tabs" role="tablist" aria-label="Case study selector">
+            <div
+              class="cz-home-cases__tabs"
+              role="tablist"
+              aria-label="Case study selector"
+              onMouseEnter={() => { hovering.current = true; }}
+              onMouseLeave={() => { hovering.current = false; }}
+            >
               {STORIES.map((s, i) => (
                 <button
                   key={i}
                   class={`cz-home-cases__tab${i === active ? ' cz-home-cases__tab--active' : ''}`}
                   role="tab"
                   aria-selected={i === active}
-                  onClick={() => setActive(i)}
+                  onClick={() => handleTabClick(i)}
                   type="button"
                 >
                   {s.tab}
@@ -62,7 +99,7 @@ export function CaseStudies() {
             </div>
           </div>
 
-          <div class="cz-home-cases__right">
+          <div class="cz-home-cases__right" ref={rightRef}>
             <div class="cz-home-cases__card" role="tabpanel">
               <p class="cz-home-cases__label">{story.label}</p>
               <h3 class="cz-home-cases__title">{story.title}</h3>

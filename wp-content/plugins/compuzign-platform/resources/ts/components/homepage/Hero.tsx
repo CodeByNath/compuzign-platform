@@ -94,9 +94,6 @@ export function Hero() {
           <h1 class="cz-heading-xl cz-hero-orbit__h1">
             Managed IT Services<br />for Growing Businesses.
           </h1>
-          <p class="cz-hero-orbit__sub">
-            Your team has enough to focus on. IT shouldn't be one of them.
-          </p>
           <p class="cz-copy cz-hero-orbit__desc">
             CompuZign is your outsourced IT department, managing, monitoring, and
             securing the technology your business runs on. One partner. One bill.

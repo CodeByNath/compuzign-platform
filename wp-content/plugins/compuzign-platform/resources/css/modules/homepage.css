@@ -58,20 +58,51 @@
 .cz-hero-orbit__horizon {
   position: absolute;
   left: 50%;
-  bottom: -310px;
-  width: 150vw;
-  height: 520px;
-  transform: translateX(-50%);
-  border-radius: 50% 50% 0 0;
+  bottom: -230px;
+  width: 165vw;
+  height: 720px;
+  opacity: 1;
+  /* Cinematic hero-only glow — no AE alpha-tint token for --cz-color-accent at these opacities */
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(255, 218, 23, 0.12), transparent 38%),
-    linear-gradient(to bottom, rgba(10, 10, 10, 0.82), rgba(0, 0, 0, 0.96));
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(255, 218, 23, 0.22),
+      rgba(255, 218, 23, 0.08) 24%,
+      transparent 48%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(10, 10, 13, 0.85),
+      rgba(0, 0, 0, 0.98)
+    );
+  transform:
+    translateX(-50%)
+    perspective(1200px)
+    rotateX(66deg)
+    scaleY(1.08);
   animation: czHeroHorizonBreath 8s ease-in-out infinite;
 }
 
 @keyframes czHeroHorizonBreath {
-  0%, 100% { opacity: 0.8; transform: translateX(-50%) scaleX(1);    }
-  50%       { opacity: 1;   transform: translateX(-50%) scaleX(1.02); }
+  0%, 100% {
+    transform:
+      translateX(-50%)
+      perspective(1200px)
+      rotateX(66deg)
+      translateY(0)
+      scaleY(1.08);
+    filter: blur(0px);
+  }
+
+  50% {
+    transform:
+      translateX(-50%)
+      perspective(1200px)
+      rotateX(69deg)
+      translateY(22px)
+      scaleY(1.14);
+    filter: blur(1.5px);
+  }
 }
 
 .cz-hero-orbit__arcs {
@@ -102,7 +133,7 @@
 .cz-hero-orbit__content {
   position: relative;
   z-index: 2;
-  padding-top: 160px;
+  padding-top: var(--cz-space-16);
   padding-bottom: var(--cz-space-16);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 420px;
@@ -117,12 +148,6 @@
   max-width: 15ch;
 }
 
-.cz-hero-orbit__sub {
-  max-width: 520px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 1.1rem;
-  margin-top: var(--cz-space-6);
-}
 
 .cz-hero-orbit__desc {
   max-width: 560px;
@@ -504,6 +529,8 @@
 /* ─── Why Choose ─────────────────────────────────────────────────────── */
 .cz-home-why {
   padding: var(--cz-section-space) 0;
+  border-top: 1px solid var(--cz-color-line);
+  border-bottom: 1px solid var(--cz-color-line);
 }
 
 .cz-home-why__header {
@@ -843,6 +870,8 @@
 /* ─── Results Metrics ────────────────────────────────────────────────── */
 .cz-home-results {
   padding: var(--cz-section-space) 0;
+  border-top: 1px solid var(--cz-color-line);
+  border-bottom: 1px solid var(--cz-color-line);
 }
 
 .cz-home-results__header {
@@ -1038,6 +1067,8 @@
 /* ─── Case Studies ───────────────────────────────────────────────────── */
 .cz-home-cases {
   padding: var(--cz-section-space) 0;
+  border-top: 1px solid var(--cz-color-line);
+  border-bottom: 1px solid var(--cz-color-line);
 }
 
 /* Mobile-first: single column */
@@ -1061,6 +1092,8 @@
 }
 
 .cz-home-cases__tab {
+  position: relative;
+  overflow: hidden;
   text-align: left;
   border: 1px solid var(--cz-color-line);
   background: var(--cz-color-bg-soft);
@@ -1078,6 +1111,30 @@
 .cz-home-cases__tab:hover {
   border-color: var(--cz-color-accent);
   background: rgba(255, 218, 23, .08);
+}
+
+/* Progress bar: fills left-to-right over AUTO_MS while tab is active */
+.cz-home-cases__tab--active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--cz-color-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: czTabProgress 4s linear forwards;
+}
+
+/* Pause both JS interval (handled in script) and CSS animation while hovering */
+.cz-home-cases__tabs:hover .cz-home-cases__tab--active::after {
+  animation-play-state: paused;
+}
+
+@keyframes czTabProgress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
 .cz-home-cases__card {
@@ -1170,6 +1227,10 @@
 @media (prefers-reduced-motion: reduce) {
   .cz-home-cases__tab {
     transition: none;
+  }
+
+  .cz-home-cases__tab--active::after {
+    display: none;
   }
 }
 
