@@ -18,7 +18,7 @@
   --cz-color-danger: #ff6161;
 
   /* Typography */
-  --cz-font-main: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cz-font-main: 'IBM Plex Sans', sans-serif;
   --cz-font-size-xs: .73rem;
   --cz-font-size-sm: .86rem;
   --cz-font-size-md: .94rem;

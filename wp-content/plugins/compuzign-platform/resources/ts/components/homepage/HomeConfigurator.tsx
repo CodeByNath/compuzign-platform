@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { decodeHtml, formatPrice, formatCycleLabel } from '@/utils/format';
 import { getRuntimeConfig } from '@/runtime/config';
@@ -77,6 +77,29 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
   const [activeCategorySlug, setActiveCategorySlug] = useState<string | null>(null);
   const [previewServiceId, setPreviewServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+
+  // Auto-select a service on first data load — never leave the configurator empty.
+  useEffect(() => {
+    if (previewServiceId !== null) return; // already has a selection
+
+    const available: { service: ServiceItem; categorySlug: string }[] = [];
+    for (const group of data.services_by_category) {
+      for (const svc of group.services) {
+        if (svc.availability.is_available) {
+          available.push({ service: svc, categorySlug: group.category_slug });
+        }
+      }
+    }
+    if (available.length === 0) return;
+
+    const pick =
+      available.length === 1
+        ? available[0]
+        : available[Math.floor(Math.random() * available.length)];
+
+    setActiveCategorySlug(pick.categorySlug);
+    setPreviewServiceId(pick.service.id);
+  }, [data]);
 
   const categoryGroup = activeCategorySlug
     ? data.services_by_category.find((g) => g.category_slug === activeCategorySlug)
@@ -283,7 +306,8 @@ export function HomeConfigurator() {
         <div class="cz-home-configurator__inner">
 
           <div class="cz-home-configurator__content">
-            <span class="cz-home-configurator__eyebrow">Cost Builder</span>
+            {/* Use shared cz-eyebrow for consistent accent-bar treatment across sections */}
+            <span class="cz-eyebrow">Cost Builder</span>
             <h2 class="cz-home-configurator__title">
               Build your IT solution before the first call.
             </h2>

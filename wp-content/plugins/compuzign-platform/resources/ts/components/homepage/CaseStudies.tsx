@@ -35,7 +35,9 @@ const TESTIMONIALS = [
 ] as const;
 
 export function CaseStudies() {
-  const [active, setActive] = useState(0);
+  const [active,  setActive]  = useState(0);
+  // Bumping tabKey forces the active tab button to remount, restarting the CSS ring animation cleanly.
+  const [tabKey,  setTabKey]  = useState(0);
   const story    = STORIES[active];
   const hovering = useRef(false);
   const rightRef = useRef<HTMLDivElement>(null);
@@ -51,6 +53,8 @@ export function CaseStudies() {
     ivRef.current = window.setInterval(() => {
       if (hovering.current) return;
       setActive(prev => (prev + 1) % STORIES.length);
+      // Reset the ring animation on each auto-advance via key change.
+      setTabKey(k => k + 1);
     }, AUTO_MS);
   }
 
@@ -61,10 +65,18 @@ export function CaseStudies() {
 
   function handleTabClick(i: number) {
     setActive(i);
-    startInterval(); // reset the 4 s countdown on manual interaction
+    setTabKey(k => k + 1);
+    startInterval();
     if (window.innerWidth <= 1024 && rightRef.current) {
       rightRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  }
+
+  function handleTabsMouseLeave() {
+    hovering.current = false;
+    // Restart interval AND reset ring animation so progress resumes from 0.
+    startInterval();
+    setTabKey(k => k + 1);
   }
 
   return (
@@ -82,11 +94,13 @@ export function CaseStudies() {
               role="tablist"
               aria-label="Case study selector"
               onMouseEnter={() => { hovering.current = true; }}
-              onMouseLeave={() => { hovering.current = false; }}
+              onMouseLeave={handleTabsMouseLeave}
             >
               {STORIES.map((s, i) => (
                 <button
-                  key={i}
+                  // Active tab gets a composite key so Preact remounts it when tabKey changes,
+                  // restarting the CSS conic-ring animation from 0.
+                  key={i === active ? `${i}-${tabKey}` : i}
                   class={`cz-home-cases__tab${i === active ? ' cz-home-cases__tab--active' : ''}`}
                   role="tab"
                   aria-selected={i === active}

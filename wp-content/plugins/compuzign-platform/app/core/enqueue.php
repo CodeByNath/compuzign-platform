@@ -1,6 +1,15 @@
 <?php
 
 function compuzign_enqueue_assets() {
+    // IBM Plex Sans — primary platform typeface via Google Fonts
+    wp_enqueue_style(
+        'compuzign-ibm-plex-sans',
+        'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap',
+        array(),
+        null,
+        'all'
+    );
+
     $base_url = COMPUZIGN_ATOMIC_ENGINE_URL . 'css/';
     $styles = array(
         '00-tokens.css',
