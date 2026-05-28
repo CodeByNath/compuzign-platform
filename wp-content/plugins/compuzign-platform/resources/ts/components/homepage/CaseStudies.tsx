@@ -35,9 +35,9 @@ const TESTIMONIALS = [
 ] as const;
 
 export function CaseStudies() {
-  const [active,  setActive]  = useState(0);
-  // Bumping tabKey forces the active tab button to remount, restarting the CSS ring animation cleanly.
-  const [tabKey,  setTabKey]  = useState(0);
+  const [active,    setActive]    = useState(0);
+  const [tabKey,    setTabKey]    = useState(0);
+  const [userMode,  setUserMode]  = useState(false);
   const story    = STORIES[active];
   const hovering = useRef(false);
   const rightRef = useRef<HTMLDivElement>(null);
@@ -74,7 +74,7 @@ export function CaseStudies() {
 
   function handleTabsMouseLeave() {
     hovering.current = false;
-    // Restart interval AND reset ring animation so progress resumes from 0.
+    setUserMode(false);
     startInterval();
     setTabKey(k => k + 1);
   }
@@ -91,9 +91,10 @@ export function CaseStudies() {
             </h2>
             <div
               class="cz-home-cases__tabs"
+              data-mode={userMode ? 'user' : 'auto'}
               role="tablist"
               aria-label="Case study selector"
-              onMouseEnter={() => { hovering.current = true; }}
+              onMouseEnter={() => { hovering.current = true; setUserMode(true); }}
               onMouseLeave={handleTabsMouseLeave}
             >
               {STORIES.map((s, i) => (

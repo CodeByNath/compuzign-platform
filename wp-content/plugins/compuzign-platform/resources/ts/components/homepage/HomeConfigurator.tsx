@@ -78,6 +78,19 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
   const [previewServiceId, setPreviewServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
 
+  // Listen for cz:service-select events dispatched by ServicesEditorial.
+  useEffect(() => {
+    function handleServiceSelect(e: Event) {
+      const { serviceId, categorySlug } = (
+        e as CustomEvent<{ serviceId: number; categorySlug: string }>
+      ).detail;
+      setActiveCategorySlug(categorySlug);
+      setPreviewServiceId(serviceId);
+    }
+    window.addEventListener('cz:service-select', handleServiceSelect);
+    return () => window.removeEventListener('cz:service-select', handleServiceSelect);
+  }, []);
+
   // Auto-select a service on first data load — never leave the configurator empty.
   useEffect(() => {
     if (previewServiceId !== null) return; // already has a selection

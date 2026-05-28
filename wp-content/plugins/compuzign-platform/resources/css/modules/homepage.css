@@ -782,6 +782,24 @@
   transform: translateX(6px);
 }
 
+/* Skeleton rows while service data loads */
+.cz-home-svc__row--skel {
+  background: rgba(255, 255, 255, .04);
+  border-radius: 8px;
+  min-height: 78px;
+  pointer-events: none;
+  animation: czSkelPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes czSkelPulse {
+  0%, 100% { opacity: .35; }
+  50%       { opacity: .65; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-home-svc__row--skel { animation: none; }
+}
+
 /* Desktop: 4-column grid — index | name | desc | arrow */
 @media (min-width: 900px) {
   .cz-home-svc__header {
@@ -1004,12 +1022,32 @@
   pointer-events: none;
 }
 
-.cz-home-industries__card:hover {
+.cz-home-industries__card:hover,
+.cz-home-industries__card--focused {
   transform: translateY(-6px);
   border-color: rgba(255, 218, 23, .45);
 }
 
-.cz-home-industries__card:hover::before {
+.cz-home-industries__card:hover::before,
+.cz-home-industries__card--focused::before {
+  opacity: 1;
+}
+
+/* When grid is hovered, release the JS-focused state — safety net for between-frame transitions */
+.cz-home-industries__grid:hover .cz-home-industries__card--focused {
+  transform: none;
+  border-color: var(--cz-color-line);
+}
+.cz-home-industries__grid:hover .cz-home-industries__card--focused::before {
+  opacity: 0;
+}
+
+/* Hovered card wins — specificity (0,4,0) beats released-focused (0,3,0) */
+.cz-home-industries__grid:hover .cz-home-industries__card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255, 218, 23, .45);
+}
+.cz-home-industries__grid:hover .cz-home-industries__card:hover::before {
   opacity: 1;
 }
 
@@ -1129,25 +1167,24 @@
   transition: border-color .25s, background .25s;
 }
 
-/* Auto-active: subtle accent hint + ring animation; NOT the same as hover */
-.cz-home-cases__tab--active {
+/* Auto mode: active tab shows subtle accent + ring animation */
+[data-mode="auto"] .cz-home-cases__tab--active {
   border-color: rgba(255, 218, 23, 0.3);
   background: rgba(255, 218, 23, 0.03);
 }
 
-/* Conic-gradient border ring sweeps clockwise from top over 4 s */
-.cz-home-cases__tab--active::before {
+/* Conic-gradient border ring sweeps clockwise from top over 4s — auto mode only */
+[data-mode="auto"] .cz-home-cases__tab--active::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 16px;
-  padding: 1.5px; /* ring thickness */
+  padding: 1.5px;
   background: conic-gradient(
     from -90deg at 50% 50%,
     var(--cz-color-accent) var(--czp),
     rgba(255, 255, 255, 0.1) var(--czp)
   );
-  /* Donut mask: shows only the padding ring, hides inner content area */
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -1157,25 +1194,15 @@
   animation: czTabRing 4s linear forwards;
 }
 
-/* User hover: full accent — distinct and independent of auto-active */
+/* Hover always works in both modes */
 .cz-home-cases__tab:hover {
   border-color: var(--cz-color-accent);
   background: rgba(255, 218, 23, .08);
 }
 
-/* When tabs area is hovered: release auto-active visual and pause the ring */
-.cz-home-cases__tabs:hover .cz-home-cases__tab--active {
-  border-color: var(--cz-color-line);
-  background: var(--cz-color-bg-soft);
-}
-.cz-home-cases__tabs:hover .cz-home-cases__tab--active::before {
-  animation-play-state: paused;
-}
-
-/* Hovered tab always wins — specificity (0,4,0) beats released-active (0,3,0) */
-.cz-home-cases__tabs:hover .cz-home-cases__tab:hover {
-  border-color: var(--cz-color-accent);
-  background: rgba(255, 218, 23, .08);
+/* User mode: suppress ring; active tab reverts to base appearance */
+[data-mode="user"] .cz-home-cases__tab--active::before {
+  display: none;
 }
 
 @keyframes czTabRing {
@@ -1275,7 +1302,7 @@
     transition: none;
   }
 
-  .cz-home-cases__tab--active::before {
+  [data-mode="auto"] .cz-home-cases__tab--active::before {
     display: none;
   }
 }
@@ -1881,8 +1908,8 @@
 
 /* ── Responsive ─────────────────────────────────── */
 
-/* Tablet: dashboard goes side-by-side, inner still stacked */
-@media (min-width: 640px) {
+/* Tablet: dashboard goes side-by-side at 800px — prevents cramped layout on small tablets */
+@media (min-width: 800px) {
   .cz-home-configurator__dashboard {
     grid-template-columns: 1fr 300px;
   }

@@ -29,39 +29,54 @@ const CARDS = [
 ] as const;
 
 export function WhyChoose() {
-  // Card 0 is focused by default on all breakpoints.
-  const [focused, setFocused] = useState(0);
-  const gridRef = useRef<HTMLDivElement>(null);
+  const [focused,   setFocused]   = useState(0);
+  const [focusMode, setFocusMode] = useState<'auto' | 'user'>('auto');
+  const focusModeRef = useRef<'auto' | 'user'>('auto');
+  const gridRef      = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // IntersectionObserver-based focus only applies at mobile (single-column).
-    // At ≥641px, hover is handled purely in CSS with no JS focus changes.
-    if (window.matchMedia('(min-width: 641px)').matches) return;
 
     const grid = gridRef.current;
     if (!grid) return;
 
-    const cards = Array.from(
-      grid.querySelectorAll<HTMLElement>('.cz-home-why__card'),
-    );
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('.cz-home-why__card'));
+    const ratioMap = new Map<number, number>();
 
     const obs = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          // Focus the card when it is at least 60% in the viewport.
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-            const idx = cards.indexOf(entry.target as HTMLElement);
-            if (idx !== -1) setFocused(idx);
+          const idx = cards.indexOf(entry.target as HTMLElement);
+          if (idx !== -1) ratioMap.set(idx, entry.intersectionRatio);
+        });
+        if (focusModeRef.current !== 'auto') return;
+        // Highest visibility ratio wins; ties broken by lowest index.
+        let pick = -1;
+        let bestRatio = 0;
+        ratioMap.forEach((ratio, idx) => {
+          if (ratio > bestRatio || (ratio === bestRatio && (pick === -1 || idx < pick))) {
+            bestRatio = ratio;
+            pick = idx;
           }
         });
+        if (pick !== -1 && bestRatio >= 0.3) setFocused(pick);
       },
-      { threshold: [0.6] },
+      { threshold: [0, 0.3, 0.6, 1] },
     );
 
     cards.forEach((card) => obs.observe(card));
     return () => obs.disconnect();
   }, []);
+
+  function handleMouseEnter() {
+    focusModeRef.current = 'user';
+    setFocusMode('user');
+  }
+
+  function handleMouseLeave() {
+    focusModeRef.current = 'auto';
+    setFocusMode('auto');
+  }
 
   return (
     <section class="cz-home-why">
@@ -73,11 +88,16 @@ export function WhyChoose() {
           </h2>
         </header>
 
-        <div class="cz-home-why__grid" ref={gridRef}>
+        <div
+          class="cz-home-why__grid"
+          ref={gridRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           {CARDS.map((card, i) => (
             <article
               key={i}
-              class={`cz-home-why__card${focused === i ? ' cz-home-why__card--focused' : ''}`}
+              class={`cz-home-why__card${(focusMode === 'auto' && focused === i) ? ' cz-home-why__card--focused' : ''}`}
             >
               <span class="cz-home-why__num">{card.num}</span>
               <h3 class="cz-home-why__title">{card.title}</h3>

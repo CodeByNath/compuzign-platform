@@ -1,3 +1,5 @@
+import { useState, useEffect, useRef } from 'preact/hooks';
+
 const INDUSTRIES = [
   {
     num:   '01',
@@ -37,6 +39,53 @@ const INDUSTRIES = [
 ] as const;
 
 export function IndustriesGrid() {
+  const [focused,    setFocused]    = useState(0);
+  const [focusMode,  setFocusMode]  = useState<'auto' | 'user'>('auto');
+  const focusModeRef = useRef<'auto' | 'user'>('auto');
+  const gridRef      = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('.cz-home-industries__card'));
+    const ratioMap = new Map<number, number>();
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const idx = cards.indexOf(entry.target as HTMLElement);
+          if (idx !== -1) ratioMap.set(idx, entry.intersectionRatio);
+        });
+        if (focusModeRef.current !== 'auto') return;
+        // Pick the card with the highest visibility ratio; ties broken by lowest index.
+        let pick = -1;
+        let bestRatio = 0;
+        ratioMap.forEach((ratio, idx) => {
+          if (ratio > bestRatio || (ratio === bestRatio && (pick === -1 || idx < pick))) {
+            bestRatio = ratio;
+            pick = idx;
+          }
+        });
+        if (pick !== -1 && bestRatio >= 0.3) setFocused(pick);
+      },
+      { threshold: [0, 0.3, 0.6, 1] },
+    );
+
+    cards.forEach((card) => obs.observe(card));
+    return () => obs.disconnect();
+  }, []);
+
+  function handleMouseEnter() {
+    focusModeRef.current = 'user';
+    setFocusMode('user');
+  }
+
+  function handleMouseLeave() {
+    focusModeRef.current = 'auto';
+    setFocusMode('auto');
+  }
+
   return (
     <section class="cz-home-industries" id="industries">
       <div class="cz-container">
@@ -47,9 +96,17 @@ export function IndustriesGrid() {
           </h2>
         </header>
 
-        <div class="cz-home-industries__grid">
-          {INDUSTRIES.map((ind) => (
-            <article class="cz-home-industries__card">
+        <div
+          class="cz-home-industries__grid"
+          ref={gridRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {INDUSTRIES.map((ind, i) => (
+            <article
+              key={i}
+              class={`cz-home-industries__card${(focusMode === 'auto' && focused === i) ? ' cz-home-industries__card--focused' : ''}`}
+            >
               <span class="cz-home-industries__number">{ind.num}</span>
               <h3 class="cz-home-industries__title">{ind.title}</h3>
               <p class="cz-home-industries__copy">{ind.copy}</p>
