@@ -646,6 +646,15 @@
   }
 }
 
+/* 640–767px: override the 2-column tablet grid — one card per row */
+@media (min-width: 640px) and (max-width: 767px) {
+  .cz-home-why__card,
+  .cz-home-why__card:nth-child(odd) {
+    grid-column: span 2;
+    border-right: none;
+  }
+}
+
 /* Desktop: 5 columns, rounded outer container */
 @media (min-width: 1100px) {
   .cz-home-why__grid {

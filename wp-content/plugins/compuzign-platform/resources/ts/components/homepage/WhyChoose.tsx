@@ -43,7 +43,7 @@ export function WhyChoose() {
 
     const cards = Array.from(grid.querySelectorAll<HTMLElement>('.cz-home-why__card'));
     const ratioMap = new Map<number, number>();
-    const mq = window.matchMedia('(min-width: 1100px)');
+    const mq = window.matchMedia('(min-width: 768px)');
 
     const obs = new IntersectionObserver(
       (entries) => {
