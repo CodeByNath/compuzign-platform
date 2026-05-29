@@ -50,6 +50,7 @@ export function IndustriesGrid() {
 
     const cards = Array.from(grid.querySelectorAll<HTMLElement>('.cz-home-industries__card'));
     const ratioMap = new Map<number, number>();
+    const mq = window.matchMedia('(min-width: 768px)');
 
     const obs = new IntersectionObserver(
       (entries) => {
@@ -58,6 +59,8 @@ export function IndustriesGrid() {
           if (idx !== -1) ratioMap.set(idx, entry.intersectionRatio);
         });
         if (focusModeRef.current !== 'auto') return;
+        // Above 767px all cards are visible simultaneously; skip scroll-driven focus.
+        if (mq.matches) return;
         // Pick the card with the highest visibility ratio; ties broken by lowest index.
         let pick = -1;
         let bestRatio = 0;

@@ -1093,6 +1093,13 @@
   }
 }
 
+/* 640–767px: revert to single column so cards stack one per row */
+@media (min-width: 640px) and (max-width: 767px) {
+  .cz-home-industries__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Desktop: asymmetric 7-column grid — cards 01 and 04 span 2 */
 @media (min-width: 1100px) {
   .cz-home-industries__grid {
