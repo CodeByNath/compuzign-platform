@@ -39,7 +39,8 @@ const INDUSTRIES = [
 ] as const;
 
 export function IndustriesGrid() {
-  const [focused,    setFocused]    = useState(0);
+  const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 1100px)').matches;
+  const [focused,    setFocused]    = useState(isDesktop ? 2 : 0);
   const [focusMode,  setFocusMode]  = useState<'auto' | 'user'>('auto');
   const focusModeRef = useRef<'auto' | 'user'>('auto');
   const gridRef      = useRef<HTMLDivElement>(null);

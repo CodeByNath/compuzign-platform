@@ -1100,24 +1100,31 @@
   }
 }
 
-/* Desktop: asymmetric 7-column grid — cards 01 and 04 span 2 */
+/* 768–1099px: last card spans the full 2-column row */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .cz-home-industries__card:last-child {
+    grid-column: span 2;
+  }
+}
+
+/* Desktop: 12-column base — row 1: 4 cards × span 3, row 2: 3 cards × span 4 */
 @media (min-width: 1100px) {
   .cz-home-industries__grid {
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(12, 1fr);
     gap: 14px;
   }
 
-  /* Row 1: [01:2][02:1][03:1][04:2][05:1] = 7 cols */
+  /* Row 1: 4 equal cards */
   .cz-home-industries__card:nth-child(1),
+  .cz-home-industries__card:nth-child(2),
+  .cz-home-industries__card:nth-child(3),
   .cz-home-industries__card:nth-child(4) {
-    grid-column: span 2;
-  }
-
-  /* Row 2: [06:3][07:4] = 7 cols */
-  .cz-home-industries__card:nth-child(6) {
     grid-column: span 3;
   }
 
+  /* Row 2: 3 wider cards */
+  .cz-home-industries__card:nth-child(5),
+  .cz-home-industries__card:nth-child(6),
   .cz-home-industries__card:nth-child(7) {
     grid-column: span 4;
   }
