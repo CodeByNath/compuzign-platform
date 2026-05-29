@@ -1271,13 +1271,6 @@
   gap: 10px;
 }
 
-/* @property enables conic-gradient stop-position animation (Chrome 85+, Safari 16.4+, FF 128+) */
-@property --czp {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
 .cz-home-cases__tab {
   position: relative;
   text-align: left;
@@ -1293,55 +1286,87 @@
   transition: border-color .25s var(--cz-ease), background .25s var(--cz-ease);
 }
 
-/* Auto mode: active tab shows subtle accent + ring animation */
-[data-mode="auto"] .cz-home-cases__tab--active {
-  border-color: rgba(255, 218, 23, 0.3);
-  background: rgba(255, 218, 23, 0.03);
+/* Active tab: accent highlight, no animation ring */
+.cz-home-cases__tab--active {
+  border-color: rgba(255, 218, 23, 0.4);
+  background: rgba(255, 218, 23, 0.04);
 }
 
-/* Conic-gradient border ring sweeps clockwise from top over 4s — auto mode only */
-[data-mode="auto"] .cz-home-cases__tab--active::before {
+/* Leaving tab: CSS transition carries highlight back to base over 200ms */
+.cz-home-cases__tab--leaving {
+  border-color: var(--cz-color-line);
+  background: var(--cz-color-bg-soft);
+}
+
+.cz-home-cases__tab:hover {
+  border-color: var(--cz-color-accent);
+  background: rgba(255, 218, 23, .08);
+}
+
+/* ── Card progress ring ──────────────────────────────────────────────── */
+@property --czcard {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes czCardRing {
+  from { --czcard: 0deg; }
+  to   { --czcard: 360deg; }
+}
+
+@keyframes czCaseIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes czCaseOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(8px); }
+}
+
+.cz-home-cases__card {
+  position: relative;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: 30px;
+  background: var(--cz-color-bg);
+  padding: 42px;
+  min-height: 300px;
+}
+
+.cz-home-cases__card-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 30px;
+  pointer-events: none;
+}
+
+.cz-home-cases__card-ring::after {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 16px;
-  padding: 1.5px;
+  border-radius: 30px;
+  padding: 2px;
   background: conic-gradient(
     from -90deg at 50% 50%,
-    var(--cz-color-accent) var(--czp),
-    rgba(255, 255, 255, 0.1) var(--czp)
+    var(--cz-color-accent) var(--czcard),
+    transparent var(--czcard)
   );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: destination-out;
   mask-composite: exclude;
-  pointer-events: none;
-  animation: czTabRing 4s linear forwards;
+  animation: czCardRing 4s linear forwards;
 }
 
-/* Hover always works in both modes */
-.cz-home-cases__tab:hover {
-  border-color: var(--cz-color-accent);
-  background: rgba(255, 218, 23, .08);
+.cz-home-cases__card-body {
+  position: relative;
+  animation: czCaseIn .25s var(--cz-ease) both;
 }
 
-/* User mode: suppress ring; active tab reverts to base appearance */
-[data-mode="user"] .cz-home-cases__tab--active::before {
-  display: none;
-}
-
-@keyframes czTabRing {
-  from { --czp:   0deg; }
-  to   { --czp: 360deg; }
-}
-
-.cz-home-cases__card {
-  border: 1px solid var(--cz-color-line-strong);
-  border-radius: 30px;
-  background: var(--cz-color-bg);
-  padding: 42px;
-  min-height: 300px;
+.cz-home-cases__card-body--fading {
+  animation: czCaseOut .2s var(--cz-ease) forwards;
 }
 
 .cz-home-cases__label {
@@ -1428,8 +1453,14 @@
     transition: none;
   }
 
-  [data-mode="auto"] .cz-home-cases__tab--active::before {
-    display: none;
+  .cz-home-cases__card-ring::after {
+    animation: none;
+  }
+
+  .cz-home-cases__card-body,
+  .cz-home-cases__card-body--fading {
+    animation: none;
+    transition: none;
   }
 }
 

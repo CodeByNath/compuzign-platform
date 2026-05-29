@@ -35,26 +35,58 @@ const TESTIMONIALS = [
 ] as const;
 
 export function CaseStudies() {
-  const [active,    setActive]    = useState(0);
-  const [tabKey,    setTabKey]    = useState(0);
-  const [userMode,  setUserMode]  = useState(false);
-  const story    = STORIES[active];
-  const hovering = useRef(false);
-  const rightRef = useRef<HTMLDivElement>(null);
-  const ivRef    = useRef<number | null>(null);
+  const [active,     setActive]     = useState(0);
+  const [leaving,    setLeaving]    = useState<number | null>(null);
+  const [cardFading, setCardFading] = useState(false);
+  const [cardKey,    setCardKey]    = useState(0);
+
+  const story = STORIES[active];
+
+  const activeRef        = useRef(0);
+  const transitioningRef = useRef(false);
+  const hovering         = useRef(false);
+  const rightRef         = useRef<HTMLDivElement>(null);
+  const ivRef            = useRef<number | null>(null);
 
   const reducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Phase 1 (0–200ms): old tab loses accent, card content fades out.
+  // Phase 2 (200ms):   active switches; new tab fades accent in; card remounts.
+  function transitionTo(next: number) {
+    const curr = activeRef.current;
+    if (next === curr) return;
+
+    if (reducedMotion) {
+      activeRef.current = next;
+      setActive(next);
+      setCardKey(k => k + 1);
+      return;
+    }
+
+    if (transitioningRef.current) return;
+    transitioningRef.current = true;
+    activeRef.current = next;
+
+    setLeaving(curr);
+    setCardFading(true);
+
+    setTimeout(() => {
+      transitioningRef.current = false;
+      setActive(next);
+      setLeaving(null);
+      setCardFading(false);
+      setCardKey(k => k + 1);
+    }, 200);
+  }
 
   function startInterval() {
     if (reducedMotion) return;
     if (ivRef.current !== null) clearInterval(ivRef.current);
     ivRef.current = window.setInterval(() => {
       if (hovering.current) return;
-      setActive(prev => (prev + 1) % STORIES.length);
-      // Reset the ring animation on each auto-advance via key change.
-      setTabKey(k => k + 1);
+      transitionTo((activeRef.current + 1) % STORIES.length);
     }, AUTO_MS);
   }
 
@@ -64,8 +96,7 @@ export function CaseStudies() {
   }, []);
 
   function handleTabClick(i: number) {
-    setActive(i);
-    setTabKey(k => k + 1);
+    transitionTo(i);
     startInterval();
     if (window.innerWidth <= 1024 && rightRef.current) {
       rightRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -74,9 +105,8 @@ export function CaseStudies() {
 
   function handleTabsMouseLeave() {
     hovering.current = false;
-    setUserMode(false);
     startInterval();
-    setTabKey(k => k + 1);
+    setCardKey(k => k + 1);
   }
 
   return (
@@ -91,18 +121,19 @@ export function CaseStudies() {
             </h2>
             <div
               class="cz-home-cases__tabs"
-              data-mode={userMode ? 'user' : 'auto'}
               role="tablist"
               aria-label="Case study selector"
-              onMouseEnter={() => { hovering.current = true; setUserMode(true); }}
+              onMouseEnter={() => { hovering.current = true; }}
               onMouseLeave={handleTabsMouseLeave}
             >
               {STORIES.map((s, i) => (
                 <button
-                  // Active tab gets a composite key so Preact remounts it when tabKey changes,
-                  // restarting the CSS conic-ring animation from 0.
-                  key={i === active ? `${i}-${tabKey}` : i}
-                  class={`cz-home-cases__tab${i === active ? ' cz-home-cases__tab--active' : ''}`}
+                  key={i}
+                  class={[
+                    'cz-home-cases__tab',
+                    i === active  ? 'cz-home-cases__tab--active'  : '',
+                    i === leaving ? 'cz-home-cases__tab--leaving' : '',
+                  ].filter(Boolean).join(' ')}
                   role="tab"
                   aria-selected={i === active}
                   onClick={() => handleTabClick(i)}
@@ -116,12 +147,21 @@ export function CaseStudies() {
 
           <div class="cz-home-cases__right" ref={rightRef}>
             <div class="cz-home-cases__card" role="tabpanel">
-              <p class="cz-home-cases__label">{story.label}</p>
-              <h3 class="cz-home-cases__title">{story.title}</h3>
-              <p class="cz-home-cases__body">{story.body}</p>
-              <p class="cz-home-cases__note">
-                All stories are anonymised. Full case studies available on request.
-              </p>
+              {/* Ring layer — remounts on cardKey to restart conic sweep */}
+              <div key={cardKey} class="cz-home-cases__card-ring" aria-hidden="true" />
+              {/* Content layer — remounts on active for enter animation;
+                  --fading plays the exit animation for 200ms before swap */}
+              <div
+                key={active}
+                class={`cz-home-cases__card-body${cardFading ? ' cz-home-cases__card-body--fading' : ''}`}
+              >
+                <p class="cz-home-cases__label">{story.label}</p>
+                <h3 class="cz-home-cases__title">{story.title}</h3>
+                <p class="cz-home-cases__body">{story.body}</p>
+                <p class="cz-home-cases__note">
+                  All stories are anonymised. Full case studies available on request.
+                </p>
+              </div>
             </div>
 
             <div class="cz-home-cases__testimonials">
