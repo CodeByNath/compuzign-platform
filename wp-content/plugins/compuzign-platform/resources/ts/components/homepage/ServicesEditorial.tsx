@@ -56,12 +56,16 @@ export function ServicesEditorial() {
     return [...catRows, ...pool.slice(0, MAX - catRows.length)];
   }, [data]);
 
-  // Scroll-driven focus — fires at all viewport sizes (unlike Why/Industries which
-  // disable above 767px). bestRatio >= 0.8 means the next row takes focus when
-  // it is 80% visible, slightly earlier than waiting for full exit.
+  // Scroll-driven focus — mobile only (≤767px).
+  // Above 767px the default (row 03) is kept permanently; no observer runs.
+  //
+  // Uses viewport position rather than intersectionRatio so focus changes when
+  // the current row exits the reading zone (70% of viewport height), not when
+  // the next row is almost fully visible.
   useEffect(() => {
     const list = listRef.current;
     if (!list || !rows) return;
+    if (window.matchMedia('(min-width: 768px)').matches) return;
 
     const rowEls = Array.from(
       list.querySelectorAll<HTMLElement>(
@@ -70,30 +74,57 @@ export function ServicesEditorial() {
     );
     if (rowEls.length === 0) return;
 
-    const ratioMap = new Map<number, number>();
+    let rafId: number = 0;
 
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const idx = rowEls.indexOf(entry.target as HTMLElement);
-          if (idx !== -1) ratioMap.set(idx, entry.intersectionRatio);
-        });
-        if (focusModeRef.current !== 'auto') return;
-        let pick = -1;
-        let bestRatio = 0;
-        ratioMap.forEach((ratio, idx) => {
-          if (ratio > bestRatio || (ratio === bestRatio && (pick === -1 || idx < pick))) {
-            bestRatio = ratio;
-            pick = idx;
-          }
-        });
-        if (pick !== -1 && bestRatio >= 0.8) setFocused(pick);
-      },
-      { threshold: [0, 0.5, 0.8, 1] },
-    );
+    function computeFocus() {
+      rafId = 0;
+      if (focusModeRef.current !== 'auto') return;
 
-    rowEls.forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
+      const activeY = window.innerHeight * 0.7;
+
+      // First pass: rows whose vertical range straddles the active line.
+      let bestIdx = -1;
+      let bestDist = Infinity;
+
+      const spanning: { idx: number; dist: number }[] = [];
+      rowEls.forEach((el, idx) => {
+        const rect = el.getBoundingClientRect();
+        const center = rect.top + rect.height / 2;
+        const dist = Math.abs(center - activeY);
+        if (rect.top <= activeY && rect.bottom >= activeY) {
+          spanning.push({ idx, dist });
+        }
+      });
+
+      if (spanning.length > 0) {
+        // Multiple rows spanning the line — pick the one with center closest to activeY.
+        bestIdx = spanning.reduce((a, b) => (a.dist <= b.dist ? a : b)).idx;
+      } else {
+        // No row spans the line (above or below viewport) — pick closest center.
+        rowEls.forEach((el, idx) => {
+          const rect = el.getBoundingClientRect();
+          const center = rect.top + rect.height / 2;
+          const dist = Math.abs(center - activeY);
+          if (dist < bestDist) { bestDist = dist; bestIdx = idx; }
+        });
+      }
+
+      if (bestIdx !== -1) setFocused(bestIdx);
+    }
+
+    function onScroll() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(computeFocus);
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // Initialise focus for the current scroll position (handles page reload mid-scroll).
+    onScroll();
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [rows]);
 
   function handleMouseEnter() {
