@@ -4,38 +4,50 @@ import { getRuntimeConfig } from '@/runtime/config';
 import { decodeHtml } from '@/utils/format';
 import type { ServiceItem } from '@/api/types/cost-builder';
 
+type RowItem =
+  | { kind: 'category'; name: string; slug: string; description: string }
+  | { kind: 'service'; service: ServiceItem; categorySlug: string };
+
 export function ServicesEditorial() {
   const config         = getRuntimeConfig();
-  const costBuilderUrl = config?.costBuilderUrl ?? '/services/';
+  const costBuilderUrl = config?.costBuilderUrl ?? '/pricing/';
+  // Strip trailing slash so we can safely append query params.
+  const pricingBase    = costBuilderUrl.replace(/\/$/, '');
+
   const { data, loading } = useCostBuilder();
 
-  // First 4: first available service from first 4 category groups.
-  // Next 3: random shuffle from remaining available services.
-  const rows = useMemo<{ service: ServiceItem; categorySlug: string }[] | null>(() => {
+  // Categories fill first; remaining slots filled with shuffled individual services.
+  const rows = useMemo<RowItem[] | null>(() => {
     if (!data) return null;
     const groups = data.services_by_category;
+    const MAX = 7;
 
-    const first4: { service: ServiceItem; categorySlug: string }[] = [];
-    for (let i = 0; i < Math.min(4, groups.length); i++) {
-      const svc = groups[i].services.find((s) => s.availability.is_available)
-               ?? groups[i].services[0];
-      if (svc) first4.push({ service: svc, categorySlug: groups[i].category_slug });
-    }
+    const catRows: RowItem[] = groups.slice(0, MAX).map((group) => {
+      const firstSvc =
+        group.services.find((s) => s.availability.is_available) ?? group.services[0];
+      const description = firstSvc
+        ? decodeHtml(firstSvc.meta.short_description || firstSvc.excerpt)
+        : '';
+      return { kind: 'category', name: group.category_name, slug: group.category_slug, description };
+    });
 
-    const remaining: { service: ServiceItem; categorySlug: string }[] = [];
-    for (let i = 4; i < groups.length; i++) {
-      for (const svc of groups[i].services) {
+    if (catRows.length >= MAX) return catRows;
+
+    // Pool: all available services across every category, shuffled.
+    const pool: RowItem[] = [];
+    for (const group of groups) {
+      for (const svc of group.services) {
         if (svc.availability.is_available) {
-          remaining.push({ service: svc, categorySlug: groups[i].category_slug });
+          pool.push({ kind: 'service', service: svc, categorySlug: group.category_slug });
         }
       }
     }
-    for (let i = remaining.length - 1; i > 0; i--) {
+    for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+      [pool[i], pool[j]] = [pool[j], pool[i]];
     }
 
-    return [...first4, ...remaining.slice(0, 3)];
+    return [...catRows, ...pool.slice(0, MAX - catRows.length)];
   }, [data]);
 
   return (
@@ -62,30 +74,29 @@ export function ServicesEditorial() {
               <div key={n} class="cz-home-svc__row cz-home-svc__row--skel" aria-hidden="true" />
             ))
           ) : (
-            rows.map(({ service, categorySlug }, idx) => {
-              const desc = service.meta.short_description
-                ? decodeHtml(service.meta.short_description)
-                : decodeHtml(service.excerpt);
+            rows.map((row, idx) => {
+              const href =
+                row.kind === 'category'
+                  ? `${pricingBase}?category=${row.slug}`
+                  : `${pricingBase}?category=${row.categorySlug}&service=${row.service.slug}`;
+
+              const name =
+                row.kind === 'category'
+                  ? decodeHtml(row.name)
+                  : decodeHtml(row.service.title);
+
+              const desc =
+                row.kind === 'category'
+                  ? row.description
+                  : decodeHtml(row.service.meta.short_description || row.service.excerpt);
+
+              const key =
+                row.kind === 'category' ? `cat-${row.slug}` : `svc-${row.service.id}`;
+
               return (
-                <a
-                  key={service.id}
-                  class="cz-home-svc__row"
-                  href={costBuilderUrl}
-                  data-service={service.slug}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.dispatchEvent(
-                      new CustomEvent('cz:service-select', {
-                        detail: { serviceId: service.id, categorySlug },
-                      })
-                    );
-                    document
-                      .querySelector<HTMLElement>('.cz-home-configurator')
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
-                >
+                <a key={key} class="cz-home-svc__row" href={href}>
                   <div class="cz-home-svc__index">{String(idx + 1).padStart(2, '0')}</div>
-                  <div class="cz-home-svc__name">{decodeHtml(service.title)}</div>
+                  <div class="cz-home-svc__name">{name}</div>
                   <div class="cz-home-svc__desc">{desc}</div>
                   <div class="cz-home-svc__arrow" aria-hidden="true">&rarr;</div>
                 </a>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { saveCart, loadCart, clearCart } from '@/utils/cartStorage';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { Spinner } from '@/components/ui/Spinner';
@@ -22,6 +22,30 @@ export function CostBuilderApp() {
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(() => loadCart());
   const [isFlowOpen, setIsFlowOpen] = useState(false);
+  const urlParamsApplied = useRef(false);
+
+  // On first data load, focus the category/service passed via URL query params.
+  // Falls back gracefully: missing service → category only; missing category → default.
+  useEffect(() => {
+    if (!data || urlParamsApplied.current) return;
+    urlParamsApplied.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const catSlug = params.get('category');
+    const svcSlug = params.get('service');
+
+    if (!catSlug) return;
+
+    const group = data.services_by_category.find((g) => g.category_slug === catSlug);
+    if (!group) return;
+
+    setActiveCategory(catSlug);
+
+    if (svcSlug) {
+      const svc = group.services.find((s) => s.slug === svcSlug);
+      if (svc) setActiveServiceId(svc.id);
+    }
+  }, [data]);
 
   useEffect(() => {
     if (quoteItems.length === 0) {
