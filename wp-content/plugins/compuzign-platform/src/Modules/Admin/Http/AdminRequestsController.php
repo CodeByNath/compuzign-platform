@@ -202,10 +202,12 @@ class AdminRequestsController
 
         return [
             'quote_ref'  => $data['quote_ref'] ?? '',
+            'type'       => $data['type'] ?? 'quote_cart',
             'contact'    => $data['contact'] ?? '',
             'company'    => $data['company'] ?? '',
             'email'      => $data['email'] ?? '',
             'phone'      => $data['phone'] ?? '',
+            'category'   => $data['category'] ?? '',
             'submitted'  => $data['submitted'] ?? '',
             'item_count' => count($items),
             'total'      => $hasPrice ? round($total, 2) : null,

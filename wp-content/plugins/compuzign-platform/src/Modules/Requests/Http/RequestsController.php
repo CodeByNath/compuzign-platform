@@ -74,16 +74,26 @@ class RequestsController
         $email      = $payload['email'];
         $headers    = ['Content-Type: text/html; charset=UTF-8'];
 
+        $isAssessment = ($payload['type'] ?? '') === 'free_it_assessment';
+
+        $adminSubject    = $isAssessment
+            ? "[{$siteTitle}] Free IT Assessment Request — {$quoteRef}"
+            : "[{$siteTitle}] New Quote Request — {$quoteRef}";
+
+        $customerSubject = $isAssessment
+            ? "Your assessment request has been received — {$quoteRef}"
+            : "Your quote request has been received — {$quoteRef}";
+
         wp_mail(
             $adminEmail,
-            "[{$siteTitle}] New Quote Request — {$quoteRef}",
+            $adminSubject,
             NotificationTemplates::buildAdminHtmlEmail($payload),
             $headers
         );
 
         wp_mail(
             $email,
-            "Your quote request has been received — {$quoteRef}",
+            $customerSubject,
             NotificationTemplates::buildCustomerHtmlEmail($payload, $siteTitle),
             $headers
         );

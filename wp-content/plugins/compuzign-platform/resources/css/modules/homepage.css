@@ -1357,7 +1357,7 @@
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: destination-out;
   mask-composite: exclude;
-  animation: czCardRing 4s linear forwards;
+  animation: czCardRing 6s linear forwards;
 }
 
 .cz-home-cases__card-body {
@@ -1624,6 +1624,17 @@
   width: 100%;
   margin-top: 6px;
   justify-content: center;
+}
+
+.cz-home-assessment__result {
+  padding: var(--cz-space-5) 0;
+}
+
+.cz-home-assessment__error {
+  color: var(--cz-color-danger);
+  font-size: var(--cz-font-size-sm);
+  margin: 0 0 var(--cz-space-3);
+  line-height: 1.5;
 }
 
 /* Tablet: checklist goes 2-col */

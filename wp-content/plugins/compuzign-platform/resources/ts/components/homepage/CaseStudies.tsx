@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 
-const AUTO_MS = 4000;
+const AUTO_MS = 6000;
 
 const STORIES = [
   {

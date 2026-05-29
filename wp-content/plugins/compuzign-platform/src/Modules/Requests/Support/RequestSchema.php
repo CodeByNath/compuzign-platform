@@ -15,7 +15,8 @@ class RequestSchema
     public static function validate(\WP_REST_Request $request): array
     {
         $type = sanitize_text_field((string) $request->get_param('type'));
-        if ($type !== 'quote_cart') {
+
+        if (!in_array($type, ['quote_cart', 'free_it_assessment'], true)) {
             return ['ok' => false, 'message' => 'Invalid request type.', 'status' => 400];
         }
 
@@ -25,7 +26,7 @@ class RequestSchema
         $phone    = sanitize_text_field((string) ($request->get_param('phone') ?? ''));
         $notes    = sanitize_textarea_field((string) ($request->get_param('notes') ?? ''));
         $quoteRef = sanitize_text_field((string) ($request->get_param('quote_ref') ?? ''));
-        $rawItems = $request->get_param('items');
+        $category = sanitize_text_field((string) ($request->get_param('category') ?? ''));
 
         if ($contact === '') {
             return ['ok' => false, 'message' => 'Contact name is required.', 'status' => 422];
@@ -35,23 +36,29 @@ class RequestSchema
             return ['ok' => false, 'message' => 'A valid email address is required.', 'status' => 422];
         }
 
-        if (empty($rawItems) || !is_array($rawItems)) {
-            return ['ok' => false, 'message' => 'At least one service item is required.', 'status' => 422];
-        }
-
         $quoteRef = self::resolveQuoteRef($quoteRef);
-        $items    = self::sanitizeItems($rawItems);
+
+        if ($type === 'quote_cart') {
+            $rawItems = $request->get_param('items');
+            if (empty($rawItems) || !is_array($rawItems)) {
+                return ['ok' => false, 'message' => 'At least one service item is required.', 'status' => 422];
+            }
+            $items = self::sanitizeItems($rawItems);
+        } else {
+            $items = [];
+        }
 
         return [
             'ok'   => true,
             'data' => [
-                'type'      => 'quote_cart',
+                'type'      => $type,
                 'quote_ref' => $quoteRef,
                 'contact'   => $contact,
                 'company'   => $company,
                 'email'     => $email,
                 'phone'     => $phone,
                 'notes'     => $notes,
+                'category'  => $category,
                 'items'     => $items,
                 'submitted' => current_time('mysql'),
             ],
@@ -122,7 +129,7 @@ class RequestSchema
             'type'      => [
                 'type'              => 'string',
                 'required'          => true,
-                'enum'              => ['quote_cart'],
+                'enum'              => ['quote_cart', 'free_it_assessment'],
                 'sanitize_callback' => 'sanitize_text_field',
             ],
             'contact'   => [
@@ -156,9 +163,14 @@ class RequestSchema
                 'required'          => false,
                 'sanitize_callback' => 'sanitize_text_field',
             ],
+            'category'  => [
+                'type'              => 'string',
+                'required'          => false,
+                'sanitize_callback' => 'sanitize_text_field',
+            ],
             'items'     => [
                 'type'     => 'array',
-                'required' => true,
+                'required' => false,
                 'items'    => [
                     'type'       => 'object',
                     'properties' => [
