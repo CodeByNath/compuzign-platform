@@ -539,7 +539,6 @@
 
 .cz-home-why__heading {
   margin-top: var(--cz-space-6);
-  font-size: clamp(2.2rem, 4vw, 3.8rem);
   max-width: 28ch;
 }
 
@@ -1584,6 +1583,12 @@
   margin-top: 2px;
 }
 
+/* Prevent grid blowout on narrow viewports */
+.cz-home-assessment__left,
+.cz-home-assessment__form {
+  min-width: 0;
+}
+
 /* Form card */
 .cz-home-assessment__form {
   background: var(--cz-color-bg-soft);
@@ -1681,10 +1686,6 @@
 
 /* ── Content column ─────────────────────────────── */
 .cz-home-configurator__title {
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  font-weight: 700;
-  line-height: 1.15;
-  color: var(--cz-color-text);
   margin: 0 0 var(--cz-space-5);
 }
 

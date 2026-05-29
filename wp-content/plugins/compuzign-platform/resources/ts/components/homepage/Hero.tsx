@@ -4,7 +4,6 @@ import { getRuntimeConfig } from '@/runtime/config';
 export function Hero() {
   const config = getRuntimeConfig();
   const costBuilderUrl = config?.costBuilderUrl ?? '/services/';
-  const contactUrl    = config?.contactUrl    ?? '/contact/';
   const rootRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -100,7 +99,17 @@ export function Hero() {
             No finger-pointing between vendors.
           </p>
           <div class="cz-hero-orbit__actions">
-            <a href={contactUrl} class="cz-btn cz-btn-primary">
+            <a
+              href="#assessment"
+              class="cz-btn cz-btn-primary"
+              onClick={(e: MouseEvent) => {
+                const target = document.getElementById('assessment');
+                if (target) {
+                  e.preventDefault();
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            >
               Book a Free IT Consultation <span aria-hidden="true">→</span>
             </a>
             <a href={costBuilderUrl} class="cz-btn cz-btn-secondary">

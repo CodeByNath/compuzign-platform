@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { decodeHtml, formatPrice, formatCycleLabel } from '@/utils/format';
 import { getRuntimeConfig } from '@/runtime/config';
+import { saveCart } from '@/utils/cartStorage';
 import type { ServiceItem, TierId, Tier, CostBuilderResponse } from '@/api/types/cost-builder';
 import type { QuoteItem } from '@/components/cost-builder/types';
 
@@ -158,13 +159,17 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
         ? tierData.inclusions.map((inc) => inc.label)
         : (tierData?.features ?? []),
     };
-    setQuoteItems((prev) => [...prev.filter((q) => q.serviceId !== service.id), item]);
+    const nextItems = [...quoteItems.filter((q) => q.serviceId !== service.id), item];
+    setQuoteItems(nextItems);
+    saveCart(nextItems);
     setPreviewServiceId(null);
     setActiveCategorySlug(null);
   };
 
   const handleRemove = (serviceId: number) => {
-    setQuoteItems((prev) => prev.filter((q) => q.serviceId !== serviceId));
+    const nextItems = quoteItems.filter((q) => q.serviceId !== serviceId);
+    setQuoteItems(nextItems);
+    saveCart(nextItems);
   };
 
   return (
@@ -321,7 +326,7 @@ export function HomeConfigurator() {
           <div class="cz-home-configurator__content">
             {/* Use shared cz-eyebrow for consistent accent-bar treatment across sections */}
             <span class="cz-eyebrow">Cost Builder</span>
-            <h2 class="cz-home-configurator__title">
+            <h2 class="cz-heading-xl cz-home-configurator__title">
               Build your IT solution before the first call.
             </h2>
             <p class="cz-home-configurator__copy">
