@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
+import { useState, useRef, useMemo } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { getRuntimeConfig } from '@/runtime/config';
 import { decodeHtml } from '@/utils/format';
@@ -9,8 +9,7 @@ type RowItem =
   | { kind: 'service'; service: ServiceItem; categorySlug: string };
 
 export function ServicesEditorial() {
-  const isDesktop   = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
-  const [focused,   setFocused]   = useState(isDesktop ? 2 : 0);
+  const [focused]                 = useState(2);
   const [focusMode, setFocusMode] = useState<'auto' | 'user'>('auto');
   const focusModeRef = useRef<'auto' | 'user'>('auto');
   const listRef      = useRef<HTMLDivElement>(null);
@@ -55,77 +54,6 @@ export function ServicesEditorial() {
 
     return [...catRows, ...pool.slice(0, MAX - catRows.length)];
   }, [data]);
-
-  // Scroll-driven focus — mobile only (≤767px).
-  // Above 767px the default (row 03) is kept permanently; no observer runs.
-  //
-  // Uses viewport position rather than intersectionRatio so focus changes when
-  // the current row exits the reading zone (70% of viewport height), not when
-  // the next row is almost fully visible.
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list || !rows) return;
-    if (window.matchMedia('(min-width: 768px)').matches) return;
-
-    const rowEls = Array.from(
-      list.querySelectorAll<HTMLElement>(
-        '.cz-home-svc__row:not(.cz-home-svc__row--browse):not(.cz-home-svc__row--skel)',
-      ),
-    );
-    if (rowEls.length === 0) return;
-
-    let rafId: number = 0;
-
-    function computeFocus() {
-      rafId = 0;
-      if (focusModeRef.current !== 'auto') return;
-
-      const activeY = window.innerHeight * 0.7;
-
-      // First pass: rows whose vertical range straddles the active line.
-      let bestIdx = -1;
-      let bestDist = Infinity;
-
-      const spanning: { idx: number; dist: number }[] = [];
-      rowEls.forEach((el, idx) => {
-        const rect = el.getBoundingClientRect();
-        const center = rect.top + rect.height / 2;
-        const dist = Math.abs(center - activeY);
-        if (rect.top <= activeY && rect.bottom >= activeY) {
-          spanning.push({ idx, dist });
-        }
-      });
-
-      if (spanning.length > 0) {
-        // Multiple rows spanning the line — pick the one with center closest to activeY.
-        bestIdx = spanning.reduce((a, b) => (a.dist <= b.dist ? a : b)).idx;
-      } else {
-        // No row spans the line (above or below viewport) — pick closest center.
-        rowEls.forEach((el, idx) => {
-          const rect = el.getBoundingClientRect();
-          const center = rect.top + rect.height / 2;
-          const dist = Math.abs(center - activeY);
-          if (dist < bestDist) { bestDist = dist; bestIdx = idx; }
-        });
-      }
-
-      if (bestIdx !== -1) setFocused(bestIdx);
-    }
-
-    function onScroll() {
-      if (rafId) return;
-      rafId = requestAnimationFrame(computeFocus);
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    // Initialise focus for the current scroll position (handles page reload mid-scroll).
-    onScroll();
-
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [rows]);
 
   function handleMouseEnter() {
     focusModeRef.current = 'user';
