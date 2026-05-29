@@ -29,7 +29,8 @@ const CARDS = [
 ] as const;
 
 export function WhyChoose() {
-  const [focused,   setFocused]   = useState(0);
+  const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 1100px)').matches;
+  const [focused,   setFocused]   = useState(isDesktop ? 2 : 0);
   const [focusMode, setFocusMode] = useState<'auto' | 'user'>('auto');
   const focusModeRef = useRef<'auto' | 'user'>('auto');
   const gridRef      = useRef<HTMLDivElement>(null);
@@ -42,6 +43,7 @@ export function WhyChoose() {
 
     const cards = Array.from(grid.querySelectorAll<HTMLElement>('.cz-home-why__card'));
     const ratioMap = new Map<number, number>();
+    const mq = window.matchMedia('(min-width: 1100px)');
 
     const obs = new IntersectionObserver(
       (entries) => {
@@ -50,6 +52,9 @@ export function WhyChoose() {
           if (idx !== -1) ratioMap.set(idx, entry.intersectionRatio);
         });
         if (focusModeRef.current !== 'auto') return;
+        // On desktop all cards are simultaneously visible; skip scroll-driven focus
+        // so the desktop default (card 2) remains sticky until hover.
+        if (mq.matches) return;
         // Highest visibility ratio wins; ties broken by lowest index.
         let pick = -1;
         let bestRatio = 0;
