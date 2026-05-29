@@ -1,4 +1,4 @@
-import { useMemo } from 'preact/hooks';
+import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { getRuntimeConfig } from '@/runtime/config';
 import { decodeHtml } from '@/utils/format';
@@ -9,6 +9,12 @@ type RowItem =
   | { kind: 'service'; service: ServiceItem; categorySlug: string };
 
 export function ServicesEditorial() {
+  const isDesktop   = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+  const [focused,   setFocused]   = useState(isDesktop ? 2 : 0);
+  const [focusMode, setFocusMode] = useState<'auto' | 'user'>('auto');
+  const focusModeRef = useRef<'auto' | 'user'>('auto');
+  const listRef      = useRef<HTMLDivElement>(null);
+
   const config         = getRuntimeConfig();
   const costBuilderUrl = config?.costBuilderUrl ?? '/pricing/';
   // Strip trailing slash so we can safely append query params.
@@ -50,6 +56,56 @@ export function ServicesEditorial() {
     return [...catRows, ...pool.slice(0, MAX - catRows.length)];
   }, [data]);
 
+  // Scroll-driven focus — fires at all viewport sizes (unlike Why/Industries which
+  // disable above 767px). bestRatio >= 0.8 means the next row takes focus when
+  // it is 80% visible, slightly earlier than waiting for full exit.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !rows) return;
+
+    const rowEls = Array.from(
+      list.querySelectorAll<HTMLElement>(
+        '.cz-home-svc__row:not(.cz-home-svc__row--browse):not(.cz-home-svc__row--skel)',
+      ),
+    );
+    if (rowEls.length === 0) return;
+
+    const ratioMap = new Map<number, number>();
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const idx = rowEls.indexOf(entry.target as HTMLElement);
+          if (idx !== -1) ratioMap.set(idx, entry.intersectionRatio);
+        });
+        if (focusModeRef.current !== 'auto') return;
+        let pick = -1;
+        let bestRatio = 0;
+        ratioMap.forEach((ratio, idx) => {
+          if (ratio > bestRatio || (ratio === bestRatio && (pick === -1 || idx < pick))) {
+            bestRatio = ratio;
+            pick = idx;
+          }
+        });
+        if (pick !== -1 && bestRatio >= 0.8) setFocused(pick);
+      },
+      { threshold: [0, 0.5, 0.8, 1] },
+    );
+
+    rowEls.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, [rows]);
+
+  function handleMouseEnter() {
+    focusModeRef.current = 'user';
+    setFocusMode('user');
+  }
+
+  function handleMouseLeave() {
+    focusModeRef.current = 'auto';
+    setFocusMode('auto');
+  }
+
   return (
     <section class="cz-home-svc" id="services">
       <div class="cz-container">
@@ -68,7 +124,12 @@ export function ServicesEditorial() {
           </p>
         </div>
 
-        <div class="cz-home-svc__list">
+        <div
+          class="cz-home-svc__list"
+          ref={listRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           {loading || !rows ? (
             [1, 2, 3, 4, 5, 6, 7].map((n) => (
               <div key={n} class="cz-home-svc__row cz-home-svc__row--skel" aria-hidden="true" />
@@ -93,8 +154,14 @@ export function ServicesEditorial() {
               const key =
                 row.kind === 'category' ? `cat-${row.slug}` : `svc-${row.service.id}`;
 
+              const isFocused = focusMode === 'auto' && focused === idx;
+
               return (
-                <a key={key} class="cz-home-svc__row" href={href}>
+                <a
+                  key={key}
+                  class={`cz-home-svc__row${isFocused ? ' cz-home-svc__row--focused' : ''}`}
+                  href={href}
+                >
                   <div class="cz-home-svc__index">{String(idx + 1).padStart(2, '0')}</div>
                   <div class="cz-home-svc__name">{name}</div>
                   <div class="cz-home-svc__desc">{desc}</div>

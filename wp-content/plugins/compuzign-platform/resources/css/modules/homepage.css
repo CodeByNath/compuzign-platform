@@ -791,6 +791,39 @@
   transform: translateX(6px);
 }
 
+/* ── Focused row (JS-controlled default / scroll state) ──────────────── */
+.cz-home-svc__row--focused .cz-home-svc__name {
+  color: var(--cz-color-accent);
+}
+.cz-home-svc__row--focused .cz-home-svc__arrow {
+  background: var(--cz-color-accent);
+  color: #000;
+  border-color: var(--cz-color-accent);
+}
+
+/* When the list is hovered, release the focused state — no double accent */
+.cz-home-svc__list:hover .cz-home-svc__row--focused .cz-home-svc__name {
+  color: var(--cz-color-text);
+}
+.cz-home-svc__list:hover .cz-home-svc__row--focused .cz-home-svc__arrow {
+  background: transparent;
+  color: inherit;
+  border-color: var(--cz-color-line);
+}
+
+/* Hovered row wins — same specificity (0,3,0), later source order beats release */
+.cz-home-svc__list:hover .cz-home-svc__row:hover .cz-home-svc__name,
+.cz-home-svc__list:hover .cz-home-svc__row:focus-visible .cz-home-svc__name {
+  color: var(--cz-color-accent);
+}
+.cz-home-svc__list:hover .cz-home-svc__row:hover .cz-home-svc__arrow,
+.cz-home-svc__list:hover .cz-home-svc__row:focus-visible .cz-home-svc__arrow {
+  background: var(--cz-color-accent);
+  color: #000;
+  border-color: var(--cz-color-accent);
+  transform: translateX(6px);
+}
+
 /* Skeleton rows while service data loads */
 .cz-home-svc__row--skel {
   background: rgba(255, 255, 255, .04);
