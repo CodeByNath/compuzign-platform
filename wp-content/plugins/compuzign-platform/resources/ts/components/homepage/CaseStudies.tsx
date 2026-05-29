@@ -39,12 +39,14 @@ export function CaseStudies() {
   const [leaving,    setLeaving]    = useState<number | null>(null);
   const [cardFading, setCardFading] = useState(false);
   const [cardKey,    setCardKey]    = useState(0);
+  const [hovered,    setHovered]    = useState(false);
 
   const story = STORIES[active];
 
   const activeRef        = useRef(0);
   const transitioningRef = useRef(false);
   const hovering         = useRef(false);
+  const hoverCountRef    = useRef(0);
   const rightRef         = useRef<HTMLDivElement>(null);
   const ivRef            = useRef<number | null>(null);
 
@@ -103,10 +105,23 @@ export function CaseStudies() {
     }
   }
 
-  function handleTabsMouseLeave() {
-    hovering.current = false;
-    startInterval();
-    setCardKey(k => k + 1);
+  // Reference-counted hover: tabs and card are independent enter/leave targets.
+  // Browser guarantees mouseenter on the next element fires before mouseleave on
+  // the previous one, so moving between tabs and card never drops the count to 0.
+  function handleEnter() {
+    hoverCountRef.current++;
+    hovering.current = true;
+    setHovered(true);
+  }
+
+  function handleLeave() {
+    hoverCountRef.current = Math.max(0, hoverCountRef.current - 1);
+    if (hoverCountRef.current === 0) {
+      hovering.current = false;
+      setHovered(false);
+      startInterval();
+      setCardKey(k => k + 1);
+    }
   }
 
   return (
@@ -123,8 +138,8 @@ export function CaseStudies() {
               class="cz-home-cases__tabs"
               role="tablist"
               aria-label="Case study selector"
-              onMouseEnter={() => { hovering.current = true; }}
-              onMouseLeave={handleTabsMouseLeave}
+              onMouseEnter={handleEnter}
+              onMouseLeave={handleLeave}
             >
               {STORIES.map((s, i) => (
                 <button
@@ -146,9 +161,18 @@ export function CaseStudies() {
           </div>
 
           <div class="cz-home-cases__right" ref={rightRef}>
-            <div class="cz-home-cases__card" role="tabpanel">
+            <div
+              class="cz-home-cases__card"
+              role="tabpanel"
+              onMouseEnter={handleEnter}
+              onMouseLeave={handleLeave}
+            >
               {/* Ring layer — remounts on cardKey to restart conic sweep */}
-              <div key={cardKey} class="cz-home-cases__card-ring" aria-hidden="true" />
+              <div
+                key={cardKey}
+                class={`cz-home-cases__card-ring${hovered ? ' cz-home-cases__card-ring--paused' : ''}`}
+                aria-hidden="true"
+              />
               {/* Content layer — remounts on active for enter animation;
                   --fading plays the exit animation for 200ms before swap */}
               <div

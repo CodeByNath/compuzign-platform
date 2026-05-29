@@ -1360,6 +1360,16 @@
   animation: czCardRing 6s linear forwards;
 }
 
+/* Hovered ring: freeze at 100% — stops animation and shows the full accent perimeter */
+.cz-home-cases__card-ring--paused::after {
+  animation: none;
+  background: conic-gradient(
+    from -90deg at 50% 50%,
+    var(--cz-color-accent) 360deg,
+    transparent 360deg
+  );
+}
+
 .cz-home-cases__card-body {
   position: relative;
   animation: czCaseIn .25s var(--cz-ease) both;

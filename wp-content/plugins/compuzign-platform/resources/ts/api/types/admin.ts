@@ -58,16 +58,19 @@ export interface RequestEntry {
   email: string;
   phone: string;
   notes: string;
+  category?: string;
   items: RequestLine[];
   submitted: string;
 }
 
 export interface RequestSummary {
   quote_ref: string;
+  type?: string;
   contact: string;
   company: string;
   email: string;
   phone: string;
+  category?: string;
   submitted: string;
   item_count: number;
   total: number | null;

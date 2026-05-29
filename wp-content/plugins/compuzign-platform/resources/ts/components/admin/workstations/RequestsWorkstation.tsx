@@ -10,6 +10,15 @@ interface Props {
   openAction: (config: ActionConfig) => void;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function requestTypeLabel(type: string): string {
+  if (type === 'quote_cart')         return 'Quote';
+  if (type === 'free_it_assessment') return 'Free IT Assessment';
+  // Fallback: snake_case → Title Case
+  return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // ── Request detail step ───────────────────────────────────────────────────────
 
 function RequestDetailStep({ ctx }: { ctx: StepContext }) {
@@ -82,6 +91,10 @@ function RequestDetailStep({ ctx }: { ctx: StepContext }) {
         <p class="cz-req-detail__section-title">Contact</p>
         <div class="cz-req-contact-grid">
           <div class="cz-req-contact-grid__item">
+            <span class="cz-req-contact-grid__label">Request Type</span>
+            <span class="cz-req-contact-grid__value">{requestTypeLabel(request.type || 'quote_cart')}</span>
+          </div>
+          <div class="cz-req-contact-grid__item">
             <span class="cz-req-contact-grid__label">Name</span>
             <span class="cz-req-contact-grid__value">{request.contact || '—'}</span>
           </div>
@@ -99,6 +112,12 @@ function RequestDetailStep({ ctx }: { ctx: StepContext }) {
             <span class="cz-req-contact-grid__label">Phone</span>
             <span class="cz-req-contact-grid__value">{request.phone || '—'}</span>
           </div>
+          {request.category && (
+            <div class="cz-req-contact-grid__item">
+              <span class="cz-req-contact-grid__label">Area of focus</span>
+              <span class="cz-req-contact-grid__value">{request.category}</span>
+            </div>
+          )}
           <div class="cz-req-contact-grid__item">
             <span class="cz-req-contact-grid__label">Submitted</span>
             <span class="cz-req-contact-grid__value">{request.submitted || '—'}</span>
@@ -112,49 +131,51 @@ function RequestDetailStep({ ctx }: { ctx: StepContext }) {
         )}
       </div>
 
-      <div class="cz-req-detail__section">
-        <p class="cz-req-detail__section-title">Services ({request.items.length})</p>
-        <div class="cz-req-items-wrap">
-          <table class="cz-req-items-table">
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Category</th>
-                <th>Tier</th>
-                <th>Billing</th>
-                <th style="text-align:right">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {request.items.map((item, i) => (
-                <tr key={i}>
-                  <td class="cz-req-items-table__name">{item.serviceTitle}</td>
-                  <td style="color:var(--admin-text-muted);font-size:12px">{item.categoryName}</td>
-                  <td>
-                    <span class="cz-tier-badge">{item.tierTitle}</span>
-                  </td>
-                  <td style="color:var(--admin-text-muted);font-size:12px">{item.billingCycle || '—'}</td>
-                  <td style="text-align:right;font-variant-numeric:tabular-nums">
-                    {item.price !== null ? `$${item.price.toLocaleString()}` : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {hasTotal && (
-              <tfoot>
+      {request.items.length > 0 && (
+        <div class="cz-req-detail__section">
+          <p class="cz-req-detail__section-title">Services ({request.items.length})</p>
+          <div class="cz-req-items-wrap">
+            <table class="cz-req-items-table">
+              <thead>
                 <tr>
-                  <td colspan={4} style="text-align:right;font-size:12px;color:var(--admin-text-muted);padding:10px 14px">
-                    Estimated total
-                  </td>
-                  <td style="text-align:right;font-weight:700;color:var(--admin-text);padding:10px 14px">
-                    ${total.toLocaleString()}
-                  </td>
+                  <th>Service</th>
+                  <th>Category</th>
+                  <th>Tier</th>
+                  <th>Billing</th>
+                  <th style="text-align:right">Price</th>
                 </tr>
-              </tfoot>
-            )}
-          </table>
+              </thead>
+              <tbody>
+                {request.items.map((item, i) => (
+                  <tr key={i}>
+                    <td class="cz-req-items-table__name">{item.serviceTitle}</td>
+                    <td style="color:var(--admin-text-muted);font-size:12px">{item.categoryName}</td>
+                    <td>
+                      <span class="cz-tier-badge">{item.tierTitle}</span>
+                    </td>
+                    <td style="color:var(--admin-text-muted);font-size:12px">{item.billingCycle || '—'}</td>
+                    <td style="text-align:right;font-variant-numeric:tabular-nums">
+                      {item.price !== null ? `$${item.price.toLocaleString()}` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {hasTotal && (
+                <tfoot>
+                  <tr>
+                    <td colspan={4} style="text-align:right;font-size:12px;color:var(--admin-text-muted);padding:10px 14px">
+                      Estimated total
+                    </td>
+                    <td style="text-align:right;font-weight:700;color:var(--admin-text);padding:10px 14px">
+                      ${total.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {acceptError && (
         <div class="cz-admin-error-msg" style="margin:0 20px 16px">
@@ -191,10 +212,11 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
   }, [refreshKey]);
 
   const openDetail = (summary: RequestSummary) => {
+    const typeLabel = requestTypeLabel(summary.type ?? 'quote_cart');
     openAction({
       id: `request-${summary.quote_ref}`,
       mode: 'drawer',
-      title: `Quote — ${summary.quote_ref}`,
+      title: `${typeLabel} — ${summary.quote_ref}`,
       initialStepData: {
         ref:         summary.quote_ref,
         isAccepted:  summary.is_accepted ?? false,
@@ -203,7 +225,7 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
       steps: [
         {
           id: 'detail',
-          title: 'Quote Detail',
+          title: `${typeLabel} Detail`,
           component: RequestDetailStep,
         },
       ],
@@ -237,7 +259,7 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
         <div>
           <h2 class="cz-ws-title">Requests & Quotes</h2>
           <p class="cz-ws-subtitle">
-            {requests.length} quote request{requests.length !== 1 ? 's' : ''} received
+            {requests.length} intake request{requests.length !== 1 ? 's' : ''} received
           </p>
         </div>
         <div class="cz-ws-actions">
