@@ -1,7 +1,7 @@
 import type { TierId } from '@/api/types/cost-builder';
 
-// 'bundle' extends the API TierId for frontend-only recommended bundle quote items (no API change needed)
-export type QuoteItemTierId = TierId | 'bundle';
+// 'bundle' = recommended bundle; 'promotion' = active promotion tier offer
+export type QuoteItemTierId = TierId | 'bundle' | 'promotion';
 
 export interface QuoteItem {
   serviceId: number;
@@ -12,4 +12,8 @@ export interface QuoteItem {
   billingCycle: string;
   categoryName: string;
   features: string[];
+  // Optional promotion fields — absent on all Core Tier and bundle items.
+  offer_type?: 'core_tier' | 'promotion_tier';
+  promotion_id?: string;
+  billing_label?: string;
 }

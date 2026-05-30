@@ -111,6 +111,10 @@ class RequestSchema
                 'price'        => $price,
                 'billingCycle' => sanitize_text_field((string) ($raw['billingCycle'] ?? '')),
                 'features'     => $features,
+                // Promotion fields — optional; absent on all legacy Core Tier items.
+                'offer_type'    => sanitize_text_field((string) ($raw['offer_type'] ?? '')),
+                'promotion_id'  => sanitize_text_field((string) ($raw['promotion_id'] ?? '')),
+                'billing_label' => sanitize_text_field((string) ($raw['billing_label'] ?? '')),
             ];
         }
 

@@ -2681,3 +2681,243 @@
     break-inside: avoid !important;
   }
 }
+
+/* ── Promotion section ──────────────────────────────────────────────────────── */
+
+.cz-promo-section {
+  margin-top: var(--cz-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+}
+
+.cz-promo-section__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-color-accent);
+  margin: 0 0 var(--cz-space-1);
+}
+
+/* ── Promotion card ─────────────────────────────────────────────────────────── */
+
+.cz-promo-card {
+  border-radius: var(--cz-radius-card, 12px);
+  border: 1px solid var(--cz-color-line);
+  border-left: 4px solid var(--cz-color-accent);
+  background: var(--cz-color-surface);
+  box-shadow: var(--cz-shadow-card);
+  padding: clamp(var(--cz-space-5), 2.5vw, var(--cz-space-8));
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.cz-promo-card:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+}
+
+.cz-promo-card--selected {
+  border-color: var(--cz-color-accent);
+  box-shadow: 0 0 0 1px var(--cz-color-accent), var(--cz-shadow-card);
+  background: color-mix(in srgb, var(--cz-color-accent) 4%, var(--cz-color-surface));
+}
+
+.cz-promo-card--featured {
+  border-left-width: 5px;
+}
+
+/* ── Card grid ──────────────────────────────────────────────────────────────── */
+
+.cz-promo-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: clamp(var(--cz-space-5), 3vw, var(--cz-space-8));
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .cz-promo-card__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Left column ────────────────────────────────────────────────────────────── */
+
+.cz-promo-card__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cz-space-2);
+  margin-bottom: var(--cz-space-3);
+}
+
+.cz-promo-card__badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-promo-card__campaign {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cz-color-muted);
+}
+
+.cz-promo-card__headline {
+  margin: 0 0 var(--cz-space-2);
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--cz-color-text);
+}
+
+.cz-promo-card__description {
+  margin: 0 0 var(--cz-space-3);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--cz-color-muted);
+}
+
+.cz-promo-card__service {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-color-muted);
+}
+
+/* ── Middle column ──────────────────────────────────────────────────────────── */
+
+.cz-promo-card__incl-list,
+.cz-promo-card__addons-list {
+  list-style: none;
+  margin: 0 0 var(--cz-space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
+.cz-promo-card__incl-item,
+.cz-promo-card__addon-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cz-space-2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cz-color-text);
+}
+
+.cz-promo-card__incl-check {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--cz-color-accent);
+  font-weight: 700;
+}
+
+.cz-promo-card__addon-plus {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--cz-color-muted);
+  font-weight: 600;
+}
+
+.cz-promo-card__excl-summary {
+  font-size: 12px;
+  color: var(--cz-color-muted);
+  margin-top: var(--cz-space-2);
+  line-height: 1.5;
+}
+
+.cz-promo-card__excl-label {
+  font-weight: 600;
+}
+
+/* ── Right column ───────────────────────────────────────────────────────────── */
+
+.cz-promo-card__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--cz-space-4);
+  min-width: 160px;
+}
+
+@media (max-width: 860px) {
+  .cz-promo-card__right {
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cz-space-4);
+  }
+}
+
+.cz-promo-card__price-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+@media (max-width: 860px) {
+  .cz-promo-card__price-block {
+    align-items: flex-start;
+  }
+}
+
+.cz-promo-card__price {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--cz-color-text);
+  letter-spacing: -0.02em;
+}
+
+.cz-promo-card__billing {
+  font-size: 12px;
+  color: var(--cz-color-muted);
+  text-align: right;
+}
+
+.cz-promo-card__cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--cz-space-2);
+  width: 100%;
+}
+
+.cz-promo-card__btn {
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.cz-promo-card__selected-note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--cz-color-muted);
+  text-align: center;
+}
+
+/* ── Quote sidebar — promo tag ──────────────────────────────────────────────── */
+
+.cz-os__service-tag--promo {
+  background: color-mix(in srgb, var(--cz-color-accent) 15%, transparent);
+  color: var(--cz-color-text);
+  font-weight: 600;
+}
+
+/* ── PDF proposal — promo tier label ────────────────────────────────────────── */
+
+.cz-proposal__service-tier--promo {
+  font-style: italic;
+  font-weight: 600;
+}

@@ -71,11 +71,15 @@ export function QuoteProposalPreview({
                     <p class="cz-proposal__service-desc">{decodeHtml(desc)}</p>
                   )}
                   <span class="cz-proposal__service-billing">
-                    Billed {item.billingCycle}
+                    {item.offer_type === 'promotion_tier' && item.billing_label
+                      ? item.billing_label
+                      : `Billed ${item.billingCycle}`}
                   </span>
                 </div>
                 <div class="cz-proposal__service-price-block">
-                  <span class="cz-proposal__service-tier">{item.tierTitle} tier</span>
+                  <span class={`cz-proposal__service-tier${item.offer_type === 'promotion_tier' ? ' cz-proposal__service-tier--promo' : ''}`}>
+                    {item.offer_type === 'promotion_tier' ? item.tierTitle : `${item.tierTitle} tier`}
+                  </span>
                   <span class="cz-proposal__service-price">
                     {item.price !== null ? (
                       <>

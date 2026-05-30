@@ -50,6 +50,24 @@ export interface ServicePricing {
   };
 }
 
+export interface PromotionOffer {
+  id: string;
+  name: string;
+  headline: string;
+  description: string;
+  badge: string;
+  campaign_label: string;
+  price: number | null;
+  billing_label: string;
+  billing_cycle: string;
+  inclusions: ServiceInclusion[];
+  features: string[];
+  exclusions: ServiceInclusion[];
+  based_on: string | null;
+  is_featured: boolean;
+  priority: number;
+}
+
 export interface ServiceAvailability {
   is_available: boolean;
   message: string;
@@ -67,6 +85,7 @@ export interface ServiceItem {
   availability: ServiceAvailability;
   meta: ServiceMeta;
   pricing: ServicePricing;
+  promotion_tiers: PromotionOffer[];
 }
 
 export interface ServicesByCategory {

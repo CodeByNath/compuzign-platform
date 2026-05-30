@@ -8,6 +8,8 @@ import { ServiceCard } from './ServiceCard';
 import { QuoteSummary } from './QuoteSummary';
 import { HeroArea } from './HeroArea';
 import { RecommendedBundle } from './RecommendedBundle';
+import { PromotionSection } from './PromotionSection';
+import { decodeHtml } from '@/utils/format';
 import { FaqAccordion } from './FaqAccordion';
 import { ComparePlans } from './ComparePlans';
 import { MobileQuoteBar } from './MobileQuoteBar';
@@ -112,6 +114,10 @@ export function CostBuilderApp() {
   const allServices = data.services_by_category.flatMap((g) => g.services);
   const hasQuote = quoteItems.length > 0;
 
+  const selectedPromoId = activeService
+    ? (quoteItems.find((q) => q.serviceId === activeService.id && q.offer_type === 'promotion_tier')?.promotion_id ?? null)
+    : null;
+
   return (
     <div class={`cz-cost-builder${hasQuote ? ' cz-cost-builder--has-quote' : ''}`}>
       <HeroArea />
@@ -142,6 +148,17 @@ export function CostBuilderApp() {
                 onAdd={addToQuote}
                 onRemove={removeFromQuote}
               />
+              {(activeService.promotion_tiers?.length ?? 0) > 0 && (
+                <PromotionSection
+                  promotions={activeService.promotion_tiers}
+                  serviceId={activeService.id}
+                  serviceTitle={decodeHtml(activeService.title)}
+                  categoryName={decodeHtml(activeService.categories[0]?.name ?? '')}
+                  selectedPromoId={selectedPromoId}
+                  onAdd={addToQuote}
+                  onRemove={removeFromQuote}
+                />
+              )}
             </>
           ) : (
             <p class="cz-muted cz-cost-builder__empty">No services in this category.</p>

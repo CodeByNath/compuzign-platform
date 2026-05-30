@@ -143,16 +143,17 @@ class PricingBuilder
         ];
 
         $payload = [
-            'id'           => (int) $post->ID,
-            'title'        => $post->post_title,
-            'slug'         => $post->post_name,
-            'excerpt'      => $post->post_excerpt,
-            'content'      => $post->post_content,
-            'categories'   => $categories,
-            'inclusions'   => $inclusions,
-            'faqs'         => $faqs,
-            'availability' => $availability,
-            'meta'         => [
+            'id'               => (int) $post->ID,
+            'title'            => $post->post_title,
+            'slug'             => $post->post_name,
+            'excerpt'          => $post->post_excerpt,
+            'content'          => $post->post_content,
+            'categories'       => $categories,
+            'inclusions'       => $inclusions,
+            'faqs'             => $faqs,
+            'availability'     => $availability,
+            'promotion_tiers'  => [],
+            'meta'             => [
                 'short_description' => $meta['short_description'] ?? '',
                 'long_description'  => $meta['long_description'] ?? '',
                 'billing_cycle'     => $meta['billing_cycle'] ?? 'monthly',
@@ -254,7 +255,63 @@ class PricingBuilder
         // This ensures usort() in buildResponse() uses the surface ordering.
         $payload['meta']['sort_order'] = (int) ($package['sort_position'] ?? $payload['meta']['sort_order']);
 
+        // ── Promotion tiers ───────────────────────────────────────────────────
+        // Active promotion tiers for this service, sorted by priority then featured.
+        // Only reached when a surface package exists; defaults to [] when no package.
+        $payload['promotion_tiers'] = $this->buildActivePromotionTiers($package['promotion_tiers'] ?? []);
+
         return $payload;
+    }
+
+    /**
+     * Filter and shape active promotion tiers for Cost Builder output.
+     * Sorts by priority ASC, then is_featured DESC (featured first within same priority).
+     *
+     * @param  mixed $rawTiers
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildActivePromotionTiers(mixed $rawTiers): array
+    {
+        if (!is_array($rawTiers)) {
+            return [];
+        }
+
+        $active = [];
+
+        foreach ($rawTiers as $tier) {
+            if (!is_array($tier) || ($tier['status'] ?? '') !== 'active') {
+                continue;
+            }
+
+            $active[] = [
+                'id'             => (string) ($tier['id'] ?? ''),
+                'name'           => $tier['name'] ?? '',
+                'headline'       => $tier['headline'] ?? '',
+                'description'    => $tier['description'] ?? '',
+                'badge'          => $tier['badge'] ?? '',
+                'campaign_label' => $tier['campaign_label'] ?? '',
+                'price'          => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
+                'billing_label'  => $tier['billing_label'] ?? '',
+                'billing_cycle'  => 'monthly',
+                'inclusions'     => is_array($tier['inclusions'] ?? null) ? $tier['inclusions'] : [],
+                'features'       => is_array($tier['features'] ?? null) ? $tier['features'] : [],
+                'exclusions'     => is_array($tier['exclusions'] ?? null) ? $tier['exclusions'] : [],
+                'based_on'       => $tier['based_on'] ?? null,
+                'is_featured'    => (bool) ($tier['is_featured'] ?? false),
+                'priority'       => (int) ($tier['priority'] ?? 0),
+            ];
+        }
+
+        usort($active, function (array $a, array $b): int {
+            $byPriority = $a['priority'] <=> $b['priority'];
+            if ($byPriority !== 0) {
+                return $byPriority;
+            }
+            // Featured tiers first within the same priority level.
+            return ($b['is_featured'] ? 1 : 0) <=> ($a['is_featured'] ? 1 : 0);
+        });
+
+        return $active;
     }
 
     // ── Legacy internals (unchanged) ──────────────────────────────────────────

@@ -117,8 +117,19 @@ export function OrderSummary({
                   <p class="cz-os__service-name">{item.serviceTitle}</p>
                   {desc && <p class="cz-os__service-desc">{decodeHtml(desc)}</p>}
                   <div class="cz-os__service-tags">
-                    <span class="cz-os__service-tag">{item.tierTitle} tier</span>
-                    <span class="cz-os__service-tag">Billed {item.billingCycle}</span>
+                    {item.offer_type === 'promotion_tier' ? (
+                      <>
+                        <span class="cz-os__service-tag cz-os__service-tag--promo">{item.tierTitle}</span>
+                        {item.billing_label && (
+                          <span class="cz-os__service-tag">{item.billing_label}</span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span class="cz-os__service-tag">{item.tierTitle} tier</span>
+                        <span class="cz-os__service-tag">Billed {item.billingCycle}</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div class="cz-os__service-price">

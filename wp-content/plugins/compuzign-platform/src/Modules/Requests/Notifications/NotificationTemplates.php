@@ -42,18 +42,28 @@ class NotificationTemplates
                 : 'Custom pricing';
             $cycle   = $item['billingCycle'] !== '' ? ' / ' . ucfirst((string) $item['billingCycle']) : '';
             $isAddon = (int) $item['serviceId'] < 0;
+            $isPromo = ($item['offer_type'] ?? '') === 'promotion_tier';
             $badge   = $isAddon
                 ? ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>'
                 : '';
             $title   = esc_html((string) $item['serviceTitle']);
             $tier    = esc_html((string) $item['tierTitle']);
-            $billing = $item['billingCycle'] !== '' ? 'Billed ' . esc_html(ucfirst((string) $item['billingCycle'])) : '';
+
+            if ($isPromo) {
+                $billingLabel = esc_html((string) ($item['billing_label'] ?? $item['billingCycle'] ?? ''));
+                $tierLine     = $billingLabel !== '' ? "{$tier} &nbsp;·&nbsp; {$billingLabel}" : $tier;
+                $promoBadge   = ' <span style="font-size:10px;background:#fff8d6;padding:1px 6px;border-radius:8px;color:#7a5d00;">promo</span>';
+            } else {
+                $billing  = $item['billingCycle'] !== '' ? 'Billed ' . esc_html(ucfirst((string) $item['billingCycle'])) : '';
+                $tierLine = $tier !== '' ? "{$tier} tier &nbsp;·&nbsp; {$billing}" : $billing;
+                $promoBadge = '';
+            }
 
             $html .= "
               <tr>
                 <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;\">
-                  <div style=\"font-size:13px;font-weight:600;color:#111;\">{$title}{$badge}</div>
-                  <div style=\"font-size:11px;color:#999;margin-top:2px;\">{$tier} tier &nbsp;·&nbsp; {$billing}</div>
+                  <div style=\"font-size:13px;font-weight:600;color:#111;\">{$title}{$badge}{$promoBadge}</div>
+                  <div style=\"font-size:11px;color:#999;margin-top:2px;\">{$tierLine}</div>
                 </td>
                 <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;\">
                   <span style=\"font-size:14px;font-weight:700;color:#111;\">{$price}</span>
