@@ -54,8 +54,7 @@ function PromotionCard({
     });
   };
 
-  const hasExclusions  = promo.exclusions.length > 0;
-  const showMiddle     = promo.inclusions.length > 0 || promo.features.length > 0 || hasExclusions;
+  const showMiddle = promo.inclusions.length > 0 || promo.features.length > 0;
 
   return (
     <div class={`cz-promo-card${isSelected ? ' cz-promo-card--selected' : ''}${promo.is_featured ? ' cz-promo-card--featured' : ''}`}>
@@ -105,12 +104,6 @@ function PromotionCard({
               </ul>
             )}
 
-            {hasExclusions && (
-              <div class="cz-promo-card__excl-summary">
-                <span class="cz-promo-card__excl-label">Not included:</span>
-                {' '}{promo.exclusions.map((e) => e.label).join(', ')}
-              </div>
-            )}
           </div>
         )}
 

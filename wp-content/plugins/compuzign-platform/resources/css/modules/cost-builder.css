@@ -2731,13 +2731,29 @@
 .cz-promo-card__grid {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: clamp(var(--cz-space-5), 3vw, var(--cz-space-8));
+  gap: clamp(var(--cz-space-4), 2.5vw, var(--cz-space-7));
   align-items: start;
 }
 
 @media (max-width: 860px) {
   .cz-promo-card__grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Subtle column separators — a 1px line with very low opacity so layout is clear
+   without feeling boxed. On mobile they become horizontal dividers. */
+.cz-promo-card__left,
+.cz-promo-card__middle {
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+@media (max-width: 860px) {
+  .cz-promo-card__left,
+  .cz-promo-card__middle {
+    border-right: none;
+    padding-bottom: var(--cz-space-4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   }
 }
 
@@ -2825,17 +2841,6 @@
   flex-shrink: 0;
   font-size: 13px;
   color: var(--cz-color-muted);
-  font-weight: 600;
-}
-
-.cz-promo-card__excl-summary {
-  font-size: 12px;
-  color: var(--cz-color-muted);
-  margin-top: var(--cz-space-2);
-  line-height: 1.5;
-}
-
-.cz-promo-card__excl-label {
   font-weight: 600;
 }
 
