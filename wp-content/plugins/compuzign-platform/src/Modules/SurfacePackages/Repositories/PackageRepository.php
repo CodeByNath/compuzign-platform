@@ -80,6 +80,25 @@ class PackageRepository
     }
 
     /**
+     * Return all packages — published and draft — for admin listing.
+     * Draft = disabled by admin. PricingBuilder only loads published ones.
+     *
+     * @return \WP_Post[]
+     */
+    public function findAll(): array
+    {
+        return get_posts([
+            'post_type'              => self::POST_TYPE,
+            'post_status'            => ['publish', 'draft'],
+            'numberposts'            => -1,
+            'orderby'                => 'ID',
+            'order'                  => 'ASC',
+            'no_found_rows'          => true,
+            'update_post_term_cache' => false,
+        ]) ?: [];
+    }
+
+    /**
      * Return all published packages regardless of validity window.
      * Used by health checks to inspect package integrity.
      *

@@ -203,6 +203,12 @@ class PricingBuilder
                 continue;
             }
 
+            // Disabled tiers are removed from the output so Cost Builder never renders them.
+            if (isset($pkgTier['enabled']) && $pkgTier['enabled'] === false) {
+                unset($payload['pricing']['tiers'][$tierId]);
+                continue;
+            }
+
             // Price: overlay only when the package explicitly provides a value.
             // null price in the package means "not configured; keep legacy price."
             if ($pkgTier['price'] !== null) {

@@ -51,7 +51,7 @@ export function WorkstationRouter({ active, refreshKey, openAction }: Props) {
     case 'pricing':
       return <PricingWorkstation refreshKey={refreshKey} />;
     case 'surface-packages':
-      return <SurfacePackagesWorkstation refreshKey={refreshKey} />;
+      return <SurfacePackagesWorkstation refreshKey={refreshKey} openAction={openAction} />;
     case 'promotions':
       return <PromotionsStub />;
     case 'bundles':

@@ -83,9 +83,12 @@ export interface RequestSummary {
 // ── Surface Packages river types ─────────────────────────────────────────────
 
 export interface SurfaceTierSummary {
+  label: string;
   price: number | null;
   billing_cycle: string | null;
   inclusion_count: number;
+  faq_count: number;
+  enabled: boolean;
 }
 
 export interface SurfaceServiceRef {
@@ -96,6 +99,7 @@ export interface SurfaceServiceRef {
 
 export interface SurfacePackageSummary {
   post_id: number;
+  post_status: string;
   title: string;
   package_type: string;
   service_refs: number[];
@@ -113,6 +117,81 @@ export interface SurfacePackagesResponse {
   success: boolean;
   total: number;
   packages: SurfacePackageSummary[];
+}
+
+// ── Surface Package detail / tier-management types ────────────────────────────
+
+export interface InclusionItem {
+  id: string;
+  label: string;
+}
+
+export interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface SurfaceTierDetail {
+  label: string;
+  price: number | null;
+  billing_cycle: string | null;
+  inclusions_override: InclusionItem[];
+  features: string[];
+  faq_refs: string[];
+  enabled: boolean;
+}
+
+export interface SurfaceServiceInfo {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string;
+  inclusions: InclusionItem[];
+  faqs: FaqItem[];
+}
+
+export interface SurfacePackageDetailData {
+  post_id: number;
+  post_status: string;
+  title: string;
+  package_type: string;
+  service_refs: number[];
+  tiers: Record<string, SurfaceTierDetail>;
+  popular_tier: string | null;
+  faq_refs: string[];
+  display_contexts: string[];
+  migration_complete: boolean;
+}
+
+export interface SurfacePackageDetailResponse {
+  success: boolean;
+  package: SurfacePackageDetailData;
+  service: SurfaceServiceInfo | null;
+}
+
+export interface TierSavePayload {
+  label: string;
+  price: number | null;
+  billing_cycle: string;
+  inclusions_override: InclusionItem[];
+  faq_refs: string[];
+  popular: boolean;
+  enabled: boolean;
+  new_inclusions: Array<{ label: string }>;
+  new_faqs: Array<{ question: string; answer: string }>;
+}
+
+export interface TierSaveResponse {
+  success: boolean;
+  package_meta: SurfacePackageDetailData;
+  new_inclusions_added: number;
+  new_faqs_added: number;
+}
+
+export interface PackageStatusResponse {
+  success: boolean;
+  post_status: string;
 }
 
 export interface AcceptIntakeResponse {

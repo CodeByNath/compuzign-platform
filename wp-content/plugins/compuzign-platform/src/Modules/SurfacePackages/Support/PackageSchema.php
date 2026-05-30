@@ -66,7 +66,15 @@ class PackageSchema
             'service_refs'       => [],
             'tiers'              => array_fill_keys(
                 self::ALLOWED_TIERS,
-                ['price' => null, 'billing_cycle' => null, 'inclusions_override' => [], 'features' => []]
+                [
+                    'label'               => '',
+                    'price'               => null,
+                    'billing_cycle'       => null,
+                    'inclusions_override' => [],
+                    'features'            => [],
+                    'faq_refs'            => [],
+                    'enabled'             => true,
+                ]
             ),
             'popular_tier'       => null,
             'faq_refs'           => [],
@@ -123,6 +131,9 @@ class PackageSchema
         foreach (self::ALLOWED_TIERS as $tierId) {
             $src = $tiers[$tierId] ?? [];
 
+            // label: admin display override for the canonical tier title.
+            $label = sanitize_text_field((string) ($src['label'] ?? ''));
+
             // price: numeric or null. null means "not configured in this package".
             $price = null;
             if (isset($src['price']) && $src['price'] !== null && $src['price'] !== '') {
@@ -142,10 +153,10 @@ class PackageSchema
                     if (!is_array($inc)) {
                         continue;
                     }
-                    $id    = sanitize_text_field((string) ($inc['id'] ?? ''));
-                    $label = sanitize_text_field((string) ($inc['label'] ?? ''));
-                    if ($id !== '' && $label !== '') {
-                        $inclusions[] = ['id' => $id, 'label' => $label];
+                    $incId    = sanitize_text_field((string) ($inc['id'] ?? ''));
+                    $incLabel = sanitize_text_field((string) ($inc['label'] ?? ''));
+                    if ($incId !== '' && $incLabel !== '') {
+                        $inclusions[] = ['id' => $incId, 'label' => $incLabel];
                     }
                 }
             }
@@ -159,11 +170,29 @@ class PackageSchema
                 ));
             }
 
+            // faq_refs: IDs of canonical FAQs selected for this tier.
+            $tierFaqRefs = [];
+            if (isset($src['faq_refs']) && is_array($src['faq_refs'])) {
+                foreach ($src['faq_refs'] as $ref) {
+                    $ref = sanitize_text_field((string) $ref);
+                    if ($ref !== '') {
+                        $tierFaqRefs[] = $ref;
+                    }
+                }
+                $tierFaqRefs = array_values(array_unique($tierFaqRefs));
+            }
+
+            // enabled: false removes the tier from Cost Builder output entirely.
+            $enabled = isset($src['enabled']) ? (bool) $src['enabled'] : true;
+
             $out[$tierId] = [
+                'label'               => $label,
                 'price'               => $price,
                 'billing_cycle'       => $billingCycle,
                 'inclusions_override' => $inclusions,
                 'features'            => $features,
+                'faq_refs'            => $tierFaqRefs,
+                'enabled'             => $enabled,
             ];
         }
 
