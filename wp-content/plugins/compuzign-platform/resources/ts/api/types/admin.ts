@@ -78,6 +78,33 @@ export interface RequestSummary {
   is_accepted?: boolean;
 }
 
+// ── Promotion tier types ──────────────────────────────────────────────────────
+
+export type BasedOnTier = 'basic' | 'standard' | 'premium' | 'enterprise';
+export type PromotionStatus = 'draft' | 'active' | 'archived';
+
+export interface PromotionTier {
+  id: string;
+  name: string;
+  slug: string;
+  status: PromotionStatus;
+  based_on: BasedOnTier | null;
+  headline: string;
+  description: string;
+  price: number | null;
+  billing_label: string;
+  features: string[];
+  inclusions: InclusionItem[];
+  exclusions: string[];
+  badge: string;
+  campaign_label: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  priority: number;
+  is_featured: boolean;
+  metadata: Record<string, string>;
+}
+
 // ── Surface Packages river types ─────────────────────────────────────────────
 
 export interface SurfaceTierSummary {
@@ -103,6 +130,7 @@ export interface SurfacePackageSummary {
   service_refs: number[];
   services: SurfaceServiceRef[];
   tiers: Record<string, SurfaceTierSummary>;
+  promotion_tiers: PromotionTier[];
   popular_tier: string | null;
   faq_refs: string[];
   display_contexts: string[];
@@ -156,6 +184,7 @@ export interface SurfacePackageDetailData {
   package_type: string;
   service_refs: number[];
   tiers: Record<string, SurfaceTierDetail>;
+  promotion_tiers: PromotionTier[];
   popular_tier: string | null;
   faq_refs: string[];
   display_contexts: string[];

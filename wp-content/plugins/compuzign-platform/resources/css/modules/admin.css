@@ -2269,3 +2269,148 @@ body.compuzign-admin-page footer.site-footer {
   font-size: var(--cz-font-size-sm);
   color: var(--admin-text-faint);
 }
+
+/* ── Promotion status pills ─────────────────────────────────────────────────── */
+.cz-status-pill--draft {
+  background: var(--admin-white-a08);
+  color: var(--admin-text-muted);
+}
+
+.cz-status-pill--archived {
+  background: var(--admin-warning-a12);
+  color: var(--admin-warning);
+}
+
+/* ── Admin notice banner ────────────────────────────────────────────────────── */
+.cz-admin-notice {
+  padding: 10px 14px;
+  border-radius: var(--admin-radius-sm);
+  font-size: var(--cz-font-size-sm);
+  line-height: 1.6;
+  margin-bottom: var(--cz-space-4);
+}
+
+.cz-admin-notice--pending {
+  background: var(--admin-warning-a12);
+  border: 1px solid var(--admin-warning-a30);
+  color: var(--admin-warning);
+}
+
+.cz-admin-notice--pending code {
+  font-family: var(--cz-font-mono, monospace);
+  font-size: var(--cz-font-size-xs);
+  background: var(--admin-white-a08);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── Promotions workstation — package count pill ───────────────────────────── */
+.cz-promo-count-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  background: var(--admin-white-a08);
+  color: var(--admin-text-muted);
+}
+
+/* ── Promotions tier table ──────────────────────────────────────────────────── */
+.cz-promo-table-wrap {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  overflow: hidden;
+}
+
+.cz-promo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cz-font-size-sm);
+}
+
+.cz-promo-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--admin-text-muted);
+  background: var(--admin-surface-2);
+  border-bottom: 1px solid var(--admin-border);
+  white-space: nowrap;
+}
+
+.cz-promo-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  vertical-align: middle;
+}
+
+.cz-promo-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cz-promo-table tr:hover td {
+  background: var(--admin-white-a025);
+}
+
+.cz-promo-table__name {
+  min-width: 140px;
+  font-weight: 500;
+}
+
+.cz-promo-table__name-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cz-promo-table__center {
+  text-align: center;
+}
+
+.cz-promo-table__muted {
+  color: var(--admin-text-muted);
+  font-size: var(--cz-font-size-xs);
+}
+
+.cz-promo-table__actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cz-promo-table__actions .cz-admin-btn + .cz-admin-btn {
+  margin-left: var(--cz-space-1);
+}
+
+.cz-promo-row--archived td {
+  opacity: 0.5;
+}
+
+/* ── Promotion manage drawer — item lists ───────────────────────────────────── */
+.cz-promo-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.cz-promo-item-list__row {
+  font-size: var(--cz-font-size-sm);
+  color: var(--admin-text-muted);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.cz-promo-item-list__row:last-child {
+  border-bottom: none;
+}
+
+.cz-promo-item-list__row--excluded {
+  color: var(--admin-error);
+  text-decoration: line-through;
+  opacity: 0.7;
+}

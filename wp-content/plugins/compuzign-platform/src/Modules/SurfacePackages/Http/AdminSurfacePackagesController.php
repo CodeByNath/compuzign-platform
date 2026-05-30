@@ -111,6 +111,7 @@ class AdminSurfacePackagesController
                 'service_refs'       => $serviceRefs,
                 'services'           => $services,
                 'tiers'              => $this->summariseTiers($pkg['tiers'] ?? []),
+                'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
                 'popular_tier'       => $pkg['popular_tier'] ?? null,
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
                 'display_contexts'   => $pkg['display_contexts'] ?? ['cost-builder'],
@@ -170,6 +171,7 @@ class AdminSurfacePackagesController
                 'package_type'       => $pkg['package_type'] ?? 'tier_configuration',
                 'service_refs'       => $serviceRefs,
                 'tiers'              => $tiers,
+                'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
                 'popular_tier'       => $pkg['popular_tier'] ?? null,
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
                 'display_contexts'   => $pkg['display_contexts'] ?? ['cost-builder'],
@@ -544,6 +546,7 @@ class AdminSurfacePackagesController
             'service_refs'       => [],
             'services'           => [],
             'tiers'              => [],
+            'promotion_tiers'    => [],
             'popular_tier'       => null,
             'faq_refs'           => [],
             'display_contexts'   => [],
@@ -551,6 +554,52 @@ class AdminSurfacePackagesController
             'valid_from'         => null,
             'valid_until'        => null,
         ];
+    }
+
+    /**
+     * Normalise a raw promotion_tiers array from package meta into the API shape.
+     * Records without a valid id are dropped.
+     *
+     * @param  mixed $tiers
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalisePromotionTiers(mixed $tiers): array
+    {
+        if (!is_array($tiers)) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($tiers as $tier) {
+            if (!is_array($tier) || empty($tier['id'])) {
+                continue;
+            }
+
+            $out[] = [
+                'id'             => (string) $tier['id'],
+                'name'           => $tier['name'] ?? '',
+                'slug'           => $tier['slug'] ?? '',
+                'status'         => $tier['status'] ?? 'draft',
+                'based_on'       => $tier['based_on'] ?? null,
+                'headline'       => $tier['headline'] ?? '',
+                'description'    => $tier['description'] ?? '',
+                'price'          => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
+                'billing_label'  => $tier['billing_label'] ?? '',
+                'features'       => $tier['features'] ?? [],
+                'inclusions'     => $tier['inclusions'] ?? [],
+                'exclusions'     => $tier['exclusions'] ?? [],
+                'badge'          => $tier['badge'] ?? '',
+                'campaign_label' => $tier['campaign_label'] ?? '',
+                'starts_at'      => $tier['starts_at'] ?? null,
+                'ends_at'        => $tier['ends_at'] ?? null,
+                'priority'       => (int) ($tier['priority'] ?? 0),
+                'is_featured'    => (bool) ($tier['is_featured'] ?? false),
+                'metadata'       => $tier['metadata'] ?? [],
+            ];
+        }
+
+        return $out;
     }
 
     private function error(string $message, int $status = 400): \WP_REST_Response
