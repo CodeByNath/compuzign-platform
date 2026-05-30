@@ -1,250 +1,355 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
+import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
-import { apiClient } from '@/api/client';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import type { CostBuilderResponse, ServiceItem } from '@/api/types/cost-builder';
+import type { CostBuilderResponse, ServiceItem, TierId } from '@/api/types/cost-builder';
+import type { SurfacePackageSummary } from '@/api/types/admin';
+import { TierManageStep } from './SurfacePackagesWorkstation';
 
 interface Props {
   refreshKey: number;
   openAction: (config: ActionConfig) => void;
 }
 
-// ── Dry-run step ─────────────────────────────────────────────────────────────
-
-interface DryRunResult {
-  success: boolean;
-  message: string;
-  header_map?: Record<string, string>;
-  header_row_number?: number;
-  sample_rows?: Array<Record<string, string>>;
-  sample_rows_count?: number;
-}
-
-function DryRunStep({ ctx }: { ctx: StepContext }) {
-  useEffect(() => {
-    ctx.setProgress('loading', 'Parsing catalog…');
-    apiClient
-      .post<DryRunResult>('cost-builder/import-catalog-dry-run', {})
-      .then((result) => {
-        ctx.setStepData('result', result);
-        ctx.setProgress(result.success ? 'success' : 'error', result.message);
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : 'Dry-run failed.';
-        ctx.setProgress('error', msg);
-      });
-  }, []);
-
-  if (ctx.progress === 'loading') {
-    return (
-      <div class="cz-action-progress">
-        <Spinner label="Parsing catalog XLSX…" />
-        <p class="cz-action-progress__message">No data will be written.</p>
-      </div>
-    );
-  }
-
-  if (ctx.progress === 'error') {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{ctx.message}</div>
-        <p style="margin-top:12px;font-size:13px;color:var(--admin-text-muted)">
-          Ensure <code>CompuZign_Service_Catalog.xlsx</code> is present in the catalog path on the server.
-        </p>
-      </div>
-    );
-  }
-
-  const result = ctx.stepData.result as DryRunResult | undefined;
-  if (!result) return null;
-
-  const headers    = result.header_map ? Object.values(result.header_map) : [];
-  const sampleRows = result.sample_rows ?? [];
-  const sampleCols = result.header_map ? Object.keys(result.header_map) : [];
-
-  return (
-    <div>
-      <div class="cz-dryrun-meta">
-        <span class="cz-dryrun-tag">Header row: {result.header_row_number ?? '—'}</span>
-        <span class="cz-dryrun-tag">Sample rows: {result.sample_rows_count ?? 0}</span>
-        {headers.length > 0 && (
-          <span class="cz-dryrun-tag">Columns: {headers.join(', ')}</span>
-        )}
-      </div>
-
-      {sampleRows.length > 0 && (
-        <div class="cz-dryrun-sample">
-          <table>
-            <thead>
-              <tr>
-                {sampleCols.map((col) => (
-                  <th key={col}>{result.header_map?.[col] ?? col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sampleRows.slice(0, 5).map((row, i) => (
-                <tr key={i}>
-                  {sampleCols.map((col) => (
-                    <td key={col}>{(row as Record<string, string>)[result.header_map?.[col] ?? col] ?? '—'}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
-          Cancel
-        </button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={ctx.goNext}>
-          Looks good — Import Now
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Import confirm step ───────────────────────────────────────────────────────
-
-function ImportConfirmStep({ ctx }: { ctx: StepContext }) {
-  return (
-    <div>
-      <p style="margin:0 0 16px;color:var(--admin-text)">
-        This will create or update services in the catalog from the XLSX workbook.
-        Existing services matched by slug will be updated. New services will be inserted.
-      </p>
-      <ul style="margin:0 0 20px;padding-left:20px;font-size:13px;color:var(--admin-text-muted);line-height:1.8">
-        <li>No data is deleted</li>
-        <li>Existing posts are updated, not replaced</li>
-        <li>Run a Dry Run first to preview what will be imported</li>
-      </ul>
-      <div class="cz-action-shell__footer">
-        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
-          Cancel
-        </button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={ctx.goNext}>
-          Confirm Import
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Import run + result step ──────────────────────────────────────────────────
-
-interface ImportResult {
-  success: boolean;
-  message: string;
-  inserted?: number;
-  updated?: number;
-  skipped?: number;
-  invalid?: number;
-  errors?: string[];
-}
-
-function ImportRunStep({ ctx }: { ctx: StepContext }) {
-  useEffect(() => {
-    ctx.setProgress('loading', 'Importing…');
-    apiClient
-      .post<ImportResult>('cost-builder/import-catalog', {})
-      .then((result) => {
-        ctx.setStepData('importResult', result);
-        ctx.setProgress(result.success ? 'success' : 'error', result.message);
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : 'Import failed.';
-        ctx.setProgress('error', msg);
-      });
-  }, []);
-
-  if (ctx.progress === 'loading') {
-    return (
-      <div class="cz-action-progress">
-        <Spinner label="Importing services…" />
-        <p class="cz-action-progress__message">Please wait. Do not close this panel.</p>
-      </div>
-    );
-  }
-
-  const result    = ctx.stepData.importResult as ImportResult | undefined;
-  const hasErrors = (result?.errors?.length ?? 0) > 0;
-
-  return (
-    <div>
-      <div class={`cz-action-progress cz-action-progress--${ctx.progress}`}>
-        <span class="cz-action-progress__icon">{ctx.progress === 'success' ? '✓' : '✕'}</span>
-        <p class="cz-action-progress__message">{ctx.message}</p>
-      </div>
-
-      {result && (
-        <div class="cz-import-result">
-          <div class="cz-import-result-item cz-import-result-item--inserted">
-            <span class="cz-import-result-item__value">{result.inserted ?? 0}</span>
-            <span class="cz-import-result-item__label">Inserted</span>
-          </div>
-          <div class="cz-import-result-item cz-import-result-item--updated">
-            <span class="cz-import-result-item__value">{result.updated ?? 0}</span>
-            <span class="cz-import-result-item__label">Updated</span>
-          </div>
-          <div class="cz-import-result-item cz-import-result-item--skipped">
-            <span class="cz-import-result-item__value">{result.skipped ?? 0}</span>
-            <span class="cz-import-result-item__label">Skipped</span>
-          </div>
-          <div class="cz-import-result-item cz-import-result-item--invalid">
-            <span class="cz-import-result-item__value">{result.invalid ?? 0}</span>
-            <span class="cz-import-result-item__label">Invalid</span>
-          </div>
-        </div>
-      )}
-
-      {hasErrors && result?.errors && (
-        <div style="margin-bottom:16px">
-          <p style="font-size:12px;font-weight:600;color:var(--admin-error);margin:0 0 6px">Errors:</p>
-          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--admin-text-muted)">
-            {result.errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
-          </ul>
-        </div>
-      )}
-
-      <div style="display:flex;justify-content:flex-end">
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--primary"
-          onClick={ctx.goNext}
-        >
-          Done
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function decodeHtml(s: string): string {
+  if (typeof document === 'undefined') return s;
+  const el = document.createElement('textarea');
+  el.innerHTML = s;
+  return el.value;
+}
+
+const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise'];
 
 const TIER_LABELS: Record<string, string> = {
   basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
 };
 
-function fmtPrice(v: number | null | undefined): string {
-  if (v == null) return '—';
-  return `$${v.toLocaleString()}`;
+// ── PackageTierSelectStep ─────────────────────────────────────────────────────
+// Step 1 of the 2-step "Manage Surface Package" drawer:
+// shows the tier table and lets the admin pick a tier to edit.
+// Sets tierId/isNew/currentEnabled in shared stepData then calls goNext().
+
+function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
+  const pkg = ctx.stepData.packageSummary as SurfacePackageSummary | null;
+
+  if (!pkg) {
+    return <div class="cz-admin-error-msg">Package data unavailable.</div>;
+  }
+
+  const handleManage = (tierId: string) => {
+    const tier = pkg.tiers[tierId];
+    ctx.setStepData('tierId', tierId);
+    ctx.setStepData('isNew', false);
+    ctx.setStepData('currentEnabled', tier?.enabled ?? true);
+    ctx.goNext();
+  };
+
+  return (
+    <div>
+      <p style="margin:0 0 var(--cz-space-4);font-size:var(--cz-font-size-sm);color:var(--admin-text-muted)">
+        Select a tier to configure.
+      </p>
+
+      <div class="cz-sp-tier-table-wrap">
+        <table class="cz-sp-tier-table">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Price</th>
+              <th>Cycle</th>
+              <th class="cz-sp-tier-table__center">Inclusions</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {TIER_KEYS.map((tierId) => {
+              const tier        = pkg.tiers[tierId];
+              const isPopular   = pkg.popular_tier === tierId;
+              const tierEnabled = tier?.enabled ?? true;
+              const displayLbl  = (tier?.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId];
+
+              return (
+                <tr key={tierId} class={!tierEnabled ? 'cz-sp-tier-row--disabled' : ''}>
+                  <td class="cz-sp-tier-table__name">
+                    <div class="cz-sp-tier-table__name-inner">
+                      <span>{displayLbl}</span>
+                      {isPopular && (
+                        <span class="cz-tier-badge cz-tier-badge--popular">Popular</span>
+                      )}
+                      {!tierEnabled && (
+                        <span class="cz-status-pill cz-status-pill--inactive">Off</span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                      {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
+                    </span>
+                  </td>
+                  <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
+                  <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                    {tier?.inclusion_count ?? '—'}
+                  </td>
+                  <td class="cz-sp-tier-table__actions">
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                      onClick={() => handleManage(tierId)}
+                    >
+                      Manage
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cz-action-shell__footer">
+        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── ServiceViewStep ───────────────────────────────────────────────────────────
+// Read-only Service Core detail. Surfaces the related Surface Package (if any)
+// and bridges to tier management via "Manage Surface Package".
+
+function ServiceViewStep({ ctx }: { ctx: StepContext }) {
+  const service  = ctx.stepData.service  as ServiceItem;
+  const packages = ctx.stepData.packages as SurfacePackageSummary[];
+  const doOpen   = ctx.stepData.openAction as (config: ActionConfig) => void;
+
+  const relatedPkg = packages.find((p) => p.service_refs.includes(service.id)) ?? null;
+
+  const inclusions = service.inclusions ?? [];
+  const faqs       = service.faqs ?? [];
+  const tiers      = service.pricing?.tiers;
+  const isActive   = service.meta?.is_active !== false;
+
+  const handleManageSurfacePkg = () => {
+    if (!relatedPkg) return;
+    ctx.close();
+    doOpen({
+      id:    `pkg-tiers-${relatedPkg.post_id}`,
+      mode:  'drawer',
+      title: relatedPkg.title,
+      initialStepData: {
+        packageId:      relatedPkg.post_id,
+        packageSummary: relatedPkg,
+        tierId:         null,
+        isNew:          false,
+        currentEnabled: true,
+      },
+      steps: [
+        { id: 'tier-select', title: 'Select Tier', component: PackageTierSelectStep },
+        { id: 'tier-form',   title: 'Edit Tier',   component: TierManageStep        },
+      ],
+    });
+  };
+
+  return (
+    <div class="cz-req-detail">
+
+      {/* ── Section 1: Service Core ────────────────────────────────────── */}
+      <div class="cz-req-detail__section">
+        <p class="cz-req-detail__section-title">Service Core</p>
+        <div class="cz-req-contact-grid">
+          <div class="cz-req-contact-grid__item">
+            <span class="cz-req-contact-grid__label">Status</span>
+            <span class="cz-req-contact-grid__value">
+              <span class={`cz-status-pill cz-status-pill--${isActive ? 'active' : 'inactive'}`}>
+                {isActive ? 'Active' : 'Inactive'}
+              </span>
+            </span>
+          </div>
+          <div class="cz-req-contact-grid__item">
+            <span class="cz-req-contact-grid__label">Category</span>
+            <span class="cz-req-contact-grid__value">
+              {service.categories.map((c) => decodeHtml(c.name)).join(', ') || '—'}
+            </span>
+          </div>
+          <div class="cz-req-contact-grid__item">
+            <span class="cz-req-contact-grid__label">Billing cycle</span>
+            <span class="cz-req-contact-grid__value">{service.meta?.billing_cycle ?? '—'}</span>
+          </div>
+          {service.meta?.popular_tier && (
+            <div class="cz-req-contact-grid__item">
+              <span class="cz-req-contact-grid__label">Popular tier</span>
+              <span class="cz-req-contact-grid__value">
+                <span class="cz-tier-badge cz-tier-badge--popular">
+                  {TIER_LABELS[service.meta.popular_tier] ?? service.meta.popular_tier}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {service.excerpt && (
+          <div style="margin-top:var(--cz-space-3)">
+            <p class="cz-req-contact-grid__label" style="margin-bottom:4px">Short description</p>
+            <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text);line-height:1.6">
+              {service.excerpt}
+            </p>
+          </div>
+        )}
+
+        {service.content && (
+          <div style="margin-top:var(--cz-space-3)">
+            <p class="cz-req-contact-grid__label" style="margin-bottom:4px">Long description</p>
+            <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text-muted);line-height:1.6">
+              {service.content}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 2: Inclusion pool ──────────────────────────────────── */}
+      {inclusions.length > 0 && (
+        <div class="cz-req-detail__section">
+          <p class="cz-req-detail__section-title">
+            Inclusions pool
+            <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
+              {inclusions.length} canonical
+            </span>
+          </p>
+          <div class="cz-sc-inclusion-pool">
+            {inclusions.map((inc) => (
+              <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Section 3: FAQ pool ────────────────────────────────────────── */}
+      {faqs.length > 0 && (
+        <div class="cz-req-detail__section">
+          <p class="cz-req-detail__section-title">
+            FAQ pool
+            <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
+              {faqs.length} entries
+            </span>
+          </p>
+          <div class="cz-sc-faq-list">
+            {faqs.map((faq) => (
+              <div key={faq.id} class="cz-sc-faq-item">
+                <p class="cz-sc-faq-item__q">{faq.question}</p>
+                {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Section 4: Tier reference ──────────────────────────────────── */}
+      {tiers && (
+        <div class="cz-req-detail__section">
+          <p class="cz-req-detail__section-title">Tier pricing reference</p>
+          <p style="margin:0 0 var(--cz-space-2);font-size:11px;color:var(--admin-text-faint)">
+            Reflects active Surface Package overlay where applicable. Authoring is in Surface Packages.
+          </p>
+          <div class="cz-sp-tier-table-wrap">
+            <table class="cz-sp-tier-table">
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Price</th>
+                  <th>Cycle</th>
+                  <th class="cz-sp-tier-table__center">Features</th>
+                </tr>
+              </thead>
+              <tbody>
+                {TIER_KEYS.map((tierId) => {
+                  const tier = tiers[tierId];
+                  return (
+                    <tr key={tierId}>
+                      <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
+                      <td>
+                        <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                          {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
+                        </span>
+                      </td>
+                      <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
+                      <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                        {tier?.features?.length ? tier.features.length : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Section 5: Surface Package ────────────────────────────────── */}
+      <div class="cz-req-detail__section">
+        <p class="cz-req-detail__section-title">Surface Package</p>
+
+        {relatedPkg ? (
+          <div class="cz-sc-pkg-block">
+            <div class="cz-sc-pkg-block__meta">
+              <div>
+                <p class="cz-sc-pkg-block__title">{relatedPkg.title}</p>
+                <p class="cz-sc-pkg-block__stats">
+                  {TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length} tier{TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length !== 1 ? 's' : ''} configured
+                  {relatedPkg.popular_tier && (
+                    <> · popular: {TIER_LABELS[relatedPkg.popular_tier] ?? relatedPkg.popular_tier}</>
+                  )}
+                </p>
+              </div>
+              <span class={`cz-status-pill cz-status-pill--${relatedPkg.post_status === 'publish' ? 'active' : 'inactive'}`}>
+                {relatedPkg.post_status === 'publish' ? 'Active' : 'Disabled'}
+              </span>
+            </div>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              style="margin-top:var(--cz-space-3)"
+              onClick={handleManageSurfacePkg}
+            >
+              Manage Surface Package
+            </button>
+          </div>
+        ) : (
+          <div class="cz-sc-pkg-block cz-sc-pkg-block--empty">
+            <p class="cz-sc-pkg-block__empty-msg">
+              No Surface Package has been created for this service yet.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      <div class="cz-action-shell__footer">
+        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── Main workstation ──────────────────────────────────────────────────────────
 
 export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
   const { data, loading, error, refetch } = useCostBuilder();
+  const { data: surfacePkgData }          = useSurfacePackages();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const packages = surfacePkgData?.packages ?? [];
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
 
-  // Auto-select first category when data loads
   useEffect(() => {
     const resp = data as CostBuilderResponse | null;
     if (resp && activeCategory === null && resp.categories.length > 0) {
@@ -252,31 +357,17 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     }
   }, [data]);
 
-  const handleDryRun = () => {
+  const handleViewService = (service: ServiceItem) => {
     openAction({
-      id: 'dry-run',
-      mode: 'drawer',
-      title: 'Dry Run — Catalog Preview',
-      confirmClose: true,
-      steps: [
-        { id: 'preview', title: 'Parse Preview', component: DryRunStep },
-        { id: 'import',  title: 'Import',        component: ImportRunStep },
-      ],
-      onComplete: () => refetch(),
-    });
-  };
-
-  const handleImport = () => {
-    openAction({
-      id: 'import',
-      mode: 'modal',
-      title: 'Import Service Catalog',
-      confirmClose: true,
-      steps: [
-        { id: 'confirm', title: 'Confirm',   component: ImportConfirmStep },
-        { id: 'run',     title: 'Importing', component: ImportRunStep     },
-      ],
-      onComplete: () => refetch(),
+      id:    `service-view-${service.id}`,
+      mode:  'drawer',
+      title: service.title,
+      initialStepData: {
+        service,
+        packages,
+        openAction,
+      },
+      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
   };
 
@@ -314,23 +405,14 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
           <h2 class="cz-ws-title">Service Catalog</h2>
           <p class="cz-ws-subtitle">
             {totalServices} service{totalServices !== 1 ? 's' : ''} across {resp?.categories.length ?? 0} categories
-            — canonical Service Core records. Prices shown are imported reference values;
-            tier presentation is managed in Surface Packages.
+            — manage your service library and availability.
           </p>
-        </div>
-        <div class="cz-ws-actions">
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleDryRun}>
-            Dry Run Preview
-          </button>
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleImport}>
-            Import Catalog
-          </button>
         </div>
       </div>
 
       {totalServices === 0 ? (
         <div class="cz-admin-empty">
-          <p>No services in catalog. Use <strong>Import Catalog</strong> to load from XLSX.</p>
+          <p>No services in catalog. Use the import endpoint to load from XLSX.</p>
         </div>
       ) : (
         <>
@@ -343,7 +425,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                 class={`cz-pricing-tab${activeCategory === cat.slug ? ' cz-pricing-tab--active' : ''}`}
                 onClick={() => setActiveCategory(cat.slug)}
               >
-                {cat.name}
+                {decodeHtml(cat.name)}
               </button>
             ))}
           </div>
@@ -367,6 +449,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                       <th style="text-align:right">Enterprise</th>
                       <th style="text-align:center">Popular</th>
                       <th style="text-align:center">Status</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -374,6 +457,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                       const tiers      = service.pricing?.tiers;
                       const popularTier = service.meta?.popular_tier ?? null;
                       const isActive   = service.meta?.is_active !== false;
+                      const fmtPrice   = (v: number | null | undefined) =>
+                        v != null ? `$${v.toLocaleString()}` : '—';
+
                       return (
                         <tr key={service.id}>
                           <td class="cz-sc-table__name">{service.title}</td>
@@ -413,6 +499,15 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                             <span class={`cz-status-pill cz-status-pill--${isActive ? 'active' : 'inactive'}`}>
                               {isActive ? 'Active' : 'Inactive'}
                             </span>
+                          </td>
+                          <td style="text-align:right">
+                            <button
+                              type="button"
+                              class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                              onClick={() => handleViewService(service)}
+                            >
+                              View
+                            </button>
                           </td>
                         </tr>
                       );

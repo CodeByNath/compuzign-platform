@@ -49,7 +49,7 @@ function capitalize(s: string): string {
 
 // ── TierManageStep — drawer step ──────────────────────────────────────────────
 
-function TierManageStep({ ctx }: { ctx: StepContext }) {
+export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const packageId      = ctx.stepData.packageId as number;
   const initialTierId  = ctx.stepData.tierId as TierId | null;
   const isNew          = ctx.stepData.isNew as boolean;

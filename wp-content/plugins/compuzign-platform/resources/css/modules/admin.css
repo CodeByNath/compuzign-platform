@@ -2193,3 +2193,79 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-footer__spacer {
   flex: 1;
 }
+
+/* ── Service Catalog — service view drawer ───────────────────────────────────── */
+
+/* Inclusion pool — wrapping chip row */
+.cz-sc-inclusion-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* FAQ list */
+.cz-sc-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+}
+
+.cz-sc-faq-item {
+  padding: 10px var(--cz-space-3);
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+}
+
+.cz-sc-faq-item__q {
+  margin: 0 0 4px;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 500;
+  color: var(--admin-text);
+  line-height: 1.4;
+}
+
+.cz-sc-faq-item__a {
+  margin: 0;
+  font-size: var(--cz-font-size-xs);
+  color: var(--admin-text-muted);
+  line-height: var(--cz-line-height-body);
+}
+
+/* Surface Package block inside service view */
+.cz-sc-pkg-block {
+  padding: var(--cz-space-4);
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+}
+
+.cz-sc-pkg-block__meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cz-space-3);
+}
+
+.cz-sc-pkg-block__title {
+  margin: 0 0 3px;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.cz-sc-pkg-block__stats {
+  margin: 0;
+  font-size: var(--cz-font-size-xs);
+  color: var(--admin-text-muted);
+}
+
+.cz-sc-pkg-block--empty {
+  border-style: dashed;
+}
+
+.cz-sc-pkg-block__empty-msg {
+  margin: 0;
+  font-size: var(--cz-font-size-sm);
+  color: var(--admin-text-faint);
+}
