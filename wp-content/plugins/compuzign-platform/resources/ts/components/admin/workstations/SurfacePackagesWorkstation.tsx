@@ -43,6 +43,10 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // ── TierManageStep — drawer step ──────────────────────────────────────────────
 
 function TierManageStep({ ctx }: { ctx: StepContext }) {
@@ -51,37 +55,31 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
   const isNew          = ctx.stepData.isNew as boolean;
   const currentEnabled = ctx.stepData.currentEnabled as boolean ?? true;
 
-  const [detail, setDetail]       = useState<SurfacePackageDetailResponse | null>(null);
-  const [loadErr, setLoadErr]     = useState<string | null>(null);
-  const [saving, setSaving]       = useState(false);
-  const [saveErr, setSaveErr]     = useState<string | null>(null);
+  const [detail, setDetail]   = useState<SurfacePackageDetailResponse | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [saving, setSaving]   = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
-  // Tier selector (create mode)
-  const [tierId, setTierId]     = useState<string>(initialTierId ?? 'basic');
+  const [tierId, setTierId]                     = useState<string>(initialTierId ?? 'basic');
+  const [label, setLabel]                       = useState('');
+  const [priceIsContact, setPriceIsContact]     = useState(false);
+  const [priceStr, setPriceStr]                 = useState('');
+  const [billingCycle, setBillingCycle]         = useState('monthly');
+  const [isPopular, setIsPopular]               = useState(false);
 
-  // Form fields
-  const [label, setLabel]                   = useState('');
-  const [priceIsContact, setPriceIsContact] = useState(false);
-  const [priceStr, setPriceStr]             = useState('');
-  const [billingCycle, setBillingCycle]     = useState('monthly');
-  const [isPopular, setIsPopular]           = useState(false);
-
-  // Inclusion selection: existing pool items vs pending new
   const [selExistingIncs, setSelExistingIncs]   = useState<InclusionItem[]>([]);
   const [pendingIncs, setPendingIncs]           = useState<Array<{ label: string }>>([]);
   const [showNewInc, setShowNewInc]             = useState(false);
   const [newIncLabel, setNewIncLabel]           = useState('');
   const [incSearch, setIncSearch]               = useState('');
 
-  // FAQ selection
-  const [selFaqRefs, setSelFaqRefs]   = useState<string[]>([]);
-  const [pendingFaqs, setPendingFaqs] = useState<Array<{ question: string; answer: string }>>([]);
-  const [showNewFaq, setShowNewFaq]   = useState(false);
-  const [newFaqQ, setNewFaqQ]         = useState('');
-  const [newFaqA, setNewFaqA]         = useState('');
-  const [faqSearch, setFaqSearch]     = useState('');
+  const [selFaqRefs, setSelFaqRefs]             = useState<string[]>([]);
+  const [pendingFaqs, setPendingFaqs]           = useState<Array<{ question: string; answer: string }>>([]);
+  const [showNewFaq, setShowNewFaq]             = useState(false);
+  const [newFaqQ, setNewFaqQ]                   = useState('');
+  const [newFaqA, setNewFaqA]                   = useState('');
+  const [faqSearch, setFaqSearch]               = useState('');
 
-  // Populate form from tier data
   const populateFromTier = useCallback(
     (res: SurfacePackageDetailResponse, id: string) => {
       const tier = res.package.tiers[id];
@@ -102,7 +100,6 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
     [],
   );
 
-  // Load package detail on mount
   useEffect(() => {
     ctx.setProgress('loading', 'Loading…');
     fetchSurfacePackageDetail(packageId)
@@ -120,7 +117,6 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
       });
   }, [packageId]);
 
-  // Tier selector change in create mode — pre-fill with any existing slot data
   const handleTierChange = (id: string) => {
     setTierId(id);
     if (detail) populateFromTier(detail, id);
@@ -128,7 +124,6 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
     setPendingFaqs([]);
   };
 
-  // Add new inclusion locally (adds to pending + immediately selected)
   const handleAddInclusion = () => {
     const lbl = newIncLabel.trim();
     if (!lbl) return;
@@ -137,7 +132,6 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
     setShowNewInc(false);
   };
 
-  // Add new FAQ locally
   const handleAddFaq = () => {
     const q = newFaqQ.trim();
     if (!q) return;
@@ -160,7 +154,6 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
     setSelFaqRefs((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
   };
 
-  // Build save payload — pending new items go in new_* fields; existing selected items in overrides
   const buildPayload = (enabled: boolean): TierSavePayload => ({
     label,
     price: priceIsContact ? null : (parseFloat(priceStr) || null),
@@ -187,11 +180,10 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
   };
 
   const handleToggleEnabled = async () => {
-    const newEnabled = !currentEnabled;
     setSaving(true);
     setSaveErr(null);
     try {
-      await toggleSurfaceTierEnabled(packageId, tierId, newEnabled);
+      await toggleSurfaceTierEnabled(packageId, tierId, !currentEnabled);
       ctx.goNext();
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : 'Toggle failed.');
@@ -207,127 +199,125 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
   }
 
   if (loadErr) {
-    return <div class="cz-admin-error-msg" style="margin:20px">{loadErr}</div>;
+    return <div class="cz-admin-error-msg">{loadErr}</div>;
   }
 
   if (!detail) return null;
 
   const service = detail.service;
 
-  // Build full inclusion pool: service pool + pending new items (shown at top, always selected)
   const allInclusions: Array<InclusionItem & { isPending?: boolean }> = [
     ...pendingIncs.map((p) => ({ id: slugify(p.label), label: p.label, isPending: true })),
     ...(service?.inclusions ?? []),
   ];
-
-  // Build full FAQ pool: service FAQs + pending new
   const allFaqs: Array<FaqItem & { isPending?: boolean }> = [
     ...pendingFaqs.map((p) => ({ id: slugify(p.question), question: p.question, answer: p.answer, isPending: true })),
     ...(service?.faqs ?? []),
   ];
 
-  const filteredIncs  = allInclusions.filter((i) => i.label.toLowerCase().includes(incSearch.toLowerCase()));
-  const filteredFaqs  = allFaqs.filter((f) => f.question.toLowerCase().includes(faqSearch.toLowerCase()));
+  const filteredIncs = allInclusions.filter((i) => i.label.toLowerCase().includes(incSearch.toLowerCase()));
+  const filteredFaqs = allFaqs.filter((f) => f.question.toLowerCase().includes(faqSearch.toLowerCase()));
+  const selIncCount  = selExistingIncs.length + pendingIncs.length;
 
   const displayContexts = detail.package.display_contexts ?? ['cost-builder'];
 
   return (
-    <div class="cz-tier-form">
+    <div class="cz-tf-form">
 
-      {/* ── Service info (read-only) ────────────────────────────────────── */}
+      {/* ── Section 1: Service ─────────────────────────────────────────── */}
       {service && (
-        <div class="cz-req-detail__section">
-          <p class="cz-req-detail__section-title">Service</p>
-          <p style="margin:0;font-size:14px;font-weight:500;color:var(--admin-text)">{service.title}</p>
+        <div class="cz-tf-section">
+          <p class="cz-tf-section-title">Service</p>
+          <p class="cz-tf-service-title">{service.title}</p>
           {service.excerpt && (
-            <p style="margin:4px 0 0;font-size:12px;color:var(--admin-text-muted);line-height:1.6">{service.excerpt}</p>
+            <p class="cz-tf-service-desc">{service.excerpt}</p>
           )}
         </div>
       )}
 
-      {/* ── Tier selector (create mode only) ───────────────────────────── */}
-      {isNew && (
+      {/* ── Section 2: Tier Basics ─────────────────────────────────────── */}
+      <div class="cz-tf-section">
+        <p class="cz-tf-section-title">Tier Basics</p>
+
+        {isNew && (
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Tier *</label>
+            <select
+              class="cz-tf-select"
+              value={tierId}
+              onChange={(e) => handleTierChange((e.target as HTMLSelectElement).value)}
+            >
+              {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
+            </select>
+          </div>
+        )}
+
         <div class="cz-tf-field">
-          <label class="cz-tf-label">Tier *</label>
+          <label class="cz-tf-label">Display label</label>
+          <input
+            type="text"
+            class="cz-tf-input"
+            value={label}
+            onInput={(e) => setLabel((e.target as HTMLInputElement).value)}
+            placeholder={TIER_LABELS[tierId] ?? tierId}
+          />
+          <p class="cz-tf-hint">Override the default name. Leave blank to use the default.</p>
+        </div>
+
+        <div class="cz-tf-field">
+          <label class="cz-tf-label">Price</label>
+          <div class="cz-tf-price-row">
+            <input
+              type="number"
+              class="cz-tf-input cz-tf-input--price"
+              value={priceStr}
+              disabled={priceIsContact}
+              onInput={(e) => setPriceStr((e.target as HTMLInputElement).value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+            <label class="cz-tf-check-row cz-tf-check-row--inline">
+              <input
+                type="checkbox"
+                checked={priceIsContact}
+                onChange={(e) => {
+                  const checked = (e.target as HTMLInputElement).checked;
+                  setPriceIsContact(checked);
+                  if (checked) setPriceStr('');
+                }}
+              />
+              <span>Contact / no fixed price</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="cz-tf-field">
+          <label class="cz-tf-label">Billing cycle</label>
           <select
             class="cz-tf-select"
-            value={tierId}
-            onChange={(e) => handleTierChange((e.target as HTMLSelectElement).value)}
+            value={billingCycle}
+            onChange={(e) => setBillingCycle((e.target as HTMLSelectElement).value)}
           >
-            {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
+            {BILLING_CYCLES.map((c) => (
+              <option key={c} value={c}>{capitalize(c)}</option>
+            ))}
           </select>
         </div>
-      )}
+      </div>
 
-      {/* ── Label ──────────────────────────────────────────────────────── */}
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Tier label</label>
+      {/* ── Section 3: Inclusions ──────────────────────────────────────── */}
+      <div class="cz-tf-section">
+        <div class="cz-tf-section-header">
+          <p class="cz-tf-section-title">Inclusions</p>
+          {selIncCount > 0 && (
+            <span class="cz-tf-count">{selIncCount} selected</span>
+          )}
+        </div>
+
         <input
           type="text"
           class="cz-tf-input"
-          value={label}
-          onInput={(e) => setLabel((e.target as HTMLInputElement).value)}
-          placeholder={TIER_LABELS[tierId] ?? tierId}
-        />
-        <p class="cz-tf-hint">Override the default display name. Leave blank to use the default.</p>
-      </div>
-
-      {/* ── Price ──────────────────────────────────────────────────────── */}
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Price</label>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <input
-            type="number"
-            class="cz-tf-input"
-            style="width:120px"
-            value={priceStr}
-            disabled={priceIsContact}
-            onInput={(e) => setPriceStr((e.target as HTMLInputElement).value)}
-            placeholder="0.00"
-            min="0"
-            step="0.01"
-          />
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--admin-text)">
-            <input
-              type="checkbox"
-              checked={priceIsContact}
-              onChange={(e) => {
-                const checked = (e.target as HTMLInputElement).checked;
-                setPriceIsContact(checked);
-                if (checked) setPriceStr('');
-              }}
-            />
-            Contact (no fixed price)
-          </label>
-        </div>
-      </div>
-
-      {/* ── Billing cycle ──────────────────────────────────────────────── */}
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Billing cycle</label>
-        <select
-          class="cz-tf-select"
-          value={billingCycle}
-          onChange={(e) => setBillingCycle((e.target as HTMLSelectElement).value)}
-        >
-          {BILLING_CYCLES.map((c) => (
-            <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* ── Inclusions ─────────────────────────────────────────────────── */}
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">
-          Inclusions
-          <span style="font-weight:400;color:var(--admin-text-muted);margin-left:6px">
-            ({selExistingIncs.length + pendingIncs.length} selected)
-          </span>
-        </label>
-
-        <input
-          type="text"
-          class="cz-tf-input cz-tf-input--search"
           placeholder="Search inclusions…"
           value={incSearch}
           onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
@@ -335,9 +325,9 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
 
         <div class="cz-tf-checklist">
           {filteredIncs.length === 0 && (
-            <p style="font-size:12px;color:var(--admin-text-faint);padding:6px 0">
+            <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
               {incSearch ? 'No matches.' : 'No inclusions in service pool.'}
-            </p>
+            </div>
           )}
           {filteredIncs.map((inc) => {
             const checked = inc.isPending || selExistingIncs.some((s) => s.id === inc.id);
@@ -349,10 +339,8 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
                   disabled={inc.isPending}
                   onChange={() => !inc.isPending && toggleInclusion(inc)}
                 />
-                <span style="flex:1">{inc.label}</span>
-                {inc.isPending && (
-                  <span class="cz-tf-new-badge">new</span>
-                )}
+                <span class="cz-tf-check-item__text">{inc.label}</span>
+                {inc.isPending && <span class="cz-tf-new-badge">new</span>}
               </label>
             );
           })}
@@ -369,19 +357,17 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddInclusion(); } }}
               autoFocus
             />
-            <div style="display:flex;gap:6px;margin-top:6px">
+            <div class="cz-tf-inline-add__actions">
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--primary"
-                style="padding:5px 12px;font-size:12px"
+                class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
                 onClick={handleAddInclusion}
               >
-                Add
+                Add to pool
               </button>
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--ghost"
-                style="padding:5px 12px;font-size:12px"
+                class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
                 onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}
               >
                 Cancel
@@ -389,28 +375,24 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            class="cz-tf-add-link"
-            onClick={() => setShowNewInc(true)}
-          >
+          <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>
             + Add new inclusion to service pool
           </button>
         )}
       </div>
 
-      {/* ── FAQs ───────────────────────────────────────────────────────── */}
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">
-          FAQs
-          <span style="font-weight:400;color:var(--admin-text-muted);margin-left:6px">
-            ({selFaqRefs.length} selected)
-          </span>
-        </label>
+      {/* ── Section 4: FAQs ────────────────────────────────────────────── */}
+      <div class="cz-tf-section">
+        <div class="cz-tf-section-header">
+          <p class="cz-tf-section-title">FAQs</p>
+          {selFaqRefs.length > 0 && (
+            <span class="cz-tf-count">{selFaqRefs.length} selected</span>
+          )}
+        </div>
 
         <input
           type="text"
-          class="cz-tf-input cz-tf-input--search"
+          class="cz-tf-input"
           placeholder="Search FAQs…"
           value={faqSearch}
           onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
@@ -418,31 +400,26 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
 
         <div class="cz-tf-checklist">
           {filteredFaqs.length === 0 && (
-            <p style="font-size:12px;color:var(--admin-text-faint);padding:6px 0">
+            <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
               {faqSearch ? 'No matches.' : 'No FAQs in service pool.'}
-            </p>
+            </div>
           )}
-          {filteredFaqs.map((faq) => {
-            const checked = selFaqRefs.includes(faq.id);
-            return (
-              <label key={faq.id} class="cz-tf-check-item cz-tf-check-item--faq">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleFaqRef(faq.id)}
-                />
-                <span style="flex:1">
-                  <span style="display:block;font-size:13px">{faq.question}</span>
-                  {faq.answer && (
-                    <span style="display:block;font-size:11px;color:var(--admin-text-muted);margin-top:2px;line-height:1.5">
-                      {faq.answer}
-                    </span>
-                  )}
-                </span>
-                {faq.isPending && <span class="cz-tf-new-badge">new</span>}
-              </label>
-            );
-          })}
+          {filteredFaqs.map((faq) => (
+            <label key={faq.id} class="cz-tf-check-item">
+              <input
+                type="checkbox"
+                checked={selFaqRefs.includes(faq.id)}
+                onChange={() => toggleFaqRef(faq.id)}
+              />
+              <span class="cz-tf-check-item__text">
+                <span class="cz-tf-check-item__question">{faq.question}</span>
+                {faq.answer && (
+                  <span class="cz-tf-check-item__answer">{faq.answer}</span>
+                )}
+              </span>
+              {faq.isPending && <span class="cz-tf-new-badge">new</span>}
+            </label>
+          ))}
         </div>
 
         {showNewFaq ? (
@@ -462,19 +439,17 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
               onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)}
               rows={3}
             />
-            <div style="display:flex;gap:6px;margin-top:6px">
+            <div class="cz-tf-inline-add__actions">
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--primary"
-                style="padding:5px 12px;font-size:12px"
+                class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
                 onClick={handleAddFaq}
               >
-                Add
+                Add to pool
               </button>
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--ghost"
-                style="padding:5px 12px;font-size:12px"
+                class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
                 onClick={() => { setShowNewFaq(false); setNewFaqQ(''); setNewFaqA(''); }}
               >
                 Cancel
@@ -482,56 +457,56 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            class="cz-tf-add-link"
-            onClick={() => setShowNewFaq(true)}
-          >
+          <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewFaq(true)}>
             + Add new FAQ to service pool
           </button>
         )}
       </div>
 
-      {/* ── Popular ────────────────────────────────────────────────────── */}
-      <div class="cz-tf-field">
-        <label class="cz-tf-check-item" style="cursor:pointer;display:flex;align-items:center;gap:8px">
+      {/* ── Section 5: Presentation ────────────────────────────────────── */}
+      <div class="cz-tf-section">
+        <p class="cz-tf-section-title">Presentation</p>
+
+        <label class="cz-tf-check-row">
           <input
             type="checkbox"
             checked={isPopular}
             onChange={(e) => setIsPopular((e.target as HTMLInputElement).checked)}
           />
-          <span style="font-size:13px;color:var(--admin-text)">Mark as Popular tier</span>
+          <span>Mark as Popular tier</span>
         </label>
-      </div>
 
-      {/* ── Display contexts (package-level, read-only) ─────────────────── */}
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Display contexts</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          {displayContexts.map((c) => (
-            <span key={c} style="font-size:11px;background:var(--admin-surface-2,#f3f4f6);border-radius:4px;padding:2px 7px;color:var(--admin-text-muted)">
-              {c}
-            </span>
-          ))}
-        </div>
-        <p class="cz-tf-hint">Package-level — managed separately.</p>
+        {displayContexts.length > 0 && (
+          <div class="cz-tf-field" style="margin-top:var(--cz-space-3)">
+            <label class="cz-tf-label">Display contexts</label>
+            <div class="cz-tf-chips">
+              {displayContexts.map((c) => (
+                <span key={c} class="cz-tf-chip">{c}</span>
+              ))}
+            </div>
+            <p class="cz-tf-hint">Package-level — managed separately.</p>
+          </div>
+        )}
       </div>
 
       {/* ── Error ──────────────────────────────────────────────────────── */}
       {saveErr && (
-        <div class="cz-admin-error-msg" style="margin:0 20px 12px">{saveErr}</div>
+        <div class="cz-admin-error-msg">{saveErr}</div>
       )}
 
-      {/* ── Actions ────────────────────────────────────────────────────── */}
-      <div class="cz-action-shell__footer">
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--primary"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving…' : 'Publish Tier'}
-        </button>
+      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      <div class="cz-tf-footer">
+        {!isNew && (
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--ghost"
+            onClick={handleToggleEnabled}
+            disabled={saving}
+          >
+            {currentEnabled ? 'Disable Tier' : 'Enable Tier'}
+          </button>
+        )}
+        <div class="cz-tf-footer__spacer" />
         <button
           type="button"
           class="cz-admin-btn cz-admin-btn--ghost"
@@ -540,23 +515,20 @@ function TierManageStep({ ctx }: { ctx: StepContext }) {
         >
           Cancel
         </button>
-        {!isNew && (
-          <button
-            type="button"
-            class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--secondary' : 'cz-admin-btn--primary'}`}
-            onClick={handleToggleEnabled}
-            disabled={saving}
-            style="margin-left:auto"
-          >
-            {saving ? '…' : currentEnabled ? 'Disable Tier' : 'Enable Tier'}
-          </button>
-        )}
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--primary"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? 'Saving…' : 'Publish Tier'}
+        </button>
       </div>
     </div>
   );
 }
 
-// ── PackageCard — list view card ──────────────────────────────────────────────
+// ── PackageCard ───────────────────────────────────────────────────────────────
 
 interface PackageCardProps {
   pkg: SurfacePackageSummary;
@@ -565,16 +537,16 @@ interface PackageCardProps {
 }
 
 function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
-  const [disabling, setDisabling] = useState(false);
-  const [togglingTier, setTogglingTier] = useState<string | null>(null);
+  const [disabling, setDisabling]         = useState(false);
+  const [togglingTier, setTogglingTier]   = useState<string | null>(null);
 
   const serviceNames = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
-  const isEnabled = pkg.post_status === 'publish';
+  const isEnabled    = pkg.post_status === 'publish';
 
   const handleManageTier = (tierId: TierId) => {
     const tier = pkg.tiers[tierId];
     openAction({
-      id: `tier-${pkg.post_id}-${tierId}`,
+      id:   `tier-${pkg.post_id}-${tierId}`,
       mode: 'drawer',
       title: `${TIER_LABELS[tierId]} — ${serviceNames}`,
       initialStepData: {
@@ -589,7 +561,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
 
   const handleCreateTier = () => {
     openAction({
-      id: `tier-create-${pkg.post_id}`,
+      id:   `tier-create-${pkg.post_id}`,
       mode: 'drawer',
       title: `Create Tier — ${serviceNames}`,
       initialStepData: {
@@ -627,27 +599,26 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
   };
 
   return (
-    <div class={`cz-ws-card${!isEnabled ? ' cz-ws-card--disabled' : ''}`} style="margin-bottom:20px">
+    <div class={`cz-ws-card${!isEnabled ? ' cz-ws-card--disabled' : ''}`}>
 
-      {/* ── Card header ─────────────────────────────────────────────── */}
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
-            <p class="cz-ws-card__title" style="margin:0">{pkg.title}</p>
+      {/* ── Package header ────────────────────────────────────────────── */}
+      <div class="cz-sp-pkg-header">
+        <div class="cz-sp-pkg-header__left">
+          <p class="cz-sp-pkg-header__title">
+            {pkg.title}
             {!isEnabled && (
-              <span class="cz-status-pill cz-status-pill--inactive" style="font-size:11px">Disabled</span>
+              <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
             )}
             {pkg.migration_complete && isEnabled && (
-              <span class="cz-status-pill cz-status-pill--active" style="font-size:11px">Migrated</span>
+              <span class="cz-status-pill cz-status-pill--active">Migrated</span>
             )}
-          </div>
-          <p style="margin:0;font-size:12px;color:var(--admin-text-muted)">{serviceNames}</p>
+          </p>
+          <p class="cz-sp-pkg-header__service">{serviceNames}</p>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
+        <div class="cz-sp-pkg-header__actions">
           <button
             type="button"
-            class={`cz-admin-btn ${isEnabled ? 'cz-admin-btn--secondary' : 'cz-admin-btn--ghost'}`}
-            style="padding:5px 12px;font-size:12px"
+            class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--ghost' : 'cz-admin-btn--secondary'}`}
             onClick={handleTogglePackage}
             disabled={disabling}
           >
@@ -656,92 +627,95 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
         </div>
       </div>
 
-      {/* ── Create tier button ───────────────────────────────────────── */}
-      <div style="margin-bottom:14px">
+      {/* ── Tiers section heading + create button ─────────────────────── */}
+      <div class="cz-sp-tiers-header">
+        <p class="cz-sp-tiers-header__label">Existing Tiers</p>
         <button
           type="button"
-          class="cz-admin-btn cz-admin-btn--secondary"
-          style="padding:6px 14px;font-size:12px"
+          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
           onClick={handleCreateTier}
         >
           + Create Tier
         </button>
       </div>
 
-      {/* ── Tier rows ───────────────────────────────────────────────── */}
-      <p style="margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--admin-text-muted)">
-        Existing Tiers
-      </p>
-
+      {/* ── Tier table ────────────────────────────────────────────────── */}
       {TIERS.every((t) => !pkg.tiers[t]) ? (
-        <p style="font-size:13px;color:var(--admin-text-faint);padding:8px 0">
-          No tiers available for this service.
-        </p>
+        <p class="cz-sp-empty-tiers">No tiers available for this service.</p>
       ) : (
-        <div class="cz-tier-rows">
-          {TIERS.map((tierId) => {
-            const tier       = pkg.tiers[tierId];
-            const tierEnabled = tier?.enabled ?? true;
-            const isPopular  = pkg.popular_tier === tierId;
-            const isBusy     = togglingTier === tierId;
+        <div class="cz-sp-tier-table-wrap">
+          <table class="cz-sp-tier-table">
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Price</th>
+                <th>Cycle</th>
+                <th class="cz-sp-tier-table__center">Inclusions</th>
+                <th class="cz-sp-tier-table__center">Popular</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {TIERS.map((tierId) => {
+                const tier        = pkg.tiers[tierId];
+                const tierEnabled = tier?.enabled ?? true;
+                const isPopular   = pkg.popular_tier === tierId;
+                const isBusy      = togglingTier === tierId;
+                const displayLabel = (tier?.label && tier.label !== '')
+                  ? tier.label
+                  : TIER_LABELS[tierId];
 
-            return (
-              <div
-                key={tierId}
-                class={`cz-tier-row${!tierEnabled ? ' cz-tier-row--disabled' : ''}`}
-              >
-                <div class="cz-tier-row__name">
-                  <span class="cz-tier-row__label">
-                    {(tier?.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId]}
-                  </span>
-                  {isPopular && (
-                    <span class="cz-tier-badge cz-tier-badge--popular" style="font-size:10px">Popular</span>
-                  )}
-                  {!tierEnabled && (
-                    <span class="cz-status-pill cz-status-pill--inactive" style="font-size:10px">Off</span>
-                  )}
-                </div>
-
-                <div class="cz-tier-row__meta">
-                  {tier ? (
-                    <>
-                      <span class="cz-price-tag cz-price-tag--has-price">
-                        {fmtPrice(tier.price)}
+                return (
+                  <tr key={tierId} class={!tierEnabled ? 'cz-sp-tier-row--disabled' : ''}>
+                    <td class="cz-sp-tier-table__name">
+                      <div class="cz-sp-tier-table__name-inner">
+                        <span>{displayLabel}</span>
+                        {isPopular && (
+                          <span class="cz-tier-badge cz-tier-badge--popular">Popular</span>
+                        )}
+                        {!tierEnabled && (
+                          <span class="cz-status-pill cz-status-pill--inactive">Off</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                        {tier ? fmtPrice(tier.price) : '—'}
                       </span>
-                      <span style="font-size:11px;color:var(--admin-text-muted)">
-                        /{tier.billing_cycle ?? '—'}
-                      </span>
-                      <span style="font-size:11px;color:var(--admin-text-muted);margin-left:6px">
-                        {tier.inclusion_count} inc
-                      </span>
-                    </>
-                  ) : (
-                    <span style="font-size:12px;color:var(--admin-text-faint)">not configured</span>
-                  )}
-                </div>
-
-                <div class="cz-tier-row__actions">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--ghost"
-                    style="padding:4px 10px;font-size:12px"
-                    onClick={() => handleManageTier(tierId as TierId)}
-                  >
-                    Manage
-                  </button>
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--ghost"
-                    style="padding:4px 10px;font-size:12px"
-                    onClick={() => handleToggleTierEnabled(tierId, tierEnabled)}
-                    disabled={isBusy}
-                  >
-                    {isBusy ? '…' : tierEnabled ? 'Disable' : 'Enable'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                    <td class="cz-sp-tier-table__muted">
+                      {tier?.billing_cycle ?? '—'}
+                    </td>
+                    <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                      {tier ? tier.inclusion_count : '—'}
+                    </td>
+                    <td class="cz-sp-tier-table__center">
+                      {isPopular
+                        ? <span class="cz-tier-badge cz-tier-badge--popular">★</span>
+                        : <span style="color:var(--admin-text-faint)">—</span>}
+                    </td>
+                    <td class="cz-sp-tier-table__actions">
+                      <button
+                        type="button"
+                        class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                        onClick={() => handleManageTier(tierId as TierId)}
+                      >
+                        Manage
+                      </button>
+                      <button
+                        type="button"
+                        class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                        onClick={() => handleToggleTierEnabled(tierId, tierEnabled)}
+                        disabled={isBusy}
+                      >
+                        {isBusy ? '…' : tierEnabled ? 'Disable' : 'Enable'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
