@@ -1,16 +1,16 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { Spinner } from '@/components/ui/Spinner';
 import { apiClient } from '@/api/client';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import type { CostBuilderResponse } from '@/api/types/cost-builder';
+import type { CostBuilderResponse, ServiceItem } from '@/api/types/cost-builder';
 
 interface Props {
   refreshKey: number;
   openAction: (config: ActionConfig) => void;
 }
 
-// ── Dry-run step ────────────────────────────────────────────────────────────
+// ── Dry-run step ─────────────────────────────────────────────────────────────
 
 interface DryRunResult {
   success: boolean;
@@ -59,7 +59,7 @@ function DryRunStep({ ctx }: { ctx: StepContext }) {
   const result = ctx.stepData.result as DryRunResult | undefined;
   if (!result) return null;
 
-  const headers = result.header_map ? Object.values(result.header_map) : [];
+  const headers    = result.header_map ? Object.values(result.header_map) : [];
   const sampleRows = result.sample_rows ?? [];
   const sampleCols = result.header_map ? Object.keys(result.header_map) : [];
 
@@ -108,7 +108,7 @@ function DryRunStep({ ctx }: { ctx: StepContext }) {
   );
 }
 
-// ── Import confirm step ─────────────────────────────────────────────────────
+// ── Import confirm step ───────────────────────────────────────────────────────
 
 function ImportConfirmStep({ ctx }: { ctx: StepContext }) {
   return (
@@ -134,7 +134,7 @@ function ImportConfirmStep({ ctx }: { ctx: StepContext }) {
   );
 }
 
-// ── Import run + result step ─────────────────────────────────────────────────
+// ── Import run + result step ──────────────────────────────────────────────────
 
 interface ImportResult {
   success: boolean;
@@ -170,7 +170,7 @@ function ImportRunStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  const result = ctx.stepData.importResult as ImportResult | undefined;
+  const result    = ctx.stepData.importResult as ImportResult | undefined;
   const hasErrors = (result?.errors?.length ?? 0) > 0;
 
   return (
@@ -215,7 +215,6 @@ function ImportRunStep({ ctx }: { ctx: StepContext }) {
           type="button"
           class="cz-admin-btn cz-admin-btn--primary"
           onClick={ctx.goNext}
-          disabled={ctx.progress === 'loading'}
         >
           Done
         </button>
@@ -224,14 +223,34 @@ function ImportRunStep({ ctx }: { ctx: StepContext }) {
   );
 }
 
-// ── Main workstation ────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const TIER_LABELS: Record<string, string> = {
+  basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
+};
+
+function fmtPrice(v: number | null | undefined): string {
+  if (v == null) return '—';
+  return `$${v.toLocaleString()}`;
+}
+
+// ── Main workstation ──────────────────────────────────────────────────────────
 
 export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
   const { data, loading, error, refetch } = useCostBuilder();
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
+
+  // Auto-select first category when data loads
+  useEffect(() => {
+    const resp = data as CostBuilderResponse | null;
+    if (resp && activeCategory === null && resp.categories.length > 0) {
+      setActiveCategory(resp.categories[0].slug);
+    }
+  }, [data]);
 
   const handleDryRun = () => {
     openAction({
@@ -240,16 +259,8 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
       title: 'Dry Run — Catalog Preview',
       confirmClose: true,
       steps: [
-        {
-          id: 'preview',
-          title: 'Parse Preview',
-          component: DryRunStep,
-        },
-        {
-          id: 'import',
-          title: 'Import',
-          component: ImportRunStep,
-        },
+        { id: 'preview', title: 'Parse Preview', component: DryRunStep },
+        { id: 'import',  title: 'Import',        component: ImportRunStep },
       ],
       onComplete: () => refetch(),
     });
@@ -262,16 +273,8 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
       title: 'Import Service Catalog',
       confirmClose: true,
       steps: [
-        {
-          id: 'confirm',
-          title: 'Confirm',
-          component: ImportConfirmStep,
-        },
-        {
-          id: 'run',
-          title: 'Importing',
-          component: ImportRunStep,
-        },
+        { id: 'confirm', title: 'Confirm',   component: ImportConfirmStep },
+        { id: 'run',     title: 'Importing', component: ImportRunStep     },
       ],
       onComplete: () => refetch(),
     });
@@ -296,8 +299,13 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     );
   }
 
-  const allServices = (data as CostBuilderResponse | null)?.services_by_category.flatMap((g) => g.services) ?? [];
+  const resp          = data as CostBuilderResponse | null;
+  const allServices   = resp?.services_by_category.flatMap((g) => g.services) ?? [];
   const totalServices = allServices.length;
+
+  const activeGroup = resp?.services_by_category.find((g) => g.category_slug === activeCategory)
+    ?? resp?.services_by_category[0];
+  const services: ServiceItem[] = activeGroup?.services ?? [];
 
   return (
     <div>
@@ -305,8 +313,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
         <div>
           <h2 class="cz-ws-title">Service Catalog</h2>
           <p class="cz-ws-subtitle">
-            {totalServices} service{totalServices !== 1 ? 's' : ''} across{' '}
-            {data?.categories.length ?? 0} categories
+            {totalServices} service{totalServices !== 1 ? 's' : ''} across {resp?.categories.length ?? 0} categories
+            — canonical Service Core records. Prices shown are imported reference values;
+            tier presentation is managed in Surface Packages.
           </p>
         </div>
         <div class="cz-ws-actions">
@@ -324,61 +333,96 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
           <p>No services in catalog. Use <strong>Import Catalog</strong> to load from XLSX.</p>
         </div>
       ) : (
-        <div class="cz-ws-card" style="padding:0;overflow:hidden">
-          <div class="cz-sc-table-wrap">
-            <table class="cz-sc-table">
-              <thead>
-                <tr>
-                  <th>Service</th>
-                  <th>Category</th>
-                  <th>Basic</th>
-                  <th>Standard</th>
-                  <th>Premium</th>
-                  <th>Enterprise</th>
-                  <th>Cycle</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allServices.map((service) => {
-                  const tiers = service.pricing?.tiers;
-                  const fmt = (v: number | null) =>
-                    v != null ? `$${v.toLocaleString()}` : null;
-                  return (
-                    <tr key={service.id}>
-                      <td class="cz-sc-table__name">{service.title}</td>
-                      <td class="cz-sc-table__category">
-                        {service.categories[0]?.name ?? '—'}
-                      </td>
-                      <td class="cz-sc-table__price">
-                        <span class={`cz-price-tag${tiers?.basic?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                          {fmt(tiers?.basic?.price ?? null) ?? '—'}
-                        </span>
-                      </td>
-                      <td class="cz-sc-table__price">
-                        <span class={`cz-price-tag${tiers?.standard?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                          {fmt(tiers?.standard?.price ?? null) ?? '—'}
-                        </span>
-                      </td>
-                      <td class="cz-sc-table__price">
-                        <span class={`cz-price-tag${tiers?.premium?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                          {fmt(tiers?.premium?.price ?? null) ?? '—'}
-                        </span>
-                      </td>
-                      <td class="cz-sc-table__price">
-                        <span class={`cz-price-tag${tiers?.enterprise?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                          {fmt(tiers?.enterprise?.price ?? null) ?? '—'}
-                        </span>
-                      </td>
-                      <td style="color:var(--admin-text-muted);font-size:12px">
-                        {service.meta?.billing_cycle ?? '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <>
+          {/* ── Category tabs ── */}
+          <div class="cz-pricing-category-tabs">
+            {(resp?.categories ?? []).map((cat) => (
+              <button
+                key={cat.slug}
+                type="button"
+                class={`cz-pricing-tab${activeCategory === cat.slug ? ' cz-pricing-tab--active' : ''}`}
+                onClick={() => setActiveCategory(cat.slug)}
+              >
+                {cat.name}
+              </button>
+            ))}
           </div>
-        </div>
+
+          {/* ── Service table ── */}
+          {services.length === 0 ? (
+            <div class="cz-admin-empty">
+              <p>No services in this category yet.</p>
+            </div>
+          ) : (
+            <div class="cz-ws-card" style="padding:0;overflow:hidden">
+              <div class="cz-sc-table-wrap">
+                <table class="cz-sc-table">
+                  <thead>
+                    <tr>
+                      <th>Service</th>
+                      <th>Cycle</th>
+                      <th style="text-align:right">Basic</th>
+                      <th style="text-align:right">Standard</th>
+                      <th style="text-align:right">Premium</th>
+                      <th style="text-align:right">Enterprise</th>
+                      <th style="text-align:center">Popular</th>
+                      <th style="text-align:center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {services.map((service) => {
+                      const tiers      = service.pricing?.tiers;
+                      const popularTier = service.meta?.popular_tier ?? null;
+                      const isActive   = service.meta?.is_active !== false;
+                      return (
+                        <tr key={service.id}>
+                          <td class="cz-sc-table__name">{service.title}</td>
+                          <td style="color:var(--admin-text-muted);font-size:12px">
+                            {service.meta?.billing_cycle ?? '—'}
+                          </td>
+                          <td class="cz-sc-table__price">
+                            <span class={`cz-price-tag${tiers?.basic?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                              {fmtPrice(tiers?.basic?.price)}
+                            </span>
+                          </td>
+                          <td class="cz-sc-table__price">
+                            <span class={`cz-price-tag${tiers?.standard?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                              {fmtPrice(tiers?.standard?.price)}
+                            </span>
+                          </td>
+                          <td class="cz-sc-table__price">
+                            <span class={`cz-price-tag${tiers?.premium?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                              {fmtPrice(tiers?.premium?.price)}
+                            </span>
+                          </td>
+                          <td class="cz-sc-table__price">
+                            <span class={`cz-price-tag${tiers?.enterprise?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                              {fmtPrice(tiers?.enterprise?.price)}
+                            </span>
+                          </td>
+                          <td style="text-align:center">
+                            {popularTier ? (
+                              <span class="cz-tier-badge cz-tier-badge--popular">
+                                {TIER_LABELS[popularTier] ?? popularTier}
+                              </span>
+                            ) : (
+                              <span style="color:var(--admin-text-faint);font-size:12px">—</span>
+                            )}
+                          </td>
+                          <td style="text-align:center">
+                            <span class={`cz-status-pill cz-status-pill--${isActive ? 'active' : 'inactive'}`}>
+                              {isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -8,13 +8,12 @@ export interface AdminOverview {
 export type WorkstationId =
   | 'overview'
   | 'service-catalog'
-  | 'pricing'
+  | 'surface-packages'
   | 'promotions'
   | 'bundles'
   | 'featured'
   | 'requests'
-  | 'health'
-  | 'surface-packages';
+  | 'health';
 
 export interface WorkstationDef {
   id: WorkstationId;
@@ -24,15 +23,14 @@ export interface WorkstationDef {
 }
 
 export const WORKSTATIONS: WorkstationDef[] = [
-  { id: 'overview',          label: 'Overview',          icon: '◈', group: 'command'    },
-  { id: 'service-catalog',   label: 'Service Catalog',   icon: '⚙', group: 'catalog'    },
-  { id: 'pricing',           label: 'Pricing',           icon: '¤', group: 'catalog'    },
-  { id: 'surface-packages',  label: 'Surface Packages',  icon: '◧', group: 'catalog'    },
-  { id: 'promotions',        label: 'Promotions',        icon: '◷', group: 'catalog'    },
-  { id: 'bundles',           label: 'Bundles',           icon: '❐', group: 'catalog'    },
-  { id: 'featured',          label: 'Featured Controls', icon: '◆', group: 'catalog'    },
-  { id: 'requests',          label: 'Requests & Quotes', icon: '◎', group: 'operations' },
-  { id: 'health',            label: 'Health & Status',   icon: '◉', group: 'operations' },
+  { id: 'overview',         label: 'Overview',          icon: '◈', group: 'command'    },
+  { id: 'service-catalog',  label: 'Service Catalog',   icon: '⚙', group: 'catalog'    },
+  { id: 'surface-packages', label: 'Surface Packages',  icon: '◧', group: 'catalog'    },
+  { id: 'promotions',       label: 'Promotions',        icon: '◷', group: 'catalog'    },
+  { id: 'bundles',          label: 'Bundles',           icon: '❐', group: 'catalog'    },
+  { id: 'featured',         label: 'Featured Controls', icon: '◆', group: 'catalog'    },
+  { id: 'requests',         label: 'Requests & Quotes', icon: '◎', group: 'operations' },
+  { id: 'health',           label: 'Health & Status',   icon: '◉', group: 'operations' },
 ];
 
 export const WORKSTATION_LABELS: Record<WorkstationId, string> = Object.fromEntries(
