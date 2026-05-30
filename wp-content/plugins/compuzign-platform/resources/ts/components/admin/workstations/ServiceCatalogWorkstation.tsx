@@ -4,7 +4,8 @@ import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { CostBuilderResponse, ServiceItem, TierId } from '@/api/types/cost-builder';
-import type { SurfacePackageSummary } from '@/api/types/admin';
+import { fetchSurfacePackageDetail } from '@/api/endpoints/admin';
+import type { SurfacePackageDetailResponse, SurfacePackageSummary } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 
 interface Props {
@@ -28,16 +29,33 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 // ── PackageTierSelectStep ─────────────────────────────────────────────────────
-// Step 1 of the 2-step "Manage Surface Package" drawer:
-// shows the tier table and lets the admin pick a tier to edit.
-// Sets tierId/isNew/currentEnabled in shared stepData then calls goNext().
+// Step 1 of the 2-step "Manage Surface Package" drawer.
+// Fetches package detail using packageId from stepData so it is self-sufficient
+// regardless of how stepData was initialised (avoids batched-render state issues).
 
 function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
-  const pkg = ctx.stepData.packageSummary as SurfacePackageSummary | null;
+  const packageId = ctx.stepData.packageId as number;
 
-  if (!pkg) {
-    return <div class="cz-admin-error-msg">Package data unavailable.</div>;
+  const [detail, setDetail]   = useState<SurfacePackageDetailResponse | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSurfacePackageDetail(packageId)
+      .then(setDetail)
+      .catch((err: unknown) => {
+        setLoadErr(err instanceof Error ? err.message : 'Failed to load package.');
+      });
+  }, [packageId]);
+
+  if (!detail && !loadErr) {
+    return <div class="cz-action-progress"><Spinner label="Loading package…" /></div>;
   }
+
+  if (loadErr || !detail) {
+    return <div class="cz-admin-error-msg">{loadErr ?? 'Package data unavailable.'}</div>;
+  }
+
+  const pkg = detail.package;
 
   const handleManage = (tierId: string) => {
     const tier = pkg.tiers[tierId];
@@ -70,6 +88,7 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
               const isPopular   = pkg.popular_tier === tierId;
               const tierEnabled = tier?.enabled ?? true;
               const displayLbl  = (tier?.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId];
+              const incCount    = tier?.inclusions_override?.length ?? 0;
 
               return (
                 <tr key={tierId} class={!tierEnabled ? 'cz-sp-tier-row--disabled' : ''}>
@@ -91,7 +110,7 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
                   </td>
                   <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
                   <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                    {tier?.inclusion_count ?? '—'}
+                    {incCount > 0 ? incCount : '—'}
                   </td>
                   <td class="cz-sp-tier-table__actions">
                     <button
@@ -143,7 +162,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       title: relatedPkg.title,
       initialStepData: {
         packageId:      relatedPkg.post_id,
-        packageSummary: relatedPkg,
         tierId:         null,
         isNew:          false,
         currentEnabled: true,

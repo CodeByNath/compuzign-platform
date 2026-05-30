@@ -52,6 +52,7 @@ export function AdminShell() {
 
       {actionConfig && (
         <ActionShell
+          key={actionConfig.id}
           config={actionConfig}
           onClose={closeAction}
           onComplete={handleActionComplete}
