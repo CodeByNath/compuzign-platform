@@ -3,6 +3,8 @@
 namespace CompuZign\Platform\Modules\SurfacePackages;
 
 use CompuZign\Platform\Core\Health;
+use CompuZign\Platform\Modules\SurfacePackages\Http\AdminSurfacePackagesController;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 
 /**
@@ -17,6 +19,7 @@ class SurfacePackagesModule
     public function register(): void
     {
         (new PackageSchema())->register();
+        (new AdminSurfacePackagesController(new PackageRepository()))->register();
 
         Health::register('surface_packages', static function (): bool {
             if (!post_type_exists('cz_surface_package')) {

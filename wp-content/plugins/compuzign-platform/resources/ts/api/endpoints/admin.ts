@@ -1,5 +1,11 @@
 import { apiClient } from '../client';
-import type { AcceptIntakeResponse, AdminOverview, AdminRequestsResponse, RequestEntry } from '../types/admin';
+import type {
+  AcceptIntakeResponse,
+  AdminOverview,
+  AdminRequestsResponse,
+  RequestEntry,
+  SurfacePackagesResponse,
+} from '../types/admin';
 
 export function fetchAdminOverview(): Promise<AdminOverview> {
   return apiClient.get<AdminOverview>('admin/overview');
@@ -15,4 +21,8 @@ export function fetchAdminRequest(ref: string): Promise<{ success: boolean; requ
 
 export function acceptIntakeRequest(ref: string): Promise<AcceptIntakeResponse> {
   return apiClient.post<AcceptIntakeResponse>(`admin/requests/${ref}/accept`);
+}
+
+export function fetchSurfacePackages(): Promise<SurfacePackagesResponse> {
+  return apiClient.get<SurfacePackagesResponse>('admin/surface-packages');
 }

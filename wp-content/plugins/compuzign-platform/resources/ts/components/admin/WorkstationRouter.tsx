@@ -3,6 +3,7 @@ import type { ActionConfig } from './ActionShell';
 import { OverviewWorkstation } from './workstations/OverviewWorkstation';
 import { ServiceCatalogWorkstation } from './workstations/ServiceCatalogWorkstation';
 import { PricingWorkstation } from './workstations/PricingWorkstation';
+import { SurfacePackagesWorkstation } from './workstations/SurfacePackagesWorkstation';
 import { BundlesWorkstation } from './workstations/BundlesWorkstation';
 import { FeaturedWorkstation } from './workstations/FeaturedWorkstation';
 import { RequestsWorkstation } from './workstations/RequestsWorkstation';
@@ -49,6 +50,8 @@ export function WorkstationRouter({ active, refreshKey, openAction }: Props) {
       return <ServiceCatalogWorkstation refreshKey={refreshKey} openAction={openAction} />;
     case 'pricing':
       return <PricingWorkstation refreshKey={refreshKey} />;
+    case 'surface-packages':
+      return <SurfacePackagesWorkstation refreshKey={refreshKey} />;
     case 'promotions':
       return <PromotionsStub />;
     case 'bundles':

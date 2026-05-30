@@ -31,6 +31,7 @@ return array(
     'CompuZign\\Platform\\Modules\\Requests\\Support\\RequestLifecycle' => $baseDir . '/src/Modules/Requests/Support/RequestLifecycle.php',
     'CompuZign\\Platform\\Modules\\Requests\\Support\\RequestMetaSchema' => $baseDir . '/src/Modules/Requests/Support/RequestMetaSchema.php',
     'CompuZign\\Platform\\Modules\\Requests\\Support\\RequestSchema' => $baseDir . '/src/Modules/Requests/Support/RequestSchema.php',
+    'CompuZign\\Platform\\Modules\\SurfacePackages\\Http\\AdminSurfacePackagesController' => $baseDir . '/src/Modules/SurfacePackages/Http/AdminSurfacePackagesController.php',
     'CompuZign\\Platform\\Modules\\SurfacePackages\\Repositories\\PackageRepository' => $baseDir . '/src/Modules/SurfacePackages/Repositories/PackageRepository.php',
     'CompuZign\\Platform\\Modules\\SurfacePackages\\Support\\PackageSchema' => $baseDir . '/src/Modules/SurfacePackages/Support/PackageSchema.php',
     'CompuZign\\Platform\\Modules\\SurfacePackages\\SurfacePackagesModule' => $baseDir . '/src/Modules/SurfacePackages/SurfacePackagesModule.php',

@@ -48,6 +48,7 @@ class PackageSchema
             'service_refs'       => self::sanitizeServiceRefs($data['service_refs'] ?? []),
             'tiers'              => self::sanitizeTiers($data['tiers'] ?? []),
             'popular_tier'       => self::sanitizePopularTier($data['popular_tier'] ?? ''),
+            'faq_refs'           => self::sanitizeFaqRefs($data['faq_refs'] ?? []),
             'sort_position'      => (int) ($data['sort_position'] ?? 0),
             'display_contexts'   => self::sanitizeContexts($data['display_contexts'] ?? []),
             'bundle'             => self::sanitizeBundle($data['bundle'] ?? []),
@@ -68,6 +69,7 @@ class PackageSchema
                 ['price' => null, 'billing_cycle' => null, 'inclusions_override' => [], 'features' => []]
             ),
             'popular_tier'       => null,
+            'faq_refs'           => [],
             'sort_position'      => 0,
             'display_contexts'   => ['cost-builder'],
             'bundle'             => ['title' => '', 'description' => '', 'price' => null],
@@ -172,6 +174,30 @@ class PackageSchema
     {
         $tier = sanitize_text_field((string) $tier);
         return in_array($tier, self::ALLOWED_TIERS, true) ? $tier : null;
+    }
+
+    /**
+     * FAQ IDs selected from the canonical cz_service_faqs pool.
+     * Empty = all canonical FAQs apply (current PricingBuilder behaviour).
+     *
+     * @param  mixed $refs
+     * @return string[]
+     */
+    private static function sanitizeFaqRefs(mixed $refs): array
+    {
+        if (!is_array($refs)) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($refs as $ref) {
+            $id = sanitize_text_field((string) $ref);
+            if ($id !== '') {
+                $clean[] = $id;
+            }
+        }
+
+        return array_values(array_unique($clean));
     }
 
     /**

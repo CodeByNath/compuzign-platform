@@ -46,6 +46,7 @@ class ComposerStaticInit25c428a2b6f44f8556177741aef0a658
         'CompuZign\\Platform\\Modules\\Requests\\Support\\RequestLifecycle' => __DIR__ . '/../..' . '/src/Modules/Requests/Support/RequestLifecycle.php',
         'CompuZign\\Platform\\Modules\\Requests\\Support\\RequestMetaSchema' => __DIR__ . '/../..' . '/src/Modules/Requests/Support/RequestMetaSchema.php',
         'CompuZign\\Platform\\Modules\\Requests\\Support\\RequestSchema' => __DIR__ . '/../..' . '/src/Modules/Requests/Support/RequestSchema.php',
+        'CompuZign\\Platform\\Modules\\SurfacePackages\\Http\\AdminSurfacePackagesController' => __DIR__ . '/../..' . '/src/Modules/SurfacePackages/Http/AdminSurfacePackagesController.php',
         'CompuZign\\Platform\\Modules\\SurfacePackages\\Repositories\\PackageRepository' => __DIR__ . '/../..' . '/src/Modules/SurfacePackages/Repositories/PackageRepository.php',
         'CompuZign\\Platform\\Modules\\SurfacePackages\\Support\\PackageSchema' => __DIR__ . '/../..' . '/src/Modules/SurfacePackages/Support/PackageSchema.php',
         'CompuZign\\Platform\\Modules\\SurfacePackages\\SurfacePackagesModule' => __DIR__ . '/../..' . '/src/Modules/SurfacePackages/SurfacePackagesModule.php',
