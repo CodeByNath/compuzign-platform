@@ -1,3 +1,197 @@
+/* ── Login gate ─────────────────────────────────────────────────────────────── */
+/* Self-contained token set — mirrors admin values but scoped here so the        */
+/* fixed overlay works without inheriting from .cz-admin-root.                  */
+
+.cz-login-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 48%, rgba(92, 110, 245, 0.11) 0%, transparent 65%),
+    #0f1117;
+}
+
+.cz-login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 44px 40px 36px;
+  border-radius: 18px;
+  background: #1a1d26;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(92, 110, 245, 0.12),
+    0 40px 80px rgba(0, 0, 0, 0.45),
+    0 0 60px rgba(92, 110, 245, 0.09);
+}
+
+/* ── Brand ───────────────────────────────────────────────────────────────────── */
+
+.cz-login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 36px;
+}
+
+.cz-login-brand__mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  background: #5c6ef5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.cz-login-brand__name {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #e8eaed;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.cz-login-brand__sub {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(232, 234, 237, 0.40);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── Form ────────────────────────────────────────────────────────────────────── */
+
+.cz-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cz-login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cz-login-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(232, 234, 237, 0.55);
+}
+
+.cz-login-input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: #22263a;
+  color: #e8eaed;
+  font-size: 14px;
+  line-height: 1;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cz-login-input::placeholder {
+  color: rgba(232, 234, 237, 0.25);
+}
+
+.cz-login-input:focus {
+  border-color: #5c6ef5;
+  box-shadow: 0 0 0 3px rgba(92, 110, 245, 0.18);
+}
+
+.cz-login-input-wrap {
+  position: relative;
+}
+
+.cz-login-input-wrap .cz-login-input {
+  padding-right: 64px;
+}
+
+.cz-login-eye {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 46px;
+  padding: 0 16px;
+  background: transparent;
+  border: none;
+  color: rgba(232, 234, 237, 0.35);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+
+.cz-login-eye:hover {
+  color: rgba(232, 234, 237, 0.75);
+}
+
+/* ── Error ───────────────────────────────────────────────────────────────────── */
+
+.cz-login-error {
+  padding: 11px 14px;
+  border-radius: 7px;
+  background: rgba(240, 101, 121, 0.10);
+  border: 1px solid rgba(240, 101, 121, 0.20);
+  color: #f06579;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Submit button ───────────────────────────────────────────────────────────── */
+
+.cz-login-btn {
+  height: 48px;
+  width: 100%;
+  border: none;
+  border-radius: 9px;
+  background: #5c6ef5;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  margin-top: 2px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.cz-login-btn:hover {
+  background: #7080ff;
+}
+
+.cz-login-btn:active {
+  transform: scale(0.99);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────────── */
+
+.cz-login-footer {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(232, 234, 237, 0.25);
+  letter-spacing: 0.06em;
+}
+
 /* ── Admin Command Centre — operational stylesheet ─────────────────────────── */
 /* Extends the Atomic Engine token system (--cz-*) with admin-layer semantics.  */
 /* Raw hex and rgba() values are permitted only inside the token block below.   */

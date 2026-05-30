@@ -1,10 +1,10 @@
 import '../../css/modules/admin.css';
 import { registry } from '@/runtime/registry';
-import { AdminShell } from '@/components/admin/AdminShell';
+import { AdminApp } from '@/components/admin/AdminApp';
 
 registry.register({
   id: 'admin',
-  component: AdminShell,
+  component: AdminApp,
   conditions: [
     { type: 'shortcode', mountId: 'compuzign-admin' },
   ],
