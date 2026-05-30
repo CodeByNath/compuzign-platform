@@ -10,9 +10,11 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  */
 class PackageSchema
 {
-    public const ALLOWED_TYPES    = ['tier_configuration', 'bundle', 'promotion', 'homepage_collection', 'campaign'];
-    public const ALLOWED_TIERS    = ['basic', 'standard', 'premium', 'enterprise'];
-    public const ALLOWED_CONTEXTS = ['cost-builder', 'homepage', 'pricing-page'];
+    public const ALLOWED_TYPES               = ['tier_configuration', 'bundle', 'promotion', 'homepage_collection', 'campaign'];
+    public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise'];
+    public const ALLOWED_CONTEXTS            = ['cost-builder', 'homepage', 'pricing-page'];
+    public const ALLOWED_PROMOTION_STATUSES  = ['draft', 'active', 'archived'];
+    public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise'];
 
     public function register(): void
     {
@@ -47,6 +49,7 @@ class PackageSchema
             'package_type'       => self::sanitizeType($data['package_type'] ?? ''),
             'service_refs'       => self::sanitizeServiceRefs($data['service_refs'] ?? []),
             'tiers'              => self::sanitizeTiers($data['tiers'] ?? []),
+            'promotion_tiers'    => self::sanitizePromotionTiers($data['promotion_tiers'] ?? []),
             'popular_tier'       => self::sanitizePopularTier($data['popular_tier'] ?? ''),
             'faq_refs'           => self::sanitizeFaqRefs($data['faq_refs'] ?? []),
             'sort_position'      => (int) ($data['sort_position'] ?? 0),
@@ -76,6 +79,7 @@ class PackageSchema
                     'enabled'             => true,
                 ]
             ),
+            'promotion_tiers'    => [],
             'popular_tier'       => null,
             'faq_refs'           => [],
             'sort_position'      => 0,
@@ -280,5 +284,214 @@ class PackageSchema
 
         $ts = strtotime((string) $raw);
         return ($ts !== false) ? gmdate('Y-m-d H:i:s', $ts) : null;
+    }
+
+    // ── Promotion tier sanitizers ─────────────────────────────────────────────
+
+    /**
+     * Generates a server-side ID for a new promotion tier.
+     * Call this in the controller before persisting a new record.
+     */
+    public static function generatePromotionTierId(): string
+    {
+        return 'promo_' . bin2hex(random_bytes(4));
+    }
+
+    /**
+     * Sanitise the promotion_tiers array.
+     * Records without a valid id are silently dropped.
+     * Duplicate ids are deduplicated (first occurrence wins).
+     *
+     * @param  mixed $tiers
+     * @return array<int, array<string, mixed>>
+     */
+    private static function sanitizePromotionTiers(mixed $tiers): array
+    {
+        if (!is_array($tiers)) {
+            return [];
+        }
+
+        $out  = [];
+        $seen = [];
+
+        foreach ($tiers as $tier) {
+            if (!is_array($tier)) {
+                continue;
+            }
+
+            $clean = self::sanitizePromotionTier($tier);
+
+            if ($clean === null) {
+                continue;
+            }
+
+            if (isset($seen[$clean['id']])) {
+                continue; // first occurrence wins
+            }
+
+            $seen[$clean['id']] = true;
+            $out[] = $clean;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Sanitise a single promotion tier record.
+     * Returns null when the record is structurally invalid (missing id).
+     *
+     * @param  array<string, mixed> $src
+     * @return array<string, mixed>|null
+     */
+    private static function sanitizePromotionTier(array $src): ?array
+    {
+        // id is required — records without one cannot be addressed by the controller
+        $id = sanitize_text_field((string) ($src['id'] ?? ''));
+        if ($id === '') {
+            return null;
+        }
+
+        $name = sanitize_text_field((string) ($src['name'] ?? ''));
+        $slug = sanitize_title((string) ($src['slug'] ?? $name));
+
+        $status = sanitize_text_field((string) ($src['status'] ?? 'draft'));
+        if (!in_array($status, self::ALLOWED_PROMOTION_STATUSES, true)) {
+            $status = 'draft';
+        }
+
+        // based_on: metadata only — stores the admin's authoring intent, never used at render time
+        $basedOn = null;
+        if (!empty($src['based_on'])) {
+            $candidate = sanitize_text_field((string) $src['based_on']);
+            if (in_array($candidate, self::ALLOWED_BASED_ON, true)) {
+                $basedOn = $candidate;
+            }
+        }
+
+        $headline    = sanitize_text_field((string) ($src['headline'] ?? ''));
+        $description = sanitize_textarea_field((string) ($src['description'] ?? ''));
+
+        $price = null;
+        if (isset($src['price']) && $src['price'] !== null && $src['price'] !== '') {
+            $price = (float) $src['price'];
+        }
+
+        $billingLabel = sanitize_text_field((string) ($src['billing_label'] ?? ''));
+
+        $features   = self::sanitizeStringArray($src['features'] ?? []);
+        $inclusions = self::sanitizeInclusionItems($src['inclusions'] ?? []);
+        $exclusions = self::sanitizeStringArray($src['exclusions'] ?? []);
+
+        $badge         = sanitize_text_field((string) ($src['badge'] ?? ''));
+        $campaignLabel = sanitize_text_field((string) ($src['campaign_label'] ?? ''));
+
+        $startsAt = self::sanitizeDatetime($src['starts_at'] ?? null);
+        $endsAt   = self::sanitizeDatetime($src['ends_at'] ?? null);
+
+        $priority   = (int) ($src['priority'] ?? 0);
+        $isFeatured = (bool) ($src['is_featured'] ?? false);
+
+        $metadata = self::sanitizeMetadata($src['metadata'] ?? []);
+
+        return [
+            'id'             => $id,
+            'name'           => $name,
+            'slug'           => $slug,
+            'status'         => $status,
+            'based_on'       => $basedOn,
+            'headline'       => $headline,
+            'description'    => $description,
+            'price'          => $price,
+            'billing_label'  => $billingLabel,
+            'features'       => $features,
+            'inclusions'     => $inclusions,
+            'exclusions'     => $exclusions,
+            'badge'          => $badge,
+            'campaign_label' => $campaignLabel,
+            'starts_at'      => $startsAt,
+            'ends_at'        => $endsAt,
+            'priority'       => $priority,
+            'is_featured'    => $isFeatured,
+            'metadata'       => $metadata,
+        ];
+    }
+
+    /**
+     * Sanitise a flat list of strings.
+     * Empty strings are removed; non-string values are cast then sanitized.
+     *
+     * @param  mixed $items
+     * @return string[]
+     */
+    private static function sanitizeStringArray(mixed $items): array
+    {
+        if (!is_array($items)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('sanitize_text_field', array_map('strval', $items)),
+            fn(string $s) => $s !== ''
+        ));
+    }
+
+    /**
+     * Sanitise inclusion items as [{id, label}] pairs.
+     * Follows the same shape as inclusions_override in core tiers.
+     *
+     * @param  mixed $items
+     * @return array<int, array{id: string, label: string}>
+     */
+    private static function sanitizeInclusionItems(mixed $items): array
+    {
+        if (!is_array($items)) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($items as $inc) {
+            if (!is_array($inc)) {
+                continue;
+            }
+
+            $incId    = sanitize_text_field((string) ($inc['id'] ?? ''));
+            $incLabel = sanitize_text_field((string) ($inc['label'] ?? ''));
+
+            if ($incId !== '' && $incLabel !== '') {
+                $out[] = ['id' => $incId, 'label' => $incLabel];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Sanitise the metadata map to a flat string→string structure.
+     * Non-scalar values and empty keys are dropped.
+     *
+     * @param  mixed $meta
+     * @return array<string, string>
+     */
+    private static function sanitizeMetadata(mixed $meta): array
+    {
+        if (!is_array($meta)) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($meta as $key => $value) {
+            $cleanKey = sanitize_key((string) $key);
+            if ($cleanKey === '') {
+                continue;
+            }
+            if (!is_string($value) && !is_numeric($value) && !is_bool($value)) {
+                continue;
+            }
+            $out[$cleanKey] = sanitize_text_field((string) $value);
+        }
+
+        return $out;
     }
 }
