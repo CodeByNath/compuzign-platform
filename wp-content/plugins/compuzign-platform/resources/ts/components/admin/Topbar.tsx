@@ -20,7 +20,10 @@ export function Topbar({ workstation, onToggleSidebar }: Props) {
       <h1 class="cz-admin-topbar__title">
         {WORKSTATION_LABELS[workstation] ?? 'Command Centre'}
       </h1>
-      <span class="cz-admin-topbar__meta">CompuZign Platform</span>
+      <div class="cz-admin-topbar__brand">
+        <span class="cz-admin-topbar__brand-name">CompuZign</span>
+        <span class="cz-admin-topbar__brand-sub">Powered by WeeraXStudio</span>
+      </div>
     </header>
   );
 }

@@ -14,6 +14,9 @@ const GROUPS: Record<string, string> = {
   operations: 'Operations',
 };
 
+// Hidden from nav UI — routes and workstation code remain fully intact.
+const HIDDEN_FROM_NAV = new Set<WorkstationId>(['bundles', 'health']);
+
 export function Sidebar({ active, collapsed, onNavigate, onToggleCollapse }: Props) {
   const grouped = WORKSTATIONS.reduce<Record<string, WorkstationDef[]>>((acc, w) => {
     if (!acc[w.group]) acc[w.group] = [];
@@ -34,7 +37,7 @@ export function Sidebar({ active, collapsed, onNavigate, onToggleCollapse }: Pro
             {!collapsed && (
               <div class="cz-admin-sidebar__group-label">{GROUPS[group] ?? group}</div>
             )}
-            {items.map((w) => (
+            {items.filter((w) => !HIDDEN_FROM_NAV.has(w.id)).map((w) => (
               <button
                 key={w.id}
                 type="button"

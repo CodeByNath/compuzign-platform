@@ -328,6 +328,29 @@
   letter-spacing: 0.04em;
 }
 
+.cz-admin-topbar__brand {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.cz-admin-topbar__brand-name {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 600;
+  color: var(--admin-text);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.cz-admin-topbar__brand-sub {
+  font-size: 10px;
+  color: var(--admin-text-faint);
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
 /* ── Status strip ───────────────────────────────────────────────────────────── */
 .cz-admin-status-strip {
   height: var(--admin-status-h);

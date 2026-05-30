@@ -25,7 +25,7 @@ export interface WorkstationDef {
 export const WORKSTATIONS: WorkstationDef[] = [
   { id: 'overview',         label: 'Overview',          icon: '◈', group: 'command'    },
   { id: 'service-catalog',  label: 'Service Catalog',   icon: '⚙', group: 'catalog'    },
-  { id: 'surface-packages', label: 'Surface Packages',  icon: '◧', group: 'catalog'    },
+  { id: 'surface-packages', label: 'Service Packages',  icon: '◧', group: 'catalog'    },
   { id: 'promotions',       label: 'Promotions',        icon: '◷', group: 'catalog'    },
   { id: 'bundles',          label: 'Bundles',           icon: '❐', group: 'catalog'    },
   { id: 'featured',         label: 'Featured Controls', icon: '◆', group: 'catalog'    },
