@@ -68,6 +68,36 @@ class AdminSurfacePackagesController
             ],
         ]);
 
+        register_rest_route($ns, '/admin/surface-packages/(?P<id>\d+)/promotion-tiers', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createPromotionTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id' => ['required' => true, 'validate_callback' => fn($v) => is_numeric($v)],
+            ],
+        ]);
+
+        // /archive must be registered before the bare /{promo} pattern so it is not swallowed.
+        register_rest_route($ns, '/admin/surface-packages/(?P<id>\d+)/promotion-tiers/(?P<promo>[a-z0-9_]+)/archive', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'archivePromotionTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'validate_callback' => fn($v) => is_numeric($v)],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
+        register_rest_route($ns, '/admin/surface-packages/(?P<id>\d+)/promotion-tiers/(?P<promo>[a-z0-9_]+)', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'savePromotionTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'validate_callback' => fn($v) => is_numeric($v)],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
         register_rest_route($ns, '/admin/surface-packages/(?P<id>\d+)/disable', [
             'methods'             => 'POST',
             'callback'            => [$this, 'disable'],
@@ -556,9 +586,271 @@ class AdminSurfacePackagesController
         ];
     }
 
+    // ── Promotion tier write endpoints ────────────────────────────────────────
+
+    public function createPromotionTier(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $packageId = (int) $request->get_param('id');
+        $post      = get_post($packageId);
+
+        if (!$post instanceof \WP_Post || $post->post_type !== 'cz_surface_package') {
+            return $this->error('Package not found.', 404);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return $this->error('Invalid request body.', 400);
+        }
+
+        $pkg = get_post_meta($packageId, 'cz_package', true);
+        if (!is_array($pkg)) {
+            $pkg = (new PackageSchema())->defaultPackage();
+        }
+
+        $serviceRefs     = array_map('intval', $pkg['service_refs'] ?? []);
+        $serviceId       = $serviceRefs[0] ?? 0;
+        $addedInclusions = [];
+
+        if (!empty($body['new_inclusions']) && is_array($body['new_inclusions']) && $serviceId > 0) {
+            $addedInclusions = $this->addInclusionsToService($serviceId, $body['new_inclusions']);
+        }
+
+        $promoId = PackageSchema::generatePromotionTierId();
+        $tier    = $this->buildPromotionTier($promoId, $body, $addedInclusions);
+
+        if (!isset($pkg['promotion_tiers']) || !is_array($pkg['promotion_tiers'])) {
+            $pkg['promotion_tiers'] = [];
+        }
+        $pkg['promotion_tiers'][] = $tier;
+
+        update_post_meta($packageId, 'cz_package', $pkg);
+
+        $saved     = get_post_meta($packageId, 'cz_package', true);
+        $savedTier = $this->findPromoInMeta($saved, $promoId) ?? $tier;
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $savedTier]);
+    }
+
+    public function savePromotionTier(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $packageId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($packageId);
+        if (!$post instanceof \WP_Post || $post->post_type !== 'cz_surface_package') {
+            return $this->error('Package not found.', 404);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return $this->error('Invalid request body.', 400);
+        }
+
+        $pkg = get_post_meta($packageId, 'cz_package', true);
+        if (!is_array($pkg)) {
+            return $this->error('Package meta not found.', 404);
+        }
+
+        $promos = is_array($pkg['promotion_tiers'] ?? null) ? $pkg['promotion_tiers'] : [];
+        $idx    = null;
+        foreach ($promos as $i => $t) {
+            if (is_array($t) && ($t['id'] ?? '') === $promoId) {
+                $idx = $i;
+                break;
+            }
+        }
+
+        if ($idx === null) {
+            return $this->error('Promotion tier not found.', 404);
+        }
+
+        $serviceRefs     = array_map('intval', $pkg['service_refs'] ?? []);
+        $serviceId       = $serviceRefs[0] ?? 0;
+        $addedInclusions = [];
+
+        if (!empty($body['new_inclusions']) && is_array($body['new_inclusions']) && $serviceId > 0) {
+            $addedInclusions = $this->addInclusionsToService($serviceId, $body['new_inclusions']);
+        }
+
+        $promos[$idx]           = $this->buildPromotionTier($promoId, $body, $addedInclusions, $promos[$idx]);
+        $pkg['promotion_tiers'] = array_values($promos);
+
+        update_post_meta($packageId, 'cz_package', $pkg);
+
+        $saved     = get_post_meta($packageId, 'cz_package', true);
+        $savedTier = $this->findPromoInMeta($saved, $promoId) ?? $promos[$idx];
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $savedTier]);
+    }
+
+    public function archivePromotionTier(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $packageId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($packageId);
+        if (!$post instanceof \WP_Post || $post->post_type !== 'cz_surface_package') {
+            return $this->error('Package not found.', 404);
+        }
+
+        $pkg = get_post_meta($packageId, 'cz_package', true);
+        if (!is_array($pkg)) {
+            return $this->error('Package meta not found.', 404);
+        }
+
+        $promos = is_array($pkg['promotion_tiers'] ?? null) ? $pkg['promotion_tiers'] : [];
+        $found  = false;
+
+        foreach ($promos as &$tier) {
+            if (is_array($tier) && ($tier['id'] ?? '') === $promoId) {
+                $tier['status'] = 'archived';
+                $found = true;
+                break;
+            }
+        }
+        unset($tier);
+
+        if (!$found) {
+            return $this->error('Promotion tier not found.', 404);
+        }
+
+        $pkg['promotion_tiers'] = $promos;
+        update_post_meta($packageId, 'cz_package', $pkg);
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'archived']);
+    }
+
+    // ── Promotion tier helpers ─────────────────────────────────────────────────
+
+    /**
+     * Builds a sanitised promotion tier array from a request body.
+     * Falls back to $existing values for any field not present in $body.
+     * Merges $addedInclusions into the stored inclusions list.
+     *
+     * @param  string $id
+     * @param  array  $body
+     * @param  array  $addedInclusions
+     * @param  array  $existing
+     * @return array<string, mixed>
+     */
+    private function buildPromotionTier(string $id, array $body, array $addedInclusions = [], array $existing = []): array
+    {
+        // Inclusions: [{id, label}] selected from service pool.
+        $inclusions = $existing['inclusions'] ?? [];
+        if (array_key_exists('inclusions', $body) && is_array($body['inclusions'])) {
+            $inclusions = [];
+            foreach ($body['inclusions'] as $inc) {
+                if (!is_array($inc)) continue;
+                $incId    = sanitize_text_field((string) ($inc['id'] ?? ''));
+                $incLabel = sanitize_text_field((string) ($inc['label'] ?? ''));
+                if ($incId !== '' && $incLabel !== '') {
+                    $inclusions[] = ['id' => $incId, 'label' => $incLabel];
+                }
+            }
+        }
+        foreach ($addedInclusions as $inc) {
+            if (!in_array($inc['id'], array_column($inclusions, 'id'), true)) {
+                $inclusions[] = $inc;
+            }
+        }
+
+        // Exclusions: [{id, label}] from service pool, not included in this promotion.
+        $exclusions = $existing['exclusions'] ?? [];
+        if (array_key_exists('exclusions', $body) && is_array($body['exclusions'])) {
+            $exclusions = [];
+            foreach ($body['exclusions'] as $exc) {
+                if (!is_array($exc)) continue;
+                $excId    = sanitize_text_field((string) ($exc['id'] ?? ''));
+                $excLabel = sanitize_text_field((string) ($exc['label'] ?? ''));
+                if ($excId !== '' && $excLabel !== '') {
+                    $exclusions[] = ['id' => $excId, 'label' => $excLabel];
+                }
+            }
+        }
+
+        // Features (add-ons): flat string list.
+        $features = $existing['features'] ?? [];
+        if (array_key_exists('features', $body) && is_array($body['features'])) {
+            $features = array_values(array_filter(
+                array_map('sanitize_text_field', array_map('strval', $body['features'])),
+                fn($f) => $f !== ''
+            ));
+        }
+
+        // Price.
+        $price = $existing['price'] ?? null;
+        if (array_key_exists('price', $body)) {
+            $price = ($body['price'] !== null && $body['price'] !== '') ? (float) $body['price'] : null;
+        }
+
+        // Status.
+        $status = $existing['status'] ?? 'draft';
+        if (!empty($body['status']) && in_array($body['status'], PackageSchema::ALLOWED_PROMOTION_STATUSES, true)) {
+            $status = $body['status'];
+        }
+
+        // based_on.
+        $basedOn = $existing['based_on'] ?? null;
+        if (array_key_exists('based_on', $body)) {
+            $candidate = sanitize_text_field((string) ($body['based_on'] ?? ''));
+            $basedOn   = in_array($candidate, PackageSchema::ALLOWED_BASED_ON, true) ? $candidate : null;
+        }
+
+        $name = sanitize_text_field((string) ($body['name'] ?? $existing['name'] ?? ''));
+        $slug = !empty($body['slug'])
+            ? sanitize_title((string) $body['slug'])
+            : (sanitize_title($name) ?: ($existing['slug'] ?? ''));
+
+        return [
+            'id'             => $id,
+            'name'           => $name,
+            'slug'           => $slug,
+            'status'         => $status,
+            'based_on'       => $basedOn,
+            'headline'       => sanitize_text_field((string) ($body['headline'] ?? $existing['headline'] ?? '')),
+            'description'    => sanitize_textarea_field((string) ($body['description'] ?? $existing['description'] ?? '')),
+            'price'          => $price,
+            'billing_label'  => sanitize_text_field((string) ($body['billing_label'] ?? $existing['billing_label'] ?? '')),
+            'features'       => $features,
+            'inclusions'     => $inclusions,
+            'exclusions'     => $exclusions,
+            'badge'          => sanitize_text_field((string) ($body['badge'] ?? $existing['badge'] ?? '')),
+            'campaign_label' => sanitize_text_field((string) ($body['campaign_label'] ?? $existing['campaign_label'] ?? '')),
+            'starts_at'      => $this->parseDatetimeField($body, $existing, 'starts_at'),
+            'ends_at'        => $this->parseDatetimeField($body, $existing, 'ends_at'),
+            'priority'       => (int) ($body['priority'] ?? $existing['priority'] ?? 0),
+            'is_featured'    => (bool) ($body['is_featured'] ?? $existing['is_featured'] ?? false),
+            'metadata'       => $existing['metadata'] ?? [],
+        ];
+    }
+
+    private function parseDatetimeField(array $body, array $existing, string $key): ?string
+    {
+        if (!array_key_exists($key, $body)) {
+            return $existing[$key] ?? null;
+        }
+        if ($body[$key] === null || $body[$key] === '') {
+            return null;
+        }
+        $ts = strtotime((string) $body[$key]);
+        return ($ts !== false) ? gmdate('Y-m-d H:i:s', $ts) : null;
+    }
+
+    private function findPromoInMeta(mixed $meta, string $promoId): ?array
+    {
+        $tiers = is_array($meta) ? ($meta['promotion_tiers'] ?? []) : [];
+        foreach ($tiers as $t) {
+            if (is_array($t) && ($t['id'] ?? '') === $promoId) {
+                return $t;
+            }
+        }
+        return null;
+    }
+
     /**
      * Normalise a raw promotion_tiers array from package meta into the API shape.
      * Records without a valid id are dropped.
+     * Coerces inclusions/exclusions to [{id, label}] — drops any legacy string values.
      *
      * @param  mixed $tiers
      * @return array<int, array<string, mixed>>
@@ -586,19 +878,45 @@ class AdminSurfacePackagesController
                 'description'    => $tier['description'] ?? '',
                 'price'          => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
                 'billing_label'  => $tier['billing_label'] ?? '',
-                'features'       => $tier['features'] ?? [],
-                'inclusions'     => $tier['inclusions'] ?? [],
-                'exclusions'     => $tier['exclusions'] ?? [],
+                'features'       => is_array($tier['features'] ?? null) ? $tier['features'] : [],
+                'inclusions'     => $this->coerceInclusionItems($tier['inclusions'] ?? []),
+                'exclusions'     => $this->coerceInclusionItems($tier['exclusions'] ?? []),
                 'badge'          => $tier['badge'] ?? '',
                 'campaign_label' => $tier['campaign_label'] ?? '',
                 'starts_at'      => $tier['starts_at'] ?? null,
                 'ends_at'        => $tier['ends_at'] ?? null,
                 'priority'       => (int) ($tier['priority'] ?? 0),
                 'is_featured'    => (bool) ($tier['is_featured'] ?? false),
-                'metadata'       => $tier['metadata'] ?? [],
+                'metadata'       => is_array($tier['metadata'] ?? null) ? $tier['metadata'] : [],
             ];
         }
 
+        return $out;
+    }
+
+    /**
+     * Coerce a raw inclusions/exclusions array to [{id, label}] only.
+     * Plain strings (legacy seed data) are silently dropped.
+     *
+     * @param  mixed $items
+     * @return array<int, array{id: string, label: string}>
+     */
+    private function coerceInclusionItems(mixed $items): array
+    {
+        if (!is_array($items)) {
+            return [];
+        }
+        $out = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue; // drop legacy plain strings
+            }
+            $id    = (string) ($item['id'] ?? '');
+            $label = (string) ($item['label'] ?? '');
+            if ($id !== '' && $label !== '') {
+                $out[] = ['id' => $id, 'label' => $label];
+            }
+        }
         return $out;
     }
 

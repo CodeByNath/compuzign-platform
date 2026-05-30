@@ -380,7 +380,7 @@ class PackageSchema
 
         $features   = self::sanitizeStringArray($src['features'] ?? []);
         $inclusions = self::sanitizeInclusionItems($src['inclusions'] ?? []);
-        $exclusions = self::sanitizeStringArray($src['exclusions'] ?? []);
+        $exclusions = self::sanitizeInclusionItems($src['exclusions'] ?? []);
 
         $badge         = sanitize_text_field((string) ($src['badge'] ?? ''));
         $campaignLabel = sanitize_text_field((string) ($src['campaign_label'] ?? ''));

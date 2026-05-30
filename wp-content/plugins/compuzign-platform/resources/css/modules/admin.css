@@ -2260,6 +2260,78 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-text-muted);
 }
 
+/* ── Content section subsections ────────────────────────────────────────────── */
+.cz-tf-subsection {
+  padding-bottom: var(--cz-space-4);
+  margin-bottom: var(--cz-space-4);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.cz-tf-subsection--last {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.cz-tf-subsection-label {
+  margin: 0;
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  color: var(--admin-text);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Excluded count badge */
+.cz-tf-count--excluded {
+  background: var(--admin-error-a10);
+  border-color: var(--admin-error-a15);
+  color: var(--admin-error);
+}
+
+/* Excluded checklist row — checked items show with strikethrough */
+.cz-tf-checklist--excluded .cz-tf-check-item--excluded .cz-tf-check-item__text {
+  color: var(--admin-error);
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+/* ── Add-on editable rows ────────────────────────────────────────────────────── */
+.cz-tf-addon-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+  margin-bottom: var(--cz-space-2);
+}
+
+.cz-tf-addon-row .cz-tf-input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.cz-tf-remove-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--admin-text-faint);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--admin-radius-sm);
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cz-tf-remove-btn:hover {
+  background: var(--admin-error-a10);
+  color: var(--admin-error);
+}
+
 .cz-sc-pkg-block--empty {
   border-style: dashed;
 }

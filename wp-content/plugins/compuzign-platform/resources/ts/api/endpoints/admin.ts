@@ -4,6 +4,9 @@ import type {
   AdminOverview,
   AdminRequestsResponse,
   PackageStatusResponse,
+  PromotionTierArchiveResponse,
+  PromotionTierPayload,
+  PromotionTierSaveResponse,
   RequestEntry,
   SurfacePackageDetailResponse,
   SurfacePackagesResponse,
@@ -52,6 +55,36 @@ export function disableSurfacePackage(id: number): Promise<PackageStatusResponse
 
 export function enableSurfacePackage(id: number): Promise<PackageStatusResponse> {
   return apiClient.post<PackageStatusResponse>(`admin/surface-packages/${id}/enable`);
+}
+
+export function createPromotionTier(
+  packageId: number,
+  payload: PromotionTierPayload,
+): Promise<PromotionTierSaveResponse> {
+  return apiClient.post<PromotionTierSaveResponse>(
+    `admin/surface-packages/${packageId}/promotion-tiers`,
+    payload,
+  );
+}
+
+export function savePromotionTier(
+  packageId: number,
+  promoId: string,
+  payload: PromotionTierPayload,
+): Promise<PromotionTierSaveResponse> {
+  return apiClient.post<PromotionTierSaveResponse>(
+    `admin/surface-packages/${packageId}/promotion-tiers/${promoId}`,
+    payload,
+  );
+}
+
+export function archivePromotionTier(
+  packageId: number,
+  promoId: string,
+): Promise<PromotionTierArchiveResponse> {
+  return apiClient.post<PromotionTierArchiveResponse>(
+    `admin/surface-packages/${packageId}/promotion-tiers/${promoId}/archive`,
+  );
 }
 
 export function toggleSurfaceTierEnabled(

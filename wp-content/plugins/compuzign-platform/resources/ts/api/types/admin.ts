@@ -95,7 +95,7 @@ export interface PromotionTier {
   billing_label: string;
   features: string[];
   inclusions: InclusionItem[];
-  exclusions: string[];
+  exclusions: InclusionItem[];
   badge: string;
   campaign_label: string;
   starts_at: string | null;
@@ -219,6 +219,40 @@ export interface TierSaveResponse {
 export interface PackageStatusResponse {
   success: boolean;
   post_status: string;
+}
+
+export interface PromotionTierPayload {
+  name: string;
+  slug?: string;
+  status: PromotionStatus;
+  based_on: BasedOnTier | null;
+  headline: string;
+  description: string;
+  price: number | null;
+  billing_label: string;
+  features: string[];
+  inclusions: InclusionItem[];
+  exclusions: InclusionItem[];
+  badge: string;
+  campaign_label: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  priority: number;
+  is_featured: boolean;
+  metadata?: Record<string, string>;
+  new_inclusions?: Array<{ label: string }>;
+}
+
+export interface PromotionTierSaveResponse {
+  success: boolean;
+  promo_id: string;
+  promotion_tier: PromotionTier;
+}
+
+export interface PromotionTierArchiveResponse {
+  success: boolean;
+  promo_id: string;
+  status: 'archived';
 }
 
 export interface AcceptIntakeResponse {
