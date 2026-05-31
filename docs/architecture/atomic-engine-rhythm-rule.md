@@ -226,4 +226,4 @@ The WordPress theme shell (`compuzign-shell`) does not own any part of the visua
 
 All Atomic Engine CSS loads through the plugin's `AssetLoader` via `wp_enqueue_scripts`. The shell's `wp_head()` call is the delivery mechanism; the shell is not the source.
 
-The shell must remain visually inert. Any CSS rule, token override, or styling logic placed in the theme layer violates this boundary and must be relocated to the plugin.
+The shell must remain visually inert. Any CSS rule, token override, or styling logic placed in the theme layer violates this boundary and must be relocated to the plugin..
