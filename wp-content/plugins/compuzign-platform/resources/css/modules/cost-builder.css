@@ -37,9 +37,15 @@
   to { transform: rotate(360deg); }
 }
 
-/* Category navigation */
+/* Category navigation — sticky so the active category is always visible while scrolling */
 .cz-cost-builder__nav {
-  margin-bottom: var(--cz-space-8);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  margin-bottom: var(--cz-space-6);
+  padding: var(--cz-space-3) 0;
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(14px);
 }
 
 /* Subcategory navigation — service chips below main category tabs */
@@ -502,6 +508,7 @@
 .cz-cost-builder__hero {
   padding: var(--cz-space-8) 0 var(--cz-space-6);
   max-width: 640px;
+  margin-bottom: var(--cz-space-8);
 }
 
 .cz-cost-builder__hero-eyebrow {
@@ -2742,7 +2749,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr auto;
   gap: clamp(var(--cz-space-4), 2.5vw, var(--cz-space-7));
-  align-items: start;
+  align-items: stretch;
 }
 
 @media (max-width: 860px) {
@@ -2958,4 +2965,41 @@
   color: var(--cz-color-danger);
   transform: none;
   box-shadow: none;
+}
+
+/* ── Nav: active chip / sub-tab floats to front in any flex row ─────────── */
+
+.cz-cost-builder__nav .cz-chip,
+.cz-cost-builder__subnav .cz-sub-tab {
+  order: 2;
+}
+
+.cz-cost-builder__nav .cz-chip.is-active,
+.cz-cost-builder__subnav .cz-sub-tab.is-active {
+  order: 1;
+}
+
+/* ── Nav: horizontal scroll on tablet and below (< 1024px) ─────────────── */
+
+@media (max-width: 1023px) {
+  .cz-cost-builder__nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cz-cost-builder__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cz-cost-builder__nav .cz-tabs {
+    flex-wrap: nowrap;
+    width: max-content;
+  }
+
+  .cz-cost-builder__nav .cz-chip {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 }
