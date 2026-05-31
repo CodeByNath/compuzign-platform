@@ -51,16 +51,19 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
 
   const handleClick = (id: number) => {
     onChange(id);
-    const mainNav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
-    const subnav = navRef.current;
-    const target =
-      document.querySelector<HTMLElement>('.cz-card.cz-cost-builder__card') ??
-      document.querySelector<HTMLElement>('.cz-cost-builder__main');
-    if (!target) return;
-    // Offset by nav + subnav combined height plus one spacing token (16px / --cz-space-4).
-    const offset = (mainNav?.offsetHeight ?? 0) + (subnav?.offsetHeight ?? 0) + 16;
-    const y = target.getBoundingClientRect().top + window.pageYOffset - offset;
-    window.scrollTo({ top: y, behavior: 'smooth' });
+    // Delay lets Preact re-render the new service card before we measure its position.
+    setTimeout(() => {
+      const mainNav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
+      const subnav = navRef.current;
+      const target =
+        document.querySelector<HTMLElement>('.cz-card.cz-cost-builder__card') ??
+        document.querySelector<HTMLElement>('.cz-cost-builder__main');
+      if (!target) return;
+      // Offset by nav + subnav combined height plus one spacing token (16px / --cz-space-4).
+      const offset = (mainNav?.offsetHeight ?? 0) + (subnav?.offsetHeight ?? 0) + 16;
+      const y = target.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }, 120);
   };
 
   return (

@@ -15,10 +15,12 @@ export function CategoryNav({ categories, activeSlug, onChange }: CategoryNavPro
 
   const handleChange = (slug: string) => {
     onChange(slug);
-    // Give the state update a tick to settle, then scroll nav to its sticky top position.
+    // Scroll so the subnav and content are in view below the sticky main nav.
     const timer = setTimeout(() => {
-      if (!navRef.current) return;
-      const y = navRef.current.getBoundingClientRect().top + window.pageYOffset;
+      const main = document.querySelector<HTMLElement>('.cz-cost-builder__main');
+      if (!main || !navRef.current) return;
+      const navHeight = navRef.current.offsetHeight;
+      const y = main.getBoundingClientRect().top + window.pageYOffset - navHeight;
       window.scrollTo({ top: y, behavior: 'smooth' });
     }, 120);
     return () => clearTimeout(timer);
