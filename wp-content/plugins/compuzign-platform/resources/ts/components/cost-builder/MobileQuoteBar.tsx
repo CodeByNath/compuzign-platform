@@ -26,7 +26,12 @@ export function MobileQuoteBar({ items, summaryId }: MobileQuoteBarProps) {
   }
 
   const handleView = () => {
-    document.getElementById(summaryId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const target = document.getElementById(summaryId);
+    if (!target) return;
+    const nav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
+    const navHeight = nav?.offsetHeight ?? 0;
+    const y = target.getBoundingClientRect().top + window.pageYOffset - navHeight;
+    window.scrollTo({ top: y, behavior: 'smooth' });
   };
 
   return (
