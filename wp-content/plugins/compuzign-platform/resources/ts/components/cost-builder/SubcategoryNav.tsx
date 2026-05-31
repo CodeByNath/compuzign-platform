@@ -19,9 +19,12 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
     if (!subnav) return;
 
     // Capture the subnav's document-position threshold once, before it goes sticky.
-    // stickyStart = the scroll offset at which the subnav reaches its sticky top position.
+    // Add a 100px buffer so hide/show logic only kicks in after the subnav has been
+    // sticky for a short distance, preventing the sticky transition and hide animation
+    // from fighting each other.
     const navHeight = mainNav?.offsetHeight ?? 0;
-    stickyStartRef.current = subnav.getBoundingClientRect().top + window.pageYOffset - navHeight;
+    const stickyStart = subnav.getBoundingClientRect().top + window.pageYOffset - navHeight;
+    stickyStartRef.current = stickyStart + 100;
 
     let lastY = window.pageYOffset;
 
