@@ -50,12 +50,39 @@
   backdrop-filter: blur(14px);
 }
 
-/* Subcategory navigation — service chips below main category tabs */
+/* Subcategory navigation — sticky directly below the main nav */
 .cz-cost-builder__subnav {
+  position: sticky;
+  top: var(--cz-cost-builder-sticky-nav-offset);
+  z-index: 49;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--cz-space-3);
   margin-bottom: var(--cz-space-6);
+  padding: var(--cz-space-2) 0;
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(14px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  transition: transform var(--cz-transition), opacity var(--cz-transition);
+}
+
+.cz-cost-builder__subnav::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-cost-builder__subnav.is-hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Prevent subnav chips from wrapping or squishing inside the scroll track */
+.cz-cost-builder__subnav .cz-sub-tab {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Body — uses cz-layout-sidebar when quote is active */
@@ -3019,5 +3046,13 @@
   .cz-cost-builder[data-has-quote="true"] .cz-promo-card__left,
   .cz-cost-builder[data-has-quote="true"] .cz-promo-card__middle {
     border-right: none;
+  }
+}
+
+/* ── Mobile quote bar: hide when the quote summary is already in view ───── */
+
+@media (max-width: 1023px) {
+  .cz-mobile-quote-bar.is-quote-visible {
+    display: none;
   }
 }
