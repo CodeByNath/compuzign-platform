@@ -2,7 +2,9 @@
 
 /* Root */
 .cz-cost-builder {
-  /* Nav height token: space-16 (64px) + space-6 (24px) = 88px on the 4-px atomic grid */
+  /* Actual rendered nav height — used to stack subnav directly below nav */
+  --cz-cost-builder-nav-height: var(--cz-space-16); /* 64px */
+  /* Sidebar clearance = nav height + breathing room (space-16 + space-6 = 88px) */
   --cz-cost-builder-sticky-nav-offset: calc(var(--cz-space-16) + var(--cz-space-6));
   padding: var(--cz-space-8) 0;
   overflow-x: clip; /* prevents tier carousel from causing accidental horizontal body scroll; clip does not block position:sticky or position:fixed */
@@ -53,7 +55,7 @@
 /* Subcategory navigation — sticky directly below the main nav */
 .cz-cost-builder__subnav {
   position: sticky;
-  top: var(--cz-cost-builder-sticky-nav-offset);
+  top: var(--cz-cost-builder-nav-height);
   z-index: 49;
   display: flex;
   flex-wrap: nowrap;
