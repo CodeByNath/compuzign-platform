@@ -61,8 +61,8 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
       const navHeight = nav?.offsetHeight ?? 0;
       const y = main.getBoundingClientRect().top + window.pageYOffset - navHeight;
       window.scrollTo({ top: y, behavior: 'smooth' });
-      setIsHidden(true);
     }, 120);
+    setTimeout(() => setIsHidden(true), 500);
   };
 
   return (
