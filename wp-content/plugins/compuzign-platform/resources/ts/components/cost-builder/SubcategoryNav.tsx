@@ -12,6 +12,7 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
   const [isHidden, setIsHidden] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const stickyStartRef = useRef<number>(0);
+  const isProgrammaticScrollRef = useRef(false);
 
   useEffect(() => {
     const subnav = navRef.current;
@@ -29,6 +30,13 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
     let lastY = window.pageYOffset;
 
     const onScroll = () => {
+      // Suppress scroll-direction logic while a subnav click is driving the scroll,
+      // so the programmatic upward scroll cannot re-show the subnav mid-flight.
+      if (isProgrammaticScrollRef.current) {
+        lastY = window.pageYOffset;
+        return;
+      }
+
       const y = window.pageYOffset;
 
       // While the subnav hasn't reached sticky position yet, always keep it visible.
@@ -54,6 +62,7 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
 
   const handleClick = (id: number) => {
     onChange(id);
+    isProgrammaticScrollRef.current = true;
     setTimeout(() => {
       const main = document.querySelector<HTMLElement>('.cz-cost-builder__main');
       const nav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
@@ -62,7 +71,10 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
       const y = main.getBoundingClientRect().top + window.pageYOffset - navHeight;
       window.scrollTo({ top: y, behavior: 'smooth' });
     }, 120);
-    setTimeout(() => setIsHidden(true), 500);
+    setTimeout(() => {
+      setIsHidden(true);
+      isProgrammaticScrollRef.current = false;
+    }, 500);
   };
 
   return (
