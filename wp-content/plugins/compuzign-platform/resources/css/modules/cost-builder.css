@@ -2,6 +2,8 @@
 
 /* Root */
 .cz-cost-builder {
+  /* Nav height token: space-16 (64px) + space-6 (24px) = 88px on the 4-px atomic grid */
+  --cz-cost-builder-sticky-nav-offset: calc(var(--cz-space-16) + var(--cz-space-6));
   padding: var(--cz-space-8) 0;
   overflow-x: clip; /* prevents tier carousel from causing accidental horizontal body scroll; clip does not block position:sticky or position:fixed */
 }
@@ -93,8 +95,8 @@
 
   .cz-cost-builder--has-quote .cz-cost-builder__sidebar {
     position: sticky;
-    top: var(--cz-space-6);
-    max-height: calc(100vh - var(--cz-space-12));
+    top: calc(var(--cz-cost-builder-sticky-nav-offset) + var(--cz-space-6));
+    max-height: calc(100vh - var(--cz-cost-builder-sticky-nav-offset) - var(--cz-space-12));
     overflow-y: auto;
     animation: cz-sidebar-in 0.35s var(--cz-ease) forwards;
   }
@@ -2722,7 +2724,7 @@
 .cz-promo-card {
   border-radius: var(--cz-radius-card, 12px);
   border: 1px solid var(--cz-color-line);
-  border-left: 4px solid var(--cz-color-accent);
+  border-bottom: 4px solid var(--cz-color-accent);
   background: var(--cz-color-surface);
   box-shadow: var(--cz-shadow-card);
   padding: clamp(var(--cz-space-5), 2.5vw, var(--cz-space-8));
@@ -2737,10 +2739,6 @@
   border-color: var(--cz-color-accent);
   box-shadow: 0 0 0 1px var(--cz-color-accent), var(--cz-shadow-card);
   background: color-mix(in srgb, var(--cz-color-accent) 4%, var(--cz-color-surface));
-}
-
-.cz-promo-card--featured {
-  border-left-width: 5px;
 }
 
 /* ── Card grid ──────────────────────────────────────────────────────────────── */
