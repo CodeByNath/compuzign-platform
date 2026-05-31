@@ -63,6 +63,7 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
   const handleClick = (id: number) => {
     onChange(id);
     isProgrammaticScrollRef.current = true;
+
     setTimeout(() => {
       const main = document.querySelector<HTMLElement>('.cz-cost-builder__main');
       const nav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
@@ -70,11 +71,28 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
       const navHeight = nav?.offsetHeight ?? 0;
       const y = main.getBoundingClientRect().top + window.pageYOffset - navHeight;
       window.scrollTo({ top: y, behavior: 'smooth' });
+
+      // Poll until scroll position stabilises for two consecutive checks (100ms),
+      // then hide the subnav and lift the guard. Hard cap at 1500ms prevents a
+      // stale interval if the scroll is interrupted.
+      let prev = window.pageYOffset;
+      let stableCount = 0;
+      const done = () => {
+        setIsHidden(true);
+        isProgrammaticScrollRef.current = false;
+      };
+      const poll = setInterval(() => {
+        const curr = window.pageYOffset;
+        if (curr === prev) {
+          stableCount++;
+          if (stableCount >= 2) { clearInterval(poll); clearTimeout(cap); done(); }
+        } else {
+          stableCount = 0;
+          prev = curr;
+        }
+      }, 50);
+      const cap = setTimeout(() => { clearInterval(poll); done(); }, 1500);
     }, 120);
-    setTimeout(() => {
-      setIsHidden(true);
-      isProgrammaticScrollRef.current = false;
-    }, 500);
   };
 
   return (
