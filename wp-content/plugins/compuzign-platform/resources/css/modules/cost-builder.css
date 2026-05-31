@@ -237,13 +237,22 @@
 }
 
 .cz-cost-builder__tier--popular {
-  border-color: var(--cz-color-accent);
-  background: rgba(255, 218, 23, 0.04);
+  border: 1px solid var(--cz-color-line);
+  border-bottom: 4px solid var(--cz-color-accent);
 }
 
 .cz-cost-builder__tier--selected {
   border-color: var(--cz-color-accent);
   background: rgba(255, 218, 23, 0.08);
+}
+
+/* Popular tier shows full accent border only when actually selected */
+.cz-cost-builder__tier--popular.cz-cost-builder__tier--selected,
+.cz-cost-builder__tier--popular.selected,
+.cz-cost-builder__tier--popular.is-selected,
+.cz-cost-builder__tier--popular[aria-pressed="true"] {
+  border: 1px solid var(--cz-color-accent);
+  border-bottom: 4px solid var(--cz-color-accent);
 }
 
 .cz-cost-builder__tier-name {
@@ -2925,4 +2934,27 @@
 .cz-proposal__service-tier--promo {
   font-style: italic;
   font-weight: 600;
+}
+
+/* ── Badge accent — wider horizontal padding in cost-builder context ────── */
+
+.cz-cost-builder .cz-badge-accent {
+  padding: var(--cz-space-2) var(--cz-space-6);
+}
+
+/* ── Promotion card button — selected / remove-on-hover states ──────────── */
+
+.cz-promo-card__btn.is-selected {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-promo-card__btn.is-selected:hover,
+.cz-promo-card__btn.is-removing {
+  background: rgba(255, 97, 97, 0.08);
+  border-color: var(--cz-color-danger);
+  color: var(--cz-color-danger);
+  transform: none;
+  box-shadow: none;
 }

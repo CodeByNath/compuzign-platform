@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { formatPrice } from '@/utils/format';
 import type { PromotionOffer } from '@/api/types/cost-builder';
 import type { QuoteItem } from './types';
@@ -31,6 +32,8 @@ function PromotionCard({
   onAdd,
   onRemove,
 }: PromotionCardProps) {
+  const [isHovering, setIsHovering] = useState(false);
+
   const handleSelect = () => {
     if (isSelected) {
       onRemove(serviceId);
@@ -120,10 +123,17 @@ function PromotionCard({
           <div class="cz-promo-card__cta">
             <button
               type="button"
-              class={`cz-btn ${isSelected ? 'cz-btn-secondary' : 'cz-btn-primary'} cz-promo-card__btn`}
+              class={[
+                'cz-btn',
+                isSelected ? 'is-selected' : 'cz-btn-primary',
+                isSelected && isHovering ? 'is-removing' : '',
+                'cz-promo-card__btn',
+              ].filter(Boolean).join(' ')}
               onClick={handleSelect}
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
             >
-              {isSelected ? 'Remove from Quote' : 'Add to Quote'}
+              {isSelected && isHovering ? '× Remove' : isSelected ? '✓ Added' : 'Add to Quote'}
             </button>
             {isSelected && (
               <p class="cz-promo-card__selected-note">Added to your quote</p>
