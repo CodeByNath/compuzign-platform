@@ -60,7 +60,7 @@
   display: flex;
   flex-wrap: nowrap;
   gap: var(--cz-space-3);
-  margin-bottom: var(--cz-space-6);
+  margin-bottom: var(--cz-space-12);
   padding: var(--cz-space-2) 0;
   background: rgba(0, 0, 0, 0.86);
   backdrop-filter: blur(14px);
