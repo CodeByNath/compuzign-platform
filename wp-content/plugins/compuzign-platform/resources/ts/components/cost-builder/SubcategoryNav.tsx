@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { decodeHtml } from '@/utils/format';
 import type { ServiceItem } from '@/api/types/cost-builder';
 
@@ -10,13 +10,32 @@ interface SubcategoryNavProps {
 
 export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavProps) {
   const [isHidden, setIsHidden] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const stickyStartRef = useRef<number>(0);
 
   useEffect(() => {
+    const subnav = navRef.current;
+    const mainNav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
+    if (!subnav) return;
+
+    // Capture the subnav's document-position threshold once, before it goes sticky.
+    // stickyStart = the scroll offset at which the subnav reaches its sticky top position.
+    const navHeight = mainNav?.offsetHeight ?? 0;
+    stickyStartRef.current = subnav.getBoundingClientRect().top + window.pageYOffset - navHeight;
+
     let lastY = window.pageYOffset;
 
     const onScroll = () => {
       const y = window.pageYOffset;
-      if (y > lastY && y > 100) {
+
+      // While the subnav hasn't reached sticky position yet, always keep it visible.
+      if (y < stickyStartRef.current) {
+        setIsHidden(false);
+        lastY = y;
+        return;
+      }
+
+      if (y > lastY) {
         setIsHidden(true);
       } else if (y < lastY) {
         setIsHidden(false);
@@ -32,8 +51,6 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
 
   const handleClick = (id: number) => {
     onChange(id);
-    // Scroll to the main content area, clearing the sticky nav.
-    // The subnav hides as the user scrolls down, so we only account for the main nav.
     setTimeout(() => {
       const main = document.querySelector<HTMLElement>('.cz-cost-builder__main');
       const nav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
@@ -46,6 +63,7 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
 
   return (
     <nav
+      ref={navRef}
       class={['cz-cost-builder__subnav', isHidden && 'is-hidden'].filter(Boolean).join(' ')}
       aria-label="Service subcategories"
     >
