@@ -64,35 +64,52 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
     onChange(id);
     isProgrammaticScrollRef.current = true;
 
-    setTimeout(() => {
-      const main = document.querySelector<HTMLElement>('.cz-cost-builder__main');
-      const nav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
-      if (!main) return;
-      const navHeight = nav?.offsetHeight ?? 0;
-      const y = main.getBoundingClientRect().top + window.pageYOffset - navHeight;
-      window.scrollTo({ top: y, behavior: 'smooth' });
+    // Double rAF lets Preact flush its render so the new card is in the DOM.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const main = document.querySelector<HTMLElement>('.cz-cost-builder__main');
+        const nav = document.querySelector<HTMLElement>('.cz-cost-builder__nav');
+        const card = document.querySelector<HTMLElement>('.cz-card.cz-cost-builder__card');
 
-      // Poll until scroll position stabilises for two consecutive checks (100ms),
-      // then hide the subnav and lift the guard. Hard cap at 1500ms prevents a
-      // stale interval if the scroll is interrupted.
-      let prev = window.pageYOffset;
-      let stableCount = 0;
-      const done = () => {
-        setIsHidden(true);
-        isProgrammaticScrollRef.current = false;
-      };
-      const poll = setInterval(() => {
-        const curr = window.pageYOffset;
-        if (curr === prev) {
-          stableCount++;
-          if (stableCount >= 2) { clearInterval(poll); clearTimeout(cap); done(); }
-        } else {
-          stableCount = 0;
-          prev = curr;
+        if (!card) {
+          // No service card in the DOM — release guard, leave subnav visible.
+          isProgrammaticScrollRef.current = false;
+          return;
         }
-      }, 50);
-      const cap = setTimeout(() => { clearInterval(poll); done(); }, 1500);
-    }, 120);
+
+        if (main) {
+          const navHeight = nav?.offsetHeight ?? 0;
+          const y = main.getBoundingClientRect().top + window.pageYOffset - navHeight;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+
+        // Hide subnav only once the card clears the sticky nav+subnav area.
+        // rootMargin of -120px shrinks the intersection root from the top so the
+        // observer only fires when the card is meaningfully below the sticky chrome.
+        let observed = false;
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            if (entry.isIntersecting && !observed) {
+              observed = true;
+              observer.disconnect();
+              setIsHidden(true);
+              isProgrammaticScrollRef.current = false;
+            }
+          },
+          { rootMargin: '-120px 0px 0px 0px', threshold: 0.1 },
+        );
+        observer.observe(card);
+
+        // Safety fallback: if the card never crosses the threshold, release guard
+        // without hiding so manual scroll behaviour is not permanently suspended.
+        setTimeout(() => {
+          if (!observed) {
+            observer.disconnect();
+            isProgrammaticScrollRef.current = false;
+          }
+        }, 1500);
+      });
+    });
   };
 
   return (
