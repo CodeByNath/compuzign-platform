@@ -67,15 +67,16 @@
 }
 
 @media (min-width: 1024px) {
-  /* Override cz-layout-sidebar column definition for the cost-builder body.
-     Sidebar column starts at 0px and expands when --has-quote is on the root. */
+  /* Single-column by default; sidebar track added only when quote is active. */
   .cz-cost-builder .cz-cost-builder__body {
-    grid-template-columns: minmax(0, 1fr) 0px;
+    grid-template-columns: minmax(0, 1fr);
     transition: grid-template-columns 0.35s var(--cz-ease);
   }
 
-  .cz-cost-builder--has-quote .cz-cost-builder__body {
-    grid-template-columns: minmax(0, 1fr) var(--cz-sidebar-width);
+  .cz-cost-builder.cz-cost-builder--has-quote .cz-cost-builder__body,
+  .cz-cost-builder.has-quote .cz-cost-builder__body,
+  .cz-cost-builder[data-has-quote="true"] .cz-cost-builder__body {
+    grid-template-columns: minmax(0, 1fr) var(--cz-quote-panel-width, 360px);
   }
 
   /* Sidebar: clipped at 0px width, sticky + visible only when quote is active */

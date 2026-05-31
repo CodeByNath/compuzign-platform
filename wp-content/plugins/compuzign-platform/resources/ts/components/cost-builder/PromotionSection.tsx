@@ -133,7 +133,7 @@ function PromotionCard({
               onMouseEnter={() => setIsHovering(true)}
               onMouseLeave={() => setIsHovering(false)}
             >
-              {isSelected && isHovering ? '× Remove' : isSelected ? '✓ Added' : 'Add to Quote'}
+              {isSelected && isHovering ? '× Remove' : isSelected ? '✓ Selected' : 'Add to Quote'}
             </button>
             {isSelected && (
               <p class="cz-promo-card__selected-note">Added to your quote</p>
