@@ -39,6 +39,7 @@ export interface PricingTierData {
   billing_cycle: string;
   inclusions: ServiceInclusion[];
   features: string[]; // transitional compatibility — prefer inclusions
+  label?: string; // admin display-label override; falls back to Tier.title when absent
 }
 
 export interface ServicePricing {

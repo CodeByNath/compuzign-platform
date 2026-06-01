@@ -54,7 +54,7 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
                 .join(' ')}
             >
               <div class="cz-cost-builder__tier-name">
-                <span>{tier.title}</span>
+                <span>{data?.label || tier.title}</span>
                 {isPopular && <Badge variant="accent">Best</Badge>}
               </div>
               <div class="cz-cost-builder__tier-price">

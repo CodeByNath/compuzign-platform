@@ -232,6 +232,12 @@ class PricingBuilder
             } elseif (!empty($pkgTier['features'])) {
                 $payload['pricing']['tiers'][$tierId]['features'] = $pkgTier['features'];
             }
+
+            // Display label: overlay when the package provides a non-empty value.
+            // Canonical tier key (tierId) is never mutated; this is presentation only.
+            if (!empty($pkgTier['label'])) {
+                $payload['pricing']['tiers'][$tierId]['label'] = $pkgTier['label'];
+            }
         }
 
         // ── Bundle ────────────────────────────────────────────────────────────
