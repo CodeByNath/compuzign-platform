@@ -43,6 +43,9 @@ class PricingBuilder
         // All per-service lookups inside buildServicePayload() are O(1) array access.
         $this->packageMap = $this->packageRepository->findAllActiveIndexedByServiceId();
 
+        // DEBUG — remove after diagnosis
+        error_log('[CZ PricingBuilder] packageMap service IDs: ' . implode(', ', array_keys($this->packageMap)));
+
         $categories         = [];
         $servicesByCategory = [];
 
@@ -172,6 +175,13 @@ class PricingBuilder
         // When packageMap is empty (no packages created yet) this branch is never
         // reached and the payload above is returned byte-for-byte as legacy output.
         $package = $this->packageMap[$post->ID] ?? null;
+
+        // DEBUG — remove after diagnosis
+        error_log('[CZ PricingBuilder] service ' . $post->ID . ' (' . $post->post_title . '): package=' . ($package !== null ? 'FOUND' : 'NULL'));
+        if ($package !== null) {
+            error_log('[CZ PricingBuilder] basic tier in package: ' . json_encode($package['tiers']['basic'] ?? 'missing'));
+        }
+
         if ($package !== null) {
             $payload = $this->overlayPackage($payload, $package);
         }

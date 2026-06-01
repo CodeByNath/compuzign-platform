@@ -20,6 +20,15 @@ const QUOTE_SUMMARY_ID = 'cz-quote-summary';
 
 export function CostBuilderApp() {
   const { data, loading, error, refetch } = useCostBuilder();
+  // DEBUG — remove after diagnosis
+  if (data) {
+    console.log('[CZ CostBuilderApp] raw API tiers:', data.tiers);
+    const firstSvc = data.services_by_category?.[0]?.services?.[0];
+    if (firstSvc) {
+      console.log('[CZ CostBuilderApp] first service pricing.tiers.basic:', firstSvc.pricing?.tiers?.['basic']);
+    }
+  }
+
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(() => loadCart());

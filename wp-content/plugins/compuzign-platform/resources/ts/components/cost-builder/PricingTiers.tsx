@@ -14,6 +14,11 @@ interface PricingTiersProps {
 }
 
 export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, billingCycle, onSelect }: PricingTiersProps) {
+  // DEBUG — remove after diagnosis
+  console.log('[CZ PricingTiers] pricing:', pricing);
+  console.log('[CZ PricingTiers] pricing.tiers:', pricing.tiers);
+  console.log('[CZ PricingTiers] pricing.tiers.basic:', pricing.tiers['basic']);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hoveredTierId, setHoveredTierId] = useState<TierId | null>(null);
 
@@ -34,6 +39,8 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
       <div class="cz-cost-builder__tiers" ref={scrollRef}>
         {tiers.map((tier) => {
           const data = pricing.tiers[tier.id];
+          // DEBUG — remove after diagnosis
+          console.log('[CZ PricingTiers] tier=' + tier.id, '| data:', data, '| label:', data?.label, '| price:', data?.price, '| billing_cycle:', data?.billing_cycle);
           const isPopular = tier.id === popularTier;
           const isSelected = tier.id === selectedTierId;
           const isHoveringSelected = isSelected && hoveredTierId === tier.id;
