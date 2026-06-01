@@ -44,9 +44,9 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
       serviceId: service.id,
       serviceTitle: decodeHtml(service.title),
       tierId,
-      tierTitle: tier?.title ?? tierId,
+      tierTitle: tierData?.label || tier?.title || tierId,
       price: tierData?.price ?? null,
-      billingCycle: meta.billing_cycle,
+      billingCycle: tierData?.billing_cycle || meta.billing_cycle,
       categoryName: decodeHtml(service.categories[0]?.name ?? ''),
       features: tierData?.inclusions?.length
         ? tierData.inclusions.map((inc) => inc.label)
