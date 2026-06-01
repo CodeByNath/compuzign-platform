@@ -55,7 +55,7 @@
 
 .cz-cost-builder__nav.is-sticky {
   background: var(--cz-color-bg);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--cz-blur-md, 14px));
 }
 
 /* Subcategory navigation — sticky directly below the main nav */
@@ -84,7 +84,7 @@
 
 .cz-cost-builder__subnav.is-sticky {
   background: var(--cz-color-bg);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--cz-blur-md, 14px));
 }
 
 .cz-cost-builder__subnav.is-hidden {
