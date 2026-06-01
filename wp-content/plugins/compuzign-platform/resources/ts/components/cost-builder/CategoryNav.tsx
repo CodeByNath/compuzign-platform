@@ -1,4 +1,4 @@
-import { useRef } from 'preact/hooks';
+import { useRef, useState, useEffect } from 'preact/hooks';
 import { Tabs } from '@/components/ui/Tabs';
 import { decodeHtml } from '@/utils/format';
 import type { Category } from '@/api/types/cost-builder';
@@ -11,7 +11,19 @@ interface CategoryNavProps {
 
 export function CategoryNav({ categories, activeSlug, onChange }: CategoryNavProps) {
   const navRef = useRef<HTMLElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [isSticky, setIsSticky] = useState(false);
   const items = categories.map((c) => ({ id: c.slug, label: decodeHtml(c.name) }));
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(([entry]) => setIsSticky(!entry.isIntersecting), {
+      threshold: 0,
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   const handleChange = (slug: string) => {
     onChange(slug);
@@ -27,8 +39,15 @@ export function CategoryNav({ categories, activeSlug, onChange }: CategoryNavPro
   };
 
   return (
-    <nav ref={navRef} class="cz-cost-builder__nav" aria-label="Service categories">
-      <Tabs items={items} activeId={activeSlug} onChange={handleChange} />
-    </nav>
+    <>
+      <div ref={sentinelRef} />
+      <nav
+        ref={navRef}
+        class={['cz-cost-builder__nav', isSticky && 'is-sticky'].filter(Boolean).join(' ')}
+        aria-label="Service categories"
+      >
+        <Tabs items={items} activeId={activeSlug} onChange={handleChange} />
+      </nav>
+    </>
   );
 }

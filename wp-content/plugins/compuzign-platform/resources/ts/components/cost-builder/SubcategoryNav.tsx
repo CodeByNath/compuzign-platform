@@ -10,6 +10,7 @@ interface SubcategoryNavProps {
 
 export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavProps) {
   const [isHidden, setIsHidden] = useState(false);
+  const [isSticky, setIsSticky] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const stickyStartRef = useRef<number>(0);
 
@@ -31,10 +32,12 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
 
       if (y < stickyStartRef.current) {
         setIsHidden(false);
+        setIsSticky(false);
         lastY = y;
         return;
       }
 
+      setIsSticky(true);
       if (y > lastY) {
         setIsHidden(true);
       } else if (y < lastY) {
@@ -69,7 +72,7 @@ export function SubcategoryNav({ services, activeId, onChange }: SubcategoryNavP
   return (
     <nav
       ref={navRef}
-      class={['cz-cost-builder__subnav', isHidden && 'is-hidden'].filter(Boolean).join(' ')}
+      class={['cz-cost-builder__subnav', isSticky && 'is-sticky', isHidden && 'is-hidden'].filter(Boolean).join(' ')}
       aria-label="Service subcategories"
     >
       {services.map((s) => (
