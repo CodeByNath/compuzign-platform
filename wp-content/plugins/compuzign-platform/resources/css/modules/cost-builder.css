@@ -54,7 +54,7 @@
 }
 
 .cz-cost-builder__nav.is-sticky {
-  background: rgba(0, 0, 0, 0.86);
+  background: var(--cz-color-bg);
   backdrop-filter: blur(14px);
 }
 
@@ -83,7 +83,7 @@
 }
 
 .cz-cost-builder__subnav.is-sticky {
-  background: rgba(0, 0, 0, 0.86);
+  background: var(--cz-color-bg);
   backdrop-filter: blur(14px);
 }
 
