@@ -210,9 +210,11 @@ class PricingBuilder
                 continue;
             }
 
-            // Price: overlay only when the package explicitly provides a value.
-            // null price in the package means "not configured; keep legacy price."
-            if ($pkgTier['price'] !== null) {
+            // contact: true → force price null so frontend renders "Contact Us".
+            // Otherwise overlay numeric price only when one was explicitly saved.
+            if (!empty($pkgTier['contact'])) {
+                $payload['pricing']['tiers'][$tierId]['price'] = null;
+            } elseif (array_key_exists('price', $pkgTier) && $pkgTier['price'] !== null) {
                 $payload['pricing']['tiers'][$tierId]['price'] = $pkgTier['price'];
             }
 

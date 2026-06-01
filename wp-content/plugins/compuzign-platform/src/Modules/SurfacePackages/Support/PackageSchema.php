@@ -189,9 +189,13 @@ class PackageSchema
             // enabled: false removes the tier from Cost Builder output entirely.
             $enabled = isset($src['enabled']) ? (bool) $src['enabled'] : true;
 
+            // contact: true means "contact/no fixed price"; overlays price as null in PricingBuilder.
+            $contact = (bool) ($src['contact'] ?? false);
+
             $out[$tierId] = [
                 'label'               => $label,
                 'price'               => $price,
+                'contact'             => $contact,
                 'billing_cycle'       => $billingCycle,
                 'inclusions_override' => $inclusions,
                 'features'            => $features,

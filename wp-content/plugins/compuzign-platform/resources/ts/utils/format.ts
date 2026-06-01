@@ -21,6 +21,7 @@ export function capitalize(str: string): string {
 const CYCLE_LABELS: Record<string, string> = {
   monthly:    '/ mo',
   annual:     '/ yr',
+  annually:   '/ yr',
   quarterly:  '/ qtr',
   'one-time': '',
 };

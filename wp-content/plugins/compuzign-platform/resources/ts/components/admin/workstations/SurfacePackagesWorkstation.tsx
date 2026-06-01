@@ -157,6 +157,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const buildPayload = (enabled: boolean): TierSavePayload => ({
     label,
     price: priceIsContact ? null : (parseFloat(priceStr) || null),
+    contact: priceIsContact,
     billing_cycle: billingCycle,
     inclusions_override: selExistingIncs,
     faq_refs: selFaqRefs.filter((ref) => !pendingFaqs.some((p) => slugify(p.question) === ref)),

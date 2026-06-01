@@ -200,6 +200,7 @@ export interface SurfacePackageDetailResponse {
 export interface TierSavePayload {
   label: string;
   price: number | null;
+  contact: boolean;
   billing_cycle: string;
   inclusions_override: InclusionItem[];
   faq_refs: string[];

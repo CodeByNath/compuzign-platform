@@ -288,14 +288,17 @@ class AdminSurfacePackagesController
             }
         }
 
+        $contact = !empty($body['contact']);
+
         $price = null;
-        if (array_key_exists('price', $body) && $body['price'] !== null && $body['price'] !== '') {
+        if (!$contact && array_key_exists('price', $body) && $body['price'] !== null && $body['price'] !== '') {
             $price = (float) $body['price'];
         }
 
         $pkg['tiers'][$tierId] = [
             'label'               => sanitize_text_field((string) ($body['label'] ?? $existing['label'] ?? '')),
             'price'               => $price,
+            'contact'             => $contact,
             'billing_cycle'       => sanitize_text_field((string) ($body['billing_cycle'] ?? $existing['billing_cycle'] ?? 'monthly')),
             'inclusions_override' => $inclusions,
             'features'            => $existing['features'] ?? [],

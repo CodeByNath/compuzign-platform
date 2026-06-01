@@ -14,7 +14,6 @@ interface PricingTiersProps {
 }
 
 export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, billingCycle, onSelect }: PricingTiersProps) {
-  const suffix = formatCycleLabel(billingCycle);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hoveredTierId, setHoveredTierId] = useState<TierId | null>(null);
 
@@ -38,6 +37,8 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
           const isPopular = tier.id === popularTier;
           const isSelected = tier.id === selectedTierId;
           const isHoveringSelected = isSelected && hoveredTierId === tier.id;
+          const tierBillingCycle = data?.billing_cycle || billingCycle;
+          const suffix = formatCycleLabel(tierBillingCycle);
           const displayList = data?.inclusions?.length
             ? data.inclusions.map((inc) => inc.label)
             : (data?.features ?? []);
