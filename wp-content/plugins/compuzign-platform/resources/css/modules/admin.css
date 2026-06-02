@@ -2559,6 +2559,90 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-text-faint);
 }
 
+/* ── Service view — secondary sections ──────────────────────────────────────── */
+/* Secondary sections sit visually below the primary business summary.           */
+.cz-req-detail__section--secondary {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  padding: var(--cz-space-4);
+  padding-bottom: var(--cz-space-4);
+  margin-bottom: var(--cz-space-3);
+}
+
+/* Status indicator — small dot + label in a row */
+.cz-sc-status-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--cz-font-size-sm);
+}
+
+/* Commercial configuration — meta row inside the pkg block */
+.cz-sc-cc-meta {
+  margin-top: var(--cz-space-3);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cz-space-3);
+}
+
+/* Action row beneath commercial config block */
+.cz-sc-cc-actions {
+  display: flex;
+  gap: var(--cz-space-2);
+  margin-top: var(--cz-space-4);
+  flex-wrap: wrap;
+}
+
+/* Inline destructive confirmation panel */
+.cz-sc-disable-confirm {
+  margin-top: var(--cz-space-4);
+  padding: var(--cz-space-4);
+  background: var(--admin-error-a07);
+  border: 1px solid var(--admin-error-a15);
+  border-radius: var(--admin-radius);
+}
+
+.cz-sc-disable-confirm__title {
+  margin: 0 0 var(--cz-space-2);
+  font-size: var(--cz-font-size-sm);
+  font-weight: 600;
+  color: var(--admin-error);
+}
+
+.cz-sc-disable-confirm__body {
+  margin: 0 0 var(--cz-space-2);
+  font-size: var(--cz-font-size-sm);
+  color: var(--admin-text-muted);
+  line-height: 1.55;
+}
+
+.cz-sc-disable-confirm__list {
+  margin: 0 0 var(--cz-space-2);
+  padding-left: var(--cz-space-5);
+  font-size: var(--cz-font-size-sm);
+  color: var(--admin-text-muted);
+  line-height: 1.7;
+}
+
+.cz-sc-disable-confirm__actions {
+  display: flex;
+  gap: var(--cz-space-2);
+  justify-content: flex-end;
+  margin-top: var(--cz-space-3);
+}
+
+/* ── Destructive button variant ─────────────────────────────────────────────── */
+.cz-admin-btn--danger {
+  background: var(--admin-error-a10);
+  color: var(--admin-error);
+  border-color: var(--admin-error-a25);
+}
+
+.cz-admin-btn--danger:hover:not(:disabled) {
+  background: var(--admin-error-a20);
+}
+
 /* ── Promotion status pills ─────────────────────────────────────────────────── */
 .cz-status-pill--draft {
   background: var(--admin-white-a08);

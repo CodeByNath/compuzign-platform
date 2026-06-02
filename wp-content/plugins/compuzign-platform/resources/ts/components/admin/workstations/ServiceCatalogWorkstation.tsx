@@ -138,8 +138,8 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
 }
 
 // ── ServiceViewStep ───────────────────────────────────────────────────────────
-// Read-only Service Core detail. Surfaces the related Surface Package (if any)
-// and bridges to tier management via "Manage Surface Package".
+// Service detail drawer. Primary sections: Service Overview + Commercial
+// Configuration. Secondary sections: long description, feature pool, Q&A, pricing.
 
 function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const service  = ctx.stepData.service  as ServiceItem;
@@ -153,7 +153,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const tiers      = service.pricing?.tiers;
   const isActive   = service.meta?.is_active !== false;
 
-  const handleManageSurfacePkg = () => {
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+
+  const handleManageTiers = () => {
     if (!relatedPkg) return;
     ctx.close();
     doOpen({
@@ -173,17 +175,23 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
+  const pkgIsActive    = relatedPkg?.post_status === 'publish';
+  const configuredTierCount = relatedPkg
+    ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length
+    : 0;
+
   return (
     <div class="cz-req-detail">
 
-      {/* ── Section 1: Service Core ────────────────────────────────────── */}
+      {/* ── PRIMARY: Service Overview ──────────────────────────────────── */}
       <div class="cz-req-detail__section">
-        <p class="cz-req-detail__section-title">Service Core</p>
+        <p class="cz-req-detail__section-title">Service Overview</p>
         <div class="cz-req-contact-grid">
           <div class="cz-req-contact-grid__item">
             <span class="cz-req-contact-grid__label">Status</span>
             <span class="cz-req-contact-grid__value">
-              <span class={`cz-status-pill cz-status-pill--${isActive ? 'active' : 'inactive'}`}>
+              <span class="cz-sc-status-inline" style={`color:var(--admin-${isActive ? 'success' : 'error'})`}>
+                <span class="cz-admin-status-dot" />
                 {isActive ? 'Active' : 'Inactive'}
               </span>
             </span>
@@ -194,20 +202,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               {service.categories.map((c) => decodeHtml(c.name)).join(', ') || '—'}
             </span>
           </div>
-          <div class="cz-req-contact-grid__item">
-            <span class="cz-req-contact-grid__label">Billing cycle</span>
-            <span class="cz-req-contact-grid__value">{service.meta?.billing_cycle ?? '—'}</span>
-          </div>
-          {service.meta?.popular_tier && (
-            <div class="cz-req-contact-grid__item">
-              <span class="cz-req-contact-grid__label">Popular tier</span>
-              <span class="cz-req-contact-grid__value">
-                <span class="cz-tier-badge cz-tier-badge--popular">
-                  {TIER_LABELS[service.meta.popular_tier] ?? service.meta.popular_tier}
-                </span>
-              </span>
-            </div>
-          )}
         </div>
 
         {service.excerpt && (
@@ -218,24 +212,113 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             </p>
           </div>
         )}
+      </div>
 
-        {service.content && (
-          <div style="margin-top:var(--cz-space-3)">
-            <p class="cz-req-contact-grid__label" style="margin-bottom:4px">Long description</p>
-            <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text-muted);line-height:1.6">
-              {service.content}
+      {/* ── PRIMARY: Commercial Configuration ─────────────────────────── */}
+      <div class="cz-req-detail__section">
+        <p class="cz-req-detail__section-title">Commercial Configuration</p>
+
+        {relatedPkg ? (
+          <div class="cz-sc-pkg-block">
+            <p class="cz-sc-pkg-block__title">{relatedPkg.title}</p>
+
+            <div class="cz-sc-cc-meta">
+              <div class="cz-req-contact-grid__item">
+                <span class="cz-req-contact-grid__label">Status</span>
+                <span class="cz-sc-status-inline" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`}>
+                  <span class="cz-admin-status-dot" />
+                  {pkgIsActive ? 'Active' : 'Disabled'}
+                </span>
+              </div>
+              <div class="cz-req-contact-grid__item">
+                <span class="cz-req-contact-grid__label">Tiers</span>
+                <span class="cz-req-contact-grid__value">
+                  {configuredTierCount} Configured
+                </span>
+              </div>
+              <div class="cz-req-contact-grid__item">
+                <span class="cz-req-contact-grid__label">Type</span>
+                <span class="cz-req-contact-grid__value">Tier Configuration</span>
+              </div>
+            </div>
+
+            {!showDisableConfirm && (
+              <div class="cz-sc-cc-actions">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary"
+                  onClick={handleManageTiers}
+                >
+                  Manage Tiers
+                </button>
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--ghost"
+                  onClick={() => setShowDisableConfirm(true)}
+                >
+                  Disable Service
+                </button>
+              </div>
+            )}
+
+            {showDisableConfirm && (
+              <div class="cz-sc-disable-confirm">
+                <p class="cz-sc-disable-confirm__title">Disable Service</p>
+                <p class="cz-sc-disable-confirm__body">This will disable:</p>
+                <ul class="cz-sc-disable-confirm__list">
+                  <li>Service availability</li>
+                  <li>Tier configurations</li>
+                  <li>Promotions</li>
+                  <li>Future customer-facing availability</li>
+                </ul>
+                <p class="cz-sc-disable-confirm__body">
+                  Customers will no longer see this service.
+                </p>
+                <div class="cz-sc-disable-confirm__actions">
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--ghost"
+                    onClick={() => setShowDisableConfirm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--danger"
+                    onClick={() => setShowDisableConfirm(false)}
+                  >
+                    Disable Service
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div class="cz-sc-pkg-block cz-sc-pkg-block--empty">
+            <p class="cz-sc-pkg-block__empty-msg">
+              No commercial configuration has been set up for this service yet.
             </p>
           </div>
         )}
       </div>
 
-      {/* ── Section 2: Inclusion pool ──────────────────────────────────── */}
+      {/* ── SECONDARY: Long Description ────────────────────────────────── */}
+      {service.content && (
+        <div class="cz-req-detail__section cz-req-detail__section--secondary">
+          <p class="cz-req-detail__section-title">Description</p>
+          <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text-muted);line-height:1.6">
+            {service.content}
+          </p>
+        </div>
+      )}
+
+      {/* ── SECONDARY: Included Features (service pool) ────────────────── */}
       {inclusions.length > 0 && (
-        <div class="cz-req-detail__section">
+        <div class="cz-req-detail__section cz-req-detail__section--secondary">
           <p class="cz-req-detail__section-title">
-            Inclusions pool
+            Included Features
             <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
-              {inclusions.length} canonical
+              {inclusions.length}
             </span>
           </p>
           <div class="cz-sc-inclusion-pool">
@@ -246,13 +329,13 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         </div>
       )}
 
-      {/* ── Section 3: FAQ pool ────────────────────────────────────────── */}
+      {/* ── SECONDARY: Common Questions (service FAQ pool) ─────────────── */}
       {faqs.length > 0 && (
-        <div class="cz-req-detail__section">
+        <div class="cz-req-detail__section cz-req-detail__section--secondary">
           <p class="cz-req-detail__section-title">
-            FAQ pool
+            Common Questions
             <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
-              {faqs.length} entries
+              {faqs.length}
             </span>
           </p>
           <div class="cz-sc-faq-list">
@@ -266,13 +349,10 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         </div>
       )}
 
-      {/* ── Section 4: Tier reference ──────────────────────────────────── */}
+      {/* ── SECONDARY: Pricing Summary ─────────────────────────────────── */}
       {tiers && (
-        <div class="cz-req-detail__section">
-          <p class="cz-req-detail__section-title">Tier pricing reference</p>
-          <p style="margin:0 0 var(--cz-space-2);font-size:11px;color:var(--admin-text-faint)">
-            Reflects active Surface Package overlay where applicable. Authoring is in Surface Packages.
-          </p>
+        <div class="cz-req-detail__section cz-req-detail__section--secondary">
+          <p class="cz-req-detail__section-title">Pricing Summary</p>
           <div class="cz-sp-tier-table-wrap">
             <table class="cz-sp-tier-table">
               <thead>
@@ -306,44 +386,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           </div>
         </div>
       )}
-
-      {/* ── Section 5: Surface Package ────────────────────────────────── */}
-      <div class="cz-req-detail__section">
-        <p class="cz-req-detail__section-title">Surface Package</p>
-
-        {relatedPkg ? (
-          <div class="cz-sc-pkg-block">
-            <div class="cz-sc-pkg-block__meta">
-              <div>
-                <p class="cz-sc-pkg-block__title">{relatedPkg.title}</p>
-                <p class="cz-sc-pkg-block__stats">
-                  {TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length} tier{TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length !== 1 ? 's' : ''} configured
-                  {relatedPkg.popular_tier && (
-                    <> · popular: {TIER_LABELS[relatedPkg.popular_tier] ?? relatedPkg.popular_tier}</>
-                  )}
-                </p>
-              </div>
-              <span class={`cz-status-pill cz-status-pill--${relatedPkg.post_status === 'publish' ? 'active' : 'inactive'}`}>
-                {relatedPkg.post_status === 'publish' ? 'Active' : 'Disabled'}
-              </span>
-            </div>
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--secondary"
-              style="margin-top:var(--cz-space-3)"
-              onClick={handleManageSurfacePkg}
-            >
-              Manage Surface Package
-            </button>
-          </div>
-        ) : (
-          <div class="cz-sc-pkg-block cz-sc-pkg-block--empty">
-            <p class="cz-sc-pkg-block__empty-msg">
-              No Surface Package has been created for this service yet.
-            </p>
-          </div>
-        )}
-      </div>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <div class="cz-action-shell__footer">
