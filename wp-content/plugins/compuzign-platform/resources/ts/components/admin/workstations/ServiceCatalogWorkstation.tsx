@@ -68,7 +68,7 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
   return (
     <div>
       <p style="margin:0 0 var(--cz-space-4);font-size:var(--cz-font-size-sm);color:var(--admin-text-muted)">
-        Select a tier to configure.
+        Choose a tier to edit.
       </p>
 
       <div class="cz-sp-tier-table-wrap">
@@ -155,11 +155,20 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const handleOpenTierConfig = () => {
     if (!relatedPkg) return;
+    // Back handler: replaces the tier drawer with this service's detail view.
+    const onBack = () => doOpen({
+      id:    `service-view-${service.id}`,
+      mode:  'drawer',
+      title: decodeHtml(service.title),
+      initialStepData: { service, packages, openAction: doOpen },
+      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+    });
     ctx.close();
     doOpen({
       id:    `pkg-tiers-${relatedPkg.post_id}`,
       mode:  'drawer',
       title: relatedPkg.title,
+      onBack,
       initialStepData: {
         packageId:      relatedPkg.post_id,
         tierId:         null,

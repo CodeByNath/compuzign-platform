@@ -29,6 +29,7 @@ export interface ActionConfig {
   confirmClose?: boolean;
   initialStepData?: Record<string, unknown>;
   onComplete?: (stepData: Record<string, unknown>) => void;
+  onBack?: () => void;
 }
 
 interface Props {
@@ -103,6 +104,16 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
       <div class="cz-action-shell__panel">
         <div class="cz-action-shell__header">
           <div class="cz-action-shell__header-left">
+            {config.onBack && currentStep === 0 && (
+              <button
+                type="button"
+                class="cz-action-shell__back"
+                onClick={config.onBack}
+                aria-label="Back"
+              >
+                ← Back
+              </button>
+            )}
             <h2 class="cz-action-shell__title">{config.title}</h2>
             {isMultiStep && (
               <div class="cz-action-shell__step-dots">

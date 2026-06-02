@@ -1001,6 +1001,25 @@
   background: var(--admin-white-a06);
 }
 
+.cz-action-shell__back {
+  background: transparent;
+  border: none;
+  color: var(--admin-text-muted);
+  font-size: var(--cz-font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--admin-radius-sm);
+  transition: color var(--cz-transition-fast), background var(--cz-transition-fast);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.cz-action-shell__back:hover {
+  color: var(--admin-text);
+  background: var(--admin-white-a06);
+}
+
 /* ── ActionShell — step breadcrumb bar ──────────────────────────────────────── */
 .cz-action-shell__step-header {
   display: flex;
