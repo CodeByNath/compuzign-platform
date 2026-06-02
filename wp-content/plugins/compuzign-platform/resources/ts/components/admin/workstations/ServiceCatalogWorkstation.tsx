@@ -3,7 +3,7 @@ import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import type { CostBuilderResponse, ServiceItem, TierId } from '@/api/types/cost-builder';
+import type { CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import { fetchSurfacePackageDetail } from '@/api/endpoints/admin';
 import type { SurfacePackageDetailResponse, SurfacePackageSummary } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
@@ -474,35 +474,36 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                   </thead>
                   <tbody>
                     {services.map((service) => {
-                      const tiers      = service.pricing?.tiers;
+                      // Cast needed: overlay removes disabled tier keys at runtime
+                      // despite Record<TierId, PricingTierData> typing.
+                      const tiers       = service.pricing?.tiers as Partial<Record<TierId, PricingTierData>> | undefined;
                       const popularTier = service.meta?.popular_tier ?? null;
-                      const isActive   = service.meta?.is_active !== false;
-                      const fmtPrice   = (v: number | null | undefined) =>
+                      const isActive    = service.meta?.is_active !== false;
+                      const hasPackage  = packages.some((p) => p.service_refs.includes(service.id));
+                      const fmtPrice    = (v: number | null | undefined) =>
                         v != null ? `$${v.toLocaleString()}` : '—';
+
+                      const tierCell = (tierId: TierId) => {
+                        const data = tiers?.[tierId];
+                        if (hasPackage && !data) {
+                          return <span class="cz-status-pill cz-status-pill--inactive">Off</span>;
+                        }
+                        if (data?.price != null) {
+                          return <span class="cz-price-tag cz-price-tag--has-price">{fmtPrice(data.price)}</span>;
+                        }
+                        if (hasPackage) {
+                          return <span class="cz-price-tag">Contact</span>;
+                        }
+                        return <span class="cz-price-tag">—</span>;
+                      };
 
                       return (
                         <tr key={service.id}>
                           <td class="cz-sc-table__name">{service.title}</td>
-                          <td class="cz-sc-table__price">
-                            <span class={`cz-price-tag${tiers?.basic?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                              {fmtPrice(tiers?.basic?.price)}
-                            </span>
-                          </td>
-                          <td class="cz-sc-table__price">
-                            <span class={`cz-price-tag${tiers?.standard?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                              {fmtPrice(tiers?.standard?.price)}
-                            </span>
-                          </td>
-                          <td class="cz-sc-table__price">
-                            <span class={`cz-price-tag${tiers?.premium?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                              {fmtPrice(tiers?.premium?.price)}
-                            </span>
-                          </td>
-                          <td class="cz-sc-table__price">
-                            <span class={`cz-price-tag${tiers?.enterprise?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                              {fmtPrice(tiers?.enterprise?.price)}
-                            </span>
-                          </td>
+                          <td class="cz-sc-table__price">{tierCell('basic')}</td>
+                          <td class="cz-sc-table__price">{tierCell('standard')}</td>
+                          <td class="cz-sc-table__price">{tierCell('premium')}</td>
+                          <td class="cz-sc-table__price">{tierCell('enterprise')}</td>
                           <td style="text-align:center">
                             {popularTier ? (
                               <span class="cz-tier-badge cz-tier-badge--popular">

@@ -104,7 +104,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
       <div class="cz-action-shell__panel">
         <div class="cz-action-shell__header">
           <div class="cz-action-shell__header-left">
-            {config.onBack && currentStep === 0 && (
+            {config.onBack && (
               <button
                 type="button"
                 class="cz-action-shell__back"
