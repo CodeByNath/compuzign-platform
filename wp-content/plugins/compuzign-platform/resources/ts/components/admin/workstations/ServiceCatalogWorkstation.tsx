@@ -153,9 +153,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const tiers      = service.pricing?.tiers;
   const isActive   = service.meta?.is_active !== false;
 
-  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
-
-  const handleManageTiers = () => {
+  const handleOpenTierConfig = () => {
     if (!relatedPkg) return;
     ctx.close();
     doOpen({
@@ -214,89 +212,48 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         )}
       </div>
 
-      {/* ── PRIMARY: Commercial Configuration ─────────────────────────── */}
+      {/* ── PRIMARY: Commercial Configuration (lightweight relationship card) ── */}
       <div class="cz-req-detail__section">
         <p class="cz-req-detail__section-title">Commercial Configuration</p>
 
         {relatedPkg ? (
           <div class="cz-sc-pkg-block">
-            <p class="cz-sc-pkg-block__title">{relatedPkg.title}</p>
-
-            <div class="cz-sc-cc-meta">
-              <div class="cz-req-contact-grid__item">
-                <span class="cz-req-contact-grid__label">Status</span>
-                <span class="cz-sc-status-inline" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`}>
-                  <span class="cz-admin-status-dot" />
-                  {pkgIsActive ? 'Active' : 'Disabled'}
-                </span>
+            <div class="cz-sc-cc-card-head">
+              <div class="cz-sc-cc-card-head__left">
+                <span class="cz-sc-cc-card-icon">◧</span>
+                <p class="cz-sc-pkg-block__title">Tier Configuration Attached</p>
               </div>
-              <div class="cz-req-contact-grid__item">
-                <span class="cz-req-contact-grid__label">Tiers</span>
-                <span class="cz-req-contact-grid__value">
-                  {configuredTierCount} Configured
-                </span>
-              </div>
-              <div class="cz-req-contact-grid__item">
-                <span class="cz-req-contact-grid__label">Type</span>
-                <span class="cz-req-contact-grid__value">Tier Configuration</span>
-              </div>
+              <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
+                {pkgIsActive ? 'Linked' : 'Disabled'}
+              </span>
             </div>
 
-            {!showDisableConfirm && (
-              <div class="cz-sc-cc-actions">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary"
-                  onClick={handleManageTiers}
-                >
-                  Manage Tiers
-                </button>
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--ghost"
-                  onClick={() => setShowDisableConfirm(true)}
-                >
-                  Disable Service
-                </button>
-              </div>
-            )}
+            <div class="cz-sc-cc-status-row" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`}>
+              <span class="cz-admin-status-dot" />
+              <span>{pkgIsActive ? 'Active' : 'Disabled'}</span>
+              <span class="cz-sc-cc-sep">|</span>
+              <span class="cz-sc-cc-tier-count">
+                {configuredTierCount} tier{configuredTierCount !== 1 ? 's' : ''} configured
+              </span>
+            </div>
 
-            {showDisableConfirm && (
-              <div class="cz-sc-disable-confirm">
-                <p class="cz-sc-disable-confirm__title">Disable Service</p>
-                <p class="cz-sc-disable-confirm__body">This will disable:</p>
-                <ul class="cz-sc-disable-confirm__list">
-                  <li>Service availability</li>
-                  <li>Tier configurations</li>
-                  <li>Promotions</li>
-                  <li>Future customer-facing availability</li>
-                </ul>
-                <p class="cz-sc-disable-confirm__body">
-                  Customers will no longer see this service.
-                </p>
-                <div class="cz-sc-disable-confirm__actions">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--ghost"
-                    onClick={() => setShowDisableConfirm(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--danger"
-                    onClick={() => setShowDisableConfirm(false)}
-                  >
-                    Disable Service
-                  </button>
-                </div>
-              </div>
-            )}
+            <p class="cz-sc-cc-desc">
+              Pricing and tiers are managed in the Service Packages workstation.
+            </p>
+
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              onClick={handleOpenTierConfig}
+            >
+              Open Tier Configuration ↗
+            </button>
           </div>
         ) : (
           <div class="cz-sc-pkg-block cz-sc-pkg-block--empty">
             <p class="cz-sc-pkg-block__empty-msg">
               No commercial configuration has been set up for this service yet.
+              Manage this from the Service Packages workstation.
             </p>
           </div>
         )}
