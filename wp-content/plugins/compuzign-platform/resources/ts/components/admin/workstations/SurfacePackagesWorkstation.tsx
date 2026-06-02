@@ -33,6 +33,8 @@ const TIER_LABELS: Record<string, string> = {
 
 const BILLING_CYCLES = ['monthly', 'annually', 'one-time'];
 
+const POPULAR_HIERARCHY = ['premium', 'enterprise', 'standard', 'basic'] as const;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtPrice(v: number | null): string {
@@ -45,6 +47,16 @@ function slugify(s: string): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function resolvePopularTier(pkg: SurfacePackageSummary): string | null {
+  const isTierEnabled = (id: string): boolean => pkg.tiers[id]?.enabled ?? true;
+  const candidate = pkg.popular_tier ?? null;
+  if (candidate !== null && isTierEnabled(candidate)) return candidate;
+  for (const fallback of POPULAR_HIERARCHY) {
+    if (isTierEnabled(fallback)) return fallback;
+  }
+  return null;
 }
 
 // ── TierManageStep — drawer step ──────────────────────────────────────────────
@@ -541,8 +553,9 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
   const [disabling, setDisabling]         = useState(false);
   const [togglingTier, setTogglingTier]   = useState<string | null>(null);
 
-  const serviceNames = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
-  const isEnabled    = pkg.post_status === 'publish';
+  const serviceNames        = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
+  const isEnabled           = pkg.post_status === 'publish';
+  const resolvedPopularTierId = resolvePopularTier(pkg);
 
   const handleManageTier = (tierId: TierId) => {
     const tier = pkg.tiers[tierId];
@@ -660,7 +673,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
               {TIERS.map((tierId) => {
                 const tier        = pkg.tiers[tierId];
                 const tierEnabled = tier?.enabled ?? true;
-                const isPopular   = (pkg.popular_tier ?? 'premium') === tierId;
+                const isPopular   = resolvedPopularTierId === tierId;
                 const isBusy      = togglingTier === tierId;
                 const displayLabel = (tier?.label && tier.label !== '')
                   ? tier.label

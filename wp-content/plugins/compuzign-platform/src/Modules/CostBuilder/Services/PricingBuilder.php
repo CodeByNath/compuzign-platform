@@ -267,8 +267,27 @@ class PricingBuilder
         // ── Popular tier ──────────────────────────────────────────────────────
         // Package wins over legacy service-meta default; null falls back to 'premium'
         // so the badge is never absent when the admin has not made an explicit choice.
-        $payload['meta']['popular_tier'] = $package['popular_tier'] ?? 'premium';
-        if (isset($package['popular_label']) && $package['popular_label'] !== '') {
+        // Preferred: package selection (if that tier is still enabled).
+        // Fallback: first enabled tier from hierarchy. Null when no tiers remain.
+        // Disabled tiers have already been removed from pricing.tiers by this point.
+        $popularHierarchy    = ['premium', 'enterprise', 'standard', 'basic'];
+        $enabledTierIds      = array_keys($payload['pricing']['tiers']);
+        $candidate           = $package['popular_tier'] ?? null;
+        $resolvedPopularTier = null;
+
+        if ($candidate !== null && in_array($candidate, $enabledTierIds, true)) {
+            $resolvedPopularTier = $candidate;
+        } else {
+            foreach ($popularHierarchy as $fallback) {
+                if (in_array($fallback, $enabledTierIds, true)) {
+                    $resolvedPopularTier = $fallback;
+                    break;
+                }
+            }
+        }
+
+        $payload['meta']['popular_tier'] = $resolvedPopularTier;
+        if ($resolvedPopularTier !== null && isset($package['popular_label']) && $package['popular_label'] !== '') {
             $payload['meta']['popular_label'] = $package['popular_label'];
         }
 
