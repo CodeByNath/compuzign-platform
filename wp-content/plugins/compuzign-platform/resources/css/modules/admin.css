@@ -2091,9 +2091,9 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-count {
   font-size: var(--cz-font-size-xs);
   font-weight: 500;
-  color: var(--admin-accent-hover);
-  background: var(--admin-accent-a12);
-  border: 1px solid var(--admin-accent-a30);
+  color: var(--admin-text-faint);
+  background: var(--admin-white-a05);
+  border: 1px solid var(--admin-border);
   border-radius: 20px;
   padding: 1px 9px;
 }
@@ -2146,7 +2146,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-select,
 .cz-tf-textarea {
   width: 100%;
-  background: var(--admin-bg);
+  background: transparent;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-sm);
   color: var(--admin-text);
@@ -2164,7 +2164,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-select:focus,
 .cz-tf-textarea:focus {
   border-color: var(--admin-accent);
-  background: var(--admin-surface);
+  background: var(--admin-white-a05);
 }
 
 .cz-tf-input::placeholder,
@@ -2279,10 +2279,6 @@ body.compuzign-admin-page footer.site-footer {
   max-height: 216px;
   overflow-y: auto;
   margin-top: var(--cz-space-2);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-bg);
-  padding: 4px;
 }
 
 .cz-tf-check-item {
@@ -2366,10 +2362,8 @@ body.compuzign-admin-page footer.site-footer {
 /* ── Inline add form ─────────────────────────────────────────────────────────── */
 .cz-tf-inline-add {
   margin-top: var(--cz-space-2);
-  padding: var(--cz-space-3);
-  background: var(--admin-surface-2);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-sm);
+  padding-top: var(--cz-space-3);
+  border-top: 1px solid var(--admin-border);
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-2);
@@ -2390,7 +2384,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-chip {
   display: inline-block;
   padding: 3px 10px;
-  background: var(--admin-surface-2);
+  background: transparent;
   border: 1px solid var(--admin-border);
   border-radius: 20px;
   font-size: var(--cz-font-size-xs);
