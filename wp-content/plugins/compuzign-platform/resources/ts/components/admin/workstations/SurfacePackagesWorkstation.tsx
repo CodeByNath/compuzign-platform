@@ -378,10 +378,8 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── Section 4: FAQs ────────────────────────────────────────────── */}
       <div class="cz-tf-section">
-        <div class="cz-tf-section-header">
-          <p class="cz-tf-section-title">FAQs</p>
-          <span class="cz-tf-hint" style="margin:0">Shared across all tiers in this service.</span>
-        </div>
+        <p class="cz-tf-section-title">FAQs</p>
+        <p class="cz-tf-service-desc">These questions apply to all tiers for this service.</p>
 
         <input
           type="text"
@@ -391,14 +389,14 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
           onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
         />
 
-        <div class="cz-tf-faq-list">
+        <div class="cz-tf-checklist">
           {filteredFaqs.length === 0 && (
-            <div class="cz-tf-faq-empty" style="color:var(--admin-text-faint);padding:var(--cz-space-2) 0">
+            <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
               {faqSearch ? 'No matches.' : 'No FAQs in service pool yet.'}
             </div>
           )}
           {filteredFaqs.map((faq) => (
-            <div key={faq.id} class="cz-tf-faq-item">
+            <div key={faq.id} class="cz-tf-check-item" style="cursor:default">
               <div class="cz-tf-check-item__text">
                 <span class="cz-tf-check-item__question">{faq.question}</span>
                 {faq.answer && (
@@ -455,38 +453,39 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       <div class="cz-tf-section">
         <p class="cz-tf-section-title">Presentation</p>
 
-        <label class="cz-tf-check-row">
-          <input
-            type="checkbox"
-            checked={isPopular}
-            onChange={(e) => setIsPopular((e.target as HTMLInputElement).checked)}
-          />
-          <span>Mark as Popular tier</span>
-        </label>
-
-        {isPopular && (
-          <div class="cz-tf-field" style="margin-top:var(--cz-space-3)">
-            <label class="cz-tf-label">Badge label</label>
+        <div class="cz-tf-field">
+          <label class="cz-tf-check-row">
             <input
-              type="text"
-              class="cz-tf-input"
-              value={popularLabel}
-              onInput={(e) => setPopularLabel((e.target as HTMLInputElement).value)}
-              placeholder="Best"
+              type="checkbox"
+              checked={isPopular}
+              onChange={(e) => setIsPopular((e.target as HTMLInputElement).checked)}
             />
-            <p class="cz-tf-hint">Text shown on the popular badge. Defaults to "Best".</p>
-          </div>
-        )}
+            <span>Show as the recommended tier</span>
+          </label>
+          {isPopular && (
+            <>
+              <label class="cz-tf-label">Badge label</label>
+              <input
+                type="text"
+                class="cz-tf-input"
+                value={popularLabel}
+                onInput={(e) => setPopularLabel((e.target as HTMLInputElement).value)}
+                placeholder="Best"
+              />
+              <p class="cz-tf-hint">Text shown on the popular badge. Defaults to "Best".</p>
+            </>
+          )}
+        </div>
 
         {displayContexts.length > 0 && (
-          <div class="cz-tf-field" style="margin-top:var(--cz-space-3)">
-            <label class="cz-tf-label">Display contexts</label>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Where it appears</label>
             <div class="cz-tf-chips">
               {displayContexts.map((c) => (
                 <span key={c} class="cz-tf-chip">{c}</span>
               ))}
             </div>
-            <p class="cz-tf-hint">Package-level — managed separately.</p>
+            <p class="cz-tf-hint">These placements are configured at the package level.</p>
           </div>
         )}
       </div>
@@ -661,7 +660,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
               {TIERS.map((tierId) => {
                 const tier        = pkg.tiers[tierId];
                 const tierEnabled = tier?.enabled ?? true;
-                const isPopular   = pkg.popular_tier === tierId;
+                const isPopular   = (pkg.popular_tier ?? 'premium') === tierId;
                 const isBusy      = togglingTier === tierId;
                 const displayLabel = (tier?.label && tier.label !== '')
                   ? tier.label

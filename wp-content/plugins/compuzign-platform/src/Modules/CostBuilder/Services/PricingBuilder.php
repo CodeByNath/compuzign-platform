@@ -265,9 +265,9 @@ class PricingBuilder
         }
 
         // ── Popular tier ──────────────────────────────────────────────────────
-        // Always set from package — null means admin explicitly cleared it,
-        // which must override the legacy service-meta 'premium' default.
-        $payload['meta']['popular_tier'] = $package['popular_tier'];
+        // Package wins over legacy service-meta default; null falls back to 'premium'
+        // so the badge is never absent when the admin has not made an explicit choice.
+        $payload['meta']['popular_tier'] = $package['popular_tier'] ?? 'premium';
         if (isset($package['popular_label']) && $package['popular_label'] !== '') {
             $payload['meta']['popular_label'] = $package['popular_label'];
         }
