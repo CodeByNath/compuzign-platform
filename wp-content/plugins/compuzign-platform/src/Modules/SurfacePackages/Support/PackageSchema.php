@@ -51,6 +51,7 @@ class PackageSchema
             'tiers'              => self::sanitizeTiers($data['tiers'] ?? []),
             'promotion_tiers'    => self::sanitizePromotionTiers($data['promotion_tiers'] ?? []),
             'popular_tier'       => self::sanitizePopularTier($data['popular_tier'] ?? ''),
+            'popular_label'      => self::sanitizePopularLabel($data['popular_label'] ?? ''),
             'faq_refs'           => self::sanitizeFaqRefs($data['faq_refs'] ?? []),
             'sort_position'      => (int) ($data['sort_position'] ?? 0),
             'display_contexts'   => self::sanitizeContexts($data['display_contexts'] ?? []),
@@ -81,6 +82,7 @@ class PackageSchema
             ),
             'promotion_tiers'    => [],
             'popular_tier'       => null,
+            'popular_label'      => '',
             'faq_refs'           => [],
             'sort_position'      => 0,
             'display_contexts'   => ['cost-builder'],
@@ -211,6 +213,11 @@ class PackageSchema
     {
         $tier = sanitize_text_field((string) $tier);
         return in_array($tier, self::ALLOWED_TIERS, true) ? $tier : null;
+    }
+
+    private static function sanitizePopularLabel(mixed $label): string
+    {
+        return sanitize_text_field((string) $label);
     }
 
     /**

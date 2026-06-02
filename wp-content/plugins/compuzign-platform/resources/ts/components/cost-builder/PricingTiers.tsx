@@ -8,12 +8,13 @@ interface PricingTiersProps {
   tiers: Tier[];
   pricing: ServicePricing;
   popularTier: TierId | null;
+  popularLabel?: string | null;
   selectedTierId: QuoteItemTierId | null;
   billingCycle: string;
   onSelect: (tierId: TierId) => void;
 }
 
-export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, billingCycle, onSelect }: PricingTiersProps) {
+export function PricingTiers({ tiers, pricing, popularTier, popularLabel, selectedTierId, billingCycle, onSelect }: PricingTiersProps) {
   // DEBUG — remove after diagnosis
   console.log('[CZ PricingTiers] pricing:', pricing);
   console.log('[CZ PricingTiers] pricing.tiers:', pricing.tiers);
@@ -37,7 +38,7 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
         ‹
       </button>
       <div class="cz-cost-builder__tiers" ref={scrollRef}>
-        {tiers.map((tier) => {
+        {tiers.filter((tier) => tier.id in pricing.tiers).map((tier) => {
           const data = pricing.tiers[tier.id];
           // DEBUG — remove after diagnosis
           console.log('[CZ PricingTiers] tier=' + tier.id, '| data:', data, '| label:', data?.label, '| price:', data?.price, '| billing_cycle:', data?.billing_cycle);
@@ -63,7 +64,7 @@ export function PricingTiers({ tiers, pricing, popularTier, selectedTierId, bill
             >
               <div class="cz-cost-builder__tier-name">
                 <span>{data?.label || tier.title}</span>
-                {isPopular && <Badge variant="accent">Best</Badge>}
+                {isPopular && <Badge variant="accent">{popularLabel || 'Best'}</Badge>}
               </div>
               <div class="cz-cost-builder__tier-price">
                 <span class="cz-cost-builder__tier-amount">

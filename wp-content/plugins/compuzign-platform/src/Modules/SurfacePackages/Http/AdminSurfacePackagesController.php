@@ -143,6 +143,7 @@ class AdminSurfacePackagesController
                 'tiers'              => $this->summariseTiers($pkg['tiers'] ?? []),
                 'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
                 'popular_tier'       => $pkg['popular_tier'] ?? null,
+                'popular_label'      => $pkg['popular_label'] ?? '',
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
                 'display_contexts'   => $pkg['display_contexts'] ?? ['cost-builder'],
                 'migration_complete' => (bool) ($pkg['migration_complete'] ?? false),
@@ -203,6 +204,7 @@ class AdminSurfacePackagesController
                 'tiers'              => $tiers,
                 'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
                 'popular_tier'       => $pkg['popular_tier'] ?? null,
+                'popular_label'      => $pkg['popular_label'] ?? '',
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
                 'display_contexts'   => $pkg['display_contexts'] ?? ['cost-builder'],
                 'migration_complete' => (bool) ($pkg['migration_complete'] ?? false),
@@ -275,19 +277,6 @@ class AdminSurfacePackagesController
             }
         }
 
-        // FAQ refs: body value wins; merge newly-added IDs on top.
-        $faqRefs = [];
-        if (array_key_exists('faq_refs', $body) && is_array($body['faq_refs'])) {
-            $faqRefs = array_values(array_map('sanitize_text_field', array_map('strval', $body['faq_refs'])));
-        } else {
-            $faqRefs = $existing['faq_refs'] ?? [];
-        }
-        foreach ($addedFaqRefs as $ref) {
-            if (!in_array($ref, $faqRefs, true)) {
-                $faqRefs[] = $ref;
-            }
-        }
-
         $contact = !empty($body['contact']);
 
         $price = null;
@@ -302,14 +291,15 @@ class AdminSurfacePackagesController
             'billing_cycle'       => sanitize_text_field((string) ($body['billing_cycle'] ?? $existing['billing_cycle'] ?? 'monthly')),
             'inclusions_override' => $inclusions,
             'features'            => $existing['features'] ?? [],
-            'faq_refs'            => array_values(array_unique($faqRefs)),
+            'faq_refs'            => $existing['faq_refs'] ?? [],
             'enabled'             => array_key_exists('enabled', $body) ? (bool) $body['enabled'] : ($existing['enabled'] ?? true),
         ];
 
         // ── Popular tier (package-level) ──────────────────────────────────────
         if (array_key_exists('popular', $body)) {
             if ((bool) $body['popular']) {
-                $pkg['popular_tier'] = $tierId;
+                $pkg['popular_tier']  = $tierId;
+                $pkg['popular_label'] = sanitize_text_field((string) ($body['popular_label'] ?? ''));
             } elseif (($pkg['popular_tier'] ?? null) === $tierId) {
                 $pkg['popular_tier'] = null;
             }

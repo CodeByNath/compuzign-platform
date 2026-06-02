@@ -132,6 +132,7 @@ export interface SurfacePackageSummary {
   tiers: Record<string, SurfaceTierSummary>;
   promotion_tiers: PromotionTier[];
   popular_tier: string | null;
+  popular_label: string;
   faq_refs: string[];
   display_contexts: string[];
   migration_complete: boolean;
@@ -186,6 +187,7 @@ export interface SurfacePackageDetailData {
   tiers: Record<string, SurfaceTierDetail>;
   promotion_tiers: PromotionTier[];
   popular_tier: string | null;
+  popular_label: string;
   faq_refs: string[];
   display_contexts: string[];
   migration_complete: boolean;
@@ -203,8 +205,8 @@ export interface TierSavePayload {
   contact: boolean;
   billing_cycle: string;
   inclusions_override: InclusionItem[];
-  faq_refs: string[];
   popular: boolean;
+  popular_label: string;
   enabled: boolean;
   new_inclusions: Array<{ label: string }>;
   new_faqs: Array<{ question: string; answer: string }>;

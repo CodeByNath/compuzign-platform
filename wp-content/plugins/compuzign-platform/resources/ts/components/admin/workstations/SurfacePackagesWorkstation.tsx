@@ -66,6 +66,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const [priceStr, setPriceStr]                 = useState('');
   const [billingCycle, setBillingCycle]         = useState('monthly');
   const [isPopular, setIsPopular]               = useState(false);
+  const [popularLabel, setPopularLabel]         = useState('');
 
   const [selExistingIncs, setSelExistingIncs]   = useState<InclusionItem[]>([]);
   const [pendingIncs, setPendingIncs]           = useState<Array<{ label: string }>>([]);
@@ -73,7 +74,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const [newIncLabel, setNewIncLabel]           = useState('');
   const [incSearch, setIncSearch]               = useState('');
 
-  const [selFaqRefs, setSelFaqRefs]             = useState<string[]>([]);
   const [pendingFaqs, setPendingFaqs]           = useState<Array<{ question: string; answer: string }>>([]);
   const [showNewFaq, setShowNewFaq]             = useState(false);
   const [newFaqQ, setNewFaqQ]                   = useState('');
@@ -94,8 +94,8 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       }
       setBillingCycle(tier.billing_cycle ?? 'monthly');
       setSelExistingIncs(tier.inclusions_override ?? []);
-      setSelFaqRefs(tier.faq_refs ?? []);
       setIsPopular(res.package.popular_tier === id);
+      setPopularLabel(res.package.popular_label ?? '');
     },
     [],
   );
@@ -135,9 +135,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const handleAddFaq = () => {
     const q = newFaqQ.trim();
     if (!q) return;
-    const id = slugify(q);
     setPendingFaqs((p) => [...p, { question: q, answer: newFaqA.trim() }]);
-    setSelFaqRefs((r) => (r.includes(id) ? r : [...r, id]));
     setNewFaqQ('');
     setNewFaqA('');
     setShowNewFaq(false);
@@ -150,18 +148,14 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
-  const toggleFaqRef = (id: string) => {
-    setSelFaqRefs((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
-  };
-
   const buildPayload = (enabled: boolean): TierSavePayload => ({
     label,
     price: priceIsContact ? null : (parseFloat(priceStr) || null),
     contact: priceIsContact,
     billing_cycle: billingCycle,
     inclusions_override: selExistingIncs,
-    faq_refs: selFaqRefs.filter((ref) => !pendingFaqs.some((p) => slugify(p.question) === ref)),
     popular: isPopular,
+    popular_label: popularLabel,
     enabled,
     new_inclusions: pendingIncs,
     new_faqs: pendingFaqs,
@@ -386,9 +380,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       <div class="cz-tf-section">
         <div class="cz-tf-section-header">
           <p class="cz-tf-section-title">FAQs</p>
-          {selFaqRefs.length > 0 && (
-            <span class="cz-tf-count">{selFaqRefs.length} selected</span>
-          )}
+          <span class="cz-tf-hint" style="margin:0">Shared across all tiers in this service.</span>
         </div>
 
         <input
@@ -399,27 +391,22 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
           onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
         />
 
-        <div class="cz-tf-checklist">
+        <div class="cz-tf-faq-list">
           {filteredFaqs.length === 0 && (
-            <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
-              {faqSearch ? 'No matches.' : 'No FAQs in service pool.'}
+            <div class="cz-tf-faq-empty" style="color:var(--admin-text-faint);padding:var(--cz-space-2) 0">
+              {faqSearch ? 'No matches.' : 'No FAQs in service pool yet.'}
             </div>
           )}
           {filteredFaqs.map((faq) => (
-            <label key={faq.id} class="cz-tf-check-item">
-              <input
-                type="checkbox"
-                checked={selFaqRefs.includes(faq.id)}
-                onChange={() => toggleFaqRef(faq.id)}
-              />
-              <span class="cz-tf-check-item__text">
+            <div key={faq.id} class="cz-tf-faq-item">
+              <div class="cz-tf-check-item__text">
                 <span class="cz-tf-check-item__question">{faq.question}</span>
                 {faq.answer && (
                   <span class="cz-tf-check-item__answer">{faq.answer}</span>
                 )}
-              </span>
+              </div>
               {faq.isPending && <span class="cz-tf-new-badge">new</span>}
-            </label>
+            </div>
           ))}
         </div>
 
@@ -476,6 +463,20 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
           />
           <span>Mark as Popular tier</span>
         </label>
+
+        {isPopular && (
+          <div class="cz-tf-field" style="margin-top:var(--cz-space-3)">
+            <label class="cz-tf-label">Badge label</label>
+            <input
+              type="text"
+              class="cz-tf-input"
+              value={popularLabel}
+              onInput={(e) => setPopularLabel((e.target as HTMLInputElement).value)}
+              placeholder="Best"
+            />
+            <p class="cz-tf-hint">Text shown on the popular badge. Defaults to "Best".</p>
+          </div>
+        )}
 
         {displayContexts.length > 0 && (
           <div class="cz-tf-field" style="margin-top:var(--cz-space-3)">

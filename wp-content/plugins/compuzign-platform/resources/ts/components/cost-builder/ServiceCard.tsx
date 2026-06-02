@@ -81,6 +81,7 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
         tiers={tiers}
         pricing={pricing}
         popularTier={meta.popular_tier}
+        popularLabel={meta.popular_label}
         selectedTierId={selectedTierId}
         billingCycle={meta.billing_cycle}
         onSelect={handleSelect}

@@ -164,6 +164,7 @@ class PricingBuilder
                 'uptime'            => $meta['uptime'] ?? '',
                 'notes'             => $meta['notes'] ?? '',
                 'popular_tier'      => $meta['popular_tier'] ?? null,
+                'popular_label'     => '',
                 'sort_order'        => isset($meta['sort_order']) ? (int) $meta['sort_order'] : 0,
                 'is_active'         => isset($meta['is_active']) ? (bool) $meta['is_active'] : true,
             ],
@@ -264,8 +265,11 @@ class PricingBuilder
         }
 
         // ── Popular tier ──────────────────────────────────────────────────────
-        if (!empty($package['popular_tier'])) {
-            $payload['meta']['popular_tier'] = $package['popular_tier'];
+        // Always set from package — null means admin explicitly cleared it,
+        // which must override the legacy service-meta 'premium' default.
+        $payload['meta']['popular_tier'] = $package['popular_tier'];
+        if (isset($package['popular_label']) && $package['popular_label'] !== '') {
+            $payload['meta']['popular_label'] = $package['popular_label'];
         }
 
         // ── Sort order ────────────────────────────────────────────────────────
