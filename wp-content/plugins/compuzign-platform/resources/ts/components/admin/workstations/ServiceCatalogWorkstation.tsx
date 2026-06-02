@@ -463,7 +463,6 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                   <thead>
                     <tr>
                       <th>Service</th>
-                      <th>Cycle</th>
                       <th style="text-align:right">Basic</th>
                       <th style="text-align:right">Standard</th>
                       <th style="text-align:right">Premium</th>
@@ -484,9 +483,6 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                       return (
                         <tr key={service.id}>
                           <td class="cz-sc-table__name">{service.title}</td>
-                          <td style="color:var(--admin-text-muted);font-size:12px">
-                            {service.meta?.billing_cycle ?? '—'}
-                          </td>
                           <td class="cz-sc-table__price">
                             <span class={`cz-price-tag${tiers?.basic?.price != null ? ' cz-price-tag--has-price' : ''}`}>
                               {fmtPrice(tiers?.basic?.price)}
