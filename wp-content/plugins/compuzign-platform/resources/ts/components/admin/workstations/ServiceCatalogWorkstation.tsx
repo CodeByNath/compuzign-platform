@@ -217,12 +217,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         <p class="cz-req-detail__section-title">Commercial Configuration</p>
 
         {relatedPkg ? (
-          <div class="cz-sc-pkg-block">
+          <>
             <div class="cz-sc-cc-card-head">
-              <div class="cz-sc-cc-card-head__left">
-                <span class="cz-sc-cc-card-icon">◧</span>
-                <p class="cz-sc-pkg-block__title">Tier Configuration Attached</p>
-              </div>
+              <p class="cz-sc-pkg-block__title">Tier Configuration Attached</p>
               <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
                 {pkgIsActive ? 'Linked' : 'Disabled'}
               </span>
@@ -246,22 +243,20 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               class="cz-admin-btn cz-admin-btn--secondary"
               onClick={handleOpenTierConfig}
             >
-              Open Tier Configuration ↗
+              Open Tier Configuration
             </button>
-          </div>
+          </>
         ) : (
-          <div class="cz-sc-pkg-block cz-sc-pkg-block--empty">
-            <p class="cz-sc-pkg-block__empty-msg">
-              No commercial configuration has been set up for this service yet.
-              Manage this from the Service Packages workstation.
-            </p>
-          </div>
+          <p class="cz-sc-pkg-block__empty-msg">
+            Commercial configuration has not been set up for this service.
+            Manage this from the Service Packages workstation.
+          </p>
         )}
       </div>
 
       {/* ── SECONDARY: Long Description ────────────────────────────────── */}
       {service.content && (
-        <div class="cz-req-detail__section cz-req-detail__section--secondary">
+        <div class="cz-req-detail__section">
           <p class="cz-req-detail__section-title">Description</p>
           <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text-muted);line-height:1.6">
             {service.content}
@@ -271,7 +266,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── SECONDARY: Included Features (service pool) ────────────────── */}
       {inclusions.length > 0 && (
-        <div class="cz-req-detail__section cz-req-detail__section--secondary">
+        <div class="cz-req-detail__section">
           <p class="cz-req-detail__section-title">
             Included Features
             <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
@@ -288,7 +283,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── SECONDARY: Common Questions (service FAQ pool) ─────────────── */}
       {faqs.length > 0 && (
-        <div class="cz-req-detail__section cz-req-detail__section--secondary">
+        <div class="cz-req-detail__section">
           <p class="cz-req-detail__section-title">
             Common Questions
             <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
@@ -308,7 +303,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── SECONDARY: Pricing Summary ─────────────────────────────────── */}
       {tiers && (
-        <div class="cz-req-detail__section cz-req-detail__section--secondary">
+        <div class="cz-req-detail__section">
           <p class="cz-req-detail__section-title">Pricing Summary</p>
           <div class="cz-sp-tier-table-wrap">
             <table class="cz-sp-tier-table">

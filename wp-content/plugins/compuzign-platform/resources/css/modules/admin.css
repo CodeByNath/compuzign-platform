@@ -2560,15 +2560,9 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 /* ── Service view — secondary sections ──────────────────────────────────────── */
-/* Secondary sections sit visually below the primary business summary.           */
-.cz-req-detail__section--secondary {
-  background: var(--admin-surface-2);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius);
-  padding: var(--cz-space-4);
-  padding-bottom: var(--cz-space-4);
-  margin-bottom: var(--cz-space-3);
-}
+/* Intentionally no visual overrides — inherits cz-req-detail__section divider   */
+/* rhythm. No card/surface treatment; content sits on the drawer background.     */
+.cz-req-detail__section--secondary {}
 
 /* Status indicator — small dot + label in a row */
 .cz-sc-status-inline {
