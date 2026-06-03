@@ -45,8 +45,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  font-weight: 800;
+  font-size: var(--admin-fs-l-label);
+  font-weight: var(--admin-fw-strong);
   color: #fff;
   letter-spacing: 0.04em;
   margin-bottom: 4px;
@@ -54,17 +54,17 @@
 
 .cz-login-brand__name {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--admin-fs-sub);
+  font-weight: var(--admin-fw-strong);
   color: #e8eaed;
   letter-spacing: 0.01em;
-  line-height: 1.2;
+  line-height: var(--admin-lh-l-label);
 }
 
 .cz-login-brand__sub {
   margin: 0;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
   color: rgba(232, 234, 237, 0.40);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -85,8 +85,8 @@
 }
 
 .cz-login-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: rgba(232, 234, 237, 0.55);
@@ -101,7 +101,7 @@
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: #22263a;
   color: #e8eaed;
-  font-size: 14px;
+  font-size: var(--admin-fs-label);
   line-height: 1;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -134,8 +134,8 @@
   border: none;
   color: rgba(232, 234, 237, 0.35);
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   transition: color 0.15s;
@@ -153,8 +153,8 @@
   background: rgba(240, 101, 121, 0.10);
   border: 1px solid rgba(240, 101, 121, 0.20);
   color: #f06579;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--admin-fs-label);
+  line-height: var(--admin-lh-label);
 }
 
 /* ── Submit button ───────────────────────────────────────────────────────────── */
@@ -166,8 +166,8 @@
   border-radius: 9px;
   background: #5c6ef5;
   color: #fff;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   letter-spacing: 0.02em;
   cursor: pointer;
   margin-top: 2px;
@@ -187,7 +187,7 @@
 .cz-login-footer {
   margin-top: 32px;
   text-align: center;
-  font-size: 11px;
+  font-size: var(--admin-fs-s-label);
   color: rgba(232, 234, 237, 0.25);
   letter-spacing: 0.06em;
 }
@@ -296,15 +296,40 @@
   --admin-depth-ring-sm:  0 0 0 1px var(--admin-accent-a15);
   --admin-depth-ring-md:  0 0 0 2px var(--admin-accent-a15);
 
-  /* ── Typography scale — definitions only; component migration in Phase 5 ─── */
-  --admin-type-display: 28px;   /* stat values, large metrics */
-  --admin-type-metric:  24px;   /* import counts */
-  --admin-type-title:   20px;   /* workstation page headings */
-  --admin-type-price:   18px;   /* bundle / price values */
-  --admin-type-body:    var(--cz-font-size-sm);
-  --admin-type-label:   var(--cz-font-size-xs);
-  --admin-type-micro:   10px;   /* only permitted raw size below xs */
-  --admin-type-hint:    11px;   /* form hints, helper text */
+  /* ── Typography — IBM Plex Sans on 4px rhythm grid ──────────────────────── */
+  /* Replaces Phase 1 temporary --admin-type-* tokens.                          */
+  /* Font family — alias over AE token; decouples admin from AE dependency.     */
+  --admin-font: var(--cz-font-main);
+
+  /* Size scale (fixed px — independent of browser root, all on 4px grid) */
+  --admin-fs-l-heading: 32px;   /* Heading-L                              */
+  --admin-fs-l-sub:     24px;   /* Subheading-L = Heading-Base            */
+  --admin-fs-l-label:   16px;   /* Label-L = Subheading-S                 */
+
+  --admin-fs-heading:   24px;   /* Heading-Base                           */
+  --admin-fs-sub:       20px;   /* Subheading-Base = Heading-S            */
+  --admin-fs-label:     14px;   /* Label-Base = Paragraph-Base = Button-Base */
+
+  --admin-fs-s-heading: 20px;   /* Heading-S                              */
+  --admin-fs-s-sub:     16px;   /* Subheading-S                           */
+  --admin-fs-s-label:   12px;   /* Label-S = Paragraph-S = Button-S       */
+
+  --admin-fs-icon-l:    24px;   /* Icon-L                                 */
+  --admin-fs-icon:      20px;   /* Icon-Base                              */
+  --admin-fs-icon-s:    16px;   /* Icon-S                                 */
+
+  /* Line height scale (fixed px, 4px grid) */
+  --admin-lh-l-heading: 40px;   /* Heading-L                              */
+  --admin-lh-l-sub:     32px;   /* Subheading-L / Heading-Base            */
+  --admin-lh-sub:       28px;   /* Subheading-Base / Heading-S            */
+  --admin-lh-l-label:   24px;   /* Label-L / Subheading-S                 */
+  --admin-lh-label:     20px;   /* Label-Base / Paragraph-Base / Button   */
+  --admin-lh-s-label:   16px;   /* Label-S / Paragraph-S / Button-S       */
+
+  /* Weight scale */
+  --admin-fw-strong: 600;   /* headings, labels, buttons, important links */
+  --admin-fw-normal: 400;   /* subheadings, paragraphs, default content   */
+  --admin-fw-light:  300;   /* captions, metadata, secondary helper text  */
 
   /* ── Spacing gaps — off-scale values; full migration in Phase 7 ──────────── */
   --admin-space-cell-v:   10px;   /* table cell vertical padding */
@@ -322,9 +347,9 @@
   min-height: 100vh;
   background: var(--admin-bg);
   color: var(--admin-text);
-  font-family: var(--cz-font-main);
-  font-size: 14px;
-  line-height: 1.5;
+  font-family: var(--admin-font);
+  font-size: var(--admin-fs-label);
+  line-height: var(--admin-lh-label);
 }
 
 /* ── Sidebar ────────────────────────────────────────────────────────────────── */
@@ -367,15 +392,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--cz-color-text);
   flex-shrink: 0;
 }
 
 .cz-admin-sidebar__logo-text {
-  font-size: var(--cz-font-size-sm);
-  font-weight: 600;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
   white-space: nowrap;
   overflow: hidden;
@@ -400,8 +425,8 @@
 
 .cz-admin-sidebar__group-label {
   padding: var(--cz-space-2) var(--cz-space-4) var(--cz-space-1);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--admin-text-faint);
@@ -424,7 +449,7 @@
   border: none;
   background: transparent;
   color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   width: 100%;
   text-align: left;
   border-right: 2px solid transparent;
@@ -451,7 +476,7 @@
 }
 
 .cz-admin-nav-item__icon {
-  font-size: var(--cz-font-size-md);
+  font-size: var(--admin-fs-icon);
   flex-shrink: 0;
   width: 20px;
   text-align: center;
@@ -482,7 +507,7 @@
   background: transparent;
   border: none;
   color: var(--admin-text-faint);
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   cursor: pointer;
   border-radius: var(--admin-radius-sm);
   width: 100%;
@@ -536,7 +561,7 @@
   border: none;
   color: var(--admin-text-muted);
   cursor: pointer;
-  font-size: 18px;
+  font-size: var(--admin-fs-icon);
   padding: var(--cz-space-1);
   line-height: 1;
   border-radius: var(--admin-radius-sm);
@@ -548,14 +573,14 @@
 }
 
 .cz-admin-topbar__title {
-  font-size: var(--cz-font-size-md);
-  font-weight: 600;
+  font-size: var(--admin-fs-l-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-admin-topbar__meta {
   margin-left: auto;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   letter-spacing: 0.04em;
 }
@@ -569,15 +594,15 @@
 }
 
 .cz-admin-topbar__brand-name {
-  font-size: var(--cz-font-size-sm);
-  font-weight: 600;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
 .cz-admin-topbar__brand-sub {
-  font-size: 10px;
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   letter-spacing: 0.05em;
   line-height: 1.2;
@@ -600,7 +625,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
   white-space: nowrap;
 }
@@ -623,7 +648,7 @@
 
 .cz-admin-status-strip__version {
   margin-left: auto;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
 }
 
@@ -646,14 +671,14 @@
 
 .cz-ws-title {
   margin: 0 0 var(--cz-space-1);
-  font-size: 20px;
-  font-weight: 600;
+  font-size: var(--admin-fs-sub);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-ws-subtitle {
   margin: 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
 }
 
@@ -673,8 +698,8 @@
 
 .cz-ws-card__title {
   margin: 0 0 14px;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--admin-text-muted);
@@ -687,8 +712,8 @@
   gap: 6px;
   padding: 7px var(--cz-space-4);
   border-radius: var(--cz-rhythm);
-  font-size: var(--cz-font-size-sm);
-  font-weight: 500;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   cursor: pointer;
   border: 1px solid transparent;
   outline: none;
@@ -787,7 +812,7 @@
   border-radius: var(--admin-radius-sm);
   padding: var(--cz-space-3) var(--cz-space-4);
   color: var(--admin-error);
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-admin-empty {
@@ -811,7 +836,7 @@
 
 .cz-admin-root .cz-spinner__label {
   color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 /* ── Overview — stat tiles ──────────────────────────────────────────────────── */
@@ -833,22 +858,22 @@
 }
 
 .cz-stat-tile__label {
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--admin-text-muted);
 }
 
 .cz-stat-tile__value {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: var(--admin-fs-heading);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .cz-stat-tile__sub {
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
 }
 
@@ -865,8 +890,8 @@
   gap: 6px;
   padding: 5px var(--cz-space-3);
   border-radius: 20px;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 500;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
   border: 1px solid transparent;
 }
 
@@ -890,14 +915,14 @@
 .cz-sc-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-sc-table th {
   padding: 10px 14px;
   text-align: left;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -926,13 +951,13 @@
 }
 
 .cz-sc-table__name {
-  font-weight: 500;
+  font-weight: var(--admin-fw-strong);
   max-width: 240px;
 }
 
 .cz-sc-table__category {
   color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
 }
 
 .cz-sc-table__price {
@@ -943,7 +968,7 @@
   display: inline-block;
   padding: 2px var(--cz-space-2);
   border-radius: 4px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   background: transparent;
 }
@@ -1029,8 +1054,8 @@
 }
 
 .cz-action-shell__title {
-  font-size: var(--cz-font-size-md);
-  font-weight: 600;
+  font-size: var(--admin-fs-sub);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
   margin: 0;
   white-space: nowrap;
@@ -1065,7 +1090,7 @@
   background: transparent;
   border: none;
   color: var(--admin-text-muted);
-  font-size: 18px;
+  font-size: var(--admin-fs-icon);
   line-height: 1;
   cursor: pointer;
   padding: 6px;
@@ -1083,8 +1108,8 @@
   background: transparent;
   border: none;
   color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-xs);
-  font-weight: 500;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: var(--admin-radius-sm);
@@ -1117,15 +1142,15 @@
 }
 
 .cz-action-shell__step-label {
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--admin-text-muted);
 }
 
 .cz-action-shell__step-count {
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
 }
 
@@ -1176,7 +1201,7 @@
 }
 
 .cz-action-progress__icon {
-  font-size: 18px;
+  font-size: var(--admin-fs-icon);
   flex-shrink: 0;
 }
 
@@ -1185,7 +1210,7 @@
 
 .cz-action-progress__message {
   margin: 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
 }
 
@@ -1213,13 +1238,13 @@
 }
 
 .cz-import-result-item__value {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: var(--admin-fs-heading);
+  font-weight: var(--admin-fw-strong);
   line-height: 1;
 }
 
 .cz-import-result-item__label {
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1244,7 +1269,7 @@
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
   border-radius: 4px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
 }
 
@@ -1258,7 +1283,7 @@
 .cz-dryrun-sample table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
 }
 
 .cz-dryrun-sample th {
@@ -1267,8 +1292,8 @@
   border-bottom: 1px solid var(--admin-border-blue);
   text-align: left;
   color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   white-space: nowrap;
 }
 
@@ -1293,8 +1318,8 @@
   background: var(--admin-accent-a15);
   border: 1px solid var(--admin-accent-a30);
   border-radius: 4px;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-accent-hover);
   text-transform: capitalize;
 }
@@ -1309,8 +1334,8 @@
   display: inline-block;
   padding: 2px 9px;
   border-radius: 20px;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
 }
 
 .cz-status-pill--active {
@@ -1331,14 +1356,14 @@
 .cz-req-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-req-table th {
   padding: 10px 14px;
   text-align: left;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -1368,7 +1393,7 @@
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
   border-radius: 4px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   color: var(--admin-text);
   letter-spacing: 0.04em;
@@ -1381,12 +1406,12 @@
 }
 
 .cz-req-table__name {
-  font-weight: 500;
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-req-table__email {
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
 }
 
@@ -1399,8 +1424,8 @@
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
   border-radius: 50%;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text-muted);
 }
 
@@ -1425,8 +1450,8 @@
 
 .cz-req-detail__section-title {
   margin: 0 0 var(--cz-space-3);
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--admin-text-muted);
@@ -1445,14 +1470,14 @@
 }
 
 .cz-req-contact-grid__label {
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-faint);
 }
 
 .cz-req-contact-grid__value {
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text);
 }
 
@@ -1471,9 +1496,9 @@
 
 .cz-req-notes__text {
   margin: 6px 0 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
-  line-height: var(--cz-line-height-body);
+  line-height: var(--admin-lh-label);
   white-space: pre-wrap;
 }
 
@@ -1486,14 +1511,14 @@
 .cz-req-items-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-req-items-table th {
   padding: var(--cz-space-2) 14px;
   text-align: left;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -1519,7 +1544,7 @@
 }
 
 .cz-req-items-table__name {
-  font-weight: 500;
+  font-weight: var(--admin-fw-strong);
 }
 
 /* ── Intake acceptance strip ────────────────────────────────────────────────── */
@@ -1530,7 +1555,7 @@
   padding: 10px var(--cz-space-5);
   background: var(--admin-bg);
   border-bottom: 1px solid var(--admin-border-blue);
-  font-size: 13px;
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
 }
 
@@ -1541,7 +1566,7 @@
 }
 
 .cz-req-intake-status__dot {
-  font-size: 14px;
+  font-size: var(--admin-fs-label);
   line-height: 1;
   flex-shrink: 0;
 }
@@ -1567,7 +1592,7 @@
 }
 
 .cz-health-status-banner__icon {
-  font-size: 20px;
+  font-size: var(--admin-fs-icon);
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -1577,20 +1602,20 @@
 
 .cz-health-status-banner__title {
   margin: 0 0 3px;
-  font-size: var(--cz-font-size-md);
-  font-weight: 600;
+  font-size: var(--admin-fs-l-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-health-status-banner__sub {
   margin: 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
 }
 
 .cz-health-status-banner__version {
   margin-left: auto;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   flex-shrink: 0;
   padding-top: 2px;
@@ -1629,8 +1654,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   flex-shrink: 0;
 }
 
@@ -1651,21 +1676,21 @@
 
 .cz-health-module-card__name {
   margin: 0 0 3px;
-  font-size: var(--cz-font-size-sm);
-  font-weight: 600;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-health-module-card__desc {
   margin: 0;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
   line-height: 1.4;
 }
 
 .cz-health-module-card__status-text {
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   flex-shrink: 0;
   padding-top: 2px;
 }
@@ -1688,24 +1713,24 @@
 
 .cz-health-remediation__module {
   display: block;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-error);
   margin-bottom: 6px;
 }
 
 .cz-health-remediation__guidance {
   margin: 0;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
-  line-height: var(--cz-line-height-body);
+  line-height: var(--admin-lh-s-label);
 }
 
 .cz-health-remediation__guidance code {
   background: var(--admin-white-a08);
   padding: 1px 5px;
   border-radius: 3px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   font-family: ui-monospace, 'SF Mono', monospace;
   color: var(--admin-text);
 }
@@ -1723,8 +1748,8 @@
   background: var(--admin-accent-a12);
   border: 1px solid var(--admin-accent-a12);
   border-radius: var(--cz-rhythm);
-  font-size: var(--cz-font-size-xs);
-  font-weight: 500;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-accent-text);
   cursor: pointer;
   transition:
@@ -1757,14 +1782,14 @@
 .cz-pricing-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-pricing-table th {
   padding: 10px 14px;
   text-align: left;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -1789,14 +1814,14 @@
 }
 
 .cz-pricing-table__name {
-  font-weight: 500;
+  font-weight: var(--admin-fw-strong);
 }
 
 .cz-pricing-table__cycle {
   margin-left: var(--cz-space-1);
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
-  font-weight: 400;
+  font-weight: var(--admin-fw-normal);
 }
 
 /* ── Bundles workstation ────────────────────────────────────────────────────── */
@@ -1825,27 +1850,27 @@
 
 .cz-bundle-card__service {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-bundle-card__category {
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   white-space: nowrap;
 }
 
 .cz-bundle-card__title {
   margin: 0;
-  font-size: var(--cz-font-size-sm);
-  font-weight: 500;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-normal);
   color: var(--admin-text);
 }
 
 .cz-bundle-card__description {
   margin: 0;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
   line-height: 1.5;
 }
@@ -1860,22 +1885,22 @@
 }
 
 .cz-bundle-card__price-label {
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-faint);
 }
 
 .cz-bundle-card__price-value {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--admin-fs-sub);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
   font-variant-numeric: tabular-nums;
 }
 
 .cz-bundle-card__price-cycle {
-  font-size: var(--cz-font-size-xs);
-  font-weight: 400;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
   color: var(--admin-text-muted);
 }
 
@@ -1887,14 +1912,14 @@
 .cz-featured-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-featured-table th {
   padding: 10px 14px;
   text-align: left;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -1919,7 +1944,7 @@
 }
 
 .cz-featured-table__name {
-  font-weight: 500;
+  font-weight: var(--admin-fw-strong);
 }
 
 /* ── Coming soon / stub workstations ────────────────────────────────────────── */
@@ -1933,13 +1958,13 @@
   display: flex;
   align-items: center;
   gap: var(--cz-space-2);
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
 }
 
 .cz-coming-soon-checklist__item::before {
   content: '○';
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   flex-shrink: 0;
   color: var(--admin-text-faint);
 }
@@ -1952,7 +1977,7 @@
   background: var(--admin-white-a08);
   padding: 1px 5px;
   border-radius: 3px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   font-family: ui-monospace, 'SF Mono', monospace;
   color: var(--admin-text);
 }
@@ -2012,7 +2037,7 @@ body.compuzign-admin-page footer.site-footer {
 /* Small button modifier — used in dense table rows */
 .cz-admin-btn--sm {
   padding: 4px 10px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
 }
 
 /* Disabled package card */
@@ -2044,14 +2069,14 @@ body.compuzign-admin-page footer.site-footer {
   gap: var(--cz-space-2);
   flex-wrap: wrap;
   margin: 0;
-  font-size: var(--cz-font-size-md);
-  font-weight: 600;
+  font-size: var(--admin-fs-l-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-sp-pkg-header__service {
   margin: 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
 }
 
@@ -2072,8 +2097,8 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sp-tiers-header__label {
   margin: 0;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--admin-text-muted);
@@ -2083,7 +2108,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-sp-empty-tiers {
   margin: 0;
   padding: var(--cz-space-4) 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-faint);
 }
 
@@ -2097,14 +2122,14 @@ body.compuzign-admin-page footer.site-footer {
 .cz-sp-tier-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-sp-tier-table th {
   padding: 8px 12px;
   text-align: left;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -2130,7 +2155,7 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sp-tier-table__name {
   min-width: 130px;
-  font-weight: 500;
+  font-weight: var(--admin-fw-strong);
 }
 
 .cz-sp-tier-table__name-inner {
@@ -2146,7 +2171,7 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sp-tier-table__muted {
   color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
 }
 
 .cz-sp-tier-table__actions {
@@ -2190,8 +2215,8 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-tf-section-title {
   margin: 0 0 var(--cz-space-3);
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--admin-text-muted);
@@ -2202,8 +2227,8 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-tf-count {
-  font-size: var(--cz-font-size-xs);
-  font-weight: 500;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
   color: var(--admin-text-faint);
   background: var(--admin-white-a05);
   border: 1px solid var(--admin-border-blue);
@@ -2214,16 +2239,16 @@ body.compuzign-admin-page footer.site-footer {
 /* Service info read-only block */
 .cz-tf-service-title {
   margin: 0 0 4px;
-  font-size: var(--cz-font-size-md);
-  font-weight: 500;
+  font-size: var(--admin-fs-l-label);
+  font-weight: var(--admin-fw-normal);
   color: var(--admin-text);
 }
 
 .cz-tf-service-desc {
   margin: 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
-  line-height: var(--cz-line-height-body);
+  line-height: var(--admin-lh-label);
 }
 
 /* ── Form fields ─────────────────────────────────────────────────────────────── */
@@ -2240,8 +2265,8 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-tf-label {
   display: block;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -2249,9 +2274,9 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-tf-hint {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
-  line-height: 1.45;
+  line-height: var(--admin-lh-s-label);
 }
 
 /* ── Form controls ───────────────────────────────────────────────────────────── */
@@ -2263,7 +2288,7 @@ body.compuzign-admin-page footer.site-footer {
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-sm);
   color: var(--admin-text);
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   font-family: inherit;
   padding: 8px 12px;
   outline: none;
@@ -2362,7 +2387,7 @@ body.compuzign-admin-page footer.site-footer {
   padding: 7px 10px;
   border-radius: var(--admin-radius-sm);
   cursor: pointer;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text);
   user-select: none;
   border: 1px solid transparent;
@@ -2401,7 +2426,7 @@ body.compuzign-admin-page footer.site-footer {
   padding: 7px 8px;
   border-radius: calc(var(--admin-radius-sm) - 2px);
   cursor: pointer;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text);
   user-select: none;
   transition: background var(--cz-transition-fast);
@@ -2422,17 +2447,17 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-tf-check-item__question {
   display: block;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text);
   line-height: 1.4;
 }
 
 .cz-tf-check-item__answer {
   display: block;
-  font-size: 11px;
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
   margin-top: 2px;
-  line-height: 1.4;
+  line-height: var(--admin-lh-s-label);
 }
 
 /* ── "New" badge for pending items ──────────────────────────────────────────── */
@@ -2442,8 +2467,8 @@ body.compuzign-admin-page footer.site-footer {
   background: var(--admin-success-a12);
   border: 1px solid var(--admin-success-a20);
   border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-success);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2462,8 +2487,8 @@ body.compuzign-admin-page footer.site-footer {
   background: transparent;
   border: none;
   color: var(--admin-accent-hover);
-  font-size: var(--cz-font-size-xs);
-  font-weight: 500;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
   cursor: pointer;
   transition: color var(--cz-transition-fast);
 }
@@ -2500,7 +2525,7 @@ body.compuzign-admin-page footer.site-footer {
   background: transparent;
   border: 1px solid var(--admin-border-blue);
   border-radius: 20px;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
 }
 
@@ -2543,17 +2568,17 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sc-faq-item__q {
   margin: 0 0 4px;
-  font-size: var(--cz-font-size-sm);
-  font-weight: 500;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
-  line-height: 1.4;
+  line-height: var(--admin-lh-label);
 }
 
 .cz-sc-faq-item__a {
   margin: 0;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
-  line-height: var(--cz-line-height-body);
+  line-height: var(--admin-lh-s-label);
 }
 
 /* Surface Package block inside service view */
@@ -2573,14 +2598,14 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sc-pkg-block__title {
   margin: 0 0 3px;
-  font-size: var(--cz-font-size-sm);
-  font-weight: 600;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
 }
 
 .cz-sc-pkg-block__stats {
   margin: 0;
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
 }
 
@@ -2599,8 +2624,8 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-tf-subsection-label {
   margin: 0;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   color: var(--admin-text);
   text-transform: none;
   letter-spacing: 0;
@@ -2643,7 +2668,7 @@ body.compuzign-admin-page footer.site-footer {
   border: none;
   background: transparent;
   color: var(--admin-text-faint);
-  font-size: 18px;
+  font-size: var(--admin-fs-icon);
   line-height: 1;
   cursor: pointer;
   border-radius: var(--admin-radius-sm);
@@ -2662,7 +2687,7 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sc-pkg-block__empty-msg {
   margin: 0;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-faint);
 }
 
@@ -2676,7 +2701,7 @@ body.compuzign-admin-page footer.site-footer {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 /* Commercial configuration — card header (icon + title + status badge) */
@@ -2694,7 +2719,7 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sc-cc-card-icon {
-  font-size: 15px;
+  font-size: var(--admin-fs-icon-s);
   color: var(--admin-accent);
   flex-shrink: 0;
   line-height: 1;
@@ -2705,7 +2730,7 @@ body.compuzign-admin-page footer.site-footer {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   margin-bottom: var(--cz-space-2);
 }
 
@@ -2720,7 +2745,7 @@ body.compuzign-admin-page footer.site-footer {
 /* Description line */
 .cz-sc-cc-desc {
   margin: 0 0 var(--cz-space-3);
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   line-height: 1.5;
 }
@@ -2751,7 +2776,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-admin-notice {
   padding: 10px 14px;
   border-radius: var(--admin-radius-sm);
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   line-height: 1.6;
   margin-bottom: var(--cz-space-4);
 }
@@ -2764,7 +2789,7 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-admin-notice--pending code {
   font-family: var(--cz-font-mono, monospace);
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
   background: var(--admin-white-a08);
   padding: 1px 5px;
   border-radius: 3px;
@@ -2775,8 +2800,8 @@ body.compuzign-admin-page footer.site-footer {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 20px;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   background: var(--admin-white-a08);
   color: var(--admin-text-muted);
 }
@@ -2791,14 +2816,14 @@ body.compuzign-admin-page footer.site-footer {
 .cz-promo-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
 }
 
 .cz-promo-table th {
   padding: 8px 12px;
   text-align: left;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
@@ -2824,7 +2849,7 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-promo-table__name {
   min-width: 140px;
-  font-weight: 500;
+  font-weight: var(--admin-fw-strong);
 }
 
 .cz-promo-table__name-inner {
@@ -2840,7 +2865,7 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-promo-table__muted {
   color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-xs);
+  font-size: var(--admin-fs-s-label);
 }
 
 .cz-promo-table__actions {
@@ -2865,7 +2890,7 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-promo-item-list__row {
-  font-size: var(--cz-font-size-sm);
+  font-size: var(--admin-fs-label);
   color: var(--admin-text-muted);
   padding: 4px 0;
   border-bottom: 1px solid var(--admin-border-blue);
