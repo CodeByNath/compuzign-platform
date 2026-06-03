@@ -230,6 +230,10 @@
   /* ── Borders — mapped to Atomic Engine ───────────────────────────────────── */
   --admin-border:         var(--cz-color-line);
   --admin-sidebar-border: rgba(255, 255, 255, 0.07);
+  --admin-border-blue:    rgba(72, 82, 161, 0.23);
+
+  /* ── Accent text — readable on dark surfaces ──────────────────────────────── */
+  --admin-accent-text: #5f6ccc;
 
   /* ── Operational accent — blue-indigo; distinct from brand yellow ─────────── */
   /* The brand accent (--cz-color-accent: #ffda17) is for customer-facing UI.    */
@@ -310,7 +314,7 @@
   bottom: 0;
   width: var(--admin-sidebar-w);
   background: var(--admin-sidebar-bg);
-  border-right: 1px solid var(--admin-sidebar-border);
+  border-right: 1px solid var(--admin-border-blue);
   display: flex;
   flex-direction: column;
   z-index: var(--admin-z-sidebar);
@@ -328,7 +332,7 @@
   align-items: center;
   gap: var(--cz-space-2);
   padding: 0 var(--cz-space-4);
-  border-bottom: 1px solid var(--admin-sidebar-border);
+  border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -486,7 +490,7 @@
   gap: var(--cz-space-3);
   padding: 0 var(--cz-space-6);
   background: var(--admin-surface);
-  border-bottom: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -553,7 +557,7 @@
   gap: var(--cz-space-4);
   padding: 0 var(--cz-space-6);
   background: var(--admin-sidebar-bg);
-  border-bottom: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
   overflow-x: auto;
 }
@@ -626,9 +630,9 @@
 }
 
 .cz-ws-card {
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius);
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: var(--cz-rhythm);
   padding: var(--cz-space-5);
   margin-bottom: var(--cz-space-5);
 }
@@ -670,24 +674,41 @@
 }
 
 .cz-admin-btn--secondary {
-  background: var(--admin-surface-2);
-  color: var(--admin-text);
-  border-color: var(--admin-border);
+  background: var(--admin-accent-a12);
+  color: var(--admin-accent-text);
+  border-color: var(--admin-accent-a12);
+  border-radius: var(--cz-rhythm);
 }
 
 .cz-admin-btn--secondary:hover:not(:disabled) {
-  background: var(--admin-white-a08);
+  background: var(--admin-accent-a12);
+  border-color: var(--admin-accent);
+}
+
+.cz-admin-btn--secondary:active,
+.cz-admin-btn--secondary:focus {
+  background: var(--admin-accent-a15);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent-hover);
 }
 
 .cz-admin-btn--ghost {
-  background: transparent;
-  color: var(--admin-text-muted);
-  border-color: var(--admin-border);
+  background: var(--admin-accent-a12);
+  color: var(--admin-accent-text);
+  border-color: var(--admin-accent-a12);
+  border-radius: var(--cz-rhythm);
 }
 
 .cz-admin-btn--ghost:hover:not(:disabled) {
-  background: var(--admin-white-a06);
-  color: var(--admin-text);
+  background: var(--admin-accent-a12);
+  border-color: var(--admin-accent);
+}
+
+.cz-admin-btn--ghost:active,
+.cz-admin-btn--ghost:focus {
+  background: var(--admin-accent-a15);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent-hover);
 }
 
 .cz-admin-btn:disabled {
@@ -823,8 +844,8 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--admin-text-muted);
-  background: var(--admin-surface-2);
-  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-accent-a12);
+  border-bottom: 1px solid var(--admin-border-blue);
   white-space: nowrap;
 }
 
@@ -834,7 +855,7 @@
 
 .cz-sc-table td {
   padding: 10px 14px;
-  border-bottom: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border-blue);
   color: var(--admin-text);
   vertical-align: middle;
 }
@@ -844,7 +865,7 @@
 }
 
 .cz-sc-table tr:hover td {
-  background: var(--admin-white-a025);
+  background: var(--admin-accent-a12);
 }
 
 .cz-sc-table__name {
@@ -1635,19 +1656,22 @@
 
 .cz-pricing-tab {
   padding: 6px 14px;
-  background: transparent;
-  border: 1px solid var(--admin-border);
-  border-radius: 20px;
+  background: var(--admin-accent-a12);
+  border: 1px solid var(--admin-accent-a12);
+  border-radius: var(--cz-rhythm);
   font-size: var(--cz-font-size-xs);
   font-weight: 500;
-  color: var(--admin-text-muted);
+  color: var(--admin-accent-text);
   cursor: pointer;
-  transition: background var(--cz-transition-fast), color var(--cz-transition-fast), border-color var(--cz-transition-fast);
+  transition:
+    background var(--cz-transition-fast),
+    color var(--cz-transition-fast),
+    border-color var(--cz-transition-fast);
 }
 
 .cz-pricing-tab:hover {
-  background: var(--admin-white-a05);
-  color: var(--admin-text);
+  background: var(--admin-accent-a12);
+  border-color: var(--admin-accent);
 }
 
 .cz-pricing-tab--active {
