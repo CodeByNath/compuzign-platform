@@ -421,7 +421,7 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
                 <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddNewInclusion}>
                   Add to pool
                 </button>
-                <button type="button" class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm" onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}>
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}>
                   Cancel
                 </button>
               </div>
@@ -475,7 +475,7 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
                 <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddAddon}>
                   Add
                 </button>
-                <button type="button" class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm" onClick={() => { setShowNewAddon(false); setNewAddonLabel(''); }}>
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewAddon(false); setNewAddonLabel(''); }}>
                   Cancel
                 </button>
               </div>
@@ -592,7 +592,7 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <div class="cz-tf-footer">
         <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close} disabled={saving}>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
           Cancel
         </button>
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={saving}>
@@ -685,7 +685,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
         <p class="cz-sp-tiers-header__label">Promotion Tiers</p>
         <button
           type="button"
-          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
           onClick={handleAddPromotion}
         >
           + Add Promotion
@@ -746,7 +746,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
                   <td class="cz-promo-table__actions">
                     <button
                       type="button"
-                      class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                      class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
                       onClick={() => handleManage(promo)}
                     >
                       Manage
@@ -754,7 +754,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
                     {promo.status !== 'archived' && (
                       <button
                         type="button"
-                        class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                        class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                         onClick={() => handleArchive(promo.id)}
                         disabled={archivingId === promo.id}
                       >

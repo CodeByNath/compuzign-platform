@@ -194,7 +194,7 @@ function RequestDetailStep({ ctx }: { ctx: StepContext }) {
             {accepting ? 'Accepting…' : 'Accept Request'}
           </button>
         )}
-        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
           Close
         </button>
       </div>
@@ -309,7 +309,7 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
                     <td style="text-align:right">
                       <button
                         type="button"
-                        class="cz-admin-btn cz-admin-btn--ghost"
+                        class="cz-admin-btn cz-admin-btn--secondary"
                         style="padding:5px 12px;font-size:12px"
                         onClick={() => openDetail(req)}
                       >

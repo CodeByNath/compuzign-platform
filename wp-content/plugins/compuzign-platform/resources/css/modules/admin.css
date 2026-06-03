@@ -653,62 +653,79 @@
   align-items: center;
   gap: 6px;
   padding: 7px var(--cz-space-4);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--cz-rhythm);
   font-size: var(--cz-font-size-sm);
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background var(--cz-transition-fast), color var(--cz-transition-fast), border-color var(--cz-transition-fast);
+  transition:
+    background var(--cz-transition-fast),
+    color var(--cz-transition-fast),
+    border-color var(--cz-transition-fast),
+    box-shadow var(--cz-transition-fast);
   line-height: 1.4;
   white-space: nowrap;
 }
 
+/* ── Primary — filled accent, main workflow action ─── */
 .cz-admin-btn--primary {
   background: var(--admin-accent);
-  color: var(--cz-color-text);
   border-color: var(--admin-accent);
+  color: var(--admin-bg);
 }
 
 .cz-admin-btn--primary:hover:not(:disabled) {
   background: var(--admin-accent-hover);
   border-color: var(--admin-accent-hover);
+  box-shadow: 0 0 0 1px var(--admin-accent-a15), 0 0 18px var(--admin-accent-a12);
 }
 
+.cz-admin-btn--primary:active,
+.cz-admin-btn--primary:focus {
+  background: var(--admin-accent-hover);
+  border-color: var(--admin-accent-hover);
+  box-shadow: 0 0 0 2px var(--admin-accent-a15);
+}
+
+/* ── Secondary — ghost/outline, supporting/navigation ─── */
 .cz-admin-btn--secondary {
-  background: var(--admin-accent-a12);
+  background: transparent;
+  border-color: var(--admin-accent);
   color: var(--admin-accent-text);
-  border-color: var(--admin-accent-a12);
-  border-radius: var(--cz-rhythm);
 }
 
 .cz-admin-btn--secondary:hover:not(:disabled) {
   background: var(--admin-accent-a12);
-  border-color: var(--admin-accent);
+  border-color: var(--admin-accent-hover);
+  color: var(--admin-accent-hover);
+  box-shadow: 0 0 12px var(--admin-accent-a12);
 }
 
 .cz-admin-btn--secondary:active,
 .cz-admin-btn--secondary:focus {
   background: var(--admin-accent-a15);
-  border-color: var(--admin-accent);
+  border-color: var(--admin-accent-hover);
   color: var(--admin-accent-hover);
 }
 
+/* ── Ghost — alias for secondary, kept for compat ─── */
 .cz-admin-btn--ghost {
-  background: var(--admin-accent-a12);
+  background: transparent;
+  border-color: var(--admin-accent);
   color: var(--admin-accent-text);
-  border-color: var(--admin-accent-a12);
-  border-radius: var(--cz-rhythm);
 }
 
 .cz-admin-btn--ghost:hover:not(:disabled) {
   background: var(--admin-accent-a12);
-  border-color: var(--admin-accent);
+  border-color: var(--admin-accent-hover);
+  color: var(--admin-accent-hover);
+  box-shadow: 0 0 12px var(--admin-accent-a12);
 }
 
 .cz-admin-btn--ghost:active,
 .cz-admin-btn--ghost:focus {
   background: var(--admin-accent-a15);
-  border-color: var(--admin-accent);
+  border-color: var(--admin-accent-hover);
   color: var(--admin-accent-hover);
 }
 

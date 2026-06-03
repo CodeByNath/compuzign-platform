@@ -115,7 +115,7 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
                   <td class="cz-sp-tier-table__actions">
                     <button
                       type="button"
-                      class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                      class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
                       onClick={() => handleManage(tierId)}
                     >
                       Manage
@@ -129,7 +129,7 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
       </div>
 
       <div class="cz-action-shell__footer">
-        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
           Cancel
         </button>
       </div>
@@ -249,7 +249,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
             <button
               type="button"
-              class="cz-admin-btn cz-admin-btn--secondary"
+              class="cz-admin-btn cz-admin-btn--primary"
               onClick={handleOpenTierConfig}
             >
               Open Tier Configuration
@@ -350,7 +350,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <div class="cz-action-shell__footer">
-        <button type="button" class="cz-admin-btn cz-admin-btn--ghost" onClick={ctx.close}>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
           Close
         </button>
       </div>
@@ -521,7 +521,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                           <td style="text-align:right">
                             <button
                               type="button"
-                              class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                              class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                               onClick={() => handleViewService(service)}
                             >
                               View

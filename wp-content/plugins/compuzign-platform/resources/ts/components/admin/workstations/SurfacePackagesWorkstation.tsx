@@ -374,7 +374,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               </button>
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                 onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}
               >
                 Cancel
@@ -447,7 +447,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               </button>
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                 onClick={() => { setShowNewFaq(false); setNewFaqQ(''); setNewFaqA(''); }}
               >
                 Cancel
@@ -512,7 +512,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         {!isNew && (
           <button
             type="button"
-            class="cz-admin-btn cz-admin-btn--ghost"
+            class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--primary'}`}
             onClick={handleToggleEnabled}
             disabled={saving}
           >
@@ -522,7 +522,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         <div class="cz-tf-footer__spacer" />
         <button
           type="button"
-          class="cz-admin-btn cz-admin-btn--ghost"
+          class="cz-admin-btn cz-admin-btn--secondary"
           onClick={ctx.close}
           disabled={saving}
         >
@@ -632,7 +632,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
         <div class="cz-sp-pkg-header__actions">
           <button
             type="button"
-            class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--ghost' : 'cz-admin-btn--secondary'}`}
+            class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--primary'}`}
             onClick={handleTogglePackage}
             disabled={disabling}
           >
@@ -646,7 +646,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
         <p class="cz-sp-tiers-header__label">Existing Tiers</p>
         <button
           type="button"
-          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
           onClick={handleCreateTier}
         >
           + Create Tier
@@ -711,14 +711,14 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                     <td class="cz-sp-tier-table__actions">
                       <button
                         type="button"
-                        class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                        class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
                         onClick={() => handleManageTier(tierId as TierId)}
                       >
                         Manage
                       </button>
                       <button
                         type="button"
-                        class="cz-admin-btn cz-admin-btn--ghost cz-admin-btn--sm"
+                        class={`cz-admin-btn cz-admin-btn--sm ${tierEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
                         onClick={() => handleToggleTierEnabled(tierId, tierEnabled)}
                         disabled={isBusy}
                       >
