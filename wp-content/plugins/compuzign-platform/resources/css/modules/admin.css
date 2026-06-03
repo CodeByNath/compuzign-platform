@@ -214,13 +214,8 @@
   --admin-z-overlay:  200;
   --admin-z-action:   300;
 
-  /* ── Operational surfaces                                                      */
-  /* Blue-indigo tint distinguishes the operational layer from customer surfaces. */
-  /* These intentionally differ from --cz-color-surface; the distinction is UX.  */
-  --admin-bg:           #0f1117;
-  --admin-sidebar-bg:   #0a0c10;
-  --admin-surface:      #1a1d26;
-  --admin-surface-2:    #22263a;
+  /* ── Base surface — single background; hierarchy via depth, shadow, type ──── */
+  --admin-bg: #0f1117;
 
   /* ── Text — mapped to Atomic Engine ──────────────────────────────────────── */
   --admin-text:       var(--cz-color-text);
@@ -248,13 +243,9 @@
 
   /* ── Alpha tints — all tint/overlay values live here, nowhere else ─────────── */
 
-  /* White surface tints */
-  --admin-white-a025: rgba(255, 255, 255, 0.025);
+  /* White alpha — form focus fills, code blocks, inactive dots */
   --admin-white-a05:  rgba(255, 255, 255, 0.05);
-  --admin-white-a06:  rgba(255, 255, 255, 0.06);
   --admin-white-a08:  rgba(255, 255, 255, 0.08);
-  --admin-white-a10:  rgba(255, 255, 255, 0.10);
-  --admin-white-a12:  rgba(255, 255, 255, 0.12);
   --admin-white-a15:  rgba(255, 255, 255, 0.15);
 
   /* Accent (blue-indigo) tints */
@@ -289,12 +280,42 @@
   --admin-overlay-mid:   rgba(0, 0, 0, 0.50);
   --admin-overlay-light: rgba(0, 0, 0, 0.18);
 
-  /* ── Radius — denser operational scale; smaller than consumer UI ─────────── */
+  /* ── Radius — legacy values; named scale below for Phase 6 migration ─────── */
   --admin-radius:    8px;
   --admin-radius-sm: 5px;
 
-  /* ── Elevation — anchored to Atomic Engine ───────────────────────────────── */
-  --admin-shadow: var(--cz-shadow-card);
+  /* ── Depth / shadow scale ─────────────────────────────────────────────────── */
+  /* Structural: flat (0) → card (1) → drawer (2) → modal (3)                   */
+  --admin-depth-1:      0 1px 4px var(--admin-overlay-light);
+  --admin-depth-2:      0 4px 24px var(--admin-overlay-mid);
+  --admin-depth-3:      0 8px 48px var(--admin-overlay);
+  --admin-depth-drawer: -8px 0 48px var(--admin-overlay-mid);
+  /* Accent glow + focus rings — interactive element states                       */
+  --admin-depth-glow-sm:  0 0 12px var(--admin-accent-a12);
+  --admin-depth-glow-md:  0 0 0 1px var(--admin-accent-a15), 0 0 18px var(--admin-accent-a12);
+  --admin-depth-ring-sm:  0 0 0 1px var(--admin-accent-a15);
+  --admin-depth-ring-md:  0 0 0 2px var(--admin-accent-a15);
+
+  /* ── Typography scale — definitions only; component migration in Phase 5 ─── */
+  --admin-type-display: 28px;   /* stat values, large metrics */
+  --admin-type-metric:  24px;   /* import counts */
+  --admin-type-title:   20px;   /* workstation page headings */
+  --admin-type-price:   18px;   /* bundle / price values */
+  --admin-type-body:    var(--cz-font-size-sm);
+  --admin-type-label:   var(--cz-font-size-xs);
+  --admin-type-micro:   10px;   /* only permitted raw size below xs */
+  --admin-type-hint:    11px;   /* form hints, helper text */
+
+  /* ── Spacing gaps — off-scale values; full migration in Phase 7 ──────────── */
+  --admin-space-cell-v:   10px;   /* table cell vertical padding */
+  --admin-space-cell-h:   16px;   /* table cell horizontal padding */
+  --admin-space-header-v: 20px;   /* drawer/panel header vertical padding */
+
+  /* ── Radius scale — named tokens; component migration in Phase 6 ─────────── */
+  --admin-radius-xs:     4px;      /* inputs, buttons, tabs (= --cz-rhythm) */
+  --admin-radius-badge:  4px;      /* badges, tags, chips */
+  --admin-radius-pill:   9999px;   /* status pills, count badges */
+  --admin-radius-circle: 50%;      /* step-dots, avatar circles */
 
   /* ── Root styles ──────────────────────────────────────────────────────────── */
   display: flex;
@@ -423,6 +444,12 @@
   border-right-color: var(--admin-accent);
 }
 
+.cz-admin-nav-item:focus-visible {
+  outline: none;
+  background: var(--admin-accent-a12);
+  box-shadow: inset 2px 0 0 var(--admin-accent);
+}
+
 .cz-admin-nav-item__icon {
   font-size: var(--cz-font-size-md);
   flex-shrink: 0;
@@ -465,8 +492,14 @@
 }
 
 .cz-admin-sidebar__collapse-btn:hover {
-  background: var(--admin-white-a06);
-  color: var(--admin-text-muted);
+  background: var(--admin-accent-a12);
+  color: var(--admin-text);
+}
+
+.cz-admin-sidebar__collapse-btn:focus-visible {
+  outline: none;
+  background: var(--admin-accent-a12);
+  box-shadow: var(--admin-depth-ring-sm);
 }
 
 /* ── Main area ──────────────────────────────────────────────────────────────── */
@@ -658,6 +691,7 @@
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
+  outline: none;
   transition:
     background var(--cz-transition-fast),
     color var(--cz-transition-fast),
@@ -677,14 +711,14 @@
 .cz-admin-btn--primary:hover:not(:disabled) {
   background: var(--admin-accent-hover);
   border-color: var(--admin-accent-hover);
-  box-shadow: 0 0 0 1px var(--admin-accent-a15), 0 0 18px var(--admin-accent-a12);
+  box-shadow: var(--admin-depth-glow-md);
 }
 
 .cz-admin-btn--primary:active,
 .cz-admin-btn--primary:focus {
   background: var(--admin-accent-hover);
   border-color: var(--admin-accent-hover);
-  box-shadow: 0 0 0 2px var(--admin-accent-a15);
+  box-shadow: var(--admin-depth-ring-md);
 }
 
 /* ── Secondary — ghost/outline, supporting/navigation ─── */
@@ -698,7 +732,7 @@
   background: var(--admin-accent-a12);
   border-color: var(--admin-accent-hover);
   color: var(--admin-accent-hover);
-  box-shadow: 0 0 12px var(--admin-accent-a12);
+  box-shadow: var(--admin-depth-glow-sm);
 }
 
 .cz-admin-btn--secondary:active,
@@ -708,7 +742,7 @@
   color: var(--admin-accent-hover);
 }
 
-/* ── Ghost — alias for secondary, kept for compat ─── */
+/* ── Ghost — visual alias for --secondary; deprecated, use --secondary in new code ─── */
 .cz-admin-btn--ghost {
   background: transparent;
   border-color: var(--admin-accent);
@@ -719,7 +753,7 @@
   background: var(--admin-accent-a12);
   border-color: var(--admin-accent-hover);
   color: var(--admin-accent-hover);
-  box-shadow: 0 0 12px var(--admin-accent-a12);
+  box-shadow: var(--admin-depth-glow-sm);
 }
 
 .cz-admin-btn--ghost:active,
@@ -732,6 +766,11 @@
 .cz-admin-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.cz-admin-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-depth-ring-md);
 }
 
 /* ── States ─────────────────────────────────────────────────────────────────── */
@@ -911,7 +950,7 @@
 
 .cz-price-tag--has-price {
   color: var(--admin-text);
-  background: var(--admin-surface-2);
+  background: var(--admin-accent-a12);
 }
 
 /* ── ActionShell — overlay backdrop ────────────────────────────────────────── */
@@ -942,7 +981,7 @@
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
   border-radius: calc(var(--admin-radius) + 2px);
-  box-shadow: 0 8px 48px var(--admin-overlay);
+  box-shadow: var(--admin-depth-3);
   width: min(580px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
   display: flex;
@@ -959,7 +998,7 @@
 .cz-action-shell--drawer .cz-action-shell__panel {
   background: var(--admin-bg);
   border-left: 1px solid var(--admin-border-blue);
-  box-shadow: -8px 0 48px var(--admin-overlay-mid);
+  box-shadow: var(--admin-depth-drawer);
   width: min(540px, 92vw);
   height: 100vh;
   display: flex;
@@ -1037,7 +1076,7 @@
 
 .cz-action-shell__close:hover {
   color: var(--admin-text);
-  background: var(--admin-white-a06);
+  background: var(--admin-accent-a12);
 }
 
 .cz-action-shell__back {
@@ -1056,7 +1095,14 @@
 
 .cz-action-shell__back:hover {
   color: var(--admin-text);
-  background: var(--admin-white-a06);
+  background: var(--admin-accent-a12);
+}
+
+.cz-action-shell__close:focus-visible,
+.cz-action-shell__back:focus-visible {
+  outline: none;
+  background: var(--admin-accent-a12);
+  box-shadow: var(--admin-depth-ring-sm);
 }
 
 /* ── ActionShell — step breadcrumb bar ──────────────────────────────────────── */
@@ -1065,7 +1111,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 7px var(--cz-space-6);
-  background: var(--admin-overlay-light);
+  background: var(--admin-bg);
   border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
 }
@@ -1698,6 +1744,12 @@
   color: var(--admin-accent-hover);
 }
 
+.cz-pricing-tab:focus-visible {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: var(--admin-depth-ring-sm);
+}
+
 .cz-pricing-table-wrap {
   overflow-x: auto;
 }
@@ -2273,7 +2325,7 @@ body.compuzign-admin-page footer.site-footer {
   flex-shrink: 0;
   -webkit-appearance: none;
   appearance: none;
-  background: var(--admin-surface-2);
+  background: var(--admin-bg);
   border: 1px solid var(--admin-border);
   border-radius: 3px;
   cursor: pointer;
@@ -2356,7 +2408,7 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-tf-check-item:hover {
-  background: var(--admin-white-a05);
+  background: var(--admin-accent-a12);
 }
 
 .cz-tf-check-item input[type="checkbox"] {
