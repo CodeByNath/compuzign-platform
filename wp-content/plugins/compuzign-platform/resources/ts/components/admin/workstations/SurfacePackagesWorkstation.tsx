@@ -512,7 +512,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         {!isNew && (
           <button
             type="button"
-            class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--primary'}`}
+            class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
             onClick={handleToggleEnabled}
             disabled={saving}
           >
