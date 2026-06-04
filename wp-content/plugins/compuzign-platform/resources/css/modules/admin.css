@@ -18,7 +18,7 @@
   width: 100%;
   max-width: 420px;
   padding: 44px 40px 36px;
-  border-radius: 18px;
+  border-radius: var(--admin-radius);
   background: #1a1d26;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
@@ -40,7 +40,7 @@
 .cz-login-brand__mark {
   width: 52px;
   height: 52px;
-  border-radius: 13px;
+  border-radius: var(--admin-radius);
   background: #5c6ef5;
   display: flex;
   align-items: center;
@@ -98,7 +98,7 @@
   height: 46px;
   padding: 0 14px;
   box-sizing: border-box;
-  border-radius: 9px;
+  border-radius: var(--admin-radius);
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: #22263a;
   color: #e8eaed;
@@ -150,7 +150,7 @@
 
 .cz-login-error {
   padding: 11px 14px;
-  border-radius: 7px;
+  border-radius: var(--admin-radius);
   background: rgba(240, 101, 121, 0.10);
   border: 1px solid rgba(240, 101, 121, 0.20);
   color: #f06579;
@@ -164,7 +164,7 @@
   height: 48px;
   width: 100%;
   border: none;
-  border-radius: 9px;
+  border-radius: var(--admin-radius);
   background: #5c6ef5;
   color: #fff;
   font-size: var(--admin-fs-label);
@@ -281,9 +281,8 @@
   --admin-overlay-mid:   rgba(0, 0, 0, 0.50);
   --admin-overlay-light: rgba(0, 0, 0, 0.18);
 
-  /* ── Radius — legacy values; named scale below for Phase 6 migration ─────── */
-  --admin-radius:    8px;
-  --admin-radius-sm: 5px;
+  /* ── Radius — single shared value; removes sharp edges ─────────────────── */
+  --admin-radius: 4px;
 
   /* ── Depth / shadow scale ─────────────────────────────────────────────────── */
   /* Structural: flat (0) → card (1) → drawer (2) → modal (3)                   */
@@ -337,12 +336,6 @@
   --admin-space-cell-h:   16px;   /* table cell horizontal padding */
   --admin-space-header-v: 20px;   /* drawer/panel header vertical padding */
 
-  /* ── Radius scale — named tokens; component migration in Phase 6 ─────────── */
-  --admin-radius-xs:     4px;      /* inputs, buttons, tabs (= --cz-rhythm) */
-  --admin-radius-badge:  4px;      /* badges, tags, chips */
-  --admin-radius-pill:   9999px;   /* status pills, count badges */
-  --admin-radius-circle: 50%;      /* step-dots, avatar circles */
-
   /* ── Root styles ──────────────────────────────────────────────────────────── */
   display: flex;
   min-height: 100vh;
@@ -389,7 +382,7 @@
   width: 28px;
   height: 28px;
   background: var(--admin-accent);
-  border-radius: 6px;
+  border-radius: var(--admin-radius);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -511,7 +504,7 @@
   color: var(--admin-text-faint);
   font-size: var(--admin-fs-label);
   cursor: pointer;
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   width: 100%;
   transition: background var(--cz-transition-fast), color var(--cz-transition-fast);
   white-space: nowrap;
@@ -566,7 +559,7 @@
   font-size: var(--admin-fs-icon);
   padding: var(--cz-space-1);
   line-height: 1;
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   transition: color var(--cz-transition-fast);
 }
 
@@ -695,7 +688,7 @@
 .cz-ws-card {
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--cz-rhythm);
+  border-radius: var(--admin-radius);
   padding: var(--cz-space-5);
   margin-bottom: var(--cz-space-5);
 }
@@ -716,7 +709,7 @@
   align-items: center;
   gap: 6px;
   padding: 7px var(--cz-space-4);
-  border-radius: var(--cz-rhythm);
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-label);
   font-weight: var(--admin-fw-strong);
   cursor: pointer;
@@ -814,7 +807,7 @@
 .cz-admin-error-msg {
   background: var(--admin-error-a10);
   border: 1px solid var(--admin-error-a25);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   padding: var(--cz-space-3) var(--cz-space-4);
   color: var(--admin-error);
   font-size: var(--admin-fs-label);
@@ -895,7 +888,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px var(--cz-space-3);
-  border-radius: 20px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-normal);
   border: 1px solid transparent;
@@ -974,7 +967,7 @@
 .cz-price-tag {
   display: inline-block;
   padding: 2px var(--cz-space-2);
-  border-radius: 4px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   background: transparent;
@@ -1012,7 +1005,7 @@
 .cz-action-shell--modal .cz-action-shell__panel {
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
-  border-radius: calc(var(--admin-radius) + 2px);
+  border-radius: var(--admin-radius);
   box-shadow: var(--admin-depth-3);
   width: min(580px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
@@ -1102,7 +1095,7 @@
   line-height: 1;
   cursor: pointer;
   padding: 6px;
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   transition: color var(--cz-transition-fast), background var(--cz-transition-fast);
   flex-shrink: 0;
 }
@@ -1120,7 +1113,7 @@
   font-weight: var(--admin-fw-normal);
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   transition: color var(--cz-transition-fast), background var(--cz-transition-fast);
   flex-shrink: 0;
   white-space: nowrap;
@@ -1191,7 +1184,7 @@
   flex-direction: row;
   background: var(--admin-success-a08);
   border: 1px solid var(--admin-success-a20);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   padding: var(--cz-space-3) var(--cz-space-4);
   text-align: left;
   align-items: flex-start;
@@ -1202,7 +1195,7 @@
   flex-direction: row;
   background: var(--admin-error-a08);
   border: 1px solid var(--admin-error-a20);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   padding: var(--cz-space-3) var(--cz-space-4);
   text-align: left;
   align-items: flex-start;
@@ -1237,7 +1230,7 @@
 .cz-import-result-item {
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   padding: var(--cz-space-3);
   display: flex;
   flex-direction: column;
@@ -1277,7 +1270,7 @@
   padding: 3px 10px;
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
-  border-radius: 4px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
 }
@@ -1285,7 +1278,7 @@
 .cz-dryrun-sample {
   overflow-x: auto;
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   margin-bottom: var(--cz-space-4);
 }
 
@@ -1327,7 +1320,7 @@
   padding: 2px var(--cz-space-2);
   background: var(--admin-accent-a15);
   border: 1px solid var(--admin-accent-a30);
-  border-radius: 4px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   line-height: var(--admin-lh-s-label);
@@ -1344,7 +1337,7 @@
 .cz-status-pill {
   display: inline-block;
   padding: 2px 9px;
-  border-radius: 20px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   line-height: var(--admin-lh-s-label);
@@ -1405,7 +1398,7 @@
   padding: 3px 9px;
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
-  border-radius: 4px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   color: var(--admin-text);
@@ -1519,7 +1512,7 @@
 .cz-req-items-wrap {
   overflow-x: auto;
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
 }
 
 .cz-req-items-table {
@@ -1724,7 +1717,7 @@
   padding: var(--cz-space-3) 14px;
   background: var(--admin-error-a06);
   border: 1px solid var(--admin-error-a15);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
 }
 
 .cz-health-remediation__module {
@@ -1746,7 +1739,7 @@
 .cz-health-remediation__guidance code {
   background: var(--admin-white-a08);
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-family: ui-monospace, 'SF Mono', monospace;
   color: var(--admin-text);
@@ -1764,7 +1757,7 @@
   padding: 6px 14px;
   background: var(--admin-accent-a12);
   border: 1px solid var(--admin-accent-a12);
-  border-radius: var(--cz-rhythm);
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   color: var(--admin-accent-text);
@@ -1996,7 +1989,7 @@
 .cz-coming-soon-checklist__item code {
   background: var(--admin-white-a08);
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-family: ui-monospace, 'SF Mono', monospace;
   color: var(--admin-text);
@@ -2137,7 +2130,7 @@ body.compuzign-admin-page footer.site-footer {
 /* ── Tier management table ───────────────────────────────────────────────────── */
 .cz-sp-tier-table-wrap {
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   overflow: hidden;
 }
 
@@ -2256,7 +2249,7 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-text-faint);
   background: var(--admin-white-a05);
   border: 1px solid var(--admin-border-blue);
-  border-radius: 20px;
+  border-radius: var(--admin-radius);
   padding: 1px 9px;
 }
 
@@ -2312,7 +2305,7 @@ body.compuzign-admin-page footer.site-footer {
   width: 100%;
   background: transparent;
   border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   color: var(--admin-text);
   font-size: var(--admin-fs-label);
   font-family: inherit;
@@ -2378,7 +2371,7 @@ body.compuzign-admin-page footer.site-footer {
   appearance: none;
   background: var(--admin-bg);
   border: 1px solid var(--admin-border);
-  border-radius: 3px;
+  border-radius: var(--admin-radius);
   cursor: pointer;
   position: relative;
   transition: background var(--cz-transition-fast), border-color var(--cz-transition-fast);
@@ -2411,7 +2404,7 @@ body.compuzign-admin-page footer.site-footer {
   align-items: center;
   gap: var(--cz-space-2);
   padding: 7px 10px;
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   cursor: pointer;
   font-size: var(--admin-fs-label);
   color: var(--admin-text);
@@ -2450,7 +2443,7 @@ body.compuzign-admin-page footer.site-footer {
   align-items: flex-start;
   gap: var(--cz-space-2);
   padding: 7px 8px;
-  border-radius: calc(var(--admin-radius-sm) - 2px);
+  border-radius: var(--admin-radius);
   cursor: pointer;
   font-size: var(--admin-fs-label);
   color: var(--admin-text);
@@ -2492,7 +2485,7 @@ body.compuzign-admin-page footer.site-footer {
   padding: 1px 6px;
   background: var(--admin-success-a12);
   border: 1px solid var(--admin-success-a20);
-  border-radius: 3px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   color: var(--admin-success);
@@ -2550,7 +2543,7 @@ body.compuzign-admin-page footer.site-footer {
   padding: 3px 10px;
   background: transparent;
   border: 1px solid var(--admin-border-blue);
-  border-radius: 20px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
 }
@@ -2589,7 +2582,7 @@ body.compuzign-admin-page footer.site-footer {
   padding: 10px var(--cz-space-3);
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
 }
 
 .cz-sc-faq-item__q {
@@ -2698,7 +2691,7 @@ body.compuzign-admin-page footer.site-footer {
   font-size: var(--admin-fs-icon);
   line-height: 1;
   cursor: pointer;
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   padding: 0;
   transition: background 0.15s, color 0.15s;
 }
@@ -2802,7 +2795,7 @@ body.compuzign-admin-page footer.site-footer {
 /* ── Admin notice banner ────────────────────────────────────────────────────── */
 .cz-admin-notice {
   padding: 10px 14px;
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-label);
   line-height: 1.6;
   margin-bottom: var(--cz-space-4);
@@ -2819,14 +2812,14 @@ body.compuzign-admin-page footer.site-footer {
   font-size: var(--admin-fs-s-label);
   background: var(--admin-white-a08);
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--admin-radius);
 }
 
 /* ── Promotions workstation — package count pill ───────────────────────────── */
 .cz-promo-count-pill {
   display: inline-block;
   padding: 3px 10px;
-  border-radius: 20px;
+  border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   line-height: var(--admin-lh-s-label);
@@ -2837,7 +2830,7 @@ body.compuzign-admin-page footer.site-footer {
 /* ── Promotions tier table ──────────────────────────────────────────────────── */
 .cz-promo-table-wrap {
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius-sm);
+  border-radius: var(--admin-radius);
   overflow: hidden;
 }
 
