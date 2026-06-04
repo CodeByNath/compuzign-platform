@@ -5,8 +5,9 @@ import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import { fetchSurfacePackageDetail } from '@/api/endpoints/admin';
-import type { SurfacePackageDetailResponse, SurfacePackageSummary } from '@/api/types/admin';
+import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
+import { PromotionManageStep } from './PromotionsWorkstation';
 
 interface Props {
   refreshKey: number;
@@ -137,6 +138,109 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
   );
 }
 
+// ── PromoSelectStep ───────────────────────────────────────────────────────────
+// Step 1 of the 2-step "Promotion Configuration" drawer opened from ServiceViewStep.
+
+function PromoSelectStep({ ctx }: { ctx: StepContext }) {
+  const packageId = ctx.stepData.packageId as number;
+
+  const [detail, setDetail]   = useState<SurfacePackageDetailResponse | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSurfacePackageDetail(packageId)
+      .then(setDetail)
+      .catch((err: unknown) => {
+        setLoadErr(err instanceof Error ? err.message : 'Failed to load package.');
+      });
+  }, [packageId]);
+
+  if (!detail && !loadErr) {
+    return <div class="cz-action-progress"><Spinner label="Loading promotions…" /></div>;
+  }
+
+  if (loadErr || !detail) {
+    return <div class="cz-admin-error-msg">{loadErr ?? 'Package data unavailable.'}</div>;
+  }
+
+  const promos = detail.package.promotion_tiers ?? [];
+
+  const handleManage = (promo: PromotionTier) => {
+    ctx.setStepData('promoId', promo.id);
+    ctx.setStepData('promo', promo);
+    ctx.setStepData('isNew', false);
+    ctx.goNext();
+  };
+
+  return (
+    <div>
+      <p style="margin:0 0 var(--cz-space-4);font-size:var(--admin-fs-label);color:var(--admin-text-muted)">
+        Choose a promotion to edit.
+      </p>
+
+      {promos.length === 0 ? (
+        <p class="cz-sc-pkg-block__empty-msg">
+          No promotions configured for this service. Add from the Promotions workstation.
+        </p>
+      ) : (
+        <div class="cz-promo-table-wrap">
+          <table class="cz-promo-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Based On</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {promos.map((promo) => (
+                <tr key={promo.id} class={promo.status === 'archived' ? 'cz-promo-row--archived' : ''}>
+                  <td class="cz-promo-table__name">
+                    <div class="cz-promo-table__name-inner">
+                      <span>{promo.name || '(unnamed)'}</span>
+                      {promo.badge && <span class="cz-tier-badge">{promo.badge}</span>}
+                    </div>
+                  </td>
+                  <td class="cz-promo-table__muted">
+                    {promo.based_on ? (TIER_LABELS[promo.based_on] ?? promo.based_on) : '—'}
+                  </td>
+                  <td>
+                    <span class={`cz-price-tag${promo.price !== null ? ' cz-price-tag--has-price' : ''}`}>
+                      {promo.price !== null ? `$${promo.price.toLocaleString()}` : '—'}
+                    </span>
+                  </td>
+                  <td>
+                    <span class={`cz-status-pill cz-status-pill--${promo.status}`}>
+                      {promo.status.charAt(0).toUpperCase() + promo.status.slice(1)}
+                    </span>
+                  </td>
+                  <td class="cz-promo-table__actions">
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                      onClick={() => handleManage(promo)}
+                    >
+                      Manage
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div class="cz-action-shell__footer">
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── ServiceViewStep ───────────────────────────────────────────────────────────
 // Service detail drawer. Primary sections: Service Overview + Commercial
 // Configuration. Secondary sections: long description, feature pool, Q&A, pricing.
@@ -186,6 +290,35 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const configuredTierCount = relatedPkg
     ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length
     : 0;
+  const promotionCount = relatedPkg?.promotion_tiers.length ?? 0;
+
+  const handleOpenPromoConfig = () => {
+    if (!relatedPkg) return;
+    const onBack = () => doOpen({
+      id:    `service-view-${service.id}`,
+      mode:  'drawer',
+      title: decodeHtml(service.title),
+      initialStepData: { service, packages, openAction: doOpen },
+      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+    });
+    ctx.close();
+    doOpen({
+      id:    `pkg-promos-${relatedPkg.post_id}`,
+      mode:  'drawer',
+      title: relatedPkg.title,
+      onBack,
+      initialStepData: {
+        packageId: relatedPkg.post_id,
+        promoId:   null,
+        promo:     null,
+        isNew:     false,
+      },
+      steps: [
+        { id: 'promo-select', title: 'Select Promotion', component: PromoSelectStep  },
+        { id: 'promo-form',   title: 'Edit Promotion',   component: PromotionManageStep },
+      ],
+    });
+  };
 
   return (
     <div class="cz-req-detail">
@@ -253,6 +386,34 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               onClick={handleOpenTierConfig}
             >
               Open Tier Configuration
+            </button>
+
+            <div class="cz-sc-cc-card-head" style="margin-top:var(--cz-space-5)">
+              <p class="cz-sc-pkg-block__title">Promotion Configuration Attached</p>
+              <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
+                {pkgIsActive ? 'Linked' : 'Disabled'}
+              </span>
+            </div>
+
+            <div class="cz-sc-cc-status-row" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`}>
+              <span class="cz-admin-status-dot" />
+              <span>{pkgIsActive ? 'Active' : 'Disabled'}</span>
+              <span class="cz-sc-cc-sep">|</span>
+              <span class="cz-sc-cc-tier-count">
+                {promotionCount} promotion{promotionCount !== 1 ? 's' : ''} configured
+              </span>
+            </div>
+
+            <p class="cz-sc-cc-desc">
+              Promotions are managed in the Promotions workstation.
+            </p>
+
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={handleOpenPromoConfig}
+            >
+              Open Promotion Configuration
             </button>
           </>
         ) : (

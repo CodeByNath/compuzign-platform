@@ -1106,22 +1106,31 @@
 }
 
 .cz-action-shell__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
-  border: none;
-  color: var(--admin-text-muted);
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-normal);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-accent);
+  font-size: var(--admin-fs-icon-s);
+  line-height: 1;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: var(--admin-radius);
-  transition: color var(--cz-transition-fast), background var(--cz-transition-fast);
+  transition: color var(--cz-transition-fast), background var(--cz-transition-fast), border-color var(--cz-transition-fast);
   flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .cz-action-shell__back:hover {
-  color: var(--admin-text);
   background: var(--admin-accent-a12);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+}
+
+.cz-action-shell__back:active {
+  background: var(--admin-accent-a15);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
 }
 
 .cz-action-shell__close:focus-visible,
@@ -1129,6 +1138,10 @@
   outline: none;
   background: var(--admin-accent-a12);
   box-shadow: var(--admin-depth-ring-sm);
+}
+
+.cz-action-shell__back:focus-visible {
+  border-color: var(--admin-accent);
 }
 
 /* ── ActionShell — step breadcrumb bar ──────────────────────────────────────── */

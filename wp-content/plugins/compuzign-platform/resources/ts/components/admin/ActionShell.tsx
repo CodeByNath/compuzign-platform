@@ -111,7 +111,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
                 onClick={config.onBack}
                 aria-label="Back"
               >
-                ← Back
+                ‹
               </button>
             )}
             <h2 class="cz-action-shell__title">{config.title}</h2>
