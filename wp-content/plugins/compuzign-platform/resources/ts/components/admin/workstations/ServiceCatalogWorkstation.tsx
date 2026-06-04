@@ -325,14 +325,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   return (
     <div class="cz-req-detail">
 
-      {/* ── Service Identity ──────────────────────────────────────────── */}
-      <div class="cz-sv-identity">
-        <p class="cz-sv-identity__name">{decodeHtml(service.title)}</p>
-        {service.excerpt && (
-          <p class="cz-sv-identity__excerpt">{service.excerpt}</p>
-        )}
-      </div>
-
       {/* ── Tab bar ───────────────────────────────────────────────────── */}
       <div class="cz-sv-tabs">
         <button
@@ -354,35 +346,33 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {/* ── Service tab: Water Layer ───────────────────────────────────── */}
       {tab === 'service' && (
         <>
+          {/* Service Overview — single bordered block: identity + category + description */}
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">Service Overview</p>
-            <div class="cz-req-contact-grid">
-              <div class="cz-req-contact-grid__item">
-                <span class="cz-req-contact-grid__label">Status</span>
-                <span class="cz-req-contact-grid__value">
-                  <span class="cz-sc-status-inline" style={`color:var(--admin-${isActive ? 'success' : 'error'})`}>
-                    <span class="cz-admin-status-dot" />
-                    {isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </span>
+            <div class="cz-sv-overview-block">
+              <div class="cz-sv-overview-block__identity">
+                <span class="cz-admin-status-dot" style={`color:var(--admin-${isActive ? 'success' : 'error'})`} />
+                <div class="cz-sv-overview-block__identity-text">
+                  <p class="cz-sv-overview-block__name">{decodeHtml(service.title)}</p>
+                  {service.excerpt && (
+                    <p class="cz-sv-overview-block__excerpt">{service.excerpt}</p>
+                  )}
+                </div>
               </div>
-              <div class="cz-req-contact-grid__item">
+              <div class="cz-sv-overview-block__meta">
                 <span class="cz-req-contact-grid__label">Category</span>
-                <span class="cz-req-contact-grid__value">
+                <span class="cz-sv-overview-block__value">
                   {service.categories.map((c) => decodeHtml(c.name)).join(', ') || '—'}
                 </span>
               </div>
+              {service.content && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Description</span>
+                  <p class="cz-sv-overview-block__desc">{service.content}</p>
+                </div>
+              )}
             </div>
           </div>
-
-          {service.content && (
-            <div class="cz-req-detail__section">
-              <p class="cz-req-detail__section-title">Description</p>
-              <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text-muted);line-height:1.6">
-                {service.content}
-              </p>
-            </div>
-          )}
 
           {inclusions.length > 0 && (
             <div class="cz-req-detail__section">
@@ -425,56 +415,62 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {tab === 'commercial' && (
         relatedPkg ? (
           <>
-            <div class="cz-req-detail__section">
-              <div class="cz-sv-commercial-block">
-                <div class="cz-sv-commercial-block__header">
-                  <div class="cz-sv-commercial-block__title-group">
-                    <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
-                    <span class="cz-sv-commercial-block__label">Tier Configuration</span>
-                    <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
-                      {pkgIsActive ? 'Linked' : 'Disabled'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={handleOpenTierConfig}
-                  >
-                    View
-                  </button>
+            <div class="cz-sv-commercial-block">
+              <div class="cz-sv-commercial-block__header">
+                <span class="cz-sv-commercial-block__label">Tier Configuration</span>
+                <div class="cz-sv-commercial-block__status">
+                  <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
+                  <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
+                    {pkgIsActive ? 'Linked' : 'Disabled'}
+                  </span>
                 </div>
-                <p class="cz-sv-commercial-block__count">
-                  {configuredTierCount} tier{configuredTierCount !== 1 ? 's' : ''} configured
-                </p>
+              </div>
+              <p class="cz-sv-commercial-block__count">
+                {configuredTierCount} tier{configuredTierCount !== 1 ? 's' : ''} configured
+              </p>
+              <p class="cz-sv-commercial-block__desc">
+                Pricing and tiers are managed in the Service Packages workstation.
+              </p>
+              <div class="cz-sv-commercial-block__footer">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  onClick={handleOpenTierConfig}
+                >
+                  View
+                </button>
               </div>
             </div>
 
-            <div class="cz-req-detail__section">
-              <div class="cz-sv-commercial-block">
-                <div class="cz-sv-commercial-block__header">
-                  <div class="cz-sv-commercial-block__title-group">
-                    <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
-                    <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
-                    <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
-                      {pkgIsActive ? 'Linked' : 'Disabled'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={handleOpenPromoConfig}
-                  >
-                    View
-                  </button>
+            <div class="cz-sv-commercial-block">
+              <div class="cz-sv-commercial-block__header">
+                <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
+                <div class="cz-sv-commercial-block__status">
+                  <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
+                  <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
+                    {pkgIsActive ? 'Linked' : 'Disabled'}
+                  </span>
                 </div>
-                <p class="cz-sv-commercial-block__count">
-                  {promotionCount} promotion{promotionCount !== 1 ? 's' : ''} configured
-                </p>
+              </div>
+              <p class="cz-sv-commercial-block__count">
+                {promotionCount} promotion{promotionCount !== 1 ? 's' : ''} configured
+              </p>
+              <p class="cz-sv-commercial-block__desc">
+                Promotions are managed in the Promotions workstation.
+              </p>
+              <div class="cz-sv-commercial-block__footer">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  onClick={handleOpenPromoConfig}
+                >
+                  View
+                </button>
               </div>
             </div>
 
             {tiers && (
-              <div class="cz-req-detail__section">
+              <div class="cz-req-detail__section cz-sv-section--no-border">
                 <p class="cz-req-detail__section-title">Pricing Summary</p>
                 <div class="cz-sp-tier-table-wrap">
                   <table class="cz-sp-tier-table">

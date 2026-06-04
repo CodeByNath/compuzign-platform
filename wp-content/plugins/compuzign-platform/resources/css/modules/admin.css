@@ -2950,25 +2950,6 @@ body.compuzign-admin-page footer.site-footer {
   opacity: 0.7;
 }
 
-/* ── Service View — identity block ──────────────────────────────────────────── */
-.cz-sv-identity {
-  margin-bottom: var(--cz-space-4);
-}
-
-.cz-sv-identity__name {
-  margin: 0 0 3px;
-  font-size: var(--admin-fs-label);
-  font-weight: var(--admin-fw-strong);
-  color: var(--admin-text);
-}
-
-.cz-sv-identity__excerpt {
-  margin: 0;
-  font-size: var(--admin-fs-s-label);
-  color: var(--admin-text-muted);
-  line-height: 1.5;
-}
-
 /* ── Service View — tab bar ──────────────────────────────────────────────────── */
 .cz-sv-tabs {
   display: flex;
@@ -3005,18 +2986,83 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-accent);
 }
 
-/* ── Service View — commercial summary blocks ────────────────────────────────── */
+/* ── Service View — overview block ──────────────────────────────────────────── */
+.cz-sv-overview-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+  padding: var(--cz-space-4);
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+}
+
+.cz-sv-overview-block__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cz-space-2);
+}
+
+.cz-sv-overview-block__identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cz-sv-overview-block__name {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+  line-height: var(--admin-lh-label);
+}
+
+.cz-sv-overview-block__excerpt {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-muted);
+  line-height: 1.5;
+}
+
+.cz-sv-overview-block__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cz-sv-overview-block__value {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  color: var(--admin-text);
+}
+
+.cz-sv-overview-block__desc {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Service View — commercial blocks ────────────────────────────────────────── */
+.cz-sv-commercial-block {
+  padding: var(--cz-space-4);
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  margin-bottom: var(--cz-space-4);
+  transition: border-color var(--cz-transition-fast);
+}
+
+.cz-sv-commercial-block:hover {
+  border-color: var(--admin-accent-a30);
+}
+
 .cz-sv-commercial-block__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--cz-space-2);
-}
-
-.cz-sv-commercial-block__title-group {
-  display: flex;
-  align-items: center;
-  gap: var(--cz-space-2);
 }
 
 .cz-sv-commercial-block__label {
@@ -3025,8 +3071,33 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-text);
 }
 
+.cz-sv-commercial-block__status {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+}
+
 .cz-sv-commercial-block__count {
-  margin: 0;
+  margin: 0 0 var(--cz-space-2);
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
+}
+
+.cz-sv-commercial-block__desc {
+  margin: 0 0 var(--cz-space-3);
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-faint);
+  line-height: 1.5;
+}
+
+.cz-sv-commercial-block__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Suppress bottom divider for Pricing Summary — table already has its own border */
+.cz-sv-section--no-border {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
