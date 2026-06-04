@@ -828,7 +828,7 @@
 }
 
 .cz-admin-root .cz-spinner__ring {
-  border-color: var(--admin-border);
+  border-color: var(--admin-border-blue);
   border-top-color: var(--admin-accent);
 }
 
@@ -1119,7 +1119,7 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-blue);
   color: var(--admin-accent);
   font-size: var(--admin-fs-icon-s);
   line-height: 1;
@@ -2326,7 +2326,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-textarea {
   width: 100%;
   background: transparent;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   color: var(--admin-text);
   font-size: var(--admin-fs-label);
@@ -2392,7 +2392,7 @@ body.compuzign-admin-page footer.site-footer {
   -webkit-appearance: none;
   appearance: none;
   background: var(--admin-bg);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   cursor: pointer;
   position: relative;
@@ -2564,7 +2564,7 @@ body.compuzign-admin-page footer.site-footer {
   display: inline-block;
   padding: 3px 10px;
   background: transparent;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
@@ -2782,7 +2782,7 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sc-cc-sep {
-  color: var(--admin-border);
+  color: var(--admin-border-blue);
 }
 
 .cz-sc-cc-tier-count {
@@ -2998,7 +2998,7 @@ body.compuzign-admin-page footer.site-footer {
   gap: var(--cz-space-4);
   padding: var(--cz-space-4);
   background: var(--admin-bg);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   transition: background var(--cz-transition-fast);
 }
@@ -3051,7 +3051,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-sv-commercial-block {
   padding: var(--cz-space-4);
   background: var(--admin-bg);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   margin-bottom: var(--cz-space-4);
   transition: background var(--cz-transition-fast);
