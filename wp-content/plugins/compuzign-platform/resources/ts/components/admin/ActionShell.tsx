@@ -25,6 +25,7 @@ export interface ActionConfig {
   id: string;
   mode: ActionMode;
   title: string;
+  titleDot?: string;
   steps: ActionStep[];
   confirmClose?: boolean;
   initialStepData?: Record<string, unknown>;
@@ -116,6 +117,9 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
             )}
           </div>
           <div class="cz-action-shell__header-mid">
+            {config.titleDot && (
+              <span class="cz-admin-status-dot" style={`color:${config.titleDot}`} />
+            )}
             <h2 class="cz-action-shell__title">{config.title}</h2>
             {isMultiStep && (
               <div class="cz-action-shell__step-dots">

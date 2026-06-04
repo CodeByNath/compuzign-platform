@@ -263,9 +263,10 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const handleOpenTierConfig = () => {
     if (!relatedPkg) return;
     const onBack = () => doOpen({
-      id:    `service-view-${service.id}`,
-      mode:  'drawer',
-      title: decodeHtml(service.title),
+      id:       `service-view-${service.id}`,
+      mode:     'drawer',
+      title:    decodeHtml(service.title),
+      titleDot: `var(--admin-${isActive ? 'success' : 'error'})`,
       initialStepData: { service, packages, openAction: doOpen },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
@@ -297,9 +298,10 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const handleOpenPromoConfig = () => {
     if (!relatedPkg) return;
     const onBack = () => doOpen({
-      id:    `service-view-${service.id}`,
-      mode:  'drawer',
-      title: decodeHtml(service.title),
+      id:       `service-view-${service.id}`,
+      mode:     'drawer',
+      title:    decodeHtml(service.title),
+      titleDot: `var(--admin-${isActive ? 'success' : 'error'})`,
       initialStepData: { service, packages, openAction: doOpen },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
@@ -347,17 +349,14 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {tab === 'service' && (
         <>
           {/* Service Overview — single bordered block: identity + category + description */}
-          <div class="cz-req-detail__section">
+          <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
               <div class="cz-sv-overview-block__identity">
-                <span class="cz-admin-status-dot" style={`color:var(--admin-${isActive ? 'success' : 'error'})`} />
-                <div class="cz-sv-overview-block__identity-text">
-                  <p class="cz-sv-overview-block__name">{decodeHtml(service.title)}</p>
-                  {service.excerpt && (
-                    <p class="cz-sv-overview-block__excerpt">{service.excerpt}</p>
-                  )}
-                </div>
+                <p class="cz-sv-overview-block__name">{decodeHtml(service.title)}</p>
+                {service.excerpt && (
+                  <p class="cz-sv-overview-block__excerpt">{service.excerpt}</p>
+                )}
               </div>
               <div class="cz-sv-overview-block__meta">
                 <span class="cz-req-contact-grid__label">Category</span>
@@ -375,7 +374,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           </div>
 
           {inclusions.length > 0 && (
-            <div class="cz-req-detail__section">
+            <div class="cz-req-detail__section cz-sv-section--no-border">
               <p class="cz-req-detail__section-title">
                 Included Features
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
@@ -547,10 +546,12 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
   }, [data]);
 
   const handleViewService = (service: ServiceItem) => {
+    const svcActive = service.meta?.is_active !== false;
     openAction({
-      id:    `service-view-${service.id}`,
-      mode:  'drawer',
-      title: service.title,
+      id:       `service-view-${service.id}`,
+      mode:     'drawer',
+      title:    service.title,
+      titleDot: `var(--admin-${svcActive ? 'success' : 'error'})`,
       initialStepData: {
         service,
         packages,

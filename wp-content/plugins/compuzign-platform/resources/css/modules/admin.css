@@ -2564,10 +2564,15 @@ body.compuzign-admin-page footer.site-footer {
   display: inline-block;
   padding: 3px 10px;
   background: transparent;
-  border: 1px solid var(--admin-border-blue);
+  border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
+  transition: background var(--cz-transition-fast);
+}
+
+.cz-tf-chip:hover {
+  background: var(--admin-accent-a12);
 }
 
 /* ── Drawer footer — left-anchored disable / right-anchored primary actions ─── */
@@ -2995,19 +3000,17 @@ body.compuzign-admin-page footer.site-footer {
   background: var(--admin-bg);
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius);
+  transition: background var(--cz-transition-fast);
+}
+
+.cz-sv-overview-block:hover {
+  background: var(--admin-accent-a12);
 }
 
 .cz-sv-overview-block__identity {
   display: flex;
-  align-items: flex-start;
-  gap: var(--cz-space-2);
-}
-
-.cz-sv-overview-block__identity-text {
-  display: flex;
   flex-direction: column;
   gap: 3px;
-  min-width: 0;
 }
 
 .cz-sv-overview-block__name {
@@ -3051,11 +3054,11 @@ body.compuzign-admin-page footer.site-footer {
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius);
   margin-bottom: var(--cz-space-4);
-  transition: border-color var(--cz-transition-fast);
+  transition: background var(--cz-transition-fast);
 }
 
 .cz-sv-commercial-block:hover {
-  border-color: var(--admin-accent-a30);
+  background: var(--admin-accent-a12);
 }
 
 .cz-sv-commercial-block__header {
@@ -3095,7 +3098,7 @@ body.compuzign-admin-page footer.site-footer {
   justify-content: flex-end;
 }
 
-/* Suppress bottom divider for Pricing Summary — table already has its own border */
+/* Suppress bottom divider — used where bordered blocks already provide separation */
 .cz-sv-section--no-border {
   border-bottom: none;
   margin-bottom: 0;
