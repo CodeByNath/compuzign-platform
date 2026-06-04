@@ -103,7 +103,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     >
       <div class="cz-action-shell__panel">
         <div class="cz-action-shell__header">
-          <div class="cz-action-shell__header-left">
+          <div class="cz-action-shell__header-start">
             {config.onBack && (
               <button
                 type="button"
@@ -114,6 +114,8 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
                 ‹
               </button>
             )}
+          </div>
+          <div class="cz-action-shell__header-mid">
             <h2 class="cz-action-shell__title">{config.title}</h2>
             {isMultiStep && (
               <div class="cz-action-shell__step-dots">
@@ -132,9 +134,11 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
               </div>
             )}
           </div>
-          <button class="cz-action-shell__close" onClick={handleClose} aria-label="Close">
-            ✕
-          </button>
+          <div class="cz-action-shell__header-end">
+            <button class="cz-action-shell__close" onClick={handleClose} aria-label="Close">
+              ✕
+            </button>
+          </div>
         </div>
 
         {isMultiStep && (

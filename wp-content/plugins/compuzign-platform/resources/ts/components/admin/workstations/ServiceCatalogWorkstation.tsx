@@ -242,13 +242,16 @@ function PromoSelectStep({ ctx }: { ctx: StepContext }) {
 }
 
 // ── ServiceViewStep ───────────────────────────────────────────────────────────
-// Service detail drawer. Primary sections: Service Overview + Commercial
-// Configuration. Secondary sections: long description, feature pool, Q&A, pricing.
+// Tabbed service detail drawer.
+// Service tab  → Water Layer:  overview, description, features, FAQs.
+// Commercial tab → Surface Layer: tier config, promo config, pricing summary.
 
 function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const service  = ctx.stepData.service  as ServiceItem;
   const packages = ctx.stepData.packages as SurfacePackageSummary[];
   const doOpen   = ctx.stepData.openAction as (config: ActionConfig) => void;
+
+  const [tab, setTab] = useState<'service' | 'commercial'>('service');
 
   const relatedPkg = packages.find((p) => p.service_refs.includes(service.id)) ?? null;
 
@@ -259,7 +262,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const handleOpenTierConfig = () => {
     if (!relatedPkg) return;
-    // Back handler: replaces the tier drawer with this service's detail view.
     const onBack = () => doOpen({
       id:    `service-view-${service.id}`,
       mode:  'drawer',
@@ -286,7 +288,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
-  const pkgIsActive    = relatedPkg?.post_status === 'publish';
+  const pkgIsActive         = relatedPkg?.post_status === 'publish';
   const configuredTierCount = relatedPkg
     ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length
     : 0;
@@ -323,193 +325,202 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   return (
     <div class="cz-req-detail">
 
-      {/* ── PRIMARY: Service Overview ──────────────────────────────────── */}
-      <div class="cz-req-detail__section">
-        <p class="cz-req-detail__section-title">Service Overview</p>
-        <div class="cz-req-contact-grid">
-          <div class="cz-req-contact-grid__item">
-            <span class="cz-req-contact-grid__label">Status</span>
-            <span class="cz-req-contact-grid__value">
-              <span class="cz-sc-status-inline" style={`color:var(--admin-${isActive ? 'success' : 'error'})`}>
-                <span class="cz-admin-status-dot" />
-                {isActive ? 'Active' : 'Inactive'}
-              </span>
-            </span>
-          </div>
-          <div class="cz-req-contact-grid__item">
-            <span class="cz-req-contact-grid__label">Category</span>
-            <span class="cz-req-contact-grid__value">
-              {service.categories.map((c) => decodeHtml(c.name)).join(', ') || '—'}
-            </span>
-          </div>
-        </div>
-
+      {/* ── Service Identity ──────────────────────────────────────────── */}
+      <div class="cz-sv-identity">
+        <p class="cz-sv-identity__name">{decodeHtml(service.title)}</p>
         {service.excerpt && (
-          <div style="margin-top:var(--cz-space-3)">
-            <p class="cz-req-contact-grid__label" style="margin-bottom:4px">Short description</p>
-            <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text);line-height:1.6">
-              {service.excerpt}
-            </p>
-          </div>
+          <p class="cz-sv-identity__excerpt">{service.excerpt}</p>
         )}
       </div>
 
-      {/* ── PRIMARY: Commercial Configuration (lightweight relationship card) ── */}
-      <div class="cz-req-detail__section">
-        <p class="cz-req-detail__section-title">Commercial Configuration</p>
+      {/* ── Tab bar ───────────────────────────────────────────────────── */}
+      <div class="cz-sv-tabs">
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('service')}
+        >
+          Service
+        </button>
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('commercial')}
+        >
+          Commercial
+        </button>
+      </div>
 
-        {relatedPkg ? (
+      {/* ── Service tab: Water Layer ───────────────────────────────────── */}
+      {tab === 'service' && (
+        <>
+          <div class="cz-req-detail__section">
+            <p class="cz-req-detail__section-title">Service Overview</p>
+            <div class="cz-req-contact-grid">
+              <div class="cz-req-contact-grid__item">
+                <span class="cz-req-contact-grid__label">Status</span>
+                <span class="cz-req-contact-grid__value">
+                  <span class="cz-sc-status-inline" style={`color:var(--admin-${isActive ? 'success' : 'error'})`}>
+                    <span class="cz-admin-status-dot" />
+                    {isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </span>
+              </div>
+              <div class="cz-req-contact-grid__item">
+                <span class="cz-req-contact-grid__label">Category</span>
+                <span class="cz-req-contact-grid__value">
+                  {service.categories.map((c) => decodeHtml(c.name)).join(', ') || '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {service.content && (
+            <div class="cz-req-detail__section">
+              <p class="cz-req-detail__section-title">Description</p>
+              <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text-muted);line-height:1.6">
+                {service.content}
+              </p>
+            </div>
+          )}
+
+          {inclusions.length > 0 && (
+            <div class="cz-req-detail__section">
+              <p class="cz-req-detail__section-title">
+                Included Features
+                <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
+                  {inclusions.length}
+                </span>
+              </p>
+              <div class="cz-sc-inclusion-pool">
+                {inclusions.map((inc) => (
+                  <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {faqs.length > 0 && (
+            <div class="cz-req-detail__section">
+              <p class="cz-req-detail__section-title">
+                Common Questions
+                <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
+                  {faqs.length}
+                </span>
+              </p>
+              <div class="cz-sc-faq-list">
+                {faqs.map((faq) => (
+                  <div key={faq.id} class="cz-sc-faq-item">
+                    <p class="cz-sc-faq-item__q">{faq.question}</p>
+                    {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Commercial tab: Surface Layer ─────────────────────────────── */}
+      {tab === 'commercial' && (
+        relatedPkg ? (
           <>
-            <div class="cz-sc-cc-card-head">
-              <p class="cz-sc-pkg-block__title">Tier Configuration Attached</p>
-              <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
-                {pkgIsActive ? 'Linked' : 'Disabled'}
-              </span>
+            <div class="cz-req-detail__section">
+              <div class="cz-sv-commercial-block">
+                <div class="cz-sv-commercial-block__header">
+                  <div class="cz-sv-commercial-block__title-group">
+                    <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
+                    <span class="cz-sv-commercial-block__label">Tier Configuration</span>
+                    <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
+                      {pkgIsActive ? 'Linked' : 'Disabled'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={handleOpenTierConfig}
+                  >
+                    View
+                  </button>
+                </div>
+                <p class="cz-sv-commercial-block__count">
+                  {configuredTierCount} tier{configuredTierCount !== 1 ? 's' : ''} configured
+                </p>
+              </div>
             </div>
 
-            <div class="cz-sc-cc-status-row" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`}>
-              <span class="cz-admin-status-dot" />
-              <span>{pkgIsActive ? 'Active' : 'Disabled'}</span>
-              <span class="cz-sc-cc-sep">|</span>
-              <span class="cz-sc-cc-tier-count">
-                {configuredTierCount} tier{configuredTierCount !== 1 ? 's' : ''} configured
-              </span>
+            <div class="cz-req-detail__section">
+              <div class="cz-sv-commercial-block">
+                <div class="cz-sv-commercial-block__header">
+                  <div class="cz-sv-commercial-block__title-group">
+                    <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
+                    <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
+                    <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
+                      {pkgIsActive ? 'Linked' : 'Disabled'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={handleOpenPromoConfig}
+                  >
+                    View
+                  </button>
+                </div>
+                <p class="cz-sv-commercial-block__count">
+                  {promotionCount} promotion{promotionCount !== 1 ? 's' : ''} configured
+                </p>
+              </div>
             </div>
 
-            <p class="cz-sc-cc-desc">
-              Pricing and tiers are managed in the Service Packages workstation.
-            </p>
-
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--primary"
-              onClick={handleOpenTierConfig}
-            >
-              Open Tier Configuration
-            </button>
-
-            <div class="cz-sc-cc-card-head" style="margin-top:var(--cz-space-5)">
-              <p class="cz-sc-pkg-block__title">Promotion Configuration Attached</p>
-              <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
-                {pkgIsActive ? 'Linked' : 'Disabled'}
-              </span>
-            </div>
-
-            <div class="cz-sc-cc-status-row" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`}>
-              <span class="cz-admin-status-dot" />
-              <span>{pkgIsActive ? 'Active' : 'Disabled'}</span>
-              <span class="cz-sc-cc-sep">|</span>
-              <span class="cz-sc-cc-tier-count">
-                {promotionCount} promotion{promotionCount !== 1 ? 's' : ''} configured
-              </span>
-            </div>
-
-            <p class="cz-sc-cc-desc">
-              Promotions are managed in the Promotions workstation.
-            </p>
-
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--primary"
-              onClick={handleOpenPromoConfig}
-            >
-              Open Promotion Configuration
-            </button>
+            {tiers && (
+              <div class="cz-req-detail__section">
+                <p class="cz-req-detail__section-title">Pricing Summary</p>
+                <div class="cz-sp-tier-table-wrap">
+                  <table class="cz-sp-tier-table">
+                    <thead>
+                      <tr>
+                        <th>Tier</th>
+                        <th>Price</th>
+                        <th>Cycle</th>
+                        <th class="cz-sp-tier-table__center">Features</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TIER_KEYS.map((tierId) => {
+                        const tier = tiers[tierId];
+                        return (
+                          <tr key={tierId}>
+                            <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
+                            <td>
+                              <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                                {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
+                              </span>
+                            </td>
+                            <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
+                            <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                              {tier?.features?.length ? tier.features.length : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         ) : (
-          <p class="cz-sc-pkg-block__empty-msg">
-            Commercial configuration has not been set up for this service.
-            Manage this from the Service Packages workstation.
-          </p>
-        )}
-      </div>
-
-      {/* ── SECONDARY: Long Description ────────────────────────────────── */}
-      {service.content && (
-        <div class="cz-req-detail__section">
-          <p class="cz-req-detail__section-title">Description</p>
-          <p style="margin:0;font-size:var(--cz-font-size-sm);color:var(--admin-text-muted);line-height:1.6">
-            {service.content}
-          </p>
-        </div>
-      )}
-
-      {/* ── SECONDARY: Included Features (service pool) ────────────────── */}
-      {inclusions.length > 0 && (
-        <div class="cz-req-detail__section">
-          <p class="cz-req-detail__section-title">
-            Included Features
-            <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
-              {inclusions.length}
-            </span>
-          </p>
-          <div class="cz-sc-inclusion-pool">
-            {inclusions.map((inc) => (
-              <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
-            ))}
+          <div class="cz-req-detail__section">
+            <p class="cz-sc-pkg-block__empty-msg">
+              Commercial configuration has not been set up for this service.
+              Manage this from the Service Packages workstation.
+            </p>
           </div>
-        </div>
+        )
       )}
 
-      {/* ── SECONDARY: Common Questions (service FAQ pool) ─────────────── */}
-      {faqs.length > 0 && (
-        <div class="cz-req-detail__section">
-          <p class="cz-req-detail__section-title">
-            Common Questions
-            <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
-              {faqs.length}
-            </span>
-          </p>
-          <div class="cz-sc-faq-list">
-            {faqs.map((faq) => (
-              <div key={faq.id} class="cz-sc-faq-item">
-                <p class="cz-sc-faq-item__q">{faq.question}</p>
-                {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── SECONDARY: Pricing Summary ─────────────────────────────────── */}
-      {tiers && (
-        <div class="cz-req-detail__section">
-          <p class="cz-req-detail__section-title">Pricing Summary</p>
-          <div class="cz-sp-tier-table-wrap">
-            <table class="cz-sp-tier-table">
-              <thead>
-                <tr>
-                  <th>Tier</th>
-                  <th>Price</th>
-                  <th>Cycle</th>
-                  <th class="cz-sp-tier-table__center">Features</th>
-                </tr>
-              </thead>
-              <tbody>
-                {TIER_KEYS.map((tierId) => {
-                  const tier = tiers[tierId];
-                  return (
-                    <tr key={tierId}>
-                      <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
-                      <td>
-                        <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                          {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
-                        </span>
-                      </td>
-                      <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
-                      <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                        {tier?.features?.length ? tier.features.length : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      {/* ── Footer ────────────────────────────────────────────────────── */}
       <div class="cz-action-shell__footer">
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
           Close

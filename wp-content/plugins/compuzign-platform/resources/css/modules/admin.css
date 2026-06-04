@@ -1038,19 +1038,28 @@
 
 /* ── ActionShell — header ───────────────────────────────────────────────────── */
 .cz-action-shell__header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--cz-space-3);
   padding: 18px var(--cz-space-6);
   border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
 }
 
-.cz-action-shell__header-left {
+.cz-action-shell__header-start,
+.cz-action-shell__header-end {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cz-action-shell__header-mid {
   display: flex;
   align-items: center;
   gap: var(--cz-space-3);
   min-width: 0;
+  overflow: hidden;
 }
 
 .cz-action-shell__title {
@@ -2939,4 +2948,85 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-error);
   text-decoration: line-through;
   opacity: 0.7;
+}
+
+/* ── Service View — identity block ──────────────────────────────────────────── */
+.cz-sv-identity {
+  margin-bottom: var(--cz-space-4);
+}
+
+.cz-sv-identity__name {
+  margin: 0 0 3px;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+}
+
+.cz-sv-identity__excerpt {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Service View — tab bar ──────────────────────────────────────────────────── */
+.cz-sv-tabs {
+  display: flex;
+  margin: 0 calc(-1 * var(--cz-space-6)) var(--cz-space-5);
+  padding: 0 calc(var(--cz-space-6) - 8px);
+  border-bottom: 1px solid var(--admin-border-blue);
+}
+
+.cz-sv-tab {
+  padding: 7px 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  transition: color var(--cz-transition-fast), border-color var(--cz-transition-fast);
+}
+
+.cz-sv-tab:hover {
+  color: var(--admin-text);
+}
+
+.cz-sv-tab--active {
+  color: var(--admin-accent);
+  border-bottom-color: var(--admin-accent);
+  font-weight: var(--admin-fw-strong);
+}
+
+.cz-sv-tab:focus-visible {
+  outline: none;
+  color: var(--admin-accent);
+}
+
+/* ── Service View — commercial summary blocks ────────────────────────────────── */
+.cz-sv-commercial-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--cz-space-2);
+}
+
+.cz-sv-commercial-block__title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+}
+
+.cz-sv-commercial-block__label {
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+}
+
+.cz-sv-commercial-block__count {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-muted);
 }
