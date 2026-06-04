@@ -77,10 +77,20 @@ class AdminSurfacePackagesController
             ],
         ]);
 
-        // /archive must be registered before the bare /{promo} pattern so it is not swallowed.
+        // /archive and /reactivate must be registered before the bare /{promo} pattern so they are not swallowed.
         register_rest_route($ns, '/admin/surface-packages/(?P<id>\d+)/promotion-tiers/(?P<promo>[a-z0-9_]+)/archive', [
             'methods'             => 'POST',
             'callback'            => [$this, 'archivePromotionTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'validate_callback' => fn($v) => is_numeric($v)],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
+        register_rest_route($ns, '/admin/surface-packages/(?P<id>\d+)/promotion-tiers/(?P<promo>[a-z0-9_]+)/reactivate', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'reactivatePromotionTier'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
                 'id'    => ['required' => true, 'validate_callback' => fn($v) => is_numeric($v)],
@@ -711,6 +721,43 @@ class AdminSurfacePackagesController
         update_post_meta($packageId, 'cz_package', $pkg);
 
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'archived']);
+    }
+
+    public function reactivatePromotionTier(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $packageId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($packageId);
+        if (!$post instanceof \WP_Post || $post->post_type !== 'cz_surface_package') {
+            return $this->error('Package not found.', 404);
+        }
+
+        $pkg = get_post_meta($packageId, 'cz_package', true);
+        if (!is_array($pkg)) {
+            return $this->error('Package meta not found.', 404);
+        }
+
+        $promos = is_array($pkg['promotion_tiers'] ?? null) ? $pkg['promotion_tiers'] : [];
+        $found  = false;
+
+        foreach ($promos as &$tier) {
+            if (is_array($tier) && ($tier['id'] ?? '') === $promoId) {
+                $tier['status'] = 'active';
+                $found = true;
+                break;
+            }
+        }
+        unset($tier);
+
+        if (!$found) {
+            return $this->error('Promotion tier not found.', 404);
+        }
+
+        $pkg['promotion_tiers'] = $promos;
+        update_post_meta($packageId, 'cz_package', $pkg);
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'active']);
     }
 
     // ── Promotion tier helpers ─────────────────────────────────────────────────

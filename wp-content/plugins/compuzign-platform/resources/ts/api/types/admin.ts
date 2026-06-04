@@ -258,6 +258,12 @@ export interface PromotionTierArchiveResponse {
   status: 'archived';
 }
 
+export interface PromotionTierReactivateResponse {
+  success: boolean;
+  promo_id: string;
+  status: 'active';
+}
+
 export interface AcceptIntakeResponse {
   success: boolean;
   post_id: number;

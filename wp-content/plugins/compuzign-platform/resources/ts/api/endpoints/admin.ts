@@ -6,6 +6,7 @@ import type {
   PackageStatusResponse,
   PromotionTierArchiveResponse,
   PromotionTierPayload,
+  PromotionTierReactivateResponse,
   PromotionTierSaveResponse,
   RequestEntry,
   SurfacePackageDetailResponse,
@@ -84,6 +85,15 @@ export function archivePromotionTier(
 ): Promise<PromotionTierArchiveResponse> {
   return apiClient.post<PromotionTierArchiveResponse>(
     `admin/surface-packages/${packageId}/promotion-tiers/${promoId}/archive`,
+  );
+}
+
+export function reactivatePromotionTier(
+  packageId: number,
+  promoId: string,
+): Promise<PromotionTierReactivateResponse> {
+  return apiClient.post<PromotionTierReactivateResponse>(
+    `admin/surface-packages/${packageId}/promotion-tiers/${promoId}/reactivate`,
   );
 }
 

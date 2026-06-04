@@ -6,6 +6,7 @@ import {
   createPromotionTier,
   savePromotionTier,
   archivePromotionTier,
+  reactivatePromotionTier,
 } from '@/api/endpoints/admin';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type {
@@ -212,6 +213,25 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
     metadata: {},
     new_inclusions: pendingIncs,
   });
+
+  const isArchived = (initPromo?.status ?? 'draft') === 'archived';
+
+  const handleToggleStatus = async () => {
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      if (isArchived) {
+        await reactivatePromotionTier(packageId, promoId!);
+      } else {
+        await archivePromotionTier(packageId, promoId!);
+      }
+      ctx.goNext();
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Status update failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -591,6 +611,16 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <div class="cz-tf-footer">
+        {!isNew && (
+          <button
+            type="button"
+            class={`cz-admin-btn ${isArchived ? 'cz-admin-btn--primary' : 'cz-admin-btn--danger'}`}
+            onClick={handleToggleStatus}
+            disabled={saving}
+          >
+            {isArchived ? 'Enable Promotion' : 'Disable Promotion'}
+          </button>
+        )}
         <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
           Cancel
