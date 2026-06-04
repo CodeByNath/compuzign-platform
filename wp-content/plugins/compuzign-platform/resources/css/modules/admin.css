@@ -3101,6 +3101,4 @@ body.compuzign-admin-page footer.site-footer {
 /* Suppress bottom divider — used where bordered blocks already provide separation */
 .cz-sv-section--no-border {
   border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
 }
