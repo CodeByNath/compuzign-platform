@@ -1041,7 +1041,6 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--cz-space-3);
   padding: 18px var(--cz-space-6);
   border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
@@ -3156,4 +3155,30 @@ body.compuzign-admin-page footer.site-footer {
 /* Suppress bottom divider — used where bordered blocks already provide separation */
 .cz-sv-section--no-border {
   border-bottom: none;
+}
+
+/* ── Responsive breakpoints ─────────────────────────────────────────────────── */
+@media screen and (max-width: 767px) {
+  .cz-tf-chip {
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .cz-tf-footer {
+    flex-wrap: wrap;
+  }
+
+  .cz-tf-footer__spacer {
+    display: none;
+  }
+
+  .cz-tf-footer .cz-admin-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .cz-tf-footer .cz-admin-btn--danger {
+    flex-basis: 100%;
+  }
 }
