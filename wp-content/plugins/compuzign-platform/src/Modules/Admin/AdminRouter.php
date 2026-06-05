@@ -11,27 +11,76 @@ namespace CompuZign\Platform\Modules\Admin;
  *
  * Capability model:
  *   manage_compuzign — the platform capability that gates the Command Centre.
- *   Granted transparently (via user_has_cap filter) to any user who has
- *   manage_options, so existing accounts need no migration.
+ *   Granted natively to users in the cz_platform_manager role (registered here).
+ *   Also granted transparently (via user_has_cap filter) to any user who has
+ *   manage_options, so developer accounts retain access without role migration.
  *
  * Decision boundary (platform user vs developer):
  *   Platform user  : has manage_compuzign && !has install_plugins → redirect to CCC
  *   Developer/maint: has manage_compuzign &&  has install_plugins → full WP admin retained
+ *
+ * Provisioning:
+ *   Assign new business/platform users the 'cz_platform_manager' role.
+ *   They receive manage_compuzign natively and never need install_plugins.
  */
 class AdminRouter
 {
     public const CAP       = 'manage_compuzign';
+    public const ROLE      = 'cz_platform_manager';
     public const SLUG      = 'compuzign-command-centre';
     public const PAGE_SLUG = 'admin-command-centre';
 
     public function register(): void
     {
+        add_action('init',                  [$this, 'registerRole'],       1);
+        add_action('init',                  [$this, 'provisionDefaultUser'], 2);
         add_filter('user_has_cap',          [$this, 'grantPlatformCap'], 10, 4);
         add_action('admin_menu',            [$this, 'registerMenu']);
         add_filter('login_redirect',        [$this, 'loginRedirect'], 10, 3);
         add_action('admin_init',            [$this, 'dashboardRedirect']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
         add_action('template_redirect',     [$this, 'processLogin']);
+    }
+
+    // ── Role ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Register the platform manager role on init if it does not yet exist.
+     * The role carries manage_compuzign and read only — no WP admin surface access.
+     * Idempotent: safe to run on every request.
+     */
+    public function registerRole(): void
+    {
+        if (get_role(self::ROLE) !== null) {
+            return;
+        }
+        add_role(self::ROLE, 'Platform Manager', [
+            self::CAP => true,
+            'read'    => true,
+        ]);
+    }
+
+    /**
+     * Provision the default platform user on first run.
+     * Skips immediately once the account exists — one DB lookup, no overhead.
+     * Credentials are initial values only; the password can be changed in WP admin.
+     */
+    public function provisionDefaultUser(): void
+    {
+        if (get_user_by('login', 'accountmanager') !== false) {
+            return;
+        }
+
+        $host  = (string) parse_url(home_url(), PHP_URL_HOST);
+        $email = 'accountmanager@' . ($host ?: 'compuzign.com');
+
+        wp_insert_user([
+            'user_login'   => 'accountmanager',
+            'user_pass'    => 'Compuzign@2026',
+            'display_name' => 'Account Manager',
+            'user_email'   => $email,
+            'role'         => self::ROLE,
+        ]);
     }
 
     // ── Capability ────────────────────────────────────────────────────────────
@@ -140,8 +189,10 @@ class AdminRouter
             exit;
         }
 
-        // Platform users → canonical front-end URL. Developers → wp-admin.
-        wp_safe_redirect($this->isPlatformUser($user) ? $this->canonicalUrl() : admin_url());
+        // All authentications via the CCC form return to /admin-command-centre/.
+        // Access control is enforced by the shortcode — non-platform users see the
+        // access-denied state there rather than being sent somewhere unexpected.
+        wp_safe_redirect($this->canonicalUrl());
         exit;
     }
 
