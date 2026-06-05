@@ -20,16 +20,18 @@ namespace CompuZign\Platform\Modules\Admin;
  */
 class AdminRouter
 {
-    public const CAP  = 'manage_compuzign';
-    public const SLUG = 'compuzign-command-centre';
+    public const CAP       = 'manage_compuzign';
+    public const SLUG      = 'compuzign-command-centre';
+    public const PAGE_SLUG = 'admin-command-centre';
 
     public function register(): void
     {
-        add_filter('user_has_cap',         [$this, 'grantPlatformCap'], 10, 4);
-        add_action('admin_menu',           [$this, 'registerMenu']);
-        add_filter('login_redirect',       [$this, 'loginRedirect'], 10, 3);
-        add_action('admin_init',           [$this, 'dashboardRedirect']);
+        add_filter('user_has_cap',          [$this, 'grantPlatformCap'], 10, 4);
+        add_action('admin_menu',            [$this, 'registerMenu']);
+        add_filter('login_redirect',        [$this, 'loginRedirect'], 10, 3);
+        add_action('admin_init',            [$this, 'dashboardRedirect']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
+        add_action('template_redirect',     [$this, 'processLogin']);
     }
 
     // ── Capability ────────────────────────────────────────────────────────────
@@ -75,7 +77,8 @@ class AdminRouter
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
-     * After a successful WP login, send platform users directly to the CCC.
+     * After a successful WP login (via wp-login.php), send platform users to the CCC.
+     * This covers standard WP login. The /admin-command-centre/ form uses processLogin().
      *
      * @param string          $redirectTo
      * @param string          $requestedRedirect
@@ -87,14 +90,14 @@ class AdminRouter
             return $redirectTo;
         }
         if ($this->isPlatformUser($user)) {
-            return admin_url('admin.php?page=' . self::SLUG);
+            return $this->canonicalUrl();
         }
         return $redirectTo;
     }
 
     /**
-     * If a platform user lands on the WP dashboard directly, push them to the CCC.
-     * Skips AJAX requests and non-dashboard pages.
+     * If a platform user lands on the WP dashboard, push them to /admin-command-centre/.
+     * Skips AJAX and non-dashboard pages so developers retain full wp-admin access.
      */
     public function dashboardRedirect(): void
     {
@@ -106,9 +109,40 @@ class AdminRouter
         }
         global $pagenow;
         if ($pagenow === 'index.php') {
-            wp_safe_redirect(admin_url('admin.php?page=' . self::SLUG));
+            wp_safe_redirect($this->canonicalUrl());
             exit;
         }
+    }
+
+    /**
+     * Process the branded login form on /admin-command-centre/.
+     * Runs at template_redirect so cookies can be set before any output.
+     */
+    public function processLogin(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['cz_login_nonce'])) {
+            return;
+        }
+        if (!wp_verify_nonce(sanitize_key($_POST['cz_login_nonce']), 'cz_login')) {
+            return;
+        }
+
+        $credentials = [
+            'user_login'    => sanitize_user(wp_unslash((string) ($_POST['cz_username'] ?? ''))),
+            'user_password' => wp_unslash((string) ($_POST['cz_password'] ?? '')),
+            'remember'      => !empty($_POST['cz_remember']),
+        ];
+
+        $user = wp_signon($credentials, is_ssl());
+
+        if (is_wp_error($user)) {
+            wp_safe_redirect(add_query_arg('login_error', '1', $this->canonicalUrl()));
+            exit;
+        }
+
+        // Platform users → canonical front-end URL. Developers → wp-admin.
+        wp_safe_redirect($this->isPlatformUser($user) ? $this->canonicalUrl() : admin_url());
+        exit;
     }
 
     // ── Assets ────────────────────────────────────────────────────────────────
@@ -196,6 +230,17 @@ class AdminRouter
     }
 
     // ── Internals ─────────────────────────────────────────────────────────────
+
+    /**
+     * Canonical product admin URL. Override via the compuzign_command_centre_url filter.
+     */
+    private function canonicalUrl(): string
+    {
+        return (string) apply_filters(
+            'compuzign_command_centre_url',
+            home_url('/' . self::PAGE_SLUG . '/')
+        );
+    }
 
     /**
      * A platform user has manage_compuzign but NOT install_plugins.

@@ -20,6 +20,22 @@ class AssetLoader
         $this->registerCostBuilderAssets();
         $this->registerHomepageAssets();
         $this->registerAdminAssets();
+        $this->enqueueAdminPageStyles();
+    }
+
+    /**
+     * Proactively enqueue admin.css on the Command Centre page so it lands in
+     * <head> via wp_head(), not late inside a shortcode callback after <head> closes.
+     * This covers both the branded login state and the authenticated app state.
+     */
+    private function enqueueAdminPageStyles(): void
+    {
+        if (!is_page(\CompuZign\Platform\Modules\Admin\AdminRouter::PAGE_SLUG)) {
+            return;
+        }
+        if (wp_style_is('compuzign-admin', 'registered')) {
+            wp_enqueue_style('compuzign-admin');
+        }
     }
 
     /**

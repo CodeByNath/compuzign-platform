@@ -37,28 +37,20 @@ class AdminModule
 
     public function renderShortcode(): string
     {
+        // CSS is enqueued proactively from AssetLoader for this page.
+        // Re-enqueue here as a safety net for themes that bypass wp_head timing.
+        if (wp_style_is('compuzign-admin', 'registered') && !wp_style_is('compuzign-admin', 'enqueued')) {
+            wp_enqueue_style('compuzign-admin');
+        }
+
         if (!is_user_logged_in()) {
-            return '<div class="cz-admin-gate">'
-                . '<p>Please <a href="' . esc_url(wp_login_url(get_permalink())) . '">log in</a> to access the Command Centre.</p>'
-                . '</div>';
+            return $this->renderLoginForm();
         }
 
         if (!current_user_can(AdminRouter::CAP)) {
-            $debug = '';
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                $user  = wp_get_current_user();
-                $debug = '<p class="cz-admin-gate__debug" style="font-size:12px;opacity:.6;">'
-                    . 'Debug &mdash; user_id: ' . (int) $user->ID
-                    . ' | roles: ' . esc_html(implode(', ', (array) $user->roles))
-                    . ' | ' . AdminRouter::CAP . ': no'
-                    . '</p>';
-            }
-            return '<div class="cz-admin-gate cz-admin-gate--denied"><p>Access restricted.</p>' . $debug . '</div>';
+            return $this->renderAccessDenied();
         }
 
-        if (wp_style_is('compuzign-admin', 'registered')) {
-            wp_enqueue_style('compuzign-admin');
-        }
         if (wp_script_is('compuzign-admin', 'registered')) {
             wp_enqueue_script('compuzign-admin');
         }
@@ -72,5 +64,94 @@ class AdminModule
             echo '<div id="compuzign-admin" class="cz-admin-root"></div>';
         }
         return ob_get_clean();
+    }
+
+    private function renderLoginForm(): string
+    {
+        $hasError = !empty($_GET['login_error']);
+        $nonce    = wp_create_nonce('cz_login');
+
+        ob_start();
+        ?>
+        <div class="cz-login-root">
+          <div class="cz-login-card">
+            <div class="cz-login-brand">
+              <div class="cz-login-brand__mark">CZ</div>
+              <p class="cz-login-brand__name">CompuZign</p>
+              <p class="cz-login-brand__sub">Admin Command Centre</p>
+            </div>
+
+            <?php if ($hasError): ?>
+            <p class="cz-login-error">Invalid username or password. Please try again.</p>
+            <?php endif; ?>
+
+            <form class="cz-login-form" method="post" action="">
+              <input type="hidden" name="cz_login_nonce" value="<?php echo esc_attr($nonce); ?>">
+
+              <div class="cz-login-field">
+                <label class="cz-login-label" for="cz_username">Username or email</label>
+                <input
+                  class="cz-login-input"
+                  type="text"
+                  name="cz_username"
+                  id="cz_username"
+                  autocomplete="username"
+                  required
+                  <?php if (!$hasError): ?>autofocus<?php endif; ?>
+                >
+              </div>
+
+              <div class="cz-login-field">
+                <label class="cz-login-label" for="cz_password">Password</label>
+                <div class="cz-login-input-wrap">
+                  <input
+                    class="cz-login-input"
+                    type="password"
+                    name="cz_password"
+                    id="cz_password"
+                    autocomplete="current-password"
+                    required
+                    <?php if ($hasError): ?>autofocus<?php endif; ?>
+                  >
+                  <button
+                    type="button"
+                    class="cz-login-eye"
+                    onclick="var f=document.getElementById('cz_password');f.type=f.type==='password'?'text':'password';this.textContent=this.textContent==='SHOW'?'HIDE':'SHOW'"
+                  >SHOW</button>
+                </div>
+              </div>
+
+              <button type="submit" class="cz-login-btn">Sign in</button>
+            </form>
+
+            <p class="cz-login-footer">© CompuZign</p>
+          </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    private function renderAccessDenied(): string
+    {
+        $debug = '';
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            $user  = wp_get_current_user();
+            $debug = '<p style="margin-top:16px;font-size:11px;opacity:.4;color:#e8eaed">'
+                . 'user_id: ' . (int) $user->ID
+                . ' &mdash; roles: ' . esc_html(implode(', ', (array) $user->roles))
+                . ' &mdash; ' . esc_html(AdminRouter::CAP) . ': no'
+                . '</p>';
+        }
+
+        return '<div class="cz-login-root">'
+            . '<div class="cz-login-card">'
+            . '<div class="cz-login-brand">'
+            . '<div class="cz-login-brand__mark">CZ</div>'
+            . '<p class="cz-login-brand__name">CompuZign</p>'
+            . '</div>'
+            . '<p class="cz-login-error">Access restricted. You do not have permission to access the Admin Command Centre.</p>'
+            . $debug
+            . '</div>'
+            . '</div>';
     }
 }
