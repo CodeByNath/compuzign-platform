@@ -530,7 +530,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <div class="cz-tf-footer">
-        <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" onClick={() => {}}>
+        <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => {}}>
           Disable Service
         </button>
         <div class="cz-tf-footer__spacer" />
@@ -538,7 +538,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           Cancel
         </button>
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => {}}>
-          Publish
+          Publish Service
         </button>
       </div>
     </div>

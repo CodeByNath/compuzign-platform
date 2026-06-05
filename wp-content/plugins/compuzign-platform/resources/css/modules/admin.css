@@ -2564,25 +2564,31 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-chip {
   position: relative;
   display: inline-block;
-  padding: 3px 10px;
+  padding: var(--cz-space-2) var(--cz-space-4);
+  width: 49%;
   background: transparent;
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);
   transition: background var(--cz-transition-fast);
+  box-sizing: border-box;
 }
 
 .cz-tf-chip:hover {
   background: var(--admin-accent-a12);
 }
 
-/* ── Drawer footer — left-anchored disable / right-anchored primary actions ─── */
+/* ── Drawer footer — sticky bottom, left-anchored disable / right-anchored primary actions ─── */
 .cz-tf-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--admin-bg);
   display: flex;
   align-items: center;
   gap: var(--cz-space-2);
   padding-top: var(--cz-space-4);
+  padding-bottom: var(--cz-space-4);
   border-top: 1px solid var(--admin-border-blue);
   margin-top: var(--cz-space-5);
 }
@@ -3037,12 +3043,11 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-tf-chip__edit {
   position: absolute;
-  top: 50%;
-  right: 3px;
-  transform: translateY(-50%);
+  top: var(--cz-space-1);
+  right: var(--cz-space-1);
   display: inline-flex;
   align-items: center;
-  padding: 1px 3px !important;
+  padding: var(--cz-space-1);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--cz-transition-fast);
