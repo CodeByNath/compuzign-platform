@@ -1054,12 +1054,15 @@
   flex-shrink: 0;
 }
 
+.cz-action-shell__header-end { grid-column: 3; }
+
 .cz-action-shell__header-mid {
   display: flex;
   align-items: center;
   gap: var(--cz-space-3);
   min-width: 0;
   overflow: hidden;
+  grid-column: 2;
 }
 
 .cz-action-shell__title {
@@ -1467,11 +1470,9 @@
 .cz-req-detail__section {
   padding-bottom: var(--cz-space-6);
   margin-bottom: var(--cz-space-6);
-  border-bottom: 1px solid var(--admin-border-blue);
 }
 
 .cz-req-detail__section:last-of-type {
-  border-bottom: none;
   margin-bottom: 0;
   padding-bottom: 0;
 }
@@ -2561,6 +2562,7 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-tf-chip {
+  position: relative;
   display: inline-block;
   padding: 3px 10px;
   background: transparent;
@@ -2606,10 +2608,16 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sc-faq-item {
+  position: relative;
   padding: 10px var(--cz-space-3);
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
+  transition: background var(--cz-transition-fast);
+}
+
+.cz-sc-faq-item:hover {
+  background: var(--admin-accent-a12);
 }
 
 .cz-sc-faq-item__q {
@@ -2993,6 +3001,7 @@ body.compuzign-admin-page footer.site-footer {
 
 /* ── Service View — overview block ──────────────────────────────────────────── */
 .cz-sv-overview-block {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-4);
@@ -3005,6 +3014,44 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sv-overview-block:hover {
   background: var(--admin-accent-a12);
+}
+
+.cz-sv-overview-block__edit,
+.cz-sc-faq-item__edit {
+  position: absolute;
+  top: var(--cz-space-2);
+  right: var(--cz-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--cz-transition-fast);
+}
+
+.cz-sv-overview-block:hover .cz-sv-overview-block__edit,
+.cz-sc-faq-item:hover .cz-sc-faq-item__edit {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cz-tf-chip__edit {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 3px !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--cz-transition-fast);
+  line-height: 1;
+}
+
+.cz-tf-chip:hover .cz-tf-chip__edit {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cz-sv-overview-block__identity {

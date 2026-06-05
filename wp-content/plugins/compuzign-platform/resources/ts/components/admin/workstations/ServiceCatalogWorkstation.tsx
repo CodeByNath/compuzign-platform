@@ -129,7 +129,8 @@ function PackageTierSelectStep({ ctx }: { ctx: StepContext }) {
         </table>
       </div>
 
-      <div class="cz-action-shell__footer">
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
           Cancel
         </button>
@@ -232,7 +233,8 @@ function PromoSelectStep({ ctx }: { ctx: StepContext }) {
         </div>
       )}
 
-      <div class="cz-action-shell__footer">
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
           Cancel
         </button>
@@ -352,6 +354,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={() => {}}>
+                ✎ Edit
+              </button>
               <div class="cz-sv-overview-block__identity">
                 <p class="cz-sv-overview-block__name">{decodeHtml(service.title)}</p>
                 {service.excerpt && (
@@ -383,7 +388,12 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               </p>
               <div class="cz-sc-inclusion-pool">
                 {inclusions.map((inc) => (
-                  <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+                  <span key={inc.id} class="cz-tf-chip">
+                    {inc.label}
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={() => {}}>
+                      ✎
+                    </button>
+                  </span>
                 ))}
               </div>
             </div>
@@ -400,6 +410,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               <div class="cz-sc-faq-list">
                 {faqs.map((faq) => (
                   <div key={faq.id} class="cz-sc-faq-item">
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sc-faq-item__edit" onClick={() => {}}>
+                      ✎ Edit
+                    </button>
                     <p class="cz-sc-faq-item__q">{faq.question}</p>
                     {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
                   </div>
@@ -516,9 +529,16 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       )}
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
-      <div class="cz-action-shell__footer">
+      <div class="cz-tf-footer">
+        <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" onClick={() => {}}>
+          Disable Service
+        </button>
+        <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-          Close
+          Cancel
+        </button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => {}}>
+          Publish
         </button>
       </div>
     </div>

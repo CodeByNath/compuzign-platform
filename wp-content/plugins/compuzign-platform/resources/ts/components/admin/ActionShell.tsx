@@ -104,8 +104,8 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     >
       <div class="cz-action-shell__panel">
         <div class="cz-action-shell__header">
-          <div class="cz-action-shell__header-start">
-            {config.onBack && (
+          {config.onBack && (
+            <div class="cz-action-shell__header-start">
               <button
                 type="button"
                 class="cz-action-shell__back"
@@ -114,8 +114,8 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
               >
                 ‹
               </button>
-            )}
-          </div>
+            </div>
+          )}
           <div class="cz-action-shell__header-mid">
             {config.titleDot && (
               <span class="cz-admin-status-dot" style={`color:${config.titleDot}`} />
