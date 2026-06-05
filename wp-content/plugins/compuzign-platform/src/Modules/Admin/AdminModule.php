@@ -78,26 +78,23 @@ class AdminModule
             <div class="cz-login-brand">
               <div class="cz-login-brand__mark">CZ</div>
               <p class="cz-login-brand__name">CompuZign</p>
-              <p class="cz-login-brand__sub">Admin Command Centre</p>
+              <p class="cz-login-brand__sub">Command Centre</p>
             </div>
-
-            <?php if ($hasError): ?>
-            <p class="cz-login-error">Invalid username or password. Please try again.</p>
-            <?php endif; ?>
 
             <form class="cz-login-form" method="post" action="">
               <input type="hidden" name="cz_login_nonce" value="<?php echo esc_attr($nonce); ?>">
 
               <div class="cz-login-field">
-                <label class="cz-login-label" for="cz_username">Username or email</label>
+                <label class="cz-login-label" for="cz_username">Username</label>
                 <input
                   class="cz-login-input"
                   type="text"
                   name="cz_username"
                   id="cz_username"
+                  placeholder="Enter username"
                   autocomplete="username"
                   required
-                  <?php if (!$hasError): ?>autofocus<?php endif; ?>
+                  autofocus
                 >
               </div>
 
@@ -109,6 +106,7 @@ class AdminModule
                     type="password"
                     name="cz_password"
                     id="cz_password"
+                    placeholder="Enter password"
                     autocomplete="current-password"
                     required
                     <?php if ($hasError): ?>autofocus<?php endif; ?>
@@ -116,15 +114,19 @@ class AdminModule
                   <button
                     type="button"
                     class="cz-login-eye"
-                    onclick="var f=document.getElementById('cz_password');f.type=f.type==='password'?'text':'password';this.textContent=this.textContent==='SHOW'?'HIDE':'SHOW'"
-                  >SHOW</button>
+                    onclick="var f=document.getElementById('cz_password');f.type=f.type==='password'?'text':'password';this.textContent=this.textContent==='Show'?'Hide':'Show'"
+                  >Show</button>
                 </div>
               </div>
 
-              <button type="submit" class="cz-login-btn">Sign in</button>
+              <?php if ($hasError): ?>
+              <div class="cz-login-error" role="alert">Incorrect username or password. Please try again.</div>
+              <?php endif; ?>
+
+              <button type="submit" class="cz-login-btn">Access Command Centre</button>
             </form>
 
-            <p class="cz-login-footer">© CompuZign</p>
+            <p class="cz-login-footer">Powered by WeeraXStudio</p>
           </div>
         </div>
         <?php
