@@ -11,6 +11,7 @@ class AdminModule
 {
     public function register(): void
     {
+        (new AdminRouter())->register();
         (new AdminController())->register();
         (new AdminRequestsController())->register();
         (new AdminServicesController())->register();
@@ -42,14 +43,14 @@ class AdminModule
                 . '</div>';
         }
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can(AdminRouter::CAP)) {
             $debug = '';
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 $user  = wp_get_current_user();
                 $debug = '<p class="cz-admin-gate__debug" style="font-size:12px;opacity:.6;">'
                     . 'Debug &mdash; user_id: ' . (int) $user->ID
                     . ' | roles: ' . esc_html(implode(', ', (array) $user->roles))
-                    . ' | manage_options: no'
+                    . ' | ' . AdminRouter::CAP . ': no'
                     . '</p>';
             }
             return '<div class="cz-admin-gate cz-admin-gate--denied"><p>Access restricted.</p>' . $debug . '</div>';
