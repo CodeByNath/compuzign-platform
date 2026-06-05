@@ -9,6 +9,10 @@ import type {
   PromotionTierReactivateResponse,
   PromotionTierSaveResponse,
   RequestEntry,
+  ServiceFaqsPayload,
+  ServiceFaqsResponse,
+  ServiceInclusionsPayload,
+  ServiceInclusionsResponse,
   ServiceOverviewPayload,
   ServiceOverviewResponse,
   SurfacePackageDetailResponse,
@@ -112,4 +116,18 @@ export function updateServiceOverview(
   payload: ServiceOverviewPayload,
 ): Promise<ServiceOverviewResponse> {
   return apiClient.post<ServiceOverviewResponse>(`admin/services/${serviceId}/overview`, payload);
+}
+
+export function updateServiceInclusions(
+  serviceId: number,
+  payload: ServiceInclusionsPayload,
+): Promise<ServiceInclusionsResponse> {
+  return apiClient.post<ServiceInclusionsResponse>(`admin/services/${serviceId}/inclusions`, payload);
+}
+
+export function updateServiceFaqs(
+  serviceId: number,
+  payload: ServiceFaqsPayload,
+): Promise<ServiceFaqsResponse> {
+  return apiClient.post<ServiceFaqsResponse>(`admin/services/${serviceId}/faqs`, payload);
 }

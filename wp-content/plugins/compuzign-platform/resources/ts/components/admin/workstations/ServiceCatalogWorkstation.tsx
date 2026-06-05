@@ -4,13 +4,22 @@ import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
-import { fetchSurfacePackageDetail, updateServiceOverview } from '@/api/endpoints/admin';
+import {
+  fetchSurfacePackageDetail,
+  updateServiceFaqs,
+  updateServiceInclusions,
+  updateServiceOverview,
+} from '@/api/endpoints/admin';
 import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionManageStep } from './PromotionsWorkstation';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
+import { ServiceInclusionsEditor, initInclusionsDraft } from '../editors/ServiceInclusionsEditor';
+import type { InclusionsDraft } from '../editors/ServiceInclusionsEditor';
+import { ServiceFaqsEditor, initFaqsDraft } from '../editors/ServiceFaqsEditor';
+import type { FaqsDraft } from '../editors/ServiceFaqsEditor';
 
 interface Props {
   refreshKey: number;
@@ -260,10 +269,12 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const [tab, setTab] = useState<'service' | 'commercial'>('service');
 
-  const [editingSection, setEditingSection] = useState<'overview' | null>(null);
-  const [overviewDraft,  setOverviewDraft]  = useState<OverviewDraft | null>(null);
-  const [saving,         setSaving]         = useState(false);
-  const [saveErr,        setSaveErr]        = useState<string | null>(null);
+  const [editingSection,   setEditingSection]   = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
+  const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
+  const [inclusionsDraft,  setInclusionsDraft]  = useState<InclusionsDraft | null>(null);
+  const [faqsDraft,        setFaqsDraft]        = useState<FaqsDraft | null>(null);
+  const [saving,           setSaving]           = useState(false);
+  const [saveErr,          setSaveErr]          = useState<string | null>(null);
 
   const openOverviewEditor = useCallback(() => {
     setOverviewDraft(initOverviewDraft(service));
@@ -271,9 +282,23 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null);
   }, [service]);
 
+  const openInclusionsEditor = useCallback(() => {
+    setInclusionsDraft(initInclusionsDraft(service));
+    setEditingSection('inclusions');
+    setSaveErr(null);
+  }, [service]);
+
+  const openFaqsEditor = useCallback(() => {
+    setFaqsDraft(initFaqsDraft(service));
+    setEditingSection('faqs');
+    setSaveErr(null);
+  }, [service]);
+
   const handleCancelEdit = useCallback(() => {
     setEditingSection(null);
     setOverviewDraft(null);
+    setInclusionsDraft(null);
+    setFaqsDraft(null);
     setSaveErr(null);
   }, []);
 
@@ -308,6 +333,52 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       setSaving(false);
     }
   }, [overviewDraft, service, ctx, onRefresh]);
+
+  const handleSaveInclusions = useCallback(async () => {
+    if (!inclusionsDraft) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      const result = await updateServiceInclusions(service.id, {
+        inclusions: inclusionsDraft.items,
+      });
+      if (result.success) {
+        ctx.setStepData('service', { ...service, inclusions: result.inclusions });
+        onRefresh?.();
+        setEditingSection(null);
+        setInclusionsDraft(null);
+      } else {
+        setSaveErr('Failed to save inclusions.');
+      }
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'An error occurred.');
+    } finally {
+      setSaving(false);
+    }
+  }, [inclusionsDraft, service, ctx, onRefresh]);
+
+  const handleSaveFaqs = useCallback(async () => {
+    if (!faqsDraft) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      const result = await updateServiceFaqs(service.id, {
+        faqs: faqsDraft.items,
+      });
+      if (result.success) {
+        ctx.setStepData('service', { ...service, faqs: result.faqs });
+        onRefresh?.();
+        setEditingSection(null);
+        setFaqsDraft(null);
+      } else {
+        setSaveErr('Failed to save FAQs.');
+      }
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'An error occurred.');
+    } finally {
+      setSaving(false);
+    }
+  }, [faqsDraft, service, ctx, onRefresh]);
 
   const relatedPkg = packages.find((p) => p.service_refs.includes(service.id)) ?? null;
 
@@ -433,39 +504,47 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             </div>
           </div>
 
-          {inclusions.length > 0 && (
-            <div class="cz-req-detail__section cz-sv-section--no-border">
-              <p class="cz-req-detail__section-title">
-                Included Features
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <p class="cz-req-detail__section-title">
+              Included Features
+              {inclusions.length > 0 && (
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
                   {inclusions.length}
                 </span>
-              </p>
+              )}
+            </p>
+            {inclusions.length > 0 ? (
               <div class="cz-sc-inclusion-pool">
                 {inclusions.map((inc) => (
                   <span key={inc.id} class="cz-tf-chip">
                     {inc.label}
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={() => {}}>
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openInclusionsEditor}>
                       ✎
                     </button>
                   </span>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={openInclusionsEditor}>
+                + Add inclusions
+              </button>
+            )}
+          </div>
 
-          {faqs.length > 0 && (
-            <div class="cz-req-detail__section">
-              <p class="cz-req-detail__section-title">
-                Common Questions
+          <div class="cz-req-detail__section">
+            <p class="cz-req-detail__section-title">
+              Common Questions
+              {faqs.length > 0 && (
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
                   {faqs.length}
                 </span>
-              </p>
+              )}
+            </p>
+            {faqs.length > 0 ? (
               <div class="cz-sc-faq-list">
                 {faqs.map((faq) => (
                   <div key={faq.id} class="cz-sc-faq-item">
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sc-faq-item__edit" onClick={() => {}}>
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sc-faq-item__edit" onClick={openFaqsEditor}>
                       ✎ Edit
                     </button>
                     <p class="cz-sc-faq-item__q">{faq.question}</p>
@@ -473,8 +552,12 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={openFaqsEditor}>
+                + Add FAQs
+              </button>
+            )}
+          </div>
         </>
       )}
 
@@ -614,6 +697,36 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           draft={overviewDraft}
           onChange={(patch) => setOverviewDraft((d) => d ? { ...d, ...patch } : d)}
           categories={allCategories}
+        />
+      </InlineEditorShell>
+    )}
+
+    {editingSection === 'inclusions' && inclusionsDraft && (
+      <InlineEditorShell
+        title="Edit Included Features"
+        onSave={handleSaveInclusions}
+        onCancel={handleCancelEdit}
+        saving={saving}
+        saveErr={saveErr}
+      >
+        <ServiceInclusionsEditor
+          draft={inclusionsDraft}
+          onChange={setInclusionsDraft}
+        />
+      </InlineEditorShell>
+    )}
+
+    {editingSection === 'faqs' && faqsDraft && (
+      <InlineEditorShell
+        title="Edit Common Questions"
+        onSave={handleSaveFaqs}
+        onCancel={handleCancelEdit}
+        saving={saving}
+        saveErr={saveErr}
+      >
+        <ServiceFaqsEditor
+          draft={faqsDraft}
+          onChange={setFaqsDraft}
         />
       </InlineEditorShell>
     )}

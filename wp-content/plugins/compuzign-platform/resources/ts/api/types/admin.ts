@@ -298,3 +298,32 @@ export interface ServiceOverviewResponse {
     categories: Array<{ id: number; name: string; slug: string }>;
   };
 }
+
+export interface ServiceInclusionItem {
+  id: string;
+  label: string;
+}
+
+export interface ServiceInclusionsPayload {
+  inclusions: ServiceInclusionItem[];
+}
+
+export interface ServiceInclusionsResponse {
+  success: boolean;
+  inclusions: ServiceInclusionItem[];
+}
+
+export interface ServiceFaqItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface ServiceFaqsPayload {
+  faqs: ServiceFaqItem[];
+}
+
+export interface ServiceFaqsResponse {
+  success: boolean;
+  faqs: ServiceFaqItem[];
+}

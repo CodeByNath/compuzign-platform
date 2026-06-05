@@ -1256,6 +1256,43 @@
   resize: vertical;
 }
 
+/* ── Inline editor row (inclusions / reusable) ───────────────────────────────── */
+.cz-ie-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+  margin-bottom: var(--cz-space-3);
+}
+
+.cz-ie-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+}
+
+.cz-ie-row .cz-tf-input {
+  flex: 1;
+}
+
+/* ── Inline FAQ editor card ───────────────────────────────────────────────────── */
+.cz-ie-faq-item {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--cz-radius-md);
+  padding: var(--cz-space-4);
+  margin-bottom: var(--cz-space-4);
+}
+
+.cz-ie-faq-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--cz-space-3);
+}
+
+.cz-ie-faq-item .cz-tf-field:last-child {
+  margin-bottom: 0;
+}
+
 .cz-action-shell__footer {
   display: flex;
   justify-content: flex-end;
