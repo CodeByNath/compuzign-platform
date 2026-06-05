@@ -327,3 +327,36 @@ export interface ServiceFaqsResponse {
   success: boolean;
   faqs: ServiceFaqItem[];
 }
+
+export interface ServiceStatusPayload {
+  is_active?: boolean;
+  post_status?: 'publish' | 'draft';
+}
+
+export interface ServiceStatusResponse {
+  success: boolean;
+  service: {
+    id: number;
+    post_status: string;
+    is_active: boolean;
+  };
+}
+
+export interface CreateServicePayload {
+  title: string;
+  excerpt?: string;
+  content?: string;
+  category_ids?: number[];
+}
+
+export interface CreateServiceResponse {
+  success: boolean;
+  service: {
+    id: number;
+    title: string;
+    slug: string;
+    excerpt: string;
+    content: string;
+    categories: Array<{ id: number; name: string; slug: string }>;
+  };
+}

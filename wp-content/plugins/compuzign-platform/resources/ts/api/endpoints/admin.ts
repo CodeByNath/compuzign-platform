@@ -3,6 +3,8 @@ import type {
   AcceptIntakeResponse,
   AdminOverview,
   AdminRequestsResponse,
+  CreateServicePayload,
+  CreateServiceResponse,
   PackageStatusResponse,
   PromotionTierArchiveResponse,
   PromotionTierPayload,
@@ -15,6 +17,8 @@ import type {
   ServiceInclusionsResponse,
   ServiceOverviewPayload,
   ServiceOverviewResponse,
+  ServiceStatusPayload,
+  ServiceStatusResponse,
   SurfacePackageDetailResponse,
   SurfacePackagesResponse,
   TierSavePayload,
@@ -130,4 +134,15 @@ export function updateServiceFaqs(
   payload: ServiceFaqsPayload,
 ): Promise<ServiceFaqsResponse> {
   return apiClient.post<ServiceFaqsResponse>(`admin/services/${serviceId}/faqs`, payload);
+}
+
+export function updateServiceStatus(
+  serviceId: number,
+  payload: ServiceStatusPayload,
+): Promise<ServiceStatusResponse> {
+  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, payload);
+}
+
+export function createService(payload: CreateServicePayload): Promise<CreateServiceResponse> {
+  return apiClient.post<CreateServiceResponse>('admin/services', payload);
 }

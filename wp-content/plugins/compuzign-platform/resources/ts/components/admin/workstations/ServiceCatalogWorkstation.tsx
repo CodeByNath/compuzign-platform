@@ -5,10 +5,12 @@ import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import {
+  createService,
   fetchSurfacePackageDetail,
   updateServiceFaqs,
   updateServiceInclusions,
   updateServiceOverview,
+  updateServiceStatus,
 } from '@/api/endpoints/admin';
 import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
@@ -40,6 +42,41 @@ const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise'];
 const TIER_LABELS: Record<string, string> = {
   basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
 };
+
+function buildNewServiceItem(data: {
+  id: number; title: string; slug: string;
+  excerpt: string; content: string;
+  categories: Array<{ id: number; name: string; slug: string }>;
+}): ServiceItem {
+  return {
+    id:         data.id,
+    title:      data.title,
+    slug:       data.slug,
+    excerpt:    data.excerpt,
+    content:    data.content,
+    categories: data.categories,
+    inclusions: [],
+    faqs:       [],
+    availability: { is_available: true, message: '' },
+    meta: {
+      short_description: '',
+      long_description:  '',
+      billing_cycle:     '',
+      sla:               '',
+      uptime:            '',
+      notes:             '',
+      popular_tier:      null,
+      popular_label:     null,
+      sort_order:        0,
+      is_active:         true,
+    },
+    pricing: {
+      tiers:  {} as Record<TierId, PricingTierData>,
+      bundle: { title: '', description: '', price: null },
+    },
+    promotion_tiers: [],
+  };
+}
 
 // ── PackageTierSelectStep ─────────────────────────────────────────────────────
 // Step 1 of the 2-step "Manage Surface Package" drawer.
@@ -275,6 +312,41 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [faqsDraft,        setFaqsDraft]        = useState<FaqsDraft | null>(null);
   const [saving,           setSaving]           = useState(false);
   const [saveErr,          setSaveErr]          = useState<string | null>(null);
+  const [statusSaving,     setStatusSaving]     = useState(false);
+
+  const isActive = service.meta?.is_active !== false;
+
+  const handleToggleActive = useCallback(async () => {
+    setStatusSaving(true);
+    try {
+      const result = await updateServiceStatus(service.id, { is_active: !isActive });
+      if (result.success) {
+        ctx.setStepData('service', {
+          ...service,
+          meta: { ...service.meta, is_active: result.service.is_active },
+        });
+        onRefresh?.();
+      }
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [service, isActive, ctx, onRefresh]);
+
+  const handlePublishService = useCallback(async () => {
+    setStatusSaving(true);
+    try {
+      const result = await updateServiceStatus(service.id, { is_active: true, post_status: 'publish' });
+      if (result.success) {
+        ctx.setStepData('service', {
+          ...service,
+          meta: { ...service.meta, is_active: result.service.is_active },
+        });
+        onRefresh?.();
+      }
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [service, ctx, onRefresh]);
 
   const openOverviewEditor = useCallback(() => {
     setOverviewDraft(initOverviewDraft(service));
@@ -385,7 +457,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const inclusions = service.inclusions ?? [];
   const faqs       = service.faqs ?? [];
   const tiers      = service.pricing?.tiers;
-  const isActive   = service.meta?.is_active !== false;
 
   const handleOpenTierConfig = () => {
     if (!relatedPkg) return;
@@ -394,7 +465,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       mode:     'drawer',
       title:    decodeHtml(service.title),
       titleDot: `var(--admin-${isActive ? 'success' : 'error'})`,
-      initialStepData: { service, packages, openAction: doOpen },
+      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
     ctx.close();
@@ -429,7 +500,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       mode:     'drawer',
       title:    decodeHtml(service.title),
       titleDot: `var(--admin-${isActive ? 'success' : 'error'})`,
-      initialStepData: { service, packages, openAction: doOpen },
+      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
     ctx.close();
@@ -669,17 +740,23 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <div class="cz-tf-footer">
         {tab === 'service' && (
-          <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => {}}>
-            Disable Service
-          </button>
+          isActive ? (
+            <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={handleToggleActive} disabled={statusSaving}>
+              {statusSaving ? '…' : 'Disable Service'}
+            </button>
+          ) : (
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleToggleActive} disabled={statusSaving}>
+              {statusSaving ? '…' : 'Enable Service'}
+            </button>
+          )
         )}
         <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
           Cancel
         </button>
         {tab === 'service' && (
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => {}}>
-            Publish Service
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handlePublishService} disabled={statusSaving}>
+            {statusSaving ? '…' : 'Publish Service'}
           </button>
         )}
       </div>
@@ -734,6 +811,145 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   );
 }
 
+// ── Service Create Step ───────────────────────────────────────────────────────
+
+function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
+  const doOpen        = ctx.stepData.openAction    as (config: ActionConfig) => void;
+  const packages      = ctx.stepData.packages      as SurfacePackageSummary[];
+  const allCategories = ctx.stepData.allCategories as Category[] ?? [];
+  const onRefresh     = ctx.stepData.onRefresh     as (() => void) | undefined;
+
+  const [tab,     setTab]     = useState<'service' | 'commercial'>('service');
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState<OverviewDraft>({
+    title:       '',
+    excerpt:     '',
+    content:     '',
+    category_id: (allCategories.find((c) => c.id !== null)?.id as number) ?? null,
+  });
+  const [saving,  setSaving]  = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  const handleSave = useCallback(async () => {
+    if (!draft.title.trim()) { setSaveErr('Title is required.'); return; }
+    if (draft.category_id === null) { setSaveErr('Category is required.'); return; }
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      const result = await createService({
+        title:        draft.title,
+        excerpt:      draft.excerpt,
+        content:      draft.content,
+        category_ids: [draft.category_id],
+      });
+      if (result.success) {
+        const newService = buildNewServiceItem(result.service);
+        onRefresh?.();
+        ctx.close();
+        doOpen({
+          id:       `service-view-${newService.id}`,
+          mode:     'drawer',
+          title:    newService.title,
+          titleDot: 'var(--admin-success)',
+          initialStepData: { service: newService, packages, openAction: doOpen, allCategories, onRefresh },
+          steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+        });
+      } else {
+        setSaveErr('Failed to create service.');
+      }
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'An error occurred.');
+    } finally {
+      setSaving(false);
+    }
+  }, [draft, doOpen, packages, allCategories, onRefresh, ctx]);
+
+  return (
+    <>
+    <div class="cz-req-detail">
+
+      <div class="cz-sv-tabs">
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('service')}
+        >
+          Service
+        </button>
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('commercial')}
+        >
+          Commercial
+        </button>
+      </div>
+
+      {tab === 'service' && (
+        <>
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <p class="cz-req-detail__section-title">Service Overview</p>
+            <div class="cz-sv-overview-block">
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                style="opacity:1;pointer-events:auto"
+                onClick={() => setEditing(true)}
+              >
+                ✎ Edit
+              </button>
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Untitled service</p>
+                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No category — click Edit to get started</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="cz-req-detail__section">
+            <p class="cz-req-detail__section-title">Included Features</p>
+            <p class="cz-tf-hint">Save overview first to enable.</p>
+          </div>
+
+          <div class="cz-req-detail__section">
+            <p class="cz-req-detail__section-title">Common Questions</p>
+            <p class="cz-tf-hint">Save overview first to enable.</p>
+          </div>
+        </>
+      )}
+
+      {tab === 'commercial' && (
+        <div class="cz-req-detail__section">
+          <p class="cz-tf-hint">Save overview first to configure commercial settings.</p>
+        </div>
+      )}
+
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    {editing && (
+      <InlineEditorShell
+        title="Create Service"
+        onSave={handleSave}
+        onCancel={() => { setEditing(false); setSaveErr(null); }}
+        saving={saving}
+        saveErr={saveErr}
+      >
+        <ServiceOverviewEditor
+          draft={draft}
+          onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+          categories={allCategories}
+        />
+      </InlineEditorShell>
+    )}
+    </>
+  );
+}
+
 // ── Main workstation ──────────────────────────────────────────────────────────
 
 export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
@@ -769,6 +985,21 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
         onRefresh:     refetch,
       },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+    });
+  };
+
+  const handleCreateService = () => {
+    openAction({
+      id:    'service-create',
+      mode:  'drawer',
+      title: 'New Service',
+      initialStepData: {
+        packages,
+        openAction,
+        allCategories: resp?.categories ?? [],
+        onRefresh:     refetch,
+      },
+      steps: [{ id: 'create', title: 'New Service', component: ServiceCreateStep }],
     });
   };
 
@@ -809,6 +1040,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
             — manage your service library and availability.
           </p>
         </div>
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
+          + New Service
+        </button>
       </div>
 
       {totalServices === 0 ? (
