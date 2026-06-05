@@ -47,17 +47,25 @@ class AdminRouter
     /**
      * Register the platform manager role on init if it does not yet exist.
      * The role carries manage_compuzign and read only — no WP admin surface access.
+     * Also repairs a stale DB entry where the role exists but is missing manage_compuzign
+     * (e.g., from a previous deploy that stored an incomplete capability set).
      * Idempotent: safe to run on every request.
      */
     public function registerRole(): void
     {
-        if (get_role(self::ROLE) !== null) {
+        $role = get_role(self::ROLE);
+
+        if ($role === null) {
+            add_role(self::ROLE, 'Platform Manager', [
+                self::CAP => true,
+                'read'    => true,
+            ]);
             return;
         }
-        add_role(self::ROLE, 'Platform Manager', [
-            self::CAP => true,
-            'read'    => true,
-        ]);
+
+        if (empty($role->capabilities[self::CAP])) {
+            $role->add_cap(self::CAP, true);
+        }
     }
 
     /**

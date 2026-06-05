@@ -184,7 +184,7 @@ class AdminRequestsController
 
     public function requireAdmin(): bool
     {
-        return is_user_logged_in() && current_user_can('manage_options');
+        return current_user_can(\CompuZign\Platform\Modules\Admin\AdminRouter::CAP);
     }
 
     private function summarize(array $data): array
