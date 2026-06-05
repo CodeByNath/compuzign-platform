@@ -1189,6 +1189,71 @@
 
 .cz-action-shell--drawer .cz-action-shell__body {
   padding-bottom: 0;
+  position: relative;
+}
+
+.cz-action-shell__body:has(.cz-ies) {
+  overflow: hidden;
+}
+
+/* ── InlineEditorShell ───────────────────────────────────────────────────────── */
+.cz-ies {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--admin-bg);
+}
+
+.cz-ies__header {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-3);
+  padding: var(--cz-space-4) var(--cz-space-6);
+  border-bottom: 1px solid var(--admin-border);
+  flex-shrink: 0;
+}
+
+.cz-ies__back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--admin-text-muted);
+  font-size: var(--cz-font-size-lg);
+  line-height: 1;
+  padding: 0;
+  transition: color var(--cz-transition-fast);
+}
+
+.cz-ies__back:hover {
+  color: var(--admin-text);
+}
+
+.cz-ies__title {
+  font-size: var(--admin-fs-label);
+  font-weight: var(--cz-font-weight-medium);
+  color: var(--admin-text);
+}
+
+.cz-ies__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--cz-space-6);
+  padding-bottom: 0;
+}
+
+.cz-ies__footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-4) var(--cz-space-6) var(--cz-space-6);
+}
+
+.cz-tf-textarea--tall {
+  min-height: calc(var(--cz-space-6) * 6);
+  resize: vertical;
 }
 
 .cz-action-shell__footer {

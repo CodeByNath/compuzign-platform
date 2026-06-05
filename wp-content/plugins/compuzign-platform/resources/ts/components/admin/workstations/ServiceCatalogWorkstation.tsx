@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import type { CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
-import { fetchSurfacePackageDetail } from '@/api/endpoints/admin';
+import type { Category, CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
+import { fetchSurfacePackageDetail, updateServiceOverview } from '@/api/endpoints/admin';
 import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionManageStep } from './PromotionsWorkstation';
+import { InlineEditorShell } from '../InlineEditorShell';
+import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
+import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
 
 interface Props {
   refreshKey: number;
@@ -249,11 +252,62 @@ function PromoSelectStep({ ctx }: { ctx: StepContext }) {
 // Commercial tab → Surface Layer: tier config, promo config, pricing summary.
 
 function ServiceViewStep({ ctx }: { ctx: StepContext }) {
-  const service  = ctx.stepData.service  as ServiceItem;
-  const packages = ctx.stepData.packages as SurfacePackageSummary[];
-  const doOpen   = ctx.stepData.openAction as (config: ActionConfig) => void;
+  const service      = ctx.stepData.service      as ServiceItem;
+  const packages     = ctx.stepData.packages     as SurfacePackageSummary[];
+  const doOpen       = ctx.stepData.openAction   as (config: ActionConfig) => void;
+  const allCategories = ctx.stepData.allCategories as Category[] ?? [];
+  const onRefresh    = ctx.stepData.onRefresh    as (() => void) | undefined;
 
   const [tab, setTab] = useState<'service' | 'commercial'>('service');
+
+  const [editingSection, setEditingSection] = useState<'overview' | null>(null);
+  const [overviewDraft,  setOverviewDraft]  = useState<OverviewDraft | null>(null);
+  const [saving,         setSaving]         = useState(false);
+  const [saveErr,        setSaveErr]        = useState<string | null>(null);
+
+  const openOverviewEditor = useCallback(() => {
+    setOverviewDraft(initOverviewDraft(service));
+    setEditingSection('overview');
+    setSaveErr(null);
+  }, [service]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingSection(null);
+    setOverviewDraft(null);
+    setSaveErr(null);
+  }, []);
+
+  const handleSaveOverview = useCallback(async () => {
+    if (!overviewDraft) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      const result = await updateServiceOverview(service.id, {
+        title:        overviewDraft.title,
+        excerpt:      overviewDraft.excerpt,
+        content:      overviewDraft.content,
+        category_ids: overviewDraft.category_id !== null ? [overviewDraft.category_id] : [],
+      });
+      if (result.success) {
+        ctx.setStepData('service', {
+          ...service,
+          title:      result.service.title,
+          excerpt:    result.service.excerpt,
+          content:    result.service.content,
+          categories: result.service.categories,
+        });
+        onRefresh?.();
+        setEditingSection(null);
+        setOverviewDraft(null);
+      } else {
+        setSaveErr('Failed to save changes.');
+      }
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'An error occurred.');
+    } finally {
+      setSaving(false);
+    }
+  }, [overviewDraft, service, ctx, onRefresh]);
 
   const relatedPkg = packages.find((p) => p.service_refs.includes(service.id)) ?? null;
 
@@ -327,6 +381,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   };
 
   return (
+    <>
     <div class="cz-req-detail">
 
       {/* ── Tab bar ───────────────────────────────────────────────────── */}
@@ -354,7 +409,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={() => {}}>
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openOverviewEditor}>
                 ✎ Edit
               </button>
               <div class="cz-sv-overview-block__identity">
@@ -546,6 +601,23 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         )}
       </div>
     </div>
+
+    {editingSection === 'overview' && overviewDraft && (
+      <InlineEditorShell
+        title="Edit Overview"
+        onSave={handleSaveOverview}
+        onCancel={handleCancelEdit}
+        saving={saving}
+        saveErr={saveErr}
+      >
+        <ServiceOverviewEditor
+          draft={overviewDraft}
+          onChange={(patch) => setOverviewDraft((d) => d ? { ...d, ...patch } : d)}
+          categories={allCategories}
+        />
+      </InlineEditorShell>
+    )}
+    </>
   );
 }
 
@@ -580,6 +652,8 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
         service,
         packages,
         openAction,
+        allCategories: resp?.categories ?? [],
+        onRefresh:     refetch,
       },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });

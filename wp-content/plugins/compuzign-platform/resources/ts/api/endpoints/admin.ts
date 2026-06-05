@@ -9,6 +9,8 @@ import type {
   PromotionTierReactivateResponse,
   PromotionTierSaveResponse,
   RequestEntry,
+  ServiceOverviewPayload,
+  ServiceOverviewResponse,
   SurfacePackageDetailResponse,
   SurfacePackagesResponse,
   TierSavePayload,
@@ -103,4 +105,11 @@ export function toggleSurfaceTierEnabled(
   enabled: boolean,
 ): Promise<{ success: boolean; tier_id: string; enabled: boolean }> {
   return apiClient.post(`admin/surface-packages/${packageId}/tiers/${tierId}/enabled`, { enabled });
+}
+
+export function updateServiceOverview(
+  serviceId: number,
+  payload: ServiceOverviewPayload,
+): Promise<ServiceOverviewResponse> {
+  return apiClient.post<ServiceOverviewResponse>(`admin/services/${serviceId}/overview`, payload);
 }

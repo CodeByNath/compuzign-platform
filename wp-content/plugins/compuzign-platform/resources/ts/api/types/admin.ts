@@ -278,3 +278,23 @@ export interface AdminRequestsResponse {
   requests: RequestSummary[];
   total: number;
 }
+
+// ── Service overview editor types ─────────────────────────────────────────────
+
+export interface ServiceOverviewPayload {
+  title: string;
+  excerpt: string;
+  content: string;
+  category_ids: number[];
+}
+
+export interface ServiceOverviewResponse {
+  success: boolean;
+  service: {
+    id: number;
+    title: string;
+    excerpt: string;
+    content: string;
+    categories: Array<{ id: number; name: string; slug: string }>;
+  };
+}
