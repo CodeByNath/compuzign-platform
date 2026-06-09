@@ -31,6 +31,15 @@ class PricingBuilder
      */
     private array $packageMap = [];
 
+    /**
+     * Set of service IDs that have a disabled (draft) package but no active one.
+     * When a service appears here, legacy pricing must not surface as a fallback —
+     * the admin has explicitly disabled the service's commercial offering.
+     *
+     * @var array<int, true>
+     */
+    private array $disabledServiceIds = [];
+
     public function __construct(
         private ServiceRepository $repository,
         private PackageRepository $packageRepository
@@ -42,6 +51,15 @@ class PricingBuilder
         // When no packages exist this returns [] in a single lightweight query.
         // All per-service lookups inside buildServicePayload() are O(1) array access.
         $this->packageMap = $this->packageRepository->findAllActiveIndexedByServiceId();
+
+        // Build disabled-service guard: service IDs that have a draft package but no
+        // active one. These services must not fall back to legacy XLSX pricing when
+        // their package is disabled. Services with both an active and a draft package
+        // (unusual but valid) are excluded — the active package takes precedence.
+        $this->disabledServiceIds = array_diff_key(
+            $this->packageRepository->findDraftedServiceIds(),
+            $this->packageMap
+        );
 
         $categories         = [];
         $servicesByCategory = [];
@@ -176,12 +194,43 @@ class PricingBuilder
 
         if ($package !== null) {
             $payload = $this->overlayPackage($payload, $package);
+        } elseif (isset($this->disabledServiceIds[$post->ID])) {
+            // Package exists but is disabled — do not fall back to legacy XLSX pricing.
+            // Disabled means commercially unavailable; suppress tier data entirely.
+            $payload['availability'] = [
+                'is_available' => false,
+                'message'      => 'Currently this service is not available.',
+            ];
         }
 
         return $payload;
     }
 
-    // ── Bridge ─────────────────────────────────────────────────────────────────
+    // ── Bridge: Water → Surface → Experience ──────────────────────────────────
+    //
+    // Architecture rules — do not break these:
+    //
+    //   1. Surface Packages (cz_package meta) are the commercial source of truth
+    //      once an active (post_status = publish) package exists for a service.
+    //      Legacy cz_service_pricing data must not override or supplement it.
+    //
+    //   2. Water-layer service content (title, description, FAQs, inclusions pool,
+    //      categories, SLA) continues to flow through regardless of package state.
+    //
+    //   3. Tier availability must be determined AFTER the surface overlay runs,
+    //      not before. The pre-overlay availability check uses legacy inclusions
+    //      which are empty for admin-created services (not XLSX imports).
+    //
+    //   4. Unconfigured admin placeholder tiers (billing_cycle = null, saved by
+    //      PackageSchema::sanitizeTiers defaults) must never reach Cost Builder.
+    //
+    //   5. Disabled packages (post_status = draft) are invisible to this builder
+    //      via PackageRepository::findAllActiveIndexedByServiceId(). Disabled
+    //      individual tiers (enabled = false) are removed inside overlayPackage().
+    //      Neither must fall back to legacy/default tier data.
+    //
+    //   6. Legacy XLSX pricing (cz_service_pricing meta) is only used when
+    //      packageMap contains no entry for the service — pure legacy path.
 
     /**
      * Apply surface package fields on top of a fully-compiled legacy payload.

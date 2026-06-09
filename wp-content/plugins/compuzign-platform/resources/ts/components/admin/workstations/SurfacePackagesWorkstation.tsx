@@ -1698,20 +1698,23 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
       {/* ── Package header ────────────────────────────────────────────────── */}
       <div class="cz-sp-pkg-header">
         <div class="cz-sp-pkg-header__left">
-          <p class="cz-sp-pkg-header__title">
-            {pkg.title}
-            {!isEnabled && (
-              <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
-            )}
-          </p>
+          <p class="cz-sp-pkg-header__title">{pkg.title}</p>
           <p class="cz-sp-pkg-header__service">{serviceNames}</p>
         </div>
-        {pkg.migration_complete && isEnabled && (
-          <div class="cz-sp-pkg-header__actions">
-            <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-            <span class="cz-status-pill cz-status-pill--active">Active</span>
-          </div>
-        )}
+        <div class="cz-sp-pkg-header__actions">
+          <span class="cz-admin-status-dot" style={`color:var(--admin-${isEnabled ? 'success' : 'text-faint'})`} />
+          <span class={`cz-status-pill ${isEnabled ? 'cz-status-pill--active' : 'cz-status-pill--inactive'}`}>
+            {isEnabled ? 'Active' : 'Disabled'}
+          </span>
+          <button
+            type="button"
+            class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
+            onClick={handleTogglePackage}
+            disabled={disabling}
+          >
+            {disabling ? '…' : isEnabled ? 'Disable' : 'Enable'}
+          </button>
+        </div>
       </div>
 
       {/* ── Tiers section heading + add button ───────────────────────────── */}
@@ -1798,7 +1801,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                     ) : (
                       <button
                         type="button"
-                        class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                        class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                         onClick={() => handleSetupTier(tierId as TierId)}
                       >
                         Set Up
@@ -1812,17 +1815,6 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
         </table>
       </div>
 
-      {/* ── Package danger zone ──────────────────────────────────────────────── */}
-      <div class="cz-sp-pkg-footer">
-        <button
-          type="button"
-          class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
-          onClick={handleTogglePackage}
-          disabled={disabling}
-        >
-          {disabling ? '…' : isEnabled ? 'Disable Package' : 'Enable Package'}
-        </button>
-      </div>
     </div>
   );
 }

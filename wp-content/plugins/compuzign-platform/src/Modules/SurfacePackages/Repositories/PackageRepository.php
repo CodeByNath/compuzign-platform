@@ -116,6 +116,47 @@ class PackageRepository
     }
 
     /**
+     * Return the set of service IDs referenced by at least one disabled (draft) package,
+     * keyed by service ID for O(1) lookup. Used by PricingBuilder alongside the active
+     * packageMap to identify services whose package has been intentionally disabled —
+     * preventing legacy XLSX pricing from surfacing as a commercial fallback.
+     *
+     * @return array<int, true>  service_id => true
+     */
+    public function findDraftedServiceIds(): array
+    {
+        $ids = get_posts([
+            'post_type'              => self::POST_TYPE,
+            'post_status'            => 'draft',
+            'numberposts'            => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        ]);
+
+        if (empty($ids)) {
+            return [];
+        }
+
+        $set = [];
+        foreach ($ids as $postId) {
+            $pkg = get_post_meta((int) $postId, self::META_KEY, true);
+            if (!is_array($pkg) || empty($pkg['service_refs'])) {
+                continue;
+            }
+            foreach ($pkg['service_refs'] as $serviceId) {
+                $serviceId = (int) $serviceId;
+                if ($serviceId > 0) {
+                    $set[$serviceId] = true;
+                }
+            }
+        }
+
+        return $set;
+    }
+
+    /**
      * Return all published packages that reference a given service ID.
      * Convenience method for admin inspection (not used in compilation path).
      *
