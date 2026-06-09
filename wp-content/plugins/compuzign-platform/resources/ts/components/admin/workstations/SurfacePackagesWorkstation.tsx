@@ -109,7 +109,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const [pendingIncs, setPendingIncs]         = useState<Array<{ label: string }>>([]);
   const [showNewInc, setShowNewInc]           = useState(false);
   const [newIncLabel, setNewIncLabel]         = useState('');
-  const [incSearch, setIncSearch]             = useState('');
 
   // ── FAQs ─────────────────────────────────────────────────────────────────
   const [selExistingFaqs, setSelExistingFaqs] = useState<FaqItem[]>([]);
@@ -117,7 +116,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const [showNewFaq, setShowNewFaq]           = useState(false);
   const [newFaqQ, setNewFaqQ]                 = useState('');
   const [newFaqA, setNewFaqA]                 = useState('');
-  const [faqSearch, setFaqSearch]             = useState('');
 
   const populateFromTier = useCallback(
     (res: SurfacePackageDetailResponse, id: string) => {
@@ -279,19 +277,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
   const selIncCount = selExistingIncs.length + pendingIncs.length;
   const selFaqCount = selExistingFaqs.length + pendingFaqs.length;
-
-  const selectedIncIds = new Set(selExistingIncs.map((i) => i.id));
-  const selectedFaqIds = new Set(selExistingFaqs.map((f) => f.id));
-
-  const poolIncs = (service?.inclusions ?? []).filter((i) => !selectedIncIds.has(i.id));
-  const poolFaqs = (service?.faqs ?? []).filter((f) => !selectedFaqIds.has(f.id));
-
-  const filteredPoolIncs = incSearch.length >= 3
-    ? poolIncs.filter((i) => i.label.toLowerCase().includes(incSearch.toLowerCase()))
-    : [];
-  const filteredPoolFaqs = faqSearch.length >= 3
-    ? poolFaqs.filter((f) => f.question.toLowerCase().includes(faqSearch.toLowerCase()))
-    : [];
 
   return (
     <>
@@ -685,78 +670,37 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       <InlineEditorShell
         title="Edit Included Features"
         onSave={handleSaveInclusions}
-        onCancel={() => { setEditingSection(null); setIncSearch(''); }}
+        onCancel={() => setEditingSection(null)}
         saving={false}
         saveErr={null}
       >
         <div class="cz-tf-form">
-
-          {/* Active: features selected for this tier */}
-          <div class="cz-tf-section">
-            <span class="cz-tf-label">Selected for this tier</span>
-            {selIncCount > 0 ? (
-              <div class="cz-tf-checklist">
-                {pendingIncs.map((p, i) => (
-                  <label key={`pending-${i}`} class="cz-tf-check-item">
-                    <input
-                      type="checkbox"
-                      checked
-                      onChange={() => setPendingIncs((prev) => prev.filter((_, idx) => idx !== i))}
-                    />
-                    <span class="cz-tf-check-item__text">{p.label}</span>
-                    <span class="cz-tf-new-badge">new</span>
-                  </label>
-                ))}
-                {selExistingIncs.map((inc) => (
-                  <label key={inc.id} class="cz-tf-check-item">
-                    <input
-                      type="checkbox"
-                      checked
-                      onChange={() => toggleInclusion(inc)}
-                    />
-                    <span class="cz-tf-check-item__text">{inc.label}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p class="cz-tf-hint">No features selected. Search below to add from the service pool.</p>
-            )}
+          {selIncCount === 0 && !showNewInc && (
+            <p class="cz-tf-hint">No features selected for this tier.</p>
+          )}
+          <div class="cz-tf-checklist">
+            {pendingIncs.map((p, i) => (
+              <label key={`pending-${i}`} class="cz-tf-check-item">
+                <input
+                  type="checkbox"
+                  checked
+                  onChange={() => setPendingIncs((prev) => prev.filter((_, idx) => idx !== i))}
+                />
+                <span class="cz-tf-check-item__text">{p.label}</span>
+                <span class="cz-tf-new-badge">new</span>
+              </label>
+            ))}
+            {selExistingIncs.map((inc) => (
+              <label key={inc.id} class="cz-tf-check-item">
+                <input
+                  type="checkbox"
+                  checked
+                  onChange={() => toggleInclusion(inc)}
+                />
+                <span class="cz-tf-check-item__text">{inc.label}</span>
+              </label>
+            ))}
           </div>
-
-          {/* Search pool */}
-          <div class="cz-tf-section">
-            <span class="cz-tf-label">Search service pool</span>
-            <div class="cz-tf-field">
-              <input
-                type="text"
-                class="cz-tf-input"
-                placeholder="Search features…"
-                value={incSearch}
-                onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
-              />
-              <p class="cz-tf-hint">Type 3 or more characters to filter the service pool.</p>
-            </div>
-            {incSearch.length >= 3 && (
-              filteredPoolIncs.length > 0 ? (
-                <div class="cz-tf-checklist">
-                  {filteredPoolIncs.map((inc) => (
-                    <label key={inc.id} class="cz-tf-check-item">
-                      <input
-                        type="checkbox"
-                        checked={false}
-                        onChange={() => { toggleInclusion(inc); setIncSearch(''); }}
-                      />
-                      <span class="cz-tf-check-item__text">{inc.label}</span>
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <p class="cz-tf-hint">No matches in service pool.</p>
-              )
-            )}
-          </div>
-
-          {/* Add new to pool */}
           {showNewInc ? (
             <div class="cz-tf-inline-add">
               <input
@@ -770,7 +714,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               />
               <div class="cz-tf-inline-add__actions">
                 <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddInclusion}>
-                  Add to pool
+                  Add inclusion
                 </button>
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}>
                   Cancel
@@ -779,7 +723,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           ) : (
             <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>
-              + Add new feature to service pool
+              + Add inclusion
             </button>
           )}
         </div>
@@ -791,87 +735,43 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       <InlineEditorShell
         title="Edit Common Questions"
         onSave={handleSaveFaqs}
-        onCancel={() => { setEditingSection(null); setFaqSearch(''); }}
+        onCancel={() => setEditingSection(null)}
         saving={false}
         saveErr={null}
       >
         <div class="cz-tf-form">
-
-          {/* Active: FAQs selected for this tier */}
-          <div class="cz-tf-section">
-            <span class="cz-tf-label">Selected for this tier</span>
-            {selFaqCount > 0 ? (
-              <div class="cz-tf-checklist">
-                {pendingFaqs.map((p, i) => (
-                  <label key={`pending-faq-${i}`} class="cz-tf-check-item">
-                    <input
-                      type="checkbox"
-                      checked
-                      onChange={() => setPendingFaqs((prev) => prev.filter((_, idx) => idx !== i))}
-                    />
-                    <div class="cz-tf-check-item__text">
-                      <span class="cz-tf-check-item__question">{p.question}</span>
-                      {p.answer && <span class="cz-tf-check-item__answer">{p.answer}</span>}
-                    </div>
-                    <span class="cz-tf-new-badge">new</span>
-                  </label>
-                ))}
-                {selExistingFaqs.map((faq) => (
-                  <label key={faq.id} class="cz-tf-check-item">
-                    <input
-                      type="checkbox"
-                      checked
-                      onChange={() => toggleFaq(faq)}
-                    />
-                    <div class="cz-tf-check-item__text">
-                      <span class="cz-tf-check-item__question">{faq.question}</span>
-                      {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p class="cz-tf-hint">No questions selected. Search below to add from the service pool.</p>
-            )}
-          </div>
-
-          {/* Search pool */}
-          <div class="cz-tf-section">
-            <span class="cz-tf-label">Search service pool</span>
-            <div class="cz-tf-field">
-              <input
-                type="text"
-                class="cz-tf-input"
-                placeholder="Search questions…"
-                value={faqSearch}
-                onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
-              />
-              <p class="cz-tf-hint">Type 3 or more characters to filter the service pool.</p>
-            </div>
-            {faqSearch.length >= 3 && (
-              filteredPoolFaqs.length > 0 ? (
-                <div class="cz-tf-checklist">
-                  {filteredPoolFaqs.map((faq) => (
-                    <label key={faq.id} class="cz-tf-check-item">
-                      <input
-                        type="checkbox"
-                        checked={false}
-                        onChange={() => { toggleFaq(faq); setFaqSearch(''); }}
-                      />
-                      <div class="cz-tf-check-item__text">
-                        <span class="cz-tf-check-item__question">{faq.question}</span>
-                        {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
-                      </div>
-                    </label>
-                  ))}
+          {selFaqCount === 0 && !showNewFaq && (
+            <p class="cz-tf-hint">No questions selected for this tier.</p>
+          )}
+          <div class="cz-tf-checklist">
+            {pendingFaqs.map((p, i) => (
+              <label key={`pending-faq-${i}`} class="cz-tf-check-item">
+                <input
+                  type="checkbox"
+                  checked
+                  onChange={() => setPendingFaqs((prev) => prev.filter((_, idx) => idx !== i))}
+                />
+                <div class="cz-tf-check-item__text">
+                  <span class="cz-tf-check-item__question">{p.question}</span>
+                  {p.answer && <span class="cz-tf-check-item__answer">{p.answer}</span>}
                 </div>
-              ) : (
-                <p class="cz-tf-hint">No matches in service pool.</p>
-              )
-            )}
+                <span class="cz-tf-new-badge">new</span>
+              </label>
+            ))}
+            {selExistingFaqs.map((faq) => (
+              <label key={faq.id} class="cz-tf-check-item">
+                <input
+                  type="checkbox"
+                  checked
+                  onChange={() => toggleFaq(faq)}
+                />
+                <div class="cz-tf-check-item__text">
+                  <span class="cz-tf-check-item__question">{faq.question}</span>
+                  {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
+                </div>
+              </label>
+            ))}
           </div>
-
-          {/* Add new to pool */}
           {showNewFaq ? (
             <div class="cz-tf-inline-add">
               <input
@@ -891,7 +791,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               />
               <div class="cz-tf-inline-add__actions">
                 <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddFaq}>
-                  Add to pool
+                  Add FAQ
                 </button>
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewFaq(false); setNewFaqQ(''); setNewFaqA(''); }}>
                   Cancel
@@ -900,7 +800,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           ) : (
             <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewFaq(true)}>
-              + Add new question to service pool
+              + Add FAQ
             </button>
           )}
         </div>
