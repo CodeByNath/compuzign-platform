@@ -81,6 +81,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [saving, setSaving]   = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [saveOk, setSaveOk]   = useState(false);
 
   const [tab, setTab] = useState<'commercial' | 'service'>('commercial');
   const [editingSection, setEditingSection] = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
@@ -213,9 +214,15 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const handleSave = async () => {
     setSaving(true);
     setSaveErr(null);
+    setSaveOk(false);
     try {
       await saveSurfaceTier(packageId, tierId, buildPayload(true));
-      ctx.goNext();
+      const refreshed = await fetchSurfacePackageDetail(packageId);
+      setDetail(refreshed);
+      populateFromTier(refreshed, tierId);
+      setPendingIncs([]);
+      setPendingFaqs([]);
+      setSaveOk(true);
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : 'Save failed.');
     } finally {
@@ -360,7 +367,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           </div>
 
-          {/* Included Features — read-only, hover to edit */}
+          {/* Included Features — Service Catalog read pattern */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">
               Included Features
@@ -368,36 +375,38 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selIncCount}</span>
               )}
             </p>
-            <div class="cz-sv-overview-block">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
-                onClick={() => setEditingSection('inclusions')}
-              >
-                ✎ Edit
+            {selIncCount > 0 ? (
+              <div class="cz-sc-inclusion-pool">
+                {pendingIncs.map((p) => (
+                  <span key={p.label} class="cz-tf-chip">
+                    {p.label}
+                    <span class="cz-tf-new-badge">new</span>
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
+                      onClick={() => setEditingSection('inclusions')}
+                    >✎</button>
+                  </span>
+                ))}
+                {selExistingIncs.map((inc) => (
+                  <span key={inc.id} class="cz-tf-chip">
+                    {inc.label}
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
+                      onClick={() => setEditingSection('inclusions')}
+                    >✎</button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setEditingSection('inclusions')}>
+                + Add inclusions
               </button>
-              {selIncCount > 0 ? (
-                <div class="cz-sc-inclusion-pool">
-                  {pendingIncs.map((p) => (
-                    <span key={p.label} class="cz-tf-chip">
-                      {p.label}
-                      <span class="cz-tf-new-badge">new</span>
-                    </span>
-                  ))}
-                  {selExistingIncs.map((inc) => (
-                    <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
-                  ))}
-                </div>
-              ) : (
-                <p style="margin:0;font-size:var(--admin-fs-s-label);color:var(--admin-text-faint)">
-                  No features selected for this tier.
-                </p>
-              )}
-              <p class="cz-tf-hint">Features are managed at the service level. This tier can choose which features to include.</p>
-            </div>
+            )}
           </div>
 
-          {/* Common Questions — read-only, hover to edit */}
+          {/* Common Questions — Service Catalog read pattern */}
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">
               Common Questions
@@ -405,40 +414,43 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selFaqCount}</span>
               )}
             </p>
-            <div class="cz-sv-overview-block">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
-                onClick={() => setEditingSection('faqs')}
-              >
-                ✎ Edit
+            {selFaqCount > 0 ? (
+              <div class="cz-sc-faq-list">
+                {pendingFaqs.map((p) => (
+                  <div key={p.question} class="cz-sc-faq-item">
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sc-faq-item__edit"
+                      onClick={() => setEditingSection('faqs')}
+                    >✎ Edit</button>
+                    <p class="cz-sc-faq-item__q">
+                      {p.question}
+                      <span class="cz-tf-new-badge">new</span>
+                    </p>
+                    {p.answer && <p class="cz-sc-faq-item__a">{p.answer}</p>}
+                  </div>
+                ))}
+                {selExistingFaqs.map((faq) => (
+                  <div key={faq.id} class="cz-sc-faq-item">
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sc-faq-item__edit"
+                      onClick={() => setEditingSection('faqs')}
+                    >✎ Edit</button>
+                    <p class="cz-sc-faq-item__q">{faq.question}</p>
+                    {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setEditingSection('faqs')}>
+                + Add FAQs
               </button>
-              {selFaqCount > 0 ? (
-                <div class="cz-sc-faq-list">
-                  {pendingFaqs.map((p) => (
-                    <div key={p.question} class="cz-sc-faq-item">
-                      <p class="cz-sc-faq-item__q">{p.question}</p>
-                      {p.answer && <p class="cz-sc-faq-item__a">{p.answer}</p>}
-                      <span class="cz-tf-new-badge" style="position:absolute;top:var(--cz-space-2);right:var(--cz-space-2)">new</span>
-                    </div>
-                  ))}
-                  {selExistingFaqs.map((faq) => (
-                    <div key={faq.id} class="cz-sc-faq-item">
-                      <p class="cz-sc-faq-item__q">{faq.question}</p>
-                      {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style="margin:0;font-size:var(--admin-fs-s-label);color:var(--admin-text-faint)">
-                  No questions selected for this tier.
-                </p>
-              )}
-              <p class="cz-tf-hint">FAQs are managed at the service level. This tier can choose which questions to display.</p>
-            </div>
+            )}
           </div>
 
           {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
+          {saveOk && <div class="cz-admin-ok-msg">Tier saved successfully.</div>}
 
           {/* Commercial Tab Footer */}
           <div class="cz-tf-footer">
@@ -512,15 +524,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                   </p>
                 </div>
               )}
-              <div class="cz-sv-commercial-block__footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={ctx.close}
-                >
-                  View
-                </button>
-              </div>
             </div>
           ) : (
             <div class="cz-req-detail__section">
@@ -575,11 +578,11 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           </div>
 
-          {/* Service Tab Footer: Cancel only */}
+          {/* Service Tab Footer */}
           <div class="cz-tf-footer">
             <div class="cz-tf-footer__spacer" />
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-              Cancel
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => ctx.close()}>
+              Done
             </button>
           </div>
         </>

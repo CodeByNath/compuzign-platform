@@ -635,11 +635,13 @@
 }
 
 .cz-admin-status-dot {
+  display: block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .cz-admin-status-strip__version {
@@ -810,6 +812,15 @@
   border-radius: var(--admin-radius);
   padding: var(--cz-space-3) var(--cz-space-4);
   color: var(--admin-error);
+  font-size: var(--admin-fs-label);
+}
+
+.cz-admin-ok-msg {
+  background: var(--admin-success-a08);
+  border: 1px solid var(--admin-success-a20);
+  border-radius: var(--admin-radius);
+  padding: var(--cz-space-3) var(--cz-space-4);
+  color: var(--admin-success);
   font-size: var(--admin-fs-label);
 }
 
