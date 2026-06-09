@@ -2259,9 +2259,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-sp-pkg-footer {
   display: flex;
   align-items: center;
-  padding-top: var(--cz-space-4);
   margin-top: var(--cz-space-4);
-  border-top: 1px solid var(--admin-border);
 }
 
 /* ── Tier management table ───────────────────────────────────────────────────── */

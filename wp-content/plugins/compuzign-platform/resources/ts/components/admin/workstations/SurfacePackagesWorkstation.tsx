@@ -7,7 +7,6 @@ import {
   disableSurfacePackage,
   enableSurfacePackage,
   toggleSurfaceTierEnabled,
-  updateServiceOverview,
 } from '@/api/endpoints/admin';
 import { InlineEditorShell } from '../InlineEditorShell';
 import type { ActionConfig, StepContext } from '../ActionShell';
@@ -84,7 +83,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
   const [tab, setTab] = useState<'commercial' | 'service'>('commercial');
-  const [editingSection, setEditingSection] = useState<'overview' | 'service' | null>(null);
+  const [editingSection, setEditingSection] = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
 
   // ── Tier fields ──────────────────────────────────────────────────────────
   const [tierId, setTierId]                 = useState<string>(initialTierId ?? 'basic');
@@ -104,11 +103,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
     isPopular: boolean;
     popularLabel: string;
   } | null>(null);
-
-  // ── Service draft ────────────────────────────────────────────────────────
-  const [serviceDraft, setServiceDraft]   = useState<{ title: string; excerpt: string } | null>(null);
-  const [serviceSaving, setServiceSaving] = useState(false);
-  const [serviceErr, setServiceErr]       = useState<string | null>(null);
 
   // ── Inclusions ───────────────────────────────────────────────────────────
   const [selExistingIncs, setSelExistingIncs] = useState<InclusionItem[]>([]);
@@ -261,40 +255,13 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
     setOverviewDraft(null);
   }, [overviewDraft]);
 
-  const openServiceEditor = useCallback(() => {
-    if (!detail?.service) return;
-    setServiceDraft({ title: detail.service.title, excerpt: detail.service.excerpt ?? '' });
-    setEditingSection('service');
-    setServiceErr(null);
-  }, [detail]);
+  const handleSaveInclusions = useCallback(async () => {
+    setEditingSection(null);
+  }, []);
 
-  const handleSaveService = useCallback(async () => {
-    if (!serviceDraft || !detail?.service) return;
-    setServiceSaving(true);
-    setServiceErr(null);
-    try {
-      const result = await updateServiceOverview(detail.service.id, {
-        title:        serviceDraft.title,
-        excerpt:      serviceDraft.excerpt,
-        content:      detail.service.content ?? '',
-        category_ids: detail.service.categories?.map((c) => c.id) ?? [],
-      });
-      if (result.success) {
-        setDetail((d) => d ? {
-          ...d,
-          service: d.service ? { ...d.service, title: result.service.title, excerpt: result.service.excerpt } : null,
-        } : null);
-        setEditingSection(null);
-        setServiceDraft(null);
-      } else {
-        setServiceErr('Failed to save changes.');
-      }
-    } catch (err) {
-      setServiceErr(err instanceof Error ? err.message : 'An error occurred.');
-    } finally {
-      setServiceSaving(false);
-    }
-  }, [serviceDraft, detail]);
+  const handleSaveFaqs = useCallback(async () => {
+    setEditingSection(null);
+  }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -401,7 +368,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           </div>
 
-          {/* Included Features */}
+          {/* Included Features — read-only, hover to edit */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">
               Included Features
@@ -409,77 +376,36 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selIncCount}</span>
               )}
             </p>
-            <p class="cz-tf-hint">Features are managed at the service level. This tier can choose which features to include.</p>
-
-            {allInclusions.length > 0 && (
-              <input
-                type="text"
-                class="cz-tf-input"
-                placeholder="Search features…"
-                value={incSearch}
-                onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
-              />
-            )}
-
-            <div class="cz-tf-checklist">
-              {filteredIncs.length === 0 && (
-                <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
-                  {incSearch ? 'No matches.' : 'No features in service pool.'}
-                </div>
-              )}
-              {filteredIncs.map((inc) => {
-                const checked = inc.isPending || selExistingIncs.some((s) => s.id === inc.id);
-                return (
-                  <label key={inc.id} class="cz-tf-check-item">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={inc.isPending}
-                      onChange={() => !inc.isPending && toggleInclusion(inc)}
-                    />
-                    <span class="cz-tf-check-item__text">{inc.label}</span>
-                    {inc.isPending && <span class="cz-tf-new-badge">new</span>}
-                  </label>
-                );
-              })}
-            </div>
-
-            {showNewInc ? (
-              <div class="cz-tf-inline-add">
-                <input
-                  type="text"
-                  class="cz-tf-input"
-                  placeholder="Feature label"
-                  value={newIncLabel}
-                  onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddInclusion(); } }}
-                  autoFocus
-                />
-                <div class="cz-tf-inline-add__actions">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                    onClick={handleAddInclusion}
-                  >
-                    Add to pool
-                  </button>
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>
-                + Add new feature to service pool
+            <div class="cz-sv-overview-block">
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                onClick={() => setEditingSection('inclusions')}
+              >
+                ✎ Edit
               </button>
-            )}
+              {selIncCount > 0 ? (
+                <div class="cz-sc-inclusion-pool">
+                  {pendingIncs.map((p) => (
+                    <span key={p.label} class="cz-tf-chip">
+                      {p.label}
+                      <span class="cz-tf-new-badge">new</span>
+                    </span>
+                  ))}
+                  {selExistingIncs.map((inc) => (
+                    <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+                  ))}
+                </div>
+              ) : (
+                <p style="margin:0;font-size:var(--admin-fs-s-label);color:var(--admin-text-faint)">
+                  No features selected for this tier.
+                </p>
+              )}
+              <p class="cz-tf-hint">Features are managed at the service level. This tier can choose which features to include.</p>
+            </div>
           </div>
 
-          {/* Common Questions */}
+          {/* Common Questions — read-only, hover to edit */}
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">
               Common Questions
@@ -487,83 +413,37 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selFaqCount}</span>
               )}
             </p>
-            <p class="cz-tf-hint">FAQs are managed at the service level. This tier can choose which questions to display.</p>
-
-            {allFaqs.length > 0 && (
-              <input
-                type="text"
-                class="cz-tf-input"
-                placeholder="Search questions…"
-                value={faqSearch}
-                onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
-              />
-            )}
-
-            <div class="cz-tf-checklist">
-              {filteredFaqs.length === 0 && (
-                <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
-                  {faqSearch ? 'No matches.' : 'No questions in service pool.'}
-                </div>
-              )}
-              {filteredFaqs.map((faq) => {
-                const checked = faq.isPending || selExistingFaqs.some((f) => f.id === faq.id);
-                return (
-                  <label key={faq.id} class="cz-tf-check-item">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={faq.isPending}
-                      onChange={() => !faq.isPending && toggleFaq(faq)}
-                    />
-                    <div class="cz-tf-check-item__text">
-                      <span class="cz-tf-check-item__question">{faq.question}</span>
-                      {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
-                    </div>
-                    {faq.isPending && <span class="cz-tf-new-badge">new</span>}
-                  </label>
-                );
-              })}
-            </div>
-
-            {showNewFaq ? (
-              <div class="cz-tf-inline-add">
-                <input
-                  type="text"
-                  class="cz-tf-input"
-                  placeholder="Question"
-                  value={newFaqQ}
-                  onInput={(e) => setNewFaqQ((e.target as HTMLInputElement).value)}
-                  autoFocus
-                />
-                <textarea
-                  class="cz-tf-textarea"
-                  placeholder="Answer (optional)"
-                  value={newFaqA}
-                  onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)}
-                  rows={3}
-                />
-                <div class="cz-tf-inline-add__actions">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                    onClick={handleAddFaq}
-                  >
-                    Add to pool
-                  </button>
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={() => { setShowNewFaq(false); setNewFaqQ(''); setNewFaqA(''); }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewFaq(true)}>
-                + Add new question to service pool
+            <div class="cz-sv-overview-block">
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                onClick={() => setEditingSection('faqs')}
+              >
+                ✎ Edit
               </button>
-            )}
+              {selFaqCount > 0 ? (
+                <div class="cz-sc-faq-list">
+                  {pendingFaqs.map((p) => (
+                    <div key={p.question} class="cz-sc-faq-item">
+                      <p class="cz-sc-faq-item__q">{p.question}</p>
+                      {p.answer && <p class="cz-sc-faq-item__a">{p.answer}</p>}
+                      <span class="cz-tf-new-badge" style="position:absolute;top:var(--cz-space-2);right:var(--cz-space-2)">new</span>
+                    </div>
+                  ))}
+                  {selExistingFaqs.map((faq) => (
+                    <div key={faq.id} class="cz-sc-faq-item">
+                      <p class="cz-sc-faq-item__q">{faq.question}</p>
+                      {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style="margin:0;font-size:var(--admin-fs-s-label);color:var(--admin-text-faint)">
+                  No questions selected for this tier.
+                </p>
+              )}
+              <p class="cz-tf-hint">FAQs are managed at the service level. This tier can choose which questions to display.</p>
+            </div>
           </div>
 
           {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
@@ -614,7 +494,12 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 </div>
               </div>
               {service.excerpt && (
-                <p class="cz-sv-commercial-block__count">{service.excerpt}</p>
+                <p
+                  class="cz-sv-commercial-block__count"
+                  style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical"
+                >
+                  {service.excerpt}
+                </p>
               )}
               {service.categories && service.categories.length > 0 && (
                 <div class="cz-sv-overview-block__meta" style="margin-top:var(--cz-space-2)">
@@ -627,16 +512,21 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               {service.content && (
                 <div class="cz-sv-overview-block__meta">
                   <span class="cz-req-contact-grid__label">Description</span>
-                  <p class="cz-sv-overview-block__desc">{service.content}</p>
+                  <p
+                    class="cz-sv-overview-block__desc"
+                    style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical"
+                  >
+                    {service.content}
+                  </p>
                 </div>
               )}
               <div class="cz-sv-commercial-block__footer">
                 <button
                   type="button"
                   class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={openServiceEditor}
+                  onClick={ctx.close}
                 >
-                  Edit
+                  View
                 </button>
               </div>
             </div>
@@ -646,7 +536,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             </div>
           )}
 
-          {/* Pricing Summary */}
+          {/* Pricing Summary with status dots */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Pricing Summary</p>
             <div class="cz-sp-tier-table-wrap">
@@ -661,10 +551,21 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 </thead>
                 <tbody>
                   {TIERS.map((t) => {
-                    const tierData = detail.package.tiers[t];
+                    const tierData      = detail.package.tiers[t];
+                    const isCurrentTier = t === tierId;
+                    const isTierActive  = tierData ? (tierData.enabled !== false) : false;
+                    const dotColor      = isCurrentTier
+                      ? 'var(--admin-accent)'
+                      : isTierActive ? 'var(--admin-success)' : 'var(--admin-text-faint)';
+
                     return (
                       <tr key={t}>
-                        <td class="cz-sp-tier-table__name">{TIER_LABELS[t]}</td>
+                        <td class="cz-sp-tier-table__name">
+                          <div class="cz-sp-tier-table__name-inner">
+                            <span class="cz-admin-status-dot" style={`color:${dotColor}`} />
+                            <span>{TIER_LABELS[t]}</span>
+                          </div>
+                        </td>
                         <td>
                           <span class={`cz-price-tag${tierData?.price != null ? ' cz-price-tag--has-price' : ''}`}>
                             {tierData ? fmtPrice(tierData.price) : '—'}
@@ -777,36 +678,151 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       </InlineEditorShell>
     )}
 
-    {/* ── Service Inline Editor ─────────────────────────────────────────────── */}
-    {editingSection === 'service' && serviceDraft && (
+    {/* ── Included Features Inline Editor ──────────────────────────────────── */}
+    {editingSection === 'inclusions' && (
       <InlineEditorShell
-        title="Edit Service"
-        onSave={handleSaveService}
-        onCancel={() => { setEditingSection(null); setServiceDraft(null); setServiceErr(null); }}
-        saving={serviceSaving}
-        saveErr={serviceErr}
+        title="Edit Included Features"
+        onSave={handleSaveInclusions}
+        onCancel={() => setEditingSection(null)}
+        saving={false}
+        saveErr={null}
       >
         <div class="cz-tf-form">
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Service title</label>
+          {allInclusions.length > 0 && (
             <input
               type="text"
               class="cz-tf-input"
-              value={serviceDraft.title}
-              onInput={(e) => setServiceDraft((d) => d ? { ...d, title: (e.target as HTMLInputElement).value } : d)}
-              placeholder="Service title"
+              placeholder="Search features…"
+              value={incSearch}
+              onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
             />
+          )}
+          <div class="cz-tf-checklist">
+            {filteredIncs.length === 0 && (
+              <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
+                {incSearch ? 'No matches.' : 'No features in service pool.'}
+              </div>
+            )}
+            {filteredIncs.map((inc) => {
+              const checked = inc.isPending || selExistingIncs.some((s) => s.id === inc.id);
+              return (
+                <label key={inc.id} class="cz-tf-check-item">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={inc.isPending}
+                    onChange={() => !inc.isPending && toggleInclusion(inc)}
+                  />
+                  <span class="cz-tf-check-item__text">{inc.label}</span>
+                  {inc.isPending && <span class="cz-tf-new-badge">new</span>}
+                </label>
+              );
+            })}
           </div>
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Short description</label>
+          {showNewInc ? (
+            <div class="cz-tf-inline-add">
+              <input
+                type="text"
+                class="cz-tf-input"
+                placeholder="Feature label"
+                value={newIncLabel}
+                onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddInclusion(); } }}
+                autoFocus
+              />
+              <div class="cz-tf-inline-add__actions">
+                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddInclusion}>
+                  Add to pool
+                </button>
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>
+              + Add new feature to service pool
+            </button>
+          )}
+        </div>
+      </InlineEditorShell>
+    )}
+
+    {/* ── Common Questions Inline Editor ───────────────────────────────────── */}
+    {editingSection === 'faqs' && (
+      <InlineEditorShell
+        title="Edit Common Questions"
+        onSave={handleSaveFaqs}
+        onCancel={() => setEditingSection(null)}
+        saving={false}
+        saveErr={null}
+      >
+        <div class="cz-tf-form">
+          {allFaqs.length > 0 && (
             <input
               type="text"
               class="cz-tf-input"
-              value={serviceDraft.excerpt}
-              onInput={(e) => setServiceDraft((d) => d ? { ...d, excerpt: (e.target as HTMLInputElement).value } : d)}
-              placeholder="Brief description"
+              placeholder="Search questions…"
+              value={faqSearch}
+              onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
             />
+          )}
+          <div class="cz-tf-checklist">
+            {filteredFaqs.length === 0 && (
+              <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
+                {faqSearch ? 'No matches.' : 'No questions in service pool.'}
+              </div>
+            )}
+            {filteredFaqs.map((faq) => {
+              const checked = faq.isPending || selExistingFaqs.some((f) => f.id === faq.id);
+              return (
+                <label key={faq.id} class="cz-tf-check-item">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={faq.isPending}
+                    onChange={() => !faq.isPending && toggleFaq(faq)}
+                  />
+                  <div class="cz-tf-check-item__text">
+                    <span class="cz-tf-check-item__question">{faq.question}</span>
+                    {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
+                  </div>
+                  {faq.isPending && <span class="cz-tf-new-badge">new</span>}
+                </label>
+              );
+            })}
           </div>
+          {showNewFaq ? (
+            <div class="cz-tf-inline-add">
+              <input
+                type="text"
+                class="cz-tf-input"
+                placeholder="Question"
+                value={newFaqQ}
+                onInput={(e) => setNewFaqQ((e.target as HTMLInputElement).value)}
+                autoFocus
+              />
+              <textarea
+                class="cz-tf-textarea"
+                placeholder="Answer (optional)"
+                value={newFaqA}
+                onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)}
+                rows={3}
+              />
+              <div class="cz-tf-inline-add__actions">
+                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddFaq}>
+                  Add to pool
+                </button>
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewFaq(false); setNewFaqQ(''); setNewFaqA(''); }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewFaq(true)}>
+              + Add new question to service pool
+            </button>
+          )}
         </div>
       </InlineEditorShell>
     )}
@@ -888,12 +904,15 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
             {!isEnabled && (
               <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
             )}
-            {pkg.migration_complete && isEnabled && (
-              <span class="cz-status-pill cz-status-pill--active">Migrated</span>
-            )}
           </p>
           <p class="cz-sp-pkg-header__service">{serviceNames}</p>
         </div>
+        {pkg.migration_complete && isEnabled && (
+          <div class="cz-sp-pkg-header__actions">
+            <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
+            <span class="cz-status-pill cz-status-pill--active">Active</span>
+          </div>
+        )}
       </div>
 
       {/* ── Tiers section heading + add button ───────────────────────────── */}
@@ -933,11 +952,13 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                 const tierEnabled  = tier.enabled ?? true;
                 const isPopular    = resolvedPopularTierId === tierId;
                 const displayLabel = (tier.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId];
+                const dotColor     = `var(--admin-${tierEnabled ? 'success' : 'text-faint'})`;
 
                 return (
                   <tr key={tierId} class={!tierEnabled ? 'cz-sp-tier-row--disabled' : ''}>
                     <td class="cz-sp-tier-table__name">
                       <div class="cz-sp-tier-table__name-inner">
+                        <span class="cz-admin-status-dot" style={`color:${dotColor}`} />
                         <span>{displayLabel}</span>
                         {isPopular && (
                           <span class="cz-tier-badge cz-tier-badge--popular">Popular</span>
