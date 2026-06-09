@@ -278,6 +278,11 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const selIncCount = selExistingIncs.length + pendingIncs.length;
   const selFaqCount = selExistingFaqs.length + pendingFaqs.length;
 
+  const selIncIds = new Set(selExistingIncs.map((i) => i.id));
+  const selFaqIds = new Set(selExistingFaqs.map((f) => f.id));
+  const poolOnlyIncs = (service?.inclusions ?? []).filter((i) => !selIncIds.has(i.id));
+  const poolOnlyFaqs = (service?.faqs ?? []).filter((f) => !selFaqIds.has(f.id));
+
   return (
     <>
     <div class="cz-req-detail">
@@ -675,32 +680,61 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         saveErr={null}
       >
         <div class="cz-tf-form">
-          {selIncCount === 0 && !showNewInc && (
-            <p class="cz-tf-hint">No features selected for this tier.</p>
-          )}
-          <div class="cz-tf-checklist">
-            {pendingIncs.map((p, i) => (
-              <label key={`pending-${i}`} class="cz-tf-check-item">
-                <input
-                  type="checkbox"
-                  checked
-                  onChange={() => setPendingIncs((prev) => prev.filter((_, idx) => idx !== i))}
-                />
-                <span class="cz-tf-check-item__text">{p.label}</span>
-                <span class="cz-tf-new-badge">new</span>
-              </label>
-            ))}
-            {selExistingIncs.map((inc) => (
-              <label key={inc.id} class="cz-tf-check-item">
-                <input
-                  type="checkbox"
-                  checked
-                  onChange={() => toggleInclusion(inc)}
-                />
-                <span class="cz-tf-check-item__text">{inc.label}</span>
-              </label>
-            ))}
+
+          {/* Section 1: Included in this tier */}
+          <div class="cz-tf-section">
+            <span class="cz-tf-label">Included in this tier</span>
+            {selIncCount > 0 ? (
+              <div class="cz-tf-checklist">
+                {pendingIncs.map((p, i) => (
+                  <label key={`pending-inc-${i}`} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked
+                      onChange={() => setPendingIncs((prev) => prev.filter((_, idx) => idx !== i))}
+                    />
+                    <span class="cz-tf-check-item__text">{p.label}</span>
+                    <span class="cz-tf-new-badge">new</span>
+                  </label>
+                ))}
+                {selExistingIncs.map((inc) => (
+                  <label key={inc.id} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked
+                      onChange={() => toggleInclusion(inc)}
+                    />
+                    <span class="cz-tf-check-item__text">{inc.label}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p class="cz-tf-hint">No items selected for this tier.</p>
+            )}
           </div>
+
+          {/* Section 2: Available from service pool */}
+          <div class="cz-tf-section">
+            <span class="cz-tf-label">Available from service pool</span>
+            {poolOnlyIncs.length > 0 ? (
+              <div class="cz-tf-checklist">
+                {poolOnlyIncs.map((inc) => (
+                  <label key={inc.id} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      onChange={() => toggleInclusion(inc)}
+                    />
+                    <span class="cz-tf-check-item__text">{inc.label}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p class="cz-tf-hint">All service-pool items are already included in this tier.</p>
+            )}
+          </div>
+
+          {/* Add new Water-layer item */}
           {showNewInc ? (
             <div class="cz-tf-inline-add">
               <input
@@ -740,38 +774,70 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         saveErr={null}
       >
         <div class="cz-tf-form">
-          {selFaqCount === 0 && !showNewFaq && (
-            <p class="cz-tf-hint">No questions selected for this tier.</p>
-          )}
-          <div class="cz-tf-checklist">
-            {pendingFaqs.map((p, i) => (
-              <label key={`pending-faq-${i}`} class="cz-tf-check-item">
-                <input
-                  type="checkbox"
-                  checked
-                  onChange={() => setPendingFaqs((prev) => prev.filter((_, idx) => idx !== i))}
-                />
-                <div class="cz-tf-check-item__text">
-                  <span class="cz-tf-check-item__question">{p.question}</span>
-                  {p.answer && <span class="cz-tf-check-item__answer">{p.answer}</span>}
-                </div>
-                <span class="cz-tf-new-badge">new</span>
-              </label>
-            ))}
-            {selExistingFaqs.map((faq) => (
-              <label key={faq.id} class="cz-tf-check-item">
-                <input
-                  type="checkbox"
-                  checked
-                  onChange={() => toggleFaq(faq)}
-                />
-                <div class="cz-tf-check-item__text">
-                  <span class="cz-tf-check-item__question">{faq.question}</span>
-                  {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
-                </div>
-              </label>
-            ))}
+
+          {/* Section 1: Included in this tier */}
+          <div class="cz-tf-section">
+            <span class="cz-tf-label">Included in this tier</span>
+            {selFaqCount > 0 ? (
+              <div class="cz-tf-checklist">
+                {pendingFaqs.map((p, i) => (
+                  <label key={`pending-faq-${i}`} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked
+                      onChange={() => setPendingFaqs((prev) => prev.filter((_, idx) => idx !== i))}
+                    />
+                    <div class="cz-tf-check-item__text">
+                      <span class="cz-tf-check-item__question">{p.question}</span>
+                      {p.answer && <span class="cz-tf-check-item__answer">{p.answer}</span>}
+                    </div>
+                    <span class="cz-tf-new-badge">new</span>
+                  </label>
+                ))}
+                {selExistingFaqs.map((faq) => (
+                  <label key={faq.id} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked
+                      onChange={() => toggleFaq(faq)}
+                    />
+                    <div class="cz-tf-check-item__text">
+                      <span class="cz-tf-check-item__question">{faq.question}</span>
+                      {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p class="cz-tf-hint">No items selected for this tier.</p>
+            )}
           </div>
+
+          {/* Section 2: Available from service pool */}
+          <div class="cz-tf-section">
+            <span class="cz-tf-label">Available from service pool</span>
+            {poolOnlyFaqs.length > 0 ? (
+              <div class="cz-tf-checklist">
+                {poolOnlyFaqs.map((faq) => (
+                  <label key={faq.id} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      onChange={() => toggleFaq(faq)}
+                    />
+                    <div class="cz-tf-check-item__text">
+                      <span class="cz-tf-check-item__question">{faq.question}</span>
+                      {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p class="cz-tf-hint">All service-pool items are already included in this tier.</p>
+            )}
+          </div>
+
+          {/* Add new Water-layer item */}
           {showNewFaq ? (
             <div class="cz-tf-inline-add">
               <input
