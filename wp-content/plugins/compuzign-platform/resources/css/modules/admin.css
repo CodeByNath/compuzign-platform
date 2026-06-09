@@ -2291,6 +2291,7 @@ body.compuzign-admin-page footer.site-footer {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--admin-fs-label);
+  table-layout: fixed;
 }
 
 .cz-sp-tier-table th {
@@ -2335,7 +2336,8 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sp-tier-table__center {
-  text-align: center;
+  text-align: left;
+  width: 80px;
 }
 
 .cz-sp-tier-table__muted {
@@ -2344,16 +2346,17 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sp-tier-table__price {
-  min-width: 80px;
+  width: 90px;
 }
 
 .cz-sp-tier-table__cycle {
-  min-width: 72px;
+  width: 90px;
 }
 
 .cz-sp-tier-table__actions {
   text-align: right;
   white-space: nowrap;
+  width: 88px;
 }
 
 .cz-sp-tier-table__actions .cz-admin-btn {
