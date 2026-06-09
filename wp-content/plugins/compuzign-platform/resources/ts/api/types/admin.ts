@@ -163,6 +163,7 @@ export interface FaqItem {
 export interface SurfaceTierDetail {
   label: string;
   price: number | null;
+  contact: boolean;
   billing_cycle: string | null;
   inclusions_override: InclusionItem[];
   features: string[];

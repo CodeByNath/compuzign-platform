@@ -254,6 +254,7 @@ class AdminSurfacePackagesController
             $tiers[$tierId] = [
                 'label'               => $t['label'] ?? '',
                 'price'               => isset($t['price']) && $t['price'] !== null ? (float) $t['price'] : null,
+                'contact'             => (bool) ($t['contact'] ?? false),
                 'billing_cycle'       => $t['billing_cycle'] ?? null,
                 'inclusions_override' => $t['inclusions_override'] ?? [],
                 'features'            => $t['features'] ?? [],

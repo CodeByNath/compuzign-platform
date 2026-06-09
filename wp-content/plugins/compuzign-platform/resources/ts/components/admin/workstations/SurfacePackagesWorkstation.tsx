@@ -142,12 +142,12 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       const tier = res.package.tiers[id];
       if (!tier) return;
       setLabel(tier.label ?? '');
-      if (tier.price === null) {
+      if (tier.contact) {
         setPriceIsContact(true);
         setPriceStr('');
       } else {
         setPriceIsContact(false);
-        setPriceStr(String(tier.price));
+        setPriceStr(tier.price != null ? String(tier.price) : '');
       }
       setBillingCycle(tier.billing_cycle ?? 'monthly');
       setSelExistingIncs(tier.inclusions_override ?? []);
@@ -1786,6 +1786,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                       <button
                         type="button"
                         class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                        style="min-width:3.75rem"
                         onClick={() => handleViewTier(tierId as TierId)}
                       >
                         View
@@ -1794,6 +1795,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                       <button
                         type="button"
                         class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                        style="min-width:3.75rem"
                         onClick={() => handleSetupTier(tierId as TierId)}
                       >
                         Set Up
