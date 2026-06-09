@@ -345,6 +345,16 @@ export interface ServiceStatusResponse {
   };
 }
 
+export interface CreateSurfacePackagePayload {
+  service_id: number;
+  title?: string;
+}
+
+export interface CreateSurfacePackageResponse {
+  success: boolean;
+  package_id: number;
+}
+
 export interface CreateServicePayload {
   title: string;
   excerpt?: string;

@@ -28,9 +28,16 @@ class AdminSurfacePackagesController
         $ns = 'compuzign/v1';
 
         register_rest_route($ns, '/admin/surface-packages', [
-            'methods'             => 'GET',
-            'callback'            => [$this, 'list'],
-            'permission_callback' => [$this, 'requireAdmin'],
+            [
+                'methods'             => 'GET',
+                'callback'            => [$this, 'list'],
+                'permission_callback' => [$this, 'requireAdmin'],
+            ],
+            [
+                'methods'             => 'POST',
+                'callback'            => [$this, 'create'],
+                'permission_callback' => [$this, 'requireAdmin'],
+            ],
         ]);
 
         register_rest_route($ns, '/admin/surface-packages/(?P<id>\d+)', [
@@ -169,6 +176,58 @@ class AdminSurfacePackagesController
         ]);
     }
 
+    // ── create ────────────────────────────────────────────────────────────────
+
+    public function create(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return $this->error('Invalid request body.', 400);
+        }
+
+        $serviceId = (int) ($body['service_id'] ?? 0);
+        if ($serviceId <= 0) {
+            return $this->error('service_id is required.', 422);
+        }
+
+        $servicePost = get_post($serviceId);
+        if (!$servicePost instanceof \WP_Post || $servicePost->post_type !== 'cz_service') {
+            return $this->error('Service not found.', 422);
+        }
+
+        $title = sanitize_text_field((string) ($body['title'] ?? ''));
+        if ($title === '') {
+            $title = $servicePost->post_title;
+        }
+
+        $postId = wp_insert_post([
+            'post_type'   => 'cz_surface_package',
+            'post_status' => 'draft',
+            'post_title'  => $title,
+        ], true);
+
+        if (is_wp_error($postId)) {
+            return $this->error($postId->get_error_message(), 500);
+        }
+
+        update_post_meta((int) $postId, 'cz_package', [
+            'package_type'       => 'tier_configuration',
+            'service_refs'       => [$serviceId],
+            'tiers'              => [],
+            'popular_tier'       => null,
+            'popular_label'      => '',
+            'promotion_tiers'    => [],
+            'faq_refs'           => [],
+            'display_contexts'   => ['cost-builder'],
+            'migration_complete' => false,
+        ]);
+
+        return rest_ensure_response([
+            'success'    => true,
+            'package_id' => (int) $postId,
+        ]);
+    }
+
     // ── detail ────────────────────────────────────────────────────────────────
 
     public function detail(\WP_REST_Request $request): \WP_REST_Response
@@ -287,6 +346,24 @@ class AdminSurfacePackagesController
             }
         }
 
+        // FAQ refs: body value wins; merge newly-added IDs on top.
+        $faqRefs = [];
+        if (array_key_exists('faq_refs', $body) && is_array($body['faq_refs'])) {
+            foreach ($body['faq_refs'] as $ref) {
+                $ref = sanitize_text_field((string) $ref);
+                if ($ref !== '') {
+                    $faqRefs[] = $ref;
+                }
+            }
+        } else {
+            $faqRefs = $existing['faq_refs'] ?? [];
+        }
+        foreach ($addedFaqRefs as $id) {
+            if (!in_array($id, $faqRefs, true)) {
+                $faqRefs[] = $id;
+            }
+        }
+
         $contact = !empty($body['contact']);
 
         $price = null;
@@ -301,7 +378,7 @@ class AdminSurfacePackagesController
             'billing_cycle'       => sanitize_text_field((string) ($body['billing_cycle'] ?? $existing['billing_cycle'] ?? 'monthly')),
             'inclusions_override' => $inclusions,
             'features'            => $existing['features'] ?? [],
-            'faq_refs'            => $existing['faq_refs'] ?? [],
+            'faq_refs'            => $faqRefs,
             'enabled'             => array_key_exists('enabled', $body) ? (bool) $body['enabled'] : ($existing['enabled'] ?? true),
         ];
 

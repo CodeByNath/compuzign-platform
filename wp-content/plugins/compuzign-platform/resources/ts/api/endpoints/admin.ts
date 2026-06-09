@@ -5,6 +5,8 @@ import type {
   AdminRequestsResponse,
   CreateServicePayload,
   CreateServiceResponse,
+  CreateSurfacePackagePayload,
+  CreateSurfacePackageResponse,
   PackageStatusResponse,
   PromotionTierArchiveResponse,
   PromotionTierPayload,
@@ -43,6 +45,12 @@ export function acceptIntakeRequest(ref: string): Promise<AcceptIntakeResponse> 
 
 export function fetchSurfacePackages(): Promise<SurfacePackagesResponse> {
   return apiClient.get<SurfacePackagesResponse>('admin/surface-packages');
+}
+
+export function createSurfacePackage(
+  payload: CreateSurfacePackagePayload,
+): Promise<CreateSurfacePackageResponse> {
+  return apiClient.post<CreateSurfacePackageResponse>('admin/surface-packages', payload);
 }
 
 export function fetchSurfacePackageDetail(id: number): Promise<SurfacePackageDetailResponse> {

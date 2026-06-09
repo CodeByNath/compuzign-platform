@@ -312,7 +312,14 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [faqsDraft,        setFaqsDraft]        = useState<FaqsDraft | null>(null);
   const [saving,           setSaving]           = useState(false);
   const [saveErr,          setSaveErr]          = useState<string | null>(null);
+  const [saveOk,           setSaveOk]           = useState(false);
   const [statusSaving,     setStatusSaving]     = useState(false);
+
+  useEffect(() => {
+    if (!saveOk) return;
+    const t = setTimeout(() => setSaveOk(false), 3000);
+    return () => clearTimeout(t);
+  }, [saveOk]);
 
   const isActive = service.meta?.is_active !== false;
 
@@ -396,6 +403,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onRefresh?.();
         setEditingSection(null);
         setOverviewDraft(null);
+        setSaveOk(true);
       } else {
         setSaveErr('Failed to save changes.');
       }
@@ -419,6 +427,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onRefresh?.();
         setEditingSection(null);
         setInclusionsDraft(null);
+        setSaveOk(true);
       } else {
         setSaveErr('Failed to save inclusions.');
       }
@@ -442,6 +451,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onRefresh?.();
         setEditingSection(null);
         setFaqsDraft(null);
+        setSaveOk(true);
       } else {
         setSaveErr('Failed to save FAQs.');
       }
@@ -736,6 +746,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           </div>
         )
       )}
+
+      {saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <div class="cz-tf-footer">
