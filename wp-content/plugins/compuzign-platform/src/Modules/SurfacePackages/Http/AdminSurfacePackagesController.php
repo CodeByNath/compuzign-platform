@@ -623,17 +623,28 @@ class AdminSurfacePackagesController
 
     /**
      * @param  mixed $tiers
-     * @return array<string, array{label: string, price: float|null, billing_cycle: string|null, inclusion_count: int, enabled: bool}>
+     * @return array<string, array{label: string, price: float|null, billing_cycle: string|null, inclusion_count: int, faq_count: int, enabled: bool, configured: bool}>
      */
     private function summariseTiers(mixed $tiers): array
     {
         if (!is_array($tiers)) {
-            return [];
+            $tiers = [];
         }
 
         $out = [];
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-            $t          = $tiers[$tierId] ?? [];
+            $t = $tiers[$tierId] ?? [];
+
+            // A tier is "configured" when saveTier() has been explicitly called for it.
+            // billing_cycle is always written as a non-empty string by saveTier(); default-filled
+            // slots produced by create() leave it null. contact, price, inclusions, and faq_refs
+            // are secondary indicators for edge cases (e.g. contact-only tiers with no billing_cycle).
+            $configured = !empty($t['billing_cycle'])
+                || ($t['price'] !== null && array_key_exists('price', $t) && $t['price'] !== '')
+                || !empty($t['contact'])
+                || !empty($t['inclusions_override'])
+                || !empty($t['faq_refs']);
+
             $out[$tierId] = [
                 'label'           => $t['label'] ?? '',
                 'price'           => isset($t['price']) && $t['price'] !== null ? (float) $t['price'] : null,
@@ -641,6 +652,7 @@ class AdminSurfacePackagesController
                 'inclusion_count' => count($t['inclusions_override'] ?? []),
                 'faq_count'       => count($t['faq_refs'] ?? []),
                 'enabled'         => isset($t['enabled']) ? (bool) $t['enabled'] : true,
+                'configured'      => $configured,
             ];
         }
         return $out;

@@ -64,11 +64,14 @@ function decodeHtml(s: string): string {
 }
 
 function resolvePopularTier(pkg: SurfacePackageSummary): string | null {
-  const isTierEnabled = (id: string): boolean => pkg.tiers[id]?.enabled ?? true;
+  const isTierActive = (id: string): boolean => {
+    const t = pkg.tiers[id];
+    return !!(t?.configured && (t?.enabled ?? true));
+  };
   const candidate = pkg.popular_tier ?? null;
-  if (candidate !== null && isTierEnabled(candidate)) return candidate;
+  if (candidate !== null && isTierActive(candidate)) return candidate;
   for (const fallback of POPULAR_HIERARCHY) {
-    if (isTierEnabled(fallback)) return fallback;
+    if (isTierActive(fallback)) return fallback;
   }
   return null;
 }
@@ -165,9 +168,19 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         if (!isNew && initialTierId) {
           populateFromTier(res, initialTierId);
         } else if (isNew) {
-          const existingIds = new Set(Object.keys(res.package.tiers));
-          const firstAvail  = TIERS.find((t) => !existingIds.has(t)) ?? TIERS[0];
-          setTierId(firstAvail);
+          // billing_cycle is always written as a non-empty string by saveTier;
+          // slots that are still at their create() defaults have billing_cycle === null.
+          const configuredIds = new Set(
+            (Object.entries(res.package.tiers) as [string, { billing_cycle: string | null }][])
+              .filter(([, t]) => t.billing_cycle !== null && t.billing_cycle !== '')
+              .map(([id]) => id),
+          );
+          // If a specific tier was requested (e.g. from handleSetupTier) and it is not
+          // yet configured, honour it; otherwise fall back to the first unconfigured slot.
+          const targetId = (initialTierId && !configuredIds.has(initialTierId))
+            ? initialTierId
+            : (TIERS.find((t) => !configuredIds.has(t)) ?? TIERS[0]);
+          setTierId(targetId);
           setOverviewDraft({ label: '', priceIsContact: false, priceStr: '', billingCycle: 'monthly', isPopular: false, popularLabel: '' });
           setEditingSection('overview');
         }
@@ -330,7 +343,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               onChange={(e) => handleTierChange((e.target as HTMLSelectElement).value)}
             >
               {TIERS
-                .filter((t) => !detail.package.tiers[t]?.label)
+                .filter((t) => !detail.package.tiers[t]?.billing_cycle)
                 .map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
             </select>
           </div>
@@ -1162,6 +1175,9 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
         title:      service.title,
       });
       await saveSurfaceTier(package_id, tierId, buildPayload(true));
+      // Publish the package so it is immediately active in Service Packages and Cost Builder.
+      // create() always starts in draft; this is the only place we promote a new package.
+      await enableSurfacePackage(package_id);
       onRefetch();
       ctx.close();
     } catch (err) {
@@ -1612,7 +1628,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
   const serviceNames          = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
   const isEnabled             = pkg.post_status === 'publish';
   const resolvedPopularTierId = resolvePopularTier(pkg);
-  const tierCount             = TIERS.filter((t) => pkg.tiers[t]?.label).length;
+  const tierCount             = TIERS.filter((t) => pkg.tiers[t]?.configured).length;
   const atTierLimit           = tierCount >= MAX_TIERS;
 
   const handleViewTier = (tierId: TierId) => {
@@ -1626,6 +1642,21 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
         tierId,
         isNew:          false,
         currentEnabled: tier?.enabled ?? true,
+      },
+      steps: [{ id: 'tier-form', title: `${TIER_LABELS[tierId]} Tier`, component: TierManageStep }],
+    });
+  };
+
+  const handleSetupTier = (tierId: TierId) => {
+    openAction({
+      id:   `tier-setup-${pkg.post_id}-${tierId}`,
+      mode: 'drawer',
+      title: `Set Up ${TIER_LABELS[tierId]} — ${serviceNames}`,
+      initialStepData: {
+        packageId:      pkg.post_id,
+        tierId,
+        isNew:          true,
+        currentEnabled: true,
       },
       steps: [{ id: 'tier-form', title: `${TIER_LABELS[tierId]} Tier`, component: TierManageStep }],
     });
@@ -1697,60 +1728,66 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
         </button>
       </div>
 
-      {/* ── Tier table ──────────────────────────────────────────────────────── */}
-      {TIERS.every((t) => !pkg.tiers[t]?.label) ? (
-        <p class="cz-sp-empty-tiers">No tiers available for this service.</p>
-      ) : (
-        <div class="cz-sp-tier-table-wrap">
-          <table class="cz-sp-tier-table">
-            <thead>
-              <tr>
-                <th>Tier</th>
-                <th>Price</th>
-                <th>Cycle</th>
-                <th class="cz-sp-tier-table__center">Inclusions</th>
-                <th class="cz-sp-tier-table__center">Popular</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {TIERS.map((tierId) => {
-                const tier        = pkg.tiers[tierId];
-                if (!tier?.label) return null;
-                const tierEnabled  = tier.enabled ?? true;
-                const isPopular    = resolvedPopularTierId === tierId;
-                const displayLabel = (tier.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId];
-                const dotColor     = `var(--admin-${tierEnabled ? 'success' : 'text-faint'})`;
+      {/* ── Tier table — always shows all 4 canonical slots ─────────────────── */}
+      <div class="cz-sp-tier-table-wrap">
+        <table class="cz-sp-tier-table">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Price</th>
+              <th>Cycle</th>
+              <th class="cz-sp-tier-table__center">Inclusions</th>
+              <th class="cz-sp-tier-table__center">Popular</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {TIERS.map((tierId) => {
+              const tier         = pkg.tiers[tierId];
+              const isConfigured = !!tier?.configured;
+              const tierEnabled  = isConfigured && (tier?.enabled ?? true);
+              const isPopular    = isConfigured && resolvedPopularTierId === tierId;
+              const displayLabel = (tier?.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId];
+              const dotColor     = isConfigured
+                ? `var(--admin-${tierEnabled ? 'success' : 'text-faint'})`
+                : 'var(--admin-text-faint)';
 
-                return (
-                  <tr key={tierId} class={!tierEnabled ? 'cz-sp-tier-row--disabled' : ''}>
-                    <td class="cz-sp-tier-table__name">
-                      <div class="cz-sp-tier-table__name-inner">
-                        <span class="cz-admin-status-dot" style={`color:${dotColor}`} />
-                        <span>{displayLabel}</span>
-                        {isPopular && (
-                          <span class="cz-tier-badge cz-tier-badge--popular">Popular</span>
-                        )}
-                        {!tierEnabled && (
-                          <span class="cz-status-pill cz-status-pill--inactive">Off</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span class={`cz-price-tag${tier.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                        {fmtPrice(tier.price)}
+              return (
+                <tr key={tierId} class={!isConfigured ? 'cz-sp-tier-row--disabled' : (!tierEnabled ? 'cz-sp-tier-row--disabled' : '')}>
+                  <td class="cz-sp-tier-table__name">
+                    <div class="cz-sp-tier-table__name-inner">
+                      <span class="cz-admin-status-dot" style={`color:${dotColor}`} />
+                      <span class={!isConfigured ? 'cz-sp-tier-table__muted' : ''}>{displayLabel}</span>
+                      {isPopular && (
+                        <span class="cz-tier-badge cz-tier-badge--popular">Popular</span>
+                      )}
+                      {isConfigured && !tierEnabled && (
+                        <span class="cz-status-pill cz-status-pill--inactive">Off</span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    {isConfigured ? (
+                      <span class={`cz-price-tag${tier!.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                        {fmtPrice(tier!.price)}
                       </span>
-                    </td>
-                    <td class="cz-sp-tier-table__muted">{tier.billing_cycle ?? '—'}</td>
-                    <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                      {tier.inclusion_count}
-                    </td>
-                    <td class="cz-sp-tier-table__center">
-                      {isPopular
-                        ? <span class="cz-tier-badge cz-tier-badge--popular">★</span>
-                        : <span style="color:var(--admin-text-faint)">—</span>}
-                    </td>
-                    <td class="cz-sp-tier-table__actions">
+                    ) : (
+                      <span class="cz-sp-tier-table__muted">—</span>
+                    )}
+                  </td>
+                  <td class="cz-sp-tier-table__muted">
+                    {isConfigured ? (tier?.billing_cycle ?? '—') : '—'}
+                  </td>
+                  <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                    {isConfigured ? tier!.inclusion_count : '—'}
+                  </td>
+                  <td class="cz-sp-tier-table__center">
+                    {isPopular
+                      ? <span class="cz-tier-badge cz-tier-badge--popular">★</span>
+                      : <span style="color:var(--admin-text-faint)">—</span>}
+                  </td>
+                  <td class="cz-sp-tier-table__actions">
+                    {isConfigured ? (
                       <button
                         type="button"
                         class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
@@ -1758,14 +1795,22 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                       >
                         View
                       </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    ) : (
+                      <button
+                        type="button"
+                        class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                        onClick={() => handleSetupTier(tierId as TierId)}
+                      >
+                        Set Up
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {/* ── Package danger zone ──────────────────────────────────────────────── */}
       <div class="cz-sp-pkg-footer">

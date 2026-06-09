@@ -114,6 +114,7 @@ export interface SurfaceTierSummary {
   inclusion_count: number;
   faq_count: number;
   enabled: boolean;
+  configured: boolean;
 }
 
 export interface SurfaceServiceRef {
