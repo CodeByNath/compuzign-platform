@@ -1706,14 +1706,6 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
           <span class={`cz-status-pill ${isEnabled ? 'cz-status-pill--active' : 'cz-status-pill--inactive'}`}>
             {isEnabled ? 'Active' : 'Disabled'}
           </span>
-          <button
-            type="button"
-            class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
-            onClick={handleTogglePackage}
-            disabled={disabling}
-          >
-            {disabling ? '…' : isEnabled ? 'Disable' : 'Enable'}
-          </button>
         </div>
       </div>
 
@@ -1813,6 +1805,18 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* ── Package footer ───────────────────────────────────────────────────── */}
+      <div class="cz-sp-pkg-footer">
+        <button
+          type="button"
+          class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
+          onClick={handleTogglePackage}
+          disabled={disabling}
+        >
+          {disabling ? '…' : isEnabled ? 'Disable Package' : 'Enable Package'}
+        </button>
       </div>
 
     </div>
