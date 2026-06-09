@@ -43,9 +43,6 @@ class PricingBuilder
         // All per-service lookups inside buildServicePayload() are O(1) array access.
         $this->packageMap = $this->packageRepository->findAllActiveIndexedByServiceId();
 
-        // DEBUG — remove after diagnosis
-        error_log('[CZ PricingBuilder] packageMap service IDs: ' . implode(', ', array_keys($this->packageMap)));
-
         $categories         = [];
         $servicesByCategory = [];
 
@@ -177,12 +174,6 @@ class PricingBuilder
         // reached and the payload above is returned byte-for-byte as legacy output.
         $package = $this->packageMap[$post->ID] ?? null;
 
-        // DEBUG — remove after diagnosis
-        error_log('[CZ PricingBuilder] service ' . $post->ID . ' (' . $post->post_title . '): package=' . ($package !== null ? 'FOUND' : 'NULL'));
-        if ($package !== null) {
-            error_log('[CZ PricingBuilder] basic tier in package: ' . json_encode($package['tiers']['basic'] ?? 'missing'));
-        }
-
         if ($package !== null) {
             $payload = $this->overlayPackage($payload, $package);
         }
@@ -221,6 +212,20 @@ class PricingBuilder
                 continue;
             }
 
+            // Unconfigured tier slots (saveTier was never called) are also suppressed.
+            // billing_cycle is always written by saveTier and null on default slots,
+            // making it the primary configured indicator — same logic as summariseTiers().
+            $isConfigured = !empty($pkgTier['billing_cycle'])
+                || (array_key_exists('price', $pkgTier) && $pkgTier['price'] !== null)
+                || !empty($pkgTier['contact'])
+                || !empty($pkgTier['inclusions_override'])
+                || !empty($pkgTier['faq_refs']);
+
+            if (!$isConfigured) {
+                unset($payload['pricing']['tiers'][$tierId]);
+                continue;
+            }
+
             // contact: true → force price null so frontend renders "Contact Us".
             // Otherwise overlay numeric price only when one was explicitly saved.
             if (!empty($pkgTier['contact'])) {
@@ -252,6 +257,17 @@ class PricingBuilder
                 $payload['pricing']['tiers'][$tierId]['label'] = $pkgTier['label'];
             }
         }
+
+        // ── Availability recompute ────────────────────────────────────────────
+        // The pre-overlay availability check used legacy cz_service_pricing inclusions,
+        // which are empty for services configured via the admin UI (not XLSX import).
+        // Now that unconfigured and disabled tiers have been removed, a non-empty
+        // surviving tier set is sufficient to consider the service available.
+        $hasPricedTiers = !empty($payload['pricing']['tiers']);
+        $payload['availability'] = [
+            'is_available' => $hasPricedTiers,
+            'message'      => $hasPricedTiers ? '' : 'Currently this service is not available.',
+        ];
 
         // ── Bundle ────────────────────────────────────────────────────────────
         // Overlay when the package defines a bundle title or an explicit price.
