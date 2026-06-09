@@ -7,7 +7,9 @@ import {
   disableSurfacePackage,
   enableSurfacePackage,
   toggleSurfaceTierEnabled,
+  updateServiceOverview,
 } from '@/api/endpoints/admin';
+import { InlineEditorShell } from '../InlineEditorShell';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type {
   SurfacePackageSummary,
@@ -35,6 +37,8 @@ const BILLING_CYCLES = ['monthly', 'annually', 'one-time'];
 
 const POPULAR_HIERARCHY = ['premium', 'enterprise', 'standard', 'basic'] as const;
 
+const MAX_TIERS = 4;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtPrice(v: number | null): string {
@@ -47,6 +51,13 @@ function slugify(s: string): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function decodeHtml(s: string): string {
+  if (typeof document === 'undefined') return s;
+  const el = document.createElement('textarea');
+  el.innerHTML = s;
+  return el.value;
 }
 
 function resolvePopularTier(pkg: SurfacePackageSummary): string | null {
@@ -72,25 +83,47 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const [saving, setSaving]   = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
-  const [tierId, setTierId]                     = useState<string>(initialTierId ?? 'basic');
-  const [label, setLabel]                       = useState('');
-  const [priceIsContact, setPriceIsContact]     = useState(false);
-  const [priceStr, setPriceStr]                 = useState('');
-  const [billingCycle, setBillingCycle]         = useState('monthly');
-  const [isPopular, setIsPopular]               = useState(false);
-  const [popularLabel, setPopularLabel]         = useState('');
+  const [tab, setTab] = useState<'commercial' | 'service'>('commercial');
+  const [editingSection, setEditingSection] = useState<'overview' | 'service' | null>(null);
 
-  const [selExistingIncs, setSelExistingIncs]   = useState<InclusionItem[]>([]);
-  const [pendingIncs, setPendingIncs]           = useState<Array<{ label: string }>>([]);
-  const [showNewInc, setShowNewInc]             = useState(false);
-  const [newIncLabel, setNewIncLabel]           = useState('');
-  const [incSearch, setIncSearch]               = useState('');
+  // ── Tier fields ──────────────────────────────────────────────────────────
+  const [tierId, setTierId]                 = useState<string>(initialTierId ?? 'basic');
+  const [label, setLabel]                   = useState('');
+  const [priceIsContact, setPriceIsContact] = useState(false);
+  const [priceStr, setPriceStr]             = useState('');
+  const [billingCycle, setBillingCycle]     = useState('monthly');
+  const [isPopular, setIsPopular]           = useState(false);
+  const [popularLabel, setPopularLabel]     = useState('');
 
-  const [pendingFaqs, setPendingFaqs]           = useState<Array<{ question: string; answer: string }>>([]);
-  const [showNewFaq, setShowNewFaq]             = useState(false);
-  const [newFaqQ, setNewFaqQ]                   = useState('');
-  const [newFaqA, setNewFaqA]                   = useState('');
-  const [faqSearch, setFaqSearch]               = useState('');
+  // ── Tier Overview draft (local — applied on Publish Tier) ────────────────
+  const [overviewDraft, setOverviewDraft] = useState<{
+    label: string;
+    priceIsContact: boolean;
+    priceStr: string;
+    billingCycle: string;
+    isPopular: boolean;
+    popularLabel: string;
+  } | null>(null);
+
+  // ── Service draft ────────────────────────────────────────────────────────
+  const [serviceDraft, setServiceDraft]   = useState<{ title: string; excerpt: string } | null>(null);
+  const [serviceSaving, setServiceSaving] = useState(false);
+  const [serviceErr, setServiceErr]       = useState<string | null>(null);
+
+  // ── Inclusions ───────────────────────────────────────────────────────────
+  const [selExistingIncs, setSelExistingIncs] = useState<InclusionItem[]>([]);
+  const [pendingIncs, setPendingIncs]         = useState<Array<{ label: string }>>([]);
+  const [showNewInc, setShowNewInc]           = useState(false);
+  const [newIncLabel, setNewIncLabel]         = useState('');
+  const [incSearch, setIncSearch]             = useState('');
+
+  // ── FAQs ─────────────────────────────────────────────────────────────────
+  const [selExistingFaqs, setSelExistingFaqs] = useState<FaqItem[]>([]);
+  const [pendingFaqs, setPendingFaqs]         = useState<Array<{ question: string; answer: string }>>([]);
+  const [showNewFaq, setShowNewFaq]           = useState(false);
+  const [newFaqQ, setNewFaqQ]                 = useState('');
+  const [newFaqA, setNewFaqA]                 = useState('');
+  const [faqSearch, setFaqSearch]             = useState('');
 
   const populateFromTier = useCallback(
     (res: SurfacePackageDetailResponse, id: string) => {
@@ -106,6 +139,8 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       }
       setBillingCycle(tier.billing_cycle ?? 'monthly');
       setSelExistingIncs(tier.inclusions_override ?? []);
+      const faqPool = res.service?.faqs ?? [];
+      setSelExistingFaqs(faqPool.filter((f) => (tier.faq_refs ?? []).includes(f.id)));
       setIsPopular(res.package.popular_tier === id);
       setPopularLabel(res.package.popular_label ?? '');
     },
@@ -134,6 +169,8 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
     if (detail) populateFromTier(detail, id);
     setPendingIncs([]);
     setPendingFaqs([]);
+    setSelExistingIncs([]);
+    setSelExistingFaqs([]);
   };
 
   const handleAddInclusion = () => {
@@ -160,17 +197,25 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
+  const toggleFaq = (faq: FaqItem) => {
+    setSelExistingFaqs((prev) => {
+      const exists = prev.some((f) => f.id === faq.id);
+      return exists ? prev.filter((f) => f.id !== faq.id) : [...prev, faq];
+    });
+  };
+
   const buildPayload = (enabled: boolean): TierSavePayload => ({
     label,
-    price: priceIsContact ? null : (parseFloat(priceStr) || null),
-    contact: priceIsContact,
-    billing_cycle: billingCycle,
+    price:               priceIsContact ? null : (parseFloat(priceStr) || null),
+    contact:             priceIsContact,
+    billing_cycle:       billingCycle,
     inclusions_override: selExistingIncs,
-    popular: isPopular,
-    popular_label: popularLabel,
+    faq_refs:            selExistingFaqs.map((f) => f.id),
+    popular:             isPopular,
+    popular_label:       popularLabel,
     enabled,
-    new_inclusions: pendingIncs,
-    new_faqs: pendingFaqs,
+    new_inclusions:      pendingIncs,
+    new_faqs:            pendingFaqs,
   });
 
   const handleSave = async () => {
@@ -199,6 +244,58 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
     }
   };
 
+  const openOverviewEditor = useCallback(() => {
+    setOverviewDraft({ label, priceIsContact, priceStr, billingCycle, isPopular, popularLabel });
+    setEditingSection('overview');
+  }, [label, priceIsContact, priceStr, billingCycle, isPopular, popularLabel]);
+
+  const handleSaveOverview = useCallback(async () => {
+    if (!overviewDraft) return;
+    setLabel(overviewDraft.label);
+    setPriceIsContact(overviewDraft.priceIsContact);
+    setPriceStr(overviewDraft.priceStr);
+    setBillingCycle(overviewDraft.billingCycle);
+    setIsPopular(overviewDraft.isPopular);
+    setPopularLabel(overviewDraft.popularLabel);
+    setEditingSection(null);
+    setOverviewDraft(null);
+  }, [overviewDraft]);
+
+  const openServiceEditor = useCallback(() => {
+    if (!detail?.service) return;
+    setServiceDraft({ title: detail.service.title, excerpt: detail.service.excerpt ?? '' });
+    setEditingSection('service');
+    setServiceErr(null);
+  }, [detail]);
+
+  const handleSaveService = useCallback(async () => {
+    if (!serviceDraft || !detail?.service) return;
+    setServiceSaving(true);
+    setServiceErr(null);
+    try {
+      const result = await updateServiceOverview(detail.service.id, {
+        title:        serviceDraft.title,
+        excerpt:      serviceDraft.excerpt,
+        content:      detail.service.content ?? '',
+        category_ids: detail.service.categories?.map((c) => c.id) ?? [],
+      });
+      if (result.success) {
+        setDetail((d) => d ? {
+          ...d,
+          service: d.service ? { ...d.service, title: result.service.title, excerpt: result.service.excerpt } : null,
+        } : null);
+        setEditingSection(null);
+        setServiceDraft(null);
+      } else {
+        setServiceErr('Failed to save changes.');
+      }
+    } catch (err) {
+      setServiceErr(err instanceof Error ? err.message : 'An error occurred.');
+    } finally {
+      setServiceSaving(false);
+    }
+  }, [serviceDraft, detail]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (ctx.progress === 'loading') {
@@ -214,39 +311,26 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const service = detail.service;
 
   const allInclusions: Array<InclusionItem & { isPending?: boolean }> = [
-    ...pendingIncs.map((p) => ({ id: slugify(p.label), label: p.label, isPending: true })),
+    ...pendingIncs.map((p) => ({ id: slugify(p.label), label: p.label, isPending: true as const })),
     ...(service?.inclusions ?? []),
   ];
   const allFaqs: Array<FaqItem & { isPending?: boolean }> = [
-    ...pendingFaqs.map((p) => ({ id: slugify(p.question), question: p.question, answer: p.answer, isPending: true })),
+    ...pendingFaqs.map((p) => ({ id: slugify(p.question), question: p.question, answer: p.answer, isPending: true as const })),
     ...(service?.faqs ?? []),
   ];
 
   const filteredIncs = allInclusions.filter((i) => i.label.toLowerCase().includes(incSearch.toLowerCase()));
   const filteredFaqs = allFaqs.filter((f) => f.question.toLowerCase().includes(faqSearch.toLowerCase()));
   const selIncCount  = selExistingIncs.length + pendingIncs.length;
-
-  const displayContexts = detail.package.display_contexts ?? ['cost-builder'];
+  const selFaqCount  = selExistingFaqs.length + pendingFaqs.length;
 
   return (
-    <div class="cz-tf-form">
+    <>
+    <div class="cz-req-detail">
 
-      {/* ── Section 1: Service ─────────────────────────────────────────── */}
-      {service && (
-        <div class="cz-tf-section">
-          <p class="cz-tf-section-title">Service</p>
-          <p class="cz-tf-service-title">{service.title}</p>
-          {service.excerpt && (
-            <p class="cz-tf-service-desc">{service.excerpt}</p>
-          )}
-        </div>
-      )}
-
-      {/* ── Section 2: Tier Basics ─────────────────────────────────────── */}
-      <div class="cz-tf-section">
-        <p class="cz-tf-section-title">Tier Basics</p>
-
-        {isNew && (
+      {/* ── Tier selector (create mode only) ──────────────────────────────── */}
+      {isNew && (
+        <div class="cz-req-detail__section cz-sv-section--no-border">
           <div class="cz-tf-field">
             <label class="cz-tf-label">Tier *</label>
             <select
@@ -257,287 +341,476 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
             </select>
           </div>
-        )}
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Display label</label>
-          <input
-            type="text"
-            class="cz-tf-input"
-            value={label}
-            onInput={(e) => setLabel((e.target as HTMLInputElement).value)}
-            placeholder={TIER_LABELS[tierId] ?? tierId}
-          />
-          <p class="cz-tf-hint">Override the default name. Leave blank to use the default.</p>
         </div>
+      )}
 
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Price</label>
-          <div class="cz-tf-price-row">
-            <input
-              type="number"
-              class="cz-tf-input cz-tf-input--price"
-              value={priceStr}
-              disabled={priceIsContact}
-              onInput={(e) => setPriceStr((e.target as HTMLInputElement).value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-            />
-            <label class="cz-tf-check-row cz-tf-check-row--inline">
-              <input
-                type="checkbox"
-                checked={priceIsContact}
-                onChange={(e) => {
-                  const checked = (e.target as HTMLInputElement).checked;
-                  setPriceIsContact(checked);
-                  if (checked) setPriceStr('');
-                }}
-              />
-              <span>Contact / no fixed price</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Billing cycle</label>
-          <select
-            class="cz-tf-select"
-            value={billingCycle}
-            onChange={(e) => setBillingCycle((e.target as HTMLSelectElement).value)}
-          >
-            {BILLING_CYCLES.map((c) => (
-              <option key={c} value={c}>{capitalize(c)}</option>
-            ))}
-          </select>
-        </div>
+      {/* ── Tab bar ────────────────────────────────────────────────────────── */}
+      <div class="cz-sv-tabs">
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('commercial')}
+        >
+          Commercial
+        </button>
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('service')}
+        >
+          Service
+        </button>
       </div>
 
-      {/* ── Section 3: Inclusions ──────────────────────────────────────── */}
-      <div class="cz-tf-section">
-        <div class="cz-tf-section-header">
-          <p class="cz-tf-section-title">Inclusions</p>
-          {selIncCount > 0 && (
-            <span class="cz-tf-count">{selIncCount} selected</span>
-          )}
-        </div>
+      {/* ── Commercial Tab ─────────────────────────────────────────────────── */}
+      {tab === 'commercial' && (
+        <>
 
-        <input
-          type="text"
-          class="cz-tf-input"
-          placeholder="Search inclusions…"
-          value={incSearch}
-          onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
-        />
-
-        <div class="cz-tf-checklist">
-          {filteredIncs.length === 0 && (
-            <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
-              {incSearch ? 'No matches.' : 'No inclusions in service pool.'}
-            </div>
-          )}
-          {filteredIncs.map((inc) => {
-            const checked = inc.isPending || selExistingIncs.some((s) => s.id === inc.id);
-            return (
-              <label key={inc.id} class="cz-tf-check-item">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={inc.isPending}
-                  onChange={() => !inc.isPending && toggleInclusion(inc)}
-                />
-                <span class="cz-tf-check-item__text">{inc.label}</span>
-                {inc.isPending && <span class="cz-tf-new-badge">new</span>}
-              </label>
-            );
-          })}
-        </div>
-
-        {showNewInc ? (
-          <div class="cz-tf-inline-add">
-            <input
-              type="text"
-              class="cz-tf-input"
-              placeholder="Inclusion label"
-              value={newIncLabel}
-              onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddInclusion(); } }}
-              autoFocus
-            />
-            <div class="cz-tf-inline-add__actions">
+          {/* Tier Overview — read-only with hover Edit */}
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <p class="cz-req-detail__section-title">Tier Overview</p>
+            <div class="cz-sv-overview-block">
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                onClick={handleAddInclusion}
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                onClick={openOverviewEditor}
               >
-                Add to pool
+                ✎ Edit
               </button>
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>
-            + Add new inclusion to service pool
-          </button>
-        )}
-      </div>
-
-      {/* ── Section 4: FAQs ────────────────────────────────────────────── */}
-      <div class="cz-tf-section">
-        <p class="cz-tf-section-title">FAQs</p>
-        <p class="cz-tf-service-desc">These questions apply to all tiers for this service.</p>
-
-        <input
-          type="text"
-          class="cz-tf-input"
-          placeholder="Search FAQs…"
-          value={faqSearch}
-          onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
-        />
-
-        <div class="cz-tf-checklist">
-          {filteredFaqs.length === 0 && (
-            <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
-              {faqSearch ? 'No matches.' : 'No FAQs in service pool yet.'}
-            </div>
-          )}
-          {filteredFaqs.map((faq) => (
-            <div key={faq.id} class="cz-tf-check-item" style="cursor:default">
-              <div class="cz-tf-check-item__text">
-                <span class="cz-tf-check-item__question">{faq.question}</span>
-                {faq.answer && (
-                  <span class="cz-tf-check-item__answer">{faq.answer}</span>
-                )}
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
               </div>
-              {faq.isPending && <span class="cz-tf-new-badge">new</span>}
-            </div>
-          ))}
-        </div>
-
-        {showNewFaq ? (
-          <div class="cz-tf-inline-add">
-            <input
-              type="text"
-              class="cz-tf-input"
-              placeholder="Question"
-              value={newFaqQ}
-              onInput={(e) => setNewFaqQ((e.target as HTMLInputElement).value)}
-              autoFocus
-            />
-            <textarea
-              class="cz-tf-textarea"
-              placeholder="Answer (optional)"
-              value={newFaqA}
-              onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)}
-              rows={3}
-            />
-            <div class="cz-tf-inline-add__actions">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                onClick={handleAddFaq}
-              >
-                Add to pool
-              </button>
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                onClick={() => { setShowNewFaq(false); setNewFaqQ(''); setNewFaqA(''); }}
-              >
-                Cancel
-              </button>
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Price</span>
+                <span class="cz-sv-overview-block__value">
+                  {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '—')}
+                </span>
+              </div>
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Billing Cycle</span>
+                <span class="cz-sv-overview-block__value">{capitalize(billingCycle)}</span>
+              </div>
+              {isPopular && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Presentation</span>
+                  <span class="cz-sv-overview-block__value">
+                    <span class="cz-tier-badge cz-tier-badge--popular">{popularLabel || 'Best'}</span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-        ) : (
-          <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewFaq(true)}>
-            + Add new FAQ to service pool
-          </button>
-        )}
-      </div>
 
-      {/* ── Section 5: Presentation ────────────────────────────────────── */}
-      <div class="cz-tf-section">
-        <p class="cz-tf-section-title">Presentation</p>
+          {/* Included Features */}
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <p class="cz-req-detail__section-title">
+              Included Features
+              {selIncCount > 0 && (
+                <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selIncCount}</span>
+              )}
+            </p>
+            <p class="cz-tf-hint">Features are managed at the service level. This tier can choose which features to include.</p>
 
-        <div class="cz-tf-field">
-          <label class="cz-tf-check-row">
-            <input
-              type="checkbox"
-              checked={isPopular}
-              onChange={(e) => setIsPopular((e.target as HTMLInputElement).checked)}
-            />
-            <span>Show as the recommended tier</span>
-          </label>
-          {isPopular && (
-            <>
-              <label class="cz-tf-label">Badge label</label>
+            {allInclusions.length > 0 && (
               <input
                 type="text"
                 class="cz-tf-input"
-                value={popularLabel}
-                onInput={(e) => setPopularLabel((e.target as HTMLInputElement).value)}
-                placeholder="Best"
+                placeholder="Search features…"
+                value={incSearch}
+                onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
               />
-              <p class="cz-tf-hint">Text shown on the popular badge. Defaults to "Best".</p>
-            </>
-          )}
-        </div>
+            )}
 
-        {displayContexts.length > 0 && (
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Where it appears</label>
-            <div class="cz-tf-chips">
-              {displayContexts.map((c) => (
-                <span key={c} class="cz-tf-chip">{c}</span>
-              ))}
+            <div class="cz-tf-checklist">
+              {filteredIncs.length === 0 && (
+                <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
+                  {incSearch ? 'No matches.' : 'No features in service pool.'}
+                </div>
+              )}
+              {filteredIncs.map((inc) => {
+                const checked = inc.isPending || selExistingIncs.some((s) => s.id === inc.id);
+                return (
+                  <label key={inc.id} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={inc.isPending}
+                      onChange={() => !inc.isPending && toggleInclusion(inc)}
+                    />
+                    <span class="cz-tf-check-item__text">{inc.label}</span>
+                    {inc.isPending && <span class="cz-tf-new-badge">new</span>}
+                  </label>
+                );
+              })}
             </div>
-            <p class="cz-tf-hint">These placements are configured at the package level.</p>
-          </div>
-        )}
-      </div>
 
-      {/* ── Error ──────────────────────────────────────────────────────── */}
-      {saveErr && (
-        <div class="cz-admin-error-msg">{saveErr}</div>
+            {showNewInc ? (
+              <div class="cz-tf-inline-add">
+                <input
+                  type="text"
+                  class="cz-tf-input"
+                  placeholder="Feature label"
+                  value={newIncLabel}
+                  onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddInclusion(); } }}
+                  autoFocus
+                />
+                <div class="cz-tf-inline-add__actions">
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                    onClick={handleAddInclusion}
+                  >
+                    Add to pool
+                  </button>
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>
+                + Add new feature to service pool
+              </button>
+            )}
+          </div>
+
+          {/* Common Questions */}
+          <div class="cz-req-detail__section">
+            <p class="cz-req-detail__section-title">
+              Common Questions
+              {selFaqCount > 0 && (
+                <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selFaqCount}</span>
+              )}
+            </p>
+            <p class="cz-tf-hint">FAQs are managed at the service level. This tier can choose which questions to display.</p>
+
+            {allFaqs.length > 0 && (
+              <input
+                type="text"
+                class="cz-tf-input"
+                placeholder="Search questions…"
+                value={faqSearch}
+                onInput={(e) => setFaqSearch((e.target as HTMLInputElement).value)}
+              />
+            )}
+
+            <div class="cz-tf-checklist">
+              {filteredFaqs.length === 0 && (
+                <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
+                  {faqSearch ? 'No matches.' : 'No questions in service pool.'}
+                </div>
+              )}
+              {filteredFaqs.map((faq) => {
+                const checked = faq.isPending || selExistingFaqs.some((f) => f.id === faq.id);
+                return (
+                  <label key={faq.id} class="cz-tf-check-item">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={faq.isPending}
+                      onChange={() => !faq.isPending && toggleFaq(faq)}
+                    />
+                    <div class="cz-tf-check-item__text">
+                      <span class="cz-tf-check-item__question">{faq.question}</span>
+                      {faq.answer && <span class="cz-tf-check-item__answer">{faq.answer}</span>}
+                    </div>
+                    {faq.isPending && <span class="cz-tf-new-badge">new</span>}
+                  </label>
+                );
+              })}
+            </div>
+
+            {showNewFaq ? (
+              <div class="cz-tf-inline-add">
+                <input
+                  type="text"
+                  class="cz-tf-input"
+                  placeholder="Question"
+                  value={newFaqQ}
+                  onInput={(e) => setNewFaqQ((e.target as HTMLInputElement).value)}
+                  autoFocus
+                />
+                <textarea
+                  class="cz-tf-textarea"
+                  placeholder="Answer (optional)"
+                  value={newFaqA}
+                  onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)}
+                  rows={3}
+                />
+                <div class="cz-tf-inline-add__actions">
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                    onClick={handleAddFaq}
+                  >
+                    Add to pool
+                  </button>
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={() => { setShowNewFaq(false); setNewFaqQ(''); setNewFaqA(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewFaq(true)}>
+                + Add new question to service pool
+              </button>
+            )}
+          </div>
+
+          {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
+
+          {/* Commercial Tab Footer */}
+          <div class="cz-tf-footer">
+            {!isNew && (
+              <button
+                type="button"
+                class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
+                onClick={handleToggleEnabled}
+                disabled={saving}
+              >
+                {currentEnabled ? 'Disable Tier' : 'Enable Tier'}
+              </button>
+            )}
+            <div class="cz-tf-footer__spacer" />
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              onClick={ctx.close}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : 'Publish Tier'}
+            </button>
+          </div>
+        </>
       )}
 
-      {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <div class="cz-tf-footer">
-        {!isNew && (
-          <button
-            type="button"
-            class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
-            onClick={handleToggleEnabled}
-            disabled={saving}
-          >
-            {currentEnabled ? 'Disable Tier' : 'Enable Tier'}
-          </button>
-        )}
-        <div class="cz-tf-footer__spacer" />
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--secondary"
-          onClick={ctx.close}
-          disabled={saving}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--primary"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving…' : 'Publish Tier'}
-        </button>
-      </div>
+      {/* ── Service Tab ────────────────────────────────────────────────────── */}
+      {tab === 'service' && (
+        <>
+          {service ? (
+            <div class="cz-sv-commercial-block">
+              <div class="cz-sv-commercial-block__header">
+                <span class="cz-sv-commercial-block__label">{decodeHtml(service.title)}</span>
+                <div class="cz-sv-commercial-block__status">
+                  <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
+                  <span class="cz-status-pill cz-status-pill--active">Linked</span>
+                </div>
+              </div>
+              {service.excerpt && (
+                <p class="cz-sv-commercial-block__count">{service.excerpt}</p>
+              )}
+              {service.categories && service.categories.length > 0 && (
+                <div class="cz-sv-overview-block__meta" style="margin-top:var(--cz-space-2)">
+                  <span class="cz-req-contact-grid__label">Category</span>
+                  <span class="cz-sv-overview-block__value">
+                    {service.categories.map((c) => decodeHtml(c.name)).join(', ')}
+                  </span>
+                </div>
+              )}
+              {service.content && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Description</span>
+                  <p class="cz-sv-overview-block__desc">{service.content}</p>
+                </div>
+              )}
+              <div class="cz-sv-commercial-block__footer">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  onClick={openServiceEditor}
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div class="cz-req-detail__section">
+              <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
+            </div>
+          )}
+
+          {/* Pricing Summary */}
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <p class="cz-req-detail__section-title">Pricing Summary</p>
+            <div class="cz-sp-tier-table-wrap">
+              <table class="cz-sp-tier-table">
+                <thead>
+                  <tr>
+                    <th>Tier</th>
+                    <th>Price</th>
+                    <th>Cycle</th>
+                    <th class="cz-sp-tier-table__center">Features</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TIERS.map((t) => {
+                    const tierData = detail.package.tiers[t];
+                    return (
+                      <tr key={t}>
+                        <td class="cz-sp-tier-table__name">{TIER_LABELS[t]}</td>
+                        <td>
+                          <span class={`cz-price-tag${tierData?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                            {tierData ? fmtPrice(tierData.price) : '—'}
+                          </span>
+                        </td>
+                        <td class="cz-sp-tier-table__muted">{tierData?.billing_cycle ?? '—'}</td>
+                        <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                          {tierData?.inclusions_override?.length ?? '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Service Tab Footer: Cancel only */}
+          <div class="cz-tf-footer">
+            <div class="cz-tf-footer__spacer" />
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
     </div>
+
+    {/* ── Tier Overview Inline Editor ──────────────────────────────────────── */}
+    {editingSection === 'overview' && overviewDraft && (
+      <InlineEditorShell
+        title="Edit Tier Overview"
+        onSave={handleSaveOverview}
+        onCancel={() => { setEditingSection(null); setOverviewDraft(null); }}
+        saving={false}
+        saveErr={null}
+      >
+        <div class="cz-tf-form">
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Display label</label>
+            <input
+              type="text"
+              class="cz-tf-input"
+              value={overviewDraft.label}
+              onInput={(e) => setOverviewDraft((d) => d ? { ...d, label: (e.target as HTMLInputElement).value } : d)}
+              placeholder={TIER_LABELS[tierId] ?? tierId}
+            />
+            <p class="cz-tf-hint">Override the default name. Leave blank to use the default.</p>
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Price</label>
+            <div class="cz-tf-price-row">
+              <input
+                type="number"
+                class="cz-tf-input cz-tf-input--price"
+                value={overviewDraft.priceStr}
+                disabled={overviewDraft.priceIsContact}
+                onInput={(e) => setOverviewDraft((d) => d ? { ...d, priceStr: (e.target as HTMLInputElement).value } : d)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
+              <label class="cz-tf-check-row cz-tf-check-row--inline">
+                <input
+                  type="checkbox"
+                  checked={overviewDraft.priceIsContact}
+                  onChange={(e) => {
+                    const v = (e.target as HTMLInputElement).checked;
+                    setOverviewDraft((d) => d ? { ...d, priceIsContact: v, priceStr: v ? '' : d.priceStr } : d);
+                  }}
+                />
+                <span>Contact / no fixed price</span>
+              </label>
+            </div>
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Billing cycle</label>
+            <select
+              class="cz-tf-select"
+              value={overviewDraft.billingCycle}
+              onChange={(e) => setOverviewDraft((d) => d ? { ...d, billingCycle: (e.target as HTMLSelectElement).value } : d)}
+            >
+              {BILLING_CYCLES.map((c) => <option key={c} value={c}>{capitalize(c)}</option>)}
+            </select>
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-check-row">
+              <input
+                type="checkbox"
+                checked={overviewDraft.isPopular}
+                onChange={(e) => setOverviewDraft((d) => d ? { ...d, isPopular: (e.target as HTMLInputElement).checked } : d)}
+              />
+              <span>Show as the recommended tier</span>
+            </label>
+            {overviewDraft.isPopular && (
+              <>
+                <label class="cz-tf-label" style="margin-top:var(--cz-space-2)">Badge label</label>
+                <input
+                  type="text"
+                  class="cz-tf-input"
+                  value={overviewDraft.popularLabel}
+                  onInput={(e) => setOverviewDraft((d) => d ? { ...d, popularLabel: (e.target as HTMLInputElement).value } : d)}
+                  placeholder="Best"
+                />
+                <p class="cz-tf-hint">Text shown on the popular badge. Defaults to "Best".</p>
+              </>
+            )}
+          </div>
+        </div>
+      </InlineEditorShell>
+    )}
+
+    {/* ── Service Inline Editor ─────────────────────────────────────────────── */}
+    {editingSection === 'service' && serviceDraft && (
+      <InlineEditorShell
+        title="Edit Service"
+        onSave={handleSaveService}
+        onCancel={() => { setEditingSection(null); setServiceDraft(null); setServiceErr(null); }}
+        saving={serviceSaving}
+        saveErr={serviceErr}
+      >
+        <div class="cz-tf-form">
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Service title</label>
+            <input
+              type="text"
+              class="cz-tf-input"
+              value={serviceDraft.title}
+              onInput={(e) => setServiceDraft((d) => d ? { ...d, title: (e.target as HTMLInputElement).value } : d)}
+              placeholder="Service title"
+            />
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Short description</label>
+            <input
+              type="text"
+              class="cz-tf-input"
+              value={serviceDraft.excerpt}
+              onInput={(e) => setServiceDraft((d) => d ? { ...d, excerpt: (e.target as HTMLInputElement).value } : d)}
+              placeholder="Brief description"
+            />
+          </div>
+        </div>
+      </InlineEditorShell>
+    )}
+    </>
   );
 }
 
@@ -550,14 +823,15 @@ interface PackageCardProps {
 }
 
 function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
-  const [disabling, setDisabling]         = useState(false);
-  const [togglingTier, setTogglingTier]   = useState<string | null>(null);
+  const [disabling, setDisabling] = useState(false);
 
-  const serviceNames        = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
-  const isEnabled           = pkg.post_status === 'publish';
+  const serviceNames          = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
+  const isEnabled             = pkg.post_status === 'publish';
   const resolvedPopularTierId = resolvePopularTier(pkg);
+  const tierCount             = TIERS.filter((t) => pkg.tiers[t]).length;
+  const atTierLimit           = tierCount >= MAX_TIERS;
 
-  const handleManageTier = (tierId: TierId) => {
+  const handleViewTier = (tierId: TierId) => {
     const tier = pkg.tiers[tierId];
     openAction({
       id:   `tier-${pkg.post_id}-${tierId}`,
@@ -573,11 +847,12 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
     });
   };
 
-  const handleCreateTier = () => {
+  const handleAddTier = () => {
+    if (atTierLimit) return;
     openAction({
       id:   `tier-create-${pkg.post_id}`,
       mode: 'drawer',
-      title: `Create Tier — ${serviceNames}`,
+      title: `Add Tier — ${serviceNames}`,
       initialStepData: {
         packageId:      pkg.post_id,
         tierId:         null,
@@ -586,16 +861,6 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
       },
       steps: [{ id: 'tier-form', title: 'New Tier', component: TierManageStep }],
     });
-  };
-
-  const handleToggleTierEnabled = async (tierId: string, currentlyEnabled: boolean) => {
-    setTogglingTier(tierId);
-    try {
-      await toggleSurfaceTierEnabled(pkg.post_id, tierId, !currentlyEnabled);
-      onRefetch();
-    } finally {
-      setTogglingTier(null);
-    }
   };
 
   const handleTogglePackage = async () => {
@@ -615,7 +880,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
   return (
     <div class={`cz-ws-card${!isEnabled ? ' cz-ws-card--disabled' : ''}`}>
 
-      {/* ── Package header ────────────────────────────────────────────── */}
+      {/* ── Package header ────────────────────────────────────────────────── */}
       <div class="cz-sp-pkg-header">
         <div class="cz-sp-pkg-header__left">
           <p class="cz-sp-pkg-header__title">
@@ -629,31 +894,23 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
           </p>
           <p class="cz-sp-pkg-header__service">{serviceNames}</p>
         </div>
-        <div class="cz-sp-pkg-header__actions">
-          <button
-            type="button"
-            class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--primary'}`}
-            onClick={handleTogglePackage}
-            disabled={disabling}
-          >
-            {disabling ? '…' : isEnabled ? 'Disable Package' : 'Enable Package'}
-          </button>
-        </div>
       </div>
 
-      {/* ── Tiers section heading + create button ─────────────────────── */}
+      {/* ── Tiers section heading + add button ───────────────────────────── */}
       <div class="cz-sp-tiers-header">
         <p class="cz-sp-tiers-header__label">Existing Tiers</p>
         <button
           type="button"
           class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-          onClick={handleCreateTier}
+          onClick={handleAddTier}
+          disabled={atTierLimit}
+          title={atTierLimit ? 'This package already contains the maximum of 4 tiers.' : undefined}
         >
-          + Create Tier
+          + Add Tier
         </button>
       </div>
 
-      {/* ── Tier table ────────────────────────────────────────────────── */}
+      {/* ── Tier table ──────────────────────────────────────────────────────── */}
       {TIERS.every((t) => !pkg.tiers[t]) ? (
         <p class="cz-sp-empty-tiers">No tiers available for this service.</p>
       ) : (
@@ -672,12 +929,10 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
             <tbody>
               {TIERS.map((tierId) => {
                 const tier        = pkg.tiers[tierId];
-                const tierEnabled = tier?.enabled ?? true;
-                const isPopular   = resolvedPopularTierId === tierId;
-                const isBusy      = togglingTier === tierId;
-                const displayLabel = (tier?.label && tier.label !== '')
-                  ? tier.label
-                  : TIER_LABELS[tierId];
+                if (!tier) return null;
+                const tierEnabled  = tier.enabled ?? true;
+                const isPopular    = resolvedPopularTierId === tierId;
+                const displayLabel = (tier.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId];
 
                 return (
                   <tr key={tierId} class={!tierEnabled ? 'cz-sp-tier-row--disabled' : ''}>
@@ -693,15 +948,13 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                       </div>
                     </td>
                     <td>
-                      <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                        {tier ? fmtPrice(tier.price) : '—'}
+                      <span class={`cz-price-tag${tier.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                        {fmtPrice(tier.price)}
                       </span>
                     </td>
-                    <td class="cz-sp-tier-table__muted">
-                      {tier?.billing_cycle ?? '—'}
-                    </td>
+                    <td class="cz-sp-tier-table__muted">{tier.billing_cycle ?? '—'}</td>
                     <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                      {tier ? tier.inclusion_count : '—'}
+                      {tier.inclusion_count}
                     </td>
                     <td class="cz-sp-tier-table__center">
                       {isPopular
@@ -711,18 +964,10 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                     <td class="cz-sp-tier-table__actions">
                       <button
                         type="button"
-                        class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                        onClick={() => handleManageTier(tierId as TierId)}
+                        class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                        onClick={() => handleViewTier(tierId as TierId)}
                       >
-                        Manage
-                      </button>
-                      <button
-                        type="button"
-                        class={`cz-admin-btn cz-admin-btn--sm ${tierEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
-                        onClick={() => handleToggleTierEnabled(tierId, tierEnabled)}
-                        disabled={isBusy}
-                      >
-                        {isBusy ? '…' : tierEnabled ? 'Disable' : 'Enable'}
+                        View
                       </button>
                     </td>
                   </tr>
@@ -732,6 +977,18 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
           </table>
         </div>
       )}
+
+      {/* ── Package danger zone ──────────────────────────────────────────────── */}
+      <div class="cz-sp-pkg-footer">
+        <button
+          type="button"
+          class={`cz-admin-btn cz-admin-btn--sm ${isEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
+          onClick={handleTogglePackage}
+          disabled={disabling}
+        >
+          {disabling ? '…' : isEnabled ? 'Disable Package' : 'Enable Package'}
+        </button>
+      </div>
     </div>
   );
 }

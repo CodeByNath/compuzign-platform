@@ -174,6 +174,8 @@ export interface SurfaceServiceInfo {
   title: string;
   slug: string;
   excerpt: string;
+  content?: string;
+  categories?: Array<{ id: number; name: string; slug: string }>;
   inclusions: InclusionItem[];
   faqs: FaqItem[];
 }
@@ -205,6 +207,7 @@ export interface TierSavePayload {
   contact: boolean;
   billing_cycle: string;
   inclusions_override: InclusionItem[];
+  faq_refs?: string[];
   popular: boolean;
   popular_label: string;
   enabled: boolean;

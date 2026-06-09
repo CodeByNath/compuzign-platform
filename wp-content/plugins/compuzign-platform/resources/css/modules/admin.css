@@ -2255,6 +2255,15 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-text-faint);
 }
 
+/* Package danger zone footer */
+.cz-sp-pkg-footer {
+  display: flex;
+  align-items: center;
+  padding-top: var(--cz-space-4);
+  margin-top: var(--cz-space-4);
+  border-top: 1px solid var(--admin-border);
+}
+
 /* ── Tier management table ───────────────────────────────────────────────────── */
 .cz-sp-tier-table-wrap {
   border: 1px solid var(--admin-border-blue);
