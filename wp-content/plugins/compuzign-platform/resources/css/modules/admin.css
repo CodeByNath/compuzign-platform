@@ -644,6 +644,9 @@
   align-self: center;
 }
 
+.cz-admin-status-dot--active { color: var(--admin-success); }
+.cz-admin-status-dot--faint  { color: var(--admin-text-faint); }
+
 .cz-admin-status-strip__version {
   margin-left: auto;
   font-size: var(--admin-fs-s-label);
@@ -2340,9 +2343,21 @@ body.compuzign-admin-page footer.site-footer {
   font-size: var(--admin-fs-s-label);
 }
 
+.cz-sp-tier-table__price {
+  min-width: 80px;
+}
+
+.cz-sp-tier-table__cycle {
+  min-width: 72px;
+}
+
 .cz-sp-tier-table__actions {
   text-align: right;
   white-space: nowrap;
+}
+
+.cz-sp-tier-table__actions .cz-admin-btn {
+  min-width: 3.75rem;
 }
 
 .cz-sp-tier-table__actions .cz-admin-btn + .cz-admin-btn {

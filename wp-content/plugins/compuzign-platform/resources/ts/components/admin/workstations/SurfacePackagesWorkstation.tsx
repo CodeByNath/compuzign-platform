@@ -1702,7 +1702,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
           <p class="cz-sp-pkg-header__service">{serviceNames}</p>
         </div>
         <div class="cz-sp-pkg-header__actions">
-          <span class="cz-admin-status-dot" style={`color:var(--admin-${isEnabled ? 'success' : 'text-faint'})`} />
+          <span class={`cz-admin-status-dot ${isEnabled ? 'cz-admin-status-dot--active' : 'cz-admin-status-dot--faint'}`} />
           <span class={`cz-status-pill ${isEnabled ? 'cz-status-pill--active' : 'cz-status-pill--inactive'}`}>
             {isEnabled ? 'Active' : 'Disabled'}
           </span>
@@ -1729,11 +1729,11 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
           <thead>
             <tr>
               <th>Tier</th>
-              <th>Price</th>
-              <th>Cycle</th>
+              <th class="cz-sp-tier-table__price">Price</th>
+              <th class="cz-sp-tier-table__cycle">Cycle</th>
               <th class="cz-sp-tier-table__center">Inclusions</th>
               <th class="cz-sp-tier-table__center">Popular</th>
-              <th></th>
+              <th class="cz-sp-tier-table__actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -1743,15 +1743,13 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
               const tierEnabled  = isConfigured && (tier?.enabled ?? true);
               const isPopular    = isConfigured && resolvedPopularTierId === tierId;
               const displayLabel = (tier?.label && tier.label !== '') ? tier.label : TIER_LABELS[tierId];
-              const dotColor     = isConfigured
-                ? `var(--admin-${tierEnabled ? 'success' : 'text-faint'})`
-                : 'var(--admin-text-faint)';
+              const dotClass     = isConfigured && tierEnabled ? 'cz-admin-status-dot--active' : 'cz-admin-status-dot--faint';
 
               return (
-                <tr key={tierId} class={!isConfigured ? 'cz-sp-tier-row--disabled' : (!tierEnabled ? 'cz-sp-tier-row--disabled' : '')}>
+                <tr key={tierId} class={!tierEnabled ? 'cz-sp-tier-row--disabled' : ''}>
                   <td class="cz-sp-tier-table__name">
                     <div class="cz-sp-tier-table__name-inner">
-                      <span class="cz-admin-status-dot" style={`color:${dotColor}`} />
+                      <span class={`cz-admin-status-dot ${dotClass}`} />
                       <span class={!isConfigured ? 'cz-sp-tier-table__muted' : ''}>{displayLabel}</span>
                       {isPopular && (
                         <span class="cz-tier-badge cz-tier-badge--popular">Popular</span>
@@ -1761,7 +1759,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                       )}
                     </div>
                   </td>
-                  <td>
+                  <td class="cz-sp-tier-table__price">
                     {isConfigured ? (
                       <span class={`cz-price-tag${tier!.price != null ? ' cz-price-tag--has-price' : ''}`}>
                         {fmtPrice(tier!.price)}
@@ -1770,7 +1768,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                       <span class="cz-sp-tier-table__muted">—</span>
                     )}
                   </td>
-                  <td class="cz-sp-tier-table__muted">
+                  <td class="cz-sp-tier-table__muted cz-sp-tier-table__cycle">
                     {isConfigured ? (tier?.billing_cycle ?? '—') : '—'}
                   </td>
                   <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
@@ -1779,14 +1777,13 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                   <td class="cz-sp-tier-table__center">
                     {isPopular
                       ? <span class="cz-tier-badge cz-tier-badge--popular">★</span>
-                      : <span style="color:var(--admin-text-faint)">—</span>}
+                      : <span class="cz-sp-tier-table__muted">—</span>}
                   </td>
                   <td class="cz-sp-tier-table__actions">
                     {isConfigured ? (
                       <button
                         type="button"
                         class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                        style="min-width:3.75rem"
                         onClick={() => handleViewTier(tierId as TierId)}
                       >
                         View
@@ -1795,7 +1792,6 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                       <button
                         type="button"
                         class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                        style="min-width:3.75rem"
                         onClick={() => handleSetupTier(tierId as TierId)}
                       >
                         Set Up
