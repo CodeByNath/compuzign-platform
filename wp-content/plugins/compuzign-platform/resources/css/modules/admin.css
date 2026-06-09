@@ -2337,7 +2337,7 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sp-tier-table__center {
   text-align: left;
-  width: 80px;
+  width: 10%;
 }
 
 .cz-sp-tier-table__muted {
@@ -2346,17 +2346,17 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sp-tier-table__price {
-  width: 90px;
+  width: 15%;
 }
 
 .cz-sp-tier-table__cycle {
-  width: 90px;
+  width: 15%;
 }
 
 .cz-sp-tier-table__actions {
   text-align: right;
   white-space: nowrap;
-  width: 88px;
+  width: 13%;
 }
 
 .cz-sp-tier-table__actions .cz-admin-btn {
