@@ -10,6 +10,7 @@ export interface StepContext {
   progress: ActionProgress;
   message: string;
   setProgress: (p: ActionProgress, message?: string) => void;
+  setTitle: (title: string) => void;
   goNext: () => void;
   goBack: () => void;
   close: () => void;
@@ -28,6 +29,7 @@ export interface ActionConfig {
   titleDot?: string;
   steps: ActionStep[];
   confirmClose?: boolean;
+  hideStepHeader?: boolean;
   initialStepData?: Record<string, unknown>;
   onComplete?: (stepData: Record<string, unknown>) => void;
   onBack?: () => void;
@@ -44,6 +46,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
   const [stepData, setStepDataMap] = useState<Record<string, unknown>>(config.initialStepData ?? {});
   const [progress, setProgressState] = useState<ActionProgress>('idle');
   const [message, setMessage] = useState('');
+  const [title, setTitleState] = useState(config.title);
 
   const setStepData = useCallback((key: string, value: unknown) => {
     setStepDataMap((prev) => ({ ...prev, [key]: value }));
@@ -53,6 +56,8 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     setProgressState(p);
     setMessage(msg);
   }, []);
+
+  const setTitle = useCallback((t: string) => setTitleState(t), []);
 
   const goNext = useCallback(() => {
     if (currentStep < config.steps.length - 1) {
@@ -90,6 +95,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     progress,
     message,
     setProgress,
+    setTitle,
     goNext,
     goBack,
     close: handleClose,
@@ -120,7 +126,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
             {config.titleDot && (
               <span class="cz-admin-status-dot" style={`color:${config.titleDot}`} />
             )}
-            <h2 class="cz-action-shell__title">{config.title}</h2>
+            <h2 class="cz-action-shell__title">{title}</h2>
             {isMultiStep && (
               <div class="cz-action-shell__step-dots">
                 {config.steps.map((s, i) => (
@@ -145,7 +151,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
           </div>
         </div>
 
-        {isMultiStep && (
+        {isMultiStep && !config.hideStepHeader && (
           <div class="cz-action-shell__step-header">
             <span class="cz-action-shell__step-label">{step.title}</span>
             <span class="cz-action-shell__step-count">

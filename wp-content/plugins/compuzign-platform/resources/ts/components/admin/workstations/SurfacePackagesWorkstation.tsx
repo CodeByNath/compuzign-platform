@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'preact/hooks';
+import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { Spinner } from '@/components/ui/Spinner';
@@ -935,9 +935,15 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
 // ── PackageSelectServiceStep — drawer step ────────────────────────────────────
 
+const PAGE_SIZE = 8;
+
 export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
-  const allServices  = ctx.stepData.allServices as ServiceItem[];
-  const [activeCat, setActiveCat] = useState<number | null>(null);
+  const allServices = ctx.stepData.allServices as ServiceItem[];
+
+  const [activeCat, setActiveCat]       = useState<number | null>(null);
+  const [catOpen, setCatOpen]           = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const catRef = useRef<HTMLDivElement>(null);
 
   const categories = allServices
     .flatMap((s) => s.categories ?? [])
@@ -946,6 +952,31 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
   const filtered = activeCat === null
     ? allServices
     : allServices.filter((s) => (s.categories ?? []).some((c) => c.id === activeCat));
+
+  const displayed = filtered.slice(0, visibleCount);
+  const hasMore   = visibleCount < filtered.length;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) {
+        setCatOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSelectCat = (id: number) => {
+    setActiveCat(id);
+    setCatOpen(false);
+    setVisibleCount(PAGE_SIZE);
+  };
+
+  const handleClearCat = () => {
+    setActiveCat(null);
+    setCatOpen(false);
+    setVisibleCount(PAGE_SIZE);
+  };
 
   const handleSelect = (item: ServiceItem) => {
     const svc: SurfaceServiceInfo = {
@@ -965,67 +996,78 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
 
   return (
     <div class="cz-req-detail">
-      <div class="cz-req-detail__section cz-sv-section--no-border">
-        <p class="cz-req-detail__section-title">Select a Service</p>
-        <p class="cz-tf-hint">Choose the service this package will be built on.</p>
-      </div>
 
       {categories.length > 1 && (
-        <div class="cz-sv-tabs" style="padding: 0 var(--cz-space-4) var(--cz-space-2)">
-          <button
-            type="button"
-            class={`cz-sv-tab${activeCat === null ? ' cz-sv-tab--active' : ''}`}
-            onClick={() => setActiveCat(null)}
-          >
-            All
-          </button>
-          {categories.map((c) => (
+        <div class="cz-sp-cat-selector" ref={catRef}>
+          {activeCat === null ? (
             <button
-              key={c.id}
               type="button"
-              class={`cz-sv-tab${activeCat === c.id ? ' cz-sv-tab--active' : ''}`}
-              onClick={() => setActiveCat(c.id)}
+              class="cz-sp-cat-selector__trigger"
+              onClick={() => setCatOpen((o) => !o)}
             >
-              {decodeHtml(c.name)}
+              Browse Category
             </button>
-          ))}
+          ) : (
+            <span class="cz-sp-cat-selector__chip">
+              {decodeHtml(categories.find((c) => c.id === activeCat)?.name ?? '')}
+              <button
+                type="button"
+                class="cz-sp-cat-selector__clear"
+                onClick={handleClearCat}
+                aria-label="Clear category"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {catOpen && (
+            <ul class="cz-sp-cat-selector__dropdown">
+              {categories.filter((c) => c.id !== null).map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    class="cz-sp-cat-selector__option"
+                    onClick={() => handleSelectCat(c.id as number)}
+                  >
+                    {decodeHtml(c.name)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {displayed.length === 0 ? (
         <div class="cz-req-detail__section">
           <p class="cz-tf-hint">{allServices.length === 0 ? 'Loading services…' : 'No services found.'}</p>
         </div>
       ) : (
-        <div class="cz-sp-tier-table-wrap" style="padding: 0 var(--cz-space-4)">
+        <div class="cz-sp-tier-table-wrap">
           <table class="cz-sp-tier-table">
             <thead>
               <tr>
                 <th>Service</th>
-                <th>Category</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {displayed.map((item) => (
                 <tr key={item.id}>
                   <td class="cz-sp-tier-table__name">
                     <div class="cz-sp-tier-table__name-inner">
                       <span>{decodeHtml(item.title)}</span>
                     </div>
                     {item.excerpt && (
-                      <p class="cz-sp-tier-table__muted" style="font-size:var(--cz-text-xs);margin-top:2px;white-space:normal">
+                      <p class="cz-sp-tier-table__muted cz-sp-service-excerpt">
                         {decodeHtml(item.excerpt)}
                       </p>
                     )}
                   </td>
-                  <td class="cz-sp-tier-table__muted">
-                    {(item.categories ?? []).map((c) => decodeHtml(c.name)).join(', ') || '—'}
-                  </td>
                   <td class="cz-sp-tier-table__actions">
                     <button
                       type="button"
-                      class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                       onClick={() => handleSelect(item)}
                     >
                       Select
@@ -1035,6 +1077,17 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
               ))}
             </tbody>
           </table>
+          {hasMore && (
+            <div class="cz-sp-load-more">
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary"
+                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              >
+                Load more
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1065,15 +1118,16 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
   const [popularLabel, setPopularLabel]     = useState('');
 
   const [overviewDraft, setOverviewDraft] = useState<{
+    tierId: string;
     label: string;
     priceIsContact: boolean;
     priceStr: string;
     billingCycle: string;
     isPopular: boolean;
     popularLabel: string;
-  }>({ label: '', priceIsContact: false, priceStr: '', billingCycle: 'monthly', isPopular: false, popularLabel: '' });
+  }>({ tierId: 'basic', label: '', priceIsContact: false, priceStr: '', billingCycle: 'monthly', isPopular: false, popularLabel: '' });
 
-  const [editingSection, setEditingSection] = useState<'overview' | 'inclusions' | 'faqs' | null>('overview');
+  const [editingSection, setEditingSection] = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
   const [overviewSaved, setOverviewSaved]   = useState(false);
 
   const [selExistingIncs, setSelExistingIncs] = useState<InclusionItem[]>([]);
@@ -1129,11 +1183,12 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
   };
 
   const openOverviewEditor = useCallback(() => {
-    setOverviewDraft({ label, priceIsContact, priceStr, billingCycle, isPopular, popularLabel });
+    setOverviewDraft({ tierId, label, priceIsContact, priceStr, billingCycle, isPopular, popularLabel });
     setEditingSection('overview');
-  }, [label, priceIsContact, priceStr, billingCycle, isPopular, popularLabel]);
+  }, [tierId, label, priceIsContact, priceStr, billingCycle, isPopular, popularLabel]);
 
   const handleSaveOverview = useCallback(async () => {
+    setTierId(overviewDraft.tierId);
     setLabel(overviewDraft.label);
     setPriceIsContact(overviewDraft.priceIsContact);
     setPriceStr(overviewDraft.priceStr);
@@ -1142,7 +1197,9 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
     setPopularLabel(overviewDraft.popularLabel);
     setOverviewSaved(true);
     setEditingSection(null);
-  }, [overviewDraft]);
+    const svc = ctx.stepData.service as SurfaceServiceInfo;
+    ctx.setTitle(`${TIER_LABELS[overviewDraft.tierId] ?? overviewDraft.tierId} — ${decodeHtml(svc?.title ?? 'New Package')}`);
+  }, [overviewDraft, ctx]);
 
   const handleSaveInclusions = useCallback(async () => {
     setEditingSection(null);
@@ -1150,6 +1207,11 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
 
   const handleSaveFaqs = useCallback(async () => {
     setEditingSection(null);
+  }, []);
+
+  useEffect(() => {
+    const body = document.querySelector('.cz-action-shell__body');
+    if (body) body.scrollTop = 0;
   }, []);
 
   const buildPayload = (enabled: boolean): TierSavePayload => ({
@@ -1191,21 +1253,6 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
     <>
     <div class="cz-req-detail">
 
-      {/* ── Tier selector ─────────────────────────────────────────────────── */}
-      <div class="cz-req-detail__section cz-sv-section--no-border">
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Tier *</label>
-          <select
-            class="cz-tf-select"
-            value={tierId}
-            disabled={overviewSaved}
-            onChange={(e) => setTierId((e.target as HTMLSelectElement).value)}
-          >
-            {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
-          </select>
-        </div>
-      </div>
-
       {/* ── Tab bar ────────────────────────────────────────────────────────── */}
       <div class="cz-sv-tabs">
         <button type="button" class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('commercial')}>
@@ -1222,7 +1269,7 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
           {/* Tier Overview */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Tier Overview</p>
-            <div class={`cz-sv-overview-block${!overviewSaved ? ' cz-sv-overview-block--prompt' : ''}`}>
+            <div class="cz-sv-overview-block">
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openOverviewEditor}>
                 ✎ Edit
               </button>
@@ -1232,7 +1279,7 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
               <div class="cz-sv-overview-block__meta">
                 <span class="cz-req-contact-grid__label">Price</span>
                 <span class="cz-sv-overview-block__value">
-                  {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '—')}
+                  {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '0.00')}
                 </span>
               </div>
               <div class="cz-sv-overview-block__meta">
@@ -1254,13 +1301,11 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">
               Included Features
-              {overviewSaved && selIncCount > 0 && (
+              {selIncCount > 0 && (
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selIncCount}</span>
               )}
             </p>
-            {!overviewSaved ? (
-              <p class="cz-tf-hint">Save the tier overview first to enable features, FAQs and publishing.</p>
-            ) : selIncCount > 0 ? (
+            {selIncCount > 0 ? (
               <div class="cz-sc-inclusion-pool">
                 {pendingIncs.map((p) => (
                   <span key={p.label} class="cz-tf-chip">
@@ -1277,7 +1322,16 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </div>
             ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setEditingSection('inclusions')}>+ Add inclusions</button>
+              <div class="cz-sv-overview-block">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                  onClick={() => setEditingSection('inclusions')}
+                >
+                  ✎ Edit
+                </button>
+                <p class="cz-sv-overview-block__name">Add inclusions</p>
+              </div>
             )}
           </div>
 
@@ -1285,13 +1339,11 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">
               Common Questions
-              {overviewSaved && selFaqCount > 0 && (
+              {selFaqCount > 0 && (
                 <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selFaqCount}</span>
               )}
             </p>
-            {!overviewSaved ? (
-              <p class="cz-tf-hint">Save the tier overview first to enable features, FAQs and publishing.</p>
-            ) : selFaqCount > 0 ? (
+            {selFaqCount > 0 ? (
               <div class="cz-sc-faq-list">
                 {pendingFaqs.map((p) => (
                   <div key={p.question} class="cz-sc-faq-item">
@@ -1309,7 +1361,16 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </div>
             ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setEditingSection('faqs')}>+ Add FAQs</button>
+              <div class="cz-sv-overview-block">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                  onClick={() => setEditingSection('faqs')}
+                >
+                  ✎ Edit
+                </button>
+                <p class="cz-sv-overview-block__name">Add FAQs</p>
+              </div>
             )}
           </div>
 
@@ -1321,15 +1382,14 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
             <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
               Cancel
             </button>
-            {!overviewSaved ? (
-              <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={openOverviewEditor}>
-                Save Tier Overview
-              </button>
-            ) : (
-              <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handlePublish} disabled={saving}>
-                {saving ? 'Creating…' : 'Publish Tier'}
-              </button>
-            )}
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={handlePublish}
+              disabled={saving || !overviewSaved}
+            >
+              {saving ? 'Creating…' : 'Publish Tier'}
+            </button>
           </div>
         </>
       )}
@@ -1375,7 +1435,7 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
     {/* ── Tier Overview Inline Editor ──────────────────────────────────────── */}
     {editingSection === 'overview' && (
       <InlineEditorShell
-        title="Edit Tier Overview"
+        title={`${TIER_LABELS[overviewDraft.tierId] ?? overviewDraft.tierId} — New Package`}
         onSave={handleSaveOverview}
         onCancel={() => { setEditingSection(null); }}
         saving={false}
@@ -1383,13 +1443,23 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
       >
         <div class="cz-tf-form">
           <div class="cz-tf-field">
+            <label class="cz-tf-label">Tier level *</label>
+            <select
+              class="cz-tf-select"
+              value={overviewDraft.tierId}
+              onChange={(e) => setOverviewDraft((d) => ({ ...d, tierId: (e.target as HTMLSelectElement).value }))}
+            >
+              {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
+            </select>
+          </div>
+          <div class="cz-tf-field">
             <label class="cz-tf-label">Display label</label>
             <input
               type="text"
               class="cz-tf-input"
               value={overviewDraft.label}
               onInput={(e) => setOverviewDraft((d) => ({ ...d, label: (e.target as HTMLInputElement).value }))}
-              placeholder={TIER_LABELS[tierId] ?? tierId}
+              placeholder={TIER_LABELS[overviewDraft.tierId] ?? overviewDraft.tierId}
             />
             <p class="cz-tf-hint">Override the default name. Leave blank to use the default.</p>
           </div>
@@ -1834,16 +1904,17 @@ export function SurfacePackagesWorkstation({ refreshKey, openAction }: Props) {
   const handleNewPackage = useCallback(() => {
     const allServices = cbData?.services_by_category.flatMap((g) => g.services) ?? [];
     openAction({
-      id:   'package-create',
-      mode: 'drawer',
-      title: 'New Service Package',
+      id:             'package-create',
+      mode:           'drawer',
+      title:          'New Package',
+      hideStepHeader: true,
       initialStepData: {
         allServices,
         onRefetch: refetch,
       },
       steps: [
-        { id: 'select-service', title: 'Select a Service',      component: PackageSelectServiceStep },
-        { id: 'create-tier',    title: 'Configure First Tier',  component: PackageCreateTierStep    },
+        { id: 'select-service', title: 'Select Service',   component: PackageSelectServiceStep },
+        { id: 'create-tier',    title: 'Configure Tier',   component: PackageCreateTierStep    },
       ],
     });
   }, [cbData, openAction, refetch]);
