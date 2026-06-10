@@ -1033,14 +1033,6 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
             </button>
           )}
         </div>
-
-        <input
-          type="text"
-          class="cz-tf-input"
-          placeholder="Search by service"
-          value={searchQuery}
-          onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
-        />
       </div>
 
       {/* ── Category options (replaces service list when browse is open) ─── */}
@@ -1101,7 +1093,7 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
                         onClick={() => handleSelect(item)}
                         aria-label={`Select ${decodeHtml(item.title)}`}
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                           <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
                       </button>
@@ -1113,6 +1105,16 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
           )}
         </div>
       )}
+
+      <div class="cz-sp-search-wrap">
+        <input
+          type="text"
+          class="cz-tf-input"
+          placeholder="Search by service"
+          value={searchQuery}
+          onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
+        />
+      </div>
 
       <div class="cz-tf-footer">
         <div class="cz-tf-footer__spacer" />

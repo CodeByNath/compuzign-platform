@@ -2377,12 +2377,9 @@ body.compuzign-admin-page footer.site-footer {
   white-space: normal;
 }
 
-/* ── Browse + search inputs ─────────────────────────────────────────────────── */
+/* ── Browse input (primary-button style) ─────────────────────────────────────── */
 .cz-sp-browse-area {
-  padding: var(--cz-space-3) var(--cz-space-4) var(--cz-space-2);
-  display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-2);
+  padding: var(--cz-space-3) var(--cz-space-4);
 }
 
 .cz-sp-browse-field {
@@ -2391,20 +2388,37 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sp-browse-input {
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2366678a' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background: var(--admin-accent);
+  border-color: var(--admin-accent);
+  color: var(--admin-bg);
+  font-weight: var(--admin-fw-strong);
+  text-align: left;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%230f1117' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px;
+  transition: background var(--cz-transition-fast), border-color var(--cz-transition-fast), box-shadow var(--cz-transition-fast);
+}
+
+.cz-sp-browse-input::placeholder {
+  color: rgba(15, 17, 23, 0.55);
+}
+
+.cz-sp-browse-input:hover {
+  background: var(--admin-accent-hover);
+  border-color: var(--admin-accent-hover);
+  box-shadow: var(--admin-depth-glow-md);
+}
+
+.cz-sp-browse-input--active {
+  background: var(--admin-accent-hover);
+  border-color: var(--admin-accent-hover);
+  box-shadow: var(--admin-depth-ring-md);
 }
 
 .cz-sp-browse-input--selected {
   background-image: none;
   padding-right: 34px;
-}
-
-.cz-sp-browse-input--active {
-  border-color: var(--admin-accent);
-  background-color: var(--admin-white-a05);
 }
 
 .cz-sp-input-clear {
@@ -2420,15 +2434,14 @@ body.compuzign-admin-page footer.site-footer {
   padding: 0;
   border: none;
   background: none;
-  color: var(--admin-text-muted);
+  color: var(--admin-bg);
   cursor: pointer;
   border-radius: 50%;
-  transition: background var(--cz-transition-fast), color var(--cz-transition-fast);
+  transition: background var(--cz-transition-fast);
 }
 
 .cz-sp-input-clear:hover {
-  background: var(--admin-surface-3);
-  color: var(--admin-text);
+  background: rgba(15, 17, 23, 0.18);
 }
 
 /* ── Category options list ───────────────────────────────────────────────────── */
@@ -2467,10 +2480,10 @@ body.compuzign-admin-page footer.site-footer {
   background: var(--admin-accent-a12);
 }
 
-/* ── Scrollable service list ─────────────────────────────────────────────────── */
+/* ── Scrollable service list (fixed height = ~8 rows) ────────────────────────── */
 .cz-sp-service-list {
+  height: 380px;
   overflow-y: auto;
-  max-height: 360px;
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   margin: 0 var(--cz-space-4);
@@ -2481,10 +2494,24 @@ body.compuzign-admin-page footer.site-footer {
   margin: 0;
 }
 
-/* ── Plus icon select button ─────────────────────────────────────────────────── */
+/* ── Search input (below list) ───────────────────────────────────────────────── */
+.cz-sp-search-wrap {
+  padding: var(--cz-space-2) var(--cz-space-4);
+}
+
+/* ── Focus-driven input visibility ──────────────────────────────────────────── */
+.cz-sp-browse-area:focus-within ~ .cz-sp-search-wrap {
+  display: none;
+}
+
+.cz-req-detail:has(.cz-sp-search-wrap:focus-within) .cz-sp-browse-area {
+  display: none;
+}
+
+/* ── Plus icon select button (compact) ───────────────────────────────────────── */
 .cz-sp-select-btn {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   display: inline-flex;
   align-items: center;
