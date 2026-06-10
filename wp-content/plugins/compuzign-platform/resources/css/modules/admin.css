@@ -2337,7 +2337,6 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sp-tier-table__center {
   text-align: left;
-  width: 10%;
 }
 
 .cz-sp-tier-table__muted {
@@ -2378,105 +2377,119 @@ body.compuzign-admin-page footer.site-footer {
   white-space: normal;
 }
 
-/* ── Category selector (Browse Category chip + dropdown) ─────────────────────── */
-.cz-sp-cat-selector {
+/* ── Browse + search inputs ─────────────────────────────────────────────────── */
+.cz-sp-browse-area {
+  padding: var(--cz-space-3) var(--cz-space-4) var(--cz-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+}
+
+.cz-sp-browse-field {
   position: relative;
-  padding: var(--cz-space-2) var(--cz-space-4);
 }
 
-.cz-sp-cat-selector__trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--cz-space-1);
-  padding: 4px 10px;
-  border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius);
-  background: var(--admin-surface-2);
-  color: var(--admin-text-muted);
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-strong);
+.cz-sp-browse-input {
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2366678a' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
 }
 
-.cz-sp-cat-selector__trigger:hover {
+.cz-sp-browse-input--selected {
+  background-image: none;
+  padding-right: 34px;
+}
+
+.cz-sp-browse-input--active {
   border-color: var(--admin-accent);
-  color: var(--admin-text);
+  background-color: var(--admin-white-a05);
 }
 
-.cz-sp-cat-selector__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--cz-space-1);
-  padding: 4px 10px;
-  border: 1px solid var(--admin-accent);
-  border-radius: var(--admin-radius);
-  background: var(--admin-accent-a12);
-  color: var(--admin-text);
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-strong);
-}
-
-.cz-sp-cat-selector__clear {
-  display: inline-flex;
+.cz-sp-input-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
   background: none;
   color: var(--admin-text-muted);
-  font-size: 14px;
   cursor: pointer;
-  line-height: 1;
   border-radius: 50%;
-  transition: background 0.1s, color 0.1s;
+  transition: background var(--cz-transition-fast), color var(--cz-transition-fast);
 }
 
-.cz-sp-cat-selector__clear:hover {
+.cz-sp-input-clear:hover {
   background: var(--admin-surface-3);
   color: var(--admin-text);
 }
 
-.cz-sp-cat-selector__dropdown {
-  position: absolute;
-  top: calc(100% - var(--cz-space-2));
-  left: var(--cz-space-4);
-  z-index: 50;
-  min-width: 180px;
-  margin: 0;
-  padding: var(--cz-space-1) 0;
-  list-style: none;
-  background: var(--admin-surface-2);
-  border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+/* ── Category options list ───────────────────────────────────────────────────── */
+.cz-sp-cat-options-wrap {
+  padding: 0 var(--cz-space-4) var(--cz-space-2);
 }
 
-.cz-sp-cat-selector__option {
+.cz-sp-cat-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--admin-border-blue);
+  border-radius: var(--admin-radius);
+  overflow: hidden;
+}
+
+.cz-sp-cat-option {
   display: block;
   width: 100%;
-  padding: 7px 12px;
+  padding: 9px 12px;
   border: none;
+  border-bottom: 1px solid var(--admin-border-blue);
   background: none;
   color: var(--admin-text);
   font-size: var(--admin-fs-label);
   text-align: left;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background var(--cz-transition-fast);
 }
 
-.cz-sp-cat-selector__option:hover {
+.cz-sp-cat-options li:last-child .cz-sp-cat-option {
+  border-bottom: none;
+}
+
+.cz-sp-cat-option:hover {
   background: var(--admin-accent-a12);
 }
 
-/* ── Load more button row ───────────────────────────────────────────────────── */
-.cz-sp-load-more {
-  display: flex;
-  justify-content: center;
+/* ── Scrollable service list ─────────────────────────────────────────────────── */
+.cz-sp-service-list {
+  overflow-y: auto;
+  max-height: 360px;
+  border: 1px solid var(--admin-border-blue);
+  border-radius: var(--admin-radius);
+  margin: 0 var(--cz-space-4);
+}
+
+.cz-sp-service-list__empty {
   padding: var(--cz-space-3) var(--cz-space-4);
-  border-top: 1px solid var(--admin-border-blue);
+  margin: 0;
+}
+
+/* ── Plus icon select button ─────────────────────────────────────────────────── */
+.cz-sp-select-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 /* ── Tier management drawer form ────────────────────────────────────────────── */

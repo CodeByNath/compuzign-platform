@@ -935,30 +935,32 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
 // ── PackageSelectServiceStep — drawer step ────────────────────────────────────
 
-const PAGE_SIZE = 8;
-
 export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
   const allServices = ctx.stepData.allServices as ServiceItem[];
 
-  const [activeCat, setActiveCat]       = useState<number | null>(null);
-  const [catOpen, setCatOpen]           = useState(false);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const catRef = useRef<HTMLDivElement>(null);
+  const [activeCat, setActiveCat]     = useState<number | null>(null);
+  const [catOpen, setCatOpen]         = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const browseRef = useRef<HTMLDivElement>(null);
 
   const categories = allServices
     .flatMap((s) => s.categories ?? [])
-    .filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
+    .filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i && c.id !== null);
 
-  const filtered = activeCat === null
+  const catFiltered = activeCat === null
     ? allServices
     : allServices.filter((s) => (s.categories ?? []).some((c) => c.id === activeCat));
 
-  const displayed = filtered.slice(0, visibleCount);
-  const hasMore   = visibleCount < filtered.length;
+  const displayed = searchQuery.length >= 3
+    ? catFiltered.filter((s) =>
+        decodeHtml(s.title).toLowerCase().includes(searchQuery.toLowerCase()))
+    : catFiltered;
+
+  const showServiceList = !catOpen && (searchQuery.length === 0 || searchQuery.length >= 3);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (catRef.current && !catRef.current.contains(e.target as Node)) {
+      if (browseRef.current && !browseRef.current.contains(e.target as Node)) {
         setCatOpen(false);
       }
     };
@@ -969,13 +971,12 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
   const handleSelectCat = (id: number) => {
     setActiveCat(id);
     setCatOpen(false);
-    setVisibleCount(PAGE_SIZE);
   };
 
-  const handleClearCat = () => {
+  const handleClearCat = (e: MouseEvent) => {
+    e.stopPropagation();
     setActiveCat(null);
     setCatOpen(false);
-    setVisibleCount(PAGE_SIZE);
   };
 
   const handleSelect = (item: ServiceItem) => {
@@ -994,99 +995,121 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
     ctx.goNext();
   };
 
+  const activeCatName = activeCat !== null
+    ? decodeHtml(categories.find((c) => c.id === activeCat)?.name ?? '')
+    : '';
+
   return (
     <div class="cz-req-detail">
 
-      {categories.length > 1 && (
-        <div class="cz-sp-cat-selector" ref={catRef}>
-          {activeCat === null ? (
+      {/* ── Browse + search inputs ─────────────────────────────────────────── */}
+      <div class="cz-sp-browse-area" ref={browseRef}>
+        <div class="cz-sp-browse-field">
+          <input
+            type="text"
+            class={[
+              'cz-tf-input',
+              'cz-sp-browse-input',
+              catOpen ? 'cz-sp-browse-input--active' : '',
+              activeCat !== null ? 'cz-sp-browse-input--selected' : '',
+            ].filter(Boolean).join(' ')}
+            placeholder="Browse by service"
+            readOnly
+            value={activeCatName}
+            onClick={() => { if (categories.length > 0) setCatOpen((o) => !o); }}
+            aria-haspopup="listbox"
+            aria-expanded={catOpen}
+          />
+          {activeCat !== null && (
             <button
               type="button"
-              class="cz-sp-cat-selector__trigger"
-              onClick={() => setCatOpen((o) => !o)}
+              class="cz-sp-input-clear"
+              onClick={handleClearCat}
+              aria-label="Clear category"
             >
-              Browse Category
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
             </button>
-          ) : (
-            <span class="cz-sp-cat-selector__chip">
-              {decodeHtml(categories.find((c) => c.id === activeCat)?.name ?? '')}
-              <button
-                type="button"
-                class="cz-sp-cat-selector__clear"
-                onClick={handleClearCat}
-                aria-label="Clear category"
-              >
-                ×
-              </button>
-            </span>
           )}
-          {catOpen && (
-            <ul class="cz-sp-cat-selector__dropdown">
-              {categories.filter((c) => c.id !== null).map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    class="cz-sp-cat-selector__option"
-                    onClick={() => handleSelectCat(c.id as number)}
-                  >
-                    {decodeHtml(c.name)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        </div>
+
+        <input
+          type="text"
+          class="cz-tf-input"
+          placeholder="Search by service"
+          value={searchQuery}
+          onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
+        />
+      </div>
+
+      {/* ── Category options (replaces service list when browse is open) ─── */}
+      {catOpen && categories.length > 0 && (
+        <div class="cz-sp-cat-options-wrap">
+          <ul class="cz-sp-cat-options" role="listbox">
+            {categories.map((c) => (
+              <li key={c.id} role="option">
+                <button
+                  type="button"
+                  class="cz-sp-cat-option"
+                  onClick={() => handleSelectCat(c.id as number)}
+                >
+                  {decodeHtml(c.name)}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {displayed.length === 0 ? (
-        <div class="cz-req-detail__section">
-          <p class="cz-tf-hint">{allServices.length === 0 ? 'Loading services…' : 'No services found.'}</p>
-        </div>
-      ) : (
-        <div class="cz-sp-tier-table-wrap">
-          <table class="cz-sp-tier-table">
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayed.map((item) => (
-                <tr key={item.id}>
-                  <td class="cz-sp-tier-table__name">
-                    <div class="cz-sp-tier-table__name-inner">
-                      <span>{decodeHtml(item.title)}</span>
-                    </div>
-                    {item.excerpt && (
-                      <p class="cz-sp-tier-table__muted cz-sp-service-excerpt">
-                        {decodeHtml(item.excerpt)}
-                      </p>
-                    )}
-                  </td>
-                  <td class="cz-sp-tier-table__actions">
-                    <button
-                      type="button"
-                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                      onClick={() => handleSelect(item)}
-                    >
-                      Select
-                    </button>
-                  </td>
+      {/* ── Service list ──────────────────────────────────────────────────── */}
+      {showServiceList && (
+        <div class="cz-sp-service-list">
+          {displayed.length === 0 ? (
+            <p class="cz-tf-hint cz-sp-service-list__empty">
+              {allServices.length === 0
+                ? 'Loading services…'
+                : searchQuery.length >= 3
+                  ? 'Service not found.'
+                  : 'No services found.'}
+            </p>
+          ) : (
+            <table class="cz-sp-tier-table">
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {hasMore && (
-            <div class="cz-sp-load-more">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary"
-                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-              >
-                Load more
-              </button>
-            </div>
+              </thead>
+              <tbody>
+                {displayed.map((item) => (
+                  <tr key={item.id}>
+                    <td class="cz-sp-tier-table__name">
+                      <div class="cz-sp-tier-table__name-inner">
+                        <span>{decodeHtml(item.title)}</span>
+                      </div>
+                      {item.excerpt && (
+                        <p class="cz-sp-tier-table__muted cz-sp-service-excerpt">
+                          {decodeHtml(item.excerpt)}
+                        </p>
+                      )}
+                    </td>
+                    <td class="cz-sp-tier-table__actions">
+                      <button
+                        type="button"
+                        class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sp-select-btn"
+                        onClick={() => handleSelect(item)}
+                        aria-label={`Select ${decodeHtml(item.title)}`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                          <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}
@@ -1955,7 +1978,7 @@ export function SurfacePackagesWorkstation({ refreshKey, openAction }: Props) {
             class="cz-admin-btn cz-admin-btn--primary"
             onClick={handleNewPackage}
           >
-            + New Service Package
+            + New Package
           </button>
         </div>
       </div>
