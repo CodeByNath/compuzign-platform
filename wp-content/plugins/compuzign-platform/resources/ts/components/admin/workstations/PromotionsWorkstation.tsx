@@ -10,6 +10,7 @@ import {
   reactivatePromotionTier,
 } from '@/api/endpoints/admin';
 import { InlineEditorShell } from '../InlineEditorShell';
+import { ReadBlock } from '../ReadBlock';
 import { PackageSelectServiceStep } from './SurfacePackagesWorkstation';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type {
@@ -132,7 +133,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
   const [priority, setPriority]           = useState(String(initPromo?.priority ?? 0));
   const [isFeatured, setIsFeatured]       = useState(initPromo?.is_featured ?? false);
 
-  // ── Editor draft / snapshot states ────────────────────────────────────────
+  // ── Editor draft states ────────────────────────────────────────────────────
   const [identityDraft, setIdentityDraft] = useState<IdentityDraft | null>(null);
   const [pricingDraft, setPricingDraft]   = useState<PricingDraft | null>(null);
   const [campaignDraft, setCampaignDraft] = useState<CampaignDraft | null>(null);
@@ -495,223 +496,168 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
           <button type="button" class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('service')}>Service</button>
         </div>
 
-            {/* ── Commercial Tab ──────────────────────────────────────────── */}
-            {tab === 'commercial' && (
-              <>
-                {/* Block 1: Identity */}
-                <div class="cz-req-detail__section cz-sv-section--no-border">
-                  <p class="cz-req-detail__section-title">Promotion Identity</p>
-                  <div class="cz-sv-overview-block">
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openIdentityEditor}>✎ Edit</button>
-                    <div class="cz-sv-overview-block__identity">
-                      <p class="cz-sv-overview-block__name">{name || '(unnamed)'}</p>
-                    </div>
-                    <div class="cz-sv-overview-block__meta">
-                      <span class="cz-req-contact-grid__label">Status</span>
-                      <span class="cz-sv-overview-block__value"><span class={statusPillClass(status)}>{capitalize(status)}</span></span>
-                    </div>
-                    {basedOn && (
-                      <div class="cz-sv-overview-block__meta">
-                        <span class="cz-req-contact-grid__label">Based On</span>
-                        <span class="cz-sv-overview-block__value">{BASED_ON_LABELS[basedOn] ?? basedOn}</span>
-                      </div>
-                    )}
-                    {headline && (
-                      <div class="cz-sv-overview-block__meta">
-                        <span class="cz-req-contact-grid__label">Headline</span>
-                        <span class="cz-sv-overview-block__value">{headline}</span>
-                      </div>
-                    )}
-                    {description && (
-                      <div class="cz-sv-overview-block__meta">
-                        <span class="cz-req-contact-grid__label">Description</span>
-                        <span class="cz-sv-overview-block__desc">{description}</span>
-                      </div>
-                    )}
-                  </div>
+        {/* ── Commercial Tab ──────────────────────────────────────────── */}
+        {tab === 'commercial' && (
+          <>
+            <ReadBlock title="Promotion Identity" onEdit={openIdentityEditor} noBorder>
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name">{name || '(unnamed)'}</p>
+              </div>
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Status</span>
+                <span class="cz-sv-overview-block__value"><span class={statusPillClass(status)}>{capitalize(status)}</span></span>
+              </div>
+              {basedOn && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Based On</span>
+                  <span class="cz-sv-overview-block__value">{BASED_ON_LABELS[basedOn] ?? basedOn}</span>
                 </div>
-
-                {/* Block 2: Pricing */}
-                <div class="cz-req-detail__section cz-sv-section--no-border">
-                  <p class="cz-req-detail__section-title">Pricing</p>
-                  <div class="cz-sv-overview-block">
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openPricingEditor} disabled={!identitySaved}>✎ Edit</button>
-                    <div class="cz-sv-overview-block__meta">
-                      <span class="cz-req-contact-grid__label">Price</span>
-                      <span class="cz-sv-overview-block__value">
-                        {priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '0.00'}
-                      </span>
-                    </div>
-                    {billingLabel && (
-                      <div class="cz-sv-overview-block__meta">
-                        <span class="cz-req-contact-grid__label">Billing Label</span>
-                        <span class="cz-sv-overview-block__value">{billingLabel}</span>
-                      </div>
-                    )}
-                    {badge && (
-                      <div class="cz-sv-overview-block__meta">
-                        <span class="cz-req-contact-grid__label">Badge</span>
-                        <span class="cz-sv-overview-block__value"><span class="cz-tier-badge">{badge}</span></span>
-                      </div>
-                    )}
-                  </div>
+              )}
+              {headline && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Headline</span>
+                  <span class="cz-sv-overview-block__value">{headline}</span>
                 </div>
-
-                {/* Block 3: Inclusions */}
-                <div class="cz-req-detail__section cz-sv-section--no-border">
-                  <p class="cz-req-detail__section-title">
-                    Inclusions
-                    {identitySaved && selIncCount > 0 && (
-                      <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selIncCount}</span>
-                    )}
-                  </p>
-                  {selIncCount > 0 ? (
-                    <div class="cz-sc-inclusion-pool">
-                      {pendingIncs.map((p, i) => (
-                        <span key={i} class="cz-tf-chip">
-                          {p.label}
-                          <span class="cz-tf-new-badge">new</span>
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openInclusionsEditor}>✎</button>
-                        </span>
-                      ))}
-                      {selInclusions.map((inc) => (
-                        <span key={inc.id} class="cz-tf-chip">
-                          {inc.label}
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openInclusionsEditor}>✎</button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openInclusionsEditor} disabled={!identitySaved}>✎ Edit</button>
-                      <p class="cz-sv-overview-block__name">Add inclusions</p>
-                    </div>
-                  )}
+              )}
+              {description && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Description</span>
+                  <span class="cz-sv-overview-block__desc">{description}</span>
                 </div>
+              )}
+            </ReadBlock>
 
-                {/* Block 4: Add-ons */}
-                <div class="cz-req-detail__section cz-sv-section--no-border">
-                  <p class="cz-req-detail__section-title">
-                    Add-ons
-                    {identitySaved && addons.length > 0 && (
-                      <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{addons.length}</span>
-                    )}
-                  </p>
-                  {addons.length > 0 ? (
-                    <div class="cz-sc-inclusion-pool">
-                      {addons.map((a, i) => (
-                        <span key={i} class="cz-tf-chip">
-                          {a}
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openAddonsEditor}>✎</button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openAddonsEditor} disabled={!identitySaved}>✎ Edit</button>
-                      <p class="cz-sv-overview-block__name">Add add-ons</p>
-                    </div>
-                  )}
+            <ReadBlock title="Pricing" onEdit={openPricingEditor} editDisabled={!identitySaved} noBorder>
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Price</span>
+                <span class="cz-sv-overview-block__value">
+                  {priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '0.00'}
+                </span>
+              </div>
+              {billingLabel && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Billing Label</span>
+                  <span class="cz-sv-overview-block__value">{billingLabel}</span>
                 </div>
-
-                {/* Block 5: Not Included */}
-                <div class="cz-req-detail__section cz-sv-section--no-border">
-                  <p class="cz-req-detail__section-title">
-                    Not Included
-                    {identitySaved && selExclusions.length > 0 && (
-                      <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selExclusions.length}</span>
-                    )}
-                  </p>
-                  {selExclusions.length > 0 ? (
-                    <div class="cz-sc-inclusion-pool">
-                      {selExclusions.map((exc) => (
-                        <span key={exc.id} class="cz-tf-chip cz-tf-chip--excluded">
-                          {exc.label}
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openExclusionsEditor}>✎</button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openExclusionsEditor} disabled={!identitySaved}>✎ Edit</button>
-                      <p class="cz-sv-overview-block__name">Add exclusions</p>
-                    </div>
-                  )}
+              )}
+              {badge && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Badge</span>
+                  <span class="cz-sv-overview-block__value"><span class="cz-tier-badge">{badge}</span></span>
                 </div>
+              )}
+            </ReadBlock>
 
-                {/* Block 6: Campaign */}
-                <div class="cz-req-detail__section">
-                  <p class="cz-req-detail__section-title">Campaign</p>
-                  <div class="cz-sv-overview-block">
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openCampaignEditor} disabled={!identitySaved}>✎ Edit</button>
-                    <div class="cz-sv-overview-block__identity">
-                      <p class="cz-sv-overview-block__name">{campaignLabel || 'No campaign set'}</p>
-                    </div>
-                    {(startsAt || endsAt) && (
-                      <div class="cz-sv-overview-block__meta">
-                        <span class="cz-req-contact-grid__label">Dates</span>
-                        <span class="cz-sv-overview-block__value">{fmtDate(startsAt || null)} → {fmtDate(endsAt || null)}</span>
-                      </div>
-                    )}
-                    {isFeatured && (
-                      <div class="cz-sv-overview-block__meta">
-                        <span class="cz-req-contact-grid__label">Featured</span>
-                        <span class="cz-sv-overview-block__value"><span class="cz-tier-badge cz-tier-badge--popular">★ Featured</span></span>
-                      </div>
-                    )}
-                  </div>
+            <ReadBlock title="Inclusions" count={selIncCount} onEdit={openInclusionsEditor} editDisabled={!identitySaved} noBorder>
+              {selIncCount > 0 ? (
+                <div class="cz-sc-inclusion-pool">
+                  {pendingIncs.map((p, i) => (
+                    <span key={i} class="cz-tf-chip">
+                      {p.label}
+                      <span class="cz-tf-new-badge">new</span>
+                    </span>
+                  ))}
+                  {selInclusions.map((inc) => (
+                    <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+                  ))}
                 </div>
+              ) : (
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No inclusions added</p>
+              )}
+            </ReadBlock>
 
-                {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
-
-                <div class="cz-tf-footer">
-                  {currentPromoId && (
-                    <button
-                      type="button"
-                      class={`cz-admin-btn ${isArchived ? 'cz-admin-btn--secondary' : 'cz-admin-btn--danger'}`}
-                      onClick={handleToggleStatus}
-                      disabled={saving}
-                    >
-                      {saving ? '…' : isArchived ? 'Enable Promotion' : 'Disable Promotion'}
-                    </button>
-                  )}
-                  <div class="cz-tf-footer__spacer" />
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-                    {currentPromoId ? 'Done' : 'Cancel'}
-                  </button>
+            <ReadBlock title="Add-ons" count={addons.length || undefined} onEdit={openAddonsEditor} editDisabled={!identitySaved} noBorder>
+              {addons.length > 0 ? (
+                <div class="cz-sc-inclusion-pool">
+                  {addons.map((a, i) => (
+                    <span key={i} class="cz-tf-chip">{a}</span>
+                  ))}
                 </div>
-              </>
-            )}
+              ) : (
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No add-ons added</p>
+              )}
+            </ReadBlock>
 
-            {/* ── Service Tab ──────────────────────────────────────────────── */}
-            {tab === 'service' && (
-              <>
-                {service ? (
-                  <div class="cz-sv-commercial-block">
-                    <div class="cz-sv-commercial-block__header">
-                      <span class="cz-sv-commercial-block__label">{service.title}</span>
-                    </div>
-                    {service.excerpt && (
-                      <p class="cz-sv-commercial-block__count">{service.excerpt}</p>
-                    )}
-                    {service.categories && service.categories.length > 0 && (
-                      <div class="cz-sv-overview-block__meta" style="margin-top:var(--cz-space-2)">
-                        <span class="cz-req-contact-grid__label">Category</span>
-                        <span class="cz-sv-overview-block__value">{service.categories.map((c) => c.name).join(', ')}</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div class="cz-req-detail__section">
-                    <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
+            <ReadBlock title="Not Included" count={selExclusions.length || undefined} onEdit={openExclusionsEditor} editDisabled={!identitySaved} noBorder>
+              {selExclusions.length > 0 ? (
+                <div class="cz-sc-inclusion-pool">
+                  {selExclusions.map((exc) => (
+                    <span key={exc.id} class="cz-tf-chip cz-tf-chip--excluded">{exc.label}</span>
+                  ))}
+                </div>
+              ) : (
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No exclusions added</p>
+              )}
+            </ReadBlock>
+
+            <ReadBlock title="Campaign" onEdit={openCampaignEditor} editDisabled={!identitySaved}>
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name">{campaignLabel || 'No campaign set'}</p>
+              </div>
+              {(startsAt || endsAt) && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Dates</span>
+                  <span class="cz-sv-overview-block__value">{fmtDate(startsAt || null)} → {fmtDate(endsAt || null)}</span>
+                </div>
+              )}
+              {isFeatured && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Featured</span>
+                  <span class="cz-sv-overview-block__value"><span class="cz-tier-badge cz-tier-badge--popular">★ Featured</span></span>
+                </div>
+              )}
+            </ReadBlock>
+
+            {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
+
+            <div class="cz-tf-footer">
+              {currentPromoId && (
+                <button
+                  type="button"
+                  class={`cz-admin-btn ${isArchived ? 'cz-admin-btn--secondary' : 'cz-admin-btn--danger'}`}
+                  onClick={handleToggleStatus}
+                  disabled={saving}
+                >
+                  {saving ? '…' : isArchived ? 'Enable Promotion' : 'Disable Promotion'}
+                </button>
+              )}
+              <div class="cz-tf-footer__spacer" />
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
+                {currentPromoId ? 'Done' : 'Cancel'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── Service Tab ──────────────────────────────────────────────── */}
+        {tab === 'service' && (
+          <>
+            {service ? (
+              <div class="cz-sv-commercial-block">
+                <div class="cz-sv-commercial-block__header">
+                  <span class="cz-sv-commercial-block__label">{service.title}</span>
+                </div>
+                {service.excerpt && (
+                  <p class="cz-sv-commercial-block__count">{service.excerpt}</p>
+                )}
+                {service.categories && service.categories.length > 0 && (
+                  <div class="cz-sv-overview-block__meta" style="margin-top:var(--cz-space-2)">
+                    <span class="cz-req-contact-grid__label">Category</span>
+                    <span class="cz-sv-overview-block__value">{service.categories.map((c) => c.name).join(', ')}</span>
                   </div>
                 )}
-                <div class="cz-tf-footer">
-                  <div class="cz-tf-footer__spacer" />
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>Done</button>
-                </div>
-              </>
+              </div>
+            ) : (
+              <div class="cz-req-detail__section">
+                <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
+              </div>
             )}
+            <div class="cz-tf-footer">
+              <div class="cz-tf-footer__spacer" />
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>Done</button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Identity InlineEditorShell ─────────────────────────────────────── */}

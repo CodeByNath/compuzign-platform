@@ -1617,6 +1617,14 @@
   letter-spacing: 0;
 }
 
+.cz-req-detail__section-count {
+  font-weight: 400;
+  color: var(--admin-text-faint);
+  margin-left: var(--cz-space-2);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .cz-req-contact-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
