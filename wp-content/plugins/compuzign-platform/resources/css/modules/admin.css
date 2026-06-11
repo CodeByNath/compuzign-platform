@@ -2689,6 +2689,11 @@ body.compuzign-admin-page footer.site-footer {
   flex-wrap: wrap;
 }
 
+.cz-tf-price-row .cz-tf-field {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── Custom checkboxes ───────────────────────────────────────────────────────── */
 /* Applied via .cz-tf-check-row and .cz-tf-check-item label wrappers */
 .cz-tf-check-row input[type="checkbox"],
