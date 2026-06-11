@@ -8,6 +8,7 @@ import {
   archivePromotionTier,
   reactivatePromotionTier,
 } from '@/api/endpoints/admin';
+import { InlineEditorShell } from '../InlineEditorShell';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type {
   SurfacePackageSummary,
@@ -61,62 +62,85 @@ function statusPillClass(status: string): string {
   return 'cz-status-pill cz-status-pill--draft';
 }
 
-// ── PromotionManageStep — drawer step ─────────────────────────────────────────
+// ── Local types ───────────────────────────────────────────────────────────────
 
-export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
-  const packageId = ctx.stepData.packageId as number;
-  const promoId   = ctx.stepData.promoId as string | null;
-  const initPromo = ctx.stepData.promo as PromotionTier | null;
-  const isNew     = !!(ctx.stepData.isNew as boolean | undefined) || !promoId;
+type EditingSection = 'identity' | 'pricing' | 'inclusions' | 'addons' | 'notincluded' | 'campaign' | null;
+
+type IdentityDraft = {
+  name: string; status: PromotionStatus; basedOn: string; headline: string; description: string;
+};
+type PricingDraft  = { priceStr: string; billingLabel: string; badge: string; };
+type CampaignDraft = {
+  campaignLabel: string; startsAt: string; endsAt: string; priority: string; isFeatured: boolean;
+};
+type IncSnapshot = { sel: InclusionItem[]; pending: Array<{ label: string }>; excl: InclusionItem[] };
+
+// ── PromotionViewStep — drawer step ───────────────────────────────────────────
+
+export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
+  const packageId   = ctx.stepData.packageId as number;
+  const initPromoId = ctx.stepData.promoId as string | null;
+  const initPromo   = ctx.stepData.promo as PromotionTier | null;
+  const isNew       = !!(ctx.stepData.isNew as boolean | undefined) || !initPromoId;
 
   const [detail, setDetail]   = useState<SurfacePackageDetailResponse | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [saving, setSaving]   = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
-  // ── Identity ──────────────────────────────────────────────────────────────
+  const [tab, setTab]                       = useState<'commercial' | 'service'>('commercial');
+  const [editingSection, setEditingSection] = useState<EditingSection>(null);
+  const [currentPromoId, setCurrentPromoId] = useState<string | null>(initPromoId);
+
+  // false only when creating brand new and identity hasn't been saved yet
+  const identitySaved = !isNew || currentPromoId !== null;
+
+  // ── Committed state ────────────────────────────────────────────────────────
   const [name, setName]               = useState(initPromo?.name ?? '');
   const [status, setStatus]           = useState<PromotionStatus>(initPromo?.status ?? 'draft');
   const [basedOn, setBasedOn]         = useState<string>(initPromo?.based_on ?? '');
   const [headline, setHeadline]       = useState(initPromo?.headline ?? '');
   const [description, setDescription] = useState(initPromo?.description ?? '');
 
-  // ── Pricing ───────────────────────────────────────────────────────────────
   const [priceStr, setPriceStr]         = useState(initPromo?.price != null ? String(initPromo.price) : '');
   const [billingLabel, setBillingLabel] = useState(initPromo?.billing_label ?? '');
   const [badge, setBadge]               = useState(initPromo?.badge ?? '');
 
-  // ── Content: Inclusions ───────────────────────────────────────────────────
   const [selInclusions, setSelInclusions] = useState<InclusionItem[]>(initPromo?.inclusions ?? []);
   const [pendingIncs, setPendingIncs]     = useState<Array<{ label: string }>>([]);
-  const [showNewInc, setShowNewInc]       = useState(false);
-  const [newIncLabel, setNewIncLabel]     = useState('');
-  const [incSearch, setIncSearch]         = useState('');
 
-  // ── Content: Add-ons (features) ───────────────────────────────────────────
-  const [addons, setAddons]               = useState<string[]>(initPromo?.features ?? []);
-  const [showNewAddon, setShowNewAddon]   = useState(false);
-  const [newAddonLabel, setNewAddonLabel] = useState('');
+  const [addons, setAddons] = useState<string[]>(initPromo?.features ?? []);
 
-  // ── Content: Not Included (exclusions) ───────────────────────────────────
   const [selExclusions, setSelExclusions] = useState<InclusionItem[]>(initPromo?.exclusions ?? []);
-  const [exclSearch, setExclSearch]       = useState('');
 
-  // ── Campaign ──────────────────────────────────────────────────────────────
   const [campaignLabel, setCampaignLabel] = useState(initPromo?.campaign_label ?? '');
   const [startsAt, setStartsAt]           = useState(initPromo?.starts_at?.slice(0, 10) ?? '');
   const [endsAt, setEndsAt]               = useState(initPromo?.ends_at?.slice(0, 10) ?? '');
   const [priority, setPriority]           = useState(String(initPromo?.priority ?? 0));
   const [isFeatured, setIsFeatured]       = useState(initPromo?.is_featured ?? false);
 
-  // ── Load service detail (for inclusion pool) ──────────────────────────────
+  // ── Editor draft / snapshot states ────────────────────────────────────────
+  const [identityDraft, setIdentityDraft] = useState<IdentityDraft | null>(null);
+  const [pricingDraft, setPricingDraft]   = useState<PricingDraft | null>(null);
+  const [campaignDraft, setCampaignDraft] = useState<CampaignDraft | null>(null);
+
+  const [incSnapshot, setIncSnapshot]   = useState<IncSnapshot | null>(null);
+  const [showNewInc, setShowNewInc]     = useState(false);
+  const [newIncLabel, setNewIncLabel]   = useState('');
+  const [incSearch, setIncSearch]       = useState('');
+
+  const [addonsSnapshot, setAddonsSnapshot] = useState<string[] | null>(null);
+  const [showNewAddon, setShowNewAddon]     = useState(false);
+  const [newAddonLabel, setNewAddonLabel]   = useState('');
+
+  const [exclSnapshot, setExclSnapshot] = useState<InclusionItem[] | null>(null);
+  const [exclSearch, setExclSearch]     = useState('');
+
+  // ── Load package detail ────────────────────────────────────────────────────
   useEffect(() => {
     ctx.setProgress('loading', 'Loading…');
     fetchSurfacePackageDetail(packageId)
-      .then((res) => {
-        setDetail(res);
-        ctx.setProgress('idle');
-      })
+      .then((res) => { setDetail(res); ctx.setProgress('idle'); })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Failed to load package.';
         setLoadErr(msg);
@@ -124,74 +148,15 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
       });
   }, [packageId]);
 
-  // ── Derived inclusion lists ───────────────────────────────────────────────
+  // Open identity editor immediately for new promos (before detail loads)
+  useEffect(() => {
+    if (isNew && !currentPromoId) {
+      setIdentityDraft({ name, status, basedOn, headline, description });
+      setEditingSection('identity');
+    }
+  }, []);
 
-  const servicePool = detail?.service?.inclusions ?? [];
-
-  // Pool for Inclusions: service pool + pending new items (shown at top)
-  const allForInclusions: Array<InclusionItem & { isPending?: boolean }> = [
-    ...pendingIncs.map((p) => ({ id: slugify(p.label), label: p.label, isPending: true as const })),
-    ...servicePool,
-  ];
-  const filteredIncs = allForInclusions.filter(
-    (i) => i.label.toLowerCase().includes(incSearch.toLowerCase()),
-  );
-
-  // Pool for Not Included: only existing service pool items not already selected as inclusions
-  const filteredForExcl = servicePool.filter(
-    (i) =>
-      !selInclusions.some((s) => s.id === i.id) &&
-      i.label.toLowerCase().includes(exclSearch.toLowerCase()),
-  );
-
-  // ── Inclusion handlers ────────────────────────────────────────────────────
-
-  const toggleInclusion = (inc: InclusionItem) => {
-    setSelInclusions((prev) => {
-      const exists = prev.some((i) => i.id === inc.id);
-      return exists ? prev.filter((i) => i.id !== inc.id) : [...prev, inc];
-    });
-    // If an item is being included, remove it from exclusions
-    setSelExclusions((prev) => prev.filter((e) => e.id !== inc.id));
-  };
-
-  const handleAddNewInclusion = () => {
-    const lbl = newIncLabel.trim();
-    if (!lbl) return;
-    const newId = slugify(lbl);
-    setPendingIncs((p) => [...p, { label: lbl }]);
-    setSelInclusions((prev) => (prev.some((i) => i.id === newId) ? prev : [...prev, { id: newId, label: lbl }]));
-    setNewIncLabel('');
-    setShowNewInc(false);
-  };
-
-  const toggleExclusion = (inc: InclusionItem) => {
-    setSelExclusions((prev) => {
-      const exists = prev.some((i) => i.id === inc.id);
-      return exists ? prev.filter((i) => i.id !== inc.id) : [...prev, inc];
-    });
-  };
-
-  // ── Add-on handlers ───────────────────────────────────────────────────────
-
-  const handleAddAddon = () => {
-    const lbl = newAddonLabel.trim();
-    if (!lbl) return;
-    setAddons((prev) => [...prev, lbl]);
-    setNewAddonLabel('');
-    setShowNewAddon(false);
-  };
-
-  const handleUpdateAddon = (i: number, val: string) => {
-    setAddons((prev) => prev.map((a, idx) => (idx === i ? val : a)));
-  };
-
-  const handleRemoveAddon = (i: number) => {
-    setAddons((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
-  // ── Save ──────────────────────────────────────────────────────────────────
-
+  // ── Full payload builder ───────────────────────────────────────────────────
   const buildPayload = (): PromotionTierPayload => ({
     name,
     slug: slugify(name),
@@ -214,39 +179,49 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
     new_inclusions: pendingIncs,
   });
 
-  const isArchived = (initPromo?.status ?? 'draft') === 'archived';
-
-  const handleToggleStatus = async () => {
-    setSaving(true);
-    setSaveErr(null);
-    try {
-      if (isArchived) {
-        await reactivatePromotionTier(packageId, promoId!);
-      } else {
-        await archivePromotionTier(packageId, promoId!);
-      }
-      ctx.goNext();
-    } catch (err) {
-      setSaveErr(err instanceof Error ? err.message : 'Status update failed.');
-    } finally {
-      setSaving(false);
+  // ── Core save helper ───────────────────────────────────────────────────────
+  const callSave = async (payload: PromotionTierPayload): Promise<string> => {
+    if (!currentPromoId) {
+      const res = await createPromotionTier(packageId, payload);
+      return res.promo_id;
     }
+    const res = await savePromotionTier(packageId, currentPromoId, payload);
+    return res.promo_id;
   };
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      setSaveErr('Promotion name is required.');
-      return;
-    }
+  // ── Identity section ───────────────────────────────────────────────────────
+  const openIdentityEditor = () => {
+    setIdentityDraft({ name, status, basedOn, headline, description });
+    setSaveErr(null);
+    setEditingSection('identity');
+  };
+
+  const handleSaveIdentity = async () => {
+    if (!identityDraft) return;
+    if (!identityDraft.name.trim()) { setSaveErr('Promotion name is required.'); return; }
     setSaving(true);
     setSaveErr(null);
     try {
-      if (isNew) {
-        await createPromotionTier(packageId, buildPayload());
-      } else {
-        await savePromotionTier(packageId, promoId!, buildPayload());
-      }
-      ctx.goNext();
+      const payload: PromotionTierPayload = {
+        ...buildPayload(),
+        name: identityDraft.name,
+        slug: slugify(identityDraft.name),
+        status: identityDraft.status,
+        based_on: (identityDraft.basedOn as BasedOnTier) || null,
+        headline: identityDraft.headline,
+        description: identityDraft.description,
+      };
+      const savedId = await callSave(payload);
+      if (!currentPromoId) setCurrentPromoId(savedId);
+      setName(identityDraft.name);
+      setStatus(identityDraft.status);
+      setBasedOn(identityDraft.basedOn);
+      setHeadline(identityDraft.headline);
+      setDescription(identityDraft.description);
+      const svcTitle = detail?.service?.title ?? '';
+      ctx.setTitle(`${identityDraft.name} — ${svcTitle}`);
+      setEditingSection(null);
+      setIdentityDraft(null);
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : 'Save failed.');
     } finally {
@@ -254,382 +229,832 @@ export function PromotionManageStep({ ctx }: { ctx: StepContext }) {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Pricing section ────────────────────────────────────────────────────────
+  const openPricingEditor = () => {
+    setPricingDraft({ priceStr, billingLabel, badge });
+    setSaveErr(null);
+    setEditingSection('pricing');
+  };
 
-  if (ctx.progress === 'loading') {
-    return <div class="cz-action-progress"><Spinner label="Loading promotion…" /></div>;
+  const handleSavePricing = async () => {
+    if (!pricingDraft) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      const payload: PromotionTierPayload = {
+        ...buildPayload(),
+        price: pricingDraft.priceStr !== '' ? (parseFloat(pricingDraft.priceStr) || null) : null,
+        billing_label: pricingDraft.billingLabel,
+        badge: pricingDraft.badge,
+      };
+      await callSave(payload);
+      setPriceStr(pricingDraft.priceStr);
+      setBillingLabel(pricingDraft.billingLabel);
+      setBadge(pricingDraft.badge);
+      setEditingSection(null);
+      setPricingDraft(null);
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Inclusions section ─────────────────────────────────────────────────────
+  const openInclusionsEditor = () => {
+    setIncSnapshot({ sel: [...selInclusions], pending: [...pendingIncs], excl: [...selExclusions] });
+    setIncSearch('');
+    setShowNewInc(false);
+    setNewIncLabel('');
+    setSaveErr(null);
+    setEditingSection('inclusions');
+  };
+
+  const cancelInclusionsEditor = () => {
+    if (incSnapshot) {
+      setSelInclusions(incSnapshot.sel);
+      setPendingIncs(incSnapshot.pending);
+      setSelExclusions(incSnapshot.excl);
+      setIncSnapshot(null);
+    }
+    setEditingSection(null);
+  };
+
+  const handleSaveInclusions = async () => {
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      await callSave(buildPayload());
+      setIncSnapshot(null);
+      setEditingSection(null);
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleInclusion = (inc: InclusionItem) => {
+    setSelInclusions((prev) => {
+      const exists = prev.some((i) => i.id === inc.id);
+      return exists ? prev.filter((i) => i.id !== inc.id) : [...prev, inc];
+    });
+    setSelExclusions((prev) => prev.filter((e) => e.id !== inc.id));
+  };
+
+  const handleAddNewInclusion = () => {
+    const lbl = newIncLabel.trim();
+    if (!lbl) return;
+    const newId = slugify(lbl);
+    setPendingIncs((p) => [...p, { label: lbl }]);
+    setSelInclusions((prev) => prev.some((i) => i.id === newId) ? prev : [...prev, { id: newId, label: lbl }]);
+    setNewIncLabel('');
+    setShowNewInc(false);
+  };
+
+  // ── Add-ons section ────────────────────────────────────────────────────────
+  const openAddonsEditor = () => {
+    setAddonsSnapshot([...addons]);
+    setShowNewAddon(false);
+    setNewAddonLabel('');
+    setSaveErr(null);
+    setEditingSection('addons');
+  };
+
+  const cancelAddonsEditor = () => {
+    if (addonsSnapshot) { setAddons(addonsSnapshot); setAddonsSnapshot(null); }
+    setEditingSection(null);
+  };
+
+  const handleSaveAddons = async () => {
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      await callSave(buildPayload());
+      setAddonsSnapshot(null);
+      setEditingSection(null);
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddAddon = () => {
+    const lbl = newAddonLabel.trim();
+    if (!lbl) return;
+    setAddons((prev) => [...prev, lbl]);
+    setNewAddonLabel('');
+    setShowNewAddon(false);
+  };
+
+  const handleUpdateAddon = (i: number, val: string) => {
+    setAddons((prev) => prev.map((a, idx) => idx === i ? val : a));
+  };
+
+  const handleRemoveAddon = (i: number) => {
+    setAddons((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  // ── Not Included section ───────────────────────────────────────────────────
+  const openExclusionsEditor = () => {
+    setExclSnapshot([...selExclusions]);
+    setExclSearch('');
+    setSaveErr(null);
+    setEditingSection('notincluded');
+  };
+
+  const cancelExclusionsEditor = () => {
+    if (exclSnapshot) { setSelExclusions(exclSnapshot); setExclSnapshot(null); }
+    setEditingSection(null);
+  };
+
+  const handleSaveExclusions = async () => {
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      await callSave(buildPayload());
+      setExclSnapshot(null);
+      setEditingSection(null);
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleExclusion = (inc: InclusionItem) => {
+    setSelExclusions((prev) => {
+      const exists = prev.some((i) => i.id === inc.id);
+      return exists ? prev.filter((i) => i.id !== inc.id) : [...prev, inc];
+    });
+  };
+
+  // ── Campaign section ───────────────────────────────────────────────────────
+  const openCampaignEditor = () => {
+    setCampaignDraft({ campaignLabel, startsAt, endsAt, priority, isFeatured });
+    setSaveErr(null);
+    setEditingSection('campaign');
+  };
+
+  const handleSaveCampaign = async () => {
+    if (!campaignDraft) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      const payload: PromotionTierPayload = {
+        ...buildPayload(),
+        campaign_label: campaignDraft.campaignLabel,
+        starts_at: campaignDraft.startsAt ? `${campaignDraft.startsAt} 00:00:00` : null,
+        ends_at: campaignDraft.endsAt ? `${campaignDraft.endsAt} 23:59:59` : null,
+        priority: parseInt(campaignDraft.priority, 10) || 0,
+        is_featured: campaignDraft.isFeatured,
+      };
+      await callSave(payload);
+      setCampaignLabel(campaignDraft.campaignLabel);
+      setStartsAt(campaignDraft.startsAt);
+      setEndsAt(campaignDraft.endsAt);
+      setPriority(campaignDraft.priority);
+      setIsFeatured(campaignDraft.isFeatured);
+      setEditingSection(null);
+      setCampaignDraft(null);
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Archive / Reactivate ───────────────────────────────────────────────────
+  const isArchived = status === 'archived';
+
+  const handleToggleStatus = async () => {
+    if (!currentPromoId) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      if (isArchived) {
+        await reactivatePromotionTier(packageId, currentPromoId);
+        setStatus('active');
+      } else {
+        await archivePromotionTier(packageId, currentPromoId);
+        setStatus('archived');
+      }
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Status update failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Derived lists for editors ──────────────────────────────────────────────
+  const servicePool = detail?.service?.inclusions ?? [];
+  const selIncIds   = new Set(selInclusions.map((i) => i.id));
+  const selExclIds  = new Set(selExclusions.map((e) => e.id));
+
+  const allForIncs: Array<InclusionItem & { isPending?: boolean }> = [
+    ...pendingIncs.map((p) => ({ id: slugify(p.label), label: p.label, isPending: true as const })),
+    ...servicePool,
+  ];
+  const filteredIncs   = allForIncs.filter((i) => i.label.toLowerCase().includes(incSearch.toLowerCase()));
+  const unselectedPool = filteredIncs.filter((i) => !i.isPending && !selIncIds.has(i.id));
+
+  const filteredForExcl = servicePool.filter(
+    (i) => !selIncIds.has(i.id) && !selExclIds.has(i.id) && i.label.toLowerCase().includes(exclSearch.toLowerCase()),
+  );
+
+  const selIncCount = selInclusions.length + pendingIncs.length;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  if (ctx.progress === 'loading' && !editingSection) {
+    return <div class="cz-action-progress"><Spinner label="Loading…" /></div>;
   }
   if (loadErr) {
     return <div class="cz-admin-error-msg">{loadErr}</div>;
   }
-  if (!detail) return null;
 
-  const service = detail.service;
+  const service = detail?.service ?? null;
 
   return (
-    <div class="cz-tf-form">
+    <>
+      <div class="cz-req-detail">
 
-      {/* ── Section 1: Service ─────────────────────────────────────────── */}
-      {service && (
-        <div class="cz-tf-section">
-          <p class="cz-tf-section-title">Service</p>
-          <p class="cz-tf-service-title">{service.title}</p>
-          {service.excerpt && <p class="cz-tf-service-desc">{service.excerpt}</p>}
-        </div>
-      )}
-
-      {/* ── Section 2: Promotion Identity ─────────────────────────────── */}
-      <div class="cz-tf-section">
-        <p class="cz-tf-section-title">Promotion Identity</p>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Name *</label>
-          <input
-            type="text"
-            class="cz-tf-input"
-            value={name}
-            onInput={(e) => setName((e.target as HTMLInputElement).value)}
-            placeholder="e.g. Black Friday Special"
-          />
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Status</label>
-          <select
-            class="cz-tf-select"
-            value={status}
-            onChange={(e) => setStatus((e.target as HTMLSelectElement).value as PromotionStatus)}
-          >
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-          </select>
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Based on</label>
-          <select
-            class="cz-tf-select"
-            value={basedOn}
-            onChange={(e) => setBasedOn((e.target as HTMLSelectElement).value)}
-          >
-            <option value="">Custom — not based on a core tier</option>
-            {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
-          </select>
-          <p class="cz-tf-hint">Authoring context only — no runtime inheritance.</p>
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Headline</label>
-          <input
-            type="text"
-            class="cz-tf-input"
-            value={headline}
-            onInput={(e) => setHeadline((e.target as HTMLInputElement).value)}
-            placeholder="Short marketing headline"
-          />
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Description</label>
-          <textarea
-            class="cz-tf-textarea"
-            rows={3}
-            value={description}
-            onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
-            placeholder="Longer promotional description"
-          />
-        </div>
-      </div>
-
-      {/* ── Section 3: Pricing ────────────────────────────────────────── */}
-      <div class="cz-tf-section">
-        <p class="cz-tf-section-title">Pricing</p>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Price</label>
-          <input
-            type="number"
-            class="cz-tf-input cz-tf-input--price"
-            value={priceStr}
-            onInput={(e) => setPriceStr((e.target as HTMLInputElement).value)}
-            placeholder="0.00"
-            min="0"
-            step="0.01"
-          />
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Billing label</label>
-          <input
-            type="text"
-            class="cz-tf-input"
-            value={billingLabel}
-            onInput={(e) => setBillingLabel((e.target as HTMLInputElement).value)}
-            placeholder="e.g. per endpoint / month"
-          />
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Badge</label>
-          <input
-            type="text"
-            class="cz-tf-input"
-            value={badge}
-            onInput={(e) => setBadge((e.target as HTMLInputElement).value)}
-            placeholder="e.g. Black Friday, Save 30%"
-          />
-        </div>
-      </div>
-
-      {/* ── Section 4: Content ────────────────────────────────────────── */}
-      <div class="cz-tf-section">
-        <p class="cz-tf-section-title">Content</p>
-
-        {/* Inclusions */}
-        <div class="cz-tf-subsection">
-          <div class="cz-tf-section-header">
-            <p class="cz-tf-subsection-label">Inclusions</p>
-            {selInclusions.length > 0 && (
-              <span class="cz-tf-count">{selInclusions.length} selected</span>
-            )}
-          </div>
-          <p class="cz-tf-hint" style="margin-bottom:var(--cz-space-3)">
-            Select items from the service inclusion pool.
-          </p>
-          <input
-            type="text"
-            class="cz-tf-input"
-            placeholder="Search inclusions…"
-            value={incSearch}
-            onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
-          />
-          <div class="cz-tf-checklist">
-            {filteredIncs.length === 0 && (
-              <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
-                {incSearch ? 'No matches.' : 'No inclusions in service pool.'}
-              </div>
-            )}
-            {filteredIncs.map((inc) => {
-              const checked = inc.isPending || selInclusions.some((s) => s.id === inc.id);
-              return (
-                <label key={inc.id} class="cz-tf-check-item">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    disabled={inc.isPending}
-                    onChange={() => !inc.isPending && toggleInclusion(inc)}
-                  />
-                  <span class="cz-tf-check-item__text">{inc.label}</span>
-                  {inc.isPending && <span class="cz-tf-new-badge">new</span>}
-                </label>
-              );
-            })}
-          </div>
-          {showNewInc ? (
-            <div class="cz-tf-inline-add">
-              <input
-                type="text"
-                class="cz-tf-input"
-                placeholder="Inclusion label"
-                value={newIncLabel}
-                onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewInclusion(); } }}
-                autoFocus
-              />
-              <div class="cz-tf-inline-add__actions">
-                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddNewInclusion}>
-                  Add to pool
-                </button>
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}>
-                  Cancel
-                </button>
-              </div>
+        {detail && (
+          <>
+            {/* ── Tabs ──────────────────────────────────────────────────────── */}
+            <div class="cz-sv-tabs">
+              <button type="button" class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('commercial')}>Commercial</button>
+              <button type="button" class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('service')}>Service</button>
             </div>
-          ) : (
-            <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>
-              + Add new inclusion to service pool
-            </button>
-          )}
-        </div>
 
-        {/* Add-ons */}
-        <div class="cz-tf-subsection">
-          <div class="cz-tf-section-header">
-            <p class="cz-tf-subsection-label">Add-ons</p>
-            {addons.length > 0 && (
-              <span class="cz-tf-count">{addons.length}</span>
+            {/* ── Commercial Tab ────────────────────────────────────────────── */}
+            {tab === 'commercial' && (
+              <>
+                {/* Block 1: Identity */}
+                <div class="cz-req-detail__section cz-sv-section--no-border">
+                  <p class="cz-req-detail__section-title">Promotion Identity</p>
+                  <div class="cz-sv-overview-block">
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openIdentityEditor}>✎ Edit</button>
+                    <div class="cz-sv-overview-block__identity">
+                      <p class="cz-sv-overview-block__name">{name || '(unnamed)'}</p>
+                    </div>
+                    <div class="cz-sv-overview-block__meta">
+                      <span class="cz-req-contact-grid__label">Status</span>
+                      <span class="cz-sv-overview-block__value"><span class={statusPillClass(status)}>{capitalize(status)}</span></span>
+                    </div>
+                    {basedOn && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Based On</span>
+                        <span class="cz-sv-overview-block__value">{BASED_ON_LABELS[basedOn] ?? basedOn}</span>
+                      </div>
+                    )}
+                    {headline && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Headline</span>
+                        <span class="cz-sv-overview-block__value">{headline}</span>
+                      </div>
+                    )}
+                    {description && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Description</span>
+                        <span class="cz-sv-overview-block__desc">{description}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Block 2: Pricing */}
+                <div class="cz-req-detail__section cz-sv-section--no-border">
+                  <p class="cz-req-detail__section-title">Pricing</p>
+                  <div class="cz-sv-overview-block">
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openPricingEditor} disabled={!identitySaved}>✎ Edit</button>
+                    <div class="cz-sv-overview-block__meta">
+                      <span class="cz-req-contact-grid__label">Price</span>
+                      <span class={`cz-sv-overview-block__value cz-price-tag${priceStr ? ' cz-price-tag--has-price' : ''}`}>
+                        {priceStr ? fmtPrice(parseFloat(priceStr)) : '—'}
+                      </span>
+                    </div>
+                    {billingLabel && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Billing Label</span>
+                        <span class="cz-sv-overview-block__value">{billingLabel}</span>
+                      </div>
+                    )}
+                    {badge && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Badge</span>
+                        <span class="cz-sv-overview-block__value"><span class="cz-tier-badge">{badge}</span></span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Block 3: Inclusions */}
+                <div class="cz-req-detail__section cz-sv-section--no-border">
+                  <p class="cz-req-detail__section-title">
+                    Inclusions
+                    {identitySaved && selIncCount > 0 && <span class="cz-tf-count">{selIncCount}</span>}
+                  </p>
+                  {selIncCount > 0 ? (
+                    <div class="cz-sc-inclusion-pool">
+                      {pendingIncs.map((p, i) => (
+                        <span key={i} class="cz-tf-chip">
+                          {p.label}
+                          <span class="cz-tf-new-badge">new</span>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openInclusionsEditor}>✎</button>
+                        </span>
+                      ))}
+                      {selInclusions.map((inc) => (
+                        <span key={inc.id} class="cz-tf-chip">
+                          {inc.label}
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openInclusionsEditor}>✎</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openInclusionsEditor} disabled={!identitySaved}>✎ Edit</button>
+                      <p class="cz-sv-overview-block__name">Add inclusions</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Block 4: Add-ons */}
+                <div class="cz-req-detail__section cz-sv-section--no-border">
+                  <p class="cz-req-detail__section-title">
+                    Add-ons
+                    {identitySaved && addons.length > 0 && <span class="cz-tf-count">{addons.length}</span>}
+                  </p>
+                  {addons.length > 0 ? (
+                    <div class="cz-sc-inclusion-pool">
+                      {addons.map((a, i) => (
+                        <span key={i} class="cz-tf-chip">
+                          {a}
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openAddonsEditor}>✎</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openAddonsEditor} disabled={!identitySaved}>✎ Edit</button>
+                      <p class="cz-sv-overview-block__name">Add add-ons</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Block 5: Not Included */}
+                <div class="cz-req-detail__section cz-sv-section--no-border">
+                  <p class="cz-req-detail__section-title">
+                    Not Included
+                    {identitySaved && selExclusions.length > 0 && <span class="cz-tf-count">{selExclusions.length}</span>}
+                  </p>
+                  {selExclusions.length > 0 ? (
+                    <div class="cz-sc-inclusion-pool">
+                      {selExclusions.map((exc) => (
+                        <span key={exc.id} class="cz-tf-chip cz-tf-chip--excluded">
+                          {exc.label}
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openExclusionsEditor}>✎</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openExclusionsEditor} disabled={!identitySaved}>✎ Edit</button>
+                      <p class="cz-sv-overview-block__name">Add exclusions</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Block 6: Campaign */}
+                <div class="cz-req-detail__section">
+                  <p class="cz-req-detail__section-title">Campaign</p>
+                  <div class="cz-sv-overview-block">
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openCampaignEditor} disabled={!identitySaved}>✎ Edit</button>
+                    <div class="cz-sv-overview-block__identity">
+                      <p class="cz-sv-overview-block__name">{campaignLabel || 'No campaign set'}</p>
+                    </div>
+                    {(startsAt || endsAt) && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Dates</span>
+                        <span class="cz-sv-overview-block__value">{fmtDate(startsAt || null)} → {fmtDate(endsAt || null)}</span>
+                      </div>
+                    )}
+                    {isFeatured && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Featured</span>
+                        <span class="cz-sv-overview-block__value"><span class="cz-tier-badge cz-tier-badge--popular">★ Featured</span></span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
+
+                <div class="cz-tf-footer">
+                  {currentPromoId && (
+                    <button
+                      type="button"
+                      class={`cz-admin-btn ${isArchived ? 'cz-admin-btn--secondary' : 'cz-admin-btn--danger'}`}
+                      onClick={handleToggleStatus}
+                      disabled={saving}
+                    >
+                      {saving ? '…' : isArchived ? 'Enable Promotion' : 'Disable Promotion'}
+                    </button>
+                  )}
+                  <div class="cz-tf-footer__spacer" />
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
+                    {currentPromoId ? 'Done' : 'Cancel'}
+                  </button>
+                </div>
+              </>
             )}
-          </div>
-          <p class="cz-tf-hint" style="margin-bottom:var(--cz-space-3)">
-            Promotion-specific extras, bonuses, or selling points — not part of the service pool.
-          </p>
-          {addons.map((addon, i) => (
-            <div key={i} class="cz-tf-addon-row">
-              <input
-                type="text"
-                class="cz-tf-input"
-                value={addon}
-                onInput={(e) => handleUpdateAddon(i, (e.target as HTMLInputElement).value)}
-              />
-              <button
-                type="button"
-                class="cz-tf-remove-btn"
-                onClick={() => handleRemoveAddon(i)}
-                title="Remove"
-              >×</button>
-            </div>
-          ))}
-          {showNewAddon ? (
-            <div class="cz-tf-inline-add">
-              <input
-                type="text"
-                class="cz-tf-input"
-                placeholder="e.g. Priority onboarding"
-                value={newAddonLabel}
-                onInput={(e) => setNewAddonLabel((e.target as HTMLInputElement).value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAddon(); } }}
-                autoFocus
-              />
-              <div class="cz-tf-inline-add__actions">
-                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddAddon}>
-                  Add
-                </button>
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewAddon(false); setNewAddonLabel(''); }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewAddon(true)}>
-              + Add add-on
-            </button>
-          )}
-        </div>
 
-        {/* Not Included */}
-        <div class="cz-tf-subsection cz-tf-subsection--last">
-          <div class="cz-tf-section-header">
-            <p class="cz-tf-subsection-label">Not Included</p>
-            {selExclusions.length > 0 && (
-              <span class="cz-tf-count cz-tf-count--excluded">{selExclusions.length} selected</span>
+            {/* ── Service Tab ────────────────────────────────────────────────── */}
+            {tab === 'service' && (
+              <>
+                {service ? (
+                  <div class="cz-sv-commercial-block">
+                    <div class="cz-sv-commercial-block__header">
+                      <span class="cz-sv-commercial-block__label">{service.title}</span>
+                    </div>
+                    {service.excerpt && (
+                      <p class="cz-sv-commercial-block__count">{service.excerpt}</p>
+                    )}
+                    {service.categories && service.categories.length > 0 && (
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Category</span>
+                        <span class="cz-sv-overview-block__value">{service.categories.map((c) => c.name).join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div class="cz-req-detail__section">
+                    <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
+                  </div>
+                )}
+                <div class="cz-tf-footer">
+                  <div class="cz-tf-footer__spacer" />
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>Done</button>
+                </div>
+              </>
             )}
-          </div>
-          <p class="cz-tf-hint" style="margin-bottom:var(--cz-space-3)">
-            Service pool items explicitly excluded from this promotion.
-          </p>
-          <input
-            type="text"
-            class="cz-tf-input"
-            placeholder="Search…"
-            value={exclSearch}
-            onInput={(e) => setExclSearch((e.target as HTMLInputElement).value)}
-          />
-          <div class="cz-tf-checklist cz-tf-checklist--excluded">
-            {filteredForExcl.length === 0 && (
-              <div class="cz-tf-check-item" style="cursor:default;color:var(--admin-text-faint)">
-                {exclSearch ? 'No matches.' : servicePool.length === 0 ? 'No inclusions in service pool.' : 'All pool items are selected as inclusions.'}
-              </div>
-            )}
-            {filteredForExcl.map((inc) => (
-              <label key={inc.id} class={`cz-tf-check-item${selExclusions.some((e) => e.id === inc.id) ? ' cz-tf-check-item--excluded' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={selExclusions.some((e) => e.id === inc.id)}
-                  onChange={() => toggleExclusion(inc)}
-                />
-                <span class="cz-tf-check-item__text">{inc.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Section 5: Campaign ───────────────────────────────────────── */}
-      <div class="cz-tf-section">
-        <p class="cz-tf-section-title">Campaign</p>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Campaign label</label>
-          <input
-            type="text"
-            class="cz-tf-input"
-            value={campaignLabel}
-            onInput={(e) => setCampaignLabel((e.target as HTMLInputElement).value)}
-            placeholder="e.g. Black Friday 2026"
-          />
-        </div>
-
-        <div class="cz-tf-price-row">
-          <div class="cz-tf-field" style="flex:1">
-            <label class="cz-tf-label">Valid from</label>
-            <input
-              type="date"
-              class="cz-tf-input"
-              value={startsAt}
-              onInput={(e) => setStartsAt((e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div class="cz-tf-field" style="flex:1">
-            <label class="cz-tf-label">Valid until</label>
-            <input
-              type="date"
-              class="cz-tf-input"
-              value={endsAt}
-              onInput={(e) => setEndsAt((e.target as HTMLInputElement).value)}
-            />
-          </div>
-        </div>
-
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Sort priority</label>
-          <input
-            type="number"
-            class="cz-tf-input"
-            value={priority}
-            onInput={(e) => setPriority((e.target as HTMLInputElement).value)}
-            min="0"
-            placeholder="0"
-          />
-          <p class="cz-tf-hint">Lower numbers appear first in the promotions section.</p>
-        </div>
-
-        <label class="cz-tf-check-row">
-          <input
-            type="checkbox"
-            checked={isFeatured}
-            onChange={(e) => setIsFeatured((e.target as HTMLInputElement).checked)}
-          />
-          <span>Featured promotion</span>
-        </label>
-      </div>
-
-      {/* ── Error ──────────────────────────────────────────────────────── */}
-      {saveErr && (
-        <div class="cz-admin-error-msg">{saveErr}</div>
-      )}
-
-      {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <div class="cz-tf-footer">
-        {!isNew && (
-          <button
-            type="button"
-            class={`cz-admin-btn ${isArchived ? 'cz-admin-btn--primary' : 'cz-admin-btn--danger'}`}
-            onClick={handleToggleStatus}
-            disabled={saving}
-          >
-            {isArchived ? 'Enable Promotion' : 'Disable Promotion'}
-          </button>
+          </>
         )}
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
-          Cancel
-        </button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : isNew ? 'Create Promotion' : 'Save Promotion'}
-        </button>
       </div>
-    </div>
+
+      {/* ── Identity InlineEditorShell ─────────────────────────────────────── */}
+      {editingSection === 'identity' && identityDraft && (
+        <InlineEditorShell
+          title="Edit Promotion Identity"
+          onSave={handleSaveIdentity}
+          onCancel={() => { setEditingSection(null); setIdentityDraft(null); setSaveErr(null); }}
+          saving={saving}
+          saveErr={saveErr}
+        >
+          <div class="cz-tf-form">
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Name *</label>
+              <input
+                type="text"
+                class="cz-tf-input"
+                value={identityDraft.name}
+                onInput={(e) => setIdentityDraft((d) => d ? { ...d, name: (e.target as HTMLInputElement).value } : d)}
+                placeholder="e.g. Black Friday Special"
+                autoFocus
+              />
+            </div>
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Status</label>
+              <select
+                class="cz-tf-select"
+                value={identityDraft.status}
+                onChange={(e) => setIdentityDraft((d) => d ? { ...d, status: (e.target as HTMLSelectElement).value as PromotionStatus } : d)}
+              >
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Based On</label>
+              <select
+                class="cz-tf-select"
+                value={identityDraft.basedOn}
+                onChange={(e) => setIdentityDraft((d) => d ? { ...d, basedOn: (e.target as HTMLSelectElement).value } : d)}
+              >
+                <option value="">Custom — not based on a core tier</option>
+                {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
+              </select>
+              <p class="cz-tf-hint">Authoring context only — no runtime inheritance.</p>
+            </div>
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Headline</label>
+              <input
+                type="text"
+                class="cz-tf-input"
+                value={identityDraft.headline}
+                onInput={(e) => setIdentityDraft((d) => d ? { ...d, headline: (e.target as HTMLInputElement).value } : d)}
+                placeholder="Short marketing headline"
+              />
+            </div>
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Description</label>
+              <textarea
+                class="cz-tf-textarea"
+                rows={3}
+                value={identityDraft.description}
+                onInput={(e) => setIdentityDraft((d) => d ? { ...d, description: (e.target as HTMLTextAreaElement).value } : d)}
+                placeholder="Longer promotional description"
+              />
+            </div>
+          </div>
+        </InlineEditorShell>
+      )}
+
+      {/* ── Pricing InlineEditorShell ──────────────────────────────────────── */}
+      {editingSection === 'pricing' && pricingDraft && (
+        <InlineEditorShell
+          title="Edit Pricing"
+          onSave={handleSavePricing}
+          onCancel={() => { setEditingSection(null); setPricingDraft(null); setSaveErr(null); }}
+          saving={saving}
+          saveErr={saveErr}
+        >
+          <div class="cz-tf-form">
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Price</label>
+              <input
+                type="number"
+                class="cz-tf-input cz-tf-input--price"
+                value={pricingDraft.priceStr}
+                onInput={(e) => setPricingDraft((d) => d ? { ...d, priceStr: (e.target as HTMLInputElement).value } : d)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Billing Label</label>
+              <input
+                type="text"
+                class="cz-tf-input"
+                value={pricingDraft.billingLabel}
+                onInput={(e) => setPricingDraft((d) => d ? { ...d, billingLabel: (e.target as HTMLInputElement).value } : d)}
+                placeholder="e.g. per endpoint / month"
+              />
+            </div>
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Badge</label>
+              <input
+                type="text"
+                class="cz-tf-input"
+                value={pricingDraft.badge}
+                onInput={(e) => setPricingDraft((d) => d ? { ...d, badge: (e.target as HTMLInputElement).value } : d)}
+                placeholder="e.g. Black Friday, Save 30%"
+              />
+            </div>
+          </div>
+        </InlineEditorShell>
+      )}
+
+      {/* ── Inclusions InlineEditorShell ───────────────────────────────────── */}
+      {editingSection === 'inclusions' && (
+        <InlineEditorShell
+          title="Edit Inclusions"
+          onSave={handleSaveInclusions}
+          onCancel={cancelInclusionsEditor}
+          saving={saving}
+          saveErr={saveErr}
+        >
+          <div class="cz-tf-form">
+            <div class="cz-tf-section">
+              <span class="cz-tf-label">Selected</span>
+              {selIncCount > 0 ? (
+                <div class="cz-tf-checklist">
+                  {pendingIncs.map((p, i) => (
+                    <label key={`pi-${i}`} class="cz-tf-check-item">
+                      <input type="checkbox" checked onChange={() => setPendingIncs((prev) => prev.filter((_, idx) => idx !== i))} />
+                      <span class="cz-tf-check-item__text">{p.label}</span>
+                      <span class="cz-tf-new-badge">new</span>
+                    </label>
+                  ))}
+                  {selInclusions.map((inc) => (
+                    <label key={inc.id} class="cz-tf-check-item">
+                      <input type="checkbox" checked onChange={() => toggleInclusion(inc)} />
+                      <span class="cz-tf-check-item__text">{inc.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p class="cz-tf-hint">No items selected.</p>
+              )}
+            </div>
+            <div class="cz-tf-section">
+              <span class="cz-tf-label">Service pool</span>
+              <input
+                type="text"
+                class="cz-tf-input"
+                placeholder="Search…"
+                value={incSearch}
+                onInput={(e) => setIncSearch((e.target as HTMLInputElement).value)}
+              />
+              <div class="cz-tf-checklist">
+                {unselectedPool.length === 0 ? (
+                  <p class="cz-tf-hint">{incSearch ? 'No matches.' : 'All pool items are selected.'}</p>
+                ) : (
+                  unselectedPool.map((inc) => (
+                    <label key={inc.id} class="cz-tf-check-item">
+                      <input type="checkbox" checked={false} onChange={() => toggleInclusion(inc)} />
+                      <span class="cz-tf-check-item__text">{inc.label}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            {showNewInc ? (
+              <div class="cz-tf-inline-add">
+                <input
+                  type="text"
+                  class="cz-tf-input"
+                  placeholder="Inclusion label"
+                  value={newIncLabel}
+                  onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewInclusion(); } }}
+                  autoFocus
+                />
+                <div class="cz-tf-inline-add__actions">
+                  <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddNewInclusion}>Add to pool</button>
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewInc(false); setNewIncLabel(''); }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewInc(true)}>+ Add new to service pool</button>
+            )}
+          </div>
+        </InlineEditorShell>
+      )}
+
+      {/* ── Add-ons InlineEditorShell ──────────────────────────────────────── */}
+      {editingSection === 'addons' && (
+        <InlineEditorShell
+          title="Edit Add-ons"
+          onSave={handleSaveAddons}
+          onCancel={cancelAddonsEditor}
+          saving={saving}
+          saveErr={saveErr}
+        >
+          <div class="cz-tf-form">
+            {addons.map((addon, i) => (
+              <div key={i} class="cz-tf-addon-row">
+                <input
+                  type="text"
+                  class="cz-tf-input"
+                  value={addon}
+                  onInput={(e) => handleUpdateAddon(i, (e.target as HTMLInputElement).value)}
+                />
+                <button type="button" class="cz-tf-remove-btn" onClick={() => handleRemoveAddon(i)} title="Remove">×</button>
+              </div>
+            ))}
+            {showNewAddon ? (
+              <div class="cz-tf-inline-add">
+                <input
+                  type="text"
+                  class="cz-tf-input"
+                  placeholder="e.g. Priority onboarding"
+                  value={newAddonLabel}
+                  onInput={(e) => setNewAddonLabel((e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAddon(); } }}
+                  autoFocus
+                />
+                <div class="cz-tf-inline-add__actions">
+                  <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleAddAddon}>Add</button>
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setShowNewAddon(false); setNewAddonLabel(''); }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setShowNewAddon(true)}>+ Add add-on</button>
+            )}
+          </div>
+        </InlineEditorShell>
+      )}
+
+      {/* ── Not Included InlineEditorShell ────────────────────────────────── */}
+      {editingSection === 'notincluded' && (
+        <InlineEditorShell
+          title="Edit Not Included"
+          onSave={handleSaveExclusions}
+          onCancel={cancelExclusionsEditor}
+          saving={saving}
+          saveErr={saveErr}
+        >
+          <div class="cz-tf-form">
+            <div class="cz-tf-section">
+              <span class="cz-tf-label">Excluded items</span>
+              {selExclusions.length > 0 ? (
+                <div class="cz-tf-checklist cz-tf-checklist--excluded">
+                  {selExclusions.map((exc) => (
+                    <label key={exc.id} class="cz-tf-check-item cz-tf-check-item--excluded">
+                      <input type="checkbox" checked onChange={() => toggleExclusion(exc)} />
+                      <span class="cz-tf-check-item__text">{exc.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p class="cz-tf-hint">No items excluded.</p>
+              )}
+            </div>
+            <div class="cz-tf-section">
+              <span class="cz-tf-label">Service pool (not already included)</span>
+              <input
+                type="text"
+                class="cz-tf-input"
+                placeholder="Search…"
+                value={exclSearch}
+                onInput={(e) => setExclSearch((e.target as HTMLInputElement).value)}
+              />
+              <div class="cz-tf-checklist">
+                {filteredForExcl.length === 0 ? (
+                  <p class="cz-tf-hint">
+                    {exclSearch ? 'No matches.' : servicePool.length === 0 ? 'No inclusions in service pool.' : 'All pool items are selected as inclusions.'}
+                  </p>
+                ) : (
+                  filteredForExcl.map((inc) => (
+                    <label key={inc.id} class="cz-tf-check-item">
+                      <input type="checkbox" checked={false} onChange={() => toggleExclusion(inc)} />
+                      <span class="cz-tf-check-item__text">{inc.label}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </InlineEditorShell>
+      )}
+
+      {/* ── Campaign InlineEditorShell ─────────────────────────────────────── */}
+      {editingSection === 'campaign' && campaignDraft && (
+        <InlineEditorShell
+          title="Edit Campaign"
+          onSave={handleSaveCampaign}
+          onCancel={() => { setEditingSection(null); setCampaignDraft(null); setSaveErr(null); }}
+          saving={saving}
+          saveErr={saveErr}
+        >
+          <div class="cz-tf-form">
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Campaign Label</label>
+              <input
+                type="text"
+                class="cz-tf-input"
+                value={campaignDraft.campaignLabel}
+                onInput={(e) => setCampaignDraft((d) => d ? { ...d, campaignLabel: (e.target as HTMLInputElement).value } : d)}
+                placeholder="e.g. Black Friday 2026"
+              />
+            </div>
+            <div class="cz-tf-price-row">
+              <div class="cz-tf-field" style="flex:1">
+                <label class="cz-tf-label">Valid From</label>
+                <input
+                  type="date"
+                  class="cz-tf-input"
+                  value={campaignDraft.startsAt}
+                  onInput={(e) => setCampaignDraft((d) => d ? { ...d, startsAt: (e.target as HTMLInputElement).value } : d)}
+                />
+              </div>
+              <div class="cz-tf-field" style="flex:1">
+                <label class="cz-tf-label">Valid Until</label>
+                <input
+                  type="date"
+                  class="cz-tf-input"
+                  value={campaignDraft.endsAt}
+                  onInput={(e) => setCampaignDraft((d) => d ? { ...d, endsAt: (e.target as HTMLInputElement).value } : d)}
+                />
+              </div>
+            </div>
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Sort Priority</label>
+              <input
+                type="number"
+                class="cz-tf-input"
+                value={campaignDraft.priority}
+                onInput={(e) => setCampaignDraft((d) => d ? { ...d, priority: (e.target as HTMLInputElement).value } : d)}
+                min="0"
+                placeholder="0"
+              />
+              <p class="cz-tf-hint">Lower numbers appear first.</p>
+            </div>
+            <label class="cz-tf-check-row">
+              <input
+                type="checkbox"
+                checked={campaignDraft.isFeatured}
+                onChange={(e) => setCampaignDraft((d) => d ? { ...d, isFeatured: (e.target as HTMLInputElement).checked } : d)}
+              />
+              <span>Featured promotion</span>
+            </label>
+          </div>
+        </InlineEditorShell>
+      )}
+    </>
   );
 }
 
@@ -647,9 +1072,9 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
   const isEnabled    = pkg.post_status === 'publish';
   const [archivingId, setArchivingId] = useState<string | null>(null);
 
-  const handleManage = (promo: PromotionTier) => {
+  const handleView = (promo: PromotionTier) => {
     openAction({
-      id:   `promo-manage-${pkg.post_id}-${promo.id}`,
+      id:   `promo-view-${pkg.post_id}-${promo.id}`,
       mode: 'drawer',
       title: `${promo.name || 'Promotion'} — ${serviceNames}`,
       initialStepData: {
@@ -659,7 +1084,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
         serviceName: serviceNames,
         isNew:       false,
       },
-      steps: [{ id: 'promo-form', title: promo.name || 'Promotion', component: PromotionManageStep }],
+      steps: [{ id: 'promo-view', title: promo.name || 'Promotion', component: PromotionViewStep }],
     });
   };
 
@@ -675,7 +1100,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
         serviceName: serviceNames,
         isNew:       true,
       },
-      steps: [{ id: 'promo-form', title: 'New Promotion', component: PromotionManageStep }],
+      steps: [{ id: 'promo-view', title: 'New Promotion', component: PromotionViewStep }],
     });
   };
 
@@ -694,7 +1119,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
   return (
     <div class={`cz-ws-card${!isEnabled ? ' cz-ws-card--disabled' : ''}`}>
 
-      {/* ── Package header ────────────────────────────────────────────── */}
+      {/* ── Package header ─────────────────────────────────────────────────── */}
       <div class="cz-sp-pkg-header">
         <div class="cz-sp-pkg-header__left">
           <p class="cz-sp-pkg-header__title">
@@ -710,7 +1135,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
         </div>
       </div>
 
-      {/* ── Promotions section header ─────────────────────────────────── */}
+      {/* ── Promotions section header ──────────────────────────────────────── */}
       <div class="cz-sp-tiers-header">
         <p class="cz-sp-tiers-header__label">Promotion Tiers</p>
         <button
@@ -722,7 +1147,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
         </button>
       </div>
 
-      {/* ── Promotions table ─────────────────────────────────────────── */}
+      {/* ── Promotions table ───────────────────────────────────────────────── */}
       {promos.length === 0 ? (
         <p class="cz-sp-empty-tiers">No promotion tiers yet. Use Add Promotion to create one.</p>
       ) : (
@@ -777,9 +1202,9 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
                     <button
                       type="button"
                       class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                      onClick={() => handleManage(promo)}
+                      onClick={() => handleView(promo)}
                     >
-                      Manage
+                      View
                     </button>
                     {promo.status !== 'archived' && (
                       <button

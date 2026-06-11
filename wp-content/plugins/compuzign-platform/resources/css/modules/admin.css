@@ -1610,6 +1610,13 @@
   color: var(--admin-text-muted);
 }
 
+.cz-req-detail__section-title .cz-tf-count {
+  margin-left: var(--cz-space-2);
+  vertical-align: middle;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .cz-req-contact-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2876,6 +2883,12 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-tf-chip:hover {
   background: var(--admin-accent-a12);
+}
+
+.cz-tf-chip--excluded {
+  border-color: var(--admin-error-a15);
+  color: var(--admin-error);
+  opacity: 0.8;
 }
 
 /* ── Drawer footer — sticky bottom, left-anchored disable / right-anchored primary actions ─── */

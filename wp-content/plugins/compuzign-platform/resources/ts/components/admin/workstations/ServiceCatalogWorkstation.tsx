@@ -14,7 +14,7 @@ import {
 } from '@/api/endpoints/admin';
 import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
-import { PromotionManageStep } from './PromotionsWorkstation';
+import { PromotionViewStep } from './PromotionsWorkstation';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -527,7 +527,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       },
       steps: [
         { id: 'promo-select', title: 'Select Promotion', component: PromoSelectStep  },
-        { id: 'promo-form',   title: 'Edit Promotion',   component: PromotionManageStep },
+        { id: 'promo-view',   title: 'Promotion',        component: PromotionViewStep },
       ],
     });
   };
