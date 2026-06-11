@@ -442,9 +442,16 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </div>
             ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setEditingSection('inclusions')}>
-                + Add inclusions
-              </button>
+              <div class="cz-sv-overview-block">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                  onClick={() => setEditingSection('inclusions')}
+                >
+                  ✎ Edit
+                </button>
+                <p class="cz-sv-overview-block__name">Add inclusions</p>
+              </div>
             )}
           </div>
 
@@ -487,9 +494,16 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </div>
             ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setEditingSection('faqs')}>
-                + Add FAQs
-              </button>
+              <div class="cz-sv-overview-block">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
+                  onClick={() => setEditingSection('faqs')}
+                >
+                  ✎ Edit
+                </button>
+                <p class="cz-sv-overview-block__name">Add FAQs</p>
+              </div>
             )}
           </div>
 
@@ -1002,13 +1016,12 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
   return (
     <div class="cz-req-detail">
 
-      {/* ── Browse + search inputs ─────────────────────────────────────────── */}
+      {/* ── Browse input + category options ───────────────────────────────── */}
       <div class="cz-sp-browse-area" ref={browseRef}>
         <div class="cz-sp-browse-field">
           <input
             type="text"
             class={[
-              'cz-tf-input',
               'cz-sp-browse-input',
               catOpen ? 'cz-sp-browse-input--active' : '',
               activeCat !== null ? 'cz-sp-browse-input--selected' : '',
@@ -1033,26 +1046,25 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
             </button>
           )}
         </div>
+        {/* Category options live inside browseRef so click-outside doesn't fire before the option click */}
+        {catOpen && categories.length > 0 && (
+          <div class="cz-sp-cat-options-wrap">
+            <ul class="cz-sp-cat-options" role="listbox">
+              {categories.map((c) => (
+                <li key={c.id} role="option">
+                  <button
+                    type="button"
+                    class="cz-sp-cat-option"
+                    onClick={() => handleSelectCat(c.id as number)}
+                  >
+                    {decodeHtml(c.name)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
-
-      {/* ── Category options (replaces service list when browse is open) ─── */}
-      {catOpen && categories.length > 0 && (
-        <div class="cz-sp-cat-options-wrap">
-          <ul class="cz-sp-cat-options" role="listbox">
-            {categories.map((c) => (
-              <li key={c.id} role="option">
-                <button
-                  type="button"
-                  class="cz-sp-cat-option"
-                  onClick={() => handleSelectCat(c.id as number)}
-                >
-                  {decodeHtml(c.name)}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {/* ── Service list ──────────────────────────────────────────────────── */}
       {showServiceList && (
@@ -1090,6 +1102,7 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
                       <button
                         type="button"
                         class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sp-select-btn"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSelect(item)}
                         aria-label={`Select ${decodeHtml(item.title)}`}
                       >
