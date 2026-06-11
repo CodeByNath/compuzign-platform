@@ -951,19 +951,28 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
 export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
   const allServices = ctx.stepData.allServices as ServiceItem[];
+  const packagedIds = ctx.stepData.packagedIds as Set<number> | undefined;
+  const showTierTabs = packagedIds !== undefined;
 
+  const [tierTab, setTierTab]         = useState<'active' | 'none'>('active');
   const [activeCat, setActiveCat]     = useState<number | null>(null);
   const [catOpen, setCatOpen]         = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const browseRef = useRef<HTMLDivElement>(null);
 
-  const categories = allServices
+  const baseList = !showTierTabs
+    ? allServices
+    : tierTab === 'active'
+      ? allServices.filter((s) => packagedIds!.has(s.id))
+      : allServices.filter((s) => !packagedIds!.has(s.id));
+
+  const categories = baseList
     .flatMap((s) => s.categories ?? [])
     .filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i && c.id !== null);
 
   const catFiltered = activeCat === null
-    ? allServices
-    : allServices.filter((s) => (s.categories ?? []).some((c) => c.id === activeCat));
+    ? baseList
+    : baseList.filter((s) => (s.categories ?? []).some((c) => c.id === activeCat));
 
   const displayed = searchQuery.length >= 3
     ? catFiltered.filter((s) =>
@@ -981,6 +990,12 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const handleTierTabChange = (tab: 'active' | 'none') => {
+    setTierTab(tab);
+    setActiveCat(null);
+    setCatOpen(false);
+  };
 
   const handleSelectCat = (id: number) => {
     setActiveCat(id);
@@ -1016,7 +1031,27 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
   return (
     <div class="cz-req-detail">
 
-      {/* ── Browse input + category options ───────────────────────────────── */}
+      {/* ── Tier group tabs (Promotion flow only) ────────────────────────── */}
+      {showTierTabs && (
+        <div class="cz-sp-tier-tabs">
+          <button
+            type="button"
+            class={`cz-pricing-tab${tierTab === 'active' ? ' cz-pricing-tab--active' : ''}`}
+            onClick={() => handleTierTabChange('active')}
+          >
+            Active Tiers
+          </button>
+          <button
+            type="button"
+            class={`cz-pricing-tab${tierTab === 'none' ? ' cz-pricing-tab--active' : ''}`}
+            onClick={() => handleTierTabChange('none')}
+          >
+            No Tier Level
+          </button>
+        </div>
+      )}
+
+      {/* ── Browse input + category dropdown ──────────────────────────────── */}
       <div class="cz-sp-browse-area" ref={browseRef}>
         <div class="cz-sp-browse-field">
           <input
@@ -1045,25 +1080,24 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
               </svg>
             </button>
           )}
+          {catOpen && categories.length > 0 && (
+            <div class="cz-sp-cat-options-wrap">
+              <ul class="cz-sp-cat-options" role="listbox">
+                {categories.map((c) => (
+                  <li key={c.id} role="option">
+                    <button
+                      type="button"
+                      class="cz-sp-cat-option"
+                      onClick={() => handleSelectCat(c.id as number)}
+                    >
+                      {decodeHtml(c.name)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-        {/* Category options live inside browseRef so click-outside doesn't fire before the option click */}
-        {catOpen && categories.length > 0 && (
-          <div class="cz-sp-cat-options-wrap">
-            <ul class="cz-sp-cat-options" role="listbox">
-              {categories.map((c) => (
-                <li key={c.id} role="option">
-                  <button
-                    type="button"
-                    class="cz-sp-cat-option"
-                    onClick={() => handleSelectCat(c.id as number)}
-                  >
-                    {decodeHtml(c.name)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
 
       {/* ── Service list ──────────────────────────────────────────────────── */}
@@ -1071,8 +1105,8 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
         <div class="cz-sp-service-list">
           {displayed.length === 0 ? (
             <p class="cz-tf-hint cz-sp-service-list__empty">
-              {allServices.length === 0
-                ? 'Loading services…'
+              {baseList.length === 0
+                ? (allServices.length === 0 ? 'Loading services…' : 'No services in this group.')
                 : searchQuery.length >= 3
                   ? 'Service not found.'
                   : 'No services found.'}

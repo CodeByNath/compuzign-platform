@@ -152,7 +152,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
   // ── Load package detail ────────────────────────────────────────────────────
   useEffect(() => {
     if (!resolvedPackageId) {
-      setLoadErr('No package found for this service.');
+      ctx.setProgress('idle');
       return;
     }
     ctx.setProgress('loading', 'Loading…');
@@ -164,14 +164,6 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
         ctx.setProgress('error', msg);
       });
   }, [resolvedPackageId]);
-
-  // Open identity editor immediately for new promos
-  useEffect(() => {
-    if (isNew && !currentPromoId) {
-      setIdentityDraft({ name, status, basedOn, headline, description });
-      setEditingSection('identity');
-    }
-  }, []);
 
   // ── Full payload builder ───────────────────────────────────────────────────
   const buildPayload = (): PromotionTierPayload => ({
@@ -491,19 +483,17 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
     return <div class="cz-admin-error-msg">{loadErr}</div>;
   }
 
-  const service = detail?.service ?? null;
+  const service = detail?.service ?? serviceFromStep ?? null;
 
   return (
     <>
       <div class="cz-req-detail">
 
-        {detail && (
-          <>
-            {/* ── Tabs ────────────────────────────────────────────────────── */}
-            <div class="cz-sv-tabs">
-              <button type="button" class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('commercial')}>Commercial</button>
-              <button type="button" class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('service')}>Service</button>
-            </div>
+        {/* ── Tabs ──────────────────────────────────────────────────────── */}
+        <div class="cz-sv-tabs">
+          <button type="button" class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('commercial')}>Commercial</button>
+          <button type="button" class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('service')}>Service</button>
+        </div>
 
             {/* ── Commercial Tab ──────────────────────────────────────────── */}
             {tab === 'commercial' && (
@@ -549,7 +539,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
                     <div class="cz-sv-overview-block__meta">
                       <span class="cz-req-contact-grid__label">Price</span>
                       <span class="cz-sv-overview-block__value">
-                        {priceStr ? fmtPrice(parseFloat(priceStr)) : '—'}
+                        {priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '0.00'}
                       </span>
                     </div>
                     {billingLabel && (
@@ -686,7 +676,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
                     </button>
                   )}
                   <div class="cz-tf-footer__spacer" />
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
                     {currentPromoId ? 'Done' : 'Cancel'}
                   </button>
                 </div>
@@ -722,8 +712,6 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
                 </div>
               </>
             )}
-          </>
-        )}
       </div>
 
       {/* ── Identity InlineEditorShell ─────────────────────────────────────── */}
@@ -1264,8 +1252,7 @@ export function PromotionsWorkstation({ refreshKey, openAction }: Props) {
   const handleNewPromotion = useCallback(() => {
     const packages    = data?.packages ?? [];
     const packagedIds = new Set(packages.flatMap((p) => p.service_refs));
-    const allServices = (cbData?.services_by_category.flatMap((g) => g.services) ?? [])
-      .filter((svc) => packagedIds.has(svc.id));
+    const allServices = cbData?.services_by_category.flatMap((g) => g.services) ?? [];
 
     openAction({
       id:             'promotion-create',
@@ -1274,12 +1261,13 @@ export function PromotionsWorkstation({ refreshKey, openAction }: Props) {
       hideStepHeader: true,
       initialStepData: {
         allServices,
+        packagedIds,
         packages,
         isNew: true,
       },
       steps: [
-        { id: 'select-service', title: 'Select Service',   component: PackageSelectServiceStep },
-        { id: 'promo-view',     title: 'New Promotion',    component: PromotionViewStep        },
+        { id: 'select-service', title: 'Select Service', component: PackageSelectServiceStep },
+        { id: 'promo-view',     title: 'New Promotion',  component: PromotionViewStep        },
       ],
     });
   }, [cbData, data, openAction]);

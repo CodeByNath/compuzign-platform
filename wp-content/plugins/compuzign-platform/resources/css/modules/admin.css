@@ -2381,7 +2381,7 @@ body.compuzign-admin-page footer.site-footer {
   white-space: normal;
 }
 
-/* ── Browse input (primary-button style) ─────────────────────────────────────── */
+/* ── Browse input (tab style — matches .cz-pricing-tab) ──────────────────────── */
 .cz-sp-browse-area {
   padding: var(--cz-space-3) var(--cz-space-4);
 }
@@ -2391,42 +2391,41 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sp-browse-input {
-  /* Self-contained — does not use cz-tf-input class */
   width: 100%;
-  border: 1px solid var(--admin-accent);
+  border: 1px solid var(--admin-accent-a12);
   border-radius: var(--admin-radius);
-  padding: 8px 32px 8px 12px;
+  padding: 6px 32px 6px 14px;
   box-sizing: border-box;
   outline: none;
-  font-size: var(--admin-fs-label);
+  font-size: var(--admin-fs-s-label);
   font-family: inherit;
+  font-weight: var(--admin-fw-strong);
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
-  background: var(--admin-accent);
-  color: var(--admin-bg);
-  font-weight: var(--admin-fw-strong);
+  background: var(--admin-accent-a12);
+  color: var(--admin-accent-text);
   text-align: left;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%230f1117' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a0aec0' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
-  transition: background var(--cz-transition-fast), border-color var(--cz-transition-fast), box-shadow var(--cz-transition-fast);
+  transition: background var(--cz-transition-fast), color var(--cz-transition-fast), border-color var(--cz-transition-fast);
 }
 
 .cz-sp-browse-input::placeholder {
-  color: rgba(15, 17, 23, 0.55);
+  color: var(--admin-accent-text);
+  opacity: 0.65;
 }
 
 .cz-sp-browse-input:hover {
-  background: var(--admin-accent-hover);
-  border-color: var(--admin-accent-hover);
-  box-shadow: var(--admin-depth-glow-md);
+  background: var(--admin-accent-a12);
+  border-color: var(--admin-accent);
 }
 
 .cz-sp-browse-input--active {
-  background: var(--admin-accent-hover);
-  border-color: var(--admin-accent-hover);
-  box-shadow: var(--admin-depth-ring-md);
+  background: var(--admin-accent-a15);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent-hover);
 }
 
 .cz-sp-browse-input--selected {
@@ -2447,19 +2446,23 @@ body.compuzign-admin-page footer.site-footer {
   padding: 0;
   border: none;
   background: none;
-  color: var(--admin-bg);
+  color: var(--admin-accent-text);
   cursor: pointer;
   border-radius: 50%;
   transition: background var(--cz-transition-fast);
 }
 
 .cz-sp-input-clear:hover {
-  background: rgba(15, 17, 23, 0.18);
+  background: var(--admin-accent-a12);
 }
 
-/* ── Category options list ───────────────────────────────────────────────────── */
+/* ── Category dropdown — absolutely positioned under browse field ─────────────── */
 .cz-sp-cat-options-wrap {
-  padding: 0 var(--cz-space-4) var(--cz-space-2);
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
 }
 
 .cz-sp-cat-options {
@@ -2468,7 +2471,9 @@ body.compuzign-admin-page footer.site-footer {
   padding: 0;
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
+  background: var(--admin-bg);
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.32);
 }
 
 .cz-sp-cat-option {
@@ -2491,6 +2496,13 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sp-cat-option:hover {
   background: var(--admin-accent-a12);
+}
+
+/* ── Tier group tabs (Promotion flow — Active Tiers / No Tier Level) ─────────── */
+.cz-sp-tier-tabs {
+  display: flex;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-3) var(--cz-space-4) var(--cz-space-2);
 }
 
 /* ── Scrollable service list (fixed height = ~8 rows) ────────────────────────── */
