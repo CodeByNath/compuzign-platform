@@ -3387,6 +3387,10 @@ body.compuzign-admin-page footer.site-footer {
   pointer-events: auto;
 }
 
+.cz-sv-module--locked .cz-sv-overview-block__edit {
+  opacity: 1;
+}
+
 .cz-tf-chip__edit {
   position: absolute;
   top: var(--cz-space-1);

@@ -927,10 +927,14 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Included Features</p>
-            <div class="cz-sc-inclusion-pool cz-sv-module--locked">
-              <span class="cz-tf-chip">Save overview first to enable.</span>
-              <span class="cz-tf-chip">{' '}</span>
-              <span class="cz-tf-chip">{' '}</span>
+            <div class="cz-sv-overview-block cz-sv-module--locked">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit">
+                ✎ Edit
+              </button>
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil features</p>
+                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No service — edit and create a service</p>
+              </div>
             </div>
           </div>
           {/* ── / Service Level Module: Included Features ────────────────────────── */}
@@ -938,11 +942,14 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">Common Questions</p>
-            <div class="cz-sc-faq-list cz-sv-module--locked">
-              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">Save overview first to enable.</p></div>
-              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">{' '}</p></div>
-              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">{' '}</p></div>
-              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">{' '}</p></div>
+            <div class="cz-sv-overview-block cz-sv-module--locked">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit">
+                ✎ Edit
+              </button>
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil questions</p>
+                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No service — edit and create a service</p>
+              </div>
             </div>
           </div>
           {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
