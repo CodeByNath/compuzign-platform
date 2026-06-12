@@ -557,7 +557,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {/* ── Service tab: Water Layer ───────────────────────────────────── */}
       {tab === 'service' && (
         <>
-          {/* Service Overview — single bordered block: identity + category + description */}
+          {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
@@ -584,7 +584,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               )}
             </div>
           </div>
+          {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
+          {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">
               Included Features
@@ -611,7 +613,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               </button>
             )}
           </div>
+          {/* ── / Service Level Module: Included Features ────────────────────────── */}
 
+          {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">
               Common Questions
@@ -639,6 +643,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               </button>
             )}
           </div>
+          {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
         </>
       )}
 
@@ -899,6 +904,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
       {tab === 'service' && (
         <>
+          {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
@@ -916,16 +922,30 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
               </div>
             </div>
           </div>
+          {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
-          <div class="cz-req-detail__section">
+          {/* ── Service Level Module: Included Features ──────────────────────────── */}
+          <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Included Features</p>
-            <p class="cz-tf-hint">Save overview first to enable.</p>
+            <div class="cz-sc-inclusion-pool cz-sv-module--locked">
+              <span class="cz-tf-chip">Save overview first to enable.</span>
+              <span class="cz-tf-chip">{' '}</span>
+              <span class="cz-tf-chip">{' '}</span>
+            </div>
           </div>
+          {/* ── / Service Level Module: Included Features ────────────────────────── */}
 
+          {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">Common Questions</p>
-            <p class="cz-tf-hint">Save overview first to enable.</p>
+            <div class="cz-sc-faq-list cz-sv-module--locked">
+              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">Save overview first to enable.</p></div>
+              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">{' '}</p></div>
+              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">{' '}</p></div>
+              <div class="cz-sc-faq-item"><p class="cz-sc-faq-item__a">{' '}</p></div>
+            </div>
           </div>
+          {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
         </>
       )}
 
@@ -1063,6 +1083,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
         </div>
       ) : (
         <>
+          {/* ── Service Browse Step ──────────────────────────────────────────────── */}
           {/* ── Category tabs ── */}
           <div class="cz-pricing-category-tabs">
             {(resp?.categories ?? []).map((cat) => (
@@ -1161,6 +1182,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
               </div>
             </div>
           )}
+          {/* ── / Service Browse Step ────────────────────────────────────────────── */}
         </>
       )}
     </div>

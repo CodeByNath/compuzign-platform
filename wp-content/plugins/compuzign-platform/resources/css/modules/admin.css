@@ -2981,6 +2981,10 @@ body.compuzign-admin-page footer.site-footer {
   line-height: var(--admin-lh-s-label);
 }
 
+.cz-sv-module--locked {
+  pointer-events: none;
+}
+
 /* Surface Package block inside service view */
 .cz-sc-pkg-block {
   padding: var(--cz-space-4);
