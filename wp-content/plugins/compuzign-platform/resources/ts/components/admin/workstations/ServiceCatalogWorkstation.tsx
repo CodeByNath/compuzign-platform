@@ -957,9 +957,67 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
       )}
 
       {tab === 'commercial' && (
-        <div class="cz-req-detail__section">
-          <p class="cz-tf-hint">Save overview first to configure commercial settings.</p>
-        </div>
+        <>
+          <div class="cz-sv-commercial-block">
+            <div class="cz-sv-commercial-block__header">
+              <span class="cz-sv-commercial-block__label">Tier Configuration</span>
+              <div class="cz-sv-commercial-block__status">
+                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+              </div>
+            </div>
+            <p class="cz-sv-commercial-block__count">0 tiers configured</p>
+            <p class="cz-sv-commercial-block__desc">Pricing and tiers not available.</p>
+            <div class="cz-sv-commercial-block__footer">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
+                View
+              </button>
+            </div>
+          </div>
+
+          <div class="cz-sv-commercial-block">
+            <div class="cz-sv-commercial-block__header">
+              <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
+              <div class="cz-sv-commercial-block__status">
+                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+              </div>
+            </div>
+            <p class="cz-sv-commercial-block__count">0 promotion configured</p>
+            <p class="cz-sv-commercial-block__desc">No active promotion.</p>
+            <div class="cz-sv-commercial-block__footer">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
+                View
+              </button>
+            </div>
+          </div>
+
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <p class="cz-req-detail__section-title">Pricing Summary</p>
+            <div class="cz-sp-tier-table-wrap">
+              <table class="cz-sp-tier-table">
+                <thead>
+                  <tr>
+                    <th>Tier</th>
+                    <th>Price</th>
+                    <th>Cycle</th>
+                    <th class="cz-sp-tier-table__center">Features</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TIER_KEYS.map((tierId) => (
+                    <tr key={tierId}>
+                      <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
+                      <td />
+                      <td />
+                      <td />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       <div class="cz-tf-footer">
