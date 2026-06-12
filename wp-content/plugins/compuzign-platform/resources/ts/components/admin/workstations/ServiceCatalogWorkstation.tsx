@@ -150,10 +150,11 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
 
   const reopenSelf = (activeTab: 'packages' | 'promotions') => {
     doOpen?.({
-      id:     `pkg-detail-${packageId}`,
-      mode:   'drawer',
-      title:  pkgTitle,
-      onBack: pkgBack,
+      id:             `pkg-detail-${packageId}`,
+      mode:           'drawer',
+      title:          pkgTitle,
+      onBack:         pkgBack,
+      hideStepHeader: true,
       initialStepData: {
         packageId,
         pkgTitle,
@@ -530,10 +531,11 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     });
     ctx.close();
     doOpen({
-      id:    `pkg-detail-${relatedPkg.post_id}`,
-      mode:  'drawer',
-      title: relatedPkg.title,
+      id:             `pkg-detail-${relatedPkg.post_id}`,
+      mode:           'drawer',
+      title:          relatedPkg.title,
       onBack,
+      hideStepHeader: true,
       initialStepData: {
         packageId:      relatedPkg.post_id,
         pkgTitle:       relatedPkg.title,
@@ -569,10 +571,11 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     });
     ctx.close();
     doOpen({
-      id:    `pkg-detail-${relatedPkg.post_id}`,
-      mode:  'drawer',
-      title: relatedPkg.title,
+      id:             `pkg-detail-${relatedPkg.post_id}`,
+      mode:           'drawer',
+      title:          relatedPkg.title,
       onBack,
+      hideStepHeader: true,
       initialStepData: {
         packageId:      relatedPkg.post_id,
         pkgTitle:       relatedPkg.title,
