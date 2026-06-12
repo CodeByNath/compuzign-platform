@@ -608,9 +608,15 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </div>
             ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={openInclusionsEditor}>
-                + Add inclusions
-              </button>
+              <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openInclusionsEditor}>
+                  ✎ Edit
+                </button>
+                <div class="cz-sv-overview-block__identity">
+                  <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil features</p>
+                  <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No features added — click Edit to add inclusions</p>
+                </div>
+              </div>
             )}
           </div>
           {/* ── / Service Level Module: Included Features ────────────────────────── */}
@@ -638,9 +644,15 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </div>
             ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={openFaqsEditor}>
-                + Add FAQs
-              </button>
+              <div class="cz-sv-overview-block cz-sv-overview-block--prompt">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openFaqsEditor}>
+                  ✎ Edit
+                </button>
+                <div class="cz-sv-overview-block__identity">
+                  <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil questions</p>
+                  <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No questions added — click Edit to add FAQs</p>
+                </div>
+              </div>
             )}
           </div>
           {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
@@ -743,12 +755,67 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             )}
           </>
         ) : (
-          <div class="cz-req-detail__section">
-            <p class="cz-sc-pkg-block__empty-msg">
-              Commercial configuration has not been set up for this service.
-              Manage this from the Service Packages workstation.
-            </p>
-          </div>
+          <>
+            <div class="cz-sv-commercial-block">
+              <div class="cz-sv-commercial-block__header">
+                <span class="cz-sv-commercial-block__label">Tier Configuration</span>
+                <div class="cz-sv-commercial-block__status">
+                  <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                  <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                </div>
+              </div>
+              <p class="cz-sv-commercial-block__count">0 tiers configured</p>
+              <p class="cz-sv-commercial-block__desc">Pricing and tiers not available.</p>
+              <div class="cz-sv-commercial-block__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
+                  View
+                </button>
+              </div>
+            </div>
+
+            <div class="cz-sv-commercial-block">
+              <div class="cz-sv-commercial-block__header">
+                <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
+                <div class="cz-sv-commercial-block__status">
+                  <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                  <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                </div>
+              </div>
+              <p class="cz-sv-commercial-block__count">0 promotion configured</p>
+              <p class="cz-sv-commercial-block__desc">No active promotion.</p>
+              <div class="cz-sv-commercial-block__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
+                  View
+                </button>
+              </div>
+            </div>
+
+            <div class="cz-req-detail__section cz-sv-section--no-border">
+              <p class="cz-req-detail__section-title">Pricing Summary</p>
+              <div class="cz-sp-tier-table-wrap">
+                <table class="cz-sp-tier-table">
+                  <thead>
+                    <tr>
+                      <th>Tier</th>
+                      <th>Price</th>
+                      <th>Cycle</th>
+                      <th class="cz-sp-tier-table__center">Features</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TIER_KEYS.map((tierId) => (
+                      <tr key={tierId}>
+                        <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
+                        <td />
+                        <td />
+                        <td />
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )
       )}
 
@@ -928,7 +995,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Included Features</p>
             <div class="cz-sv-overview-block cz-sv-module--locked">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" disabled>
                 ✎ Edit
               </button>
               <div class="cz-sv-overview-block__identity">
@@ -943,7 +1010,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section">
             <p class="cz-req-detail__section-title">Common Questions</p>
             <div class="cz-sv-overview-block cz-sv-module--locked">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" disabled>
                 ✎ Edit
               </button>
               <div class="cz-sv-overview-block__identity">
