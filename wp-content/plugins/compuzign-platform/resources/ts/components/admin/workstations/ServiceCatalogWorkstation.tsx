@@ -621,21 +621,25 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
-              <span class="cz-sv-overview-block__status">
-                {(service.title.trim() && service.categories.length > 0 && service.content.trim()) ? (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-                    <span class="cz-status-pill cz-status-pill--active">Active</span>
-                  </>
-                ) : (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-                  </>
-                )}
-              </span>
+              <div class="cz-sv-module-header">
+                <p class="cz-req-detail__section-title">Service Overview</p>
+                <div>
+                  <span class="cz-sv-overview-block__status">
+                    {(service.title.trim() && service.categories.length > 0 && service.content.trim()) ? (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
+                        <span class="cz-status-pill cz-status-pill--active">Active</span>
+                      </>
+                    ) : (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                        <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
               <div class="cz-sv-overview-block__meta">
                 <span class="cz-req-contact-grid__label">Title</span>
                 <p class="cz-sv-overview-block__value">
@@ -677,35 +681,40 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           </div>
           {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
+
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <p class="cz-req-detail__section-title">
-              Included Features
-              {inclusions.length > 0 && (
-                <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
-                  {inclusions.length}
-                </span>
-              )}
-            </p>
             <div class="cz-sv-overview-block">
-              <span class="cz-sv-overview-block__status">
-                {!isActive ? (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-error)" />
-                    <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
-                  </>
-                ) : inclusions.length > 0 ? (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-                    <span class="cz-status-pill cz-status-pill--active">Active</span>
-                  </>
-                ) : (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-                  </>
-                )}
-              </span>
+              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+                <p class="cz-req-detail__section-title">
+                  Included Features
+                  {inclusions.length > 0 && (
+                    <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
+                      {inclusions.length}
+                    </span>
+                  )}
+                </p>
+                <div>
+                  <span class="cz-sv-overview-block__status">
+                    {!isActive ? (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-error)" />
+                        <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
+                      </>
+                    ) : inclusions.length > 0 ? (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
+                        <span class="cz-status-pill cz-status-pill--active">Active</span>
+                      </>
+                    ) : (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                        <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
               {inclusions.length > 0 ? (
                 <div class="cz-sc-inclusion-pool">
                   {inclusions.map((inc) => (
@@ -739,33 +748,37 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
-            <p class="cz-req-detail__section-title">
-              Common Questions
-              {faqs.length > 0 && (
-                <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
-                  {faqs.length}
-                </span>
-              )}
-            </p>
             <div class="cz-sv-overview-block">
-              <span class="cz-sv-overview-block__status">
-                {!isActive ? (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-error)" />
-                    <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
-                  </>
-                ) : faqs.length > 0 ? (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-                    <span class="cz-status-pill cz-status-pill--active">Active</span>
-                  </>
-                ) : (
-                  <>
-                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-                  </>
-                )}
-              </span>
+              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+                <p class="cz-req-detail__section-title">
+                  Common Questions
+                  {faqs.length > 0 && (
+                    <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
+                      {faqs.length}
+                    </span>
+                  )}
+                </p>
+                <div>
+                  <span class="cz-sv-overview-block__status">
+                    {!isActive ? (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-error)" />
+                        <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
+                      </>
+                    ) : faqs.length > 0 ? (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
+                        <span class="cz-status-pill cz-status-pill--active">Active</span>
+                      </>
+                    ) : (
+                      <>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                        <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
               {faqs.length > 0 ? (
                 <div class="cz-sc-faq-list">
                   {faqs.map((faq) => (
@@ -1112,12 +1125,16 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
-              <span class="cz-sv-overview-block__status">
-                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-              </span>
+              <div class="cz-sv-module-header">
+                <p class="cz-req-detail__section-title">Service Overview</p>
+                <div>
+                  <span class="cz-sv-overview-block__status">
+                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                  </span>
+                </div>
+              </div>
               <div class="cz-sv-overview-block__meta">
                 <span class="cz-req-contact-grid__label">Title</span>
                 <p class="cz-sv-overview-block__value">
@@ -1160,12 +1177,16 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           {/* Drawer Principle v1 — Locked state: shell visible, action disabled; modules unavailable until service exists */}
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <p class="cz-req-detail__section-title">Included Features</p>
             <div class="cz-sv-overview-block cz-sv-module--locked">
-              <span class="cz-sv-overview-block__status">
-                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-              </span>
+              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+                <p class="cz-req-detail__section-title">Included Features</p>
+                <div>
+                  <span class="cz-sv-overview-block__status">
+                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                  </span>
+                </div>
+              </div>
               <div class="cz-sv-overview-block__identity">
                 <p class="cz-sv-overview-block__name">No features</p>
                 <p class="cz-sv-overview-block__excerpt">
@@ -1186,12 +1207,16 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
-            <p class="cz-req-detail__section-title">Common Questions</p>
             <div class="cz-sv-overview-block cz-sv-module--locked">
-              <span class="cz-sv-overview-block__status">
-                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-              </span>
+              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+                <p class="cz-req-detail__section-title">Common Questions</p>
+                <div>
+                  <span class="cz-sv-overview-block__status">
+                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                  </span>
+                </div>
+              </div>
               <div class="cz-sv-overview-block__identity">
                 <p class="cz-sv-overview-block__name">No questions added</p>
                 <p class="cz-sv-overview-block__excerpt">
