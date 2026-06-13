@@ -16,7 +16,7 @@ export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, ch
       <div class="cz-ies__header">
         <span class="cz-ies__title">{title}</span>
         <div class="cz-ies__header-controls">
-          <button type="button" class="cz-action-shell__back" onClick={onCancel} aria-label={`Back from ${title}`}>
+          <button type="button" class="cz-action-shell__back" onClick={onCancel} disabled={saving} aria-label={`Back from ${title}`}>
             ‹
           </button>
           <span class="cz-ies__live-badge">

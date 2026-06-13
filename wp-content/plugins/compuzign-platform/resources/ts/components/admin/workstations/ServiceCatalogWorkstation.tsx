@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'preact/hooks';
+import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
@@ -441,6 +441,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setInclusionsDraft(null);
     setFaqsDraft(null);
     setSaveErr(null);
+    setSaving(false);
   }, []);
 
   const handleSaveOverview = useCallback(async () => {
@@ -670,17 +671,20 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     return { text: `${pluralCount(complete, 'common question', 'common questions')} added`, orange: false };
   })();
 
+  const handleToggleActiveRef = useRef(handleToggleActive);
+  handleToggleActiveRef.current = handleToggleActive;
+
   useEffect(() => {
     const { setFooter, close } = ctx;
     setFooter(
       <div class="cz-tf-footer">
         {tab === 'service' && (
           isActive ? (
-            <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={handleToggleActive} disabled={statusSaving}>
+            <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => handleToggleActiveRef.current()} disabled={statusSaving}>
               {statusSaving ? '…' : 'Disable Service'}
             </button>
           ) : (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleToggleActive} disabled={statusSaving}>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleToggleActiveRef.current()} disabled={statusSaving}>
               {statusSaving ? '…' : 'Enable Service'}
             </button>
           )
@@ -702,7 +706,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       </div>
     );
     return () => setFooter(null);
-  }, [tab, isActive, handleToggleActive, statusSaving, canPublish, ctx.setFooter, ctx.close, setShowPublishModal]);
+  }, [tab, isActive, statusSaving, canPublish, ctx.setFooter, ctx.close]);
 
   const renderModuleStatus = (status: string) => {
     const pill = ({
