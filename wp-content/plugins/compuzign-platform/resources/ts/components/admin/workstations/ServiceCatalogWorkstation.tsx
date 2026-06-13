@@ -378,7 +378,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     return () => clearTimeout(t);
   }, [saveOk]);
 
-  const isActive = service.meta?.is_active !== false;
+  const isActive    = service.meta?.is_active !== false;
+  const isDisabled  = service.meta?.is_active === false;
+  const isPublished = service.meta?.is_active === true;
 
   const handleToggleActive = useCallback(async () => {
     setStatusSaving(true);
@@ -599,6 +601,53 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
+  // ── Module status resolvers ──────────────────────────────────────────────
+  const getOverviewStatus = () => {
+    if (isDisabled) return 'disabled';
+    const hasData = !!(service.title.trim() || service.categories.length > 0 || service.content.trim());
+    if (!hasData) return 'not-configured';
+    const complete = !!(service.title.trim() && service.categories.length > 0 && service.content.trim());
+    if (!complete) return 'pending-dim';
+    return isPublished ? 'active' : 'pending-full';
+  };
+
+  const getInclusionsStatus = () => {
+    if (isDisabled) return 'disabled';
+    if (inclusions.length === 0) return 'not-configured';
+    const allComplete = inclusions.every(inc => !!inc.label?.trim());
+    if (!allComplete) return 'pending-dim';
+    return isPublished ? 'active' : 'pending-full';
+  };
+
+  const getFaqsStatus = () => {
+    if (isDisabled) return 'disabled';
+    if (faqs.length === 0) return 'not-configured';
+    const allComplete = faqs.every(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim()));
+    if (!allComplete) return 'pending-dim';
+    return isPublished ? 'active' : 'pending-full';
+  };
+
+  const overviewStatus   = getOverviewStatus();
+  const inclusionsStatus = getInclusionsStatus();
+  const faqsStatus       = getFaqsStatus();
+
+  const renderModuleStatus = (status: string) => {
+    const pill = ({
+      'active':         { dot: 'var(--admin-success)',    cls: 'cz-status-pill--active',   label: 'Active'         },
+      'disabled':       { dot: 'var(--admin-error)',      cls: 'cz-status-pill--inactive', label: 'Disabled'       },
+      'pending-dim':    { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'        },
+      'pending-full':   { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'        },
+      'not-configured': { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft',   label: 'Not configured' },
+    } as Record<string, { dot: string; cls: string; label: string }>)[status]
+      ?? { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft', label: 'Not configured' };
+    return (
+      <>
+        <span class="cz-admin-status-dot" style={`color:${pill.dot}`} />
+        <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
+      </>
+    );
+  };
+
   return (
     <>
     <div class="cz-req-detail">
@@ -632,19 +681,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <div>
                   <span
                     class="cz-sv-overview-block__status"
-                    style={!(service.title.trim() && service.categories.length > 0 && service.content.trim()) ? 'opacity:0.45' : undefined}
+                    style={overviewStatus === 'pending-dim' ? 'opacity:0.45' : undefined}
                   >
-                    {(service.title.trim() && service.categories.length > 0 && service.content.trim()) && isActive ? (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-                        <span class="cz-status-pill cz-status-pill--active">Active</span>
-                      </>
-                    ) : (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-warning)" />
-                        <span class="cz-status-pill cz-status-pill--pending">Pending</span>
-                      </>
-                    )}
+                    {renderModuleStatus(overviewStatus)}
                   </span>
                 </div>
               </div>
@@ -707,19 +746,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <div>
                   <span
                     class="cz-sv-overview-block__status"
-                    style={inclusions.length === 0 ? 'opacity:0.45' : undefined}
+                    style={inclusionsStatus === 'pending-dim' ? 'opacity:0.45' : undefined}
                   >
-                    {inclusions.length > 0 && isActive ? (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-                        <span class="cz-status-pill cz-status-pill--active">Active</span>
-                      </>
-                    ) : (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-warning)" />
-                        <span class="cz-status-pill cz-status-pill--pending">Pending</span>
-                      </>
-                    )}
+                    {renderModuleStatus(inclusionsStatus)}
                   </span>
                 </div>
               </div>
@@ -771,19 +800,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <div>
                   <span
                     class="cz-sv-overview-block__status"
-                    style={faqs.length === 0 ? 'opacity:0.45' : undefined}
+                    style={faqsStatus === 'pending-dim' ? 'opacity:0.45' : undefined}
                   >
-                    {faqs.length > 0 && isActive ? (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-                        <span class="cz-status-pill cz-status-pill--active">Active</span>
-                      </>
-                    ) : (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-warning)" />
-                        <span class="cz-status-pill cz-status-pill--pending">Pending</span>
-                      </>
-                    )}
+                    {renderModuleStatus(faqsStatus)}
                   </span>
                 </div>
               </div>
