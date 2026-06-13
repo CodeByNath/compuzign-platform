@@ -41,6 +41,7 @@ interface Props {
   onComplete: () => void;
 }
 
+// Drawer Principle v1 — outer drawer container (header, body, footer, step management)
 export function ActionShell({ config, onClose, onComplete }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [stepData, setStepDataMap] = useState<Record<string, unknown>>(config.initialStepData ?? {});

@@ -357,6 +357,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const [tab, setTab] = useState<'service' | 'commercial'>('service');
 
+  // Drawer Principle v1 — module state machine: null = View, named value = Edit (InlineEditorShell active)
   const [editingSection,   setEditingSection]   = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
   const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
   const [inclusionsDraft,  setInclusionsDraft]  = useState<InclusionsDraft | null>(null);
@@ -622,27 +623,57 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
+              <span class="cz-sv-overview-block__status">
+                {(service.title.trim() && service.categories.length > 0 && service.content.trim()) ? (
+                  <>
+                    <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
+                    <span class="cz-status-pill cz-status-pill--active">Active</span>
+                  </>
+                ) : (
+                  <>
+                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                  </>
+                )}
+              </span>
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit" onClick={openOverviewEditor}>
                 ✎ Edit
               </button>
-              <div class="cz-sv-overview-block__identity">
-                <p class="cz-sv-overview-block__name">{decodeHtml(service.title)}</p>
-                {service.excerpt && (
-                  <p class="cz-sv-overview-block__excerpt">{service.excerpt}</p>
-                )}
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Title</span>
+                <p class="cz-sv-overview-block__value">
+                  {service.title.trim() ? decodeHtml(service.title) : <span style="color:var(--admin-text-faint)">New Service</span>}
+                </p>
               </div>
+              {service.excerpt && (
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Short Description</span>
+                  <p class="cz-sv-overview-block__value">{service.excerpt}</p>
+                </div>
+              )}
               <div class="cz-sv-overview-block__meta">
                 <span class="cz-req-contact-grid__label">Category</span>
                 <span class="cz-sv-overview-block__value">
-                  {service.categories.map((c) => decodeHtml(c.name)).join(', ') || '—'}
+                  {service.categories.length > 0
+                    ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
+                    : <span style="color:var(--admin-text-faint)">Not selected</span>
+                  }
                 </span>
               </div>
-              {service.content && (
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Description</span>
-                  <p class="cz-sv-overview-block__desc">{service.content}</p>
-                </div>
-              )}
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Description</span>
+                <p class="cz-sv-overview-block__desc">
+                  {service.content.trim()
+                    ? service.content
+                    : <span style="color:var(--admin-text-faint)">
+                        {service.title.trim()
+                          ? `Enter a description for the ${decodeHtml(service.title)}.`
+                          : 'Enter a description for the service.'
+                        }
+                      </span>
+                  }
+                </p>
+              </div>
             </div>
           </div>
           {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
@@ -674,8 +705,13 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   ✎ Edit
                 </button>
                 <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil features</p>
-                  <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No features added — click Edit to add inclusions</p>
+                  <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No features</p>
+                  <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">
+                    {service.title.trim()
+                      ? `Add features to the ${decodeHtml(service.title)}.`
+                      : 'Add features to this service.'
+                    }
+                  </p>
                 </div>
               </div>
             )}
@@ -710,8 +746,13 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   ✎ Edit
                 </button>
                 <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil questions</p>
-                  <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No questions added — click Edit to add FAQs</p>
+                  <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No questions added</p>
+                  <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">
+                    {service.title.trim()
+                      ? `Add common questions for the ${decodeHtml(service.title)}.`
+                      : 'Add common questions for this service.'
+                    }
+                  </p>
                 </div>
               </div>
             )}
@@ -907,6 +948,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       </div>
     </div>
 
+    {/* Drawer Principle v1 — Edit state: each module rendered through InlineEditorShell */}
     {editingSection === 'overview' && overviewDraft && (
       <InlineEditorShell
         title="Edit Overview"
@@ -1036,6 +1078,10 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Service Overview</p>
             <div class="cz-sv-overview-block">
+              <span class="cz-sv-overview-block__status">
+                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
+                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+              </span>
               <button
                 type="button"
                 class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-sv-overview-block__edit"
@@ -1044,14 +1090,40 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
               >
                 ✎ Edit
               </button>
-              <div class="cz-sv-overview-block__identity">
-                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Untitled service</p>
-                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No category — click Edit to get started</p>
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Title</span>
+                <p class="cz-sv-overview-block__value">
+                  {draft.title.trim() ? draft.title : <span style="color:var(--admin-text-faint)">New Service</span>}
+                </p>
+              </div>
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Category</span>
+                <span class="cz-sv-overview-block__value">
+                  {draft.category_id !== null
+                    ? (allCategories.find(c => c.id === draft.category_id)?.name ?? <span style="color:var(--admin-text-faint)">Not selected</span>)
+                    : <span style="color:var(--admin-text-faint)">Not selected</span>
+                  }
+                </span>
+              </div>
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Description</span>
+                <p class="cz-sv-overview-block__desc">
+                  {draft.content.trim()
+                    ? draft.content
+                    : <span style="color:var(--admin-text-faint)">
+                        {draft.title.trim()
+                          ? `Enter a description for the ${draft.title}.`
+                          : 'Enter a description for the service.'
+                        }
+                      </span>
+                  }
+                </p>
               </div>
             </div>
           </div>
           {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
+          {/* Drawer Principle v1 — Locked state: shell visible, action disabled; modules unavailable until service exists */}
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Included Features</p>
@@ -1060,8 +1132,13 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 ✎ Edit
               </button>
               <div class="cz-sv-overview-block__identity">
-                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil features</p>
-                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No service — edit and create a service</p>
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No features</p>
+                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">
+                  {draft.title.trim()
+                    ? `Add features to the ${draft.title}.`
+                    : 'Configure the service title to add features.'
+                  }
+                </p>
               </div>
             </div>
           </div>
@@ -1075,8 +1152,13 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 ✎ Edit
               </button>
               <div class="cz-sv-overview-block__identity">
-                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil questions</p>
-                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No service — edit and create a service</p>
+                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No questions added</p>
+                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">
+                  {draft.title.trim()
+                    ? `Add common questions for the ${draft.title}.`
+                    : 'Configure the service title to add questions.'
+                  }
+                </p>
               </div>
             </div>
           </div>

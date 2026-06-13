@@ -9,6 +9,7 @@ interface Props {
   children: ComponentChildren;
 }
 
+// Drawer Principle v1 — Edit state shell; same module shell, different content
 export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, children }: Props) {
   return (
     <div class="cz-ies">

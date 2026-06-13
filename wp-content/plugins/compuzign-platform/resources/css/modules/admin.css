@@ -2981,9 +2981,10 @@ body.compuzign-admin-page footer.site-footer {
   line-height: var(--admin-lh-s-label);
 }
 
-.cz-sv-module--locked {
+/* Drawer Principle v1 — Temporary Disabled Rule: state must not apply to the shell; applies to action control only */
+/* .cz-sv-module--locked {
   pointer-events: none;
-}
+} */
 
 /* Surface Package block inside service view */
 .cz-sc-pkg-block {
@@ -3369,7 +3370,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-sv-overview-block__edit,
 .cz-sc-faq-item__edit {
   position: absolute;
-  top: var(--cz-space-2);
+  bottom: var(--cz-space-2);
   right: var(--cz-space-2);
   z-index: 2;
   display: inline-flex;
@@ -3380,15 +3381,21 @@ body.compuzign-admin-page footer.site-footer {
   transition: opacity var(--cz-transition-fast);
 }
 
+.cz-sv-overview-block__status {
+  position: absolute;
+  top: var(--cz-space-2);
+  right: var(--cz-space-2);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+}
+
 .cz-sv-overview-block:hover .cz-sv-overview-block__edit,
 .cz-sc-faq-item:hover .cz-sc-faq-item__edit,
 .cz-sv-overview-block--prompt .cz-sv-overview-block__edit {
   opacity: 1;
   pointer-events: auto;
-}
-
-.cz-sv-module--locked .cz-sv-overview-block__edit {
-  opacity: 1;
 }
 
 .cz-tf-chip__edit {
