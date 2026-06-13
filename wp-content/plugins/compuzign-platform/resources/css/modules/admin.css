@@ -3333,20 +3333,17 @@ body.compuzign-admin-page footer.site-footer {
   color: var(--admin-accent);
 }
 
-/* ── Service View — overview block ──────────────────────────────────────────── */
-.cz-sv-overview-block {
-  position: relative;
+/* ── Service View — module shell ────────────────────────────────────────────── */
+.cz-sv-module {
   display: flex;
   flex-direction: column;
-  gap: var(--cz-space-4);
-  padding: var(--cz-space-4);
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   transition: background var(--cz-transition-fast);
 }
 
-.cz-sv-overview-block:hover {
+.cz-sv-module:hover {
   background: var(--admin-accent-a12);
 }
 
@@ -3355,23 +3352,29 @@ body.compuzign-admin-page footer.site-footer {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  padding: var(--cz-space-4);
   border-bottom: 1px solid var(--admin-border-blue);
-  padding-bottom: var(--cz-space-4);
 }
 
 .cz-sv-module-header--no-border {
   border-bottom: none;
-  padding-bottom: 0;
 }
 
 .cz-sv-module-header .cz-req-detail__section-title {
   margin: 0;
 }
 
+.cz-sv-module-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+  padding: var(--cz-space-4);
+}
+
 .cz-sv-module-footer {
   display: flex;
   justify-content: flex-end;
-  margin-top: var(--cz-space-2);
+  padding: 0 var(--cz-space-4) var(--cz-space-4);
 }
 
 .cz-sv-overview-block__status {

@@ -321,10 +321,15 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
           </>
         ) : (
           <div class="cz-req-detail__section">
-            <div class="cz-sv-overview-block">
-              <div class="cz-sv-overview-block__identity">
-                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">Nil promotions</p>
-                <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">No promotions configured — add from the Promotions workstation</p>
+            <div class="cz-sv-module">
+              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+                <p class="cz-req-detail__section-title">Promotions</p>
+              </div>
+              <div class="cz-sv-module-body">
+                <div class="cz-sv-overview-block__identity">
+                  <p class="cz-sv-overview-block__name">No promotions configured</p>
+                  <p class="cz-sv-overview-block__excerpt">Add from the Promotions workstation.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -621,7 +626,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-overview-block">
+            <div class="cz-sv-module">
               <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Service Overview</p>
                 <div>
@@ -640,37 +645,39 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   </span>
                 </div>
               </div>
-              <div class="cz-sv-overview-block__meta">
-                <span class="cz-req-contact-grid__label">Title</span>
-                <p class="cz-sv-overview-block__value">
-                  {service.title.trim() ? decodeHtml(service.title) : 'New Service'}
-                </p>
-              </div>
-              {service.excerpt && (
+              <div class="cz-sv-module-body">
                 <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Short Description</span>
-                  <p class="cz-sv-overview-block__value">{service.excerpt}</p>
+                  <span class="cz-req-contact-grid__label">Title</span>
+                  <p class="cz-sv-overview-block__value">
+                    {service.title.trim() ? decodeHtml(service.title) : 'New Service'}
+                  </p>
                 </div>
-              )}
-              <div class="cz-sv-overview-block__meta">
-                <span class="cz-req-contact-grid__label">Category</span>
-                <span class="cz-sv-overview-block__value">
-                  {service.categories.length > 0
-                    ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
-                    : 'Not selected'
-                  }
-                </span>
-              </div>
-              <div class="cz-sv-overview-block__meta">
-                <span class="cz-req-contact-grid__label">Description</span>
-                <p class="cz-sv-overview-block__desc">
-                  {service.content.trim()
-                    ? service.content
-                    : service.title.trim()
-                      ? `Enter a description for the ${decodeHtml(service.title)}.`
-                      : 'Enter a description for the service.'
-                  }
-                </p>
+                {service.excerpt && (
+                  <div class="cz-sv-overview-block__meta">
+                    <span class="cz-req-contact-grid__label">Short Description</span>
+                    <p class="cz-sv-overview-block__value">{service.excerpt}</p>
+                  </div>
+                )}
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Category</span>
+                  <span class="cz-sv-overview-block__value">
+                    {service.categories.length > 0
+                      ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
+                      : 'Not selected'
+                    }
+                  </span>
+                </div>
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Description</span>
+                  <p class="cz-sv-overview-block__desc">
+                    {service.content.trim()
+                      ? service.content
+                      : service.title.trim()
+                        ? `Enter a description for the ${decodeHtml(service.title)}.`
+                        : 'Enter a description for the service.'
+                    }
+                  </p>
+                </div>
               </div>
               <div class="cz-sv-module-footer">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={openOverviewEditor}>
@@ -684,8 +691,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-overview-block">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+            <div class="cz-sv-module">
+              <div class={`cz-sv-module-header${(isActive && inclusions.length > 0) ? ' cz-sv-module-header--no-border' : ''}`}>
                 <p class="cz-req-detail__section-title">
                   Included Features
                   {inclusions.length > 0 && (
@@ -715,28 +722,30 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   </span>
                 </div>
               </div>
-              {inclusions.length > 0 ? (
-                <div class="cz-sc-inclusion-pool">
-                  {inclusions.map((inc) => (
-                    <span key={inc.id} class="cz-tf-chip">
-                      {inc.label}
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openInclusionsEditor}>
-                        ✎
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name">No features</p>
-                  <p class="cz-sv-overview-block__excerpt">
-                    {service.title.trim()
-                      ? `Add features to the ${decodeHtml(service.title)}.`
-                      : 'Add features to this service.'
-                    }
-                  </p>
-                </div>
-              )}
+              <div class="cz-sv-module-body">
+                {inclusions.length > 0 ? (
+                  <div class="cz-sc-inclusion-pool">
+                    {inclusions.map((inc) => (
+                      <span key={inc.id} class="cz-tf-chip">
+                        {inc.label}
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={openInclusionsEditor}>
+                          ✎
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div class="cz-sv-overview-block__identity">
+                    <p class="cz-sv-overview-block__name">No features</p>
+                    <p class="cz-sv-overview-block__excerpt">
+                      {service.title.trim()
+                        ? `Add features to the ${decodeHtml(service.title)}.`
+                        : 'Add features to this service.'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
               <div class="cz-sv-module-footer">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={openInclusionsEditor}>
                   ✎ Edit
@@ -748,8 +757,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
-            <div class="cz-sv-overview-block">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+            <div class="cz-sv-module">
+              <div class={`cz-sv-module-header${(isActive && faqs.length > 0) ? ' cz-sv-module-header--no-border' : ''}`}>
                 <p class="cz-req-detail__section-title">
                   Common Questions
                   {faqs.length > 0 && (
@@ -779,26 +788,28 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   </span>
                 </div>
               </div>
-              {faqs.length > 0 ? (
-                <div class="cz-sc-faq-list">
-                  {faqs.map((faq) => (
-                    <div key={faq.id} class="cz-sc-faq-item">
-                      <p class="cz-sc-faq-item__q">{faq.question}</p>
-                      {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name">No questions added</p>
-                  <p class="cz-sv-overview-block__excerpt">
-                    {service.title.trim()
-                      ? `Add common questions for the ${decodeHtml(service.title)}.`
-                      : 'Add common questions for this service.'
-                    }
-                  </p>
-                </div>
-              )}
+              <div class="cz-sv-module-body">
+                {faqs.length > 0 ? (
+                  <div class="cz-sc-faq-list">
+                    {faqs.map((faq) => (
+                      <div key={faq.id} class="cz-sc-faq-item">
+                        <p class="cz-sc-faq-item__q">{faq.question}</p>
+                        {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div class="cz-sv-overview-block__identity">
+                    <p class="cz-sv-overview-block__name">No questions added</p>
+                    <p class="cz-sv-overview-block__excerpt">
+                      {service.title.trim()
+                        ? `Add common questions for the ${decodeHtml(service.title)}.`
+                        : 'Add common questions for this service.'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
               <div class="cz-sv-module-footer">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={openFaqsEditor}>
                   ✎ Edit
@@ -1125,7 +1136,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-overview-block">
+            <div class="cz-sv-module">
               <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Service Overview</p>
                 <div>
@@ -1135,31 +1146,33 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                   </span>
                 </div>
               </div>
-              <div class="cz-sv-overview-block__meta">
-                <span class="cz-req-contact-grid__label">Title</span>
-                <p class="cz-sv-overview-block__value">
-                  {draft.title.trim() ? draft.title : 'New Service'}
-                </p>
-              </div>
-              <div class="cz-sv-overview-block__meta">
-                <span class="cz-req-contact-grid__label">Category</span>
-                <span class="cz-sv-overview-block__value">
-                  {draft.category_id !== null
-                    ? (allCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
-                    : 'Not selected'
-                  }
-                </span>
-              </div>
-              <div class="cz-sv-overview-block__meta">
-                <span class="cz-req-contact-grid__label">Description</span>
-                <p class="cz-sv-overview-block__desc">
-                  {draft.content.trim()
-                    ? draft.content
-                    : draft.title.trim()
-                      ? `Enter a description for the ${draft.title}.`
-                      : 'Enter a description for the service.'
-                  }
-                </p>
+              <div class="cz-sv-module-body">
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Title</span>
+                  <p class="cz-sv-overview-block__value">
+                    {draft.title.trim() ? draft.title : 'New Service'}
+                  </p>
+                </div>
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Category</span>
+                  <span class="cz-sv-overview-block__value">
+                    {draft.category_id !== null
+                      ? (allCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
+                      : 'Not selected'
+                    }
+                  </span>
+                </div>
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Description</span>
+                  <p class="cz-sv-overview-block__desc">
+                    {draft.content.trim()
+                      ? draft.content
+                      : draft.title.trim()
+                        ? `Enter a description for the ${draft.title}.`
+                        : 'Enter a description for the service.'
+                    }
+                  </p>
+                </div>
               </div>
               <div class="cz-sv-module-footer">
                 <button
@@ -1177,8 +1190,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           {/* Drawer Principle v1 — Locked state: shell visible, action disabled; modules unavailable until service exists */}
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-overview-block cz-sv-module--locked">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+            <div class="cz-sv-module cz-sv-module--locked">
+              <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Included Features</p>
                 <div>
                   <span class="cz-sv-overview-block__status">
@@ -1187,14 +1200,16 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                   </span>
                 </div>
               </div>
-              <div class="cz-sv-overview-block__identity">
-                <p class="cz-sv-overview-block__name">No features</p>
-                <p class="cz-sv-overview-block__excerpt">
-                  {draft.title.trim()
-                    ? `Add features to the ${draft.title}.`
-                    : 'Configure the service to add features.'
-                  }
-                </p>
+              <div class="cz-sv-module-body">
+                <div class="cz-sv-overview-block__identity">
+                  <p class="cz-sv-overview-block__name">No features</p>
+                  <p class="cz-sv-overview-block__excerpt">
+                    {draft.title.trim()
+                      ? `Add features to the ${draft.title}.`
+                      : 'Configure the service to add features.'
+                    }
+                  </p>
+                </div>
               </div>
               <div class="cz-sv-module-footer">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
@@ -1207,8 +1222,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
-            <div class="cz-sv-overview-block cz-sv-module--locked">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
+            <div class="cz-sv-module cz-sv-module--locked">
+              <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Common Questions</p>
                 <div>
                   <span class="cz-sv-overview-block__status">
@@ -1217,14 +1232,16 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                   </span>
                 </div>
               </div>
-              <div class="cz-sv-overview-block__identity">
-                <p class="cz-sv-overview-block__name">No questions added</p>
-                <p class="cz-sv-overview-block__excerpt">
-                  {draft.title.trim()
-                    ? `Add common questions for the ${draft.title}.`
-                    : 'Configure the service to add questions.'
-                  }
-                </p>
+              <div class="cz-sv-module-body">
+                <div class="cz-sv-overview-block__identity">
+                  <p class="cz-sv-overview-block__name">No questions added</p>
+                  <p class="cz-sv-overview-block__excerpt">
+                    {draft.title.trim()
+                      ? `Add common questions for the ${draft.title}.`
+                      : 'Configure the service to add questions.'
+                    }
+                  </p>
+                </div>
               </div>
               <div class="cz-sv-module-footer">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>

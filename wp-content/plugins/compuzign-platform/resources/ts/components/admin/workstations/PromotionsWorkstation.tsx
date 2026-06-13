@@ -562,7 +562,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
                   ))}
                 </div>
               ) : (
-                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No inclusions added</p>
+                <p class="cz-sv-overview-block__name">No inclusions added</p>
               )}
             </ReadBlock>
 
@@ -574,7 +574,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
                   ))}
                 </div>
               ) : (
-                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No add-ons added</p>
+                <p class="cz-sv-overview-block__name">No add-ons added</p>
               )}
             </ReadBlock>
 
@@ -586,7 +586,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
                   ))}
                 </div>
               ) : (
-                <p class="cz-sv-overview-block__name" style="color:var(--admin-text-faint)">No exclusions added</p>
+                <p class="cz-sv-overview-block__name">No exclusions added</p>
               )}
             </ReadBlock>
 
