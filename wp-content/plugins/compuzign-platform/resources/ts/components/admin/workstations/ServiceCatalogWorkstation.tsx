@@ -68,7 +68,7 @@ function buildNewServiceItem(data: {
       popular_tier:      null,
       popular_label:     null,
       sort_order:        0,
-      is_active:         true,
+      is_active:         false,
     },
     pricing: {
       tiers:  {} as Record<TierId, PricingTierData>,
@@ -604,9 +604,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   // ── Module status resolvers ──────────────────────────────────────────────
   const getOverviewStatus = () => {
     if (isDisabled) return 'disabled';
-    const hasData = !!(service.title.trim() || service.categories.length > 0 || service.content.trim());
+    const hasData = !!(service.title.trim() || service.excerpt.trim() || service.categories.length > 0 || service.content.trim());
     if (!hasData) return 'not-configured';
-    const complete = !!(service.title.trim() && service.categories.length > 0 && service.content.trim());
+    const complete = !!(service.title.trim() && service.excerpt.trim() && service.categories.length > 0 && service.content.trim());
     if (!complete) return 'pending-dim';
     return isPublished ? 'active' : 'pending-full';
   };
