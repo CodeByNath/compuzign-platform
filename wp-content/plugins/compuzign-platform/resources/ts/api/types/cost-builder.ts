@@ -32,7 +32,7 @@ export interface ServiceMeta {
   popular_tier: TierId | null;
   popular_label: string | null;
   sort_order: number;
-  is_active: boolean;
+  is_active: boolean | null;
 }
 
 export interface PricingTierData {

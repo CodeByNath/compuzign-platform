@@ -68,7 +68,7 @@ function buildNewServiceItem(data: {
       popular_tier:      null,
       popular_label:     null,
       sort_order:        0,
-      is_active:         false,
+      is_active:         null,
     },
     pricing: {
       tiers:  {} as Record<TierId, PricingTierData>,
