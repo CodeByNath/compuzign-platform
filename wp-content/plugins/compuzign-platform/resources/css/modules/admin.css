@@ -2939,7 +2939,6 @@ body.compuzign-admin-page footer.site-footer {
 
 .cz-sc-faq-item {
   padding: 10px var(--cz-space-3);
-  background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   transition: background var(--cz-transition-fast);
@@ -3154,6 +3153,11 @@ body.compuzign-admin-page footer.site-footer {
 .cz-status-pill--draft {
   background: var(--admin-white-a08);
   color: var(--admin-text-muted);
+}
+
+.cz-status-pill--pending {
+  background: var(--admin-warning-a12);
+  color: var(--admin-warning);
 }
 
 .cz-status-pill--archived {

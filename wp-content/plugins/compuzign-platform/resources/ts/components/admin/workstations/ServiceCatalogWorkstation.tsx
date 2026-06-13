@@ -630,16 +630,19 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Service Overview</p>
                 <div>
-                  <span class="cz-sv-overview-block__status">
-                    {(service.title.trim() && service.categories.length > 0 && service.content.trim()) ? (
+                  <span
+                    class="cz-sv-overview-block__status"
+                    style={!(service.title.trim() && service.categories.length > 0 && service.content.trim()) ? 'opacity:0.45' : undefined}
+                  >
+                    {(service.title.trim() && service.categories.length > 0 && service.content.trim()) && isActive ? (
                       <>
                         <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
                         <span class="cz-status-pill cz-status-pill--active">Active</span>
                       </>
                     ) : (
                       <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                        <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-warning)" />
+                        <span class="cz-status-pill cz-status-pill--pending">Pending</span>
                       </>
                     )}
                   </span>
@@ -692,7 +695,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <div class="cz-sv-module">
-              <div class={`cz-sv-module-header${(isActive && inclusions.length > 0) ? ' cz-sv-module-header--no-border' : ''}`}>
+              <div class={`cz-sv-module-header${inclusions.length > 0 ? ' cz-sv-module-header--no-border' : ''}`}>
                 <p class="cz-req-detail__section-title">
                   Included Features
                   {inclusions.length > 0 && (
@@ -702,21 +705,19 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   )}
                 </p>
                 <div>
-                  <span class="cz-sv-overview-block__status">
-                    {!isActive ? (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-error)" />
-                        <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
-                      </>
-                    ) : inclusions.length > 0 ? (
+                  <span
+                    class="cz-sv-overview-block__status"
+                    style={inclusions.length === 0 ? 'opacity:0.45' : undefined}
+                  >
+                    {inclusions.length > 0 && isActive ? (
                       <>
                         <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
                         <span class="cz-status-pill cz-status-pill--active">Active</span>
                       </>
                     ) : (
                       <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                        <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-warning)" />
+                        <span class="cz-status-pill cz-status-pill--pending">Pending</span>
                       </>
                     )}
                   </span>
@@ -758,7 +759,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <div class="cz-req-detail__section">
             <div class="cz-sv-module">
-              <div class={`cz-sv-module-header${(isActive && faqs.length > 0) ? ' cz-sv-module-header--no-border' : ''}`}>
+              <div class={`cz-sv-module-header${faqs.length > 0 ? ' cz-sv-module-header--no-border' : ''}`}>
                 <p class="cz-req-detail__section-title">
                   Common Questions
                   {faqs.length > 0 && (
@@ -768,21 +769,19 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   )}
                 </p>
                 <div>
-                  <span class="cz-sv-overview-block__status">
-                    {!isActive ? (
-                      <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-error)" />
-                        <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>
-                      </>
-                    ) : faqs.length > 0 ? (
+                  <span
+                    class="cz-sv-overview-block__status"
+                    style={faqs.length === 0 ? 'opacity:0.45' : undefined}
+                  >
+                    {faqs.length > 0 && isActive ? (
                       <>
                         <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
                         <span class="cz-status-pill cz-status-pill--active">Active</span>
                       </>
                     ) : (
                       <>
-                        <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                        <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                        <span class="cz-admin-status-dot" style="color:var(--admin-warning)" />
+                        <span class="cz-status-pill cz-status-pill--pending">Pending</span>
                       </>
                     )}
                   </span>
@@ -793,8 +792,12 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   <div class="cz-sc-faq-list">
                     {faqs.map((faq) => (
                       <div key={faq.id} class="cz-sc-faq-item">
-                        <p class="cz-sc-faq-item__q">{faq.question}</p>
-                        {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
+                        <p class="cz-sc-faq-item__q">
+                          {faq.question.trim() || 'No Question Added'}
+                        </p>
+                        <p class="cz-sc-faq-item__a">
+                          {faq.answer?.trim() || 'No Answer Added'}
+                        </p>
                       </div>
                     ))}
                   </div>
