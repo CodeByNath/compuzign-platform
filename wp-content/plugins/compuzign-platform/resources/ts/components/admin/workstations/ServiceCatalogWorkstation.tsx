@@ -367,10 +367,11 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
   const [inclusionsDraft,  setInclusionsDraft]  = useState<InclusionsDraft | null>(null);
   const [faqsDraft,        setFaqsDraft]        = useState<FaqsDraft | null>(null);
-  const [saving,           setSaving]           = useState(false);
-  const [saveErr,          setSaveErr]          = useState<string | null>(null);
-  const [saveOk,           setSaveOk]           = useState(false);
-  const [statusSaving,     setStatusSaving]     = useState(false);
+  const [saving,             setSaving]           = useState(false);
+  const [saveErr,            setSaveErr]          = useState<string | null>(null);
+  const [saveOk,             setSaveOk]           = useState(false);
+  const [statusSaving,       setStatusSaving]     = useState(false);
+  const [showPublishModal,   setShowPublishModal] = useState(false);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -630,6 +631,16 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const overviewStatus   = getOverviewStatus();
   const inclusionsStatus = getInclusionsStatus();
   const faqsStatus       = getFaqsStatus();
+
+  const canPublish = overviewStatus === 'pending-full';
+
+  const handleConfirmPublish = useCallback(async () => {
+    setShowPublishModal(false);
+    await handlePublishService();
+  }, [handlePublishService]);
+
+  const pluralCount = (n: number, singular: string, plural: string) =>
+    `${n} ${n === 1 ? singular : plural}`;
 
   const renderModuleStatus = (status: string) => {
     const pill = ({
@@ -1023,12 +1034,63 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           Cancel
         </button>
         {tab === 'service' && (
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handlePublishService} disabled={statusSaving}>
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--primary"
+            onClick={() => setShowPublishModal(true)}
+            disabled={!canPublish || statusSaving}
+          >
             {statusSaving ? '…' : 'Publish Service'}
           </button>
         )}
       </div>
     </div>
+
+    {/* ── Publish confirmation modal ─────────────────────────────────────── */}
+    {showPublishModal && (
+      <div
+        class="cz-publish-confirm-overlay"
+        onClick={(e) => { if (e.target === e.currentTarget) setShowPublishModal(false); }}
+      >
+        <div class="cz-publish-confirm">
+          <div class="cz-publish-confirm__header">
+            <h3 class="cz-publish-confirm__title">Ready to publish {decodeHtml(service.title)}?</h3>
+          </div>
+          <div class="cz-publish-confirm__body">
+            <p class="cz-publish-confirm__lead">You are about to publish this service.</p>
+            <ul class="cz-publish-confirm__summary">
+              <li><strong>Service Overview:</strong> Ready</li>
+              <li><strong>Included Features:</strong> {pluralCount(inclusions.length, 'included feature', 'included features')} added</li>
+              <li><strong>Common Questions:</strong> {pluralCount(faqs.length, 'common question', 'common questions')} added</li>
+            </ul>
+            {(inclusionsStatus === 'not-configured' || inclusionsStatus === 'pending-dim') && (
+              <p class="cz-publish-confirm__warning">Included features are not added.</p>
+            )}
+            {(faqsStatus === 'not-configured' || faqsStatus === 'pending-dim') && (
+              <p class="cz-publish-confirm__warning">Common questions are not available.</p>
+            )}
+          </div>
+          <div class="cz-publish-confirm__footer">
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              onClick={() => setShowPublishModal(false)}
+              disabled={statusSaving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={handleConfirmPublish}
+              disabled={statusSaving}
+            >
+              {statusSaving ? '…' : 'Publish'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Drawer Principle v1 — Edit state: each module rendered through InlineEditorShell */}
     {editingSection === 'overview' && overviewDraft && (

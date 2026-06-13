@@ -1033,6 +1033,81 @@
   to   { opacity: 1; transform: none; }
 }
 
+/* ── Publish confirmation modal ─────────────────────────────────────────────── */
+.cz-publish-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--admin-overlay);
+  backdrop-filter: blur(3px);
+  z-index: calc(var(--admin-z-action) + 10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cz-fade-in var(--cz-transition-fast);
+}
+
+.cz-publish-confirm {
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: var(--admin-radius);
+  box-shadow: var(--admin-depth-3);
+  width: min(480px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  animation: cz-modal-in 0.2s var(--cz-ease);
+}
+
+.cz-publish-confirm__header {
+  padding: var(--cz-space-5) var(--cz-space-6);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.cz-publish-confirm__title {
+  font-size: var(--admin-fs-s-sub);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+  margin: 0;
+}
+
+.cz-publish-confirm__body {
+  padding: var(--cz-space-5) var(--cz-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+}
+
+.cz-publish-confirm__lead {
+  color: var(--admin-text-muted);
+  font-size: var(--admin-fs-label);
+  margin: 0;
+}
+
+.cz-publish-confirm__summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+  font-size: var(--admin-fs-label);
+  color: var(--admin-text);
+}
+
+.cz-publish-confirm__warning {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-warning);
+}
+
+.cz-publish-confirm__footer {
+  padding: var(--cz-space-4) var(--cz-space-6);
+  border-top: 1px solid var(--admin-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cz-space-3);
+}
+
 /* ── ActionShell — drawer panel ─────────────────────────────────────────────── */
 .cz-action-shell--drawer .cz-action-shell__panel {
   background: var(--admin-bg);
