@@ -372,6 +372,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [saveOk,             setSaveOk]           = useState(false);
   const [statusSaving,       setStatusSaving]     = useState(false);
   const [showPublishModal,   setShowPublishModal] = useState(false);
+  const [pendingModules,     setPendingModules]   = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!saveOk) return;
@@ -408,6 +409,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           ...service,
           meta: { ...service.meta, is_active: result.service.is_active },
         });
+        setPendingModules(new Set());
         onRefresh?.();
       }
     } finally {
@@ -484,6 +486,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       });
       if (result.success) {
         ctx.setStepData('service', { ...service, inclusions: result.inclusions });
+        if (service.meta?.is_active === true) setPendingModules(prev => new Set([...prev, 'inclusions']));
         onRefresh?.();
         setEditingSection(null);
         setInclusionsDraft(null);
@@ -508,6 +511,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       });
       if (result.success) {
         ctx.setStepData('service', { ...service, faqs: result.faqs });
+        if (service.meta?.is_active === true) setPendingModules(prev => new Set([...prev, 'faqs']));
         onRefresh?.();
         setEditingSection(null);
         setFaqsDraft(null);
@@ -617,7 +621,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     if (inclusions.length === 0) return 'not-configured';
     const allComplete = inclusions.every(inc => !!inc.label?.trim());
     if (!allComplete) return 'pending-dim';
-    return isPublished ? 'active' : 'pending-full';
+    if (!isPublished || pendingModules.has('inclusions')) return 'pending-full';
+    return 'active';
   };
 
   const getFaqsStatus = () => {
@@ -625,14 +630,21 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     if (faqs.length === 0) return 'not-configured';
     const allComplete = faqs.every(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim()));
     if (!allComplete) return 'pending-dim';
-    return isPublished ? 'active' : 'pending-full';
+    if (!isPublished || pendingModules.has('faqs')) return 'pending-full';
+    return 'active';
   };
 
   const overviewStatus   = getOverviewStatus();
   const inclusionsStatus = getInclusionsStatus();
   const faqsStatus       = getFaqsStatus();
 
-  const canPublish = overviewStatus === 'pending-full';
+  const hasModulePendingChanges =
+    inclusionsStatus === 'pending-full' || inclusionsStatus === 'pending-dim' ||
+    faqsStatus === 'pending-full' || faqsStatus === 'pending-dim';
+
+  const canPublish =
+    overviewStatus === 'pending-full' ||
+    (overviewStatus === 'active' && hasModulePendingChanges);
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
@@ -641,6 +653,20 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const pluralCount = (n: number, singular: string, plural: string) =>
     `${n} ${n === 1 ? singular : plural}`;
+
+  const inclSummary = (() => {
+    if (inclusionsStatus === 'not-configured') return { text: '0 included features added', orange: true };
+    if (inclusionsStatus === 'pending-dim') return { text: `${pluralCount(inclusions.length, 'included feature', 'included features')} pending`, orange: true };
+    const complete = inclusions.filter(inc => !!inc.label?.trim()).length;
+    return { text: `${pluralCount(complete, 'included feature', 'included features')} added`, orange: false };
+  })();
+
+  const faqsSummary = (() => {
+    if (faqsStatus === 'not-configured') return { text: '0 common questions added', orange: true };
+    if (faqsStatus === 'pending-dim') return { text: `${pluralCount(faqs.length, 'common question', 'common questions')} pending`, orange: true };
+    const complete = faqs.filter(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim())).length;
+    return { text: `${pluralCount(complete, 'common question', 'common questions')} added`, orange: false };
+  })();
 
   const renderModuleStatus = (status: string) => {
     const pill = ({
@@ -1060,15 +1086,13 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             <p class="cz-publish-confirm__lead">You are about to publish this service.</p>
             <ul class="cz-publish-confirm__summary">
               <li><strong>Service Overview:</strong> Ready</li>
-              <li><strong>Included Features:</strong> {pluralCount(inclusions.length, 'included feature', 'included features')} added</li>
-              <li><strong>Common Questions:</strong> {pluralCount(faqs.length, 'common question', 'common questions')} added</li>
+              <li style={inclSummary.orange ? 'color:var(--admin-warning);font-weight:600' : undefined}>
+                <strong>Included Features:</strong> {inclSummary.text}
+              </li>
+              <li style={faqsSummary.orange ? 'color:var(--admin-warning);font-weight:600' : undefined}>
+                <strong>Common Questions:</strong> {faqsSummary.text}
+              </li>
             </ul>
-            {(inclusionsStatus === 'not-configured' || inclusionsStatus === 'pending-dim') && (
-              <p class="cz-publish-confirm__warning">Included features are not added.</p>
-            )}
-            {(faqsStatus === 'not-configured' || faqsStatus === 'pending-dim') && (
-              <p class="cz-publish-confirm__warning">Common questions are not available.</p>
-            )}
           </div>
           <div class="cz-publish-confirm__footer">
             <button

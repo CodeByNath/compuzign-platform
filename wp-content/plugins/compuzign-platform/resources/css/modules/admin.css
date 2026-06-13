@@ -1093,13 +1093,6 @@
   color: var(--admin-text);
 }
 
-.cz-publish-confirm__warning {
-  margin: 0;
-  font-size: var(--admin-fs-label);
-  font-weight: var(--admin-fw-strong);
-  color: var(--admin-warning);
-}
-
 .cz-publish-confirm__footer {
   padding: var(--cz-space-4) var(--cz-space-6);
   border-top: 1px solid var(--admin-border);
