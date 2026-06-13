@@ -2678,6 +2678,9 @@ body.compuzign-admin-page footer.site-footer {
   padding-right: 32px;
   cursor: pointer;
 }
+.cz-tf-select--unset {
+  color: var(--admin-text-faint);
+}
 
 .cz-tf-textarea {
   resize: vertical;

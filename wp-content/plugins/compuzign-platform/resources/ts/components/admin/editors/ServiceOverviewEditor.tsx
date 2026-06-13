@@ -56,19 +56,19 @@ export function ServiceOverviewEditor({ draft, onChange, categories }: Props) {
       <div class="cz-tf-field">
         <label class="cz-tf-label">Category</label>
         <select
-          class="cz-tf-select"
+          class={`cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
           value={draft.category_id !== null ? String(draft.category_id) : ''}
           onChange={(e) => {
             const val = (e.target as HTMLSelectElement).value;
             onChange({ category_id: val ? parseInt(val, 10) : null });
           }}
         >
-          <option value="">— None —</option>
+          <option value="">Select Category</option>
           {categories
             .filter((c) => c.id !== null)
             .map((cat) => (
               <option key={cat.slug} value={String(cat.id)}>
-                {cat.name}
+                {decodeHtml(cat.name)}
               </option>
             ))}
         </select>

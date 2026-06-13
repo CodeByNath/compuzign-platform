@@ -1094,7 +1094,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
     title:       '',
     excerpt:     '',
     content:     '',
-    category_id: (allCategories.find((c) => c.id !== null)?.id as number) ?? null,
+    category_id: null,
   });
   const [saving,  setSaving]  = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
@@ -1179,7 +1179,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                   <span class="cz-req-contact-grid__label">Category</span>
                   <span class="cz-sv-overview-block__value">
                     {draft.category_id !== null
-                      ? (allCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
+                      ? decodeHtml(allCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
                       : 'Not selected'
                     }
                   </span>
