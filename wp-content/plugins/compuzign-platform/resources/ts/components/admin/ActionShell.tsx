@@ -1,4 +1,4 @@
-import type { ComponentType } from 'preact';
+import type { ComponentChildren, ComponentType } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
 
 export type ActionMode = 'modal' | 'drawer';
@@ -11,6 +11,7 @@ export interface StepContext {
   message: string;
   setProgress: (p: ActionProgress, message?: string) => void;
   setTitle: (title: string) => void;
+  setFooter: (content: ComponentChildren) => void;
   goNext: () => void;
   goBack: () => void;
   close: () => void;
@@ -48,6 +49,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
   const [progress, setProgressState] = useState<ActionProgress>('idle');
   const [message, setMessage] = useState('');
   const [title, setTitleState] = useState(config.title);
+  const [footerContent, setFooterContent] = useState<ComponentChildren>(null);
 
   const setStepData = useCallback((key: string, value: unknown) => {
     setStepDataMap((prev) => ({ ...prev, [key]: value }));
@@ -59,6 +61,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
   }, []);
 
   const setTitle = useCallback((t: string) => setTitleState(t), []);
+  const setFooter = useCallback((content: ComponentChildren) => setFooterContent(content), []);
 
   const goNext = useCallback(() => {
     if (currentStep < config.steps.length - 1) {
@@ -97,6 +100,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     message,
     setProgress,
     setTitle,
+    setFooter,
     goNext,
     goBack,
     close: handleClose,
@@ -164,6 +168,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
         <div class="cz-action-shell__body">
           <StepComponent ctx={ctx} />
         </div>
+        {footerContent}
       </div>
     </div>
   );

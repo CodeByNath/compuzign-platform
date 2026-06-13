@@ -14,13 +14,16 @@ export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, ch
   return (
     <div class="cz-ies">
       <div class="cz-ies__header">
-        <button type="button" class="cz-action-shell__back" onClick={onCancel} aria-label={`Back from ${title}`}>
-          ‹
-        </button>
-        <span class="cz-ies__live-badge">
-          <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-          <span class="cz-status-pill cz-status-pill--active">Live Editor</span>
-        </span>
+        <span class="cz-ies__title">{title}</span>
+        <div class="cz-ies__header-controls">
+          <button type="button" class="cz-action-shell__back" onClick={onCancel} aria-label={`Back from ${title}`}>
+            ‹
+          </button>
+          <span class="cz-ies__live-badge">
+            <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
+            <span class="cz-status-pill cz-status-pill--active">Live Editor</span>
+          </span>
+        </div>
       </div>
 
       <div class="cz-ies__body">

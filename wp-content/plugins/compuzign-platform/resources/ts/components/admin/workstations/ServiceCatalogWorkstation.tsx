@@ -462,6 +462,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           content:    result.service.content,
           categories: result.service.categories,
         });
+        if (service.meta?.is_active === true) setPendingModules(prev => new Set([...prev, 'overview']));
         onRefresh?.();
         setEditingSection(null);
         setOverviewDraft(null);
@@ -613,7 +614,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     if (!hasData) return 'not-configured';
     const complete = !!(service.title.trim() && service.excerpt.trim() && service.categories.length > 0 && service.content.trim());
     if (!complete) return 'pending-dim';
-    return isPublished ? 'active' : 'pending-full';
+    if (!isPublished || pendingModules.has('overview')) return 'pending-full';
+    return 'active';
   };
 
   const getInclusionsStatus = () => {
@@ -667,6 +669,40 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     const complete = faqs.filter(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim())).length;
     return { text: `${pluralCount(complete, 'common question', 'common questions')} added`, orange: false };
   })();
+
+  useEffect(() => {
+    const { setFooter, close } = ctx;
+    setFooter(
+      <div class="cz-tf-footer">
+        {tab === 'service' && (
+          isActive ? (
+            <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={handleToggleActive} disabled={statusSaving}>
+              {statusSaving ? '…' : 'Disable Service'}
+            </button>
+          ) : (
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleToggleActive} disabled={statusSaving}>
+              {statusSaving ? '…' : 'Enable Service'}
+            </button>
+          )
+        )}
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>
+          Cancel
+        </button>
+        {tab === 'service' && (
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--primary"
+            onClick={() => setShowPublishModal(true)}
+            disabled={!canPublish || statusSaving}
+          >
+            {statusSaving ? '…' : 'Publish Service'}
+          </button>
+        )}
+      </div>
+    );
+    return () => setFooter(null);
+  }, [tab, isActive, handleToggleActive, statusSaving, canPublish, ctx.setFooter, ctx.close, setShowPublishModal]);
 
   const renderModuleStatus = (status: string) => {
     const pill = ({
@@ -1041,35 +1077,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       )}
 
       {saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
-
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      <div class="cz-tf-footer">
-        {tab === 'service' && (
-          isActive ? (
-            <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={handleToggleActive} disabled={statusSaving}>
-              {statusSaving ? '…' : 'Disable Service'}
-            </button>
-          ) : (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleToggleActive} disabled={statusSaving}>
-              {statusSaving ? '…' : 'Enable Service'}
-            </button>
-          )
-        )}
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-          Cancel
-        </button>
-        {tab === 'service' && (
-          <button
-            type="button"
-            class="cz-admin-btn cz-admin-btn--primary"
-            onClick={() => setShowPublishModal(true)}
-            disabled={!canPublish || statusSaving}
-          >
-            {statusSaving ? '…' : 'Publish Service'}
-          </button>
-        )}
-      </div>
     </div>
 
     {/* ── Publish confirmation modal ─────────────────────────────────────── */}
@@ -1119,7 +1126,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     {/* Drawer Principle v1 — Edit state: each module rendered through InlineEditorShell */}
     {editingSection === 'overview' && overviewDraft && (
       <InlineEditorShell
-        title="Edit Overview"
+        title="Service Overview"
         onSave={handleSaveOverview}
         onCancel={handleCancelEdit}
         saving={saving}
@@ -1135,7 +1142,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
     {editingSection === 'inclusions' && inclusionsDraft && (
       <InlineEditorShell
-        title="Edit Included Features"
+        title="Included Features"
         onSave={handleSaveInclusions}
         onCancel={handleCancelEdit}
         saving={saving}
@@ -1150,7 +1157,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
     {editingSection === 'faqs' && faqsDraft && (
       <InlineEditorShell
-        title="Edit Common Questions"
+        title="Common Questions"
         onSave={handleSaveFaqs}
         onCancel={handleCancelEdit}
         saving={saving}
