@@ -1227,31 +1227,15 @@
 .cz-ies__header {
   display: flex;
   align-items: center;
-  gap: var(--cz-space-3);
+  justify-content: space-between;
   padding: var(--cz-space-4) var(--cz-space-6);
-  border-bottom: 1px solid var(--admin-border);
   flex-shrink: 0;
 }
 
-.cz-ies__back {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--admin-text-muted);
-  font-size: var(--cz-font-size-lg);
-  line-height: 1;
-  padding: 0;
-  transition: color var(--cz-transition-fast);
-}
-
-.cz-ies__back:hover {
-  color: var(--admin-text);
-}
-
-.cz-ies__title {
-  font-size: var(--admin-fs-label);
-  font-weight: var(--cz-font-weight-medium);
-  color: var(--admin-text);
+.cz-ies__live-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
 }
 
 .cz-ies__body {
@@ -3396,6 +3380,11 @@ body.compuzign-admin-page footer.site-footer {
 .cz-sv-overview-block--prompt .cz-sv-overview-block__edit {
   opacity: 1;
   pointer-events: auto;
+}
+
+.cz-sv-module--locked:hover .cz-sv-overview-block__edit {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .cz-tf-chip__edit {

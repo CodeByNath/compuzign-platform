@@ -1136,7 +1136,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">
                   {draft.title.trim()
                     ? `Add features to the ${draft.title}.`
-                    : 'Configure the service title to add features.'
+                    : 'Configure the service to add features.'
                   }
                 </p>
               </div>
@@ -1156,7 +1156,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="cz-sv-overview-block__excerpt" style="color:var(--admin-text-faint)">
                   {draft.title.trim()
                     ? `Add common questions for the ${draft.title}.`
-                    : 'Configure the service title to add questions.'
+                    : 'Configure the service to add questions.'
                   }
                 </p>
               </div>
