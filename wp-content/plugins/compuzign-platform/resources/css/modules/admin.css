@@ -3391,7 +3391,7 @@ body.compuzign-admin-page footer.site-footer {
 .cz-sv-tabs {
   display: flex;
   margin: 0 calc(-1 * var(--cz-space-6)) var(--cz-space-5);
-  padding: 0 calc(var(--cz-space-6) - 8px);
+  padding: 0 calc(var(--cz-space-6) - var(--cz-space-2)) var(--cz-space-2);
   border-bottom: 1px solid var(--admin-border-blue);
 }
 
@@ -3426,6 +3426,7 @@ body.compuzign-admin-page footer.site-footer {
   right: 0;
   height: 2px;
   background: var(--admin-accent);
+  margin-bottom: calc(-1 * var(--cz-space-2));
 }
 
 .cz-sv-tab:focus-visible {
