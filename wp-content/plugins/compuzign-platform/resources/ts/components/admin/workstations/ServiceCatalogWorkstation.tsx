@@ -15,7 +15,7 @@ import {
 import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
-import { resolveOverviewStatus, renderModuleStatus } from '@/components/admin/utils/moduleStatus';
+import { resolveOverviewStatus, renderModuleStatus, resolvePackageStatus } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -636,9 +636,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     : 'Not configured';
 
   // ── Package Summary card state ────────────────────────────────────────────
-  const pkgSummaryStatus = !relatedPkg
-    ? 'not-configured'
-    : pkgIsActive ? 'active' : 'disabled';
+  const pkgSummaryStatus = resolvePackageStatus(relatedPkg);
 
   const allTiersEnabled = relatedPkg != null &&
     TIER_KEYS.every((t) => relatedPkg.tiers[t]?.enabled === true);

@@ -1,7 +1,8 @@
 // Shared module status utilities.
-// Used by both the Catalog lifecycle (ServiceViewStep) and Transit lifecycle (ServiceOverviewTransitView).
+// Used by both the Catalog lifecycle (ServiceViewStep) and Transit lifecycles (ServiceOverviewTransitView, PackageSummaryTransitView).
 
 import type { ServiceItem } from '@/api/types/cost-builder';
+import type { SurfacePackageSummary, SurfaceTierSummary } from '@/api/types/admin';
 
 // ── Status resolver ───────────────────────────────────────────────────────────
 
@@ -41,6 +42,16 @@ const STATUS_PILL_MAP: Record<string, { dot: string; cls: string; label: string 
   'pending-full':   { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'        },
   'not-configured': { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft',   label: 'Not configured' },
 };
+
+export function resolvePackageStatus(pkg: SurfacePackageSummary | null): string {
+  if (!pkg) return 'not-configured';
+  return pkg.post_status === 'publish' ? 'active' : 'disabled';
+}
+
+export function resolveTierStatus(tier: SurfaceTierSummary | undefined): string {
+  if (!tier) return 'not-configured';
+  return tier.enabled ? 'active' : 'disabled';
+}
 
 export function renderModuleStatus(status: string) {
   const pill = STATUS_PILL_MAP[status]

@@ -3541,6 +3541,33 @@ body.compuzign-admin-page footer.site-footer {
   line-height: 1.5;
 }
 
+/* ── Package Summary transit lifecycle ────────────────────────────────────── */
+
+.cz-sp-transit__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
+.cz-sp-transit__label {
+  margin: 0;
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+  font-size: var(--admin-fs-s-label);
+}
+
+.cz-sp-transit__price {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-size: var(--admin-fs-s-label);
+}
+
+.cz-sp-transit__empty {
+  margin: 0;
+  color: var(--admin-text-faint);
+  font-size: var(--admin-fs-s-label);
+}
+
 .cz-tf-chip__edit {
   position: absolute;
   top: var(--cz-space-1);
