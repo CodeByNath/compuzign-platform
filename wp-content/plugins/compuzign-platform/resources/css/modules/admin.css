@@ -3568,6 +3568,25 @@ body.compuzign-admin-page footer.site-footer {
   font-size: var(--admin-fs-s-label);
 }
 
+.cz-sp-transit__sublabel {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-size: var(--admin-fs-s-label);
+}
+
+.cz-sp-transit__desc {
+  margin: 0;
+  color: var(--admin-text-faint);
+  font-size: var(--admin-fs-s-label);
+  line-height: 1.5;
+}
+
+.cz-sp-transit__counts {
+  margin: 0;
+  color: var(--admin-text-faint);
+  font-size: var(--admin-fs-s-label);
+}
+
 .cz-tf-chip__edit {
   position: absolute;
   top: var(--cz-space-1);

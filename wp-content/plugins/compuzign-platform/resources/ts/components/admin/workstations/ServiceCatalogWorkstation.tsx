@@ -16,7 +16,7 @@ import {
 import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
-import { resolveOverviewStatus, renderModuleStatus, resolvePackageStatus } from '@/components/admin/utils/moduleStatus';
+import { resolveOverviewStatus, renderModuleStatus, resolvePackageStatus, resolveTierStatus, statusDotColor } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -43,6 +43,12 @@ const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise'];
 
 const TIER_LABELS: Record<string, string> = {
   basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
+};
+
+const PROMO_STATUS_MAP: Record<string, { dot: string; cls: string; label: string }> = {
+  'active':   { dot: 'var(--admin-success)',    cls: 'cz-status-pill--active',   label: 'Active'   },
+  'archived': { dot: 'var(--admin-error)',      cls: 'cz-status-pill--inactive', label: 'Archived' },
+  'draft':    { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft',    label: 'Draft'    },
 };
 
 function buildNewServiceItem(data: {
@@ -111,36 +117,9 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
     return <div class="cz-admin-error-msg">{loadErr ?? 'Package data unavailable.'}</div>;
   }
 
-  const pkg    = detail.package;
-  const promos = pkg.promotion_tiers ?? [];
-
-  const tierStatus = (tierId: string): 'linked' | 'disabled' | 'unconfigured' => {
-    const t = pkg.tiers[tierId];
-    if (!t) return 'unconfigured';
-    return t.enabled ? 'linked' : 'disabled';
-  };
-
-  const dotColor = (s: string): string => {
-    if (s === 'linked' || s === 'active') return 'var(--admin-success)';
-    if (s === 'disabled')                 return 'var(--admin-error)';
-    return 'var(--admin-text-faint)';
-  };
-
-  const pillClass = (s: string): string => {
-    if (s === 'linked' || s === 'active') return 'cz-status-pill cz-status-pill--active';
-    if (s === 'disabled')                 return 'cz-status-pill cz-status-pill--inactive';
-    if (s === 'archived')                 return 'cz-status-pill cz-status-pill--archived';
-    return 'cz-status-pill cz-status-pill--draft';
-  };
-
-  const pillLabel = (s: string): string => {
-    if (s === 'linked')    return 'Linked';
-    if (s === 'disabled')  return 'Disabled';
-    if (s === 'active')    return 'Active';
-    if (s === 'archived')  return 'Archived';
-    if (s === 'draft')     return 'Draft';
-    return 'Not configured';
-  };
+  const pkg          = detail.package;
+  const promos       = pkg.promotion_tiers ?? [];
+  const pkgPublished = pkg.post_status === 'publish';
 
   const handleManageTier = (tierId: string) => {
     const t = pkg.tiers[tierId];
@@ -217,23 +196,48 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
       {tab === 'packages' && (
         <>
           {TIER_KEYS.map((tierId) => {
-            const status = tierStatus(tierId);
-            const tier   = pkg.tiers[tierId];
+            const tier       = pkg.tiers[tierId];
+            const status     = resolveTierStatus(tier, { pkgPublished });
+            const showData   = status !== 'not-configured';
+            const priceOk    = !!(tier && (tier.price !== null || tier.contact));
+            const cycleOk    = !!tier?.billing_cycle;
+            const priceText  = tier?.contact && tier.price === null
+              ? 'Contact'
+              : tier?.price != null ? `$${tier.price.toFixed(2)}` : '$0.00';
+            const cycleText  = tier?.billing_cycle ?? 'Not available';
+            const inclCount  = tier?.inclusions_override?.length ?? 0;
+            const faqCount   = tier?.faq_refs?.length ?? 0;
+            const inclLabel  = `${inclCount} ${inclCount === 1 ? 'inclusion' : 'inclusions'}`;
+            const faqLabel   = `${faqCount} ${faqCount === 1 ? 'Common Question' : 'Common Questions'}`;
             return (
               <div key={tierId} class="cz-sv-commercial-block">
                 <div class="cz-sv-commercial-block__header">
-                  <span class="cz-sv-commercial-block__label">Package</span>
-                  <div class="cz-sv-commercial-block__status">
-                    <span class="cz-admin-status-dot" style={`color:${dotColor(status)}`} />
-                    <span class={pillClass(status)}>{pillLabel(status)}</span>
+                  <span class="cz-sv-commercial-block__label">Tier Summary</span>
+                  <div
+                    class="cz-sv-commercial-block__status"
+                    style={status === 'pending-dim' ? 'opacity:0.45' : undefined}
+                  >
+                    {renderModuleStatus(status)}
                   </div>
                 </div>
-                <p class="cz-sv-commercial-block__count">{TIER_LABELS[tierId]}</p>
-                <p class="cz-sv-commercial-block__desc">
-                  {tier?.price != null
-                    ? `$${tier.price.toLocaleString()} · ${tier.billing_cycle ?? 'per cycle'}`
-                    : 'No pricing configured.'}
-                </p>
+                <div class="cz-sv-commercial-block__body">
+                  <p class="cz-sv-commercial-block__count">Package {TIER_LABELS[tierId]}</p>
+                  {tier?.label?.trim() && (
+                    <p class="cz-sp-transit__sublabel">{tier.label}</p>
+                  )}
+                  {showData ? (
+                    <p class="cz-sv-commercial-block__desc">
+                      <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
+                      {' · '}
+                      <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
+                    </p>
+                  ) : (
+                    <p class="cz-sv-commercial-block__desc">View Tier Overview and manage pricing.</p>
+                  )}
+                  <p class="cz-sv-commercial-block__desc" style="color:var(--admin-text-faint)">
+                    {inclLabel} | {faqLabel}
+                  </p>
+                </div>
                 <div class="cz-sv-commercial-block__footer">
                   <button
                     type="button"
@@ -262,11 +266,11 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                 <tbody>
                   {TIER_KEYS.map((tierId) => {
                     const tier   = pkg.tiers[tierId];
-                    const status = tierStatus(tierId);
+                    const status = resolveTierStatus(tier, { pkgPublished });
                     return (
                       <tr key={tierId}>
                         <td class="cz-sp-tier-table__name">
-                          <span class="cz-admin-status-dot" style={`color:${dotColor(status)};margin-right:6px`} />
+                          <span class="cz-admin-status-dot" style={`color:${statusDotColor(status)};margin-right:6px`} />
                           {TIER_LABELS[tierId]}
                         </td>
                         <td>
@@ -293,14 +297,15 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
         promos.length > 0 ? (
           <>
             {promos.map((promo) => {
-              const s = promo.status ?? 'unconfigured';
+              const s  = promo.status ?? 'draft';
+              const ps = PROMO_STATUS_MAP[s] ?? PROMO_STATUS_MAP['draft'];
               return (
                 <div key={promo.id} class="cz-sv-commercial-block">
                   <div class="cz-sv-commercial-block__header">
                     <span class="cz-sv-commercial-block__label">Promotion</span>
                     <div class="cz-sv-commercial-block__status">
-                      <span class="cz-admin-status-dot" style={`color:${dotColor(s)}`} />
-                      <span class={pillClass(s)}>{pillLabel(s)}</span>
+                      <span class="cz-admin-status-dot" style={`color:${ps.dot}`} />
+                      <span class={`cz-status-pill ${ps.cls}`}>{ps.label}</span>
                     </div>
                   </div>
                   <p class="cz-sv-commercial-block__count">{promo.name || '(unnamed)'}</p>
@@ -360,21 +365,18 @@ interface CommercialBlockProps {
   label:          string;
   count:          string;
   desc:           string;
-  dotStyle:       string;
-  pillCls:        string;
-  pillText:       string;
+  status:         string;
   onView?:        () => void;
   descHighlight?: boolean;
 }
 
-function CommercialBlock({ label, count, desc, dotStyle, pillCls, pillText, onView, descHighlight }: CommercialBlockProps) {
+function CommercialBlock({ label, count, desc, status, onView, descHighlight }: CommercialBlockProps) {
   return (
     <div class="cz-sv-commercial-block">
       <div class="cz-sv-commercial-block__header">
         <span class="cz-sv-commercial-block__label">{label}</span>
         <div class="cz-sv-commercial-block__status">
-          <span class="cz-admin-status-dot" style={dotStyle} />
-          <span class={`cz-status-pill ${pillCls}`}>{pillText}</span>
+          {renderModuleStatus(status)}
         </div>
       </div>
       <div class="cz-sv-commercial-block__body">
@@ -650,15 +652,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     : 0;
   const promotionCount = relatedPkg?.promotion_tiers.length ?? 0;
 
-  const commDotStyle = relatedPkg
-    ? `color:var(--admin-${pkgIsActive ? 'success' : 'error'})`
-    : 'color:var(--admin-text-faint)';
-  const commPillCls  = relatedPkg
-    ? `cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`
-    : 'cz-status-pill--draft';
-  const commPillText = relatedPkg
-    ? (pkgIsActive ? 'Linked' : 'Disabled')
-    : 'Not configured';
+  const promoStatus = !relatedPkg || promotionCount === 0
+    ? 'not-configured'
+    : pkgIsActive ? 'active' : 'pending-full';
 
   // ── Package Summary card state ────────────────────────────────────────────
   const pkgSummaryStatus = resolvePackageStatus(relatedPkg);
@@ -666,20 +662,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const allTiersEnabled = relatedPkg != null &&
     TIER_KEYS.every((t) => relatedPkg.tiers[t]?.enabled === true);
 
-  const pkgSummaryDotStyle =
-    pkgSummaryStatus === 'active'   ? 'color:var(--admin-success)'   :
-    pkgSummaryStatus === 'disabled' ? 'color:var(--admin-error)'     :
-                                      'color:var(--admin-text-faint)';
-
-  const pkgSummaryPillCls =
-    pkgSummaryStatus === 'active'   ? 'cz-status-pill--active'   :
-    pkgSummaryStatus === 'disabled' ? 'cz-status-pill--inactive' :
-                                      'cz-status-pill--draft';
-
-  const pkgSummaryPillText =
-    pkgSummaryStatus === 'active'   ? 'Active'         :
-    pkgSummaryStatus === 'disabled' ? 'Disabled'       :
-                                      'Not configured';
 
   const pkgSummaryCount = relatedPkg
     ? `${configuredTierCount} tier${configuredTierCount !== 1 ? 's' : ''} configured`
@@ -1024,9 +1006,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             label="Package Summary"
             count={pkgSummaryCount}
             desc={pkgSummaryDesc}
-            dotStyle={pkgSummaryDotStyle}
-            pillCls={pkgSummaryPillCls}
-            pillText={pkgSummaryPillText}
+            status={pkgSummaryStatus}
             descHighlight={pkgSummaryDescPending}
             onView={pkgSummaryOnView}
           />
@@ -1038,9 +1018,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             desc={relatedPkg
               ? 'Promotions are managed in the Promotions workstation.'
               : 'No active promotion.'}
-            dotStyle={commDotStyle}
-            pillCls={commPillCls}
-            pillText={commPillText}
+            status={promoStatus}
             onView={relatedPkg ? handleOpenPromoConfig : undefined}
           />
           {relatedPkg && tiers && (
@@ -1381,17 +1359,13 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
             label="Package Summary"
             count="0 tiers configured"
             desc="Pricing and tiers not available."
-            dotStyle="color:var(--admin-text-faint)"
-            pillCls="cz-status-pill--draft"
-            pillText="Not configured"
+            status="not-configured"
           />
           <CommercialBlock
             label="Promotion Configuration"
             count="0 promotion configured"
             desc="No active promotion."
-            dotStyle="color:var(--admin-text-faint)"
-            pillCls="cz-status-pill--draft"
-            pillText="Not configured"
+            status="not-configured"
           />
 
           <div class="cz-req-detail__section cz-sv-section--no-border">

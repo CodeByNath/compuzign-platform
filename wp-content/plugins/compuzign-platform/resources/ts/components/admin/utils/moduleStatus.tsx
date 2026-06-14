@@ -2,7 +2,16 @@
 // Used by both the Catalog lifecycle (ServiceViewStep) and Transit lifecycles (ServiceOverviewTransitView, PackageSummaryTransitView).
 
 import type { ServiceItem } from '@/api/types/cost-builder';
-import type { SurfacePackageSummary, SurfaceTierSummary } from '@/api/types/admin';
+import type { SurfacePackageSummary } from '@/api/types/admin';
+
+// Structural minimum for tier status resolution.
+// Satisfied by both SurfaceTierSummary (transit) and SurfaceTierDetail (catalog/management).
+export interface TierLike {
+  enabled:       boolean;
+  price:         number | null;
+  billing_cycle: string | null;
+  contact?:      boolean; // available in SurfaceTierDetail; absent in SurfaceTierSummary
+}
 
 // ── Status resolver ───────────────────────────────────────────────────────────
 
@@ -48,9 +57,22 @@ export function resolvePackageStatus(pkg: SurfacePackageSummary | null): string 
   return pkg.post_status === 'publish' ? 'active' : 'disabled';
 }
 
-export function resolveTierStatus(tier: SurfaceTierSummary | undefined): string {
+export interface TierStatusOpts {
+  pkgPublished: boolean;
+}
+
+export function resolveTierStatus(tier: TierLike | undefined, opts: TierStatusOpts): string {
   if (!tier) return 'not-configured';
-  return tier.enabled ? 'active' : 'disabled';
+  if (!tier.enabled) return 'disabled';
+  const hasPrice = tier.price !== null || !!tier.contact;
+  const hasCycle = !!tier.billing_cycle;
+  if (!hasPrice && !hasCycle) return 'not-configured';
+  if (!hasPrice || !hasCycle) return 'pending-dim';
+  return opts.pkgPublished ? 'active' : 'pending-full';
+}
+
+export function statusDotColor(status: string): string {
+  return STATUS_PILL_MAP[status]?.dot ?? 'var(--admin-text-faint)';
 }
 
 export function renderModuleStatus(status: string) {

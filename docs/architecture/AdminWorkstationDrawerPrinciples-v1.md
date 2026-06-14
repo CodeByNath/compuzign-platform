@@ -171,6 +171,95 @@ Contains the `.cz-sv-module--locked` class and the temporarily disabled shell-st
 
 ---
 
+## Module Lifecycle Pattern
+
+Each module has up to three presentations. These are not separate modules — they are lifecycle views of the same module.
+
+```
+One Module
+├─ Catalog Lifecycle      — card inside the drawer; coordinates module state
+├─ Transit Lifecycle      — compact card in Transit Hub; presents and routes
+└─ Management Surface     — full editing UI; opened by View actions from either lifecycle
+```
+
+**Catalog** coordinates. The Catalog lifecycle card shows the module's current status, exposes the edit or view action, and lives inside the drawer. It owns the module's state machine (New / Locked / View / Edit).
+
+**Transit** presents. The Transit lifecycle card is a compact read-only summary used in the Transit Hub workstation. It shows values only — no editors, no inline editing, no publish UI, no drawer logic. It exposes an optional `onView` handler. When no handler is provided, the View button is disabled.
+
+**Management** edits. The management surface is the full UI for editing or configuring module data. It is opened by View actions from either the Catalog or Transit lifecycle. It reuses existing drawer steps — it is not a new surface.
+
+---
+
+## Module Naming Convention
+
+Module names, Catalog card labels, Transit component names, and management surfaces are tracked separately. The card label is a UI presentation choice and may differ from the module name.
+
+| Module | Catalog Card Label | Transit Component | Management Surface |
+|---|---|---|---|
+| Service Overview | Service Overview | `ServiceOverviewTransitView` | Service Overview inline editor (`ServiceViewStep`) |
+| Service Package | Package Summary | `PackageSummaryTransitView` | `PackageDetailStep` → `TierManageStep` |
+
+**Rule:** Use the module name for the module itself. Use whatever label fits the UI context for the Catalog card. Name the Transit component after the Catalog card label (not the module name) until Transit Workstation is complete — at that point naming is reviewed holistically across all modules.
+
+**Note on Service Package:** The Catalog card is labelled "Package Summary" because it presents a summary of the linked surface package. The module is Service Package. These are distinct. Do not use "Package Summary" as the module name.
+
+### Future modules expected to follow this pattern
+
+- Promotions
+- Bundles
+- Campaigns
+- Subscriptions
+- Case Studies
+
+Each will have:
+
+- A **Catalog lifecycle card** in the relevant drawer tab
+- A **Transit lifecycle component** (`*TransitView`) for the Transit Hub
+- A **management surface** — an existing or new drawer step, never duplicated
+
+---
+
+## Module Status Model
+
+All modules use the same five-state lifecycle. This is the platform standard. Relationship vocabulary ("Linked", "Connected", "Associated") must never appear in status pills or dots.
+
+### 5-State Lifecycle
+
+| Status | Meaning | Visual |
+|---|---|---|
+| `not-configured` | No data exists; module is a blank slate | Faint dot · "Not configured" pill |
+| `pending-dim` | Some data exists but required fields are missing | Orange dot · "Pending" pill · 0.45 opacity on status indicator |
+| `pending-full` | All required data present but module is not yet published | Orange dot · "Pending" pill |
+| `active` | All required data present and published | Green dot · "Active" pill |
+| `disabled` | Module or tier is explicitly turned off | Red dot · "Disabled" pill |
+
+### Lifecycle Status vs Relationship Status
+
+These are distinct concepts that must never be conflated:
+
+- **Lifecycle status** describes readiness and publication state. It maps to one of the five states above. All modules and their sub-components (tiers, cards, rows) use lifecycle status.
+- **Relationship status** describes an association between two entities (e.g., "Linked", "Connected"). This is a data model concept, not a UI status concept.
+
+**Rule:** A status pill or status dot always shows lifecycle status. Never show relationship vocabulary in a pill or dot. If an entity is linked but not yet configured, its status is `not-configured` — not "Linked".
+
+### Resolver Utilities
+
+Status resolution is centralised in `resources/ts/components/admin/utils/moduleStatus.tsx`:
+
+- `resolveOverviewStatus(service, opts)` — Service Overview 5-state lifecycle
+- `resolvePackageStatus(pkg)` — Package-level status (`not-configured` / `active` / `disabled`)
+- `resolveTierStatus(tier, opts)` — Per-tier lifecycle using field-level completeness checks (`price`, `billing_cycle`)
+- `renderModuleStatus(status)` — Renders dot + pill from any 5-state status string
+- `statusDotColor(status)` — Returns the CSS colour variable for a status (for inline dot rendering outside `renderModuleStatus`)
+
+### pending-dim Detection
+
+`pending-dim` is triggered by field-level completeness, not a backend `configured` boolean. This allows partial detection within a single render pass.
+
+For tiers: `pending-dim` when one of `price` / `billing_cycle` is present but not both.
+
+---
+
 ## Inheritance
 
 Any future module entering the drawer system must follow these principles and inherit drawer behavior rather than inventing new drawer rules.
@@ -182,3 +271,4 @@ The pattern to follow:
 3. Edit state is delivered through `InlineEditorShell`.
 4. Locked state disables only the action control — the shell stays visible and laid out.
 5. New state shows placeholder content — the shell is fully rendered.
+6. A module may have a Catalog lifecycle, a Transit lifecycle, and a management surface. These are not separate modules — they are presentations of the same module.
