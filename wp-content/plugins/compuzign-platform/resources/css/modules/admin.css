@@ -3500,6 +3500,47 @@ body.compuzign-admin-page footer.site-footer {
   gap: var(--cz-space-2);
 }
 
+/* ── Service Overview — Transit lifecycle body ──────────────────────────────── */
+.cz-so-transit__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cz-so-transit__title {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+}
+
+.cz-so-transit__excerpt {
+  margin: var(--cz-space-1) 0 var(--cz-space-3);
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-muted);
+  line-height: 1.5;
+}
+
+.cz-so-transit__category {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text-muted);
+}
+
+.cz-so-transit__counts {
+  margin: var(--cz-space-1) 0 var(--cz-space-3);
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-faint);
+}
+
+.cz-so-transit__summary {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-faint);
+  line-height: 1.5;
+}
+
 .cz-tf-chip__edit {
   position: absolute;
   top: var(--cz-space-1);

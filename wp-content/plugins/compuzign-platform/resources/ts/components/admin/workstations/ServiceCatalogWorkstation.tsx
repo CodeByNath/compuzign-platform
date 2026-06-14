@@ -15,6 +15,7 @@ import {
 import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
+import { resolveOverviewStatus, renderModuleStatus } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -708,15 +709,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   };
 
   // ── Module status resolvers ──────────────────────────────────────────────
-  const getOverviewStatus = () => {
-    if (isDisabled) return 'disabled';
-    const hasData = !!(service.title.trim() || service.excerpt.trim() || service.categories.length > 0 || service.content.trim());
-    if (!hasData) return 'not-configured';
-    const complete = !!(service.title.trim() && service.excerpt.trim() && service.categories.length > 0 && service.content.trim());
-    if (!complete) return 'pending-dim';
-    if (!isPublished || pendingModules.has('overview')) return 'pending-full';
-    return 'active';
-  };
 
   const getInclusionsStatus = () => {
     if (isDisabled) return 'disabled';
@@ -736,7 +728,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     return 'active';
   };
 
-  const overviewStatus   = getOverviewStatus();
+  const overviewStatus   = resolveOverviewStatus(service, { isDisabled, isPublished, pendingModules });
   const inclusionsStatus = getInclusionsStatus();
   const faqsStatus       = getFaqsStatus();
 
@@ -807,22 +799,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [tab, isActive, statusSaving, canPublish, ctx.setFooter, ctx.close]);
 
-  const renderModuleStatus = (status: string) => {
-    const pill = ({
-      'active':         { dot: 'var(--admin-success)',    cls: 'cz-status-pill--active',   label: 'Active'         },
-      'disabled':       { dot: 'var(--admin-error)',      cls: 'cz-status-pill--inactive', label: 'Disabled'       },
-      'pending-dim':    { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'        },
-      'pending-full':   { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'        },
-      'not-configured': { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft',   label: 'Not configured' },
-    } as Record<string, { dot: string; cls: string; label: string }>)[status]
-      ?? { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft', label: 'Not configured' };
-    return (
-      <>
-        <span class="cz-admin-status-dot" style={`color:${pill.dot}`} />
-        <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
-      </>
-    );
-  };
 
   return (
     <>
