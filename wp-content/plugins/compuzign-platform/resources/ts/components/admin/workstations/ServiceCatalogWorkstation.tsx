@@ -6,6 +6,7 @@ import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import {
   createService,
+  createSurfacePackage,
   fetchSurfacePackageDetail,
   updateServiceFaqs,
   updateServiceInclusions,
@@ -424,6 +425,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [statusSaving,       setStatusSaving]     = useState(false);
   const [showPublishModal,   setShowPublishModal] = useState(false);
   const [pendingModules,     setPendingModules]   = useState<Set<string>>(new Set());
+  const [creatingPkg,        setCreatingPkg]      = useState(false);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -585,8 +587,31 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const faqs       = service.faqs ?? [];
   const tiers      = service.pricing?.tiers;
 
-  const handleOpenTierConfig = () => {
-    if (!relatedPkg) return;
+  const handleOpenTierConfig = async () => {
+    let pkgId: number;
+    let pkgTitle: string;
+
+    if (relatedPkg) {
+      pkgId    = relatedPkg.post_id;
+      pkgTitle = relatedPkg.title;
+    } else {
+      // No package linked yet — create a draft package, then open it for setup.
+      setCreatingPkg(true);
+      try {
+        const { package_id } = await createSurfacePackage({
+          service_id: service.id,
+          title:      service.title,
+        });
+        pkgId    = package_id;
+        pkgTitle = service.title;
+        onRefresh?.();
+      } catch {
+        setCreatingPkg(false);
+        return;
+      }
+      setCreatingPkg(false);
+    }
+
     const onBack = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
@@ -597,14 +622,14 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     });
     ctx.close();
     doOpen({
-      id:             `pkg-detail-${relatedPkg.post_id}`,
+      id:             `pkg-detail-${pkgId}`,
       mode:           'drawer',
-      title:          relatedPkg.title,
+      title:          pkgTitle,
       onBack,
       hideStepHeader: true,
       initialStepData: {
-        packageId:      relatedPkg.post_id,
-        pkgTitle:       relatedPkg.title,
+        packageId:      pkgId,
+        pkgTitle,
         initialTab:     'packages',
         openAction:     doOpen,
         pkgBack:        onBack,
@@ -669,8 +694,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   // State 4: package active but not all tiers are enabled — signal attention on description
   const pkgSummaryDescPending = isPublished && pkgSummaryStatus === 'active' && !allTiersEnabled;
 
-  // View is enabled whenever the service is published; the handler guards against no-package internally
-  const pkgSummaryOnView = isPublished ? handleOpenTierConfig : undefined;
+  const pkgSummaryOnView = isPublished && !creatingPkg ? handleOpenTierConfig : undefined;
 
   const handleOpenPromoConfig = () => {
     if (!relatedPkg) return;
