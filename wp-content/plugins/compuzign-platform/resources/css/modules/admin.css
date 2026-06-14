@@ -974,6 +974,21 @@
 }
 
 .cz-sc-table__price {
+  text-align: left;
+}
+
+.cz-sc-table__popular {
+  min-width: 0;
+  width: 120px;
+  text-align: center;
+}
+
+.cz-sc-table__popular .cz-tier-badge {
+  display: block;
+  text-align: center;
+}
+
+.cz-sc-table__actions {
   text-align: right;
 }
 

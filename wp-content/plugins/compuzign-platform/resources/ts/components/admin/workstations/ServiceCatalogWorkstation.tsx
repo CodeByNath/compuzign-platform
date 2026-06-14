@@ -355,16 +355,17 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
 // footer  → View action (disabled when onView is undefined)
 
 interface CommercialBlockProps {
-  label:     string;
-  count:     string;
-  desc:      string;
-  dotStyle:  string;
-  pillCls:   string;
-  pillText:  string;
-  onView?:   () => void;
+  label:          string;
+  count:          string;
+  desc:           string;
+  dotStyle:       string;
+  pillCls:        string;
+  pillText:       string;
+  onView?:        () => void;
+  descHighlight?: boolean;
 }
 
-function CommercialBlock({ label, count, desc, dotStyle, pillCls, pillText, onView }: CommercialBlockProps) {
+function CommercialBlock({ label, count, desc, dotStyle, pillCls, pillText, onView, descHighlight }: CommercialBlockProps) {
   return (
     <div class="cz-sv-commercial-block">
       <div class="cz-sv-commercial-block__header">
@@ -376,7 +377,12 @@ function CommercialBlock({ label, count, desc, dotStyle, pillCls, pillText, onVi
       </div>
       <div class="cz-sv-commercial-block__body">
         <p class="cz-sv-commercial-block__count">{count}</p>
-        <p class="cz-sv-commercial-block__desc">{desc}</p>
+        <p
+          class="cz-sv-commercial-block__desc"
+          style={descHighlight ? 'color:var(--admin-warning)' : undefined}
+        >
+          {desc}
+        </p>
       </div>
       <div class="cz-sv-commercial-block__footer">
         <button
@@ -627,6 +633,45 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const commPillText = relatedPkg
     ? (pkgIsActive ? 'Linked' : 'Disabled')
     : 'Not configured';
+
+  // ── Package Summary card state ────────────────────────────────────────────
+  const pkgSummaryStatus = !relatedPkg
+    ? 'not-configured'
+    : pkgIsActive ? 'active' : 'disabled';
+
+  const allTiersEnabled = relatedPkg != null &&
+    TIER_KEYS.every((t) => relatedPkg.tiers[t]?.enabled === true);
+
+  const pkgSummaryDotStyle =
+    pkgSummaryStatus === 'active'   ? 'color:var(--admin-success)'   :
+    pkgSummaryStatus === 'disabled' ? 'color:var(--admin-error)'     :
+                                      'color:var(--admin-text-faint)';
+
+  const pkgSummaryPillCls =
+    pkgSummaryStatus === 'active'   ? 'cz-status-pill--active'   :
+    pkgSummaryStatus === 'disabled' ? 'cz-status-pill--inactive' :
+                                      'cz-status-pill--draft';
+
+  const pkgSummaryPillText =
+    pkgSummaryStatus === 'active'   ? 'Active'         :
+    pkgSummaryStatus === 'disabled' ? 'Disabled'       :
+                                      'Not configured';
+
+  const pkgSummaryCount = relatedPkg
+    ? `${configuredTierCount} tier${configuredTierCount !== 1 ? 's' : ''} configured`
+    : '0 tiers configured';
+
+  const pkgSummaryDesc = pkgSummaryStatus === 'active'
+    ? 'Package Overview includes a full summary view of pricing and tiers.'
+    : isPublished && !relatedPkg
+      ? 'View Package Overview and manage pricing and tiers.'
+      : 'Pricing and tiers not available.';
+
+  // State 4: package active but not all tiers are enabled — signal attention on description
+  const pkgSummaryDescPending = isPublished && pkgSummaryStatus === 'active' && !allTiersEnabled;
+
+  // View is enabled whenever the service is published; the handler guards against no-package internally
+  const pkgSummaryOnView = isPublished ? handleOpenTierConfig : undefined;
 
   const handleOpenPromoConfig = () => {
     if (!relatedPkg) return;
@@ -978,17 +1023,14 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {tab === 'commercial' && (
         <>
           <CommercialBlock
-            label="Tier Configuration"
-            count={relatedPkg
-              ? `${configuredTierCount} tier${configuredTierCount !== 1 ? 's' : ''} configured`
-              : '0 tiers configured'}
-            desc={relatedPkg
-              ? 'Pricing and tiers are managed in the Service Packages workstation.'
-              : 'Pricing and tiers not available.'}
-            dotStyle={commDotStyle}
-            pillCls={commPillCls}
-            pillText={commPillText}
-            onView={relatedPkg ? handleOpenTierConfig : undefined}
+            label="Package Summary"
+            count={pkgSummaryCount}
+            desc={pkgSummaryDesc}
+            dotStyle={pkgSummaryDotStyle}
+            pillCls={pkgSummaryPillCls}
+            pillText={pkgSummaryPillText}
+            descHighlight={pkgSummaryDescPending}
+            onView={pkgSummaryOnView}
           />
           <CommercialBlock
             label="Promotion Configuration"
@@ -1338,7 +1380,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
       {tab === 'commercial' && (
         <>
           <CommercialBlock
-            label="Tier Configuration"
+            label="Package Summary"
             count="0 tiers configured"
             desc="Pricing and tiers not available."
             dotStyle="color:var(--admin-text-faint)"
@@ -1537,13 +1579,13 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                   <thead>
                     <tr>
                       <th>Service</th>
-                      <th style="text-align:right">Basic</th>
-                      <th style="text-align:right">Standard</th>
-                      <th style="text-align:right">Premium</th>
-                      <th style="text-align:right">Enterprise</th>
-                      <th style="text-align:center">Popular</th>
+                      <th>Basic</th>
+                      <th>Standard</th>
+                      <th>Premium</th>
+                      <th>Enterprise</th>
+                      <th class="cz-sc-table__popular">Popular</th>
                       <th style="text-align:center">Status</th>
-                      <th></th>
+                      <th class="cz-sc-table__actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1578,7 +1620,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                           <td class="cz-sc-table__price">{tierCell('standard')}</td>
                           <td class="cz-sc-table__price">{tierCell('premium')}</td>
                           <td class="cz-sc-table__price">{tierCell('enterprise')}</td>
-                          <td style="text-align:center">
+                          <td class="cz-sc-table__popular">
                             {popularTier ? (
                               <span class="cz-tier-badge cz-tier-badge--popular">
                                 {TIER_LABELS[popularTier] ?? popularTier}
