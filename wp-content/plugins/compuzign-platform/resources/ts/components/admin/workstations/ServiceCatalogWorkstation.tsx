@@ -348,6 +348,50 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
   );
 }
 
+// ── CommercialBlock ───────────────────────────────────────────────────────────
+// Reusable summary card for the Commercial tab.
+// header  → label + status pill
+// body    → count + description
+// footer  → View action (disabled when onView is undefined)
+
+interface CommercialBlockProps {
+  label:     string;
+  count:     string;
+  desc:      string;
+  dotStyle:  string;
+  pillCls:   string;
+  pillText:  string;
+  onView?:   () => void;
+}
+
+function CommercialBlock({ label, count, desc, dotStyle, pillCls, pillText, onView }: CommercialBlockProps) {
+  return (
+    <div class="cz-sv-commercial-block">
+      <div class="cz-sv-commercial-block__header">
+        <span class="cz-sv-commercial-block__label">{label}</span>
+        <div class="cz-sv-commercial-block__status">
+          <span class="cz-admin-status-dot" style={dotStyle} />
+          <span class={`cz-status-pill ${pillCls}`}>{pillText}</span>
+        </div>
+      </div>
+      <div class="cz-sv-commercial-block__body">
+        <p class="cz-sv-commercial-block__count">{count}</p>
+        <p class="cz-sv-commercial-block__desc">{desc}</p>
+      </div>
+      <div class="cz-sv-commercial-block__footer">
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          onClick={onView}
+          disabled={!onView}
+        >
+          View
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── ServiceViewStep ───────────────────────────────────────────────────────────
 // Tabbed service detail drawer.
 // Service tab  → Water Layer:  overview, description, features, FAQs.
@@ -573,6 +617,16 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length
     : 0;
   const promotionCount = relatedPkg?.promotion_tiers.length ?? 0;
+
+  const commDotStyle = relatedPkg
+    ? `color:var(--admin-${pkgIsActive ? 'success' : 'error'})`
+    : 'color:var(--admin-text-faint)';
+  const commPillCls  = relatedPkg
+    ? `cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`
+    : 'cz-status-pill--draft';
+  const commPillText = relatedPkg
+    ? (pkgIsActive ? 'Linked' : 'Disabled')
+    : 'Not configured';
 
   const handleOpenPromoConfig = () => {
     if (!relatedPkg) return;
@@ -922,135 +976,34 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── Commercial tab: Surface Layer ─────────────────────────────── */}
       {tab === 'commercial' && (
-        relatedPkg ? (
-          <>
-            <div class="cz-sv-commercial-block">
-              <div class="cz-sv-commercial-block__header">
-                <span class="cz-sv-commercial-block__label">Tier Configuration</span>
-                <div class="cz-sv-commercial-block__status">
-                  <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
-                  <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
-                    {pkgIsActive ? 'Linked' : 'Disabled'}
-                  </span>
-                </div>
-              </div>
-              <p class="cz-sv-commercial-block__count">
-                {configuredTierCount} tier{configuredTierCount !== 1 ? 's' : ''} configured
-              </p>
-              <p class="cz-sv-commercial-block__desc">
-                Pricing and tiers are managed in the Service Packages workstation.
-              </p>
-              <div class="cz-sv-commercial-block__footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={handleOpenTierConfig}
-                >
-                  View
-                </button>
-              </div>
-            </div>
-
-            <div class="cz-sv-commercial-block">
-              <div class="cz-sv-commercial-block__header">
-                <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
-                <div class="cz-sv-commercial-block__status">
-                  <span class="cz-admin-status-dot" style={`color:var(--admin-${pkgIsActive ? 'success' : 'error'})`} />
-                  <span class={`cz-status-pill cz-status-pill--${pkgIsActive ? 'active' : 'inactive'}`}>
-                    {pkgIsActive ? 'Linked' : 'Disabled'}
-                  </span>
-                </div>
-              </div>
-              <p class="cz-sv-commercial-block__count">
-                {promotionCount} promotion{promotionCount !== 1 ? 's' : ''} configured
-              </p>
-              <p class="cz-sv-commercial-block__desc">
-                Promotions are managed in the Promotions workstation.
-              </p>
-              <div class="cz-sv-commercial-block__footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={handleOpenPromoConfig}
-                >
-                  View
-                </button>
-              </div>
-            </div>
-
-            {tiers && (
-              <div class="cz-req-detail__section cz-sv-section--no-border">
-                <p class="cz-req-detail__section-title">Pricing Summary</p>
-                <div class="cz-sp-tier-table-wrap">
-                  <table class="cz-sp-tier-table">
-                    <thead>
-                      <tr>
-                        <th>Tier</th>
-                        <th>Price</th>
-                        <th>Cycle</th>
-                        <th class="cz-sp-tier-table__center">Features</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {TIER_KEYS.map((tierId) => {
-                        const tier = tiers[tierId];
-                        return (
-                          <tr key={tierId}>
-                            <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
-                            <td>
-                              <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                                {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
-                              </span>
-                            </td>
-                            <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
-                            <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                              {tier?.features?.length ? tier.features.length : '—'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div class="cz-sv-commercial-block">
-              <div class="cz-sv-commercial-block__header">
-                <span class="cz-sv-commercial-block__label">Tier Configuration</span>
-                <div class="cz-sv-commercial-block__status">
-                  <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                  <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-                </div>
-              </div>
-              <p class="cz-sv-commercial-block__count">0 tiers configured</p>
-              <p class="cz-sv-commercial-block__desc">Pricing and tiers not available.</p>
-              <div class="cz-sv-commercial-block__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                  View
-                </button>
-              </div>
-            </div>
-
-            <div class="cz-sv-commercial-block">
-              <div class="cz-sv-commercial-block__header">
-                <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
-                <div class="cz-sv-commercial-block__status">
-                  <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                  <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-                </div>
-              </div>
-              <p class="cz-sv-commercial-block__count">0 promotion configured</p>
-              <p class="cz-sv-commercial-block__desc">No active promotion.</p>
-              <div class="cz-sv-commercial-block__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                  View
-                </button>
-              </div>
-            </div>
-
+        <>
+          <CommercialBlock
+            label="Tier Configuration"
+            count={relatedPkg
+              ? `${configuredTierCount} tier${configuredTierCount !== 1 ? 's' : ''} configured`
+              : '0 tiers configured'}
+            desc={relatedPkg
+              ? 'Pricing and tiers are managed in the Service Packages workstation.'
+              : 'Pricing and tiers not available.'}
+            dotStyle={commDotStyle}
+            pillCls={commPillCls}
+            pillText={commPillText}
+            onView={relatedPkg ? handleOpenTierConfig : undefined}
+          />
+          <CommercialBlock
+            label="Promotion Configuration"
+            count={relatedPkg
+              ? `${promotionCount} promotion${promotionCount !== 1 ? 's' : ''} configured`
+              : '0 promotion configured'}
+            desc={relatedPkg
+              ? 'Promotions are managed in the Promotions workstation.'
+              : 'No active promotion.'}
+            dotStyle={commDotStyle}
+            pillCls={commPillCls}
+            pillText={commPillText}
+            onView={relatedPkg ? handleOpenPromoConfig : undefined}
+          />
+          {relatedPkg && tiers && (
             <div class="cz-req-detail__section cz-sv-section--no-border">
               <p class="cz-req-detail__section-title">Pricing Summary</p>
               <div class="cz-sp-tier-table-wrap">
@@ -1064,20 +1017,29 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {TIER_KEYS.map((tierId) => (
-                      <tr key={tierId}>
-                        <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
-                        <td />
-                        <td />
-                        <td />
-                      </tr>
-                    ))}
+                    {TIER_KEYS.map((tierId) => {
+                      const tier = tiers[tierId];
+                      return (
+                        <tr key={tierId}>
+                          <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
+                          <td>
+                            <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                              {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
+                            </span>
+                          </td>
+                          <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
+                          <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                            {tier?.features?.length ? tier.features.length : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
-          </>
-        )
+          )}
+        </>
       )}
 
       {saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
@@ -1375,39 +1337,22 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
       {tab === 'commercial' && (
         <>
-          <div class="cz-sv-commercial-block">
-            <div class="cz-sv-commercial-block__header">
-              <span class="cz-sv-commercial-block__label">Tier Configuration</span>
-              <div class="cz-sv-commercial-block__status">
-                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-              </div>
-            </div>
-            <p class="cz-sv-commercial-block__count">0 tiers configured</p>
-            <p class="cz-sv-commercial-block__desc">Pricing and tiers not available.</p>
-            <div class="cz-sv-commercial-block__footer">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                View
-              </button>
-            </div>
-          </div>
-
-          <div class="cz-sv-commercial-block">
-            <div class="cz-sv-commercial-block__header">
-              <span class="cz-sv-commercial-block__label">Promotion Configuration</span>
-              <div class="cz-sv-commercial-block__status">
-                <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
-              </div>
-            </div>
-            <p class="cz-sv-commercial-block__count">0 promotion configured</p>
-            <p class="cz-sv-commercial-block__desc">No active promotion.</p>
-            <div class="cz-sv-commercial-block__footer">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                View
-              </button>
-            </div>
-          </div>
+          <CommercialBlock
+            label="Tier Configuration"
+            count="0 tiers configured"
+            desc="Pricing and tiers not available."
+            dotStyle="color:var(--admin-text-faint)"
+            pillCls="cz-status-pill--draft"
+            pillText="Not configured"
+          />
+          <CommercialBlock
+            label="Promotion Configuration"
+            count="0 promotion configured"
+            desc="No active promotion."
+            dotStyle="color:var(--admin-text-faint)"
+            pillCls="cz-status-pill--draft"
+            pillText="Not configured"
+          />
 
           <div class="cz-req-detail__section cz-sv-section--no-border">
             <p class="cz-req-detail__section-title">Pricing Summary</p>

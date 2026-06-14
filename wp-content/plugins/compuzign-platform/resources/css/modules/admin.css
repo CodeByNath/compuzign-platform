@@ -443,7 +443,7 @@
   cursor: pointer;
   border: none;
   background: transparent;
-  color: var(--admin-text-muted);
+  color: var(--admin-text);
   font-size: var(--admin-fs-label);
   width: 100%;
   text-align: left;
@@ -455,7 +455,6 @@
 
 .cz-admin-nav-item:hover {
   background: var(--admin-accent-a12);
-  color: var(--admin-text);
 }
 
 .cz-admin-nav-item--active {
@@ -3397,31 +3396,41 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sv-tab {
-  padding: 7px 8px;
+  position: relative;
+  padding: var(--cz-space-2) var(--cz-space-2);
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--admin-radius);
   margin-bottom: -1px;
   font-size: var(--admin-fs-label);
   font-weight: var(--admin-fw-normal);
-  color: var(--admin-text-muted);
+  color: var(--admin-text);
   cursor: pointer;
-  transition: color var(--cz-transition-fast), border-color var(--cz-transition-fast);
+  transition: background var(--cz-transition-fast);
 }
 
 .cz-sv-tab:hover {
-  color: var(--admin-text);
+  background: var(--admin-accent-a12);
 }
 
 .cz-sv-tab--active {
-  color: var(--admin-accent);
-  border-bottom-color: var(--admin-accent);
   font-weight: var(--admin-fw-strong);
+}
+
+/* Active indicator lives below the tab, independent of hover background */
+.cz-sv-tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--admin-accent);
 }
 
 .cz-sv-tab:focus-visible {
   outline: none;
-  color: var(--admin-accent);
+  box-shadow: var(--admin-depth-ring-sm);
 }
 
 /* ── Service View — module shell ────────────────────────────────────────────── */
@@ -3564,6 +3573,11 @@ body.compuzign-admin-page footer.site-footer {
   display: flex;
   align-items: center;
   gap: var(--cz-space-2);
+}
+
+.cz-sv-commercial-block__body {
+  display: flex;
+  flex-direction: column;
 }
 
 .cz-sv-commercial-block__count {
