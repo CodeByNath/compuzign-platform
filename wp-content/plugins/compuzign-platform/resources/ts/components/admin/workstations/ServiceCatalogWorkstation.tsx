@@ -878,12 +878,17 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                     {service.title.trim() ? decodeHtml(service.title) : 'New Service'}
                   </p>
                 </div>
-                {service.excerpt && (
-                  <div class="cz-sv-overview-block__meta">
-                    <span class="cz-req-contact-grid__label">Short Description</span>
-                    <p class="cz-sv-overview-block__value">{service.excerpt}</p>
-                  </div>
-                )}
+                <div class="cz-sv-overview-block__meta">
+                  <span class="cz-req-contact-grid__label">Short Description</span>
+                  <p class="cz-sv-overview-block__value">
+                    {service.excerpt?.trim()
+                      ? service.excerpt
+                      : service.title.trim()
+                        ? `Enter a short description for the ${decodeHtml(service.title)}.`
+                        : 'Enter a short description for this service.'
+                    }
+                  </p>
+                </div>
                 <div class="cz-sv-overview-block__meta">
                   <span class="cz-req-contact-grid__label">Category</span>
                   <span class="cz-sv-overview-block__value">
