@@ -22,7 +22,7 @@ function decodeHtml(s: string): string {
 
 export function ServiceOverviewTransitView({ service, onView }: Props) {
   const platformStatus   = service.meta?.platform_status ?? 'disabled';
-  const moduleTransition = service.meta?.module_status?.overview ?? 'pending';
+  const moduleTransition = service.meta?.module_status?.overview ?? 'settled';
 
   const overviewStatus = resolveOverviewStatus(service, { platformStatus, moduleTransition });
 

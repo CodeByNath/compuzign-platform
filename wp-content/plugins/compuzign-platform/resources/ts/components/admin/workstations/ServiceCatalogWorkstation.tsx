@@ -755,7 +755,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const overviewStatus   = resolveOverviewStatus(service, {
     platformStatus,
-    moduleTransition: moduleStatus?.overview ?? 'pending',
+    moduleTransition: moduleStatus?.overview ?? 'settled',
   });
   const inclusionsStatus = getInclusionsStatus();
   const faqsStatus       = getFaqsStatus();
