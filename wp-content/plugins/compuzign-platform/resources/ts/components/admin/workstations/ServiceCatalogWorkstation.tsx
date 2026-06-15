@@ -437,7 +437,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const platformStatus = service.meta?.platform_status ?? 'disabled';
   const isActive       = platformStatus === 'active';
-  const isDisabled     = !isActive;
 
   const handleToggleActive = useCallback(async () => {
     setStatusSaving(true);
@@ -737,20 +736,20 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const moduleStatus = service.meta?.module_status;
 
   const getInclusionsStatus = () => {
-    if (isDisabled) return 'disabled';
     if (inclusions.length === 0) return 'pending-dim';
     const allComplete = inclusions.every(inc => !!inc.label?.trim());
     if (!allComplete) return 'pending-dim';
     if (moduleStatus?.inclusions === 'pending') return 'pending-full';
+    if (!isActive) return 'pending-full';
     return 'active';
   };
 
   const getFaqsStatus = () => {
-    if (isDisabled) return 'disabled';
     if (faqs.length === 0) return 'pending-dim';
     const allComplete = faqs.every(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim()));
     if (!allComplete) return 'pending-dim';
     if (moduleStatus?.faqs === 'pending') return 'pending-full';
+    if (!isActive) return 'pending-full';
     return 'active';
   };
 

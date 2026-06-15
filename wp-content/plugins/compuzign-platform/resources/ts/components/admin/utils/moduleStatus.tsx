@@ -24,10 +24,7 @@ export interface OverviewStatusOpts {
 export function resolveOverviewStatus(service: ServiceItem, opts: OverviewStatusOpts): string {
   const { platformStatus, moduleTransition } = opts;
 
-  // Rule 2: platform_status gates all module display.
-  if (platformStatus !== 'active') return 'disabled';
-
-  // Rule 4: empty and incomplete both → pending-dim (orange 0.45 opacity).
+  // Rule 4: empty and incomplete → pending-dim; disabled does NOT propagate to child modules.
   const complete = !!(
     service.title.trim() &&
     service.excerpt.trim() &&
@@ -38,6 +35,9 @@ export function resolveOverviewStatus(service: ServiceItem, opts: OverviewStatus
 
   // Rule 7: complete but edited since last activation → pending-full.
   if (moduleTransition === 'pending') return 'pending-full';
+
+  // Complete + settled, but service is not yet active → still pending-full (not disabled).
+  if (platformStatus !== 'active') return 'pending-full';
 
   return 'active';
 }
