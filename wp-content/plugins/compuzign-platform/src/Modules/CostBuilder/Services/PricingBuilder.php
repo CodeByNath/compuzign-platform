@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Modules\CostBuilder\Services;
 
 use CompuZign\Platform\Modules\CostBuilder\Repositories\ServiceRepository;
+use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
 use CompuZign\Platform\Modules\CostBuilder\Support\PriceParser;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
@@ -32,7 +33,7 @@ class PricingBuilder
     private array $packageMap = [];
 
     /**
-     * Set of service IDs that have a disabled (draft) package but no active one.
+     * Set of service IDs that have a disabled package but no active one.
      * When a service appears here, legacy pricing must not surface as a fallback —
      * the admin has explicitly disabled the service's commercial offering.
      *
@@ -52,12 +53,12 @@ class PricingBuilder
         // All per-service lookups inside buildServicePayload() are O(1) array access.
         $this->packageMap = $this->packageRepository->findAllActiveIndexedByServiceId();
 
-        // Build disabled-service guard: service IDs that have a draft package but no
+        // Build disabled-service guard: service IDs that have a disabled package but no
         // active one. These services must not fall back to legacy XLSX pricing when
-        // their package is disabled. Services with both an active and a draft package
+        // their package is disabled. Services with both an active and a disabled package
         // (unusual but valid) are excluded — the active package takes precedence.
         $this->disabledServiceIds = array_diff_key(
-            $this->packageRepository->findDraftedServiceIds(),
+            $this->packageRepository->findDisabledPackageServiceIds(),
             $this->packageMap
         );
 
@@ -89,8 +90,11 @@ class PricingBuilder
             $payloads = [];
 
             foreach ($posts as $post) {
+                // ServiceRepository::findByCategory already filters to platform_status=active.
+                // This guard is a belt-and-braces check for legacy records where the repository
+                // filter may still resolve via the backward-compat bridge (Rule 8).
                 $meta = $this->repository->getMeta($post->ID);
-                if (isset($meta['is_active']) && $meta['is_active'] === false) {
+                if (MetaSchema::resolvePlatformStatus($meta, $post->post_status) !== 'active') {
                     continue;
                 }
                 $payloads[] = $this->buildServicePayload($post);
@@ -181,7 +185,7 @@ class PricingBuilder
                 'popular_tier'      => $meta['popular_tier'] ?? null,
                 'popular_label'     => '',
                 'sort_order'        => isset($meta['sort_order']) ? (int) $meta['sort_order'] : 0,
-                'is_active'         => isset($meta['is_active']) ? (bool) $meta['is_active'] : true,
+                'platform_status'    => MetaSchema::resolvePlatformStatus($meta, $post->post_status),
             ],
             'pricing' => $pricing,
         ];
@@ -211,7 +215,7 @@ class PricingBuilder
     // Architecture rules — do not break these:
     //
     //   1. Surface Packages (cz_package meta) are the commercial source of truth
-    //      once an active (post_status = publish) package exists for a service.
+    //      once an active (platform_status = active) package exists for a service.
     //      Legacy cz_service_pricing data must not override or supplement it.
     //
     //   2. Water-layer service content (title, description, FAQs, inclusions pool,
@@ -224,7 +228,7 @@ class PricingBuilder
     //   4. Unconfigured admin placeholder tiers (billing_cycle = null, saved by
     //      PackageSchema::sanitizeTiers defaults) must never reach Cost Builder.
     //
-    //   5. Disabled packages (post_status = draft) are invisible to this builder
+    //   5. Disabled packages (platform_status = disabled) are invisible to this builder
     //      via PackageRepository::findAllActiveIndexedByServiceId(). Disabled
     //      individual tiers (enabled = false) are removed inside overlayPackage().
     //      Neither must fall back to legacy/default tier data.
@@ -236,7 +240,7 @@ class PricingBuilder
      * Apply surface package fields on top of a fully-compiled legacy payload.
      *
      * Only surface fields are replaced; canonical fields (title, description,
-     * canonical inclusions pool, FAQs, SLA, categories, is_active, billing_cycle
+     * canonical inclusions pool, FAQs, SLA, categories, platform_status, billing_cycle
      * on the service canonical record) are never touched by the overlay.
      *
      * Per-tier price overlay triggers only when the package tier has a non-null

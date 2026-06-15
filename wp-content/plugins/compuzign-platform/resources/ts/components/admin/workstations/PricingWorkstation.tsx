@@ -103,7 +103,7 @@ export function PricingWorkstation({ refreshKey }: Props) {
                 {services.map((service) => {
                   const tiers = service.pricing?.tiers;
                   const popularTier = service.meta?.popular_tier;
-                  const isActive = service.meta?.is_active !== false;
+                  const isActive = service.meta?.platform_status === 'active';
                   return (
                     <tr key={service.id}>
                       <td class="cz-pricing-table__name">

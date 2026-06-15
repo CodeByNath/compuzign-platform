@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Modules\SurfacePackages;
 
 use CompuZign\Platform\Core\Health;
+use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Http\AdminSurfacePackagesController;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
@@ -57,8 +58,8 @@ class SurfacePackagesModule
                     continue;
                 }
 
-                // Verify every referenced service ID resolves to a published cz_service post.
-                // An orphan reference (deleted or unpublished service) is a River integrity failure.
+                // Verify every referenced service ID resolves to an active cz_service.
+                // An orphan or disabled service reference is a River integrity failure.
                 foreach ($refs as $serviceId) {
                     $serviceId = (int) $serviceId;
                     if ($serviceId <= 0) {
@@ -66,10 +67,13 @@ class SurfacePackagesModule
                     }
 
                     $service = get_post($serviceId);
-                    if (!$service instanceof \WP_Post
-                        || $service->post_type   !== 'cz_service'
-                        || $service->post_status !== 'publish'
-                    ) {
+                    if (!$service instanceof \WP_Post || $service->post_type !== 'cz_service') {
+                        return false;
+                    }
+
+                    $svcMeta = get_post_meta($serviceId, 'cz_service_meta', true);
+                    $svcMeta = is_array($svcMeta) ? $svcMeta : [];
+                    if (MetaSchema::resolvePlatformStatus($svcMeta, $service->post_status) !== 'active') {
                         return false;
                     }
                 }

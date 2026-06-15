@@ -10,6 +10,7 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  */
 class PackageSchema
 {
+    public const ALLOWED_PLATFORM_STATUSES   = ['active', 'disabled', 'archived'];
     public const ALLOWED_TYPES               = ['tier_configuration', 'bundle', 'promotion', 'homepage_collection', 'campaign'];
     public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise'];
     public const ALLOWED_CONTEXTS            = ['cost-builder', 'homepage', 'pricing-page'];
@@ -45,7 +46,11 @@ class PackageSchema
             $data = [];
         }
 
+        $rawStatus       = sanitize_text_field((string) ($data['platform_status'] ?? ''));
+        $platformStatus  = in_array($rawStatus, self::ALLOWED_PLATFORM_STATUSES, true) ? $rawStatus : 'disabled';
+
         return [
+            'platform_status'    => $platformStatus,
             'package_type'       => self::sanitizeType($data['package_type'] ?? ''),
             'service_refs'       => self::sanitizeServiceRefs($data['service_refs'] ?? []),
             'tiers'              => self::sanitizeTiers($data['tiers'] ?? []),
@@ -66,6 +71,7 @@ class PackageSchema
     public function defaultPackage(): array
     {
         return [
+            'platform_status'    => 'disabled',
             'package_type'       => 'tier_configuration',
             'service_refs'       => [],
             'tiers'              => array_fill_keys(

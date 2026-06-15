@@ -1804,7 +1804,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
   const [disabling, setDisabling] = useState(false);
 
   const serviceNames          = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
-  const isEnabled             = pkg.post_status === 'publish';
+  const isEnabled             = pkg.platform_status === 'active';
   const resolvedPopularTierId = resolvePopularTier(pkg);
   const tierCount             = TIERS.filter((t) => pkg.tiers[t]?.configured).length;
   const atTierLimit           = tierCount >= MAX_TIERS;

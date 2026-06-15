@@ -22,7 +22,18 @@ export interface ServiceFaq {
   answer: string;
 }
 
+export type PlatformStatus = 'active' | 'disabled' | 'archived' | 'trashed';
+export type ModuleTransition = 'settled' | 'pending';
+
+export interface ModuleStatus {
+  overview:   ModuleTransition;
+  inclusions: ModuleTransition;
+  faqs:       ModuleTransition;
+}
+
 export interface ServiceMeta {
+  platform_status: PlatformStatus;
+  module_status:   ModuleStatus;
   short_description: string;
   long_description: string;
   billing_cycle: string;
@@ -32,7 +43,8 @@ export interface ServiceMeta {
   popular_tier: TierId | null;
   popular_label: string | null;
   sort_order: number;
-  is_active: boolean | null;
+  /** @deprecated Use platform_status instead. */
+  is_active?: boolean | null;
 }
 
 export interface PricingTierData {

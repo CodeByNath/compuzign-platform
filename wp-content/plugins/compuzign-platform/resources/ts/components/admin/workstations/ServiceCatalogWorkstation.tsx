@@ -67,6 +67,8 @@ function buildNewServiceItem(data: {
     faqs:       [],
     availability: { is_available: true, message: '' },
     meta: {
+      platform_status:   'disabled',
+      module_status:     { overview: 'pending', inclusions: 'pending', faqs: 'pending' },
       short_description: '',
       long_description:  '',
       billing_cycle:     '',
@@ -76,7 +78,6 @@ function buildNewServiceItem(data: {
       popular_tier:      null,
       popular_label:     null,
       sort_order:        0,
-      is_active:         null,
     },
     pricing: {
       tiers:  {} as Record<TierId, PricingTierData>,
@@ -119,7 +120,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
 
   const pkg          = detail.package;
   const promos       = pkg.promotion_tiers ?? [];
-  const pkgPublished = pkg.post_status === 'publish';
+  const pkgStatus = pkg.platform_status ?? 'disabled';
 
   const handleManageTier = (tierId: string) => {
     const t = pkg.tiers[tierId];
@@ -197,8 +198,8 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
         <>
           {TIER_KEYS.map((tierId) => {
             const tier       = pkg.tiers[tierId];
-            const status     = resolveTierStatus(tier, { pkgPublished });
-            const showData   = status !== 'not-configured';
+            const status     = resolveTierStatus(tier, { pkgStatus: pkg.platform_status ?? 'disabled' });
+            const showData   = !!(tier && (tier.price !== null || tier.billing_cycle || (tier as any).contact));
             const priceOk    = !!(tier && (tier.price !== null || tier.contact));
             const cycleOk    = !!tier?.billing_cycle;
             const priceText  = tier?.contact && tier.price === null
@@ -266,7 +267,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                 <tbody>
                   {TIER_KEYS.map((tierId) => {
                     const tier   = pkg.tiers[tierId];
-                    const status = resolveTierStatus(tier, { pkgPublished });
+                    const status = resolveTierStatus(tier, { pkgStatus });
                     return (
                       <tr key={tierId}>
                         <td class="cz-sp-tier-table__name">
@@ -426,7 +427,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [saveOk,             setSaveOk]           = useState(false);
   const [statusSaving,       setStatusSaving]     = useState(false);
   const [showPublishModal,   setShowPublishModal] = useState(false);
-  const [pendingModules,     setPendingModules]   = useState<Set<string>>(new Set());
   const [creatingPkg,        setCreatingPkg]      = useState(false);
 
   useEffect(() => {
@@ -435,18 +435,23 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     return () => clearTimeout(t);
   }, [saveOk]);
 
-  const isActive    = service.meta?.is_active !== false;
-  const isDisabled  = service.meta?.is_active === false;
-  const isPublished = service.meta?.is_active === true;
+  const platformStatus = service.meta?.platform_status ?? 'disabled';
+  const isActive       = platformStatus === 'active';
+  const isDisabled     = !isActive;
 
   const handleToggleActive = useCallback(async () => {
     setStatusSaving(true);
+    const nextStatus = isActive ? 'disabled' : 'active';
     try {
-      const result = await updateServiceStatus(service.id, { is_active: !isActive });
+      const result = await updateServiceStatus(service.id, { platform_status: nextStatus });
       if (result.success) {
         ctx.setStepData('service', {
           ...service,
-          meta: { ...service.meta, is_active: result.service.is_active },
+          meta: {
+            ...service.meta,
+            platform_status: result.service.platform_status,
+            module_status:   result.service.module_status as any,
+          },
         });
         onRefresh?.();
       }
@@ -458,13 +463,16 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const handlePublishService = useCallback(async () => {
     setStatusSaving(true);
     try {
-      const result = await updateServiceStatus(service.id, { is_active: true, post_status: 'publish' });
+      const result = await updateServiceStatus(service.id, { platform_status: 'active' });
       if (result.success) {
         ctx.setStepData('service', {
           ...service,
-          meta: { ...service.meta, is_active: result.service.is_active },
+          meta: {
+            ...service.meta,
+            platform_status: result.service.platform_status,
+            module_status:   result.service.module_status as any,
+          },
         });
-        setPendingModules(new Set());
         onRefresh?.();
       }
     } finally {
@@ -517,8 +525,10 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           excerpt:    result.service.excerpt,
           content:    result.service.content,
           categories: result.service.categories,
+          meta:       result.service.module_status
+                        ? { ...service.meta, module_status: result.service.module_status as any }
+                        : service.meta,
         });
-        if (service.meta?.is_active === true) setPendingModules(prev => new Set([...prev, 'overview']));
         onRefresh?.();
         setEditingSection(null);
         setOverviewDraft(null);
@@ -542,8 +552,13 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         inclusions: inclusionsDraft.items,
       });
       if (result.success) {
-        ctx.setStepData('service', { ...service, inclusions: result.inclusions });
-        if (service.meta?.is_active === true) setPendingModules(prev => new Set([...prev, 'inclusions']));
+        ctx.setStepData('service', {
+          ...service,
+          inclusions: result.inclusions,
+          meta:       result.module_status
+                        ? { ...service.meta, module_status: result.module_status as any }
+                        : service.meta,
+        });
         onRefresh?.();
         setEditingSection(null);
         setInclusionsDraft(null);
@@ -567,8 +582,13 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         faqs: faqsDraft.items,
       });
       if (result.success) {
-        ctx.setStepData('service', { ...service, faqs: result.faqs });
-        if (service.meta?.is_active === true) setPendingModules(prev => new Set([...prev, 'faqs']));
+        ctx.setStepData('service', {
+          ...service,
+          faqs: result.faqs,
+          meta: result.module_status
+                  ? { ...service.meta, module_status: result.module_status as any }
+                  : service.meta,
+        });
         onRefresh?.();
         setEditingSection(null);
         setFaqsDraft(null);
@@ -646,14 +666,14 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
-  const pkgIsActive         = relatedPkg?.post_status === 'publish';
+  const pkgIsActive         = relatedPkg?.platform_status === 'active';
   const configuredTierCount = relatedPkg
     ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length
     : 0;
   const promotionCount = relatedPkg?.promotion_tiers.length ?? 0;
 
   const promoStatus = !relatedPkg || promotionCount === 0
-    ? 'not-configured'
+    ? 'pending-dim'
     : pkgIsActive ? 'active' : 'pending-full';
 
   // ── Package Summary card state ────────────────────────────────────────────
@@ -669,14 +689,14 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const pkgSummaryDesc = pkgSummaryStatus === 'active'
     ? 'Package Overview includes a full summary view of pricing and tiers.'
-    : isPublished && !relatedPkg
+    : isActive && !relatedPkg
       ? 'View Package Overview and manage pricing and tiers.'
       : 'Pricing and tiers not available.';
 
   // State 4: package active but not all tiers are enabled — signal attention on description
-  const pkgSummaryDescPending = isPublished && pkgSummaryStatus === 'active' && !allTiersEnabled;
+  const pkgSummaryDescPending = isActive && pkgSummaryStatus === 'active' && !allTiersEnabled;
 
-  const pkgSummaryOnView = isPublished && !creatingPkg ? handleOpenTierConfig : undefined;
+  const pkgSummaryOnView = isActive && !creatingPkg ? handleOpenTierConfig : undefined;
 
   const handleOpenPromoConfig = () => {
     if (!relatedPkg) return;
@@ -714,25 +734,30 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   // ── Module status resolvers ──────────────────────────────────────────────
 
+  const moduleStatus = service.meta?.module_status;
+
   const getInclusionsStatus = () => {
     if (isDisabled) return 'disabled';
-    if (inclusions.length === 0) return 'not-configured';
+    if (inclusions.length === 0) return 'pending-dim';
     const allComplete = inclusions.every(inc => !!inc.label?.trim());
     if (!allComplete) return 'pending-dim';
-    if (!isPublished || pendingModules.has('inclusions')) return 'pending-full';
+    if (moduleStatus?.inclusions === 'pending') return 'pending-full';
     return 'active';
   };
 
   const getFaqsStatus = () => {
     if (isDisabled) return 'disabled';
-    if (faqs.length === 0) return 'not-configured';
+    if (faqs.length === 0) return 'pending-dim';
     const allComplete = faqs.every(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim()));
     if (!allComplete) return 'pending-dim';
-    if (!isPublished || pendingModules.has('faqs')) return 'pending-full';
+    if (moduleStatus?.faqs === 'pending') return 'pending-full';
     return 'active';
   };
 
-  const overviewStatus   = resolveOverviewStatus(service, { isDisabled, isPublished, pendingModules });
+  const overviewStatus   = resolveOverviewStatus(service, {
+    platformStatus,
+    moduleTransition: moduleStatus?.overview ?? 'pending',
+  });
   const inclusionsStatus = getInclusionsStatus();
   const faqsStatus       = getFaqsStatus();
 
@@ -753,15 +778,19 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     `${n} ${n === 1 ? singular : plural}`;
 
   const inclSummary = (() => {
-    if (inclusionsStatus === 'not-configured') return { text: '0 included features added', orange: true };
-    if (inclusionsStatus === 'pending-dim') return { text: `${pluralCount(inclusions.length, 'included feature', 'included features')} pending`, orange: true };
+    if (inclusionsStatus === 'pending-dim') return {
+      text: inclusions.length === 0 ? '0 included features added' : `${pluralCount(inclusions.length, 'included feature', 'included features')} pending`,
+      orange: true,
+    };
     const complete = inclusions.filter(inc => !!inc.label?.trim()).length;
     return { text: `${pluralCount(complete, 'included feature', 'included features')} added`, orange: false };
   })();
 
   const faqsSummary = (() => {
-    if (faqsStatus === 'not-configured') return { text: '0 common questions added', orange: true };
-    if (faqsStatus === 'pending-dim') return { text: `${pluralCount(faqs.length, 'common question', 'common questions')} pending`, orange: true };
+    if (faqsStatus === 'pending-dim') return {
+      text: faqs.length === 0 ? '0 common questions added' : `${pluralCount(faqs.length, 'common question', 'common questions')} pending`,
+      orange: true,
+    };
     const complete = faqs.filter(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim())).length;
     return { text: `${pluralCount(complete, 'common question', 'common questions')} added`, orange: false };
   })();
@@ -1359,13 +1388,13 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
             label="Package Summary"
             count="0 tiers configured"
             desc="Pricing and tiers not available."
-            status="not-configured"
+            status="pending-dim"
           />
           <CommercialBlock
             label="Promotion Configuration"
             count="0 promotion configured"
             desc="No active promotion."
-            status="not-configured"
+            status="pending-dim"
           />
 
           <div class="cz-req-detail__section cz-sv-section--no-border">
@@ -1444,7 +1473,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
   }, [data]);
 
   const handleViewService = (service: ServiceItem) => {
-    const svcActive = service.meta?.is_active !== false;
+    const svcActive = service.meta?.platform_status === 'active';
     openAction({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
@@ -1566,7 +1595,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                       // despite Record<TierId, PricingTierData> typing.
                       const tiers       = service.pricing?.tiers as Partial<Record<TierId, PricingTierData>> | undefined;
                       const popularTier = service.meta?.popular_tier ?? null;
-                      const isActive    = service.meta?.is_active !== false;
+                      const isActive    = service.meta?.platform_status === 'active';
                       const hasPackage  = packages.some((p) => p.service_refs.includes(service.id));
                       const fmtPrice    = (v: number | null | undefined) =>
                         v != null ? `$${v.toLocaleString()}` : '—';

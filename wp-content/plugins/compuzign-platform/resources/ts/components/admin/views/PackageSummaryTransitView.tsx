@@ -19,8 +19,8 @@ interface Props {
 }
 
 function tierDesc(status: string): string {
-  if (status === 'not-configured') return 'View Tier Overview and manage pricing.';
-  if (status === 'disabled')       return 'View Tier Overview and manage tier status.';
+  if (status === 'pending-dim') return 'View Tier Overview and manage pricing.';
+  if (status === 'disabled')    return 'View Tier Overview and manage tier status.';
   return 'Tier Overview includes a full summary view of the tier.';
 }
 
@@ -52,13 +52,13 @@ export function PackageSummaryTransitView({ pkg, onView }: Props) {
     );
   }
 
-  const pkgPublished = pkg.post_status === 'publish';
+  const pkgStatus = pkg.platform_status ?? 'disabled';
 
   return (
     <div class="cz-req-detail__section cz-sv-section--no-border">
       {tiers.map(({ id, tier }) => {
-        const status      = resolveTierStatus(tier, { pkgPublished });
-        const showData    = status !== 'not-configured';
+        const status   = resolveTierStatus(tier, { pkgStatus });
+        const showData = tier.price !== null || !!tier.billing_cycle || !!(tier as any).contact;
         const isPopular   = showData && pkg.popular_tier === id;
         const priceOk     = tier.price !== null;
         const cycleOk     = !!tier.billing_cycle;

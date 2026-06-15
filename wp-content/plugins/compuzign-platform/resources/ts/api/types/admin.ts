@@ -126,6 +126,7 @@ export interface SurfaceServiceRef {
 export interface SurfacePackageSummary {
   post_id: number;
   post_status: string;
+  platform_status: string;
   title: string;
   package_type: string;
   service_refs: number[];
@@ -185,6 +186,7 @@ export interface SurfaceServiceInfo {
 export interface SurfacePackageDetailData {
   post_id: number;
   post_status: string;
+  platform_status: string;
   title: string;
   package_type: string;
   service_refs: number[];
@@ -226,6 +228,8 @@ export interface TierSaveResponse {
 
 export interface PackageStatusResponse {
   success: boolean;
+  platform_status: string;
+  /** @deprecated Use platform_status instead. */
   post_status: string;
 }
 
@@ -301,6 +305,7 @@ export interface ServiceOverviewResponse {
     excerpt: string;
     content: string;
     categories: Array<{ id: number; name: string; slug: string }>;
+    module_status?: Record<string, string>;
   };
 }
 
@@ -316,6 +321,7 @@ export interface ServiceInclusionsPayload {
 export interface ServiceInclusionsResponse {
   success: boolean;
   inclusions: ServiceInclusionItem[];
+  module_status?: Record<string, string>;
 }
 
 export interface ServiceFaqItem {
@@ -331,10 +337,14 @@ export interface ServiceFaqsPayload {
 export interface ServiceFaqsResponse {
   success: boolean;
   faqs: ServiceFaqItem[];
+  module_status?: Record<string, string>;
 }
 
 export interface ServiceStatusPayload {
+  platform_status?: 'active' | 'disabled' | 'archived' | 'trashed';
+  /** @deprecated Use platform_status instead. */
   is_active?: boolean;
+  /** @deprecated Ignored by the server; kept for transition period only. */
   post_status?: 'publish' | 'draft';
 }
 
@@ -342,7 +352,11 @@ export interface ServiceStatusResponse {
   success: boolean;
   service: {
     id: number;
+    platform_status: string;
+    module_status: Record<string, string>;
+    /** @deprecated Use platform_status instead. */
     post_status: string;
+    /** @deprecated Use platform_status instead. */
     is_active: boolean;
   };
 }
@@ -373,5 +387,7 @@ export interface CreateServiceResponse {
     excerpt: string;
     content: string;
     categories: Array<{ id: number; name: string; slug: string }>;
+    platform_status: string;
+    module_status: Record<string, string>;
   };
 }

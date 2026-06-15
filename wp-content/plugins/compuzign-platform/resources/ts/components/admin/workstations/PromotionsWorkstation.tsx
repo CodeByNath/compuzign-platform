@@ -1027,7 +1027,7 @@ interface CardProps {
 function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
   const serviceNames = pkg.services.map((s) => s.title).join(', ') || '(no service linked)';
   const promos       = pkg.promotion_tiers;
-  const isEnabled    = pkg.post_status === 'publish';
+  const isEnabled    = pkg.platform_status === 'active';
   const [archivingId, setArchivingId] = useState<string | null>(null);
 
   const handleView = (promo: PromotionTier) => {

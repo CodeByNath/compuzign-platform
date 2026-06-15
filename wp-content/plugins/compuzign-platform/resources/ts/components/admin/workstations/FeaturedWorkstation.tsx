@@ -76,7 +76,7 @@ export function FeaturedWorkstation({ refreshKey }: Props) {
               <tbody>
                 {sorted.map((service) => {
                   const popularTier = service.meta?.popular_tier;
-                  const isActive = service.meta?.is_active !== false;
+                  const isActive = service.meta?.platform_status === 'active';
                   const isAvailable = service.availability?.is_available === true;
                   return (
                     <tr key={service.id}>

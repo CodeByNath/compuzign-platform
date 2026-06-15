@@ -2,15 +2,24 @@
 
 namespace CompuZign\Platform\Modules\CostBuilder\Repositories;
 
+use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
+
 class ServiceRepository
 {
     private const POST_TYPE         = 'cz_service';
     private const CATEGORY_TAXONOMY = 'cz_service_category';
 
-    /** @return \WP_Post[] */
+    /**
+     * Return published services in a category that are also platform_status=active.
+     * post_status=publish is required by WordPress; platform_status=active is the
+     * CompuZign business gate (Rule 2). Legacy records without platform_status are
+     * resolved via MetaSchema::resolvePlatformStatus() for backward compat (Rule 8).
+     *
+     * @return \WP_Post[]
+     */
     public function findByCategory(int $termId): array
     {
-        return get_posts([
+        $posts = get_posts([
             'post_type'   => self::POST_TYPE,
             'post_status' => 'publish',
             'numberposts' => -1,
@@ -20,6 +29,12 @@ class ServiceRepository
                 'terms'    => $termId,
             ]],
         ]);
+
+        return array_values(array_filter($posts, function (\WP_Post $post): bool {
+            $meta = get_post_meta($post->ID, 'cz_service_meta', true);
+            $meta = is_array($meta) ? $meta : [];
+            return MetaSchema::resolvePlatformStatus($meta, $post->post_status) === 'active';
+        }));
     }
 
     public function getMeta(int $postId): array

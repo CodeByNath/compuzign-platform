@@ -21,10 +21,10 @@ function decodeHtml(s: string): string {
 }
 
 export function ServiceOverviewTransitView({ service, onView }: Props) {
-  const isDisabled  = service.meta?.is_active === false;
-  const isPublished = service.meta?.is_active === true;
+  const platformStatus   = service.meta?.platform_status ?? 'disabled';
+  const moduleTransition = service.meta?.module_status?.overview ?? 'pending';
 
-  const overviewStatus = resolveOverviewStatus(service, { isDisabled, isPublished });
+  const overviewStatus = resolveOverviewStatus(service, { platformStatus, moduleTransition });
 
   const title    = service.title.trim()   ? decodeHtml(service.title)   : 'New Service';
   const excerpt  = service.excerpt?.trim() ?? '';

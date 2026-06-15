@@ -2,10 +2,13 @@
 
 namespace CompuZign\Platform\Modules\Admin\Http;
 
+use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
+
 class AdminServicesController
 {
     private const POST_TYPE         = 'cz_service';
     private const CATEGORY_TAXONOMY = 'cz_service_category';
+    private const META_KEY          = 'cz_service_meta';
     private const META_INCLUSIONS   = 'cz_service_inclusions';
     private const META_FAQS         = 'cz_service_faqs';
 
@@ -76,19 +79,25 @@ class AdminServicesController
             'callback'            => [$this, 'updateStatus'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
-                'id'          => ['required' => true,  'type' => 'integer'],
+                'id'              => ['required' => true, 'type' => 'integer'],
+                'platform_status' => [
+                    'required' => false,
+                    'type'     => 'string',
+                    'enum'     => MetaSchema::ALLOWED_PLATFORM_STATUSES,
+                ],
+                // Deprecated: kept for backward compat; ignored if platform_status is present.
                 'is_active'   => ['required' => false, 'type' => 'boolean'],
-                'post_status' => ['required' => false, 'type' => 'string',
-                                  'enum' => ['publish', 'draft']],
+                'post_status' => ['required' => false, 'type' => 'string', 'enum' => ['publish', 'draft']],
             ],
         ]);
     }
 
     public function createService(\WP_REST_Request $request): \WP_REST_Response
     {
+        // Rule 1 + 5: post_status = publish always. platform_status = disabled until admin activates.
         $id = wp_insert_post([
             'post_type'    => self::POST_TYPE,
-            'post_status'  => 'draft',
+            'post_status'  => 'publish',
             'post_title'   => $request->get_param('title'),
             'post_excerpt' => (string) ($request->get_param('excerpt') ?? ''),
             'post_content' => (string) ($request->get_param('content') ?? ''),
@@ -100,7 +109,14 @@ class AdminServicesController
 
         update_post_meta($id, self::META_INCLUSIONS, ['inclusions' => [], 'tier_inclusions' => []]);
         update_post_meta($id, self::META_FAQS, []);
-        update_post_meta($id, 'cz_service_meta', ['is_active' => true]);
+        update_post_meta($id, self::META_KEY, [
+            'platform_status' => 'disabled',
+            'module_status'   => [
+                'overview'   => 'pending',
+                'inclusions' => 'pending',
+                'faqs'       => 'pending',
+            ],
+        ]);
 
         if ($request->has_param('category_ids')) {
             $ids = array_values(array_map('intval', (array) $request->get_param('category_ids')));
@@ -108,6 +124,7 @@ class AdminServicesController
         }
 
         $post       = get_post($id);
+        $meta       = get_post_meta($id, self::META_KEY, true) ?: [];
         $terms      = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
         $categories = array_map(fn($t) => [
             'id'   => (int) $t->term_id,
@@ -118,12 +135,14 @@ class AdminServicesController
         return rest_ensure_response([
             'success' => true,
             'service' => [
-                'id'         => $id,
-                'title'      => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'slug'       => $post->post_name,
-                'excerpt'    => $post->post_excerpt,
-                'content'    => $post->post_content,
-                'categories' => $categories,
+                'id'              => $id,
+                'title'           => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'            => $post->post_name,
+                'excerpt'         => $post->post_excerpt,
+                'content'         => $post->post_content,
+                'categories'      => $categories,
+                'platform_status' => $meta['platform_status'] ?? 'disabled',
+                'module_status'   => $meta['module_status']   ?? $this->defaultModuleStatus(),
             ],
         ]);
     }
@@ -158,6 +177,9 @@ class AdminServicesController
             wp_set_object_terms($id, $ids, self::CATEGORY_TAXONOMY);
         }
 
+        // Rule 7: saving overview on an active entity marks transition as pending.
+        $moduleStatus = $this->markModulePending($id, 'overview');
+
         $post       = get_post($id);
         $terms      = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
         $categories = array_map(fn($t) => [
@@ -169,11 +191,12 @@ class AdminServicesController
         return rest_ensure_response([
             'success' => true,
             'service' => [
-                'id'         => $id,
-                'title'      => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'excerpt'    => $post->post_excerpt,
-                'content'    => $post->post_content,
-                'categories' => $categories,
+                'id'            => $id,
+                'title'         => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'excerpt'       => $post->post_excerpt,
+                'content'       => $post->post_content,
+                'categories'    => $categories,
+                'module_status' => $moduleStatus,
             ],
         ]);
     }
@@ -190,8 +213,7 @@ class AdminServicesController
         $raw   = (array) (get_post_meta($id, self::META_INCLUSIONS, true) ?: []);
         $input = (array) ($request->get_param('inclusions') ?: []);
 
-        $normalized = [];
-        $seen       = [];
+        $seen = [];
 
         foreach ($input as $item) {
             if (!is_array($item)) {
@@ -221,9 +243,13 @@ class AdminServicesController
 
         update_post_meta($id, self::META_INCLUSIONS, $stored);
 
+        // Rule 7: saving inclusions on an active entity marks transition as pending.
+        $moduleStatus = $this->markModulePending($id, 'inclusions');
+
         return rest_ensure_response([
-            'success'    => true,
-            'inclusions' => $normalized,
+            'success'       => true,
+            'inclusions'    => $normalized,
+            'module_status' => $moduleStatus,
         ]);
     }
 
@@ -238,8 +264,7 @@ class AdminServicesController
 
         $input = (array) ($request->get_param('faqs') ?: []);
 
-        $normalized = [];
-        $seen       = [];
+        $seen = [];
 
         foreach ($input as $item) {
             if (!is_array($item)) {
@@ -261,9 +286,13 @@ class AdminServicesController
 
         update_post_meta($id, self::META_FAQS, $normalized);
 
+        // Rule 7: saving FAQs on an active entity marks transition as pending.
+        $moduleStatus = $this->markModulePending($id, 'faqs');
+
         return rest_ensure_response([
-            'success' => true,
-            'faqs'    => $normalized,
+            'success'       => true,
+            'faqs'          => $normalized,
+            'module_status' => $moduleStatus,
         ]);
     }
 
@@ -276,28 +305,46 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
         }
 
-        if ($request->has_param('post_status')) {
-            $newStatus = sanitize_text_field((string) $request->get_param('post_status'));
-            wp_update_post(['ID' => $id, 'post_status' => $newStatus]);
+        $meta = get_post_meta($id, self::META_KEY, true);
+        $meta = is_array($meta) ? $meta : [];
+
+        // Resolve the target platform_status.
+        // platform_status param takes priority; fall back to legacy is_active mapping.
+        if ($request->has_param('platform_status')) {
+            $platformStatus = sanitize_text_field((string) $request->get_param('platform_status'));
+            if (!in_array($platformStatus, MetaSchema::ALLOWED_PLATFORM_STATUSES, true)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Invalid platform_status.'], 422);
+            }
+        } elseif ($request->has_param('is_active')) {
+            // Deprecated path: map boolean is_active to platform_status.
+            $platformStatus = $request->get_param('is_active') ? 'active' : 'disabled';
+        } else {
+            return new \WP_REST_Response(['success' => false, 'message' => 'No status parameter provided.'], 422);
         }
 
-        if ($request->has_param('is_active')) {
-            $meta = get_post_meta($id, 'cz_service_meta', true);
-            $meta = is_array($meta) ? $meta : [];
-            $meta['is_active'] = (bool) $request->get_param('is_active');
-            update_post_meta($id, 'cz_service_meta', $meta);
-        }
+        // Rule 1: never write post_status — CompuZign owns lifecycle via platform_status.
+        $meta['platform_status'] = $platformStatus;
 
-        $post     = get_post($id);
-        $meta     = get_post_meta($id, 'cz_service_meta', true);
-        $isActive = is_array($meta) ? (bool) ($meta['is_active'] ?? true) : true;
+        // Rule 6: on activation, settle only complete modules; incomplete stay pending.
+        if ($platformStatus === 'active') {
+            $meta['module_status'] = $this->resolveModuleStatusOnActivation($id, $post, $meta);
+        }
+        // For other transitions (disable, archive, trash), module_status is unchanged.
+
+        update_post_meta($id, self::META_KEY, $meta);
+
+        $meta = get_post_meta($id, self::META_KEY, true);
+        $meta = is_array($meta) ? $meta : [];
 
         return rest_ensure_response([
             'success' => true,
             'service' => [
-                'id'          => $id,
-                'post_status' => $post->post_status,
-                'is_active'   => $isActive,
+                'id'              => $id,
+                'platform_status' => $meta['platform_status'] ?? 'disabled',
+                'module_status'   => $meta['module_status']   ?? $this->defaultModuleStatus(),
+                // Deprecated fields retained for frontend transition period.
+                'post_status'     => $post->post_status,
+                'is_active'       => MetaSchema::resolvePlatformStatus($meta, $post->post_status) === 'active',
             ],
         ]);
     }
@@ -305,5 +352,87 @@ class AdminServicesController
     public function requireAdmin(): bool
     {
         return current_user_can(\CompuZign\Platform\Modules\Admin\AdminRouter::CAP);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Rule 7: if the entity is currently active, mark the given module transition
+     * back to 'pending' after a content save. Returns the updated module_status array.
+     */
+    private function markModulePending(int $id, string $module): array
+    {
+        $meta = get_post_meta($id, self::META_KEY, true);
+        $meta = is_array($meta) ? $meta : [];
+
+        $platformStatus = MetaSchema::resolvePlatformStatus($meta, 'publish');
+
+        if ($platformStatus === 'active') {
+            if (!isset($meta['module_status']) || !is_array($meta['module_status'])) {
+                $meta['module_status'] = $this->defaultModuleStatus();
+            }
+            $meta['module_status'][$module] = 'pending';
+            update_post_meta($id, self::META_KEY, $meta);
+        }
+
+        return $meta['module_status'] ?? $this->defaultModuleStatus();
+    }
+
+    /**
+     * Rule 6: on activation, settle only complete modules; incomplete stay pending.
+     */
+    private function resolveModuleStatusOnActivation(int $id, \WP_Post $post, array $meta): array
+    {
+        $current = is_array($meta['module_status'] ?? null)
+                   ? $meta['module_status']
+                   : $this->defaultModuleStatus();
+
+        return [
+            'overview'   => $this->isOverviewComplete($post)  ? 'settled' : 'pending',
+            'inclusions' => $this->isInclusionsComplete($id)   ? 'settled' : 'pending',
+            'faqs'       => $this->isFaqsComplete($id)         ? 'settled' : 'pending',
+        ];
+    }
+
+    private function isOverviewComplete(\WP_Post $post): bool
+    {
+        if (trim($post->post_title) === '')   return false;
+        if (trim($post->post_excerpt) === '')  return false;
+        if (trim($post->post_content) === '')  return false;
+        $terms = wp_get_post_terms($post->ID, self::CATEGORY_TAXONOMY, ['fields' => 'ids']);
+        return !empty($terms);
+    }
+
+    private function isInclusionsComplete(int $id): bool
+    {
+        $raw        = get_post_meta($id, self::META_INCLUSIONS, true);
+        $inclusions = is_array($raw) ? ($raw['inclusions'] ?? []) : [];
+        if (empty($inclusions)) {
+            return false;
+        }
+        foreach ($inclusions as $inc) {
+            if (trim((string) ($inc['label'] ?? '')) === '') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private function isFaqsComplete(int $id): bool
+    {
+        $faqs = get_post_meta($id, self::META_FAQS, true);
+        if (!is_array($faqs) || empty($faqs)) {
+            return false;
+        }
+        foreach ($faqs as $faq) {
+            if (trim((string) ($faq['question'] ?? '')) === '') return false;
+            if (trim((string) ($faq['answer']   ?? '')) === '') return false;
+        }
+        return true;
+    }
+
+    private function defaultModuleStatus(): array
+    {
+        return ['overview' => 'pending', 'inclusions' => 'pending', 'faqs' => 'pending'];
     }
 }

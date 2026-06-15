@@ -11,8 +11,8 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
  * GET  /admin/surface-packages                          list (publish + draft)
  * GET  /admin/surface-packages/{id}                    detail with service inclusions/FAQs
  * POST /admin/surface-packages/{id}/tiers/{tier}       upsert tier configuration
- * POST /admin/surface-packages/{id}/disable            set post_status → draft
- * POST /admin/surface-packages/{id}/enable             set post_status → publish
+ * POST /admin/surface-packages/{id}/disable            set cz_package.platform_status → disabled
+ * POST /admin/surface-packages/{id}/enable             set cz_package.platform_status → active
  */
 class AdminSurfacePackagesController
 {
@@ -150,9 +150,16 @@ class AdminSurfacePackagesController
             $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
             $services    = $this->resolveServiceNames($serviceRefs);
 
+            $rawPkgStatus    = $pkg['platform_status'] ?? '';
+            $resolvedPkgStatus = in_array($rawPkgStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true)
+                                 ? $rawPkgStatus
+                                 // Backward compat: old disabled packages had post_status=draft
+                                 : ($post->post_status === 'publish' ? 'active' : 'disabled');
+
             return [
                 'post_id'            => (int) $post->ID,
                 'post_status'        => $post->post_status,
+                'platform_status'    => $resolvedPkgStatus,
                 'title'              => $post->post_title,
                 'package_type'       => $pkg['package_type'] ?? 'tier_configuration',
                 'service_refs'       => $serviceRefs,
@@ -200,9 +207,10 @@ class AdminSurfacePackagesController
             $title = $servicePost->post_title;
         }
 
+        // Rule 1 + 9: post_status = publish always; platform_status owns the lifecycle.
         $postId = wp_insert_post([
             'post_type'   => 'cz_surface_package',
-            'post_status' => 'draft',
+            'post_status' => 'publish',
             'post_title'  => $title,
         ], true);
 
@@ -211,6 +219,7 @@ class AdminSurfacePackagesController
         }
 
         update_post_meta((int) $postId, 'cz_package', [
+            'platform_status'    => 'disabled',
             'package_type'       => 'tier_configuration',
             'service_refs'       => [$serviceId],
             'tiers'              => [],
@@ -263,11 +272,17 @@ class AdminSurfacePackagesController
             ];
         }
 
+        $rawDetailStatus    = $pkg['platform_status'] ?? '';
+        $resolvedDetailStatus = in_array($rawDetailStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true)
+                                ? $rawDetailStatus
+                                : ($post->post_status === 'publish' ? 'active' : 'disabled');
+
         return rest_ensure_response([
             'success' => true,
             'package' => [
                 'post_id'            => (int) $post->ID,
                 'post_status'        => $post->post_status,
+                'platform_status'    => $resolvedDetailStatus,
                 'title'              => $post->post_title,
                 'package_type'       => $pkg['package_type'] ?? 'tier_configuration',
                 'service_refs'       => $serviceRefs,
@@ -410,12 +425,12 @@ class AdminSurfacePackagesController
 
     public function disable(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->setStatus((int) $request->get_param('id'), 'draft');
+        return $this->setStatus((int) $request->get_param('id'), 'disabled');
     }
 
     public function enable(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->setStatus((int) $request->get_param('id'), 'publish');
+        return $this->setStatus((int) $request->get_param('id'), 'active');
     }
 
     /**
@@ -446,16 +461,31 @@ class AdminSurfacePackagesController
         return rest_ensure_response(['success' => true, 'tier_id' => $tierId, 'enabled' => $enabled]);
     }
 
-    private function setStatus(int $packageId, string $status): \WP_REST_Response
+    /**
+     * Rule 9: package enable/disable writes platform_status to cz_package meta.
+     * post_status is never touched — all normal package records stay post_status=publish.
+     */
+    private function setStatus(int $packageId, string $platformStatus): \WP_REST_Response
     {
         $post = get_post($packageId);
         if (!$post instanceof \WP_Post || $post->post_type !== 'cz_surface_package') {
             return $this->error('Package not found.', 404);
         }
 
-        wp_update_post(['ID' => $packageId, 'post_status' => $status]);
+        $pkg = get_post_meta($packageId, 'cz_package', true);
+        if (!is_array($pkg)) {
+            $pkg = (new PackageSchema())->defaultPackage();
+        }
 
-        return rest_ensure_response(['success' => true, 'post_status' => $status]);
+        $pkg['platform_status'] = $platformStatus;
+        update_post_meta($packageId, 'cz_package', $pkg);
+
+        return rest_ensure_response([
+            'success'         => true,
+            'platform_status' => $platformStatus,
+            // Deprecated: kept during transition so any frontend reading post_status still works.
+            'post_status'     => $post->post_status,
+        ]);
     }
 
     // ── Auth ──────────────────────────────────────────────────────────────────
@@ -664,6 +694,7 @@ class AdminSurfacePackagesController
         return [
             'post_id'            => (int) $post->ID,
             'post_status'        => $post->post_status,
+            'platform_status'    => 'disabled',
             'title'              => $post->post_title,
             'package_type'       => null,
             'service_refs'       => [],
