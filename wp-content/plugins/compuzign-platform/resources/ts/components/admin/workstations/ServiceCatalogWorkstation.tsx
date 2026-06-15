@@ -1224,7 +1224,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           id:       `service-view-${newService.id}`,
           mode:     'drawer',
           title:    newService.title,
-          titleDot: 'var(--admin-success)',
+          titleDot: 'var(--admin-error)',
           initialStepData: { service: newService, packages, openAction: doOpen, allCategories, onRefresh },
           steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
         });
@@ -1267,9 +1267,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
               <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Service Overview</p>
                 <div>
-                  <span class="cz-sv-overview-block__status">
-                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                  <span class="cz-sv-overview-block__status" style="opacity:0.45">
+                    {renderModuleStatus('pending-dim')}
                   </span>
                 </div>
               </div>
@@ -1321,9 +1320,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
               <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Included Features</p>
                 <div>
-                  <span class="cz-sv-overview-block__status">
-                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                  <span class="cz-sv-overview-block__status" style="opacity:0.45">
+                    {renderModuleStatus('pending-dim')}
                   </span>
                 </div>
               </div>
@@ -1353,9 +1351,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
               <div class="cz-sv-module-header">
                 <p class="cz-req-detail__section-title">Common Questions</p>
                 <div>
-                  <span class="cz-sv-overview-block__status">
-                    <span class="cz-admin-status-dot" style="color:var(--admin-text-faint)" />
-                    <span class="cz-status-pill cz-status-pill--draft">Not configured</span>
+                  <span class="cz-sv-overview-block__status" style="opacity:0.45">
+                    {renderModuleStatus('pending-dim')}
                   </span>
                 </div>
               </div>
