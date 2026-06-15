@@ -3500,6 +3500,54 @@ body.compuzign-admin-page footer.site-footer {
   gap: var(--cz-space-2);
 }
 
+/* ── Module status unified pill ─────────────────────────────────────────────── */
+.cz-module-status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--admin-radius);
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
+  line-height: var(--admin-lh-s-label);
+  padding: 2px 9px 2px 0;
+}
+
+button.cz-module-status-pill {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cz-module-status-pill--active   { background: var(--admin-success-a10); color: var(--admin-success); }
+.cz-module-status-pill--inactive { background: var(--admin-error-a10);   color: var(--admin-error);   }
+.cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--admin-warning); }
+
+.cz-module-status-pill__marker {
+  padding-left: 9px;
+  padding-right: 5px;
+  min-width: 10px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ── Module notification panel ──────────────────────────────────────────────── */
+.cz-module-notes {
+  padding: 8px 14px;
+  border-top: 1px solid var(--admin-border-blue);
+  border-bottom: 1px solid var(--admin-border-blue);
+  background: var(--admin-accent-a12);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-module-notes__item {
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-muted);
+  line-height: var(--admin-lh-s-label);
+  margin: 0;
+}
+
 /* ── Service Overview — Transit lifecycle body ──────────────────────────────── */
 .cz-so-transit__body {
   display: flex;

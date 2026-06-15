@@ -17,6 +17,10 @@ import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
 import { resolveOverviewStatus, renderModuleStatus, resolvePackageStatus, resolveTierStatus, statusDotColor } from '@/components/admin/utils/moduleStatus';
+import { getOverviewNotes, getInclusionsNotes, getFaqsNotes, noteCount } from '@/components/admin/utils/moduleNotifications';
+import type { NoteContext } from '@/components/admin/utils/moduleNotifications';
+import { ModuleStatusPill } from '../ui/ModuleStatusPill';
+import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -428,6 +432,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [statusSaving,       setStatusSaving]     = useState(false);
   const [showPublishModal,   setShowPublishModal] = useState(false);
   const [creatingPkg,        setCreatingPkg]      = useState(false);
+  const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -480,18 +485,21 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   }, [service, ctx, onRefresh]);
 
   const openOverviewEditor = useCallback(() => {
+    setOpenPanel(null);
     setOverviewDraft(initOverviewDraft(service));
     setEditingSection('overview');
     setSaveErr(null);
   }, [service]);
 
   const openInclusionsEditor = useCallback(() => {
+    setOpenPanel(null);
     setInclusionsDraft(initInclusionsDraft(service));
     setEditingSection('inclusions');
     setSaveErr(null);
   }, [service]);
 
   const openFaqsEditor = useCallback(() => {
+    setOpenPanel(null);
     setFaqsDraft(initFaqsDraft(service));
     setEditingSection('faqs');
     setSaveErr(null);
@@ -529,6 +537,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                         : service.meta,
         });
         onRefresh?.();
+        setOpenPanel(null);
         setEditingSection(null);
         setOverviewDraft(null);
         setSaveOk(true);
@@ -559,6 +568,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                         : service.meta,
         });
         onRefresh?.();
+        setOpenPanel(null);
         setEditingSection(null);
         setInclusionsDraft(null);
         setSaveOk(true);
@@ -589,6 +599,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   : service.meta,
         });
         onRefresh?.();
+        setOpenPanel(null);
         setEditingSection(null);
         setFaqsDraft(null);
         setSaveOk(true);
@@ -760,6 +771,15 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const inclusionsStatus = getInclusionsStatus();
   const faqsStatus       = getFaqsStatus();
 
+  // ── Module status notes (derived from same data as resolvers) ──────────────
+  const noteCtxOverview:   NoteContext = { platformStatus, moduleTransition: moduleStatus?.overview   ?? 'settled' };
+  const noteCtxInclusions: NoteContext = { platformStatus, moduleTransition: moduleStatus?.inclusions ?? 'settled' };
+  const noteCtxFaqs:       NoteContext = { platformStatus, moduleTransition: moduleStatus?.faqs       ?? 'settled' };
+
+  const overviewNotes   = getOverviewNotes(service, noteCtxOverview);
+  const inclusionsNotes = getInclusionsNotes(inclusions, noteCtxInclusions);
+  const faqsNotes       = getFaqsNotes(faqs, noteCtxFaqs);
+
   const hasModulePendingChanges =
     inclusionsStatus === 'pending-full' || inclusionsStatus === 'pending-dim' ||
     faqsStatus === 'pending-full' || faqsStatus === 'pending-dim';
@@ -867,10 +887,17 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                     class="cz-sv-overview-block__status"
                     style={overviewStatus === 'pending-dim' ? 'opacity:0.45' : undefined}
                   >
-                    {renderModuleStatus(overviewStatus)}
+                    <ModuleStatusPill
+                      status={overviewStatus}
+                      notes={overviewNotes}
+                      onOpen={() => setOpenPanel(p => p === 'overview' ? null : 'overview')}
+                    />
                   </span>
                 </div>
               </div>
+              {openPanel === 'overview' && noteCount(overviewNotes) > 0 && (
+                <ModuleNotificationPanel notes={overviewNotes} />
+              )}
               <div class="cz-sv-module-body">
                 <div class="cz-sv-overview-block__meta">
                   <span class="cz-req-contact-grid__label">Title</span>
@@ -937,10 +964,17 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                     class="cz-sv-overview-block__status"
                     style={inclusionsStatus === 'pending-dim' ? 'opacity:0.45' : undefined}
                   >
-                    {renderModuleStatus(inclusionsStatus)}
+                    <ModuleStatusPill
+                      status={inclusionsStatus}
+                      notes={inclusionsNotes}
+                      onOpen={() => setOpenPanel(p => p === 'inclusions' ? null : 'inclusions')}
+                    />
                   </span>
                 </div>
               </div>
+              {openPanel === 'inclusions' && noteCount(inclusionsNotes) > 0 && (
+                <ModuleNotificationPanel notes={inclusionsNotes} />
+              )}
               <div class="cz-sv-module-body">
                 {inclusions.length > 0 ? (
                   <div class="cz-sc-inclusion-pool">
@@ -991,10 +1025,17 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                     class="cz-sv-overview-block__status"
                     style={faqsStatus === 'pending-dim' ? 'opacity:0.45' : undefined}
                   >
-                    {renderModuleStatus(faqsStatus)}
+                    <ModuleStatusPill
+                      status={faqsStatus}
+                      notes={faqsNotes}
+                      onOpen={() => setOpenPanel(p => p === 'faqs' ? null : 'faqs')}
+                    />
                   </span>
                 </div>
               </div>
+              {openPanel === 'faqs' && noteCount(faqsNotes) > 0 && (
+                <ModuleNotificationPanel notes={faqsNotes} />
+              )}
               <div class="cz-sv-module-body">
                 {faqs.length > 0 ? (
                   <div class="cz-sc-faq-list">

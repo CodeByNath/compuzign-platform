@@ -16,6 +16,28 @@ export interface TierLike {
 
 // ── Status resolvers ──────────────────────────────────────────────────────────
 
+// ── Completeness helpers ──────────────────────────────────────────────────────
+// Used by both the pill resolvers and the notification generators so the
+// field-completeness rule lives in exactly one place.
+
+export interface OverviewCompleteness {
+  title:    boolean;
+  excerpt:  boolean;
+  category: boolean;
+  content:  boolean;
+  complete: boolean;
+}
+
+export function checkOverviewCompleteness(service: ServiceItem): OverviewCompleteness {
+  const title    = !!service.title.trim();
+  const excerpt  = !!service.excerpt?.trim();
+  const category = service.categories.length > 0;
+  const content  = !!service.content.trim();
+  return { title, excerpt, category, content, complete: title && excerpt && category && content };
+}
+
+// ── Status resolvers ──────────────────────────────────────────────────────────
+
 export interface OverviewStatusOpts {
   platformStatus:   string;  // 'active' | 'disabled' | 'archived' | 'trashed'
   moduleTransition: string;  // 'settled' | 'pending'
@@ -25,12 +47,7 @@ export function resolveOverviewStatus(service: ServiceItem, opts: OverviewStatus
   const { platformStatus, moduleTransition } = opts;
 
   // Rule 4: empty and incomplete → pending-dim; disabled does NOT propagate to child modules.
-  const complete = !!(
-    service.title.trim() &&
-    service.excerpt.trim() &&
-    service.categories.length > 0 &&
-    service.content.trim()
-  );
+  const { complete } = checkOverviewCompleteness(service);
   if (!complete) return 'pending-dim';
 
   // Rule 7: complete but edited since last activation → pending-full.
