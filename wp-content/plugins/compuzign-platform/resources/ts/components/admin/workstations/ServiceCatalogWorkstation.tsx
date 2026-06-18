@@ -407,6 +407,29 @@ function CommercialBlock({ label, count, desc, status, onView, descHighlight }: 
   );
 }
 
+// ── Dirty-detection comparators ───────────────────────────────────────────────
+// Pure functions — no component state. Each returns true when the working draft
+// differs from the snapshot taken at editor-open time.
+
+function isOverviewDirty(a: OverviewDraft, b: OverviewDraft): boolean {
+  return a.title !== b.title || a.excerpt !== b.excerpt ||
+         a.content !== b.content || a.category_id !== b.category_id;
+}
+
+function isInclusionsDirty(a: InclusionsDraft, b: InclusionsDraft): boolean {
+  if (a.items.length !== b.items.length) return true;
+  return a.items.some((item, i) => item.id !== b.items[i].id || item.label !== b.items[i].label);
+}
+
+function isFaqsDirty(a: FaqsDraft, b: FaqsDraft): boolean {
+  if (a.items.length !== b.items.length) return true;
+  return a.items.some((item, i) =>
+    item.id !== b.items[i].id ||
+    item.question !== b.items[i].question ||
+    item.answer   !== b.items[i].answer,
+  );
+}
+
 // ── ServiceViewStep ───────────────────────────────────────────────────────────
 // Tabbed service detail drawer.
 // Service tab  → Water Layer:  overview, description, features, FAQs.
@@ -426,6 +449,10 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
   const [inclusionsDraft,  setInclusionsDraft]  = useState<InclusionsDraft | null>(null);
   const [faqsDraft,        setFaqsDraft]        = useState<FaqsDraft | null>(null);
+  // Snapshots taken at editor-open time for dirty detection — never mutated after init.
+  const [overviewOriginal,   setOverviewOriginal]   = useState<OverviewDraft | null>(null);
+  const [inclusionsOriginal, setInclusionsOriginal] = useState<InclusionsDraft | null>(null);
+  const [faqsOriginal,       setFaqsOriginal]       = useState<FaqsDraft | null>(null);
   const [saving,             setSaving]           = useState(false);
   const [saveErr,            setSaveErr]          = useState<string | null>(null);
   const [saveOk,             setSaveOk]           = useState(false);
@@ -433,6 +460,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [showPublishModal,   setShowPublishModal] = useState(false);
   const [creatingPkg,        setCreatingPkg]      = useState(false);
   const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
+  const [exitDialog,         setExitDialog]       = useState<'unsaved' | 'pending' | null>(null);
+  const [exitSaving,         setExitSaving]       = useState(false);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -442,6 +471,32 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const platformStatus = service.meta?.platform_status ?? 'disabled';
   const isActive       = platformStatus === 'active';
+
+  const isEditorDirty =
+    (editingSection === 'overview'   && overviewDraft   != null && overviewOriginal   != null && isOverviewDirty(overviewDraft, overviewOriginal))   ||
+    (editingSection === 'inclusions' && inclusionsDraft != null && inclusionsOriginal != null && isInclusionsDirty(inclusionsDraft, inclusionsOriginal)) ||
+    (editingSection === 'faqs'       && faqsDraft       != null && faqsOriginal       != null && isFaqsDirty(faqsDraft, faqsOriginal));
+
+  // True when an active service has at least one module saved-but-unsettled.
+  // pending-dim (incomplete) is excluded — only explicit post-save pending state
+  // triggers the exit checkpoint, since incomplete modules are not actionable by Settle.
+  const moduleStatus      = service.meta?.module_status;
+  const hasPendingModules = isActive && (
+    moduleStatus?.overview   === 'pending' ||
+    moduleStatus?.inclusions === 'pending' ||
+    moduleStatus?.faqs       === 'pending'
+  );
+
+  const pendingModuleNames = [
+    moduleStatus?.overview   === 'pending' ? 'Service Overview'   : null,
+    moduleStatus?.inclusions === 'pending' ? 'Included Features'  : null,
+    moduleStatus?.faqs       === 'pending' ? 'Common Questions'   : null,
+  ].filter((n): n is string => n !== null);
+
+  const editingSectionLabel =
+    editingSection === 'overview'   ? 'Service Overview'  :
+    editingSection === 'inclusions' ? 'Included Features' :
+    editingSection === 'faqs'       ? 'Common Questions'  : null;
 
   const handleToggleActive = useCallback(async () => {
     setStatusSaving(true);
@@ -485,31 +540,37 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   }, [service, ctx, onRefresh]);
 
   const openOverviewEditor = useCallback(() => {
-    setOpenPanel(null);
-    setOverviewDraft(initOverviewDraft(service));
+    const draft = initOverviewDraft(service);
+    setOverviewOriginal(draft);
+    setOverviewDraft(draft);
     setEditingSection('overview');
+    setOpenPanel(null);
     setSaveErr(null);
   }, [service]);
 
   const openInclusionsEditor = useCallback(() => {
-    setOpenPanel(null);
-    setInclusionsDraft(initInclusionsDraft(service));
+    const draft = initInclusionsDraft(service);
+    setInclusionsOriginal(draft);
+    setInclusionsDraft(draft);
     setEditingSection('inclusions');
+    setOpenPanel(null);
     setSaveErr(null);
   }, [service]);
 
   const openFaqsEditor = useCallback(() => {
-    setOpenPanel(null);
-    setFaqsDraft(initFaqsDraft(service));
+    const draft = initFaqsDraft(service);
+    setFaqsOriginal(draft);
+    setFaqsDraft(draft);
     setEditingSection('faqs');
+    setOpenPanel(null);
     setSaveErr(null);
   }, [service]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingSection(null);
-    setOverviewDraft(null);
-    setInclusionsDraft(null);
-    setFaqsDraft(null);
+    setOverviewDraft(null);    setOverviewOriginal(null);
+    setInclusionsDraft(null);  setInclusionsOriginal(null);
+    setFaqsDraft(null);        setFaqsOriginal(null);
     setSaveErr(null);
     setSaving(false);
   }, []);
@@ -539,7 +600,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onRefresh?.();
         setOpenPanel(null);
         setEditingSection(null);
-        setOverviewDraft(null);
+        setOverviewDraft(null);    setOverviewOriginal(null);
         setSaveOk(true);
       } else {
         setSaveErr('Failed to save changes.');
@@ -570,7 +631,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onRefresh?.();
         setOpenPanel(null);
         setEditingSection(null);
-        setInclusionsDraft(null);
+        setInclusionsDraft(null);  setInclusionsOriginal(null);
         setSaveOk(true);
       } else {
         setSaveErr('Failed to save inclusions.');
@@ -601,7 +662,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onRefresh?.();
         setOpenPanel(null);
         setEditingSection(null);
-        setFaqsDraft(null);
+        setFaqsDraft(null);  setFaqsOriginal(null);
         setSaveOk(true);
       } else {
         setSaveErr('Failed to save FAQs.');
@@ -744,8 +805,6 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   // ── Module status resolvers ──────────────────────────────────────────────
 
-  const moduleStatus = service.meta?.module_status;
-
   const getInclusionsStatus = () => {
     if (inclusions.length === 0) return 'pending-dim';
     const allComplete = inclusions.every(inc => !!inc.label?.trim());
@@ -792,6 +851,145 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setShowPublishModal(false);
     await handlePublishService();
   }, [handlePublishService]);
+
+  // ── Exit workflow helpers ─────────────────────────────────────────────────
+
+  // Bypass the close guard — used after the admin explicitly acts on an exit dialog.
+  const closeWithoutGuard = useCallback(() => {
+    ctx.setCloseGuard(null);
+    ctx.close();
+  }, [ctx]);
+
+  // Save whichever module is currently open and return the new module_status.
+  // Throws on API failure so callers can surface the error.
+  const saveCurrentModule = useCallback(async (): Promise<Record<string, string> | null> => {
+    if (editingSection === 'overview' && overviewDraft) {
+      const result = await updateServiceOverview(service.id, {
+        title:        overviewDraft.title,
+        excerpt:      overviewDraft.excerpt,
+        content:      overviewDraft.content,
+        category_ids: overviewDraft.category_id !== null ? [overviewDraft.category_id] : [],
+      });
+      if (!result.success) throw new Error('Failed to save Service Overview.');
+      ctx.setStepData('service', {
+        ...service,
+        title:      result.service.title,
+        excerpt:    result.service.excerpt,
+        content:    result.service.content,
+        categories: result.service.categories,
+        meta: result.service.module_status
+          ? { ...service.meta, module_status: result.service.module_status as any }
+          : service.meta,
+      });
+      onRefresh?.();
+      return result.service.module_status ?? null;
+    }
+    if (editingSection === 'inclusions' && inclusionsDraft) {
+      const result = await updateServiceInclusions(service.id, { inclusions: inclusionsDraft.items });
+      if (!result.success) throw new Error('Failed to save Included Features.');
+      ctx.setStepData('service', {
+        ...service,
+        inclusions: result.inclusions,
+        meta: result.module_status
+          ? { ...service.meta, module_status: result.module_status as any }
+          : service.meta,
+      });
+      onRefresh?.();
+      return result.module_status ?? null;
+    }
+    if (editingSection === 'faqs' && faqsDraft) {
+      const result = await updateServiceFaqs(service.id, { faqs: faqsDraft.items });
+      if (!result.success) throw new Error('Failed to save Common Questions.');
+      ctx.setStepData('service', {
+        ...service,
+        faqs: result.faqs,
+        meta: result.module_status
+          ? { ...service.meta, module_status: result.module_status as any }
+          : service.meta,
+      });
+      onRefresh?.();
+      return result.module_status ?? null;
+    }
+    return null;
+  }, [editingSection, overviewDraft, inclusionsDraft, faqsDraft, service, ctx, onRefresh]);
+
+  // "Save now" from the unsaved-changes exit dialog.
+  // Saves the open module, then either shows the pending dialog or closes.
+  const handleExitSaveAndProceed = useCallback(async () => {
+    setExitSaving(true);
+    setSaveErr(null);
+    try {
+      const newModuleStatus = await saveCurrentModule();
+      setEditingSection(null);
+      setOverviewDraft(null);    setOverviewOriginal(null);
+      setInclusionsDraft(null);  setInclusionsOriginal(null);
+      setFaqsDraft(null);        setFaqsOriginal(null);
+      const stillPending = isActive && newModuleStatus != null && (
+        newModuleStatus.overview   === 'pending' ||
+        newModuleStatus.inclusions === 'pending' ||
+        newModuleStatus.faqs       === 'pending'
+      );
+      if (stillPending) {
+        setExitDialog('pending');
+      } else {
+        setExitDialog(null);
+        closeWithoutGuard();
+      }
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Failed to save changes.');
+    } finally {
+      setExitSaving(false);
+    }
+  }, [saveCurrentModule, isActive, closeWithoutGuard]);
+
+  // "Discard and close" from the unsaved-changes exit dialog.
+  // Discards the draft immediately and closes — does not check pending modules.
+  const handleExitDiscard = useCallback(() => {
+    setEditingSection(null);
+    setOverviewDraft(null);    setOverviewOriginal(null);
+    setInclusionsDraft(null);  setInclusionsOriginal(null);
+    setFaqsDraft(null);        setFaqsOriginal(null);
+    setSaveErr(null);
+    setSaving(false);
+    setExitDialog(null);
+    closeWithoutGuard();
+  }, [closeWithoutGuard]);
+
+  // "Settle Changes" from the pending-modules exit dialog.
+  const handleExitSettle = useCallback(async () => {
+    setExitSaving(true);
+    try {
+      await handlePublishService();
+      setExitDialog(null);
+      closeWithoutGuard();
+    } finally {
+      setExitSaving(false);
+    }
+  }, [handlePublishService, closeWithoutGuard]);
+
+  // ── Close guard registration ──────────────────────────────────────────────
+  // Registered once; reads current state via ref to avoid stale closures.
+  const exitStateRef = useRef({ editingSection, isEditorDirty, isActive, hasPendingModules });
+  useEffect(() => {
+    exitStateRef.current = { editingSection, isEditorDirty, isActive, hasPendingModules };
+  });
+
+  const { setCloseGuard } = ctx;
+  useEffect(() => {
+    setCloseGuard(() => {
+      const s = exitStateRef.current;
+      if (s.editingSection && s.isEditorDirty) {
+        setExitDialog('unsaved');
+        return false;
+      }
+      if (s.isActive && s.hasPendingModules) {
+        setExitDialog('pending');
+        return false;
+      }
+      return true;
+    });
+    return () => setCloseGuard(null);
+  }, [setCloseGuard]);
 
   const pluralCount = (n: number, singular: string, plural: string) =>
     `${n} ${n === 1 ? singular : plural}`;
@@ -843,7 +1041,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             onClick={() => setShowPublishModal(true)}
             disabled={!canPublish || statusSaving}
           >
-            {statusSaving ? '…' : 'Publish Service'}
+            {statusSaving ? '…' : isActive ? 'Settle Changes' : 'Publish Service'}
           </button>
         )}
       </div>
@@ -1137,7 +1335,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
     </div>
 
-    {/* ── Publish confirmation modal ─────────────────────────────────────── */}
+    {/* ── Publish / Settle confirmation modal ──────────────────────────────── */}
     {showPublishModal && (
       <div
         class="cz-publish-confirm-overlay"
@@ -1145,10 +1343,18 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       >
         <div class="cz-publish-confirm">
           <div class="cz-publish-confirm__header">
-            <h3 class="cz-publish-confirm__title">Ready to publish {decodeHtml(service.title)}?</h3>
+            <h3 class="cz-publish-confirm__title">
+              {isActive
+                ? `Settle changes to ${decodeHtml(service.title)}?`
+                : `Ready to publish ${decodeHtml(service.title)}?`}
+            </h3>
           </div>
           <div class="cz-publish-confirm__body">
-            <p class="cz-publish-confirm__lead">You are about to publish this service.</p>
+            <p class="cz-publish-confirm__lead">
+              {isActive
+                ? 'This confirms the current live content as the settled state for each module.'
+                : 'You are about to publish this service and make it visible in the catalog.'}
+            </p>
             <ul class="cz-publish-confirm__summary">
               <li><strong>Service Overview:</strong> Ready</li>
               <li style={inclSummary.orange ? 'color:var(--admin-warning);font-weight:600' : undefined}>
@@ -1174,7 +1380,92 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               onClick={handleConfirmPublish}
               disabled={statusSaving}
             >
-              {statusSaving ? '…' : 'Publish'}
+              {statusSaving ? '…' : isActive ? 'Settle' : 'Publish'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Unsaved-changes exit dialog ──────────────────────────────────────── */}
+    {exitDialog === 'unsaved' && (
+      <div
+        class="cz-publish-confirm-overlay"
+        onClick={(e) => { if (e.target === e.currentTarget) setExitDialog(null); }}
+      >
+        <div class="cz-publish-confirm">
+          <div class="cz-publish-confirm__header">
+            <h3 class="cz-publish-confirm__title">Unsaved changes</h3>
+          </div>
+          <div class="cz-publish-confirm__body">
+            <p class="cz-publish-confirm__lead">
+              You have unsaved changes in <strong>{editingSectionLabel}</strong>.
+              Closing will discard them.
+            </p>
+            {saveErr && <p class="cz-admin-error-msg" style="margin-top:var(--cz-space-2)">{saveErr}</p>}
+          </div>
+          <div class="cz-publish-confirm__footer">
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              onClick={handleExitDiscard}
+              disabled={exitSaving}
+            >
+              Discard and close
+            </button>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={handleExitSaveAndProceed}
+              disabled={exitSaving}
+            >
+              {exitSaving ? 'Saving…' : 'Save now'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Pending-modules exit dialog ───────────────────────────────────────── */}
+    {exitDialog === 'pending' && (
+      <div
+        class="cz-publish-confirm-overlay"
+        onClick={(e) => { if (e.target === e.currentTarget) setExitDialog(null); }}
+      >
+        <div class="cz-publish-confirm">
+          <div class="cz-publish-confirm__header">
+            <h3 class="cz-publish-confirm__title">Unsettled modules</h3>
+          </div>
+          <div class="cz-publish-confirm__body">
+            <p class="cz-publish-confirm__lead">
+              The following modules have live changes that have not been settled:
+            </p>
+            <ul class="cz-publish-confirm__summary">
+              {pendingModuleNames.map((name) => (
+                <li key={name}><strong>{name}</strong> — Pending</li>
+              ))}
+            </ul>
+            <p style="margin-top:var(--cz-space-3);font-size:var(--cz-text-sm);color:var(--admin-text-secondary)">
+              Changes are saved and live. Settle now to confirm the current state,
+              or close and return later.
+            </p>
+          </div>
+          <div class="cz-publish-confirm__footer">
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              onClick={() => { setExitDialog(null); closeWithoutGuard(); }}
+              disabled={exitSaving}
+            >
+              Close without settling
+            </button>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={handleExitSettle}
+              disabled={exitSaving}
+            >
+              {exitSaving ? 'Settling…' : 'Settle Changes'}
             </button>
           </div>
         </div>
@@ -1189,6 +1480,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onCancel={handleCancelEdit}
         saving={saving}
         saveErr={saveErr}
+        isDirty={isEditorDirty}
       >
         <ServiceOverviewEditor
           draft={overviewDraft}
@@ -1205,6 +1497,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onCancel={handleCancelEdit}
         saving={saving}
         saveErr={saveErr}
+        isDirty={isEditorDirty}
       >
         <ServiceInclusionsEditor
           draft={inclusionsDraft}
@@ -1220,6 +1513,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         onCancel={handleCancelEdit}
         saving={saving}
         saveErr={saveErr}
+        isDirty={isEditorDirty}
       >
         <ServiceFaqsEditor
           draft={faqsDraft}

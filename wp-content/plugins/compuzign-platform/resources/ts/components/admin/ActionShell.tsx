@@ -1,5 +1,5 @@
 import type { ComponentChildren, ComponentType } from 'preact';
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useRef } from 'preact/hooks';
 
 export type ActionMode = 'modal' | 'drawer';
 export type ActionProgress = 'idle' | 'loading' | 'success' | 'error';
@@ -15,6 +15,7 @@ export interface StepContext {
   goNext: () => void;
   goBack: () => void;
   close: () => void;
+  setCloseGuard: (guard: (() => boolean) | null) => void;
 }
 
 export interface ActionStep {
@@ -44,6 +45,13 @@ interface Props {
 
 // Drawer Principle v1 — outer drawer container (header, body, footer, step management)
 export function ActionShell({ config, onClose, onComplete }: Props) {
+  const closeGuardRef = useRef<(() => boolean) | null>(null);
+
+  const setCloseGuard = useCallback(
+    (guard: (() => boolean) | null) => { closeGuardRef.current = guard; },
+    [],
+  );
+
   const [currentStep, setCurrentStep] = useState(0);
   const [stepData, setStepDataMap] = useState<Record<string, unknown>>(config.initialStepData ?? {});
   const [progress, setProgressState] = useState<ActionProgress>('idle');
@@ -81,6 +89,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
   }, [currentStep, setProgress]);
 
   const handleClose = useCallback(() => {
+    if (closeGuardRef.current && !closeGuardRef.current()) return;
     if (config.confirmClose && progress === 'loading') {
       if (!window.confirm('An operation is in progress. Close anyway?')) return;
     }
@@ -104,6 +113,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     goNext,
     goBack,
     close: handleClose,
+    setCloseGuard,
   };
 
   const isMultiStep = config.steps.length > 1;

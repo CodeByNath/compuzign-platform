@@ -35,7 +35,7 @@ export function getOverviewNotes(service: ServiceItem, ctx: NoteContext): Module
     if (ctx.platformStatus !== 'active')
       notes.push({ id: 'overview.platform.inactive', message: 'Waiting for service activation' });
     else if (ctx.moduleTransition === 'pending')
-      notes.push({ id: 'overview.module.pending', message: 'Edited after last activation' });
+      notes.push({ id: 'overview.module.pending', message: 'Changes ready for review.' });
   }
 
   return notes;
@@ -60,7 +60,7 @@ export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteCont
     if (ctx.platformStatus !== 'active')
       notes.push({ id: 'inclusions.platform.inactive', message: 'Waiting for service activation' });
     else if (ctx.moduleTransition === 'pending')
-      notes.push({ id: 'inclusions.module.pending', message: 'Edited after last activation' });
+      notes.push({ id: 'inclusions.module.pending', message: 'Changes ready for review.' });
   }
 
   return notes;
@@ -92,7 +92,7 @@ export function getFaqsNotes(faqs: ServiceFaq[], ctx: NoteContext): ModuleNote[]
     if (ctx.platformStatus !== 'active')
       notes.push({ id: 'faqs.platform.inactive', message: 'Waiting for service activation' });
     else if (ctx.moduleTransition === 'pending')
-      notes.push({ id: 'faqs.module.pending', message: 'Edited after last activation' });
+      notes.push({ id: 'faqs.module.pending', message: 'Changes ready for review.' });
   }
 
   return notes;
