@@ -667,19 +667,34 @@ function compuzign_cost_builder_get_or_create_category_term_ids(array $category_
 
 function compuzign_cost_builder_build_service_meta_from_row(array $row): array
 {
-    $meta = array(
-        'short_description' => trim($row['short_description'] ?? ''),
-        'long_description' => trim($row['long_description'] ?? ''),
-        'billing_cycle' => trim($row['billing_cycle'] ?? 'monthly'),
-        'sla' => trim($row['sla'] ?? ''),
-        'uptime' => trim($row['uptime'] ?? ''),
-        'notes' => trim($row['notes'] ?? ''),
-        'popular_tier' => compuzign_cost_builder_validate_popular_tier(trim($row['popular_tier'] ?? '')) ?? 'premium',
-        'sort_order' => absint($row['sort_order'] ?? 0),
-        'is_active' => compuzign_cost_builder_parse_bool($row['is_active'] ?? '1'),
-    );
+    $title            = trim($row['service_title']    ?? '');
+    $shortDescription = trim($row['short_description'] ?? '');
+    $longDescription  = trim($row['long_description']  ?? '');
+    $category         = trim($row['category']          ?? '');
 
-    return $meta;
+    // Overview is complete when the service has a title, a category assignment,
+    // and at least one description field. The XLSX parser does not populate
+    // short_description, so long_description alone satisfies the content check.
+    $overviewComplete = $title !== ''
+        && $category !== ''
+        && ($shortDescription !== '' || $longDescription !== '');
+
+    return array(
+        'platform_status'   => $overviewComplete ? 'active' : 'disabled',
+        'module_status'     => array(
+            'overview'   => $overviewComplete ? 'settled' : 'pending',
+            'inclusions' => 'pending',
+            'faqs'       => 'pending',
+        ),
+        'short_description' => $shortDescription,
+        'long_description'  => $longDescription,
+        'billing_cycle'     => trim($row['billing_cycle'] ?? 'monthly'),
+        'sla'               => trim($row['sla']           ?? ''),
+        'uptime'            => trim($row['uptime']         ?? ''),
+        'notes'             => trim($row['notes']          ?? ''),
+        'popular_tier'      => compuzign_cost_builder_validate_popular_tier(trim($row['popular_tier'] ?? '')) ?? 'premium',
+        'sort_order'        => absint($row['sort_order']   ?? 0),
+    );
 }
 
 function compuzign_cost_builder_build_service_pricing_from_row(array $row): array
