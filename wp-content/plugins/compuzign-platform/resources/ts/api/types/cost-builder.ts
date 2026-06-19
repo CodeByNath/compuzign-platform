@@ -23,7 +23,7 @@ export interface ServiceFaq {
 }
 
 export type PlatformStatus = 'active' | 'disabled' | 'archived' | 'trashed';
-export type ModuleTransition = 'settled' | 'pending';
+export type ModuleTransition = 'settled' | 'pending' | 'not-configured';
 
 export interface ModuleStatus {
   overview:   ModuleTransition;

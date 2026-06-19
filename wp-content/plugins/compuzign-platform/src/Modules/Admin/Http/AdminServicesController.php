@@ -11,6 +11,9 @@ class AdminServicesController
     private const META_KEY          = 'cz_service_meta';
     private const META_INCLUSIONS   = 'cz_service_inclusions';
     private const META_FAQS         = 'cz_service_faqs';
+    private const DRAFT_OVERVIEW    = 'cz_service_overview_draft';
+    private const DRAFT_INCLUSIONS  = 'cz_service_inclusions_draft';
+    private const DRAFT_FAQS       = 'cz_service_faqs_draft';
 
     public function register(): void
     {
@@ -19,6 +22,7 @@ class AdminServicesController
 
     public function registerRoutes(): void
     {
+        // ── Create ────────────────────────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/services', [
             'methods'             => 'POST',
             'callback'            => [$this, 'createService'],
@@ -35,6 +39,17 @@ class AdminServicesController
             ],
         ]);
 
+        // ── Admin detail (drawer open) ────────────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'fetchDetail'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id' => ['required' => true, 'type' => 'integer'],
+            ],
+        ]);
+
+        // ── Draft saves ───────────────────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/overview', [
             'methods'             => 'POST',
             'callback'            => [$this, 'updateOverview'],
@@ -74,6 +89,39 @@ class AdminServicesController
             ],
         ]);
 
+        // ── Per-module settle (atomic primary) ────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/(?P<module>overview|inclusions|faqs)/settle', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'settleModuleRoute'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'     => ['required' => true, 'type' => 'integer'],
+                'module' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
+        // ── Bulk settle (convenience — calls per-module for each draft) ───────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/settle', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'settleAll'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id' => ['required' => true, 'type' => 'integer'],
+            ],
+        ]);
+
+        // ── Per-module revert ─────────────────────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/(?P<module>overview|inclusions|faqs)/revert', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'revertModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'     => ['required' => true, 'type' => 'integer'],
+                'module' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
+        // ── Platform status ───────────────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/status', [
             'methods'             => 'POST',
             'callback'            => [$this, 'updateStatus'],
@@ -92,45 +140,60 @@ class AdminServicesController
         ]);
     }
 
+    // ── Handlers ──────────────────────────────────────────────────────────────
+
     public function createService(\WP_REST_Request $request): \WP_REST_Response
     {
-        // Rule 1 + 5: post_status = publish always. platform_status = disabled until admin activates.
+        $title       = $request->get_param('title');
+        $excerpt     = (string) ($request->get_param('excerpt') ?? '');
+        $content     = (string) ($request->get_param('content') ?? '');
+        $categoryIds = $request->has_param('category_ids')
+                       ? array_values(array_map('intval', (array) $request->get_param('category_ids')))
+                       : [];
+
+        // Step 1 — Connector born.
+        // post_title written for slug generation (bootstrap only — title lives in the draft).
+        // post_excerpt and post_content intentionally omitted — content lives in the draft.
         $id = wp_insert_post([
-            'post_type'    => self::POST_TYPE,
-            'post_status'  => 'publish',
-            'post_title'   => $request->get_param('title'),
-            'post_excerpt' => (string) ($request->get_param('excerpt') ?? ''),
-            'post_content' => (string) ($request->get_param('content') ?? ''),
+            'post_type'   => self::POST_TYPE,
+            'post_status' => 'publish',
+            'post_title'  => $title,
         ], true);
 
         if (is_wp_error($id)) {
             return rest_ensure_response(['success' => false, 'message' => $id->get_error_message()]);
         }
 
+        // Categories on the Connector — routing/filtering relationship.
+        if (!empty($categoryIds)) {
+            wp_set_object_terms($id, $categoryIds, self::CATEGORY_TAXONOMY);
+        }
+
+        // Initialize canonical inclusions/faqs as empty placeholders.
         update_post_meta($id, self::META_INCLUSIONS, ['inclusions' => [], 'tier_inclusions' => []]);
         update_post_meta($id, self::META_FAQS, []);
+
+        // overview: pending (draft exists); inclusions/faqs: not-configured (no draft, no active).
         update_post_meta($id, self::META_KEY, [
             'platform_status' => 'disabled',
             'module_status'   => [
                 'overview'   => 'pending',
-                'inclusions' => 'pending',
-                'faqs'       => 'pending',
+                'inclusions' => 'not-configured',
+                'faqs'       => 'not-configured',
             ],
         ]);
 
-        if ($request->has_param('category_ids')) {
-            $ids = array_values(array_map('intval', (array) $request->get_param('category_ids')));
-            wp_set_object_terms($id, $ids, self::CATEGORY_TAXONOMY);
-        }
+        // Step 2 — Overview Draft begins.
+        $overviewDraft = [
+            'title'        => $title,
+            'excerpt'      => $excerpt,
+            'content'      => $content,
+            'category_ids' => $categoryIds,
+        ];
+        update_post_meta($id, self::DRAFT_OVERVIEW, $overviewDraft);
 
-        $post       = get_post($id);
-        $meta       = get_post_meta($id, self::META_KEY, true) ?: [];
-        $terms      = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
-        $categories = array_map(fn($t) => [
-            'id'   => (int) $t->term_id,
-            'name' => $t->name,
-            'slug' => $t->slug,
-        ], $terms);
+        $post = get_post($id);
+        $meta = get_post_meta($id, self::META_KEY, true) ?: [];
 
         return rest_ensure_response([
             'success' => true,
@@ -138,11 +201,54 @@ class AdminServicesController
                 'id'              => $id,
                 'title'           => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'slug'            => $post->post_name,
-                'excerpt'         => $post->post_excerpt,
-                'content'         => $post->post_content,
-                'categories'      => $categories,
                 'platform_status' => $meta['platform_status'] ?? 'disabled',
                 'module_status'   => $meta['module_status']   ?? $this->defaultModuleStatus(),
+            ],
+            'drafts'  => [
+                'overview'   => $overviewDraft,
+                'inclusions' => null,
+                'faqs'       => null,
+            ],
+        ]);
+    }
+
+    public function fetchDetail(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $id   = (int) $request->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $meta         = get_post_meta($id, self::META_KEY, true);
+        $meta         = is_array($meta) ? $meta : [];
+        $terms        = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
+        $categories   = array_map(fn($t) => ['id' => (int) $t->term_id, 'name' => $t->name, 'slug' => $t->slug], $terms);
+        $rawInc       = get_post_meta($id, self::META_INCLUSIONS, true);
+        $inclusions   = is_array($rawInc) ? ($rawInc['inclusions'] ?? []) : [];
+        $faqs         = get_post_meta($id, self::META_FAQS, true);
+        $faqs         = is_array($faqs) ? $faqs : [];
+
+        $ovDraft  = get_post_meta($id, self::DRAFT_OVERVIEW, true);
+        $incDraft = get_post_meta($id, self::DRAFT_INCLUSIONS, true);
+        $faqDraft = get_post_meta($id, self::DRAFT_FAQS, true);
+
+        return rest_ensure_response([
+            'success'         => true,
+            'id'              => $id,
+            'title'           => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'excerpt'         => $post->post_excerpt,
+            'content'         => $post->post_content,
+            'categories'      => $categories,
+            'inclusions'      => $inclusions,
+            'faqs'            => $faqs,
+            'platform_status' => MetaSchema::resolvePlatformStatus($meta, $post->post_status),
+            'module_status'   => $meta['module_status'] ?? $this->defaultModuleStatus(),
+            'drafts'          => [
+                'overview'   => is_array($ovDraft)  && !empty($ovDraft)  ? $ovDraft  : null,
+                'inclusions' => is_array($incDraft) && !empty($incDraft) ? $incDraft : null,
+                'faqs'       => is_array($faqDraft) && !empty($faqDraft) ? $faqDraft : null,
             ],
         ]);
     }
@@ -156,48 +262,23 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
         }
 
-        $update = [
-            'ID'           => $id,
-            'post_title'   => $request->get_param('title')   ?? $post->post_title,
-            'post_excerpt' => $request->get_param('excerpt')  ?? $post->post_excerpt,
-            'post_content' => $request->get_param('content')  ?? $post->post_content,
+        // Write to draft — do NOT touch canonical post fields or taxonomy.
+        $draft = [
+            'title'        => (string) ($request->get_param('title')   ?? ''),
+            'excerpt'      => (string) ($request->get_param('excerpt')  ?? ''),
+            'content'      => (string) ($request->get_param('content')  ?? ''),
+            'category_ids' => $request->has_param('category_ids')
+                              ? array_values(array_map('intval', (array) $request->get_param('category_ids')))
+                              : [],
         ];
 
-        $result = wp_update_post($update, true);
-
-        if (is_wp_error($result)) {
-            return rest_ensure_response([
-                'success' => false,
-                'message' => $result->get_error_message(),
-            ]);
-        }
-
-        if ($request->has_param('category_ids')) {
-            $ids = array_values(array_map('intval', (array) $request->get_param('category_ids')));
-            wp_set_object_terms($id, $ids, self::CATEGORY_TAXONOMY);
-        }
-
-        // Rule 7: saving overview on an active entity marks transition as pending.
-        $moduleStatus = $this->markModulePending($id, 'overview');
-
-        $post       = get_post($id);
-        $terms      = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
-        $categories = array_map(fn($t) => [
-            'id'   => (int) $t->term_id,
-            'name' => $t->name,
-            'slug' => $t->slug,
-        ], $terms);
+        update_post_meta($id, self::DRAFT_OVERVIEW, $draft);
+        $moduleStatus = $this->markModuleDraft($id, 'overview');
 
         return rest_ensure_response([
-            'success' => true,
-            'service' => [
-                'id'            => $id,
-                'title'         => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'excerpt'       => $post->post_excerpt,
-                'content'       => $post->post_content,
-                'categories'    => $categories,
-                'module_status' => $moduleStatus,
-            ],
+            'success'       => true,
+            'draft'         => $draft,
+            'module_status' => $moduleStatus,
         ]);
     }
 
@@ -210,41 +291,23 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
         }
 
-        $raw   = (array) (get_post_meta($id, self::META_INCLUSIONS, true) ?: []);
         $input = (array) ($request->get_param('inclusions') ?: []);
-
-        $seen = [];
+        $seen  = [];
 
         foreach ($input as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
+            if (!is_array($item)) continue;
             $itemId = sanitize_text_field((string) ($item['id'] ?? ''));
             $label  = sanitize_text_field((string) ($item['label'] ?? ''));
-            if ($label === '') {
-                continue;
-            }
-            if ($itemId === '') {
-                $itemId = sanitize_title($label);
-            }
-            // Deduplicate by id; last write wins.
+            if ($label === '') continue;
+            if ($itemId === '') $itemId = sanitize_title($label);
             $seen[$itemId] = ['id' => $itemId, 'label' => $label];
         }
 
         $normalized = array_values($seen);
 
-        // Preserve tier_inclusions; replace only the inclusions pool.
-        $stored = [
-            'inclusions'      => $normalized,
-            'tier_inclusions' => isset($raw['tier_inclusions']) && is_array($raw['tier_inclusions'])
-                                  ? $raw['tier_inclusions']
-                                  : [],
-        ];
-
-        update_post_meta($id, self::META_INCLUSIONS, $stored);
-
-        // Rule 7: saving inclusions on an active entity marks transition as pending.
-        $moduleStatus = $this->markModulePending($id, 'inclusions');
+        // Write to draft — canonical cz_service_inclusions untouched.
+        update_post_meta($id, self::DRAFT_INCLUSIONS, $normalized);
+        $moduleStatus = $this->markModuleDraft($id, 'inclusions');
 
         return rest_ensure_response([
             'success'       => true,
@@ -263,36 +326,148 @@ class AdminServicesController
         }
 
         $input = (array) ($request->get_param('faqs') ?: []);
-
-        $seen = [];
+        $seen  = [];
 
         foreach ($input as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
+            if (!is_array($item)) continue;
             $question = sanitize_text_field((string) ($item['question'] ?? ''));
             $answer   = sanitize_textarea_field((string) ($item['answer'] ?? ''));
-            if ($question === '') {
-                continue;
-            }
+            if ($question === '') continue;
             $faqId = sanitize_text_field((string) ($item['id'] ?? ''));
-            if ($faqId === '') {
-                $faqId = sanitize_title($question);
-            }
+            if ($faqId === '') $faqId = sanitize_title($question);
             $seen[$faqId] = ['id' => $faqId, 'question' => $question, 'answer' => $answer];
         }
 
         $normalized = array_values($seen);
 
-        update_post_meta($id, self::META_FAQS, $normalized);
-
-        // Rule 7: saving FAQs on an active entity marks transition as pending.
-        $moduleStatus = $this->markModulePending($id, 'faqs');
+        // Write to draft — canonical cz_service_faqs untouched.
+        update_post_meta($id, self::DRAFT_FAQS, $normalized);
+        $moduleStatus = $this->markModuleDraft($id, 'faqs');
 
         return rest_ensure_response([
             'success'       => true,
             'faqs'          => $normalized,
             'module_status' => $moduleStatus,
+        ]);
+    }
+
+    public function settleModuleRoute(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $id     = (int) $request->get_param('id');
+        $module = (string) $request->get_param('module');
+        $post   = get_post($id);
+
+        if (!$post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $moduleStatus = $this->settleModule($id, $module);
+
+        // Re-fetch settled canonical data for this module.
+        $freshPost  = get_post($id);
+        $terms      = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
+        $categories = array_map(fn($t) => ['id' => (int) $t->term_id, 'name' => $t->name, 'slug' => $t->slug], $terms);
+        $rawInc     = get_post_meta($id, self::META_INCLUSIONS, true);
+        $inclusions = is_array($rawInc) ? ($rawInc['inclusions'] ?? []) : [];
+        $faqs       = get_post_meta($id, self::META_FAQS, true);
+        $faqs       = is_array($faqs) ? $faqs : [];
+
+        return rest_ensure_response([
+            'success'       => true,
+            'module'        => $module,
+            'module_status' => $moduleStatus,
+            'service'       => [
+                'id'         => $id,
+                'title'      => html_entity_decode($freshPost->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'excerpt'    => $freshPost->post_excerpt,
+                'content'    => $freshPost->post_content,
+                'categories' => $categories,
+            ],
+            'inclusions'    => $inclusions,
+            'faqs'          => $faqs,
+        ]);
+    }
+
+    public function settleAll(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $id   = (int) $request->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        foreach (['overview', 'inclusions', 'faqs'] as $module) {
+            if ($this->hasDraft($id, $module)) {
+                $this->settleModule($id, $module);
+            }
+        }
+
+        $freshPost  = get_post($id);
+        $meta       = get_post_meta($id, self::META_KEY, true);
+        $meta       = is_array($meta) ? $meta : [];
+        $terms      = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
+        $categories = array_map(fn($t) => ['id' => (int) $t->term_id, 'name' => $t->name, 'slug' => $t->slug], $terms);
+        $rawInc     = get_post_meta($id, self::META_INCLUSIONS, true);
+        $inclusions = is_array($rawInc) ? ($rawInc['inclusions'] ?? []) : [];
+        $faqs       = get_post_meta($id, self::META_FAQS, true);
+        $faqs       = is_array($faqs) ? $faqs : [];
+
+        return rest_ensure_response([
+            'success'       => true,
+            'module_status' => $meta['module_status'] ?? $this->defaultModuleStatus(),
+            'service'       => [
+                'id'         => $id,
+                'title'      => html_entity_decode($freshPost->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'excerpt'    => $freshPost->post_excerpt,
+                'content'    => $freshPost->post_content,
+                'categories' => $categories,
+            ],
+            'inclusions'    => $inclusions,
+            'faqs'          => $faqs,
+        ]);
+    }
+
+    public function revertModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $id     = (int) $request->get_param('id');
+        $module = (string) $request->get_param('module');
+        $post   = get_post($id);
+
+        if (!$post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $draftKey = match ($module) {
+            'overview'   => self::DRAFT_OVERVIEW,
+            'inclusions' => self::DRAFT_INCLUSIONS,
+            'faqs'       => self::DRAFT_FAQS,
+            default      => null,
+        };
+
+        if ($draftKey) {
+            delete_post_meta($id, $draftKey);
+        }
+
+        $meta = get_post_meta($id, self::META_KEY, true);
+        $meta = is_array($meta) ? $meta : [];
+        if (!isset($meta['module_status']) || !is_array($meta['module_status'])) {
+            $meta['module_status'] = $this->defaultModuleStatus();
+        }
+
+        $meta['module_status'][$module] = match ($module) {
+            'overview'   => $this->isOverviewComplete($post)  ? 'settled' : 'not-configured',
+            'inclusions' => $this->isInclusionsComplete($id)   ? 'settled' : 'not-configured',
+            'faqs'       => $this->isFaqsComplete($id)         ? 'settled' : 'not-configured',
+            default      => 'not-configured',
+        };
+
+        update_post_meta($id, self::META_KEY, $meta);
+
+        return rest_ensure_response([
+            'success'       => true,
+            'module'        => $module,
+            'module_status' => $meta['module_status'],
         ]);
     }
 
@@ -308,15 +483,12 @@ class AdminServicesController
         $meta = get_post_meta($id, self::META_KEY, true);
         $meta = is_array($meta) ? $meta : [];
 
-        // Resolve the target platform_status.
-        // platform_status param takes priority; fall back to legacy is_active mapping.
         if ($request->has_param('platform_status')) {
             $platformStatus = sanitize_text_field((string) $request->get_param('platform_status'));
             if (!in_array($platformStatus, MetaSchema::ALLOWED_PLATFORM_STATUSES, true)) {
                 return new \WP_REST_Response(['success' => false, 'message' => 'Invalid platform_status.'], 422);
             }
         } elseif ($request->has_param('is_active')) {
-            // Deprecated path: map boolean is_active to platform_status.
             $platformStatus = $request->get_param('is_active') ? 'active' : 'disabled';
         } else {
             return new \WP_REST_Response(['success' => false, 'message' => 'No status parameter provided.'], 422);
@@ -325,14 +497,12 @@ class AdminServicesController
         // Rule 1: never write post_status — CompuZign owns lifecycle via platform_status.
         $meta['platform_status'] = $platformStatus;
 
-        // Rule 6: on activation, settle only complete modules; incomplete stay pending.
+        // On activation: drafts stay pending; modules without drafts resolved from canonical.
         if ($platformStatus === 'active') {
             $meta['module_status'] = $this->resolveModuleStatusOnActivation($id, $post, $meta);
         }
-        // For other transitions (disable, archive, trash), module_status is unchanged.
 
         update_post_meta($id, self::META_KEY, $meta);
-
         $meta = get_post_meta($id, self::META_KEY, true);
         $meta = is_array($meta) ? $meta : [];
 
@@ -357,41 +527,116 @@ class AdminServicesController
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
-     * Rule 7: if the entity is currently active, mark the given module transition
-     * back to 'pending' after a content save. Returns the updated module_status array.
+     * Writing a draft always marks the module as 'pending', regardless of platform_status.
+     * Handles not-configured → pending transition on first save for inclusions/faqs.
      */
-    private function markModulePending(int $id, string $module): array
+    private function markModuleDraft(int $id, string $module): array
     {
         $meta = get_post_meta($id, self::META_KEY, true);
         $meta = is_array($meta) ? $meta : [];
 
-        $platformStatus = MetaSchema::resolvePlatformStatus($meta, 'publish');
-
-        if ($platformStatus === 'active') {
-            if (!isset($meta['module_status']) || !is_array($meta['module_status'])) {
-                $meta['module_status'] = $this->defaultModuleStatus();
-            }
-            $meta['module_status'][$module] = 'pending';
-            update_post_meta($id, self::META_KEY, $meta);
+        if (!isset($meta['module_status']) || !is_array($meta['module_status'])) {
+            $meta['module_status'] = $this->defaultModuleStatus();
         }
 
-        return $meta['module_status'] ?? $this->defaultModuleStatus();
+        $meta['module_status'][$module] = 'pending';
+        update_post_meta($id, self::META_KEY, $meta);
+
+        return $meta['module_status'];
     }
 
     /**
-     * Rule 6: on activation, settle only complete modules; incomplete stay pending.
+     * Promotes one module's draft to canonical Active. Called by both per-module and bulk routes.
+     * Returns the updated module_status array.
+     */
+    private function settleModule(int $id, string $module): array
+    {
+        $meta = get_post_meta($id, self::META_KEY, true);
+        $meta = is_array($meta) ? $meta : [];
+        if (!isset($meta['module_status']) || !is_array($meta['module_status'])) {
+            $meta['module_status'] = $this->defaultModuleStatus();
+        }
+
+        switch ($module) {
+            case 'overview':
+                $draft = get_post_meta($id, self::DRAFT_OVERVIEW, true);
+                if (!is_array($draft) || empty($draft)) break;
+
+                $post = get_post($id);
+                wp_update_post([
+                    'ID'           => $id,
+                    'post_title'   => $draft['title']   ?? ($post->post_title ?? ''),
+                    'post_excerpt' => $draft['excerpt']  ?? '',
+                    'post_content' => $draft['content']  ?? '',
+                ]);
+
+                $catIds = isset($draft['category_ids']) && is_array($draft['category_ids'])
+                          ? array_map('intval', $draft['category_ids'])
+                          : [];
+                wp_set_object_terms($id, $catIds, self::CATEGORY_TAXONOMY);
+
+                delete_post_meta($id, self::DRAFT_OVERVIEW);
+
+                $freshPost = get_post($id);
+                $meta['module_status']['overview'] = $this->isOverviewComplete($freshPost) ? 'settled' : 'not-configured';
+                break;
+
+            case 'inclusions':
+                $draft = get_post_meta($id, self::DRAFT_INCLUSIONS, true);
+                if (!is_array($draft)) break;
+
+                $existing = get_post_meta($id, self::META_INCLUSIONS, true);
+                $existing = is_array($existing) ? $existing : [];
+                update_post_meta($id, self::META_INCLUSIONS, [
+                    'inclusions'      => $draft,
+                    'tier_inclusions' => $existing['tier_inclusions'] ?? [],
+                ]);
+
+                delete_post_meta($id, self::DRAFT_INCLUSIONS);
+                $meta['module_status']['inclusions'] = $this->isInclusionsComplete($id) ? 'settled' : 'not-configured';
+                break;
+
+            case 'faqs':
+                $draft = get_post_meta($id, self::DRAFT_FAQS, true);
+                if (!is_array($draft)) break;
+
+                update_post_meta($id, self::META_FAQS, $draft);
+                delete_post_meta($id, self::DRAFT_FAQS);
+                $meta['module_status']['faqs'] = $this->isFaqsComplete($id) ? 'settled' : 'not-configured';
+                break;
+        }
+
+        update_post_meta($id, self::META_KEY, $meta);
+        return $meta['module_status'];
+    }
+
+    /**
+     * On activation, drafts stay pending. Modules without drafts are resolved from canonical.
      */
     private function resolveModuleStatusOnActivation(int $id, \WP_Post $post, array $meta): array
     {
-        $current = is_array($meta['module_status'] ?? null)
-                   ? $meta['module_status']
-                   : $this->defaultModuleStatus();
-
         return [
-            'overview'   => $this->isOverviewComplete($post)  ? 'settled' : 'pending',
-            'inclusions' => $this->isInclusionsComplete($id)   ? 'settled' : 'pending',
-            'faqs'       => $this->isFaqsComplete($id)         ? 'settled' : 'pending',
+            'overview'   => $this->hasDraft($id, 'overview')
+                            ? 'pending'
+                            : ($this->isOverviewComplete($post)  ? 'settled' : 'not-configured'),
+            'inclusions' => $this->hasDraft($id, 'inclusions')
+                            ? 'pending'
+                            : ($this->isInclusionsComplete($id)   ? 'settled' : 'not-configured'),
+            'faqs'       => $this->hasDraft($id, 'faqs')
+                            ? 'pending'
+                            : ($this->isFaqsComplete($id)         ? 'settled' : 'not-configured'),
         ];
+    }
+
+    private function hasDraft(int $id, string $module): bool
+    {
+        $key = match ($module) {
+            'overview'   => self::DRAFT_OVERVIEW,
+            'inclusions' => self::DRAFT_INCLUSIONS,
+            'faqs'       => self::DRAFT_FAQS,
+            default      => null,
+        };
+        return $key !== null && !empty(get_post_meta($id, $key, true));
     }
 
     private function isOverviewComplete(\WP_Post $post): bool
@@ -407,13 +652,9 @@ class AdminServicesController
     {
         $raw        = get_post_meta($id, self::META_INCLUSIONS, true);
         $inclusions = is_array($raw) ? ($raw['inclusions'] ?? []) : [];
-        if (empty($inclusions)) {
-            return false;
-        }
+        if (empty($inclusions)) return false;
         foreach ($inclusions as $inc) {
-            if (trim((string) ($inc['label'] ?? '')) === '') {
-                return false;
-            }
+            if (trim((string) ($inc['label'] ?? '')) === '') return false;
         }
         return true;
     }
@@ -421,9 +662,7 @@ class AdminServicesController
     private function isFaqsComplete(int $id): bool
     {
         $faqs = get_post_meta($id, self::META_FAQS, true);
-        if (!is_array($faqs) || empty($faqs)) {
-            return false;
-        }
+        if (!is_array($faqs) || empty($faqs)) return false;
         foreach ($faqs as $faq) {
             if (trim((string) ($faq['question'] ?? '')) === '') return false;
             if (trim((string) ($faq['answer']   ?? '')) === '') return false;
@@ -433,6 +672,6 @@ class AdminServicesController
 
     private function defaultModuleStatus(): array
     {
-        return ['overview' => 'pending', 'inclusions' => 'pending', 'faqs' => 'pending'];
+        return ['overview' => 'pending', 'inclusions' => 'not-configured', 'faqs' => 'not-configured'];
     }
 }

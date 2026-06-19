@@ -34,8 +34,8 @@ export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, is
             ‹
           </button>
           <span class="cz-ies__live-badge">
-            <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-            <span class="cz-status-pill cz-status-pill--active">Live Editor</span>
+            <span class="cz-admin-status-dot" style="color:var(--admin-warning)" />
+            <span class="cz-status-pill cz-status-pill--pending">Draft</span>
           </span>
         </div>
       </div>

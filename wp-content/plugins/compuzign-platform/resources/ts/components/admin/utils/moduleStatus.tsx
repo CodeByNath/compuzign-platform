@@ -3,7 +3,7 @@
 // (ServiceOverviewTransitView, PackageSummaryTransitView).
 
 import type { ServiceItem } from '@/api/types/cost-builder';
-import type { SurfacePackageSummary } from '@/api/types/admin';
+import type { OverviewDraftData, SurfacePackageSummary } from '@/api/types/admin';
 
 // Structural minimum for tier status resolution.
 // Satisfied by both SurfaceTierSummary (transit) and SurfaceTierDetail (catalog/management).
@@ -36,21 +36,39 @@ export function checkOverviewCompleteness(service: ServiceItem): OverviewComplet
   return { title, excerpt, category, content, complete: title && excerpt && category && content };
 }
 
+export function checkOverviewCompletenessFromDraft(draft: OverviewDraftData): OverviewCompleteness {
+  const title    = !!draft.title.trim();
+  const excerpt  = !!draft.excerpt.trim();
+  const category = draft.category_ids.length > 0;
+  const content  = !!draft.content.trim();
+  return { title, excerpt, category, content, complete: title && excerpt && category && content };
+}
+
 // ── Status resolvers ──────────────────────────────────────────────────────────
 
 export interface OverviewStatusOpts {
   platformStatus:   string;  // 'active' | 'disabled' | 'archived' | 'trashed'
-  moduleTransition: string;  // 'settled' | 'pending'
+  moduleTransition: string;  // 'settled' | 'pending' | 'not-configured'
 }
 
-export function resolveOverviewStatus(service: ServiceItem, opts: OverviewStatusOpts): string {
+export function resolveOverviewStatus(
+  service: ServiceItem,
+  opts: OverviewStatusOpts,
+  draft?: OverviewDraftData | null,
+): string {
   const { platformStatus, moduleTransition } = opts;
 
-  // Rule 4: empty and incomplete → pending-dim; disabled does NOT propagate to child modules.
-  const { complete } = checkOverviewCompleteness(service);
+  // not-configured: module has no content and no draft — always dim.
+  if (moduleTransition === 'not-configured') return 'pending-dim';
+
+  // Prefer draft completeness when a draft exists; fall back to canonical.
+  const { complete } = draft
+    ? checkOverviewCompletenessFromDraft(draft)
+    : checkOverviewCompleteness(service);
+
   if (!complete) return 'pending-dim';
 
-  // Rule 7: complete but edited since last activation → pending-full.
+  // Complete + pending (draft exists) → pending-full.
   if (moduleTransition === 'pending') return 'pending-full';
 
   // Complete + settled, but service is not yet active → still pending-full (not disabled).

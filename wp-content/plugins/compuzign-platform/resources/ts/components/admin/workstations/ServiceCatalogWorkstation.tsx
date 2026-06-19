@@ -7,13 +7,16 @@ import type { Category, CostBuilderResponse, PricingTierData, ServiceItem, TierI
 import {
   createService,
   createSurfacePackage,
+  fetchAdminServiceDetail,
   fetchSurfacePackageDetail,
+  revertServiceModule,
+  settleAllServiceModules,
   updateServiceFaqs,
   updateServiceInclusions,
   updateServiceOverview,
   updateServiceStatus,
 } from '@/api/endpoints/admin';
-import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
+import type { AdminServiceDetailResponse, SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
 import { resolveOverviewStatus, renderModuleStatus, resolvePackageStatus, resolveTierStatus, statusDotColor } from '@/components/admin/utils/moduleStatus';
@@ -55,24 +58,24 @@ const PROMO_STATUS_MAP: Record<string, { dot: string; cls: string; label: string
   'draft':    { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft',    label: 'Draft'    },
 };
 
-function buildNewServiceItem(data: {
-  id: number; title: string; slug: string;
-  excerpt: string; content: string;
-  categories: Array<{ id: number; name: string; slug: string }>;
-}): ServiceItem {
+function buildNewServiceItem(
+  data: { id: number; title: string; slug: string; platform_status: string; module_status: Record<string, string> },
+  drafts?: AdminServiceDetailResponse['drafts'] | null,
+): ServiceItem {
+  const ov = drafts?.overview;
   return {
     id:         data.id,
-    title:      data.title,
+    title:      ov?.title   ?? data.title,
     slug:       data.slug,
-    excerpt:    data.excerpt,
-    content:    data.content,
-    categories: data.categories,
+    excerpt:    ov?.excerpt ?? '',
+    content:    ov?.content ?? '',
+    categories: [],
     inclusions: [],
     faqs:       [],
     availability: { is_available: true, message: '' },
     meta: {
-      platform_status:   'disabled',
-      module_status:     { overview: 'pending', inclusions: 'pending', faqs: 'pending' },
+      platform_status:   (data.platform_status as any) ?? 'disabled',
+      module_status:     data.module_status as any,
       short_description: '',
       long_description:  '',
       billing_cycle:     '',
@@ -444,6 +447,15 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const [tab, setTab] = useState<'service' | 'commercial'>('service');
 
+  // Admin detail: authoritative module_status + all draft data, fetched on drawer open.
+  const [adminDetail, setAdminDetail] = useState<AdminServiceDetailResponse | null>(null);
+
+  useEffect(() => {
+    fetchAdminServiceDetail(service.id)
+      .then(setAdminDetail)
+      .catch(() => {}); // non-fatal — falls back to CostBuilder data
+  }, [service.id]);
+
   // Drawer Principle v1 — module state machine: null = View, named value = Edit (InlineEditorShell active)
   const [editingSection,   setEditingSection]   = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
   const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
@@ -477,10 +489,9 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     (editingSection === 'inclusions' && inclusionsDraft != null && inclusionsOriginal != null && isInclusionsDirty(inclusionsDraft, inclusionsOriginal)) ||
     (editingSection === 'faqs'       && faqsDraft       != null && faqsOriginal       != null && isFaqsDirty(faqsDraft, faqsOriginal));
 
-  // True when an active service has at least one module saved-but-unsettled.
-  // pending-dim (incomplete) is excluded — only explicit post-save pending state
-  // triggers the exit checkpoint, since incomplete modules are not actionable by Settle.
-  const moduleStatus      = service.meta?.module_status;
+  // adminDetail.module_status is authoritative (loaded on drawer open).
+  // Falls back to CostBuilder data while the fetch is in flight.
+  const moduleStatus      = adminDetail?.module_status ?? service.meta?.module_status;
   const hasPendingModules = isActive && (
     moduleStatus?.overview   === 'pending' ||
     moduleStatus?.inclusions === 'pending' ||
@@ -519,19 +530,64 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     }
   }, [service, isActive, ctx, onRefresh]);
 
-  const handlePublishService = useCallback(async () => {
+  // Settle all modules that have drafts. Used by "Settle Changes" (active service).
+  const handleSettleModules = useCallback(async () => {
     setStatusSaving(true);
     try {
-      const result = await updateServiceStatus(service.id, { platform_status: 'active' });
+      const result = await settleAllServiceModules(service.id);
       if (result.success) {
         ctx.setStepData('service', {
           ...service,
-          meta: {
-            ...service.meta,
-            platform_status: result.service.platform_status,
-            module_status:   result.service.module_status as any,
-          },
+          title:      result.service.title,
+          excerpt:    result.service.excerpt,
+          content:    result.service.content,
+          categories: result.service.categories,
+          inclusions: result.inclusions,
+          faqs:       result.faqs,
         });
+        setAdminDetail(prev => prev ? {
+          ...prev,
+          module_status: result.module_status,
+          drafts: { overview: null, inclusions: null, faqs: null },
+        } : prev);
+        onRefresh?.();
+      }
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [service, ctx, onRefresh]);
+
+  // Settle all drafts then activate. Used by "Publish Service" (inactive service).
+  const handlePublishService = useCallback(async () => {
+    setStatusSaving(true);
+    try {
+      const settleResult = await settleAllServiceModules(service.id);
+      if (settleResult.success) {
+        ctx.setStepData('service', {
+          ...service,
+          title:      settleResult.service.title,
+          excerpt:    settleResult.service.excerpt,
+          content:    settleResult.service.content,
+          categories: settleResult.service.categories,
+          inclusions: settleResult.inclusions,
+          faqs:       settleResult.faqs,
+        });
+        setAdminDetail(prev => prev ? {
+          ...prev,
+          module_status: settleResult.module_status,
+          drafts: { overview: null, inclusions: null, faqs: null },
+        } : prev);
+      }
+      const statusResult = await updateServiceStatus(service.id, { platform_status: 'active' });
+      if (statusResult.success) {
+        ctx.setStepData('service', (prev: ServiceItem) => ({
+          ...prev,
+          meta: {
+            ...prev.meta,
+            platform_status: statusResult.service.platform_status,
+            module_status:   statusResult.service.module_status as any,
+          },
+        }));
         onRefresh?.();
       }
     } finally {
@@ -540,31 +596,40 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   }, [service, ctx, onRefresh]);
 
   const openOverviewEditor = useCallback(() => {
-    const draft = initOverviewDraft(service);
+    const wc = adminDetail?.drafts.overview;
+    const draft: OverviewDraft = wc
+      ? { title: wc.title, excerpt: wc.excerpt, content: wc.content, category_id: wc.category_ids[0] ?? null }
+      : initOverviewDraft(service);
     setOverviewOriginal(draft);
     setOverviewDraft(draft);
     setEditingSection('overview');
     setOpenPanel(null);
     setSaveErr(null);
-  }, [service]);
+  }, [service, adminDetail]);
 
   const openInclusionsEditor = useCallback(() => {
-    const draft = initInclusionsDraft(service);
+    const wc = adminDetail?.drafts.inclusions;
+    const draft: InclusionsDraft = wc
+      ? { items: wc }
+      : initInclusionsDraft(service);
     setInclusionsOriginal(draft);
     setInclusionsDraft(draft);
     setEditingSection('inclusions');
     setOpenPanel(null);
     setSaveErr(null);
-  }, [service]);
+  }, [service, adminDetail]);
 
   const openFaqsEditor = useCallback(() => {
-    const draft = initFaqsDraft(service);
+    const wc = adminDetail?.drafts.faqs;
+    const draft: FaqsDraft = wc
+      ? { items: wc }
+      : initFaqsDraft(service);
     setFaqsOriginal(draft);
     setFaqsDraft(draft);
     setEditingSection('faqs');
     setOpenPanel(null);
     setSaveErr(null);
-  }, [service]);
+  }, [service, adminDetail]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingSection(null);
@@ -587,16 +652,11 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         category_ids: overviewDraft.category_id !== null ? [overviewDraft.category_id] : [],
       });
       if (result.success) {
-        ctx.setStepData('service', {
-          ...service,
-          title:      result.service.title,
-          excerpt:    result.service.excerpt,
-          content:    result.service.content,
-          categories: result.service.categories,
-          meta:       result.service.module_status
-                        ? { ...service.meta, module_status: result.service.module_status as any }
-                        : service.meta,
-        });
+        setAdminDetail(prev => prev ? {
+          ...prev,
+          drafts:        { ...prev.drafts, overview: result.draft },
+          module_status: result.module_status,
+        } : prev);
         onRefresh?.();
         setOpenPanel(null);
         setEditingSection(null);
@@ -621,13 +681,11 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         inclusions: inclusionsDraft.items,
       });
       if (result.success) {
-        ctx.setStepData('service', {
-          ...service,
-          inclusions: result.inclusions,
-          meta:       result.module_status
-                        ? { ...service.meta, module_status: result.module_status as any }
-                        : service.meta,
-        });
+        setAdminDetail(prev => prev ? {
+          ...prev,
+          drafts:        { ...prev.drafts, inclusions: result.inclusions },
+          module_status: result.module_status,
+        } : prev);
         onRefresh?.();
         setOpenPanel(null);
         setEditingSection(null);
@@ -652,13 +710,11 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         faqs: faqsDraft.items,
       });
       if (result.success) {
-        ctx.setStepData('service', {
-          ...service,
-          faqs: result.faqs,
-          meta: result.module_status
-                  ? { ...service.meta, module_status: result.module_status as any }
-                  : service.meta,
-        });
+        setAdminDetail(prev => prev ? {
+          ...prev,
+          drafts:        { ...prev.drafts, faqs: result.faqs },
+          module_status: result.module_status,
+        } : prev);
         onRefresh?.();
         setOpenPanel(null);
         setEditingSection(null);
@@ -676,8 +732,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const relatedPkg = packages.find((p) => p.service_refs.includes(service.id)) ?? null;
 
-  const inclusions = service.inclusions ?? [];
-  const faqs       = service.faqs ?? [];
+  const inclusions = adminDetail?.drafts.inclusions ?? service.inclusions ?? [];
+  const faqs       = adminDetail?.drafts.faqs       ?? service.faqs       ?? [];
   const tiers      = service.pricing?.tiers;
 
   const handleOpenTierConfig = async () => {
@@ -806,36 +862,54 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   // ── Module status resolvers ──────────────────────────────────────────────
 
   const getInclusionsStatus = () => {
+    const transition = moduleStatus?.inclusions ?? 'not-configured';
+    if (transition === 'not-configured') return 'pending-dim';
     if (inclusions.length === 0) return 'pending-dim';
     const allComplete = inclusions.every(inc => !!inc.label?.trim());
     if (!allComplete) return 'pending-dim';
-    if (moduleStatus?.inclusions === 'pending') return 'pending-full';
+    if (transition === 'pending') return 'pending-full';
     if (!isActive) return 'pending-full';
     return 'active';
   };
 
   const getFaqsStatus = () => {
+    const transition = moduleStatus?.faqs ?? 'not-configured';
+    if (transition === 'not-configured') return 'pending-dim';
     if (faqs.length === 0) return 'pending-dim';
     const allComplete = faqs.every(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim()));
     if (!allComplete) return 'pending-dim';
-    if (moduleStatus?.faqs === 'pending') return 'pending-full';
+    if (transition === 'pending') return 'pending-full';
     if (!isActive) return 'pending-full';
     return 'active';
   };
 
+  const overviewDraftData = adminDetail?.drafts.overview ?? null;
+
   const overviewStatus   = resolveOverviewStatus(service, {
     platformStatus,
-    moduleTransition: moduleStatus?.overview ?? 'settled',
-  });
+    moduleTransition: moduleStatus?.overview ?? 'not-configured',
+  }, overviewDraftData);
   const inclusionsStatus = getInclusionsStatus();
   const faqsStatus       = getFaqsStatus();
 
   // ── Module status notes (derived from same data as resolvers) ──────────────
-  const noteCtxOverview:   NoteContext = { platformStatus, moduleTransition: moduleStatus?.overview   ?? 'settled' };
-  const noteCtxInclusions: NoteContext = { platformStatus, moduleTransition: moduleStatus?.inclusions ?? 'settled' };
-  const noteCtxFaqs:       NoteContext = { platformStatus, moduleTransition: moduleStatus?.faqs       ?? 'settled' };
+  const noteCtxOverview: NoteContext = {
+    platformStatus,
+    moduleTransition: moduleStatus?.overview   ?? 'not-configured',
+    hasDraft:         overviewDraftData !== null,
+  };
+  const noteCtxInclusions: NoteContext = {
+    platformStatus,
+    moduleTransition: moduleStatus?.inclusions ?? 'not-configured',
+    hasDraft:         adminDetail?.drafts.inclusions !== null && adminDetail?.drafts.inclusions !== undefined,
+  };
+  const noteCtxFaqs: NoteContext = {
+    platformStatus,
+    moduleTransition: moduleStatus?.faqs ?? 'not-configured',
+    hasDraft:         adminDetail?.drafts.faqs !== null && adminDetail?.drafts.faqs !== undefined,
+  };
 
-  const overviewNotes   = getOverviewNotes(service, noteCtxOverview);
+  const overviewNotes   = getOverviewNotes(service, noteCtxOverview, overviewDraftData);
   const inclusionsNotes = getInclusionsNotes(inclusions, noteCtxInclusions);
   const faqsNotes       = getFaqsNotes(faqs, noteCtxFaqs);
 
@@ -849,8 +923,8 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
-    await handlePublishService();
-  }, [handlePublishService]);
+    await (isActive ? handleSettleModules() : handlePublishService());
+  }, [isActive, handleSettleModules, handlePublishService]);
 
   // ── Exit workflow helpers ─────────────────────────────────────────────────
 
@@ -871,42 +945,33 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         category_ids: overviewDraft.category_id !== null ? [overviewDraft.category_id] : [],
       });
       if (!result.success) throw new Error('Failed to save Service Overview.');
-      ctx.setStepData('service', {
-        ...service,
-        title:      result.service.title,
-        excerpt:    result.service.excerpt,
-        content:    result.service.content,
-        categories: result.service.categories,
-        meta: result.service.module_status
-          ? { ...service.meta, module_status: result.service.module_status as any }
-          : service.meta,
-      });
+      setAdminDetail(prev => prev ? {
+        ...prev,
+        drafts:        { ...prev.drafts, overview: result.draft },
+        module_status: result.module_status,
+      } : prev);
       onRefresh?.();
-      return result.service.module_status ?? null;
+      return result.module_status ?? null;
     }
     if (editingSection === 'inclusions' && inclusionsDraft) {
       const result = await updateServiceInclusions(service.id, { inclusions: inclusionsDraft.items });
       if (!result.success) throw new Error('Failed to save Included Features.');
-      ctx.setStepData('service', {
-        ...service,
-        inclusions: result.inclusions,
-        meta: result.module_status
-          ? { ...service.meta, module_status: result.module_status as any }
-          : service.meta,
-      });
+      setAdminDetail(prev => prev ? {
+        ...prev,
+        drafts:        { ...prev.drafts, inclusions: result.inclusions },
+        module_status: result.module_status,
+      } : prev);
       onRefresh?.();
       return result.module_status ?? null;
     }
     if (editingSection === 'faqs' && faqsDraft) {
       const result = await updateServiceFaqs(service.id, { faqs: faqsDraft.items });
       if (!result.success) throw new Error('Failed to save Common Questions.');
-      ctx.setStepData('service', {
-        ...service,
-        faqs: result.faqs,
-        meta: result.module_status
-          ? { ...service.meta, module_status: result.module_status as any }
-          : service.meta,
-      });
+      setAdminDetail(prev => prev ? {
+        ...prev,
+        drafts:        { ...prev.drafts, faqs: result.faqs },
+        module_status: result.module_status,
+      } : prev);
       onRefresh?.();
       return result.module_status ?? null;
     }
@@ -959,13 +1024,13 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const handleExitSettle = useCallback(async () => {
     setExitSaving(true);
     try {
-      await handlePublishService();
+      await handleSettleModules();
       setExitDialog(null);
       closeWithoutGuard();
     } finally {
       setExitSaving(false);
     }
-  }, [handlePublishService, closeWithoutGuard]);
+  }, [handleSettleModules, closeWithoutGuard]);
 
   // ── Close guard registration ──────────────────────────────────────────────
   // Registered once; reads current state via ref to avoid stale closures.
@@ -1097,48 +1162,74 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <ModuleNotificationPanel notes={overviewNotes} />
               )}
               <div class="cz-sv-module-body">
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Title</span>
-                  <p class="cz-sv-overview-block__value">
-                    {service.title.trim() ? decodeHtml(service.title) : 'New Service'}
-                  </p>
-                </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Short Description</span>
-                  <p class="cz-sv-overview-block__value">
-                    {service.excerpt?.trim()
-                      ? service.excerpt
-                      : service.title.trim()
-                        ? `Enter a short description for the ${decodeHtml(service.title)}.`
-                        : 'Enter a short description for this service.'
-                    }
-                  </p>
-                </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Category</span>
-                  <span class="cz-sv-overview-block__value">
-                    {service.categories.length > 0
-                      ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
-                      : 'Not selected'
-                    }
-                  </span>
-                </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Description</span>
-                  <p class="cz-sv-overview-block__desc">
-                    {service.content.trim()
-                      ? service.content
-                      : service.title.trim()
-                        ? `Enter a description for the ${decodeHtml(service.title)}.`
-                        : 'Enter a description for the service.'
-                    }
-                  </p>
-                </div>
+                {(() => {
+                  const ov = adminDetail?.drafts.overview;
+                  const displayTitle    = ov?.title.trim()   || service.title.trim();
+                  const displayExcerpt  = ov?.excerpt.trim() || service.excerpt?.trim() || '';
+                  const displayContent  = ov?.content.trim() || service.content?.trim() || '';
+                  const displayCategory = ov
+                    ? (allCategories.find(c => ov.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
+                    : (service.categories[0]?.name ?? 'Not selected');
+                  return (
+                    <>
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Title</span>
+                        <p class="cz-sv-overview-block__value">
+                          {displayTitle ? decodeHtml(displayTitle) : 'New Service'}
+                        </p>
+                      </div>
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Short Description</span>
+                        <p class="cz-sv-overview-block__value">
+                          {displayExcerpt
+                            ? displayExcerpt
+                            : displayTitle
+                              ? `Enter a short description for the ${decodeHtml(displayTitle)}.`
+                              : 'Enter a short description for this service.'
+                          }
+                        </p>
+                      </div>
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Category</span>
+                        <span class="cz-sv-overview-block__value">{displayCategory}</span>
+                      </div>
+                      <div class="cz-sv-overview-block__meta">
+                        <span class="cz-req-contact-grid__label">Description</span>
+                        <p class="cz-sv-overview-block__desc">
+                          {displayContent
+                            ? displayContent
+                            : displayTitle
+                              ? `Enter a description for the ${decodeHtml(displayTitle)}.`
+                              : 'Enter a description for the service.'
+                          }
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
               <div class="cz-sv-module-footer">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={openOverviewEditor}>
                   ✎ Edit
                 </button>
+                {moduleStatus?.overview === 'pending' && (
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={async () => {
+                      const result = await revertServiceModule(service.id, 'overview');
+                      if (result.success) {
+                        setAdminDetail(prev => prev ? {
+                          ...prev,
+                          drafts:        { ...prev.drafts, overview: null },
+                          module_status: result.module_status,
+                        } : prev);
+                      }
+                    }}
+                  >
+                    Revert
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1201,6 +1292,24 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={openInclusionsEditor}>
                   ✎ Edit
                 </button>
+                {moduleStatus?.inclusions === 'pending' && (
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={async () => {
+                      const result = await revertServiceModule(service.id, 'inclusions');
+                      if (result.success) {
+                        setAdminDetail(prev => prev ? {
+                          ...prev,
+                          drafts:        { ...prev.drafts, inclusions: null },
+                          module_status: result.module_status,
+                        } : prev);
+                      }
+                    }}
+                  >
+                    Revert
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1264,6 +1373,24 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={openFaqsEditor}>
                   ✎ Edit
                 </button>
+                {moduleStatus?.faqs === 'pending' && (
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={async () => {
+                      const result = await revertServiceModule(service.id, 'faqs');
+                      if (result.success) {
+                        setAdminDetail(prev => prev ? {
+                          ...prev,
+                          drafts:        { ...prev.drafts, faqs: null },
+                          module_status: result.module_status,
+                        } : prev);
+                      }
+                    }}
+                  >
+                    Revert
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1446,7 +1573,7 @@ function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               ))}
             </ul>
             <p style="margin-top:var(--cz-space-3);font-size:var(--cz-text-sm);color:var(--admin-text-secondary)">
-              Changes are saved and live. Settle now to confirm the current state,
+              Changes are saved as a draft and not yet live. Settle now to publish them,
               or close and return later.
             </p>
           </div>
@@ -1557,7 +1684,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
         category_ids: [draft.category_id],
       });
       if (result.success) {
-        const newService = buildNewServiceItem(result.service);
+        const newService = buildNewServiceItem(result.service, result.drafts);
         onRefresh?.();
         ctx.close();
         doOpen({

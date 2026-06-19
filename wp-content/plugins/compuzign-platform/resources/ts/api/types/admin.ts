@@ -288,6 +288,49 @@ export interface AdminRequestsResponse {
   total: number;
 }
 
+// ── Service draft types ───────────────────────────────────────────────────────
+
+export interface OverviewDraftData {
+  title:        string;
+  excerpt:      string;
+  content:      string;
+  category_ids: number[];
+}
+
+export interface ServiceModuleDrafts {
+  overview:   OverviewDraftData | null;
+  inclusions: ServiceInclusionItem[] | null;
+  faqs:       ServiceFaqItem[] | null;
+}
+
+export interface AdminServiceDetailResponse {
+  success:         boolean;
+  id:              number;
+  title:           string;
+  excerpt:         string;
+  content:         string;
+  categories:      Array<{ id: number; name: string; slug: string }>;
+  inclusions:      ServiceInclusionItem[];
+  faqs:            ServiceFaqItem[];
+  platform_status: string;
+  module_status:   Record<string, string>;
+  drafts:          ServiceModuleDrafts;
+}
+
+export interface ModuleSettleResponse {
+  success:       boolean;
+  module_status: Record<string, string>;
+  service:       { id: number; title: string; excerpt: string; content: string; categories: Array<{ id: number; name: string; slug: string }> };
+  inclusions:    ServiceInclusionItem[];
+  faqs:          ServiceFaqItem[];
+}
+
+export interface ModuleRevertResponse {
+  success:       boolean;
+  module:        string;
+  module_status: Record<string, string>;
+}
+
 // ── Service overview editor types ─────────────────────────────────────────────
 
 export interface ServiceOverviewPayload {
@@ -298,15 +341,9 @@ export interface ServiceOverviewPayload {
 }
 
 export interface ServiceOverviewResponse {
-  success: boolean;
-  service: {
-    id: number;
-    title: string;
-    excerpt: string;
-    content: string;
-    categories: Array<{ id: number; name: string; slug: string }>;
-    module_status?: Record<string, string>;
-  };
+  success:       boolean;
+  draft:         OverviewDraftData;
+  module_status: Record<string, string>;
 }
 
 export interface ServiceInclusionItem {
@@ -319,9 +356,9 @@ export interface ServiceInclusionsPayload {
 }
 
 export interface ServiceInclusionsResponse {
-  success: boolean;
-  inclusions: ServiceInclusionItem[];
-  module_status?: Record<string, string>;
+  success:       boolean;
+  inclusions:    ServiceInclusionItem[];
+  module_status: Record<string, string>;
 }
 
 export interface ServiceFaqItem {
@@ -335,9 +372,9 @@ export interface ServiceFaqsPayload {
 }
 
 export interface ServiceFaqsResponse {
-  success: boolean;
-  faqs: ServiceFaqItem[];
-  module_status?: Record<string, string>;
+  success:       boolean;
+  faqs:          ServiceFaqItem[];
+  module_status: Record<string, string>;
 }
 
 export interface ServiceStatusPayload {
@@ -381,13 +418,11 @@ export interface CreateServicePayload {
 export interface CreateServiceResponse {
   success: boolean;
   service: {
-    id: number;
-    title: string;
-    slug: string;
-    excerpt: string;
-    content: string;
-    categories: Array<{ id: number; name: string; slug: string }>;
+    id:              number;
+    title:           string;
+    slug:            string;
     platform_status: string;
-    module_status: Record<string, string>;
+    module_status:   Record<string, string>;
   };
+  drafts: ServiceModuleDrafts;
 }

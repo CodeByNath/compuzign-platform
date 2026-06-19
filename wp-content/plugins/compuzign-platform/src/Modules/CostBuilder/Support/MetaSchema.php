@@ -5,8 +5,9 @@ namespace CompuZign\Platform\Modules\CostBuilder\Support;
 class MetaSchema
 {
     private const ALLOWED_TIERS            = ['basic', 'standard', 'premium', 'enterprise'];
-    public  const ALLOWED_PLATFORM_STATUSES = ['active', 'disabled', 'archived', 'trashed'];
-    private const ALLOWED_MODULE_TRANSITIONS = ['settled', 'pending'];
+    public  const ALLOWED_PLATFORM_STATUSES  = ['active', 'disabled', 'archived', 'trashed'];
+    public  const ALLOWED_MODULE_TRANSITIONS  = ['settled', 'pending', 'not-configured'];
+    public  const DRAFT_META_KEYS            = ['cz_service_overview_draft', 'cz_service_inclusions_draft', 'cz_service_faqs_draft'];
 
     public function register(): void
     {
@@ -30,6 +31,16 @@ class MetaSchema
             'show_in_rest'      => ['schema' => $this->pricingSchema()],
             'sanitize_callback' => [self::class, 'sanitizePricing'],
         ]);
+
+        // Draft meta keys — admin-only; never exposed to REST or CostBuilder.
+        foreach (self::DRAFT_META_KEYS as $key) {
+            register_post_meta('cz_service', $key, [
+                'type'         => 'object',
+                'single'       => true,
+                'default'      => null,
+                'show_in_rest' => false,
+            ]);
+        }
     }
 
     public static function sanitizeMeta(mixed $meta): array
@@ -40,7 +51,7 @@ class MetaSchema
 
         $defaults = (new self())->defaultMeta();
 
-        // Sanitize module_status — each key must be 'settled' or 'pending'.
+        // Sanitize module_status — each key must be 'settled', 'pending', or 'not-configured'.
         $rawModuleStatus = is_array($meta['module_status'] ?? null) ? $meta['module_status'] : [];
         $moduleStatus = [
             'overview'   => in_array($rawModuleStatus['overview']   ?? '', self::ALLOWED_MODULE_TRANSITIONS, true)
@@ -108,8 +119,8 @@ class MetaSchema
             'platform_status'   => 'disabled',
             'module_status'     => [
                 'overview'   => 'pending',
-                'inclusions' => 'pending',
-                'faqs'       => 'pending',
+                'inclusions' => 'not-configured',
+                'faqs'       => 'not-configured',
             ],
             'short_description' => '',
             'long_description'  => '',

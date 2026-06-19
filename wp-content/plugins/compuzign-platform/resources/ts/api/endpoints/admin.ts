@@ -1,12 +1,15 @@
 import { apiClient } from '../client';
 import type {
   AcceptIntakeResponse,
+  AdminServiceDetailResponse,
   AdminOverview,
   AdminRequestsResponse,
   CreateServicePayload,
   CreateServiceResponse,
   CreateSurfacePackagePayload,
   CreateSurfacePackageResponse,
+  ModuleRevertResponse,
+  ModuleSettleResponse,
   PackageStatusResponse,
   PromotionTierArchiveResponse,
   PromotionTierPayload,
@@ -153,4 +156,26 @@ export function updateServiceStatus(
 
 export function createService(payload: CreateServicePayload): Promise<CreateServiceResponse> {
   return apiClient.post<CreateServiceResponse>('admin/services', payload);
+}
+
+export function fetchAdminServiceDetail(serviceId: number): Promise<AdminServiceDetailResponse> {
+  return apiClient.get<AdminServiceDetailResponse>(`admin/services/${serviceId}`);
+}
+
+export function settleServiceModule(
+  serviceId: number,
+  module: 'overview' | 'inclusions' | 'faqs',
+): Promise<ModuleSettleResponse> {
+  return apiClient.post<ModuleSettleResponse>(`admin/services/${serviceId}/${module}/settle`);
+}
+
+export function settleAllServiceModules(serviceId: number): Promise<ModuleSettleResponse> {
+  return apiClient.post<ModuleSettleResponse>(`admin/services/${serviceId}/settle`);
+}
+
+export function revertServiceModule(
+  serviceId: number,
+  module: 'overview' | 'inclusions' | 'faqs',
+): Promise<ModuleRevertResponse> {
+  return apiClient.post<ModuleRevertResponse>(`admin/services/${serviceId}/${module}/revert`);
 }
