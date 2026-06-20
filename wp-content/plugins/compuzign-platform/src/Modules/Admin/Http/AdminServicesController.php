@@ -27,6 +27,13 @@ class AdminServicesController
             'methods'             => 'GET',
             'callback'            => [$this, 'listServices'],
             'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'platform_status' => [
+                    'required' => false,
+                    'type'     => 'string',
+                    'enum'     => ['archived', 'trashed'],
+                ],
+            ],
         ]);
 
         // ── Create ────────────────────────────────────────────────────────────
@@ -128,6 +135,26 @@ class AdminServicesController
             ],
         ]);
 
+        // ── Restore (server-driven — resolves previous_platform_status) ─────────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/restore', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'restoreService'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id' => ['required' => true, 'type' => 'integer'],
+            ],
+        ]);
+
+        // ── Permanent delete (only when platform_status = trashed) ────────────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)', [
+            'methods'             => 'DELETE',
+            'callback'            => [$this, 'permanentDeleteService'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id' => ['required' => true, 'type' => 'integer'],
+            ],
+        ]);
+
         // ── Platform status ───────────────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/status', [
             'methods'             => 'POST',
@@ -150,12 +177,16 @@ class AdminServicesController
     // ── Handlers ──────────────────────────────────────────────────────────────
 
     /**
-     * Return all admin-visible station summaries grouped-flat with their categories.
-     * Excludes archived and trashed. Does not include pricing or draft content —
-     * only the lifecycle state needed for the catalog table.
+     * Return station summaries for the catalog table.
+     *
+     * Default (no platform_status param): excludes archived and trashed — normal catalog view.
+     * With platform_status=archived|trashed: returns only stations in that bin — used by the
+     * Archived and Trash workstation views.
      */
     public function listServices(\WP_REST_Request $request): \WP_REST_Response
     {
+        $filterStatus = $request->get_param('platform_status'); // 'archived', 'trashed', or null.
+
         // All category terms ordered by name — used for the catalog tab bar.
         $terms      = get_terms(['taxonomy' => self::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
         $categories = array_map(fn($t) => [
@@ -180,9 +211,16 @@ class AdminServicesController
             $meta           = is_array($meta) ? $meta : [];
             $platformStatus = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
 
-            // Exclude archived and trashed from the main catalog.
-            if (in_array($platformStatus, ['archived', 'trashed'], true)) {
-                continue;
+            if ($filterStatus !== null) {
+                // Filtered view (archived/trash): include only the requested status.
+                if ($platformStatus !== $filterStatus) {
+                    continue;
+                }
+            } else {
+                // Default catalog view: exclude archived and trashed.
+                if (in_array($platformStatus, ['archived', 'trashed'], true)) {
+                    continue;
+                }
             }
 
             $postTerms = wp_get_post_terms($post->ID, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
@@ -193,15 +231,16 @@ class AdminServicesController
             ], $postTerms);
 
             $stations[] = [
-                'id'              => $post->ID,
-                'title'           => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'slug'            => $post->post_name,
-                'categories'      => $postCats,
-                'platform_status' => $platformStatus,
-                'module_status'   => $meta['module_status'] ?? $this->defaultModuleStatus(),
-                'has_drafts'      => $this->hasDraft($post->ID, 'overview')
-                                  || $this->hasDraft($post->ID, 'inclusions')
-                                  || $this->hasDraft($post->ID, 'faqs'),
+                'id'                       => $post->ID,
+                'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'                     => $post->post_name,
+                'categories'               => $postCats,
+                'platform_status'          => $platformStatus,
+                'previous_platform_status' => $meta['previous_platform_status'] ?? '',
+                'module_status'            => $meta['module_status'] ?? $this->defaultModuleStatus(),
+                'has_drafts'               => $this->hasDraft($post->ID, 'overview')
+                                           || $this->hasDraft($post->ID, 'inclusions')
+                                           || $this->hasDraft($post->ID, 'faqs'),
             ];
         }
 
@@ -563,6 +602,16 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'No status parameter provided.'], 422);
         }
 
+        // When entering a bin state, capture the current normal state for restore.
+        // Only write previous_platform_status when leaving active/disabled — not when
+        // transitioning between archived/trashed, so the original state is preserved.
+        if (in_array($platformStatus, ['archived', 'trashed'], true)) {
+            $currentStatus = $meta['platform_status'] ?? 'disabled';
+            if (in_array($currentStatus, ['active', 'disabled'], true)) {
+                $meta['previous_platform_status'] = $currentStatus;
+            }
+        }
+
         // Rule 1: never write post_status — CompuZign owns lifecycle via platform_status.
         $meta['platform_status'] = $platformStatus;
 
@@ -586,6 +635,108 @@ class AdminServicesController
                 'is_active'       => MetaSchema::resolvePlatformStatus($meta, $post->post_status) === 'active',
             ],
         ]);
+    }
+
+    /**
+     * Restore a service from archived or trashed back to its previous normal state.
+     * The server resolves the destination using previous_platform_status stored in meta,
+     * falling back to 'disabled' if the field is absent or unrecognised.
+     */
+    public function restoreService(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $id   = (int) $request->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $meta           = get_post_meta($id, self::META_KEY, true);
+        $meta           = is_array($meta) ? $meta : [];
+        $currentStatus  = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
+
+        if (!in_array($currentStatus, ['archived', 'trashed'], true)) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service is not in a restorable state.'], 422);
+        }
+
+        $allowedTargets  = ['active', 'disabled'];
+        $prev            = $meta['previous_platform_status'] ?? '';
+        $resolvedStatus  = in_array($prev, $allowedTargets, true) ? $prev : 'disabled';
+
+        $meta['platform_status']          = $resolvedStatus;
+        $meta['previous_platform_status'] = '';
+
+        if ($resolvedStatus === 'active') {
+            $meta['module_status'] = $this->resolveModuleStatusOnActivation($id, $post, $meta);
+        }
+
+        update_post_meta($id, self::META_KEY, $meta);
+        $meta = get_post_meta($id, self::META_KEY, true);
+        $meta = is_array($meta) ? $meta : [];
+
+        return rest_ensure_response([
+            'success' => true,
+            'service' => [
+                'id'              => $id,
+                'platform_status' => $meta['platform_status'] ?? 'disabled',
+                'module_status'   => $meta['module_status']   ?? $this->defaultModuleStatus(),
+                'post_status'     => $post->post_status,
+                'is_active'       => MetaSchema::resolvePlatformStatus($meta, $post->post_status) === 'active',
+            ],
+        ]);
+    }
+
+    /**
+     * Permanently delete a trashed service and clean up all related platform data.
+     * Only callable when platform_status === 'trashed'. Uses wp_delete_post with force=true
+     * (bypasses WordPress Trash). Scrubs the service ID from surface package refs first.
+     */
+    public function permanentDeleteService(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $id   = (int) $request->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $meta           = get_post_meta($id, self::META_KEY, true);
+        $meta           = is_array($meta) ? $meta : [];
+        $platformStatus = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
+
+        if ($platformStatus !== 'trashed') {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed services can be permanently deleted.'], 422);
+        }
+
+        // Scrub this service ID from any surface package service_refs before hard-deleting.
+        $pkgPosts = get_posts([
+            'post_type'              => 'cz_surface_package',
+            'post_status'            => ['publish', 'draft'],
+            'numberposts'            => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_term_cache' => false,
+        ]);
+
+        foreach ($pkgPosts as $pkgId) {
+            $pkg = get_post_meta((int) $pkgId, 'cz_package', true);
+            if (!is_array($pkg) || empty($pkg['service_refs'])) {
+                continue;
+            }
+            $filtered = array_values(array_filter(
+                $pkg['service_refs'],
+                fn($ref) => (int) $ref !== $id
+            ));
+            if (count($filtered) !== count($pkg['service_refs'])) {
+                $pkg['service_refs'] = $filtered;
+                update_post_meta((int) $pkgId, 'cz_package', $pkg);
+            }
+        }
+
+        // Hard delete — removes the wp_posts row and all wp_postmeta rows automatically.
+        wp_delete_post($id, true);
+
+        return rest_ensure_response(['success' => true, 'deleted' => $id]);
     }
 
     public function requireAdmin(): bool

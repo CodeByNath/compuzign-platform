@@ -8,6 +8,8 @@ export interface AdminOverview {
 export type WorkstationId =
   | 'overview'
   | 'service-catalog'
+  | 'service-archived'
+  | 'service-trash'
   | 'surface-packages'
   | 'promotions'
   | 'bundles'
@@ -16,16 +18,19 @@ export type WorkstationId =
   | 'health';
 
 export interface WorkstationDef {
-  id: WorkstationId;
-  label: string;
-  icon: string;
-  group: string;
+  id:      WorkstationId;
+  label:   string;
+  icon:    string;
+  group:   string;
+  parent?: WorkstationId;
 }
 
 export const WORKSTATIONS: WorkstationDef[] = [
-  { id: 'overview',         label: 'Overview',          icon: '◈', group: 'command'    },
-  { id: 'service-catalog',  label: 'Service Catalog',   icon: '◫', group: 'catalog'    },
-  { id: 'surface-packages', label: 'Service Packages',  icon: '◧', group: 'catalog'    },
+  { id: 'overview',          label: 'Overview',          icon: '◈', group: 'command'    },
+  { id: 'service-catalog',   label: 'Service Catalog',   icon: '◫', group: 'catalog'    },
+  { id: 'service-archived',  label: 'Archived',          icon: '',  group: 'catalog',   parent: 'service-catalog' },
+  { id: 'service-trash',     label: 'Trash',             icon: '',  group: 'catalog',   parent: 'service-catalog' },
+  { id: 'surface-packages',  label: 'Service Packages',  icon: '◧', group: 'catalog'    },
   { id: 'promotions',       label: 'Promotions',        icon: '◷', group: 'catalog'    },
   { id: 'bundles',          label: 'Bundles',           icon: '❐', group: 'catalog'    },
   { id: 'featured',         label: 'Featured Controls', icon: '◆', group: 'catalog'    },
@@ -430,13 +435,19 @@ export interface CreateServiceResponse {
 // ── Admin station catalog ─────────────────────────────────────────────────────
 
 export interface StationSummary {
-  id:              number;
-  title:           string;
-  slug:            string;
-  categories:      Array<{ id: number | null; name: string; slug: string }>;
-  platform_status: 'active' | 'disabled' | 'archived' | 'trashed';
-  module_status:   { overview: string; inclusions: string; faqs: string };
-  has_drafts:      boolean;
+  id:                        number;
+  title:                     string;
+  slug:                      string;
+  categories:                Array<{ id: number | null; name: string; slug: string }>;
+  platform_status:           'active' | 'disabled' | 'archived' | 'trashed';
+  previous_platform_status?: 'active' | 'disabled' | '';
+  module_status:             { overview: string; inclusions: string; faqs: string };
+  has_drafts:                boolean;
+}
+
+export interface PermanentDeleteResponse {
+  success: boolean;
+  deleted: number;
 }
 
 export interface AdminCatalogResponse {

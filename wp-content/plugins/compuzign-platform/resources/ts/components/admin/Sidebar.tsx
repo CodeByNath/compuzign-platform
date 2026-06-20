@@ -32,25 +32,42 @@ export function Sidebar({ active, collapsed, onNavigate, onToggleCollapse }: Pro
       </div>
 
       <nav class="cz-admin-sidebar__nav">
-        {Object.entries(grouped).map(([group, items]) => (
-          <div key={group} class="cz-admin-sidebar__group">
-            {!collapsed && (
-              <div class="cz-admin-sidebar__group-label">{GROUPS[group] ?? group}</div>
-            )}
-            {items.filter((w) => !HIDDEN_FROM_NAV.has(w.id)).map((w) => (
-              <button
-                key={w.id}
-                type="button"
-                class={`cz-admin-nav-item${active === w.id ? ' cz-admin-nav-item--active' : ''}`}
-                onClick={() => onNavigate(w.id)}
-                title={collapsed ? w.label : undefined}
-              >
-                <span class="cz-admin-nav-item__icon">{w.icon}</span>
-                {!collapsed && <span class="cz-admin-nav-item__label">{w.label}</span>}
-              </button>
-            ))}
-          </div>
-        ))}
+        {Object.entries(grouped).map(([group, items]) => {
+          const topLevel = items.filter((w) => !HIDDEN_FROM_NAV.has(w.id) && !w.parent);
+          return (
+            <div key={group} class="cz-admin-sidebar__group">
+              {!collapsed && (
+                <div class="cz-admin-sidebar__group-label">{GROUPS[group] ?? group}</div>
+              )}
+              {topLevel.map((w) => {
+                const children = items.filter((c) => !HIDDEN_FROM_NAV.has(c.id) && c.parent === w.id);
+                return (
+                  <div key={w.id}>
+                    <button
+                      type="button"
+                      class={`cz-admin-nav-item${active === w.id ? ' cz-admin-nav-item--active' : ''}`}
+                      onClick={() => onNavigate(w.id)}
+                      title={collapsed ? w.label : undefined}
+                    >
+                      <span class="cz-admin-nav-item__icon">{w.icon}</span>
+                      {!collapsed && <span class="cz-admin-nav-item__label">{w.label}</span>}
+                    </button>
+                    {children.map((child) => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        class={`cz-admin-nav-subitem${active === child.id ? ' cz-admin-nav-subitem--active' : ''}`}
+                        onClick={() => onNavigate(child.id)}
+                      >
+                        {!collapsed && <span class="cz-admin-nav-subitem__label">{child.label}</span>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
       <div class="cz-admin-sidebar__footer">

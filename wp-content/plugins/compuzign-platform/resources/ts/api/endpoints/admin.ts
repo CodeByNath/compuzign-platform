@@ -2,6 +2,7 @@ import { apiClient } from '../client';
 import type {
   AcceptIntakeResponse,
   AdminCatalogResponse,
+  PermanentDeleteResponse,
   AdminServiceDetailResponse,
   AdminOverview,
   AdminRequestsResponse,
@@ -31,8 +32,19 @@ import type {
   TierSaveResponse,
 } from '../types/admin';
 
-export function fetchAdminCatalog(): Promise<AdminCatalogResponse> {
-  return apiClient.get<AdminCatalogResponse>('admin/services');
+export function fetchAdminCatalog(platformStatus?: 'archived' | 'trashed'): Promise<AdminCatalogResponse> {
+  const path = platformStatus
+    ? `admin/services?platform_status=${platformStatus}`
+    : 'admin/services';
+  return apiClient.get<AdminCatalogResponse>(path);
+}
+
+export function restoreService(serviceId: number): Promise<ServiceStatusResponse> {
+  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/restore`);
+}
+
+export function permanentDeleteService(serviceId: number): Promise<PermanentDeleteResponse> {
+  return apiClient.delete<PermanentDeleteResponse>(`admin/services/${serviceId}`);
 }
 
 export function fetchAdminOverview(): Promise<AdminOverview> {

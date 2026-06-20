@@ -67,8 +67,13 @@ class MetaSchema
                           ? $rawStatus
                           : $defaults['platform_status'];
 
+        $allowedPrev            = ['active', 'disabled'];
+        $rawPrev                = sanitize_text_field($meta['previous_platform_status'] ?? '');
+        $previousPlatformStatus = in_array($rawPrev, $allowedPrev, true) ? $rawPrev : '';
+
         return [
-            'platform_status'   => $platformStatus,
+            'platform_status'          => $platformStatus,
+            'previous_platform_status' => $previousPlatformStatus,
             'module_status'     => $moduleStatus,
             'short_description' => sanitize_text_field($meta['short_description'] ?? $defaults['short_description']),
             'long_description'  => sanitize_textarea_field($meta['long_description'] ?? $defaults['long_description']),
@@ -116,8 +121,9 @@ class MetaSchema
     public function defaultMeta(): array
     {
         return [
-            'platform_status'   => 'disabled',
-            'module_status'     => [
+            'platform_status'          => 'disabled',
+            'previous_platform_status' => '',
+            'module_status'            => [
                 'overview'   => 'pending',
                 'inclusions' => 'not-configured',
                 'faqs'       => 'not-configured',
@@ -180,7 +186,8 @@ class MetaSchema
         return [
             'type'       => 'object',
             'properties' => [
-                'platform_status'   => ['type' => 'string', 'enum' => self::ALLOWED_PLATFORM_STATUSES],
+                'platform_status'          => ['type' => 'string', 'enum' => self::ALLOWED_PLATFORM_STATUSES],
+                'previous_platform_status' => ['type' => 'string'],
                 'module_status'     => [
                     'type'       => 'object',
                     'properties' => [

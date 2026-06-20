@@ -2,6 +2,8 @@ import type { WorkstationId } from '@/api/types/admin';
 import type { ActionConfig } from './ActionShell';
 import { OverviewWorkstation } from './workstations/OverviewWorkstation';
 import { ServiceCatalogWorkstation } from './workstations/ServiceCatalogWorkstation';
+import { ServiceArchivedWorkstation } from './workstations/ServiceArchivedWorkstation';
+import { ServiceTrashWorkstation } from './workstations/ServiceTrashWorkstation';
 import { SurfacePackagesWorkstation } from './workstations/SurfacePackagesWorkstation';
 import { PromotionsWorkstation } from './workstations/PromotionsWorkstation';
 import { BundlesWorkstation } from './workstations/BundlesWorkstation';
@@ -22,6 +24,10 @@ export function WorkstationRouter({ active, refreshKey, openAction }: Props) {
       return <OverviewWorkstation refreshKey={refreshKey} />;
     case 'service-catalog':
       return <ServiceCatalogWorkstation refreshKey={refreshKey} openAction={openAction} />;
+    case 'service-archived':
+      return <ServiceArchivedWorkstation refreshKey={refreshKey} />;
+    case 'service-trash':
+      return <ServiceTrashWorkstation refreshKey={refreshKey} />;
     case 'surface-packages':
       return <SurfacePackagesWorkstation refreshKey={refreshKey} openAction={openAction} />;
     case 'promotions':
