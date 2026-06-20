@@ -29,6 +29,10 @@ interface Props {
   categories: Category[];
 }
 
+// Short Description (excerpt) is temporarily disabled and hidden from workflow, but retained for future use.
+// The field, its data, and the OverviewDraft.excerpt property remain intact.
+// It does not participate in completeness, lifecycle state, or notification calculations while hidden.
+
 export function ServiceOverviewEditor({ draft, onChange, categories }: Props) {
   return (
     <div class="cz-tf-form">
@@ -40,18 +44,6 @@ export function ServiceOverviewEditor({ draft, onChange, categories }: Props) {
           value={draft.title}
           onInput={(e) => onChange({ title: (e.target as HTMLInputElement).value })}
         />
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Short Description</label>
-        <input
-          type="text"
-          class="cz-tf-input"
-          value={draft.excerpt}
-          onInput={(e) => onChange({ excerpt: (e.target as HTMLInputElement).value })}
-        />
-        <span class="cz-tf-hint">Shown in listings and previews.</span>
-        <span class="cz-tf-hint cz-tf-hint--temp">Short Description validation is temporarily disabled.</span>
       </div>
 
       <div class="cz-tf-field">

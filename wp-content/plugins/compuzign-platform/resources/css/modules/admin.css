@@ -992,6 +992,10 @@
   text-align: right;
 }
 
+.cz-sc-table__service {
+  text-align: left;
+}
+
 .cz-sc-table__status {
   text-align: center;
 }

@@ -25,7 +25,7 @@ type StationStatus = 'active' | 'pending' | 'drafts' | 'disabled';
 const STATION_STATUS_PILL: Record<StationStatus, { cls: string; label: string }> = {
   'active':   { cls: 'cz-status-pill--active',   label: 'Active'   },
   'pending':  { cls: 'cz-status-pill--pending',  label: 'Pending'  },
-  'drafts':   { cls: 'cz-status-pill--pending',  label: 'Draft'    },
+  'drafts':   { cls: 'cz-status-pill--pending',  label: 'Pending'  },
   'disabled': { cls: 'cz-status-pill--inactive', label: 'Disabled' },
 };
 
@@ -394,7 +394,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog();
   const { data: surfacePkgData }          = useSurfacePackages();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter]     = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter]     = useState<StatusFilter>('active');
 
   const packages = surfacePkgData?.packages ?? [];
 
@@ -473,13 +473,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
 
   const visibleStations = statusFilter === 'all'
     ? categoryStations
-    : categoryStations.filter((s) => {
-        if (statusFilter === 'active')   return resolveStationStatus(s) === 'active';
-        if (statusFilter === 'pending')  return Object.values(s.module_status).some((v) => v === 'pending');
-        if (statusFilter === 'drafts')   return s.has_drafts;
-        if (statusFilter === 'disabled') return s.platform_status === 'disabled';
-        return true;
-      });
+    : categoryStations.filter((s) => resolveStationStatus(s) === statusFilter);
 
   return (
     <div>
@@ -509,14 +503,14 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                   key={cat.slug}
                   type="button"
                   class={`cz-pricing-tab${activeCategory === cat.slug ? ' cz-pricing-tab--active' : ''}`}
-                  onClick={() => setActiveCategory(cat.slug)}
+                  onClick={() => { setActiveCategory(cat.slug); setStatusFilter('active'); }}
                 >
                   {decodeHtml(cat.name)}
                 </button>
               ))}
             </div>
             <div class="cz-pricing-category-tabs__group">
-              {(['all', 'active', 'pending', 'drafts', 'disabled'] as const).map((f) => (
+              {(['active', 'pending', 'drafts', 'disabled', 'all'] as const).map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -539,7 +533,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                 <table class="cz-sc-table">
                   <thead>
                     <tr>
-                      <th>Service</th>
+                      <th class="cz-sc-table__service">Service</th>
                       <th class="cz-sc-table__status">Status</th>
                       <th class="cz-sc-table__actions">Actions</th>
                     </tr>
@@ -550,7 +544,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                       const pill = STATION_STATUS_PILL[st];
                       return (
                         <tr key={station.id}>
-                          <td class="cz-sc-table__name">{station.title}</td>
+                          <td class="cz-sc-table__service cz-sc-table__name">{station.title}</td>
                           <td class="cz-sc-table__status">
                             <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
                           </td>
