@@ -51,6 +51,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories }: Props) {
           onInput={(e) => onChange({ excerpt: (e.target as HTMLInputElement).value })}
         />
         <span class="cz-tf-hint">Shown in listings and previews.</span>
+        <span class="cz-tf-hint cz-tf-hint--temp">Short Description validation is temporarily disabled.</span>
       </div>
 
       <div class="cz-tf-field">

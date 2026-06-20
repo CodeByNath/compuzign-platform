@@ -992,6 +992,10 @@
   text-align: right;
 }
 
+.cz-sc-table__status {
+  text-align: center;
+}
+
 .cz-price-tag {
   display: inline-block;
   padding: 2px var(--cz-space-2);
@@ -1992,6 +1996,17 @@
   margin-bottom: var(--cz-space-4);
 }
 
+.cz-pricing-category-tabs--split {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cz-pricing-category-tabs__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .cz-pricing-tab {
   padding: 6px 14px;
   background: var(--admin-accent-a12);
@@ -2723,6 +2738,10 @@ body.compuzign-admin-page footer.site-footer {
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-faint);
   line-height: var(--admin-lh-s-label);
+}
+
+.cz-tf-hint--temp {
+  font-style: italic;
 }
 
 /* ── Form controls ───────────────────────────────────────────────────────────── */

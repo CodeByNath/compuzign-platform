@@ -491,22 +491,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
             — manage your service library and availability.
           </p>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <select
-            class="cz-admin-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter((e.target as HTMLSelectElement).value as StatusFilter)}
-          >
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="drafts">Drafts</option>
-            <option value="disabled">Disabled</option>
-          </select>
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
-            + New Service
-          </button>
-        </div>
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
+          + New Service
+        </button>
       </div>
 
       {totalStations === 0 ? (
@@ -515,17 +502,31 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
         </div>
       ) : (
         <>
-          <div class="cz-pricing-category-tabs">
-            {allCategories.map((cat) => (
-              <button
-                key={cat.slug}
-                type="button"
-                class={`cz-pricing-tab${activeCategory === cat.slug ? ' cz-pricing-tab--active' : ''}`}
-                onClick={() => setActiveCategory(cat.slug)}
-              >
-                {decodeHtml(cat.name)}
-              </button>
-            ))}
+          <div class="cz-pricing-category-tabs cz-pricing-category-tabs--split">
+            <div class="cz-pricing-category-tabs__group">
+              {allCategories.map((cat) => (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  class={`cz-pricing-tab${activeCategory === cat.slug ? ' cz-pricing-tab--active' : ''}`}
+                  onClick={() => setActiveCategory(cat.slug)}
+                >
+                  {decodeHtml(cat.name)}
+                </button>
+              ))}
+            </div>
+            <div class="cz-pricing-category-tabs__group">
+              {(['all', 'active', 'pending', 'drafts', 'disabled'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  class={`cz-pricing-tab${statusFilter === f ? ' cz-pricing-tab--active' : ''}`}
+                  onClick={() => setStatusFilter(f)}
+                >
+                  {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
 
           {visibleStations.length === 0 ? (
@@ -539,7 +540,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                   <thead>
                     <tr>
                       <th>Service</th>
-                      <th style="text-align:center">Status</th>
+                      <th class="cz-sc-table__status">Status</th>
                       <th class="cz-sc-table__actions">Actions</th>
                     </tr>
                   </thead>
@@ -550,10 +551,10 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                       return (
                         <tr key={station.id}>
                           <td class="cz-sc-table__name">{station.title}</td>
-                          <td style="text-align:center">
+                          <td class="cz-sc-table__status">
                             <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
                           </td>
-                          <td style="text-align:right">
+                          <td class="cz-sc-table__actions">
                             <button
                               type="button"
                               class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"

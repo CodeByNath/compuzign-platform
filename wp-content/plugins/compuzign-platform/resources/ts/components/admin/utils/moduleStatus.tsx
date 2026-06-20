@@ -33,7 +33,8 @@ export function checkOverviewCompleteness(service: ServiceItem): OverviewComplet
   const excerpt  = !!service.excerpt?.trim();
   const category = service.categories.length > 0;
   const content  = !!service.content.trim();
-  return { title, excerpt, category, content, complete: title && excerpt && category && content };
+  // excerpt temporarily excluded from completeness gate
+  return { title, excerpt, category, content, complete: title && category && content };
 }
 
 export function checkOverviewCompletenessFromDraft(draft: OverviewDraftData): OverviewCompleteness {
@@ -41,7 +42,8 @@ export function checkOverviewCompletenessFromDraft(draft: OverviewDraftData): Ov
   const excerpt  = !!draft.excerpt.trim();
   const category = draft.category_ids.length > 0;
   const content  = !!draft.content.trim();
-  return { title, excerpt, category, content, complete: title && excerpt && category && content };
+  // excerpt temporarily excluded from completeness gate
+  return { title, excerpt, category, content, complete: title && category && content };
 }
 
 // ── Status resolvers ──────────────────────────────────────────────────────────
