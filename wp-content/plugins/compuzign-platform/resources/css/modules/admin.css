@@ -1280,6 +1280,12 @@
   flex-shrink: 0;
 }
 
+.cz-action-shell__back svg {
+  width: var(--admin-fs-icon-s);
+  height: var(--admin-fs-icon-s);
+  display: block;
+}
+
 .cz-action-shell__back:hover {
   background: var(--admin-accent-a12);
   border-color: var(--admin-accent);
@@ -2780,11 +2786,9 @@ body.compuzign-admin-page footer.site-footer {
 .cz-tf-label {
   display: block;
   font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-strong);
+  font-weight: var(--admin-fw-normal);
   line-height: var(--admin-lh-s-label);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--admin-text-muted);
+  color: var(--admin-text-faint);
 }
 
 .cz-tf-hint {
@@ -3941,6 +3945,7 @@ button.cz-module-status-pill {
   grid-template-columns: 100px 1fr;
   gap: var(--cz-space-3);
   align-items: baseline;
+  max-width: 90%;
 }
 
 .cz-module-card__label {
