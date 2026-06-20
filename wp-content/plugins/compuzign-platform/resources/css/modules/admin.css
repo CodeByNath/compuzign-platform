@@ -1359,28 +1359,35 @@
 
 .cz-ies__header {
   display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-2);
-  padding: var(--cz-space-4) var(--cz-space-6);
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px var(--cz-space-6);
+  border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
 }
 
-.cz-ies__title {
-  font-size: var(--admin-fs-s-sub);
-  font-weight: var(--admin-fw-strong);
-  color: var(--admin-text);
-}
-
-.cz-ies__header-controls {
+.cz-ies__nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--cz-space-2);
+  min-width: 0;
+}
+
+.cz-ies__title {
+  font-size: var(--admin-fs-sub);
+  font-weight: var(--admin-fw-strong);
+  line-height: var(--admin-lh-sub);
+  color: var(--admin-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cz-ies__live-badge {
   display: flex;
   align-items: center;
-  gap: var(--cz-space-2);
+  flex-shrink: 0;
+  margin-left: var(--cz-space-4);
 }
 
 .cz-ies__body {
@@ -3955,6 +3962,13 @@ button.cz-module-status-pill {
   color: var(--admin-text-muted);
   font-size: var(--admin-fs-s-label);
   line-height: var(--admin-lh-s-label);
+}
+
+.cz-module-card__value--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .cz-module-card__count {

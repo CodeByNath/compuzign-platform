@@ -28,16 +28,15 @@ export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, is
   return (
     <div class="cz-ies">
       <div class="cz-ies__header">
-        <span class="cz-ies__title">{title}</span>
-        <div class="cz-ies__header-controls">
+        <div class="cz-ies__nav">
           <button type="button" class="cz-action-shell__back" onClick={handleCancelClick} disabled={saving} aria-label={`Back from ${title}`}>
             ‹
           </button>
-          <span class="cz-ies__live-badge">
-            <span class="cz-admin-status-dot cz-admin-status-dot--active" />
-            <span class="cz-status-pill cz-status-pill--active">Live Editor</span>
-          </span>
+          <span class="cz-ies__title">{title}</span>
         </div>
+        <span class="cz-ies__live-badge">
+          <span class="cz-status-pill cz-status-pill--active">Live Editor</span>
+        </span>
       </div>
 
       <div class="cz-ies__body">

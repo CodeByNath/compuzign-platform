@@ -76,7 +76,7 @@ export function ServiceOverviewViewCard({
           </div>
           <div class="cz-module-card__field">
             <p class="cz-module-card__label">Description</p>
-            <p class={`cz-module-card__value${!displayContent ? ' cz-module-card__value--muted' : ''}`}>
+            <p class={`cz-module-card__value${displayContent ? ' cz-module-card__value--clamp' : ' cz-module-card__value--muted'}`}>
               {displayContent
                 ? displayContent
                 : displayTitle
