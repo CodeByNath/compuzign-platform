@@ -3777,6 +3777,150 @@ button.cz-module-status-pill {
   border-bottom: none;
 }
 
+/* ── Module card — Service Station drawer view cards ────────────────────────── */
+
+.cz-module-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--admin-white-a05);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: var(--cz-space-4);
+}
+
+.cz-module-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-3);
+  padding: var(--cz-space-4) var(--cz-space-5);
+  border-bottom: 1px solid var(--admin-border-blue);
+}
+
+.cz-module-card__icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 8px;
+  background: var(--admin-accent-a12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--admin-fs-s-sub);
+  color: var(--admin-accent);
+  flex-shrink: 0;
+}
+
+.cz-module-card__heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cz-module-card__title {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+  line-height: var(--admin-lh-label);
+}
+
+.cz-module-card__subtitle {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--admin-text-faint);
+  line-height: var(--admin-lh-s-label);
+}
+
+.cz-module-card__status {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cz-module-card__status--dim {
+  opacity: 0.45;
+}
+
+.cz-module-card__body {
+  padding: var(--cz-space-4) var(--cz-space-5);
+}
+
+.cz-module-card__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+}
+
+.cz-module-card__field {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: var(--cz-space-3);
+  align-items: baseline;
+}
+
+.cz-module-card__label {
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--admin-text-faint);
+  line-height: var(--admin-lh-s-label);
+  margin: 0;
+}
+
+.cz-module-card__value {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  color: var(--admin-text);
+  line-height: var(--admin-lh-label);
+}
+
+.cz-module-card__value--muted {
+  color: var(--admin-text-muted);
+  font-size: var(--admin-fs-s-label);
+  line-height: var(--admin-lh-s-label);
+}
+
+.cz-module-card__count {
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--admin-text-faint);
+  margin-left: var(--cz-space-2);
+}
+
+.cz-module-card__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
+.cz-module-card__empty-title {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+  line-height: var(--admin-lh-label);
+}
+
+.cz-module-card__empty-copy {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--admin-text-faint);
+  line-height: var(--admin-lh-s-label);
+}
+
+.cz-module-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-3) var(--cz-space-5);
+  border-top: 1px solid var(--admin-border-blue);
+}
+
 /* ── Responsive breakpoints ─────────────────────────────────────────────────── */
 @media screen and (max-width: 767px) {
   .cz-tf-chip {

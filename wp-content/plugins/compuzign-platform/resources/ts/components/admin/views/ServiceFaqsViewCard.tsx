@@ -26,66 +26,66 @@ export function ServiceFaqsViewCard({
   onEdit,
   onDiscard,
 }: ServiceFaqsViewCardProps) {
+  const statusDimmed = status === 'pending-dim';
+
   return (
-    <div class="cz-req-detail__section">
-      <div class="cz-sv-module">
-        <div class={`cz-sv-module-header${faqs.length > 0 ? ' cz-sv-module-header--no-border' : ''}`}>
-          <p class="cz-req-detail__section-title">
+    <div class="cz-module-card">
+      <div class="cz-module-card__header">
+        <div class="cz-module-card__icon">◌</div>
+        <div class="cz-module-card__heading">
+          <p class="cz-module-card__title">
             Common Questions
             {faqs.length > 0 && (
-              <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">
-                {faqs.length}
-              </span>
+              <span class="cz-module-card__count">{faqs.length}</span>
             )}
           </p>
-          <div>
-            <span
-              class="cz-sv-overview-block__status"
-              style={status === 'pending-dim' ? 'opacity:0.45' : undefined}
-            >
-              <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />
-            </span>
+          <p class="cz-module-card__subtitle">Add questions and answers for this service.</p>
+        </div>
+        <div class={`cz-module-card__status${statusDimmed ? ' cz-module-card__status--dim' : ''}`}>
+          <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />
+        </div>
+      </div>
+
+      {panelOpen && noteCount(notes) > 0 && (
+        <ModuleNotificationPanel notes={notes} />
+      )}
+
+      <div class="cz-module-card__body">
+        {faqs.length > 0 ? (
+          <div class="cz-sc-faq-list">
+            {faqs.map((faq) => (
+              <div key={faq.id} class="cz-sc-faq-item">
+                <p class="cz-sc-faq-item__q">
+                  {faq.question.trim() || 'No Question Added'}
+                </p>
+                <p class="cz-sc-faq-item__a">
+                  {faq.answer?.trim() || 'No Answer Added'}
+                </p>
+              </div>
+            ))}
           </div>
-        </div>
-        {panelOpen && noteCount(notes) > 0 && (
-          <ModuleNotificationPanel notes={notes} />
+        ) : (
+          <div class="cz-module-card__empty">
+            <p class="cz-module-card__empty-title">No questions added</p>
+            <p class="cz-module-card__empty-copy">
+              {serviceTitle
+                ? `Add common questions for the ${serviceTitle}.`
+                : 'Add common questions for this service.'
+              }
+            </p>
+          </div>
         )}
-        <div class="cz-sv-module-body">
-          {faqs.length > 0 ? (
-            <div class="cz-sc-faq-list">
-              {faqs.map((faq) => (
-                <div key={faq.id} class="cz-sc-faq-item">
-                  <p class="cz-sc-faq-item__q">
-                    {faq.question.trim() || 'No Question Added'}
-                  </p>
-                  <p class="cz-sc-faq-item__a">
-                    {faq.answer?.trim() || 'No Answer Added'}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div class="cz-sv-overview-block__identity">
-              <p class="cz-sv-overview-block__name">No questions added</p>
-              <p class="cz-sv-overview-block__excerpt">
-                {serviceTitle
-                  ? `Add common questions for the ${serviceTitle}.`
-                  : 'Add common questions for this service.'
-                }
-              </p>
-            </div>
-          )}
-        </div>
-        <div class="cz-sv-module-footer">
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
-            ✎ Edit
+      </div>
+
+      <div class="cz-module-card__footer">
+        {hasDraft && (
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
+            Discard Draft
           </button>
-          {hasDraft && (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
-              Discard Draft
-            </button>
-          )}
-        </div>
+        )}
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
+          Edit
+        </button>
       </div>
     </div>
   );

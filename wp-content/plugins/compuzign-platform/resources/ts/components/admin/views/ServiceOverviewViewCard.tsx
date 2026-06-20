@@ -9,6 +9,8 @@ interface ServiceOverviewViewCardProps {
   panelOpen:       boolean;
   onTogglePanel:   () => void;
   displayTitle:    string;
+  // Short Description (excerpt) is temporarily disabled and hidden from workflow.
+  // The prop is retained so the call site requires no change; the field is not rendered.
   displayExcerpt:  string;
   displayContent:  string;
   displayCategory: string;
@@ -23,55 +25,46 @@ export function ServiceOverviewViewCard({
   panelOpen,
   onTogglePanel,
   displayTitle,
-  displayExcerpt,
   displayContent,
   displayCategory,
   hasDraft,
   onEdit,
   onDiscard,
 }: ServiceOverviewViewCardProps) {
+  const statusDimmed = status === 'pending-dim';
+
   return (
-    <div class="cz-req-detail__section cz-sv-section--no-border">
-      <div class="cz-sv-module">
-        <div class="cz-sv-module-header">
-          <p class="cz-req-detail__section-title">Service Overview</p>
-          <div>
-            <span
-              class="cz-sv-overview-block__status"
-              style={status === 'pending-dim' ? 'opacity:0.45' : undefined}
-            >
-              <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />
-            </span>
-          </div>
+    <div class="cz-module-card">
+      <div class="cz-module-card__header">
+        <div class="cz-module-card__icon">◈</div>
+        <div class="cz-module-card__heading">
+          <p class="cz-module-card__title">Service Overview</p>
+          <p class="cz-module-card__subtitle">General information about your service.</p>
         </div>
-        {panelOpen && noteCount(notes) > 0 && (
-          <ModuleNotificationPanel notes={notes} />
-        )}
-        <div class="cz-sv-module-body">
-          <div class="cz-sv-overview-block__meta">
-            <span class="cz-req-contact-grid__label">Title</span>
-            <p class="cz-sv-overview-block__value">
+        <div class={`cz-module-card__status${statusDimmed ? ' cz-module-card__status--dim' : ''}`}>
+          <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />
+        </div>
+      </div>
+
+      {panelOpen && noteCount(notes) > 0 && (
+        <ModuleNotificationPanel notes={notes} />
+      )}
+
+      <div class="cz-module-card__body">
+        <div class="cz-module-card__fields">
+          <div class="cz-module-card__field">
+            <p class="cz-module-card__label">Title</p>
+            <p class="cz-module-card__value">
               {displayTitle || 'New Service'}
             </p>
           </div>
-          <div class="cz-sv-overview-block__meta">
-            <span class="cz-req-contact-grid__label">Short Description</span>
-            <p class="cz-sv-overview-block__value">
-              {displayExcerpt
-                ? displayExcerpt
-                : displayTitle
-                  ? `Enter a short description for the ${displayTitle}.`
-                  : 'Enter a short description for this service.'
-              }
-            </p>
+          <div class="cz-module-card__field">
+            <p class="cz-module-card__label">Category</p>
+            <p class="cz-module-card__value">{displayCategory}</p>
           </div>
-          <div class="cz-sv-overview-block__meta">
-            <span class="cz-req-contact-grid__label">Category</span>
-            <span class="cz-sv-overview-block__value">{displayCategory}</span>
-          </div>
-          <div class="cz-sv-overview-block__meta">
-            <span class="cz-req-contact-grid__label">Description</span>
-            <p class="cz-sv-overview-block__desc">
+          <div class="cz-module-card__field">
+            <p class="cz-module-card__label">Description</p>
+            <p class={`cz-module-card__value${!displayContent ? ' cz-module-card__value--muted' : ''}`}>
               {displayContent
                 ? displayContent
                 : displayTitle
@@ -81,16 +74,17 @@ export function ServiceOverviewViewCard({
             </p>
           </div>
         </div>
-        <div class="cz-sv-module-footer">
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
-            ✎ Edit
+      </div>
+
+      <div class="cz-module-card__footer">
+        {hasDraft && (
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
+            Discard Draft
           </button>
-          {hasDraft && (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
-              Discard Draft
-            </button>
-          )}
-        </div>
+        )}
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
+          Edit
+        </button>
       </div>
     </div>
   );
