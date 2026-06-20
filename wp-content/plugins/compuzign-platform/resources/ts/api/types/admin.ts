@@ -426,3 +426,20 @@ export interface CreateServiceResponse {
   };
   drafts: ServiceModuleDrafts;
 }
+
+// ── Admin station catalog ─────────────────────────────────────────────────────
+
+export interface StationSummary {
+  id:              number;
+  title:           string;
+  slug:            string;
+  categories:      Array<{ id: number | null; name: string; slug: string }>;
+  platform_status: 'active' | 'disabled' | 'archived' | 'trashed';
+  module_status:   { overview: string; inclusions: string; faqs: string };
+  has_drafts:      boolean;
+}
+
+export interface AdminCatalogResponse {
+  categories: Array<{ id: number | null; name: string; slug: string }>;
+  stations:   StationSummary[];
+}

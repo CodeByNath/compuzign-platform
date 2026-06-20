@@ -1,6 +1,7 @@
 import { apiClient } from '../client';
 import type {
   AcceptIntakeResponse,
+  AdminCatalogResponse,
   AdminServiceDetailResponse,
   AdminOverview,
   AdminRequestsResponse,
@@ -29,6 +30,10 @@ import type {
   TierSavePayload,
   TierSaveResponse,
 } from '../types/admin';
+
+export function fetchAdminCatalog(): Promise<AdminCatalogResponse> {
+  return apiClient.get<AdminCatalogResponse>('admin/services');
+}
 
 export function fetchAdminOverview(): Promise<AdminOverview> {
   return apiClient.get<AdminOverview>('admin/overview');

@@ -22,6 +22,13 @@ class AdminServicesController
 
     public function registerRoutes(): void
     {
+        // ── Station catalog list (admin only) ────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/services', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'listServices'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
         // ── Create ────────────────────────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/services', [
             'methods'             => 'POST',
@@ -141,6 +148,68 @@ class AdminServicesController
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Return all admin-visible station summaries grouped-flat with their categories.
+     * Excludes archived and trashed. Does not include pricing or draft content —
+     * only the lifecycle state needed for the catalog table.
+     */
+    public function listServices(\WP_REST_Request $request): \WP_REST_Response
+    {
+        // All category terms ordered by name — used for the catalog tab bar.
+        $terms      = get_terms(['taxonomy' => self::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
+        $categories = array_map(fn($t) => [
+            'id'   => (int) $t->term_id,
+            'name' => $t->name,
+            'slug' => $t->slug,
+        ], is_array($terms) ? $terms : []);
+
+        // All published service posts ordered by title.
+        $posts = get_posts([
+            'post_type'   => self::POST_TYPE,
+            'post_status' => 'publish',
+            'numberposts' => -1,
+            'orderby'     => 'title',
+            'order'       => 'ASC',
+        ]);
+
+        $stations = [];
+
+        foreach ($posts as $post) {
+            $meta           = get_post_meta($post->ID, self::META_KEY, true);
+            $meta           = is_array($meta) ? $meta : [];
+            $platformStatus = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
+
+            // Exclude archived and trashed from the main catalog.
+            if (in_array($platformStatus, ['archived', 'trashed'], true)) {
+                continue;
+            }
+
+            $postTerms = wp_get_post_terms($post->ID, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
+            $postCats  = array_map(fn($t) => [
+                'id'   => (int) $t->term_id,
+                'name' => $t->name,
+                'slug' => $t->slug,
+            ], $postTerms);
+
+            $stations[] = [
+                'id'              => $post->ID,
+                'title'           => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'            => $post->post_name,
+                'categories'      => $postCats,
+                'platform_status' => $platformStatus,
+                'module_status'   => $meta['module_status'] ?? $this->defaultModuleStatus(),
+                'has_drafts'      => $this->hasDraft($post->ID, 'overview')
+                                  || $this->hasDraft($post->ID, 'inclusions')
+                                  || $this->hasDraft($post->ID, 'faqs'),
+            ];
+        }
+
+        return rest_ensure_response([
+            'categories' => $categories,
+            'stations'   => $stations,
+        ]);
+    }
 
     public function createService(\WP_REST_Request $request): \WP_REST_Response
     {

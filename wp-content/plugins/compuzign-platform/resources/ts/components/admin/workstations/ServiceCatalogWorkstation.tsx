@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
-import { useCostBuilder } from '@/hooks/useCostBuilder';
+import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import type { Category, CostBuilderResponse, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
+import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import { createService } from '@/api/endpoints/admin';
-import type { AdminServiceDetailResponse, SurfacePackageSummary } from '@/api/types/admin';
-import { renderModuleStatus, resolveServiceStationRowSummary, STATUS_PILL_MAP } from '@/components/admin/utils/moduleStatus';
+import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
+import { renderModuleStatus } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -16,6 +16,78 @@ interface Props {
   refreshKey: number;
   openAction: (config: ActionConfig) => void;
 }
+
+// ── Station status ────────────────────────────────────────────────────────────
+
+type StatusFilter = 'all' | 'active' | 'pending' | 'drafts' | 'disabled';
+type StationStatus = 'active' | 'pending' | 'drafts' | 'disabled';
+
+const STATION_STATUS_PILL: Record<StationStatus, { cls: string; label: string }> = {
+  'active':   { cls: 'cz-status-pill--active',   label: 'Active'   },
+  'pending':  { cls: 'cz-status-pill--pending',  label: 'Pending'  },
+  'drafts':   { cls: 'cz-status-pill--pending',  label: 'Draft'    },
+  'disabled': { cls: 'cz-status-pill--inactive', label: 'Disabled' },
+};
+
+function resolveStationStatus(station: StationSummary): StationStatus {
+  if (station.platform_status === 'disabled') return 'disabled';
+  if (station.has_drafts) return 'drafts';
+  if (Object.values(station.module_status).some((v) => v === 'pending')) return 'pending';
+  return 'active';
+}
+
+// ── Category normalization ────────────────────────────────────────────────────
+// AdminCatalogResponse returns id: number | null. Real taxonomy terms always have
+// integer IDs; null only appears for synthetic "Uncategorised" groupings.
+// Filter null-ID entries out before passing to contexts expecting Category[].
+
+type AdminCategory = { id: number | null; name: string; slug: string };
+
+function normalizeAdminCategories(cats: AdminCategory[]): Category[] {
+  return cats
+    .filter((c): c is { id: number; name: string; slug: string } => c.id !== null)
+    .map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
+}
+
+// ── Drawer handoff adapter ────────────────────────────────────────────────────
+// Produces a minimal ServiceItem for opening the existing ServiceViewStep drawer.
+// The drawer immediately calls fetchAdminServiceDetail(service.id) on mount and
+// loads authoritative data from there. This adapter only carries enough for the
+// drawer loading window — do not treat it as a second service model.
+
+function buildServiceItemForStationHandoff(summary: StationSummary): ServiceItem {
+  return {
+    id:         summary.id,
+    title:      summary.title,
+    slug:       summary.slug,
+    excerpt:    '',
+    content:    '',
+    categories: normalizeAdminCategories(summary.categories),
+    inclusions:   [],
+    faqs:         [],
+    availability: { is_available: true, message: '' },
+    meta: {
+      platform_status:   summary.platform_status,
+      module_status:     summary.module_status as any,
+      short_description: '',
+      long_description:  '',
+      billing_cycle:     '',
+      sla:               '',
+      uptime:            '',
+      notes:             '',
+      popular_tier:      null,
+      popular_label:     null,
+      sort_order:        0,
+    },
+    pricing: {
+      tiers:  {} as Record<TierId, PricingTierData>,
+      bundle: { title: '', description: '', price: null },
+    },
+    promotion_tiers: [],
+  };
+}
+
+// ── New-service creation helper ───────────────────────────────────────────────
 
 function buildNewServiceItem(
   data: { id: number; title: string; slug: string; platform_status: string; module_status: Record<string, string> },
@@ -58,7 +130,7 @@ function buildNewServiceItem(
 function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   const doOpen        = ctx.stepData.openAction    as (config: ActionConfig) => void;
   const packages      = ctx.stepData.packages      as SurfacePackageSummary[];
-  const allCategories = ctx.stepData.allCategories as Category[] ?? [];
+  const allCategories = ctx.stepData.allCategories as Category[];
   const onRefresh     = ctx.stepData.onRefresh     as (() => void) | undefined;
 
   const [tab,     setTab]     = useState<'service' | 'commercial'>('service');
@@ -319,9 +391,10 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 // ── Main workstation ──────────────────────────────────────────────────────────
 
 export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
-  const { data, loading, error, refetch } = useCostBuilder();
+  const { data, loading, error, refetch } = useAdminCatalog();
   const { data: surfacePkgData }          = useSurfacePackages();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter]     = useState<StatusFilter>('all');
 
   const packages = surfacePkgData?.packages ?? [];
 
@@ -330,24 +403,26 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
   }, [refreshKey]);
 
   useEffect(() => {
-    const resp = data as CostBuilderResponse | null;
-    if (resp && activeCategory === null && resp.categories.length > 0) {
-      setActiveCategory(resp.categories[0].slug);
+    if (data && activeCategory === null && data.categories.length > 0) {
+      setActiveCategory(data.categories[0].slug);
     }
   }, [data]);
 
-  const handleViewService = (service: ServiceItem) => {
-    const svcActive = service.meta?.platform_status === 'active';
+  const handleViewService = (station: StationSummary) => {
+    const item   = buildServiceItemForStationHandoff(station);
+    const svcDot = station.platform_status === 'active'
+      ? 'var(--admin-success)'
+      : 'var(--admin-error)';
     openAction({
-      id:       `service-view-${service.id}`,
+      id:       `service-view-${station.id}`,
       mode:     'drawer',
-      title:    service.title,
-      titleDot: `var(--admin-${svcActive ? 'success' : 'error'})`,
+      title:    station.title,
+      titleDot: svcDot,
       initialStepData: {
-        service,
+        service:       item,
         packages,
         openAction,
-        allCategories: resp?.categories ?? [],
+        allCategories: normalizeAdminCategories(data?.categories ?? []),
         onRefresh:     refetch,
       },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
@@ -362,7 +437,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
       initialStepData: {
         packages,
         openAction,
-        allCategories: resp?.categories ?? [],
+        allCategories: normalizeAdminCategories(data?.categories ?? []),
         onRefresh:     refetch,
       },
       steps: [{ id: 'create', title: 'New Service', component: ServiceCreateStep }],
@@ -388,13 +463,23 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     );
   }
 
-  const resp          = data as CostBuilderResponse | null;
-  const allServices   = resp?.services_by_category.flatMap((g) => g.services) ?? [];
-  const totalServices = allServices.length;
+  const allStations   = data?.stations ?? [];
+  const totalStations = allStations.length;
+  const allCategories = data?.categories ?? [];
 
-  const activeGroup = resp?.services_by_category.find((g) => g.category_slug === activeCategory)
-    ?? resp?.services_by_category[0];
-  const services: ServiceItem[] = activeGroup?.services ?? [];
+  const categoryStations = activeCategory
+    ? allStations.filter((s) => s.categories.some((c) => c.slug === activeCategory))
+    : allStations;
+
+  const visibleStations = statusFilter === 'all'
+    ? categoryStations
+    : categoryStations.filter((s) => {
+        if (statusFilter === 'active')   return resolveStationStatus(s) === 'active';
+        if (statusFilter === 'pending')  return Object.values(s.module_status).some((v) => v === 'pending');
+        if (statusFilter === 'drafts')   return s.has_drafts;
+        if (statusFilter === 'disabled') return s.platform_status === 'disabled';
+        return true;
+      });
 
   return (
     <div>
@@ -402,25 +487,36 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
         <div>
           <h2 class="cz-ws-title">Service Catalog</h2>
           <p class="cz-ws-subtitle">
-            {totalServices} service{totalServices !== 1 ? 's' : ''} across {resp?.categories.length ?? 0} categories
+            {totalStations} service{totalStations !== 1 ? 's' : ''} across {allCategories.length} categories
             — manage your service library and availability.
           </p>
         </div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
-          + New Service
-        </button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select
+            class="cz-admin-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter((e.target as HTMLSelectElement).value as StatusFilter)}
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="drafts">Drafts</option>
+            <option value="disabled">Disabled</option>
+          </select>
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
+            + New Service
+          </button>
+        </div>
       </div>
 
-      {totalServices === 0 ? (
+      {totalStations === 0 ? (
         <div class="cz-admin-empty">
           <p>No services in catalog. Use the import endpoint to load from XLSX.</p>
         </div>
       ) : (
         <>
-          {/* ── Service Browse Step ──────────────────────────────────────────────── */}
-          {/* ── Category tabs ── */}
           <div class="cz-pricing-category-tabs">
-            {(resp?.categories ?? []).map((cat) => (
+            {allCategories.map((cat) => (
               <button
                 key={cat.slug}
                 type="button"
@@ -432,10 +528,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
             ))}
           </div>
 
-          {/* ── Service table ── */}
-          {services.length === 0 ? (
+          {visibleStations.length === 0 ? (
             <div class="cz-admin-empty">
-              <p>No services in this category yet.</p>
+              <p>No services match the current filter.</p>
             </div>
           ) : (
             <div class="cz-ws-card" style="padding:0;overflow:hidden">
@@ -444,66 +539,25 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                   <thead>
                     <tr>
                       <th>Service</th>
-                      <th>Basic</th>
-                      <th>Standard</th>
-                      <th>Premium</th>
-                      <th>Enterprise</th>
-                      <th class="cz-sc-table__popular">Popular</th>
                       <th style="text-align:center">Status</th>
                       <th class="cz-sc-table__actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {services.map((service) => {
-                      // Cast needed: overlay removes disabled tier keys at runtime
-                      // despite Record<TierId, PricingTierData> typing.
-                      const tiers       = service.pricing?.tiers as Partial<Record<TierId, PricingTierData>> | undefined;
-                      const popularTier = service.meta?.popular_tier ?? null;
-                      const row         = resolveServiceStationRowSummary(service);
-                      const hasPackage  = packages.some((p) => p.service_refs.includes(service.id));
-                      const fmtPrice    = (v: number | null | undefined) =>
-                        v != null ? `$${v.toLocaleString()}` : '—';
-
-                      const tierCell = (tierId: TierId) => {
-                        const data = tiers?.[tierId];
-                        if (hasPackage && !data) {
-                          return <span class="cz-status-pill cz-status-pill--inactive">Off</span>;
-                        }
-                        if (data?.price != null) {
-                          return <span class="cz-price-tag cz-price-tag--has-price">{fmtPrice(data.price)}</span>;
-                        }
-                        if (hasPackage) {
-                          return <span class="cz-price-tag">Contact</span>;
-                        }
-                        return <span class="cz-price-tag">—</span>;
-                      };
-
+                    {visibleStations.map((station) => {
+                      const st   = resolveStationStatus(station);
+                      const pill = STATION_STATUS_PILL[st];
                       return (
-                        <tr key={service.id}>
-                          <td class="cz-sc-table__name">{service.title}</td>
-                          <td class="cz-sc-table__price">{tierCell('basic')}</td>
-                          <td class="cz-sc-table__price">{tierCell('standard')}</td>
-                          <td class="cz-sc-table__price">{tierCell('premium')}</td>
-                          <td class="cz-sc-table__price">{tierCell('enterprise')}</td>
-                          <td class="cz-sc-table__popular">
-                            {popularTier ? (
-                              <span class="cz-tier-badge cz-tier-badge--popular">
-                                {TIER_LABELS[popularTier] ?? popularTier}
-                              </span>
-                            ) : (
-                              <span style="color:var(--admin-text-faint);font-size:12px">—</span>
-                            )}
-                          </td>
+                        <tr key={station.id}>
+                          <td class="cz-sc-table__name">{station.title}</td>
                           <td style="text-align:center">
-                            <span class={`cz-status-pill ${STATUS_PILL_MAP[row.resolvedStatus]?.cls ?? 'cz-status-pill--inactive'}`}>
-                              {STATUS_PILL_MAP[row.resolvedStatus]?.label ?? 'Inactive'}
-                            </span>
+                            <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
                           </td>
                           <td style="text-align:right">
                             <button
                               type="button"
                               class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                              onClick={() => handleViewService(service)}
+                              onClick={() => handleViewService(station)}
                             >
                               View
                             </button>
@@ -516,7 +570,6 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
               </div>
             </div>
           )}
-          {/* ── / Service Browse Step ────────────────────────────────────────────── */}
         </>
       )}
     </div>
