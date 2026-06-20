@@ -2,7 +2,7 @@
 // Used by both the Catalog lifecycle (ServiceViewStep) and Transit lifecycles
 // (ServiceOverviewTransitView, PackageSummaryTransitView).
 
-import type { ServiceItem } from '@/api/types/cost-builder';
+import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
 import type { OverviewDraftData, SurfacePackageSummary } from '@/api/types/admin';
 
 // Structural minimum for tier status resolution.
@@ -97,7 +97,7 @@ export function resolveTierStatus(tier: TierLike | undefined, opts: TierStatusOp
 
 // ── Status pill renderer ──────────────────────────────────────────────────────
 
-const STATUS_PILL_MAP: Record<string, { dot: string; cls: string; label: string }> = {
+export const STATUS_PILL_MAP: Record<string, { dot: string; cls: string; label: string }> = {
   'active':       { dot: 'var(--admin-success)',    cls: 'cz-status-pill--active',   label: 'Active'   },
   'disabled':     { dot: 'var(--admin-error)',      cls: 'cz-status-pill--inactive', label: 'Disabled' },
   'pending-dim':  { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'  },
@@ -117,4 +117,29 @@ export function renderModuleStatus(status: string) {
       <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
     </>
   );
+}
+
+// ── Station summary resolver ──────────────────────────────────────────────────
+
+export interface ServiceStationRowSummary {
+  id:             number;
+  title:          string;
+  resolvedStatus: string;         // 'active' | 'pending-full' | 'pending-dim'
+  platformStatus: PlatformStatus;
+  categoryLabel:  string;
+}
+
+export function resolveServiceStationRowSummary(service: ServiceItem): ServiceStationRowSummary {
+  const platformStatus: PlatformStatus = service.meta?.platform_status ?? 'disabled';
+  const moduleTransition = service.meta?.module_status?.overview ?? 'not-configured';
+  const resolvedStatus   = resolveOverviewStatus(service, { platformStatus, moduleTransition });
+  const categoryLabel    = service.categories[0]?.name ?? 'Uncategorised';
+
+  return {
+    id:             service.id,
+    title:          service.title,
+    resolvedStatus,
+    platformStatus,
+    categoryLabel,
+  };
 }

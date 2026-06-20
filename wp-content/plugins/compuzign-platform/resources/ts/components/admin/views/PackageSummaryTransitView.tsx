@@ -52,8 +52,6 @@ export function PackageSummaryTransitView({ pkg, onView }: Props) {
     );
   }
 
-  const pkgStatus = pkg.platform_status ?? 'disabled';
-
   return (
     <div class="cz-req-detail__section cz-sv-section--no-border">
       {tiers.map(({ id, tier }) => {
