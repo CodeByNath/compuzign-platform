@@ -10,9 +10,9 @@ interface ServiceInclusionsViewCardProps {
   onTogglePanel: () => void;
   inclusions:    Array<{ id: string; label: string }>;
   serviceTitle:  string;
-  isPending:     boolean;
+  hasDraft:      boolean;
   onEdit:        () => void;
-  onRevert:      () => void;
+  onDiscard:     () => void;
 }
 
 export function ServiceInclusionsViewCard({
@@ -22,9 +22,9 @@ export function ServiceInclusionsViewCard({
   onTogglePanel,
   inclusions,
   serviceTitle,
-  isPending,
+  hasDraft,
   onEdit,
-  onRevert,
+  onDiscard,
 }: ServiceInclusionsViewCardProps) {
   return (
     <div class="cz-req-detail__section cz-sv-section--no-border">
@@ -78,9 +78,9 @@ export function ServiceInclusionsViewCard({
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
             ✎ Edit
           </button>
-          {isPending && (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onRevert}>
-              Revert
+          {hasDraft && (
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
+              Discard Draft
             </button>
           )}
         </div>

@@ -69,6 +69,13 @@ export interface ServiceStation {
   hasPendingModules:  boolean;
   pendingModuleNames: string[];
 
+  // ── Draft existence ────────────────────────────────────────────────────────
+  // Overview draft existence is derivable from overviewDraft !== null.
+  // Inclusions/FAQs return draft-preferred arrays with no way to tell origin;
+  // these booleans are the only caller-visible indicator that a real draft exists.
+  hasInclusionsDraft: boolean;
+  hasFaqsDraft:       boolean;
+
   // ── Package registry ───────────────────────────────────────────────────────
   relatedPkg: SurfacePackageSummary | null;
 
@@ -445,6 +452,8 @@ export function useServiceStation(
     moduleStatus,
     hasPendingModules,
     pendingModuleNames,
+    hasInclusionsDraft: adminDetail?.drafts.inclusions != null,
+    hasFaqsDraft:       adminDetail?.drafts.faqs != null,
     relatedPkg,
     overviewStatus,
     inclusionsStatus,

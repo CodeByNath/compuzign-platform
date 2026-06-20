@@ -10,9 +10,9 @@ interface ServiceFaqsViewCardProps {
   onTogglePanel: () => void;
   faqs:          Array<{ id: string; question: string; answer: string }>;
   serviceTitle:  string;
-  isPending:     boolean;
+  hasDraft:      boolean;
   onEdit:        () => void;
-  onRevert:      () => void;
+  onDiscard:     () => void;
 }
 
 export function ServiceFaqsViewCard({
@@ -22,9 +22,9 @@ export function ServiceFaqsViewCard({
   onTogglePanel,
   faqs,
   serviceTitle,
-  isPending,
+  hasDraft,
   onEdit,
-  onRevert,
+  onDiscard,
 }: ServiceFaqsViewCardProps) {
   return (
     <div class="cz-req-detail__section">
@@ -80,9 +80,9 @@ export function ServiceFaqsViewCard({
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
             ✎ Edit
           </button>
-          {isPending && (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onRevert}>
-              Revert
+          {hasDraft && (
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
+              Discard Draft
             </button>
           )}
         </div>

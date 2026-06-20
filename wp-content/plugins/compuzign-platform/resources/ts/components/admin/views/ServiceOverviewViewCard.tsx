@@ -12,9 +12,9 @@ interface ServiceOverviewViewCardProps {
   displayExcerpt:  string;
   displayContent:  string;
   displayCategory: string;
-  isPending:       boolean;
+  hasDraft:        boolean;
   onEdit:          () => void;
-  onRevert:        () => void;
+  onDiscard:       () => void;
 }
 
 export function ServiceOverviewViewCard({
@@ -26,9 +26,9 @@ export function ServiceOverviewViewCard({
   displayExcerpt,
   displayContent,
   displayCategory,
-  isPending,
+  hasDraft,
   onEdit,
-  onRevert,
+  onDiscard,
 }: ServiceOverviewViewCardProps) {
   return (
     <div class="cz-req-detail__section cz-sv-section--no-border">
@@ -85,9 +85,9 @@ export function ServiceOverviewViewCard({
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
             ✎ Edit
           </button>
-          {isPending && (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onRevert}>
-              Revert
+          {hasDraft && (
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
+              Discard Draft
             </button>
           )}
         </div>

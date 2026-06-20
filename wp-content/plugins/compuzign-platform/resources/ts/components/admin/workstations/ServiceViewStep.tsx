@@ -396,6 +396,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const station = useServiceStation(service, packages, onRefresh);
   const {
     isActive, canPublish, hasPendingModules, pendingModuleNames, moduleStatus,
+    hasInclusionsDraft, hasFaqsDraft,
     overviewStatus, inclusionsStatus, faqsStatus,
     overviewNotes, inclusionsNotes, faqsNotes,
     relatedPkg, inclusions, faqs, tiers, overviewDraft: stationOverviewDraft,
@@ -421,6 +422,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [saveErr,            setSaveErr]          = useState<string | null>(null);
   const [saveOk,             setSaveOk]           = useState(false);
   const [showPublishModal,   setShowPublishModal] = useState(false);
+  const [discardConfirm,     setDiscardConfirm]   = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
   const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
   const [exitDialog,         setExitDialog]       = useState<'unsaved' | 'pending' | null>(null);
   const [exitSaving,         setExitSaving]       = useState(false);
@@ -660,6 +662,14 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     await (isActive ? handleSettleModules() : handlePublishService());
   }, [isActive, handleSettleModules, handlePublishService]);
 
+  const handleConfirmDiscard = useCallback(async () => {
+    const module = discardConfirm;
+    setDiscardConfirm(null);
+    if (module === 'overview')   await revertOverview();
+    if (module === 'inclusions') await revertInclusions();
+    if (module === 'faqs')       await revertFaqs();
+  }, [discardConfirm, revertOverview, revertInclusions, revertFaqs]);
+
   // ── Exit workflow helpers ─────────────────────────────────────────────────
 
   // Bypass the close guard — used after the admin explicitly acts on an exit dialog.
@@ -837,9 +847,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             displayExcerpt={displayExcerpt}
             displayContent={displayContent}
             displayCategory={displayCategory}
-            isPending={moduleStatus?.overview === 'pending'}
+            hasDraft={moduleStatus?.overview === 'pending' && stationOverviewDraft !== null}
             onEdit={openOverviewEditor}
-            onRevert={revertOverview}
+            onDiscard={() => setDiscardConfirm('overview')}
           />
           {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
@@ -852,9 +862,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             onTogglePanel={() => setOpenPanel(p => p === 'inclusions' ? null : 'inclusions')}
             inclusions={inclusions}
             serviceTitle={decodedServiceTitle}
-            isPending={moduleStatus?.inclusions === 'pending'}
+            hasDraft={moduleStatus?.inclusions === 'pending' && hasInclusionsDraft}
             onEdit={openInclusionsEditor}
-            onRevert={revertInclusions}
+            onDiscard={() => setDiscardConfirm('inclusions')}
           />
           {/* ── / Service Level Module: Included Features ────────────────────────── */}
 
@@ -866,9 +876,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             onTogglePanel={() => setOpenPanel(p => p === 'faqs' ? null : 'faqs')}
             faqs={faqs}
             serviceTitle={decodedServiceTitle}
-            isPending={moduleStatus?.faqs === 'pending'}
+            hasDraft={moduleStatus?.faqs === 'pending' && hasFaqsDraft}
             onEdit={openFaqsEditor}
-            onRevert={revertFaqs}
+            onDiscard={() => setDiscardConfirm('faqs')}
           />
           {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
         </>
@@ -984,6 +994,41 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               disabled={station.loading.status}
             >
               {station.loading.status ? '…' : isActive ? 'Settle' : 'Publish'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Discard draft confirmation modal ────────────────────────────────── */}
+    {discardConfirm && (
+      <div
+        class="cz-publish-confirm-overlay"
+        onClick={(e) => { if (e.target === e.currentTarget) setDiscardConfirm(null); }}
+      >
+        <div class="cz-publish-confirm">
+          <div class="cz-publish-confirm__header">
+            <h3 class="cz-publish-confirm__title">Discard draft?</h3>
+          </div>
+          <div class="cz-publish-confirm__body">
+            <p class="cz-publish-confirm__lead">
+              This will remove the saved draft and return this module to its last settled version.
+            </p>
+          </div>
+          <div class="cz-publish-confirm__footer">
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              onClick={() => setDiscardConfirm(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--danger"
+              onClick={handleConfirmDiscard}
+            >
+              Discard Draft
             </button>
           </div>
         </div>
