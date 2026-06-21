@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
-import { restoreService } from '@/api/endpoints/admin';
+import { restoreService, trashService } from '@/api/endpoints/admin';
 import { Spinner } from '@/components/ui/Spinner';
 
 interface Props {
@@ -9,7 +9,9 @@ interface Props {
 
 export function ServiceArchivedWorkstation({ refreshKey }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog({ platformStatus: 'archived' });
-  const [restoring, setRestoring] = useState<number | null>(null);
+  const [restoring,       setRestoring]       = useState<number | null>(null);
+  const [pendingTrashId,  setPendingTrashId]  = useState<number | null>(null);
+  const [trashing,        setTrashing]        = useState(false);
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
@@ -22,6 +24,17 @@ export function ServiceArchivedWorkstation({ refreshKey }: Props) {
       refetch();
     } finally {
       setRestoring(null);
+    }
+  }, [refetch]);
+
+  const handleConfirmTrash = useCallback(async (id: number) => {
+    setTrashing(true);
+    try {
+      await trashService(id);
+      setPendingTrashId(null);
+      refetch();
+    } finally {
+      setTrashing(false);
     }
   }, [refetch]);
 
@@ -81,14 +94,46 @@ export function ServiceArchivedWorkstation({ refreshKey }: Props) {
                       <span class="cz-status-pill cz-status-pill--archived">Archived</span>
                     </td>
                     <td class="cz-sc-table__actions">
-                      <button
-                        type="button"
-                        class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                        disabled={restoring === station.id}
-                        onClick={() => handleRestore(station.id)}
-                      >
-                        {restoring === station.id ? 'Restoring…' : 'Restore'}
-                      </button>
+                      {pendingTrashId === station.id ? (
+                        <>
+                          <span class="cz-sc-table__confirm-label">Move to Trash?</span>
+                          <button
+                            type="button"
+                            class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
+                            disabled={trashing}
+                            onClick={() => handleConfirmTrash(station.id)}
+                          >
+                            {trashing ? 'Moving…' : 'Confirm'}
+                          </button>
+                          <button
+                            type="button"
+                            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                            disabled={trashing}
+                            onClick={() => setPendingTrashId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                            disabled={restoring === station.id}
+                            onClick={() => handleRestore(station.id)}
+                          >
+                            {restoring === station.id ? 'Restoring…' : 'Restore'}
+                          </button>
+                          <button
+                            type="button"
+                            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                            disabled={restoring === station.id}
+                            onClick={() => setPendingTrashId(station.id)}
+                          >
+                            Move to Trash
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

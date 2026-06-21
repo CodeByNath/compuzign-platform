@@ -43,6 +43,14 @@ export function restoreService(serviceId: number): Promise<ServiceStatusResponse
   return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/restore`);
 }
 
+export function archiveService(serviceId: number): Promise<ServiceStatusResponse> {
+  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'archived' });
+}
+
+export function trashService(serviceId: number): Promise<ServiceStatusResponse> {
+  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'trashed' });
+}
+
 export function permanentDeleteService(serviceId: number): Promise<PermanentDeleteResponse> {
   return apiClient.delete<PermanentDeleteResponse>(`admin/services/${serviceId}`);
 }

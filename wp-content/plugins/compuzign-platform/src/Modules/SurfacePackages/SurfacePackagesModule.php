@@ -73,7 +73,15 @@ class SurfacePackagesModule
 
                     $svcMeta = get_post_meta($serviceId, 'cz_service_meta', true);
                     $svcMeta = is_array($svcMeta) ? $svcMeta : [];
-                    if (MetaSchema::resolvePlatformStatus($svcMeta, $service->post_status) !== 'active') {
+                    $svcStatus = MetaSchema::resolvePlatformStatus($svcMeta, $service->post_status);
+
+                    // Archived/trashed stations are intentionally outside the living ecosystem —
+                    // not a River integrity failure.
+                    if (in_array($svcStatus, ['archived', 'trashed'], true)) {
+                        continue;
+                    }
+
+                    if ($svcStatus !== 'active') {
                         return false;
                     }
                 }

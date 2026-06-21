@@ -403,7 +403,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc, pkgSummaryDescPending,
     promoStatus, promotionCount,
     inclSummary, faqsSummary,
-    toggleActive, settleModules, publishService,
+    toggleActive, archiveStation, trashStation, settleModules, publishService,
     saveOverview, saveInclusions, saveFaqs,
     revertOverview, revertInclusions, revertFaqs,
     createPackageIfMissing,
@@ -768,20 +768,44 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const handleToggleActiveRef = useRef(handleToggleActive);
   handleToggleActiveRef.current = handleToggleActive;
 
+  const handleArchive = useCallback(async () => {
+    const result = await archiveStation();
+    if (result) ctx.close();
+  }, [archiveStation, ctx]);
+
+  const handleTrash = useCallback(async () => {
+    const result = await trashStation();
+    if (result) ctx.close();
+  }, [trashStation, ctx]);
+
+  const handleArchiveRef = useRef(handleArchive);
+  handleArchiveRef.current = handleArchive;
+
+  const handleTrashRef = useRef(handleTrash);
+  handleTrashRef.current = handleTrash;
+
   useEffect(() => {
     const { setFooter, close } = ctx;
     setFooter(
       <div class="cz-tf-footer">
         {tab === 'service' && (
-          isActive ? (
-            <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => handleToggleActiveRef.current()} disabled={station.loading.status}>
-              {station.loading.status ? '…' : 'Disable Service'}
+          <>
+            {isActive ? (
+              <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => handleToggleActiveRef.current()} disabled={station.loading.status}>
+                {station.loading.status ? '…' : 'Disable Service'}
+              </button>
+            ) : (
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleToggleActiveRef.current()} disabled={station.loading.status}>
+                {station.loading.status ? '…' : 'Enable Service'}
+              </button>
+            )}
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleArchiveRef.current()} disabled={station.loading.status}>
+              {station.loading.status ? '…' : 'Archive'}
             </button>
-          ) : (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleToggleActiveRef.current()} disabled={station.loading.status}>
-              {station.loading.status ? '…' : 'Enable Service'}
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleTrashRef.current()} disabled={station.loading.status}>
+              {station.loading.status ? '…' : 'Move to Trash'}
             </button>
-          )
+          </>
         )}
         <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>

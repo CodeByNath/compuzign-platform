@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import type { ServiceItem, ServiceInclusion, ServiceFaq, PricingTierData, TierId } from '@/api/types/cost-builder';
 import {
+  archiveService,
   createSurfacePackage,
   fetchAdminServiceDetail,
   revertServiceModule,
   settleAllServiceModules,
+  trashService,
   updateServiceFaqs,
   updateServiceInclusions,
   updateServiceOverview,
@@ -109,6 +111,8 @@ export interface ServiceStation {
 
   // ── Actions ───────────────────────────────────────────────────────────────
   toggleActive:          () => Promise<ToggleActiveResult | null>;
+  archiveStation:        () => Promise<ToggleActiveResult | null>;
+  trashStation:          () => Promise<ToggleActiveResult | null>;
   settleModules:         () => Promise<SettleModulesResult | null>;
   publishService:        () => Promise<PublishServiceResult | null>;
   saveOverview:          (draft: OverviewDraft)   => Promise<Record<string, string>>;
@@ -293,6 +297,34 @@ export function useServiceStation(
     }
   }, [service.id, isActive, onRefresh]);
 
+  const archiveStation = useCallback(async (): Promise<ToggleActiveResult | null> => {
+    setStatusSaving(true);
+    try {
+      const result = await archiveService(service.id);
+      if (result.success) {
+        onRefresh?.();
+        return { platform_status: result.service.platform_status, module_status: result.service.module_status };
+      }
+      return null;
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [service.id, onRefresh]);
+
+  const trashStation = useCallback(async (): Promise<ToggleActiveResult | null> => {
+    setStatusSaving(true);
+    try {
+      const result = await trashService(service.id);
+      if (result.success) {
+        onRefresh?.();
+        return { platform_status: result.service.platform_status, module_status: result.service.module_status };
+      }
+      return null;
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [service.id, onRefresh]);
+
   const settleModules = useCallback(async (): Promise<SettleModulesResult | null> => {
     setStatusSaving(true);
     try {
@@ -473,6 +505,8 @@ export function useServiceStation(
     faqsSummary,
     loading: { status: statusSaving, creating: creatingPkg },
     toggleActive,
+    archiveStation,
+    trashStation,
     settleModules,
     publishService,
     saveOverview,

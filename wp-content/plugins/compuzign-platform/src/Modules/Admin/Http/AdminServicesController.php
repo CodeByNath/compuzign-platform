@@ -728,8 +728,13 @@ class AdminServicesController
                 fn($ref) => (int) $ref !== $id
             ));
             if (count($filtered) !== count($pkg['service_refs'])) {
-                $pkg['service_refs'] = $filtered;
-                update_post_meta((int) $pkgId, 'cz_package', $pkg);
+                if (empty($filtered)) {
+                    // Package now references no services — destroy the empty shell.
+                    wp_delete_post((int) $pkgId, true);
+                } else {
+                    $pkg['service_refs'] = $filtered;
+                    update_post_meta((int) $pkgId, 'cz_package', $pkg);
+                }
             }
         }
 

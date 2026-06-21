@@ -1247,16 +1247,23 @@
 }
 
 .cz-action-shell__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   color: var(--admin-text-muted);
-  font-size: var(--admin-fs-icon);
-  line-height: 1;
   cursor: pointer;
-  padding: 6px;
+  padding: var(--cz-space-2);
   border-radius: var(--admin-radius);
   transition: color var(--cz-transition-fast), background var(--cz-transition-fast);
   flex-shrink: 0;
+}
+
+.cz-action-shell__close svg {
+  width: var(--admin-fs-icon-s);
+  height: var(--admin-fs-icon-s);
+  display: block;
 }
 
 .cz-action-shell__close:hover {
@@ -1271,10 +1278,8 @@
   background: transparent;
   border: 1px solid var(--admin-border-blue);
   color: var(--admin-accent);
-  font-size: var(--admin-fs-icon-s);
-  line-height: 1;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: var(--cz-space-2);
   border-radius: var(--admin-radius);
   transition: color var(--cz-transition-fast), background var(--cz-transition-fast), border-color var(--cz-transition-fast);
   flex-shrink: 0;
@@ -1375,7 +1380,7 @@
 .cz-ies__nav {
   display: flex;
   align-items: center;
-  gap: var(--cz-space-2);
+  gap: var(--cz-space-4);
   min-width: 0;
 }
 
