@@ -638,9 +638,9 @@ class AdminServicesController
     }
 
     /**
-     * Restore a service from archived or trashed back to its previous normal state.
-     * The server resolves the destination using previous_platform_status stored in meta,
-     * falling back to 'disabled' if the field is absent or unrecognised.
+     * Restore a service from archived or trashed back to the pending/draft re-entry state.
+     * Always targets 'disabled' — never restores directly to 'active'.
+     * Module statuses are preserved as-is; drafts and canonical data are untouched.
      */
     public function restoreService(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -651,24 +651,16 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
         }
 
-        $meta           = get_post_meta($id, self::META_KEY, true);
-        $meta           = is_array($meta) ? $meta : [];
-        $currentStatus  = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
+        $meta          = get_post_meta($id, self::META_KEY, true);
+        $meta          = is_array($meta) ? $meta : [];
+        $currentStatus = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
 
         if (!in_array($currentStatus, ['archived', 'trashed'], true)) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Service is not in a restorable state.'], 422);
         }
 
-        $allowedTargets  = ['active', 'disabled'];
-        $prev            = $meta['previous_platform_status'] ?? '';
-        $resolvedStatus  = in_array($prev, $allowedTargets, true) ? $prev : 'disabled';
-
-        $meta['platform_status']          = $resolvedStatus;
+        $meta['platform_status']          = 'disabled';
         $meta['previous_platform_status'] = '';
-
-        if ($resolvedStatus === 'active') {
-            $meta['module_status'] = $this->resolveModuleStatusOnActivation($id, $post, $meta);
-        }
 
         update_post_meta($id, self::META_KEY, $meta);
         $meta = get_post_meta($id, self::META_KEY, true);
@@ -681,7 +673,7 @@ class AdminServicesController
                 'platform_status' => $meta['platform_status'] ?? 'disabled',
                 'module_status'   => $meta['module_status']   ?? $this->defaultModuleStatus(),
                 'post_status'     => $post->post_status,
-                'is_active'       => MetaSchema::resolvePlatformStatus($meta, $post->post_status) === 'active',
+                'is_active'       => false,
             ],
         ]);
     }

@@ -3104,6 +3104,136 @@ body.compuzign-admin-page footer.site-footer {
   flex: 1;
 }
 
+/* ── Footer split button — lifecycle dropdown (Disable ▼ / Enable ▼) ─────────── */
+.cz-footer-split {
+  position: relative;
+  display: inline-flex;
+}
+
+.cz-footer-split__btn,
+.cz-footer-split__chevron {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px var(--cz-space-4);
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  cursor: pointer;
+  border: 1px solid transparent;
+  outline: none;
+  transition:
+    background var(--cz-transition-fast),
+    color var(--cz-transition-fast),
+    border-color var(--cz-transition-fast),
+    box-shadow var(--cz-transition-fast);
+  line-height: 1.4;
+  white-space: nowrap;
+  background: transparent;
+}
+
+.cz-footer-split__btn {
+  border-radius: var(--admin-radius) 0 0 var(--admin-radius);
+  border-right: none;
+}
+
+.cz-footer-split__chevron {
+  border-radius: 0 var(--admin-radius) var(--admin-radius) 0;
+  padding: 7px var(--cz-space-3);
+  font-size: 10px;
+}
+
+/* Danger variant — ACTIVE state (Disable) */
+.cz-footer-split--danger .cz-footer-split__btn,
+.cz-footer-split--danger .cz-footer-split__chevron {
+  background: var(--admin-error-a10);
+  color: var(--admin-error);
+  border-color: var(--admin-error-a25);
+}
+
+.cz-footer-split--danger .cz-footer-split__chevron {
+  border-left-color: var(--admin-error-a25);
+}
+
+.cz-footer-split--danger .cz-footer-split__btn:hover:not(:disabled),
+.cz-footer-split--danger .cz-footer-split__chevron:hover:not(:disabled) {
+  background: var(--admin-error-a20);
+}
+
+/* Secondary variant — DISABLED state (Enable) */
+.cz-footer-split--secondary .cz-footer-split__btn,
+.cz-footer-split--secondary .cz-footer-split__chevron {
+  border-color: var(--admin-accent);
+  color: var(--admin-accent-text);
+}
+
+.cz-footer-split--secondary .cz-footer-split__chevron {
+  border-left-color: var(--admin-accent);
+}
+
+.cz-footer-split--secondary .cz-footer-split__btn:hover:not(:disabled),
+.cz-footer-split--secondary .cz-footer-split__chevron:hover:not(:disabled) {
+  background: var(--admin-accent-a12);
+  color: var(--admin-accent-hover);
+}
+
+.cz-footer-split__btn:disabled,
+.cz-footer-split__chevron:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cz-footer-split__btn:focus-visible,
+.cz-footer-split__chevron:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-depth-ring-md);
+}
+
+/* Dropdown menu — floats upward above the sticky footer */
+.cz-footer-split__menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  z-index: 200;
+  border: 1px solid var(--admin-border-blue);
+  border-radius: var(--admin-radius);
+  background: var(--admin-bg);
+  overflow: hidden;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.24);
+}
+
+.cz-footer-split__item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 1px solid var(--admin-border-blue);
+  background: none;
+  color: var(--admin-text);
+  font-size: var(--admin-fs-label);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--cz-transition-fast);
+  white-space: nowrap;
+}
+
+.cz-footer-split__item:last-child {
+  border-bottom: none;
+}
+
+.cz-footer-split__item:hover {
+  background: var(--admin-accent-a12);
+  color: var(--admin-accent-hover);
+}
+
+.cz-footer-split__item--danger {
+  color: var(--admin-error);
+}
+
+.cz-footer-split__item--danger:hover {
+  background: var(--admin-error-a10);
+  color: var(--admin-error);
+}
+
 /* ── Service Catalog — service view drawer ───────────────────────────────────── */
 
 /* Inclusion pool — wrapping chip row */

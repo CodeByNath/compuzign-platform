@@ -395,7 +395,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const station = useServiceStation(service, packages, onRefresh);
   const {
-    isActive, canPublish, hasPendingModules, pendingModuleNames, moduleStatus,
+    platformStatus, isActive, canPublish, hasPendingModules, pendingModuleNames, moduleStatus,
     hasInclusionsDraft, hasFaqsDraft,
     overviewStatus, inclusionsStatus, faqsStatus,
     overviewNotes, inclusionsNotes, faqsNotes,
@@ -426,6 +426,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
   const [exitDialog,         setExitDialog]       = useState<'unsaved' | 'pending' | null>(null);
   const [exitSaving,         setExitSaving]       = useState(false);
+  const [splitOpen,          setSplitOpen]        = useState(false);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -768,12 +769,22 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const handleToggleActiveRef = useRef(handleToggleActive);
   handleToggleActiveRef.current = handleToggleActive;
 
+  // Close split dropdown when clicking outside (only active while open)
+  useEffect(() => {
+    if (!splitOpen) return;
+    const handle = () => setSplitOpen(false);
+    const t = setTimeout(() => document.addEventListener('click', handle), 0);
+    return () => { clearTimeout(t); document.removeEventListener('click', handle); };
+  }, [splitOpen]);
+
   const handleArchive = useCallback(async () => {
+    setSplitOpen(false);
     const result = await archiveStation();
     if (result) ctx.close();
   }, [archiveStation, ctx]);
 
   const handleTrash = useCallback(async () => {
+    setSplitOpen(false);
     const result = await trashStation();
     if (result) ctx.close();
   }, [trashStation, ctx]);
@@ -786,45 +797,64 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   useEffect(() => {
     const { setFooter, close } = ctx;
+    const isLiveState = platformStatus === 'active' || platformStatus === 'disabled';
+
     setFooter(
       <div class="cz-tf-footer">
-        {tab === 'service' && (
-          <>
-            {isActive ? (
-              <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => handleToggleActiveRef.current()} disabled={station.loading.status}>
-                {station.loading.status ? '…' : 'Disable Service'}
-              </button>
-            ) : (
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleToggleActiveRef.current()} disabled={station.loading.status}>
-                {station.loading.status ? '…' : 'Enable Service'}
-              </button>
+        {/* Split button — only for active/disabled states */}
+        {tab === 'service' && isLiveState && (
+          <div class={`cz-footer-split${platformStatus === 'active' ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
+            {/* Primary action: Disable (active) or Enable (disabled) */}
+            <button
+              type="button"
+              class="cz-footer-split__btn"
+              disabled={station.loading.status}
+              onClick={() => handleToggleActiveRef.current()}
+            >
+              {station.loading.status ? '…' : platformStatus === 'active' ? 'Disable' : 'Enable'}
+            </button>
+            {/* Chevron — opens lifecycle dropdown */}
+            <button
+              type="button"
+              class="cz-footer-split__chevron"
+              disabled={station.loading.status}
+              onClick={(e) => { e.stopPropagation(); setSplitOpen((v) => !v); }}
+              aria-label="More actions"
+            >
+              ▼
+            </button>
+            {/* Dropdown: Archive + Trash */}
+            {splitOpen && (
+              <div class="cz-footer-split__menu">
+                <button type="button" class="cz-footer-split__item" onClick={() => handleArchiveRef.current()}>
+                  Archive
+                </button>
+                <button type="button" class="cz-footer-split__item cz-footer-split__item--danger" onClick={() => handleTrashRef.current()}>
+                  Move to Trash
+                </button>
+              </div>
             )}
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleArchiveRef.current()} disabled={station.loading.status}>
-              {station.loading.status ? '…' : 'Archive'}
-            </button>
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => handleTrashRef.current()} disabled={station.loading.status}>
-              {station.loading.status ? '…' : 'Move to Trash'}
-            </button>
-          </>
+          </div>
         )}
-        <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>
           Cancel
         </button>
-        {tab === 'service' && (
+        <div class="cz-tf-footer__spacer" />
+        {/* Publish — visible for active/disabled; disabled when station is not active */}
+        {tab === 'service' && isLiveState && (
           <button
             type="button"
             class="cz-admin-btn cz-admin-btn--primary"
             onClick={() => setShowPublishModal(true)}
-            disabled={!canPublish || station.loading.status}
+            disabled={platformStatus !== 'active' || !canPublish || station.loading.status}
           >
-            {station.loading.status ? '…' : isActive ? 'Settle Changes' : 'Publish Service'}
+            {station.loading.status ? '…' : 'Publish'}
           </button>
         )}
       </div>
     );
     return () => setFooter(null);
-  }, [tab, isActive, station.loading.status, canPublish, ctx.setFooter, ctx.close]);
+  }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, ctx.setFooter, ctx.close]);
 
   // ── Pre-resolved display values for view cards ────────────────────────────
   const rawDisplayTitle = stationOverviewDraft?.title.trim() || service.title.trim() || '';
