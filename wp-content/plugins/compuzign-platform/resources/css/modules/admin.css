@@ -474,6 +474,16 @@
   flex-shrink: 0;
   width: 20px;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cz-admin-nav-item__svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .cz-admin-nav-item__label {
@@ -556,6 +566,13 @@
   outline: none;
   background: var(--admin-accent-a12);
   box-shadow: var(--admin-depth-ring-sm);
+}
+
+.cz-admin-sidebar__collapse-btn svg {
+  width: var(--admin-fs-icon-s);
+  height: var(--admin-fs-icon-s);
+  display: block;
+  flex-shrink: 0;
 }
 
 /* ── Main area ──────────────────────────────────────────────────────────────── */
@@ -3138,7 +3155,13 @@ body.compuzign-admin-page footer.site-footer {
 .cz-footer-split__chevron {
   border-radius: 0 var(--admin-radius) var(--admin-radius) 0;
   padding: 7px var(--cz-space-3);
-  font-size: 10px;
+}
+
+.cz-footer-split__chevron svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+  flex-shrink: 0;
 }
 
 /* Danger variant — ACTIVE state (Disable) */
