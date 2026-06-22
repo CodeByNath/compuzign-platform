@@ -34,14 +34,14 @@ export function ServiceOverviewViewCard({
   const statusDimmed = status === 'pending-dim';
 
   return (
-    <div class="cz-module-card">
-      <div class="cz-module-card__header">
-        <span class="cz-module-card__icon cz-module-card__icon--overview">
+    <div class="drawerModule drawerOverview service">
+      <div class="drawerModule__header">
+        <span class="drawerModule__icon drawerModule__icon--overview">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            class="cz-module-card__icon-svg"
+            class="drawerModule__icon-svg"
             aria-hidden="true"
             focusable="false"
           >
@@ -49,11 +49,11 @@ export function ServiceOverviewViewCard({
             <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
           </svg>
         </span>
-        <div class="cz-module-card__heading">
-          <p class="cz-module-card__title">Service Overview</p>
-          <p class="cz-module-card__subtitle">General information about your service.</p>
+        <div class="drawerModule__heading">
+          <p class="drawerModule__title">Service Overview</p>
+          <p class="drawerModule__subtitle">General information about your service.</p>
         </div>
-        <div class={`cz-module-card__status${statusDimmed ? ' cz-module-card__status--dim' : ''}`}>
+        <div class={`drawerModule__status${statusDimmed ? ' drawerModule__status--dim' : ''}`}>
           <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />
         </div>
       </div>
@@ -62,21 +62,21 @@ export function ServiceOverviewViewCard({
         <ModuleNotificationPanel notes={notes} />
       )}
 
-      <div class="cz-module-card__body">
-        <div class="cz-module-card__fields">
-          <div class="cz-module-card__field">
-            <p class="cz-module-card__label">Title</p>
-            <p class="cz-module-card__value">
+      <div class="drawerModule__body">
+        <div class="drawerModule__fields">
+          <div class="drawerModule__field">
+            <p class="drawerModule__label">Title</p>
+            <p class="drawerModule__value">
               {displayTitle || 'New Service'}
             </p>
           </div>
-          <div class="cz-module-card__field">
-            <p class="cz-module-card__label">Category</p>
-            <p class="cz-module-card__value">{displayCategory}</p>
+          <div class="drawerModule__field">
+            <p class="drawerModule__label">Category</p>
+            <p class="drawerModule__value">{displayCategory}</p>
           </div>
-          <div class="cz-module-card__field">
-            <p class="cz-module-card__label">Description</p>
-            <p class={`cz-module-card__value${displayContent ? ' cz-module-card__value--clamp' : ' cz-module-card__value--muted'}`}>
+          <div class="drawerModule__field">
+            <p class="drawerModule__label">Description</p>
+            <p class={`drawerModule__value${displayContent ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
               {displayContent
                 ? displayContent
                 : displayTitle
@@ -88,7 +88,7 @@ export function ServiceOverviewViewCard({
         </div>
       </div>
 
-      <div class="cz-module-card__footer">
+      <div class="drawerModule__footer">
         {hasDraft && (
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
             Discard Draft

@@ -4004,9 +4004,12 @@ button.cz-module-status-pill {
   border-bottom: none;
 }
 
-/* ── Module card — Service Station drawer view cards ────────────────────────── */
+/* ── Shared Drawer Module frame (drawerModule) ──────────────────────────────── */
+/* Reusable card shell for all Service Station drawer module cards.               */
+/* Used by: Inclusions, FAQs, and any future modules.                             */
+/* Service Overview extends this frame via .drawerOverview.service scope below.   */
 
-.cz-module-card {
+.drawerModule {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--admin-border-blue);
@@ -4015,12 +4018,14 @@ button.cz-module-status-pill {
   margin-bottom: var(--cz-space-4);
 }
 
-.cz-module-card:hover {
+.drawerModule:hover {
   background: var(--admin-accent-a12);
   box-shadow: var(--admin-depth-1);
 }
 
-.cz-module-card__header {
+.drawerModule--locked {}
+
+.drawerModule__header {
   display: flex;
   align-items: center;
   gap: var(--cz-space-3);
@@ -4029,7 +4034,7 @@ button.cz-module-status-pill {
   margin-bottom: var(--cz-space-base);
 }
 
-.cz-module-card__icon {
+.drawerModule__icon {
   width: 40px;
   height: 40px;
   min-width: 40px;
@@ -4042,7 +4047,7 @@ button.cz-module-status-pill {
   flex-shrink: 0;
 }
 
-.cz-module-card__icon-svg {
+.drawerModule__icon-svg {
   width: 20px;
   height: 20px;
   display: block;
@@ -4050,11 +4055,11 @@ button.cz-module-status-pill {
   transition: color var(--cz-transition-fast);
 }
 
-.cz-module-card__icon--overview {}
-.cz-module-card__icon--features {}
-.cz-module-card__icon--faqs {}
+.drawerModule__icon--overview {}
+.drawerModule__icon--features {}
+.drawerModule__icon--faqs {}
 
-.cz-module-card__heading {
+.drawerModule__heading {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -4062,7 +4067,7 @@ button.cz-module-status-pill {
   gap: 2px;
 }
 
-.cz-module-card__title {
+.drawerModule__title {
   margin: 0;
   font-size: var(--admin-fs-label);
   font-weight: var(--admin-fw-strong);
@@ -4070,7 +4075,7 @@ button.cz-module-status-pill {
   line-height: var(--admin-lh-label);
 }
 
-.cz-module-card__subtitle {
+.drawerModule__subtitle {
   margin: 0;
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-normal);
@@ -4078,27 +4083,69 @@ button.cz-module-status-pill {
   line-height: var(--admin-lh-s-label);
 }
 
-.cz-module-card__status {
+.drawerModule__status {
   display: flex;
   align-items: center;
   flex-shrink: 0;
 }
 
-.cz-module-card__status--dim {
+.drawerModule__status--dim {
   opacity: 0.45;
 }
 
-.cz-module-card__body {
+.drawerModule__body {
   padding: var(--cz-space-4) var(--cz-space-5);
 }
 
-.cz-module-card__fields {
+.drawerModule__count {
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--admin-text-faint);
+  margin-left: var(--cz-space-2);
+}
+
+.drawerModule__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
+.drawerModule__empty-title {
+  margin: 0;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-strong);
+  color: var(--admin-text);
+  line-height: var(--admin-lh-label);
+}
+
+.drawerModule__empty-copy {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--admin-text-faint);
+  line-height: var(--admin-lh-s-label);
+}
+
+.drawerModule__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-3) var(--cz-space-5);
+}
+
+/* ── Service Overview drawer scope (drawerOverview service) ─────────────────── */
+/* Applied to ServiceOverviewViewCard root: class="drawerModule drawerOverview service" */
+/* Scopes the Overview-specific field/label/value system.                         */
+/* All shared frame styles above apply via .drawerModule.                         */
+
+.drawerOverview.service .drawerModule__fields {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-3);
 }
 
-.cz-module-card__field {
+.drawerOverview.service .drawerModule__field {
   display: grid;
   grid-template-columns: 100px 1fr;
   gap: var(--cz-space-3);
@@ -4106,7 +4153,7 @@ button.cz-module-status-pill {
   max-width: 90%;
 }
 
-.cz-module-card__label {
+.drawerOverview.service .drawerModule__label {
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-normal);
   color: var(--admin-text-faint);
@@ -4114,61 +4161,24 @@ button.cz-module-status-pill {
   margin: 0;
 }
 
-.cz-module-card__value {
+.drawerOverview.service .drawerModule__value {
   margin: 0;
   font-size: var(--admin-fs-label);
   color: var(--admin-text);
   line-height: var(--admin-lh-label);
 }
 
-.cz-module-card__value--muted {
+.drawerOverview.service .drawerModule__value--muted {
   color: var(--admin-text-muted);
   font-size: var(--admin-fs-s-label);
   line-height: var(--admin-lh-s-label);
 }
 
-.cz-module-card__value--clamp {
+.drawerOverview.service .drawerModule__value--clamp {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.cz-module-card__count {
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-normal);
-  color: var(--admin-text-faint);
-  margin-left: var(--cz-space-2);
-}
-
-.cz-module-card__empty {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-1);
-}
-
-.cz-module-card__empty-title {
-  margin: 0;
-  font-size: var(--admin-fs-label);
-  font-weight: var(--admin-fw-strong);
-  color: var(--admin-text);
-  line-height: var(--admin-lh-label);
-}
-
-.cz-module-card__empty-copy {
-  margin: 0;
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-normal);
-  color: var(--admin-text-faint);
-  line-height: var(--admin-lh-s-label);
-}
-
-.cz-module-card__footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: var(--cz-space-2);
-  padding: var(--cz-space-3) var(--cz-space-5);
 }
 
 /* ── Responsive breakpoints ─────────────────────────────────────────────────── */
