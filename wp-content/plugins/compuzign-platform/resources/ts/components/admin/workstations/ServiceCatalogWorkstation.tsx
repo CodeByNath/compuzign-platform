@@ -202,35 +202,49 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
       {tab === 'service' && (
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header">
-                <p class="cz-req-detail__section-title">Service Overview</p>
-                <div>
-                  <span class="cz-sv-overview-block__status" style="opacity:0.45">
-                    {renderModuleStatus('pending-dim')}
-                  </span>
-                </div>
+          <div class="drawerModule drawerOverview service">
+            <div class="drawerModule__header">
+              <span class="drawerModule__icon drawerModule__icon--overview">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="drawerModule__icon-svg"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
+                  <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
+                </svg>
+              </span>
+              <div class="drawerModule__heading">
+                <p class="drawerModule__title">Service Overview</p>
+                <p class="drawerModule__subtitle">General information about your service.</p>
               </div>
-              <div class="cz-sv-module-body">
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Title</span>
-                  <p class="cz-sv-overview-block__value">
+              <div class="drawerModule__status drawerModule__status--dim">
+                {renderModuleStatus('pending-dim')}
+              </div>
+            </div>
+            <div class="drawerModule__body">
+              <div class="drawerModule__fields">
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Title</p>
+                  <p class="drawerModule__value">
                     {draft.title.trim() ? draft.title : 'New Service'}
                   </p>
                 </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Category</span>
-                  <span class="cz-sv-overview-block__value">
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Category</p>
+                  <p class="drawerModule__value">
                     {draft.category_id !== null
                       ? decodeHtml(allCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
                       : 'Not selected'
                     }
-                  </span>
+                  </p>
                 </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Description</span>
-                  <p class="cz-sv-overview-block__desc">
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Description</p>
+                  <p class={`drawerModule__value${draft.content.trim() ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
                     {draft.content.trim()
                       ? draft.content
                       : draft.title.trim()
@@ -240,78 +254,100 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                   </p>
                 </div>
               </div>
-              <div class="cz-sv-module-footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={() => setEditing(true)}
-                >
-                  ✎ Edit
-                </button>
-              </div>
+            </div>
+            <div class="drawerModule__footer">
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                onClick={() => setEditing(true)}
+              >
+                Edit
+              </button>
             </div>
           </div>
           {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
           {/* Drawer Principle v1 — Locked state: shell visible, action disabled; modules unavailable until service exists */}
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-module cz-sv-module--locked">
-              <div class="cz-sv-module-header">
-                <p class="cz-req-detail__section-title">Included Features</p>
-                <div>
-                  <span class="cz-sv-overview-block__status" style="opacity:0.45">
-                    {renderModuleStatus('pending-dim')}
-                  </span>
-                </div>
+          <div class="drawerModule drawerModule--locked">
+            <div class="drawerModule__header">
+              <span class="drawerModule__icon drawerModule__icon--features">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="drawerModule__icon-svg"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <div class="drawerModule__heading">
+                <p class="drawerModule__title">Included Features</p>
+                <p class="drawerModule__subtitle">Add and manage the features included in this service.</p>
               </div>
-              <div class="cz-sv-module-body">
-                <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name">No features</p>
-                  <p class="cz-sv-overview-block__excerpt">
-                    {draft.title.trim()
-                      ? `Add features to the ${draft.title}.`
-                      : 'Configure the service to add features.'
-                    }
-                  </p>
-                </div>
+              <div class="drawerModule__status drawerModule__status--dim">
+                {renderModuleStatus('pending-dim')}
               </div>
-              <div class="cz-sv-module-footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                  ✎ Edit
-                </button>
+            </div>
+            <div class="drawerModule__body">
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No features</p>
+                <p class="drawerModule__empty-copy">
+                  {draft.title.trim()
+                    ? `Add features to the ${draft.title}.`
+                    : 'Configure the service to add features.'
+                  }
+                </p>
               </div>
+            </div>
+            <div class="drawerModule__footer">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
+                Edit
+              </button>
             </div>
           </div>
           {/* ── / Service Level Module: Included Features ────────────────────────── */}
 
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
-          <div class="cz-req-detail__section">
-            <div class="cz-sv-module cz-sv-module--locked">
-              <div class="cz-sv-module-header">
-                <p class="cz-req-detail__section-title">Common Questions</p>
-                <div>
-                  <span class="cz-sv-overview-block__status" style="opacity:0.45">
-                    {renderModuleStatus('pending-dim')}
-                  </span>
-                </div>
+          <div class="drawerModule drawerModule--locked">
+            <div class="drawerModule__header">
+              <span class="drawerModule__icon drawerModule__icon--faqs">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="drawerModule__icon-svg"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <div class="drawerModule__heading">
+                <p class="drawerModule__title">Common Questions</p>
+                <p class="drawerModule__subtitle">Add questions and answers for this service.</p>
               </div>
-              <div class="cz-sv-module-body">
-                <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name">No questions added</p>
-                  <p class="cz-sv-overview-block__excerpt">
-                    {draft.title.trim()
-                      ? `Add common questions for the ${draft.title}.`
-                      : 'Configure the service to add questions.'
-                    }
-                  </p>
-                </div>
+              <div class="drawerModule__status drawerModule__status--dim">
+                {renderModuleStatus('pending-dim')}
               </div>
-              <div class="cz-sv-module-footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                  ✎ Edit
-                </button>
+            </div>
+            <div class="drawerModule__body">
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No questions added</p>
+                <p class="drawerModule__empty-copy">
+                  {draft.title.trim()
+                    ? `Add common questions for the ${draft.title}.`
+                    : 'Configure the service to add questions.'
+                  }
+                </p>
               </div>
+            </div>
+            <div class="drawerModule__footer">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
+                Edit
+              </button>
             </div>
           </div>
           {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
