@@ -10,6 +10,8 @@ import type {
   CreateServiceResponse,
   CreateSurfacePackagePayload,
   CreateSurfacePackageResponse,
+  MigrationAudit,
+  MigrationRunResult,
   ModuleRevertResponse,
   ModuleSettleResponse,
   PackageStatusResponse,
@@ -57,6 +59,16 @@ export function permanentDeleteService(serviceId: number): Promise<PermanentDele
 
 export function fetchAdminOverview(): Promise<AdminOverview> {
   return apiClient.get<AdminOverview>('admin/overview');
+}
+
+// Temporary — Phase 0 migration readiness audit. Remove after migration is validated.
+export function fetchMigrationAudit(): Promise<MigrationAudit> {
+  return apiClient.get<MigrationAudit>('admin/migration-audit');
+}
+
+// Temporary — Phase 1+3 backfill. Remove after migration is validated.
+export function runPhaseOneMigration(): Promise<MigrationRunResult> {
+  return apiClient.post<MigrationRunResult>('admin/migrate/phase-one');
 }
 
 export function fetchAdminRequests(): Promise<AdminRequestsResponse> {

@@ -183,10 +183,31 @@ class AdminSurfacePackagesController
         ]);
     }
 
+    // ── migration read-only guard ─────────────────────────────────────────────
+    // Phase 1: cz_surface_package is retired/read-only. Package data is now owned
+    // by cz_service_package_station meta. Tier and package write operations are
+    // blocked here until the new commercial management UI is implemented in Phase 2.
+    // Promotion writes are intentionally NOT blocked — they remain the active path
+    // until Phase 4 moves them to the Promotion Station.
+
+    private function migrationReadOnly(): \WP_REST_Response
+    {
+        return new \WP_REST_Response([
+            'success' => false,
+            'code'    => 'package_migration_read_only',
+            'message' => 'cz_surface_package is in retired/read-only state. '
+                       . 'Package data is now managed via cz_service_package_station on the Service Station. '
+                       . 'Tier and package writes are unavailable until the Phase 2 commercial management UI is complete.',
+        ], 423);
+    }
+
     // ── create ────────────────────────────────────────────────────────────────
 
     public function create(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $body = $request->get_json_params();
         if (!is_array($body)) {
             return $this->error('Invalid request body.', 400);
@@ -302,6 +323,9 @@ class AdminSurfacePackagesController
 
     public function saveTier(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
@@ -425,12 +449,12 @@ class AdminSurfacePackagesController
 
     public function disable(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->setStatus((int) $request->get_param('id'), 'disabled');
+        return $this->migrationReadOnly();
     }
 
     public function enable(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->setStatus((int) $request->get_param('id'), 'active');
+        return $this->migrationReadOnly();
     }
 
     /**
@@ -439,6 +463,9 @@ class AdminSurfacePackagesController
      */
     public function setTierEnabled(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 

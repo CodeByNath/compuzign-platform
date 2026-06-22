@@ -13,7 +13,9 @@ class AdminServicesController
     private const META_FAQS         = 'cz_service_faqs';
     private const DRAFT_OVERVIEW    = 'cz_service_overview_draft';
     private const DRAFT_INCLUSIONS  = 'cz_service_inclusions_draft';
-    private const DRAFT_FAQS       = 'cz_service_faqs_draft';
+    private const DRAFT_FAQS            = 'cz_service_faqs_draft';
+    private const META_PACKAGE_STATION  = 'cz_service_package_station';
+    private const META_PROMOTION_STATION = 'cz_service_promotion_station';
 
     public function register(): void
     {
@@ -299,6 +301,26 @@ class AdminServicesController
             'category_ids' => $categoryIds,
         ];
         update_post_meta($id, self::DRAFT_OVERVIEW, $overviewDraft);
+
+        // Package Station — born with four named tier shells, all empty.
+        // NOTE: platform_status here is a legacy Cost Builder visibility field copied from
+        // cz_package during migration. It is NOT the lifecycle status of the Package Station
+        // shell itself. The Package Station is structural and permanent — it has no lifecycle.
+        update_post_meta($id, self::META_PACKAGE_STATION, [
+            'platform_status'    => 'disabled',
+            'tiers'              => ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []],
+            'popular_tier'       => null,
+            'popular_label'      => '',
+            'sort_position'      => 0,
+            'bundle'             => ['title' => '', 'description' => '', 'price' => null],
+            'valid_from'         => null,
+            'valid_until'        => null,
+            'display_contexts'   => ['cost-builder'],
+            'migration_source_id' => null,
+        ]);
+
+        // Promotion Station — born empty; Promotion Instances created in Phase 4.
+        update_post_meta($id, self::META_PROMOTION_STATION, []);
 
         $post = get_post($id);
         $meta = get_post_meta($id, self::META_KEY, true) ?: [];

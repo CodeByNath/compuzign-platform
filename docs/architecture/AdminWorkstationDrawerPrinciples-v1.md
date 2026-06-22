@@ -3,6 +3,8 @@
 Reference implementation: Service Catalog only.
 Does not cover Transit Hub, Packages, Promotions, Requests, CRM, or any other workstation.
 
+For the drawer module CSS system, class reference, and legacy audit: [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md)
+
 ---
 
 ## A Drawer Is a System
@@ -116,25 +118,22 @@ During implementation of the Locked state for the Service Catalog create drawer,
 
 **Rule 1 — disabled (shell-level pointer-events):**
 ```css
-/* .cz-sv-module--locked {
+/* .drawerModule--locked {
   pointer-events: none;
 } */
 ```
-Applied `pointer-events: none` to the entire module shell. Disabled. Violates the rule — state must not be applied to the shell.
+Applying `pointer-events: none` to the entire module shell is a violation of this rule. The shell must not receive state-based CSS. This pattern is explicitly disabled.
 
 **Rule 2 — removed (action opacity override):**
-```css
-/* .cz-sv-module--locked .cz-sv-overview-block__edit {
-  opacity: 1;
-} */
-```
-Applied `opacity: 1` to the action control inside a locked module, overriding `.cz-admin-btn:disabled { opacity: 0.45 }`. Removed. The locked state must let the disabled button styling communicate unavailability — it must not force the action to appear active.
+Any rule that forces `opacity: 1` on an action control inside a locked module — overriding `.cz-admin-btn:disabled { opacity: 0.45 }` — is also a violation. The disabled button styling must communicate unavailability on its own.
 
 The correct implementation:
 - The `disabled` attribute is set on the action button only.
 - The shell renders normally — visible, laid out, readable.
 - `.cz-admin-btn:disabled { opacity: 0.45; cursor: not-allowed; }` handles all visual disabled state for the action control.
 - No CSS rule targets the module shell with a state class.
+
+The locked state modifier in the current system is `.drawerModule--locked`. It is intentionally left as an empty ruleset — it exists as a selector hook for future targeting if needed, but carries no shell-altering styles.
 
 This is the reference behavior for all future drawer modules. Any CSS rule that targets the module shell with a state class, or overrides disabled button styling from a shell-level selector, must be treated as a violation of this principle.
 
@@ -165,9 +164,9 @@ The Edit state carrier. Wraps each module's editor component and provides Save /
 - `resources/ts/components/admin/editors/ServiceInclusionsEditor.tsx`
 - `resources/ts/components/admin/editors/ServiceFaqsEditor.tsx`
 
-**Drawer styles**
+**Drawer module CSS system**
 `resources/css/modules/admin.css`
-Contains the `.cz-sv-module--locked` class and the temporarily disabled shell-state rule documented above.
+Contains `.drawerModule` (shared frame) and `.drawerOverview.service` (Overview-specific scope). See [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md) for the full class reference and legacy audit.
 
 ---
 

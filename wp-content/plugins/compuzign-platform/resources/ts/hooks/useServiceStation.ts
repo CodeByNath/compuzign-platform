@@ -455,24 +455,23 @@ export function useServiceStation(
     }
   }, [service.id, onRefresh]);
 
+  // Phase 1: cz_surface_package is retired/read-only. Package Station is now born
+  // with the Service Station (cz_service_package_station meta). For services that have
+  // a legacy cz_surface_package post, return its ID for the existing PackageDetailStep
+  // drawer. For services born after Phase 1 (no legacy package), return null — the
+  // Package configuration UI path is not yet available (Phase 2). Do not call the
+  // blocked createSurfacePackage endpoint.
   const createPackageIfMissing = useCallback(async (
-    serviceId:    number,
-    serviceTitle: string,
+    _serviceId:    number,
+    _serviceTitle: string,
   ): Promise<{ pkgId: number; pkgTitle: string } | null> => {
     if (relatedPkg) {
       return { pkgId: relatedPkg.post_id, pkgTitle: relatedPkg.title };
     }
-    setCreatingPkg(true);
-    try {
-      const { package_id } = await createSurfacePackage({ service_id: serviceId, title: serviceTitle });
-      onRefresh?.();
-      return { pkgId: package_id, pkgTitle: serviceTitle };
-    } catch {
-      return null;
-    } finally {
-      setCreatingPkg(false);
-    }
-  }, [relatedPkg, onRefresh]);
+    // No legacy package post: service was born after Phase 1 migration.
+    // Package configuration UI is unavailable until Phase 2.
+    return null;
+  }, [relatedPkg]);
 
   return {
     platformStatus,
