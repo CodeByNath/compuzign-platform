@@ -67,6 +67,19 @@ export function fetchAdminOverview(): Promise<AdminOverview> {
   return apiClient.get<AdminOverview>('admin/overview');
 }
 
+// Service category inline creation.
+export function createServiceCategory(payload: {
+  name:         string;
+  description?: string;
+}): Promise<{
+  success:   boolean;
+  existing?: boolean;
+  message?:  string;
+  category?: { id: number; name: string; slug: string; description: string };
+}> {
+  return apiClient.post('admin/service-categories', payload);
+}
+
 // Temporary — Phase 0 migration readiness audit. Remove after migration is validated.
 export function fetchMigrationAudit(): Promise<MigrationAudit> {
   return apiClient.get<MigrationAudit>('admin/migration-audit');

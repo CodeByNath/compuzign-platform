@@ -176,6 +176,13 @@ class AdminServicesController
         ]);
 
         // ── Package Station tier management (Phase 2) — service-owned paths ──
+        // ── Inline service category creation ─────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/service-categories', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createServiceCategory'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getPackageStation'],
@@ -265,9 +272,10 @@ class AdminServicesController
         // All category terms ordered by name — used for the catalog tab bar.
         $terms      = get_terms(['taxonomy' => self::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
         $categories = array_map(fn($t) => [
-            'id'   => (int) $t->term_id,
-            'name' => $t->name,
-            'slug' => $t->slug,
+            'id'          => (int) $t->term_id,
+            'name'        => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'slug'        => $t->slug,
+            'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
         ], is_array($terms) ? $terms : []);
 
         // All published service posts ordered by title.
@@ -300,9 +308,10 @@ class AdminServicesController
 
             $postTerms = wp_get_post_terms($post->ID, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
             $postCats  = array_map(fn($t) => [
-                'id'   => (int) $t->term_id,
-                'name' => $t->name,
-                'slug' => $t->slug,
+                'id'          => (int) $t->term_id,
+                'name'        => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'        => $t->slug,
+                'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
             ], $postTerms);
 
             $stations[] = [
@@ -403,9 +412,10 @@ class AdminServicesController
         // from losing the category display on new services.
         $assignedTerms = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
         $assignedCats  = array_map(fn($t) => [
-            'id'   => (int) $t->term_id,
-            'name' => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-            'slug' => $t->slug,
+            'id'          => (int) $t->term_id,
+            'name'        => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'slug'        => $t->slug,
+            'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
         ], is_array($assignedTerms) ? $assignedTerms : []);
 
         return rest_ensure_response([
@@ -438,7 +448,7 @@ class AdminServicesController
         $meta         = get_post_meta($id, self::META_KEY, true);
         $meta         = is_array($meta) ? $meta : [];
         $terms        = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
-        $categories   = array_map(fn($t) => ['id' => (int) $t->term_id, 'name' => $t->name, 'slug' => $t->slug], $terms);
+        $categories   = array_map(fn($t) => ['id' => (int) $t->term_id, 'name' => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'), 'slug' => $t->slug, 'description' => $t->description ?? ''], $terms);
         $rawInc       = get_post_meta($id, self::META_INCLUSIONS, true);
         $inclusions   = is_array($rawInc) ? ($rawInc['inclusions'] ?? []) : [];
         $faqs         = get_post_meta($id, self::META_FAQS, true);
@@ -840,6 +850,62 @@ class AdminServicesController
         wp_delete_post($id, true);
 
         return rest_ensure_response(['success' => true, 'deleted' => $id]);
+    }
+
+    // ── Inline service category creation ─────────────────────────────────────
+
+    public function createServiceCategory(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $body = $request->get_json_params();
+        $name = sanitize_text_field((string) ($body['name'] ?? ''));
+        $desc = sanitize_textarea_field((string) ($body['description'] ?? ''));
+
+        if ($name === '') {
+            return rest_ensure_response(['success' => false, 'message' => 'Category name is required.']);
+        }
+
+        // Description is stored as CompuZign-owned term meta, not the native WP term description.
+        $result = wp_insert_term($name, self::CATEGORY_TAXONOMY);
+
+        if (is_wp_error($result)) {
+            // Duplicate — return the existing term so the frontend can select it.
+            if ($result->get_error_code() === 'term_exists') {
+                $existingId = (int) $result->get_error_data();
+                $term       = get_term($existingId, self::CATEGORY_TAXONOMY);
+                if ($term instanceof \WP_Term) {
+                    return rest_ensure_response([
+                        'success'  => true,
+                        'existing' => true,
+                        'category' => [
+                            'id'          => (int) $term->term_id,
+                            'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                            'slug'        => $term->slug,
+                            'description' => get_term_meta((int) $term->term_id, 'cz_category_description', true) ?: '',
+                        ],
+                    ]);
+                }
+            }
+            return rest_ensure_response(['success' => false, 'message' => $result->get_error_message()]);
+        }
+
+        $termId = (int) $result['term_id'];
+
+        if ($desc !== '') {
+            update_term_meta($termId, 'cz_category_description', $desc);
+        }
+
+        $term = get_term($termId, self::CATEGORY_TAXONOMY);
+
+        return rest_ensure_response([
+            'success'  => true,
+            'existing' => false,
+            'category' => [
+                'id'          => $termId,
+                'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'        => $term->slug,
+                'description' => get_term_meta($termId, 'cz_category_description', true) ?: '',
+            ],
+        ]);
     }
 
     // ── Package Station tier management (Phase 2 — service-owned paths) ──────

@@ -1,7 +1,7 @@
-// Unified module status pill with left marker slot.
+// Unified module status pill.
 //
-// Marker renders · (middle dot) when note count is zero — non-interactive.
-// Marker renders N (count) when notes exist — pill becomes a button that opens the panel.
+// When notes exist (count > 0): pill renders a numeric marker and becomes a button that opens the panel.
+// When no notes (count === 0): pill renders the label only — no dot, no marker span.
 //
 // The pending-dim opacity (0.45) is applied by the parent wrapper, not here.
 // renderModuleStatus() in moduleStatus.tsx is unchanged and used in other contexts.
@@ -25,24 +25,28 @@ const PILL_META: Record<string, { cls: string; label: string }> = {
 const FALLBACK = { cls: 'cz-module-status-pill--pending', label: 'Pending' };
 
 export function ModuleStatusPill({ status, notes, onOpen }: Props) {
-  const count  = noteCount(notes);
-  const meta   = PILL_META[status] ?? FALLBACK;
-  const marker = count > 0 ? String(count) : '·';
-  const cls    = `cz-module-status-pill ${meta.cls}`;
+  const count = noteCount(notes);
+  const meta  = PILL_META[status] ?? FALLBACK;
+  const cls   = `cz-module-status-pill ${meta.cls}`;
 
   if (count > 0 && onOpen) {
     return (
       <button type="button" class={cls} onClick={onOpen}>
-        <span class="cz-module-status-pill__marker">{marker}</span>
+        <span class="cz-module-status-pill__marker">{count}</span>
         {meta.label}
       </button>
     );
   }
 
-  return (
-    <span class={cls}>
-      <span class="cz-module-status-pill__marker">{marker}</span>
-      {meta.label}
-    </span>
-  );
+  if (count > 0) {
+    return (
+      <span class={cls}>
+        <span class="cz-module-status-pill__marker">{count}</span>
+        {meta.label}
+      </span>
+    );
+  }
+
+  // No notes: label only — no dot, no marker span.
+  return <span class={cls}>{meta.label}</span>;
 }

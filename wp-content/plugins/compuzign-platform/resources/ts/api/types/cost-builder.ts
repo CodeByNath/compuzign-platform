@@ -1,9 +1,10 @@
 export type TierId = 'basic' | 'standard' | 'premium' | 'enterprise';
 
 export interface Category {
-  id: number | null;
-  name: string;
-  slug: string;
+  id:           number | null;
+  name:         string;
+  slug:         string;
+  description?: string;
 }
 
 export interface Tier {

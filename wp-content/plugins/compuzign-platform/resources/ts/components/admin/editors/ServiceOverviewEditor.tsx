@@ -1,4 +1,6 @@
+import { useState, useCallback } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
+import { createServiceCategory } from '@/api/endpoints/admin';
 
 function decodeHtml(s: string): string {
   if (typeof document === 'undefined') return s;
@@ -33,7 +35,44 @@ interface Props {
 // The field, its data, and the OverviewDraft.excerpt property remain intact.
 // It does not participate in completeness, lifecycle state, or notification calculations while hidden.
 
-export function ServiceOverviewEditor({ draft, onChange, categories }: Props) {
+export function ServiceOverviewEditor({ draft, onChange, categories: initialCategories }: Props) {
+  // Local category list starts from the prop; new categories are appended inline
+  // without requiring a full catalog refetch during the current drawer session.
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+
+  const [addOpen,    setAddOpen]    = useState(false);
+  const [newName,    setNewName]    = useState('');
+  const [newDesc,    setNewDesc]    = useState('');
+  const [creating,   setCreating]   = useState(false);
+  const [createErr,  setCreateErr]  = useState<string | null>(null);
+
+  const selectedCat = categories.find(c => c.id === draft.category_id);
+
+  const handleCreate = useCallback(async () => {
+    if (!newName.trim()) { setCreateErr('Name is required.'); return; }
+    setCreating(true);
+    setCreateErr(null);
+    try {
+      const res = await createServiceCategory({ name: newName.trim(), description: newDesc.trim() });
+      if (res.success && res.category) {
+        const cat: Category = { id: res.category.id, name: res.category.name, slug: res.category.slug, description: res.category.description };
+        setCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat]);
+        onChange({ category_id: cat.id });
+        setAddOpen(false);
+        setNewName('');
+        setNewDesc('');
+      } else {
+        setCreateErr(res.message ?? 'Failed to create category.');
+      }
+    } catch (e) {
+      setCreateErr(e instanceof Error ? e.message : 'Failed to create category.');
+    } finally {
+      setCreating(false);
+    }
+  }, [newName, newDesc, onChange]);
+
+  const cancelAdd = () => { setAddOpen(false); setNewName(''); setNewDesc(''); setCreateErr(null); };
+
   return (
     <div class="cz-tf-form">
       <div class="cz-tf-field">
@@ -65,6 +104,65 @@ export function ServiceOverviewEditor({ draft, onChange, categories }: Props) {
               </option>
             ))}
         </select>
+
+        {/* Category description — shown below select when selected and has a description */}
+        {selectedCat?.description && (
+          <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">
+            {selectedCat.description}
+          </p>
+        )}
+
+        {/* Inline category creation */}
+        {!addOpen ? (
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+            style="margin-top: 6px"
+            onClick={() => setAddOpen(true)}
+          >
+            Add category
+          </button>
+        ) : (
+          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: var(--cz-space-2); padding: var(--cz-space-3); background: var(--admin-accent-a12); border-radius: var(--admin-radius)">
+            <input
+              type="text"
+              class="cz-tf-input"
+              placeholder="Category name"
+              value={newName}
+              onInput={(e) => setNewName((e.target as HTMLInputElement).value)}
+            />
+            <textarea
+              class="cz-tf-textarea"
+              placeholder="Description (optional)"
+              value={newDesc}
+              rows={2}
+              onInput={(e) => setNewDesc((e.target as HTMLTextAreaElement).value)}
+            />
+            {createErr && (
+              <p style="margin: 0; font-size: var(--admin-fs-s-label); color: var(--admin-error)">
+                {createErr}
+              </p>
+            )}
+            <div style="display: flex; gap: var(--cz-space-2)">
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                onClick={handleCreate}
+                disabled={creating}
+              >
+                {creating ? 'Creating…' : 'Create'}
+              </button>
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                onClick={cancelAdd}
+                disabled={creating}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div class="cz-tf-field">
