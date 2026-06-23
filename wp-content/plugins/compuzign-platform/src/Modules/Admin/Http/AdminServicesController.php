@@ -174,6 +174,34 @@ class AdminServicesController
                 'post_status' => ['required' => false, 'type' => 'string', 'enum' => ['publish', 'draft']],
             ],
         ]);
+
+        // ── Package Station tier management (Phase 2) — service-owned paths ──
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getPackageStation'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'savePackageStationTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'   => ['required' => true, 'type' => 'integer'],
+                'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/enabled', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'setPackageStationTierEnabled'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'   => ['required' => true, 'type' => 'integer'],
+                'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
+            ],
+        ]);
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
@@ -756,6 +784,253 @@ class AdminServicesController
         wp_delete_post($id, true);
 
         return rest_ensure_response(['success' => true, 'deleted' => $id]);
+    }
+
+    // ── Package Station tier management (Phase 2 — service-owned paths) ──────
+
+    public function getPackageStation(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $post      = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $tiers = [];
+        foreach (\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS as $tierId) {
+            $tiers[$tierId] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot(
+                $station['tiers'][$tierId] ?? []
+            );
+        }
+
+        $rawInc     = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $incPool    = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+        $rawFaqs    = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+
+        return rest_ensure_response([
+            'success'    => true,
+            'service_id' => $serviceId,
+            'station'    => [
+                'platform_status' => $station['platform_status'] ?? 'disabled',
+                'tiers'           => $tiers,
+                'popular_tier'    => $station['popular_tier'] ?? null,
+                'popular_label'   => $station['popular_label'] ?? '',
+                'sort_position'   => (int) ($station['sort_position'] ?? 0),
+                'bundle'          => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
+            ],
+            'service' => [
+                'id'         => $serviceId,
+                'title'      => $post->post_title,
+                'inclusions' => array_values(array_filter(
+                    is_array($incPool) ? $incPool : [],
+                    fn($i) => is_array($i) && !empty($i['id']) && !empty($i['label'])
+                )),
+                'faqs'       => array_values(array_filter(
+                    is_array($rawFaqs) ? $rawFaqs : [],
+                    fn($i) => is_array($i) && !empty($i['question'])
+                )),
+            ],
+        ]);
+    }
+
+    public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $tierId    = sanitize_key((string) $request->get_param('tier'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        // Add new inclusions/FAQs to service canonical pools.
+        $addedInclusions = $this->addItemsToInclusionPool($serviceId, $body['new_inclusions'] ?? []);
+        $addedFaqRefs    = $this->addItemsToFaqPool($serviceId, $body['new_faqs'] ?? []);
+
+        $existingDetail = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot(
+            $station['tiers'][$tierId] ?? []
+        );
+
+        // Inclusions
+        $inclusions = [];
+        if (array_key_exists('inclusions_override', $body) && is_array($body['inclusions_override'])) {
+            foreach ($body['inclusions_override'] as $inc) {
+                if (!is_array($inc)) { continue; }
+                $id = sanitize_text_field((string) ($inc['id'] ?? ''));
+                $lb = sanitize_text_field((string) ($inc['label'] ?? ''));
+                if ($id !== '' && $lb !== '') { $inclusions[] = ['id' => $id, 'label' => $lb]; }
+            }
+        } else {
+            $inclusions = $existingDetail['inclusions_override'];
+        }
+        foreach ($addedInclusions as $inc) {
+            if (!in_array($inc['id'], array_column($inclusions, 'id'), true)) { $inclusions[] = $inc; }
+        }
+
+        // FAQ refs
+        $faqRefs = [];
+        if (array_key_exists('faq_refs', $body) && is_array($body['faq_refs'])) {
+            foreach ($body['faq_refs'] as $ref) {
+                $ref = sanitize_text_field((string) $ref);
+                if ($ref !== '') { $faqRefs[] = $ref; }
+            }
+        } else {
+            $faqRefs = $existingDetail['faq_refs'];
+        }
+        foreach ($addedFaqRefs as $id) {
+            if (!in_array($id, $faqRefs, true)) { $faqRefs[] = $id; }
+        }
+
+        $contact = !empty($body['contact']);
+        $price   = null;
+        if (!$contact && array_key_exists('price', $body) && $body['price'] !== null && $body['price'] !== '') {
+            $price = (float) $body['price'];
+        }
+        $enabled = array_key_exists('enabled', $body) ? (bool) $body['enabled'] : $existingDetail['enabled'];
+
+        $tierData = [
+            'label'               => sanitize_text_field((string) ($body['label'] ?? $existingDetail['label'])),
+            'price'               => $price,
+            'contact'             => $contact,
+            'billing_cycle'       => sanitize_text_field((string) ($body['billing_cycle'] ?? $existingDetail['billing_cycle'] ?? 'monthly')),
+            'inclusions_override' => $inclusions,
+            'features'            => [],
+            'faq_refs'            => $faqRefs,
+        ];
+
+        $station['tiers'][$tierId] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::upsertOccupant(
+            $station['tiers'][$tierId] ?? ['current_occupant' => null, 'history' => []],
+            $tierData,
+            $enabled
+        );
+
+        if (array_key_exists('popular', $body)) {
+            if ((bool) $body['popular']) {
+                $station['popular_tier']  = $tierId;
+                $station['popular_label'] = sanitize_text_field((string) ($body['popular_label'] ?? ''));
+            } elseif (($station['popular_tier'] ?? null) === $tierId) {
+                $station['popular_tier'] = null;
+            }
+        }
+
+        $station['platform_status'] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::deriveStationStatus($station);
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        $tiers = [];
+        foreach (\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS as $tid) {
+            $tiers[$tid] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot($station['tiers'][$tid] ?? []);
+        }
+
+        return rest_ensure_response([
+            'success'              => true,
+            'station'              => array_merge($station, ['tiers' => $tiers]),
+            'new_inclusions_added' => count($addedInclusions),
+            'new_faqs_added'       => count($addedFaqRefs),
+        ]);
+    }
+
+    public function setPackageStationTierEnabled(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $tierId    = sanitize_key((string) $request->get_param('tier'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $body    = $request->get_json_params();
+        $enabled = isset($body['enabled']) ? (bool) $body['enabled'] : true;
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $tierSlot = $station['tiers'][$tierId] ?? [];
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        if ($PS::isOccupantFormat($tierSlot)) {
+            if (!empty($tierSlot['current_occupant'])) {
+                $station['tiers'][$tierId]['current_occupant']['platform_status'] = $enabled ? 'active' : 'disabled';
+            }
+        } else {
+            if (!empty($tierSlot)) {
+                $station['tiers'][$tierId]['enabled'] = $enabled;
+            }
+        }
+
+        $station['platform_status'] = $PS::deriveStationStatus($station);
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        return rest_ensure_response(['success' => true, 'tier_id' => $tierId, 'enabled' => $enabled]);
+    }
+
+    // ── Service inclusion/FAQ pool helpers (used by tier save) ────────────────
+
+    /** @return array<int, array{id: string, label: string}> */
+    private function addItemsToInclusionPool(int $serviceId, array $items): array
+    {
+        if (empty($items)) { return []; }
+        $raw  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $pool = (isset($raw['inclusions']) && is_array($raw['inclusions'])) ? $raw['inclusions'] : [];
+        $byId = array_flip(array_column($pool, 'id'));
+        $byLb = array_flip(array_map('strtolower', array_column($pool, 'label')));
+        $added = [];
+        foreach ($items as $item) {
+            $label = sanitize_text_field((string) ($item['label'] ?? ''));
+            if ($label === '') { continue; }
+            $id = sanitize_title($label);
+            if (isset($byId[$id]) || isset($byLb[strtolower($label)])) { continue; }
+            $inc = ['id' => $id, 'label' => $label];
+            $pool[] = $inc; $added[] = $inc;
+            $byId[$id] = true; $byLb[strtolower($label)] = true;
+        }
+        if (!empty($added)) {
+            $raw['inclusions'] = $pool;
+            if (!isset($raw['tier_inclusions']) || !is_array($raw['tier_inclusions'])) {
+                $raw['tier_inclusions'] = array_fill_keys(\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, []);
+            }
+            update_post_meta($serviceId, self::META_INCLUSIONS, $raw);
+        }
+        return $added;
+    }
+
+    /** @return string[] */
+    private function addItemsToFaqPool(int $serviceId, array $items): array
+    {
+        if (empty($items)) { return []; }
+        $pool = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+        if (!is_array($pool)) { $pool = []; }
+        $byId = array_flip(array_column($pool, 'id'));
+        $byQ  = array_flip(array_map('strtolower', array_column($pool, 'question')));
+        $added = [];
+        foreach ($items as $item) {
+            $q = sanitize_text_field((string) ($item['question'] ?? ''));
+            $a = sanitize_textarea_field((string) ($item['answer'] ?? ''));
+            if ($q === '') { continue; }
+            $id = sanitize_title($q);
+            if (isset($byId[$id]) || isset($byQ[strtolower($q)])) { continue; }
+            $pool[] = ['id' => $id, 'question' => $q, 'answer' => $a];
+            $added[] = $id; $byId[$id] = true; $byQ[strtolower($q)] = true;
+        }
+        if (!empty($added)) { update_post_meta($serviceId, self::META_FAQS, $pool); }
+        return $added;
     }
 
     public function requireAdmin(): bool

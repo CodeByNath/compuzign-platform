@@ -511,4 +511,173 @@ class PackageSchema
 
         return $out;
     }
+
+    // ── Tier Occupant helpers (Phase 2) ──────────────────────────────────────
+
+    /**
+     * Detect whether a tier slot is in Phase 2 occupant format.
+     */
+    public static function isOccupantFormat(array $tier): bool
+    {
+        return array_key_exists('current_occupant', $tier);
+    }
+
+    /**
+     * Normalise a raw tier slot (Phase 1 flat OR Phase 2 occupant) to the
+     * SurfaceTierDetail shape expected by admin API responses.
+     * Returns the 8-field flat detail used by the frontend form.
+     */
+    public static function normaliseTierSlot(array $tier): array
+    {
+        if (self::isOccupantFormat($tier)) {
+            $occ = $tier['current_occupant'] ?? null;
+            if ($occ === null) {
+                return self::emptyTierDetail();
+            }
+            return [
+                'label'               => $occ['label'] ?? '',
+                'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
+                'contact'             => (bool) ($occ['contact'] ?? false),
+                'billing_cycle'       => $occ['billing_cycle'] ?? null,
+                'inclusions_override' => $occ['inclusions_override'] ?? [],
+                'features'            => $occ['features'] ?? [],
+                'faq_refs'            => $occ['faq_refs'] ?? [],
+                'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
+            ];
+        }
+
+        // Phase 1 flat format.
+        if (empty($tier)) {
+            return self::emptyTierDetail();
+        }
+        return [
+            'label'               => $tier['label'] ?? '',
+            'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
+            'contact'             => (bool) ($tier['contact'] ?? false),
+            'billing_cycle'       => $tier['billing_cycle'] ?? null,
+            'inclusions_override' => $tier['inclusions_override'] ?? [],
+            'features'            => $tier['features'] ?? [],
+            'faq_refs'            => $tier['faq_refs'] ?? [],
+            'enabled'             => isset($tier['enabled']) ? (bool) $tier['enabled'] : true,
+        ];
+    }
+
+    /**
+     * Normalise a tier slot to the SurfaceTierSummary shape used in list responses.
+     */
+    public static function summariseTierSlot(array $tier): array
+    {
+        $detail     = self::normaliseTierSlot($tier);
+        $configured = !empty($detail['billing_cycle'])
+            || $detail['price'] !== null
+            || $detail['contact']
+            || !empty($detail['inclusions_override'])
+            || !empty($detail['faq_refs']);
+        return [
+            'label'           => $detail['label'],
+            'price'           => $detail['price'],
+            'billing_cycle'   => $detail['billing_cycle'],
+            'inclusion_count' => count($detail['inclusions_override']),
+            'faq_count'       => count($detail['faq_refs']),
+            'enabled'         => $detail['enabled'],
+            'configured'      => $configured,
+        ];
+    }
+
+    /**
+     * Extract the flat tier interface that PricingBuilder/overlayPackage() expects.
+     * Returns null for empty shells (no output to Cost Builder).
+     */
+    public static function extractTierForCostBuilder(array $tier): ?array
+    {
+        if (self::isOccupantFormat($tier)) {
+            $occ = $tier['current_occupant'] ?? null;
+            if ($occ === null) {
+                return null;
+            }
+            return [
+                'label'               => $occ['label'] ?? '',
+                'price'               => $occ['price'] ?? null,
+                'contact'             => $occ['contact'] ?? false,
+                'billing_cycle'       => $occ['billing_cycle'] ?? null,
+                'inclusions_override' => $occ['inclusions_override'] ?? [],
+                'features'            => $occ['features'] ?? [],
+                'faq_refs'            => $occ['faq_refs'] ?? [],
+                'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
+            ];
+        }
+
+        // Phase 1 flat format — pass through; null for empty slots.
+        return empty($tier) ? null : $tier;
+    }
+
+    /**
+     * Create a new occupant or update the existing one inside a tier shell.
+     * Preserves occupant id across edits; generates a new id for first configuration.
+     * Does NOT write to history (history is reserved for future restore/swap).
+     *
+     * @param  array $tierSlot  Current tier slot (may be flat Phase 1, occupant Phase 2, or empty).
+     * @param  array $data      Flat tier fields (label, price, contact, billing_cycle, inclusions_override, features, faq_refs).
+     * @param  bool  $enabled   Maps to platform_status: active|disabled.
+     * @return array            Updated tier slot in Phase 2 occupant format.
+     */
+    public static function upsertOccupant(array $tierSlot, array $data, bool $enabled): array
+    {
+        $history = [];
+        $existingId = null;
+
+        if (self::isOccupantFormat($tierSlot)) {
+            $history    = $tierSlot['history'] ?? [];
+            $existingId = $tierSlot['current_occupant']['id'] ?? null;
+        }
+
+        return [
+            'current_occupant' => [
+                'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
+                'platform_status'     => $enabled ? 'active' : 'disabled',
+                'label'               => $data['label'] ?? '',
+                'price'               => $data['price'] ?? null,
+                'contact'             => $data['contact'] ?? false,
+                'billing_cycle'       => $data['billing_cycle'] ?? null,
+                'inclusions_override' => $data['inclusions_override'] ?? [],
+                'features'            => $data['features'] ?? [],
+                'faq_refs'            => $data['faq_refs'] ?? [],
+            ],
+            'history' => $history,
+        ];
+    }
+
+    /**
+     * Derive station-level platform_status from tier occupant states.
+     * 'active' when at least one tier has a living active occupant; 'disabled' otherwise.
+     * This is a Cost Builder visibility field, not Package Station lifecycle.
+     */
+    public static function deriveStationStatus(array $station): string
+    {
+        foreach (self::ALLOWED_TIERS as $tierId) {
+            $tier = $station['tiers'][$tierId] ?? [];
+            if (self::isOccupantFormat($tier)) {
+                $occ = $tier['current_occupant'] ?? null;
+                if ($occ !== null && ($occ['platform_status'] ?? 'active') === 'active') {
+                    return 'active';
+                }
+            } else {
+                // Phase 1 flat: active when non-empty and enabled is not explicitly false.
+                if (!empty($tier) && (($tier['enabled'] ?? true) !== false)) {
+                    return 'active';
+                }
+            }
+        }
+        return 'disabled';
+    }
+
+    /** @return array{label: string, price: null, contact: false, billing_cycle: null, inclusions_override: array, features: array, faq_refs: array, enabled: false} */
+    private static function emptyTierDetail(): array
+    {
+        return [
+            'label' => '', 'price' => null, 'contact' => false,
+            'billing_cycle' => null, 'inclusions_override' => [],
+            'features' => [], 'faq_refs' => [], 'enabled' => false,
+        ];
+    }
 }

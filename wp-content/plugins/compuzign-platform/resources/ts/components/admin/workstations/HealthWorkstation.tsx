@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useAdminOverview } from '@/hooks/useAdminOverview';
 import { useApi } from '@/hooks/useApi';
-import { fetchMigrationAudit, runPhaseOneMigration } from '@/api/endpoints/admin';
-import type { MigrationAudit, MigrationRunResult } from '@/api/types/admin';
+import { fetchMigrationAudit, runPhaseOneMigration, runPhaseTwoMigration } from '@/api/endpoints/admin';
+import type { MigrationAudit, MigrationRunResult, MigrationPhase2Result } from '@/api/types/admin';
 import { Spinner } from '@/components/ui/Spinner';
 
 interface Props {
@@ -25,6 +25,10 @@ export function HealthWorkstation({ refreshKey }: Props) {
   const [migrationResult, setMigrationResult] = useState<MigrationRunResult | null>(null);
   const [migrationError,  setMigrationError]  = useState<string | null>(null);
 
+  const [migratingP2,       setMigratingP2]       = useState(false);
+  const [migrationP2Result, setMigrationP2Result] = useState<MigrationPhase2Result | null>(null);
+  const [migrationP2Error,  setMigrationP2Error]  = useState<string | null>(null);
+
   const handleRunMigration = async () => {
     setMigrating(true);
     setMigrationError(null);
@@ -37,6 +41,20 @@ export function HealthWorkstation({ refreshKey }: Props) {
       setMigrationError(err instanceof Error ? err.message : 'Migration failed.');
     } finally {
       setMigrating(false);
+    }
+  };
+
+  const handleRunP2Migration = async () => {
+    setMigratingP2(true);
+    setMigrationP2Error(null);
+    setMigrationP2Result(null);
+    try {
+      const result = await runPhaseTwoMigration();
+      setMigrationP2Result(result);
+    } catch (err) {
+      setMigrationP2Error(err instanceof Error ? err.message : 'Phase 2 migration failed.');
+    } finally {
+      setMigratingP2(false);
     }
   };
 
@@ -308,6 +326,50 @@ export function HealthWorkstation({ refreshKey }: Props) {
                 Resolve the issues above before beginning Phase 1 migration.
               </p>
             )}
+
+            {/* Phase 2 migration run */}
+            <div style="border-top: 1px solid var(--admin-border-blue); padding-top: var(--cz-space-4); display: flex; flex-direction: column; gap: var(--cz-space-3)">
+              <div>
+                <p style="margin: 0 0 4px; font-size: var(--admin-fs-label); font-weight: var(--admin-fw-strong); color: var(--admin-text)">
+                  Phase 2 Migration — Tier Occupant Model
+                </p>
+                <p style="margin: 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
+                  Transforms flat tier data in Package Station to the Tier Occupant model.
+                  Run Phase 1 migration first. Idempotent — safe to run multiple times.
+                </p>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--cz-space-3)">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                  onClick={handleRunP2Migration}
+                  disabled={migratingP2}
+                >
+                  {migratingP2 ? 'Running…' : 'Run Phase 2 Migration'}
+                </button>
+                {migrationP2Error && (
+                  <span style="font-size: var(--admin-fs-s-label); color: var(--admin-error)">{migrationP2Error}</span>
+                )}
+              </div>
+              {migrationP2Result && (
+                <div class="cz-health-module-grid">
+                  {[
+                    { label: 'Tiers migrated to occupant model', value: migrationP2Result.results.migrated,         ok: true },
+                    { label: 'Already in occupant model',        value: migrationP2Result.results.already_migrated, ok: true },
+                    { label: 'Errors',                           value: migrationP2Result.results.errors.length,    ok: migrationP2Result.results.errors.length === 0 },
+                  ].map(({ label, value, ok }) => (
+                    <div key={label} class={`cz-health-module-card cz-health-module-card--${ok ? 'ok' : 'fail'}`}>
+                      <div class="cz-health-module-card__body">
+                        <p class="cz-health-module-card__name">{label}</p>
+                      </div>
+                      <span class={`cz-health-module-card__status-text cz-health-module-card__status-text--${ok ? 'ok' : 'fail'}`}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Phase 1 migration run */}
             {!auditBlocked && (

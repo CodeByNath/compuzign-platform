@@ -12,6 +12,9 @@ import type {
   CreateSurfacePackageResponse,
   MigrationAudit,
   MigrationRunResult,
+  MigrationPhase2Result,
+  ServicePackageStationResponse,
+  ServiceTierSaveResponse,
   ModuleRevertResponse,
   ModuleSettleResponse,
   PackageStatusResponse,
@@ -69,6 +72,38 @@ export function fetchMigrationAudit(): Promise<MigrationAudit> {
 // Temporary — Phase 1+3 backfill. Remove after migration is validated.
 export function runPhaseOneMigration(): Promise<MigrationRunResult> {
   return apiClient.post<MigrationRunResult>('admin/migrate/phase-one');
+}
+
+// Temporary — Phase 2 tier occupant migration. Remove after migration is validated.
+export function runPhaseTwoMigration(): Promise<MigrationPhase2Result> {
+  return apiClient.post<MigrationPhase2Result>('admin/migrate/phase-two');
+}
+
+// Phase 2 — Service Station-owned Package Station tier management.
+export function fetchServicePackageStation(serviceId: number): Promise<ServicePackageStationResponse> {
+  return apiClient.get<ServicePackageStationResponse>(`admin/services/${serviceId}/package-station`);
+}
+
+export function saveServicePackageStationTier(
+  serviceId: number,
+  tierId:    string,
+  payload:   TierSavePayload,
+): Promise<ServiceTierSaveResponse> {
+  return apiClient.post<ServiceTierSaveResponse>(
+    `admin/services/${serviceId}/package-station/tiers/${tierId}`,
+    payload,
+  );
+}
+
+export function setServicePackageStationTierEnabled(
+  serviceId: number,
+  tierId:    string,
+  enabled:   boolean,
+): Promise<{ success: boolean; tier_id: string; enabled: boolean }> {
+  return apiClient.post(
+    `admin/services/${serviceId}/package-station/tiers/${tierId}/enabled`,
+    { enabled },
+  );
 }
 
 export function fetchAdminRequests(): Promise<AdminRequestsResponse> {

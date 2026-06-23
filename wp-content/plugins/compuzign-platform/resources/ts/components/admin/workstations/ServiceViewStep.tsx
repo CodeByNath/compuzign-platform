@@ -2,8 +2,22 @@ import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem, TierId } from '@/api/types/cost-builder';
-import { fetchSurfacePackageDetail } from '@/api/endpoints/admin';
-import type { SurfacePackageDetailResponse, SurfacePackageSummary, PromotionTier } from '@/api/types/admin';
+import {
+  fetchSurfacePackageDetail,
+  fetchServicePackageStation,
+  saveServicePackageStationTier,
+  setServicePackageStationTierEnabled,
+} from '@/api/endpoints/admin';
+import type {
+  SurfacePackageDetailResponse,
+  SurfacePackageSummary,
+  PromotionTier,
+  ServicePackageStationResponse,
+  SurfaceTierDetail,
+  InclusionItem,
+  FaqItem,
+} from '@/api/types/admin';
+import { useApi } from '@/hooks/useApi';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
 import { renderModuleStatus, resolveTierStatus, statusDotColor } from '@/components/admin/utils/moduleStatus';
@@ -586,10 +600,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   }, [faqsDraft, saveFaqs]);
 
   const handleOpenTierConfig = async () => {
-    const pkg = await createPackageIfMissing(service.id, service.title);
-    if (!pkg) return;
-    const { pkgId, pkgTitle } = pkg;
-
     const onBack = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
@@ -598,28 +608,47 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
-    ctx.close();
-    doOpen({
-      id:             `pkg-detail-${pkgId}`,
-      mode:           'drawer',
-      title:          pkgTitle,
-      onBack,
-      hideStepHeader: true,
-      initialStepData: {
-        packageId:      pkgId,
-        pkgTitle,
-        initialTab:     'packages',
-        openAction:     doOpen,
-        pkgBack:        onBack,
-        tierId:         null,
-        isNew:          false,
-        currentEnabled: true,
-      },
-      steps: [
-        { id: 'pkg-detail', title: 'Package',   component: PackageDetailStep },
-        { id: 'tier-form',  title: 'Edit Tier', component: TierManageStep    },
-      ],
-    });
+
+    if (relatedPkg) {
+      // Legacy path: service has a cz_surface_package post — use existing Package drawer.
+      const pkg = await createPackageIfMissing(service.id, service.title);
+      if (!pkg) return;
+      const { pkgId, pkgTitle } = pkg;
+      ctx.close();
+      doOpen({
+        id:             `pkg-detail-${pkgId}`,
+        mode:           'drawer',
+        title:          pkgTitle,
+        onBack,
+        hideStepHeader: true,
+        initialStepData: {
+          packageId:      pkgId,
+          pkgTitle,
+          initialTab:     'packages',
+          openAction:     doOpen,
+          pkgBack:        onBack,
+          tierId:         null,
+          isNew:          false,
+          currentEnabled: true,
+        },
+        steps: [
+          { id: 'pkg-detail', title: 'Package',   component: PackageDetailStep },
+          { id: 'tier-form',  title: 'Edit Tier', component: TierManageStep    },
+        ],
+      });
+    } else {
+      // Phase 2 path: service born after Phase 1 — use Service Station-owned tier editing.
+      ctx.close();
+      doOpen({
+        id:             `service-tiers-${service.id}`,
+        mode:           'drawer',
+        title:          decodeHtml(service.title),
+        onBack,
+        hideStepHeader: true,
+        initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
+        steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
+      });
+    }
   };
 
   const pkgSummaryOnView = isActive && !station.loading.creating ? handleOpenTierConfig : undefined;
@@ -1226,5 +1255,347 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       </InlineEditorShell>
     )}
     </>
+  );
+}
+
+// ── ServiceTierStep ───────────────────────────────────────────────────────────
+// Phase 2: Service Station-owned tier configuration drawer.
+// Used when a service was born after Phase 1 and has no legacy cz_surface_package post.
+// Reads and writes directly to cz_service_package_station via service-level endpoints.
+
+type TierDraft = {
+  label:               string;
+  price:               number | null;
+  contact:             boolean;
+  billing_cycle:       string;
+  inclusions_override: InclusionItem[];
+  faq_refs:            string[];
+  popular:             boolean;
+  popular_label:       string;
+  enabled:             boolean;
+  new_inclusions:      Array<{ label: string }>;
+  new_faqs:            Array<{ question: string; answer: string }>;
+};
+
+function tierDraftFromDetail(detail: SurfaceTierDetail, popularTier: string | null, tierId: string, popularLabel: string): TierDraft {
+  return {
+    label:               detail.label,
+    price:               detail.price,
+    contact:             detail.contact,
+    billing_cycle:       detail.billing_cycle ?? 'monthly',
+    inclusions_override: detail.inclusions_override,
+    faq_refs:            detail.faq_refs,
+    popular:             popularTier === tierId,
+    popular_label:       popularTier === tierId ? popularLabel : '',
+    enabled:             detail.enabled,
+    new_inclusions:      [],
+    new_faqs:            [],
+  };
+}
+
+export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
+  const serviceId = ctx.stepData.serviceId as number;
+  const onRefresh = ctx.stepData.onRefresh as (() => void) | undefined;
+
+  const { data, loading, error, refetch } = useApi<ServicePackageStationResponse>(
+    () => fetchServicePackageStation(serviceId)
+  );
+
+  const [editingTierId, setEditingTierId]   = useState<string | null>(null);
+  const [draft,         setDraft]           = useState<TierDraft | null>(null);
+  const [saving,        setSaving]          = useState(false);
+  const [saveErr,       setSaveErr]         = useState<string | null>(null);
+  const [saveOk,        setSaveOk]          = useState(false);
+  const [newIncLabel,   setNewIncLabel]     = useState('');
+  const [newFaqQ,       setNewFaqQ]         = useState('');
+  const [newFaqA,       setNewFaqA]         = useState('');
+
+  useEffect(() => {
+    if (!saveOk) return;
+    const t = setTimeout(() => setSaveOk(false), 2500);
+    return () => clearTimeout(t);
+  }, [saveOk]);
+
+  const openTierEdit = (tierId: string) => {
+    if (!data) return;
+    const detail = data.station.tiers[tierId] ?? {
+      label: '', price: null, contact: false, billing_cycle: null,
+      inclusions_override: [], features: [], faq_refs: [], enabled: false,
+    };
+    setEditingTierId(tierId);
+    setDraft(tierDraftFromDetail(detail as SurfaceTierDetail, data.station.popular_tier, tierId, data.station.popular_label));
+    setSaveErr(null);
+    setSaveOk(false);
+  };
+
+  const handleSave = useCallback(async () => {
+    if (!draft || !editingTierId) return;
+    setSaving(true); setSaveErr(null);
+    try {
+      await saveServicePackageStationTier(serviceId, editingTierId, draft);
+      setSaveOk(true);
+      refetch();
+      onRefresh?.();
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }, [draft, editingTierId, serviceId, refetch, onRefresh]);
+
+  const handleBack = () => {
+    setEditingTierId(null);
+    setDraft(null);
+    setSaveErr(null);
+    setSaveOk(false);
+    setNewIncLabel('');
+    setNewFaqQ('');
+    setNewFaqA('');
+  };
+
+  if (loading) return <div class="cz-admin-loading"><Spinner label="Loading tiers…" /></div>;
+  if (error)   return <div class="cz-admin-error-msg">Failed to load tier data: {error}</div>;
+  if (!data)   return null;
+
+  const { station, service: svc } = data;
+
+  // ── Tier selector view ────────────────────────────────────────────────────
+  if (!editingTierId || !draft) {
+    return (
+      <div class="cz-req-detail">
+        <div class="cz-ws-header" style="padding: var(--cz-space-5) var(--cz-space-6) var(--cz-space-4)">
+          <div>
+            <h3 class="cz-ws-title" style="font-size: var(--admin-fs-sub)">Tier Configuration</h3>
+            <p class="cz-ws-subtitle">Select a tier to configure pricing and inclusions.</p>
+          </div>
+        </div>
+
+        {TIER_KEYS.map((tierId) => {
+          const detail = station.tiers[tierId];
+          const isConfigured = detail && (detail.billing_cycle || detail.price !== null || detail.contact || detail.inclusions_override?.length > 0);
+          const isEnabled = detail?.enabled ?? false;
+          return (
+            <div
+              key={tierId}
+              class="cz-req-detail__section cz-sv-section--no-border"
+              style="cursor: pointer"
+              onClick={() => openTierEdit(tierId)}
+            >
+              <div class="drawerModule">
+                <div class="drawerModule__header">
+                  <div class="drawerModule__heading">
+                    <p class="drawerModule__title">{TIER_LABELS[tierId]}</p>
+                    <p class="drawerModule__subtitle">
+                      {isConfigured
+                        ? (detail.price !== null
+                            ? `$${detail.price} / ${detail.billing_cycle}`
+                            : detail.contact ? 'Contact Us' : detail.billing_cycle ?? 'Configured')
+                        : 'Not configured'}
+                    </p>
+                  </div>
+                  <div class="drawerModule__status">
+                    {isConfigured && (
+                      <span class={`cz-module-status-pill cz-module-status-pill--${isEnabled ? 'active' : 'inactive'}`}>
+                        <span class="cz-module-status-pill__marker">{isEnabled ? '●' : '●'}</span>
+                        {isEnabled ? 'Active' : 'Disabled'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        <div class="cz-tf-footer">
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tier edit form ────────────────────────────────────────────────────────
+  const incPool = svc.inclusions;
+  const faqPool = svc.faqs;
+
+  return (
+    <div class="cz-req-detail">
+      <div class="cz-sv-tabs" style="margin-bottom: 0">
+        <button type="button" class="cz-action-shell__back" onClick={handleBack} disabled={saving} aria-label="Back to tier list">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+            <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
+          </svg>
+        </button>
+        <span style="font-size: var(--admin-fs-sub); font-weight: var(--admin-fw-strong); color: var(--admin-text); padding-left: var(--cz-space-3)">
+          {TIER_LABELS[editingTierId]}
+        </span>
+      </div>
+
+      <div class="cz-tf-form" style="padding: var(--cz-space-5) var(--cz-space-6); overflow-y: auto; flex: 1">
+
+        {/* Contact toggle */}
+        <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
+          <input type="checkbox" id="tier-contact" checked={draft.contact}
+            onChange={(e) => setDraft(d => d ? { ...d, contact: (e.target as HTMLInputElement).checked, price: null } : d)} />
+          <label class="cz-tf-label" for="tier-contact" style="margin: 0">Contact Us (no fixed price)</label>
+        </div>
+
+        {/* Price */}
+        {!draft.contact && (
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Price</label>
+            <input type="number" class="cz-tf-input" min="0" step="0.01"
+              value={draft.price ?? ''}
+              onInput={(e) => {
+                const v = (e.target as HTMLInputElement).value;
+                setDraft(d => d ? { ...d, price: v === '' ? null : parseFloat(v) } : d);
+              }} />
+          </div>
+        )}
+
+        {/* Billing Cycle */}
+        <div class="cz-tf-field">
+          <label class="cz-tf-label">Billing Cycle</label>
+          <select class="cz-tf-select" value={draft.billing_cycle}
+            onChange={(e) => setDraft(d => d ? { ...d, billing_cycle: (e.target as HTMLSelectElement).value } : d)}>
+            <option value="monthly">Monthly</option>
+            <option value="annually">Annually</option>
+            <option value="one-time">One-time</option>
+          </select>
+        </div>
+
+        {/* Label */}
+        <div class="cz-tf-field">
+          <label class="cz-tf-label">Display Label (optional)</label>
+          <input type="text" class="cz-tf-input" value={draft.label}
+            onInput={(e) => setDraft(d => d ? { ...d, label: (e.target as HTMLInputElement).value } : d)} />
+        </div>
+
+        {/* Enabled */}
+        <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
+          <input type="checkbox" id="tier-enabled" checked={draft.enabled}
+            onChange={(e) => setDraft(d => d ? { ...d, enabled: (e.target as HTMLInputElement).checked } : d)} />
+          <label class="cz-tf-label" for="tier-enabled" style="margin: 0">Tier is active (visible in Cost Builder)</label>
+        </div>
+
+        {/* Popular tier */}
+        <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
+          <input type="checkbox" id="tier-popular" checked={draft.popular}
+            onChange={(e) => setDraft(d => d ? { ...d, popular: (e.target as HTMLInputElement).checked } : d)} />
+          <label class="cz-tf-label" for="tier-popular" style="margin: 0">Mark as popular tier</label>
+        </div>
+        {draft.popular && (
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Popular badge label</label>
+            <input type="text" class="cz-tf-input" value={draft.popular_label}
+              onInput={(e) => setDraft(d => d ? { ...d, popular_label: (e.target as HTMLInputElement).value } : d)} />
+          </div>
+        )}
+
+        {/* Inclusions */}
+        <div class="cz-tf-field">
+          <label class="cz-tf-label">Inclusions</label>
+          {draft.inclusions_override.length > 0 && (
+            <div class="cz-sc-inclusion-pool" style="margin-bottom: var(--cz-space-2)">
+              {draft.inclusions_override.map((inc) => (
+                <span key={inc.id} class="cz-tf-chip">
+                  {inc.label}
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
+                    onClick={() => setDraft(d => d ? { ...d, inclusions_override: d.inclusions_override.filter(i => i.id !== inc.id) } : d)}>
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {incPool.length > 0 && (
+            <select class="cz-tf-select" value=""
+              onChange={(e) => {
+                const sel = e.target as HTMLSelectElement;
+                const id = sel.value;
+                if (!id) return;
+                const inc = incPool.find(i => i.id === id);
+                if (inc && !draft.inclusions_override.find(i => i.id === id)) {
+                  setDraft(d => d ? { ...d, inclusions_override: [...d.inclusions_override, inc] } : d);
+                }
+                sel.value = '';
+              }}>
+              <option value="">Add from pool…</option>
+              {incPool.filter(i => !draft.inclusions_override.find(s => s.id === i.id)).map(i => (
+                <option key={i.id} value={i.id}>{i.label}</option>
+              ))}
+            </select>
+          )}
+          <div style="display:flex; gap: var(--cz-space-2); margin-top: var(--cz-space-2)">
+            <input type="text" class="cz-tf-input" placeholder="New inclusion label"
+              value={newIncLabel}
+              onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)} />
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+              onClick={() => {
+                if (!newIncLabel.trim()) return;
+                setDraft(d => d ? { ...d, new_inclusions: [...d.new_inclusions, { label: newIncLabel.trim() }] } : d);
+                setNewIncLabel('');
+              }}>Add</button>
+          </div>
+          {draft.new_inclusions.length > 0 && (
+            <div style="margin-top: var(--cz-space-1); font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
+              New: {draft.new_inclusions.map(i => i.label).join(', ')}
+            </div>
+          )}
+        </div>
+
+        {/* FAQs */}
+        <div class="cz-tf-field">
+          <label class="cz-tf-label">FAQs</label>
+          {draft.faq_refs.length > 0 && (
+            <div style="margin-bottom: var(--cz-space-2)">
+              {draft.faq_refs.map(ref => {
+                const faq = faqPool.find(f => f.id === ref);
+                return (
+                  <div key={ref} style="display:flex; align-items:center; gap: var(--cz-space-2); margin-bottom: 4px">
+                    <span style="font-size: var(--admin-fs-s-label); color: var(--admin-text)">{faq?.question ?? ref}</span>
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                      onClick={() => setDraft(d => d ? { ...d, faq_refs: d.faq_refs.filter(r => r !== ref) } : d)}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {faqPool.length > 0 && (
+            <select class="cz-tf-select" value=""
+              onChange={(e) => {
+                const sel = e.target as HTMLSelectElement;
+                const id = sel.value;
+                if (!id) return;
+                if (!draft.faq_refs.includes(id)) {
+                  setDraft(d => d ? { ...d, faq_refs: [...d.faq_refs, id] } : d);
+                }
+                sel.value = '';
+              }}>
+              <option value="">Add FAQ from pool…</option>
+              {faqPool.filter(f => !draft.faq_refs.includes(f.id)).map(f => (
+                <option key={f.id} value={f.id}>{f.question}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {saveErr && <p class="cz-admin-error-msg" style="margin-top: var(--cz-space-3)">{saveErr}</p>}
+        {saveOk  && <p class="cz-admin-ok-msg"   style="margin-top: var(--cz-space-3)">Saved.</p>}
+      </div>
+
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleBack} disabled={saving}>
+          Back
+        </button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
   );
 }

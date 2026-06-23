@@ -76,6 +76,17 @@ class PackageRepository
                 continue;
             }
 
+            // Phase 2: extract flat tier interface from occupant model for PricingBuilder.
+            // Phase 1 flat format passes through unchanged; null slots (empty shells) are omitted.
+            $flatTiers = [];
+            foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+                $extracted = PackageSchema::extractTierForCostBuilder($station['tiers'][$tierId] ?? []);
+                if ($extracted !== null) {
+                    $flatTiers[$tierId] = $extracted;
+                }
+            }
+            $station['tiers'] = $flatTiers;
+
             // Phase 1 bridge: promotion_tiers still live in the original package post until Phase 4.
             $sourceId = (int) ($station['migration_source_id'] ?? 0);
             if ($sourceId > 0) {

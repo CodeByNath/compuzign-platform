@@ -34,6 +34,15 @@ class AdminController
             'callback'            => [$this, 'runPhaseOneMigration'],
             'permission_callback' => [$this, 'requireAdmin'],
         ]);
+
+        // Temporary — Phase 2 tier occupant migration. Transforms flat tier objects in
+        // cz_service_package_station to the { current_occupant, history } occupant model.
+        // Safe to run multiple times (idempotent). Remove after migration is validated.
+        register_rest_route('compuzign/v1', '/admin/migrate/phase-two', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'runPhaseTwoMigration'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
     }
 
     public function getOverview(\WP_REST_Request $request): \WP_REST_Response
@@ -235,6 +244,77 @@ class AdminController
                         'migration_source_id' => null,
                     ]);
                     $results['born_empty']++;
+                }
+            } catch (\Throwable $e) {
+                $results['errors'][] = ['service_id' => $serviceId, 'message' => $e->getMessage()];
+            }
+        }
+
+        return rest_ensure_response(['success' => true, 'results' => $results]);
+    }
+
+    // Temporary — Phase 2 tier occupant migration. Remove after migration is validated.
+    public function runPhaseTwoMigration(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $serviceIds = get_posts([
+            'post_type'              => 'cz_service',
+            'post_status'            => ['publish', 'draft'],
+            'numberposts'            => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_term_cache' => false,
+        ]);
+
+        $results = ['migrated' => 0, 'already_migrated' => 0, 'errors' => []];
+
+        foreach ($serviceIds as $serviceId) {
+            $serviceId = (int) $serviceId;
+
+            try {
+                $station = get_post_meta($serviceId, 'cz_service_package_station', true);
+                if (!is_array($station) || empty($station)) {
+                    continue; // No Package Station — skip (Phase 1 migration not run).
+                }
+
+                $tiers   = $station['tiers'] ?? [];
+                $changed = false;
+
+                foreach ($PS::ALLOWED_TIERS as $tierId) {
+                    $tier = $tiers[$tierId] ?? [];
+
+                    // Already in occupant format.
+                    if ($PS::isOccupantFormat($tier)) {
+                        continue;
+                    }
+
+                    $changed = true;
+
+                    if (empty($tier)) {
+                        // Empty shell — normalise to occupant format with null occupant.
+                        $station['tiers'][$tierId] = ['current_occupant' => null, 'history' => []];
+                    } else {
+                        // Flat Phase 1 tier — wrap as first occupant.
+                        $enabled = isset($tier['enabled']) ? (bool) $tier['enabled'] : true;
+                        unset($tier['enabled']);
+                        $station['tiers'][$tierId] = [
+                            'current_occupant' => array_merge(
+                                ['id' => 'occ_' . bin2hex(random_bytes(4)), 'platform_status' => $enabled ? 'active' : 'disabled'],
+                                $tier
+                            ),
+                            'history' => [],
+                        ];
+                    }
+                }
+
+                if ($changed) {
+                    // Re-derive station platform_status after occupant transformation.
+                    $station['platform_status'] = $PS::deriveStationStatus($station);
+                    update_post_meta($serviceId, 'cz_service_package_station', $station);
+                    $results['migrated']++;
+                } else {
+                    $results['already_migrated']++;
                 }
             } catch (\Throwable $e) {
                 $results['errors'][] = ['service_id' => $serviceId, 'message' => $e->getMessage()];

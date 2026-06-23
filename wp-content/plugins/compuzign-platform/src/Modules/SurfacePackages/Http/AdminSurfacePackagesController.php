@@ -150,10 +150,19 @@ class AdminSurfacePackagesController
             $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
             $services    = $this->resolveServiceNames($serviceRefs);
 
-            $rawPkgStatus    = $pkg['platform_status'] ?? '';
+            // Phase 2: read tier data from cz_service_package_station.
+            // Falls back to cz_package tiers for un-migrated services.
+            $station    = $this->loadStationForPackage($pkg);
+            $tierSource = $station['tiers'] ?? $pkg['tiers'] ?? [];
+
+            $tierSummary = [];
+            foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+                $tierSummary[$tierId] = PackageSchema::summariseTierSlot($tierSource[$tierId] ?? []);
+            }
+
+            $rawPkgStatus    = $station ? ($station['platform_status'] ?? '') : ($pkg['platform_status'] ?? '');
             $resolvedPkgStatus = in_array($rawPkgStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true)
                                  ? $rawPkgStatus
-                                 // Backward compat: old disabled packages had post_status=draft
                                  : ($post->post_status === 'publish' ? 'active' : 'disabled');
 
             return [
@@ -164,10 +173,10 @@ class AdminSurfacePackagesController
                 'package_type'       => $pkg['package_type'] ?? 'tier_configuration',
                 'service_refs'       => $serviceRefs,
                 'services'           => $services,
-                'tiers'              => $this->summariseTiers($pkg['tiers'] ?? []),
+                'tiers'              => $tierSummary,
                 'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
-                'popular_tier'       => $pkg['popular_tier'] ?? null,
-                'popular_label'      => $pkg['popular_label'] ?? '',
+                'popular_tier'       => $station ? ($station['popular_tier'] ?? $pkg['popular_tier'] ?? null) : ($pkg['popular_tier'] ?? null),
+                'popular_label'      => $station ? ($station['popular_label'] ?? $pkg['popular_label'] ?? '') : ($pkg['popular_label'] ?? ''),
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
                 'display_contexts'   => $pkg['display_contexts'] ?? ['cost-builder'],
                 'migration_complete' => (bool) ($pkg['migration_complete'] ?? false),
@@ -277,40 +286,33 @@ class AdminSurfacePackagesController
         $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
         $service     = !empty($serviceRefs) ? $this->loadServiceDetail($serviceRefs[0]) : null;
 
-        // Normalise tiers to always include new fields (backward compat for old records).
+        // Phase 2: read tier data from cz_service_package_station; fall back to cz_package.
+        $station    = $this->loadStationForPackage($pkg);
+        $tierSource = $station['tiers'] ?? $pkg['tiers'] ?? [];
+
         $tiers = [];
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-            $t = $pkg['tiers'][$tierId] ?? [];
-            $tiers[$tierId] = [
-                'label'               => $t['label'] ?? '',
-                'price'               => isset($t['price']) && $t['price'] !== null ? (float) $t['price'] : null,
-                'contact'             => (bool) ($t['contact'] ?? false),
-                'billing_cycle'       => $t['billing_cycle'] ?? null,
-                'inclusions_override' => $t['inclusions_override'] ?? [],
-                'features'            => $t['features'] ?? [],
-                'faq_refs'            => $t['faq_refs'] ?? [],
-                'enabled'             => isset($t['enabled']) ? (bool) $t['enabled'] : true,
-            ];
+            $tiers[$tierId] = PackageSchema::normaliseTierSlot($tierSource[$tierId] ?? []);
         }
 
-        $rawDetailStatus    = $pkg['platform_status'] ?? '';
-        $resolvedDetailStatus = in_array($rawDetailStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true)
-                                ? $rawDetailStatus
-                                : ($post->post_status === 'publish' ? 'active' : 'disabled');
+        $rawStatus    = $station ? ($station['platform_status'] ?? '') : ($pkg['platform_status'] ?? '');
+        $resolvedStatus = in_array($rawStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true)
+                          ? $rawStatus
+                          : ($post->post_status === 'publish' ? 'active' : 'disabled');
 
         return rest_ensure_response([
             'success' => true,
             'package' => [
                 'post_id'            => (int) $post->ID,
                 'post_status'        => $post->post_status,
-                'platform_status'    => $resolvedDetailStatus,
+                'platform_status'    => $resolvedStatus,
                 'title'              => $post->post_title,
                 'package_type'       => $pkg['package_type'] ?? 'tier_configuration',
                 'service_refs'       => $serviceRefs,
                 'tiers'              => $tiers,
                 'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
-                'popular_tier'       => $pkg['popular_tier'] ?? null,
-                'popular_label'      => $pkg['popular_label'] ?? '',
+                'popular_tier'       => $station ? ($station['popular_tier'] ?? $pkg['popular_tier'] ?? null) : ($pkg['popular_tier'] ?? null),
+                'popular_label'      => $station ? ($station['popular_label'] ?? $pkg['popular_label'] ?? '') : ($pkg['popular_label'] ?? ''),
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
                 'display_contexts'   => $pkg['display_contexts'] ?? ['cost-builder'],
                 'migration_complete' => (bool) ($pkg['migration_complete'] ?? false),
@@ -323,9 +325,6 @@ class AdminSurfacePackagesController
 
     public function saveTier(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->migrationReadOnly();
-
-        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
@@ -339,7 +338,6 @@ class AdminSurfacePackagesController
             return $this->error('Invalid request body.', 400);
         }
 
-        // Load current package meta (or bootstrap defaults).
         $pkg = get_post_meta($packageId, 'cz_package', true);
         if (!is_array($pkg)) {
             $pkg = (new PackageSchema())->defaultPackage();
@@ -347,29 +345,34 @@ class AdminSurfacePackagesController
 
         $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
         $serviceId   = $serviceRefs[0] ?? 0;
+        if ($serviceId <= 0) {
+            return $this->error('No service linked to this package.', 422);
+        }
 
-        // ── Add new canonical inclusions to Service Core ──────────────────────
+        $station = get_post_meta($serviceId, 'cz_service_package_station', true);
+        if (!is_array($station) || empty($station)) {
+            return $this->error('Package Station not found on service. Run Phase 1 migration first.', 422);
+        }
+
+        // ── Add new canonical inclusions/FAQs to Service Core ─────────────────
         $addedInclusions = [];
-        $newInclusions   = $body['new_inclusions'] ?? [];
-        if (!empty($newInclusions) && is_array($newInclusions) && $serviceId > 0) {
-            $addedInclusions = $this->addInclusionsToService($serviceId, $newInclusions);
+        if (!empty($body['new_inclusions']) && is_array($body['new_inclusions'])) {
+            $addedInclusions = $this->addInclusionsToService($serviceId, $body['new_inclusions']);
         }
 
-        // ── Add new canonical FAQs to Service Core ────────────────────────────
         $addedFaqRefs = [];
-        $newFaqs      = $body['new_faqs'] ?? [];
-        if (!empty($newFaqs) && is_array($newFaqs) && $serviceId > 0) {
-            $addedFaqRefs = $this->addFaqsToService($serviceId, $newFaqs);
+        if (!empty($body['new_faqs']) && is_array($body['new_faqs'])) {
+            $addedFaqRefs = $this->addFaqsToService($serviceId, $body['new_faqs']);
         }
 
-        // ── Build updated tier ────────────────────────────────────────────────
-        $existing = $pkg['tiers'][$tierId] ?? [];
+        // ── Resolve current tier detail for fallback values ────────────────────
+        $existingDetail = PackageSchema::normaliseTierSlot($station['tiers'][$tierId] ?? []);
 
-        // Inclusions: body value wins; merge newly-added items on top.
+        // ── Inclusions ────────────────────────────────────────────────────────
         $inclusions = [];
         if (array_key_exists('inclusions_override', $body) && is_array($body['inclusions_override'])) {
             foreach ($body['inclusions_override'] as $inc) {
-                if (!is_array($inc)) continue;
+                if (!is_array($inc)) { continue; }
                 $id    = sanitize_text_field((string) ($inc['id'] ?? ''));
                 $label = sanitize_text_field((string) ($inc['label'] ?? ''));
                 if ($id !== '' && $label !== '') {
@@ -377,69 +380,71 @@ class AdminSurfacePackagesController
                 }
             }
         } else {
-            $inclusions = $existing['inclusions_override'] ?? [];
+            $inclusions = $existingDetail['inclusions_override'];
         }
         foreach ($addedInclusions as $inc) {
-            $ids = array_column($inclusions, 'id');
-            if (!in_array($inc['id'], $ids, true)) {
+            if (!in_array($inc['id'], array_column($inclusions, 'id'), true)) {
                 $inclusions[] = $inc;
             }
         }
 
-        // FAQ refs: body value wins; merge newly-added IDs on top.
+        // ── FAQ refs ──────────────────────────────────────────────────────────
         $faqRefs = [];
         if (array_key_exists('faq_refs', $body) && is_array($body['faq_refs'])) {
             foreach ($body['faq_refs'] as $ref) {
                 $ref = sanitize_text_field((string) $ref);
-                if ($ref !== '') {
-                    $faqRefs[] = $ref;
-                }
+                if ($ref !== '') { $faqRefs[] = $ref; }
             }
         } else {
-            $faqRefs = $existing['faq_refs'] ?? [];
+            $faqRefs = $existingDetail['faq_refs'];
         }
         foreach ($addedFaqRefs as $id) {
-            if (!in_array($id, $faqRefs, true)) {
-                $faqRefs[] = $id;
-            }
+            if (!in_array($id, $faqRefs, true)) { $faqRefs[] = $id; }
         }
 
         $contact = !empty($body['contact']);
-
-        $price = null;
+        $price   = null;
         if (!$contact && array_key_exists('price', $body) && $body['price'] !== null && $body['price'] !== '') {
             $price = (float) $body['price'];
         }
 
-        $pkg['tiers'][$tierId] = [
-            'label'               => sanitize_text_field((string) ($body['label'] ?? $existing['label'] ?? '')),
+        $enabled = array_key_exists('enabled', $body) ? (bool) $body['enabled'] : $existingDetail['enabled'];
+
+        $tierData = [
+            'label'               => sanitize_text_field((string) ($body['label'] ?? $existingDetail['label'])),
             'price'               => $price,
             'contact'             => $contact,
-            'billing_cycle'       => sanitize_text_field((string) ($body['billing_cycle'] ?? $existing['billing_cycle'] ?? 'monthly')),
+            'billing_cycle'       => sanitize_text_field((string) ($body['billing_cycle'] ?? $existingDetail['billing_cycle'] ?? 'monthly')),
             'inclusions_override' => $inclusions,
-            'features'            => $existing['features'] ?? [],
+            'features'            => [],
             'faq_refs'            => $faqRefs,
-            'enabled'             => array_key_exists('enabled', $body) ? (bool) $body['enabled'] : ($existing['enabled'] ?? true),
         ];
 
-        // ── Popular tier (package-level) ──────────────────────────────────────
+        // Phase 2: write occupant to tier shell in cz_service_package_station.
+        $station['tiers'][$tierId] = PackageSchema::upsertOccupant(
+            $station['tiers'][$tierId] ?? ['current_occupant' => null, 'history' => []],
+            $tierData,
+            $enabled
+        );
+
+        // ── Popular tier (station-level field) ────────────────────────────────
         if (array_key_exists('popular', $body)) {
             if ((bool) $body['popular']) {
-                $pkg['popular_tier']  = $tierId;
-                $pkg['popular_label'] = sanitize_text_field((string) ($body['popular_label'] ?? ''));
-            } elseif (($pkg['popular_tier'] ?? null) === $tierId) {
-                $pkg['popular_tier'] = null;
+                $station['popular_tier']  = $tierId;
+                $station['popular_label'] = sanitize_text_field((string) ($body['popular_label'] ?? ''));
+            } elseif (($station['popular_tier'] ?? null) === $tierId) {
+                $station['popular_tier'] = null;
             }
         }
 
-        update_post_meta($packageId, 'cz_package', $pkg);
+        // Derive station platform_status from tier occupant states.
+        $station['platform_status'] = PackageSchema::deriveStationStatus($station);
 
-        // Re-read after sanitize_callback runs.
-        $saved = get_post_meta($packageId, 'cz_package', true);
+        update_post_meta($serviceId, 'cz_service_package_station', $station);
 
         return rest_ensure_response([
             'success'              => true,
-            'package_meta'         => $saved,
+            'package_meta'         => $this->stationToPackageMeta($station, $packageId),
             'new_inclusions_added' => count($addedInclusions),
             'new_faqs_added'       => count($addedFaqRefs),
         ]);
@@ -463,9 +468,6 @@ class AdminSurfacePackagesController
      */
     public function setTierEnabled(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->migrationReadOnly();
-
-        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
@@ -477,13 +479,34 @@ class AdminSurfacePackagesController
         $body    = $request->get_json_params();
         $enabled = isset($body['enabled']) ? (bool) $body['enabled'] : true;
 
-        $pkg = get_post_meta($packageId, 'cz_package', true);
-        if (!is_array($pkg) || !isset($pkg['tiers'][$tierId])) {
-            return $this->error('Tier not found.', 404);
+        $pkg         = get_post_meta($packageId, 'cz_package', true);
+        $serviceRefs = is_array($pkg) ? array_map('intval', $pkg['service_refs'] ?? []) : [];
+        $serviceId   = $serviceRefs[0] ?? 0;
+        if ($serviceId <= 0) {
+            return $this->error('No service linked to this package.', 422);
         }
 
-        $pkg['tiers'][$tierId]['enabled'] = $enabled;
-        update_post_meta($packageId, 'cz_package', $pkg);
+        $station = get_post_meta($serviceId, 'cz_service_package_station', true);
+        if (!is_array($station) || empty($station)) {
+            return $this->error('Package Station not found on service.', 422);
+        }
+
+        $tierSlot = $station['tiers'][$tierId] ?? [];
+
+        if (PackageSchema::isOccupantFormat($tierSlot)) {
+            // Phase 2: update occupant platform_status.
+            if (!empty($tierSlot['current_occupant'])) {
+                $station['tiers'][$tierId]['current_occupant']['platform_status'] = $enabled ? 'active' : 'disabled';
+            }
+        } else {
+            // Phase 1 flat: update enabled field.
+            if (!empty($tierSlot)) {
+                $station['tiers'][$tierId]['enabled'] = $enabled;
+            }
+        }
+
+        $station['platform_status'] = PackageSchema::deriveStationStatus($station);
+        update_post_meta($serviceId, 'cz_service_package_station', $station);
 
         return rest_ensure_response(['success' => true, 'tier_id' => $tierId, 'enabled' => $enabled]);
     }
@@ -680,6 +703,9 @@ class AdminSurfacePackagesController
     }
 
     /**
+     * Summarise tiers for the list view. Delegates to PackageSchema::summariseTierSlot()
+     * which handles both Phase 1 flat and Phase 2 occupant formats.
+     *
      * @param  mixed $tiers
      * @return array<string, array{label: string, price: float|null, billing_cycle: string|null, inclusion_count: int, faq_count: int, enabled: bool, configured: bool}>
      */
@@ -688,32 +714,54 @@ class AdminSurfacePackagesController
         if (!is_array($tiers)) {
             $tiers = [];
         }
-
         $out = [];
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-            $t = $tiers[$tierId] ?? [];
-
-            // A tier is "configured" when saveTier() has been explicitly called for it.
-            // billing_cycle is always written as a non-empty string by saveTier(); default-filled
-            // slots produced by create() leave it null. contact, price, inclusions, and faq_refs
-            // are secondary indicators for edge cases (e.g. contact-only tiers with no billing_cycle).
-            $configured = !empty($t['billing_cycle'])
-                || ($t['price'] !== null && array_key_exists('price', $t) && $t['price'] !== '')
-                || !empty($t['contact'])
-                || !empty($t['inclusions_override'])
-                || !empty($t['faq_refs']);
-
-            $out[$tierId] = [
-                'label'           => $t['label'] ?? '',
-                'price'           => isset($t['price']) && $t['price'] !== null ? (float) $t['price'] : null,
-                'billing_cycle'   => $t['billing_cycle'] ?? null,
-                'inclusion_count' => count($t['inclusions_override'] ?? []),
-                'faq_count'       => count($t['faq_refs'] ?? []),
-                'enabled'         => isset($t['enabled']) ? (bool) $t['enabled'] : true,
-                'configured'      => $configured,
-            ];
+            $out[$tierId] = PackageSchema::summariseTierSlot($tiers[$tierId] ?? []);
         }
         return $out;
+    }
+
+    /**
+     * Load the cz_service_package_station meta for the service referenced by a package.
+     * Returns the station array, or null if the service hasn't been migrated yet.
+     */
+    private function loadStationForPackage(array $pkg): ?array
+    {
+        $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
+        $serviceId   = $serviceRefs[0] ?? 0;
+        if ($serviceId <= 0) {
+            return null;
+        }
+        $station = get_post_meta($serviceId, 'cz_service_package_station', true);
+        return (is_array($station) && !empty($station)) ? $station : null;
+    }
+
+    /**
+     * Shape a cz_service_package_station array into the SurfacePackageDetailData response
+     * expected by the frontend (TierSaveResponse.package_meta).
+     */
+    private function stationToPackageMeta(array $station, int $packageId): array
+    {
+        $post  = get_post($packageId);
+        $tiers = [];
+        foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+            $tiers[$tierId] = PackageSchema::normaliseTierSlot($station['tiers'][$tierId] ?? []);
+        }
+        return [
+            'post_id'            => $packageId,
+            'post_status'        => $post ? $post->post_status : 'publish',
+            'platform_status'    => $station['platform_status'] ?? 'disabled',
+            'title'              => $post ? $post->post_title : '',
+            'package_type'       => 'tier_configuration',
+            'service_refs'       => [],
+            'tiers'              => $tiers,
+            'promotion_tiers'    => [],
+            'popular_tier'       => $station['popular_tier'] ?? null,
+            'popular_label'      => $station['popular_label'] ?? '',
+            'faq_refs'           => $station['faq_refs'] ?? [],
+            'display_contexts'   => $station['display_contexts'] ?? ['cost-builder'],
+            'migration_complete' => true,
+        ];
     }
 
     private function emptyPackageRow(\WP_Post $post): array

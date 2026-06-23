@@ -16,6 +16,45 @@ export interface MigrationRunResult {
   };
 }
 
+// Temporary — Phase 2 migration run result. Remove after migration is validated.
+export interface MigrationPhase2Result {
+  success: boolean;
+  results: {
+    migrated:         number;
+    already_migrated: number;
+    errors:           Array<{ service_id: number; message: string }>;
+  };
+}
+
+// Phase 2 — Service Station-owned Package Station tier management.
+export interface ServicePackageStationData {
+  platform_status: string;
+  tiers:           Record<string, SurfaceTierDetail>;
+  popular_tier:    string | null;
+  popular_label:   string;
+  sort_position:   number;
+  bundle:          { title: string; description: string; price: number | null };
+}
+
+export interface ServicePackageStationResponse {
+  success:    boolean;
+  service_id: number;
+  station:    ServicePackageStationData;
+  service: {
+    id:         number;
+    title:      string;
+    inclusions: InclusionItem[];
+    faqs:       FaqItem[];
+  };
+}
+
+export interface ServiceTierSaveResponse {
+  success:              boolean;
+  station:              ServicePackageStationData;
+  new_inclusions_added: number;
+  new_faqs_added:       number;
+}
+
 // Temporary — Phase 0 migration readiness audit. Remove after migration is validated.
 export interface MigrationAudit {
   counts: {
