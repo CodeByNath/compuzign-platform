@@ -43,6 +43,15 @@ class AdminController
             'callback'            => [$this, 'runPhaseTwoMigration'],
             'permission_callback' => [$this, 'requireAdmin'],
         ]);
+
+        // Temporary — Phase 4 promotion migration. Copies promotion instances from
+        // cz_package.promotion_tiers into cz_service_promotion_station on each service.
+        // Safe to run multiple times (idempotent). Remove after migration is validated.
+        register_rest_route('compuzign/v1', '/admin/migrate/phase-four', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'runPhaseFourMigration'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
     }
 
     public function getOverview(\WP_REST_Request $request): \WP_REST_Response
@@ -243,6 +252,60 @@ class AdminController
                         'display_contexts'   => ['cost-builder'],
                         'migration_source_id' => null,
                     ]);
+                    $results['born_empty']++;
+                }
+            } catch (\Throwable $e) {
+                $results['errors'][] = ['service_id' => $serviceId, 'message' => $e->getMessage()];
+            }
+        }
+
+        return rest_ensure_response(['success' => true, 'results' => $results]);
+    }
+
+    // Temporary — Phase 4 promotion migration. Remove after migration is validated.
+    public function runPhaseFourMigration(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceIds = get_posts([
+            'post_type'              => 'cz_service',
+            'post_status'            => ['publish', 'draft'],
+            'numberposts'            => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_term_cache' => false,
+        ]);
+
+        $results = ['migrated' => 0, 'already_migrated' => 0, 'born_empty' => 0, 'errors' => []];
+
+        foreach ($serviceIds as $serviceId) {
+            $serviceId = (int) $serviceId;
+
+            try {
+                $promoStation = get_post_meta($serviceId, 'cz_service_promotion_station', true);
+
+                // Skip if already migrated.
+                if (is_array($promoStation) && !empty($promoStation['migrated'])) {
+                    $results['already_migrated']++;
+                    continue;
+                }
+
+                // Find promotion instances to migrate via migration_source_id.
+                $pkgStation = get_post_meta($serviceId, 'cz_service_package_station', true);
+                $sourceId   = is_array($pkgStation) ? (int) ($pkgStation['migration_source_id'] ?? 0) : 0;
+
+                $instances = [];
+                if ($sourceId > 0) {
+                    $pkg = get_post_meta($sourceId, 'cz_package', true);
+                    $instances = is_array($pkg) ? array_values($pkg['promotion_tiers'] ?? []) : [];
+                }
+
+                update_post_meta($serviceId, 'cz_service_promotion_station', [
+                    'instances' => $instances,
+                    'migrated'  => true,
+                ]);
+
+                if (!empty($instances)) {
+                    $results['migrated']++;
+                } else {
                     $results['born_empty']++;
                 }
             } catch (\Throwable $e) {

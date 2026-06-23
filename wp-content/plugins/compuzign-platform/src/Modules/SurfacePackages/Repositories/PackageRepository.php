@@ -87,13 +87,20 @@ class PackageRepository
             }
             $station['tiers'] = $flatTiers;
 
-            // Phase 1 bridge: promotion_tiers still live in the original package post until Phase 4.
-            $sourceId = (int) ($station['migration_source_id'] ?? 0);
-            if ($sourceId > 0) {
-                $pkg = get_post_meta($sourceId, self::META_KEY, true);
-                $station['promotion_tiers'] = is_array($pkg) ? ($pkg['promotion_tiers'] ?? []) : [];
+            // Phase 4: read promotion instances from cz_service_promotion_station.
+            // Falls back to cz_surface_package bridge if Phase 4 migration has not run yet.
+            $promoStation = get_post_meta($serviceId, 'cz_service_promotion_station', true);
+            if (is_array($promoStation) && !empty($promoStation['migrated'])) {
+                $station['promotion_tiers'] = $promoStation['instances'] ?? [];
             } else {
-                $station['promotion_tiers'] = [];
+                // Phase 1 bridge — remove when Phase 4 migration is confirmed complete.
+                $sourceId = (int) ($station['migration_source_id'] ?? 0);
+                if ($sourceId > 0) {
+                    $pkg = get_post_meta($sourceId, self::META_KEY, true);
+                    $station['promotion_tiers'] = is_array($pkg) ? ($pkg['promotion_tiers'] ?? []) : [];
+                } else {
+                    $station['promotion_tiers'] = [];
+                }
             }
 
             $map[$serviceId] = $station;

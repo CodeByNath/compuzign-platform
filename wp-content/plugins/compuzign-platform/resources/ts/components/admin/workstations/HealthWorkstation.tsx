@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useAdminOverview } from '@/hooks/useAdminOverview';
 import { useApi } from '@/hooks/useApi';
-import { fetchMigrationAudit, runPhaseOneMigration, runPhaseTwoMigration } from '@/api/endpoints/admin';
-import type { MigrationAudit, MigrationRunResult, MigrationPhase2Result } from '@/api/types/admin';
+import { fetchMigrationAudit, runPhaseOneMigration, runPhaseTwoMigration, runPhaseFourMigration } from '@/api/endpoints/admin';
+import type { MigrationAudit, MigrationRunResult, MigrationPhase2Result, MigrationPhase4Result } from '@/api/types/admin';
 import { Spinner } from '@/components/ui/Spinner';
 
 interface Props {
@@ -55,6 +55,24 @@ export function HealthWorkstation({ refreshKey }: Props) {
       setMigrationP2Error(err instanceof Error ? err.message : 'Phase 2 migration failed.');
     } finally {
       setMigratingP2(false);
+    }
+  };
+
+  const [migratingP4,       setMigratingP4]       = useState(false);
+  const [migrationP4Result, setMigrationP4Result] = useState<MigrationPhase4Result | null>(null);
+  const [migrationP4Error,  setMigrationP4Error]  = useState<string | null>(null);
+
+  const handleRunP4Migration = async () => {
+    setMigratingP4(true);
+    setMigrationP4Error(null);
+    setMigrationP4Result(null);
+    try {
+      const result = await runPhaseFourMigration();
+      setMigrationP4Result(result);
+    } catch (err) {
+      setMigrationP4Error(err instanceof Error ? err.message : 'Phase 4 migration failed.');
+    } finally {
+      setMigratingP4(false);
     }
   };
 
@@ -326,6 +344,52 @@ export function HealthWorkstation({ refreshKey }: Props) {
                 Resolve the issues above before beginning Phase 1 migration.
               </p>
             )}
+
+            {/* Phase 4 migration run */}
+            <div style="border-top: 1px solid var(--admin-border-blue); padding-top: var(--cz-space-4); display: flex; flex-direction: column; gap: var(--cz-space-3)">
+              <div>
+                <p style="margin: 0 0 4px; font-size: var(--admin-fs-label); font-weight: var(--admin-fw-strong); color: var(--admin-text)">
+                  Phase 4 Migration — Promotion Station
+                </p>
+                <p style="margin: 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
+                  Copies promotion instances from legacy package meta into
+                  cz_service_promotion_station on each Service Station.
+                  Run Phase 1 migration first. Idempotent — safe to run multiple times.
+                </p>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--cz-space-3)">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                  onClick={handleRunP4Migration}
+                  disabled={migratingP4}
+                >
+                  {migratingP4 ? 'Running…' : 'Run Phase 4 Migration'}
+                </button>
+                {migrationP4Error && (
+                  <span style="font-size: var(--admin-fs-s-label); color: var(--admin-error)">{migrationP4Error}</span>
+                )}
+              </div>
+              {migrationP4Result && (
+                <div class="cz-health-module-grid">
+                  {[
+                    { label: 'Services with promotions migrated', value: migrationP4Result.results.migrated,         ok: true },
+                    { label: 'Already migrated',                  value: migrationP4Result.results.already_migrated, ok: true },
+                    { label: 'Services with no promotions',       value: migrationP4Result.results.born_empty,       ok: true },
+                    { label: 'Errors',                            value: migrationP4Result.results.errors.length,    ok: migrationP4Result.results.errors.length === 0 },
+                  ].map(({ label, value, ok }) => (
+                    <div key={label} class={`cz-health-module-card cz-health-module-card--${ok ? 'ok' : 'fail'}`}>
+                      <div class="cz-health-module-card__body">
+                        <p class="cz-health-module-card__name">{label}</p>
+                      </div>
+                      <span class={`cz-health-module-card__status-text cz-health-module-card__status-text--${ok ? 'ok' : 'fail'}`}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Phase 2 migration run */}
             <div style="border-top: 1px solid var(--admin-border-blue); padding-top: var(--cz-space-4); display: flex; flex-direction: column; gap: var(--cz-space-3)">

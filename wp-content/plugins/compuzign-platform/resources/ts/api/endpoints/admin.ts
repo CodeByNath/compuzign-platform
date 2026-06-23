@@ -13,8 +13,11 @@ import type {
   MigrationAudit,
   MigrationRunResult,
   MigrationPhase2Result,
+  MigrationPhase4Result,
   ServicePackageStationResponse,
   ServiceTierSaveResponse,
+  ServicePromotionStationResponse,
+  ServicePromotionSaveResponse,
   ModuleRevertResponse,
   ModuleSettleResponse,
   PackageStatusResponse,
@@ -77,6 +80,55 @@ export function runPhaseOneMigration(): Promise<MigrationRunResult> {
 // Temporary — Phase 2 tier occupant migration. Remove after migration is validated.
 export function runPhaseTwoMigration(): Promise<MigrationPhase2Result> {
   return apiClient.post<MigrationPhase2Result>('admin/migrate/phase-two');
+}
+
+// Temporary — Phase 4 promotion migration. Remove after migration is validated.
+export function runPhaseFourMigration(): Promise<MigrationPhase4Result> {
+  return apiClient.post<MigrationPhase4Result>('admin/migrate/phase-four');
+}
+
+// Phase 4 — service-level Promotion Station management.
+export function fetchServicePromotionStation(serviceId: number): Promise<ServicePromotionStationResponse> {
+  return apiClient.get<ServicePromotionStationResponse>(`admin/services/${serviceId}/promotion-station`);
+}
+
+export function createServicePromotion(
+  serviceId: number,
+  payload:   PromotionTierPayload,
+): Promise<ServicePromotionSaveResponse> {
+  return apiClient.post<ServicePromotionSaveResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions`,
+    payload,
+  );
+}
+
+export function saveServicePromotion(
+  serviceId: number,
+  promoId:   string,
+  payload:   PromotionTierPayload,
+): Promise<ServicePromotionSaveResponse> {
+  return apiClient.post<ServicePromotionSaveResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}`,
+    payload,
+  );
+}
+
+export function archiveServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<{ success: boolean; promo_id: string; status: string }> {
+  return apiClient.post(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/archive`,
+  );
+}
+
+export function reactivateServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<{ success: boolean; promo_id: string; status: string }> {
+  return apiClient.post(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/reactivate`,
+  );
 }
 
 // Phase 2 — Service Station-owned Package Station tier management.

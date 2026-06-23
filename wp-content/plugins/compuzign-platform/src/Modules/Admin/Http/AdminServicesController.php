@@ -202,6 +202,51 @@ class AdminServicesController
                 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
             ],
         ]);
+
+        // ── Promotion Station management (Phase 4 — service-owned paths) ──────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getPromotionStation'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createServicePromotion'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/archive', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'archiveServicePromotion'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'type' => 'integer'],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/reactivate', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'reactivateServicePromotion'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'type' => 'integer'],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'saveServicePromotion'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'type' => 'integer'],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
@@ -979,6 +1024,185 @@ class AdminServicesController
         update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
 
         return rest_ensure_response(['success' => true, 'tier_id' => $tierId, 'enabled' => $enabled]);
+    }
+
+    // ── Promotion Station management (Phase 4 — service-owned paths) ──────────
+
+    public function getPromotionStation(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $post      = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $promoStation = get_post_meta($serviceId, self::META_PROMOTION_STATION, true);
+        $instances    = (is_array($promoStation) && !empty($promoStation['migrated']))
+            ? \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normalisePromotionInstances($promoStation['instances'] ?? [])
+            : [];
+
+        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+        $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+
+        return rest_ensure_response([
+            'success'    => true,
+            'service_id' => $serviceId,
+            'promotions' => $instances,
+            'service'    => [
+                'id'         => $serviceId,
+                'title'      => $post->post_title,
+                'inclusions' => array_values(array_filter(
+                    is_array($incPool) ? $incPool : [],
+                    fn($i) => is_array($i) && !empty($i['id']) && !empty($i['label'])
+                )),
+                'faqs' => array_values(array_filter(
+                    is_array($rawFaqs) ? $rawFaqs : [],
+                    fn($i) => is_array($i) && !empty($i['question'])
+                )),
+            ],
+        ]);
+    }
+
+    public function createServicePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $post      = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
+        }
+
+        $addedInclusions = $this->addItemsToInclusionPool($serviceId, $body['new_inclusions'] ?? []);
+
+        $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $promoId  = $PS::generatePromotionTierId();
+        $instance = $PS::buildPromotionInstance($promoId, $body, $addedInclusions);
+
+        $current   = $this->readPromotionStation($serviceId);
+        $current[] = $instance;
+        $this->writePromotionStationDirect($serviceId, $current);
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $instance]);
+    }
+
+    public function saveServicePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
+        }
+
+        $PS        = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $current   = $this->readPromotionStation($serviceId);
+        $existing  = $PS::findPromoInInstances($current, $promoId);
+        if ($existing === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
+        }
+
+        $addedInclusions = $this->addItemsToInclusionPool($serviceId, $body['new_inclusions'] ?? []);
+        $updated = $PS::buildPromotionInstance($promoId, $body, $addedInclusions, $existing);
+
+        foreach ($current as &$inst) {
+            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
+                $inst = $updated;
+                break;
+            }
+        }
+        unset($inst);
+
+        $this->writePromotionStationDirect($serviceId, $current);
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $updated]);
+    }
+
+    public function archiveServicePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $current = $this->readPromotionStation($serviceId);
+        $found   = false;
+        foreach ($current as &$inst) {
+            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
+                $inst['status'] = 'archived';
+                $found = true;
+                break;
+            }
+        }
+        unset($inst);
+
+        if (!$found) {
+            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
+        }
+
+        $this->writePromotionStationDirect($serviceId, $current);
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'archived']);
+    }
+
+    public function reactivateServicePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $current = $this->readPromotionStation($serviceId);
+        $found   = false;
+        foreach ($current as &$inst) {
+            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
+                $inst['status'] = 'active';
+                $found = true;
+                break;
+            }
+        }
+        unset($inst);
+
+        if (!$found) {
+            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
+        }
+
+        $this->writePromotionStationDirect($serviceId, $current);
+
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'active']);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function readPromotionStation(int $serviceId): array
+    {
+        $promoStation = get_post_meta($serviceId, self::META_PROMOTION_STATION, true);
+        return (is_array($promoStation) && !empty($promoStation['migrated']))
+            ? ($promoStation['instances'] ?? [])
+            : [];
+    }
+
+    private function writePromotionStationDirect(int $serviceId, array $instances): void
+    {
+        update_post_meta($serviceId, self::META_PROMOTION_STATION, [
+            'instances' => array_values($instances),
+            'migrated'  => true,
+        ]);
     }
 
     // ── Service inclusion/FAQ pool helpers (used by tier save) ────────────────

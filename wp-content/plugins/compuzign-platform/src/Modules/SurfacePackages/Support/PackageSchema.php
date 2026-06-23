@@ -314,6 +314,179 @@ class PackageSchema
         return 'promo_' . bin2hex(random_bytes(4));
     }
 
+    // ── Promotion Instance helpers (Phase 4) ──────────────────────────────────
+
+    /**
+     * Build a sanitised promotion instance from a request body.
+     * Falls back to $existing values for any field absent from $body.
+     * Merges $addedInclusions into the stored inclusions list.
+     */
+    public static function buildPromotionInstance(string $id, array $body, array $addedInclusions = [], array $existing = []): array
+    {
+        // Inclusions
+        $inclusions = $existing['inclusions'] ?? [];
+        if (array_key_exists('inclusions', $body) && is_array($body['inclusions'])) {
+            $inclusions = [];
+            foreach ($body['inclusions'] as $inc) {
+                if (!is_array($inc)) { continue; }
+                $iid = sanitize_text_field((string) ($inc['id'] ?? ''));
+                $ilb = sanitize_text_field((string) ($inc['label'] ?? ''));
+                if ($iid !== '' && $ilb !== '') { $inclusions[] = ['id' => $iid, 'label' => $ilb]; }
+            }
+        }
+        foreach ($addedInclusions as $inc) {
+            if (!in_array($inc['id'], array_column($inclusions, 'id'), true)) { $inclusions[] = $inc; }
+        }
+
+        // Exclusions
+        $exclusions = $existing['exclusions'] ?? [];
+        if (array_key_exists('exclusions', $body) && is_array($body['exclusions'])) {
+            $exclusions = [];
+            foreach ($body['exclusions'] as $exc) {
+                if (!is_array($exc)) { continue; }
+                $eid = sanitize_text_field((string) ($exc['id'] ?? ''));
+                $elb = sanitize_text_field((string) ($exc['label'] ?? ''));
+                if ($eid !== '' && $elb !== '') { $exclusions[] = ['id' => $eid, 'label' => $elb]; }
+            }
+        }
+
+        // Features
+        $features = $existing['features'] ?? [];
+        if (array_key_exists('features', $body) && is_array($body['features'])) {
+            $features = array_values(array_filter(
+                array_map('sanitize_text_field', array_map('strval', $body['features'])),
+                fn($f) => $f !== ''
+            ));
+        }
+
+        // Price
+        $price = $existing['price'] ?? null;
+        if (array_key_exists('price', $body)) {
+            $price = ($body['price'] !== null && $body['price'] !== '') ? (float) $body['price'] : null;
+        }
+
+        // Status
+        $status = $existing['status'] ?? 'draft';
+        if (!empty($body['status']) && in_array($body['status'], self::ALLOWED_PROMOTION_STATUSES, true)) {
+            $status = $body['status'];
+        }
+
+        // based_on
+        $basedOn = $existing['based_on'] ?? null;
+        if (array_key_exists('based_on', $body)) {
+            $candidate = sanitize_text_field((string) ($body['based_on'] ?? ''));
+            $basedOn   = in_array($candidate, self::ALLOWED_BASED_ON, true) ? $candidate : null;
+        }
+
+        $name = sanitize_text_field((string) ($body['name'] ?? $existing['name'] ?? ''));
+        $slug = !empty($body['slug'])
+            ? sanitize_title((string) $body['slug'])
+            : (sanitize_title($name) ?: ($existing['slug'] ?? ''));
+
+        return [
+            'id'             => $id,
+            'name'           => $name,
+            'slug'           => $slug,
+            'status'         => $status,
+            'based_on'       => $basedOn,
+            'headline'       => sanitize_text_field((string) ($body['headline'] ?? $existing['headline'] ?? '')),
+            'description'    => sanitize_textarea_field((string) ($body['description'] ?? $existing['description'] ?? '')),
+            'price'          => $price,
+            'billing_label'  => sanitize_text_field((string) ($body['billing_label'] ?? $existing['billing_label'] ?? '')),
+            'features'       => $features,
+            'inclusions'     => $inclusions,
+            'exclusions'     => $exclusions,
+            'badge'          => sanitize_text_field((string) ($body['badge'] ?? $existing['badge'] ?? '')),
+            'campaign_label' => sanitize_text_field((string) ($body['campaign_label'] ?? $existing['campaign_label'] ?? '')),
+            'starts_at'      => self::parseDatetimeFromBody($body, $existing, 'starts_at'),
+            'ends_at'        => self::parseDatetimeFromBody($body, $existing, 'ends_at'),
+            'priority'       => (int) ($body['priority'] ?? $existing['priority'] ?? 0),
+            'is_featured'    => (bool) ($body['is_featured'] ?? $existing['is_featured'] ?? false),
+            'metadata'       => $existing['metadata'] ?? [],
+        ];
+    }
+
+    public static function parseDatetimeFromBody(array $body, array $existing, string $key): ?string
+    {
+        if (!array_key_exists($key, $body)) {
+            return $existing[$key] ?? null;
+        }
+        if ($body[$key] === null || $body[$key] === '') {
+            return null;
+        }
+        $ts = strtotime((string) $body[$key]);
+        return ($ts !== false) ? gmdate('Y-m-d H:i:s', $ts) : null;
+    }
+
+    /**
+     * Normalise a raw promotion instances array to the API response shape.
+     * Records without a valid id are dropped.
+     *
+     * @param  mixed $instances
+     * @return array<int, array<string, mixed>>
+     */
+    public static function normalisePromotionInstances(mixed $instances): array
+    {
+        if (!is_array($instances)) {
+            return [];
+        }
+        $out = [];
+        foreach ($instances as $tier) {
+            if (!is_array($tier) || empty($tier['id'])) {
+                continue;
+            }
+            $out[] = [
+                'id'             => (string) $tier['id'],
+                'name'           => $tier['name'] ?? '',
+                'slug'           => $tier['slug'] ?? '',
+                'status'         => $tier['status'] ?? 'draft',
+                'based_on'       => $tier['based_on'] ?? null,
+                'headline'       => $tier['headline'] ?? '',
+                'description'    => $tier['description'] ?? '',
+                'price'          => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
+                'billing_label'  => $tier['billing_label'] ?? '',
+                'features'       => is_array($tier['features'] ?? null) ? $tier['features'] : [],
+                'inclusions'     => self::coerceInclusionArray($tier['inclusions'] ?? []),
+                'exclusions'     => self::coerceInclusionArray($tier['exclusions'] ?? []),
+                'badge'          => $tier['badge'] ?? '',
+                'campaign_label' => $tier['campaign_label'] ?? '',
+                'starts_at'      => $tier['starts_at'] ?? null,
+                'ends_at'        => $tier['ends_at'] ?? null,
+                'priority'       => (int) ($tier['priority'] ?? 0),
+                'is_featured'    => (bool) ($tier['is_featured'] ?? false),
+                'metadata'       => is_array($tier['metadata'] ?? null) ? $tier['metadata'] : [],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Find a promotion instance by ID within a flat instances array.
+     * Returns the instance array or null if not found.
+     */
+    public static function findPromoInInstances(array $instances, string $promoId): ?array
+    {
+        foreach ($instances as $t) {
+            if (is_array($t) && ($t['id'] ?? '') === $promoId) {
+                return $t;
+            }
+        }
+        return null;
+    }
+
+    private static function coerceInclusionArray(mixed $items): array
+    {
+        if (!is_array($items)) { return []; }
+        $out = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) { continue; }
+            $id = (string) ($item['id'] ?? '');
+            $lb = (string) ($item['label'] ?? '');
+            if ($id !== '' && $lb !== '') { $out[] = ['id' => $id, 'label' => $lb]; }
+        }
+        return $out;
+    }
+
     /**
      * Sanitise the promotion_tiers array.
      * Records without a valid id are silently dropped.

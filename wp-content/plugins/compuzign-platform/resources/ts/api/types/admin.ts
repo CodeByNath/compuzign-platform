@@ -5,6 +5,36 @@ export interface AdminOverview {
   platform_version: string | null;
 }
 
+// Temporary — Phase 4 promotion migration result. Remove after migration is validated.
+export interface MigrationPhase4Result {
+  success: boolean;
+  results: {
+    migrated:         number;
+    already_migrated: number;
+    born_empty:       number;
+    errors:           Array<{ service_id: number; message: string }>;
+  };
+}
+
+// Phase 4 — service-level Promotion Station responses.
+export interface ServicePromotionStationResponse {
+  success:    boolean;
+  service_id: number;
+  promotions: PromotionTier[];
+  service: {
+    id:         number;
+    title:      string;
+    inclusions: InclusionItem[];
+    faqs:       FaqItem[];
+  };
+}
+
+export interface ServicePromotionSaveResponse {
+  success:        boolean;
+  promo_id:       string;
+  promotion_tier: PromotionTier;
+}
+
 // Temporary — Phase 1+3 migration run result. Remove after migration is validated.
 export interface MigrationRunResult {
   success: boolean;

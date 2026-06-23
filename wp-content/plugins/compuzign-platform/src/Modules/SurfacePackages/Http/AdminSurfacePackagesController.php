@@ -174,7 +174,7 @@ class AdminSurfacePackagesController
                 'service_refs'       => $serviceRefs,
                 'services'           => $services,
                 'tiers'              => $tierSummary,
-                'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
+                'promotion_tiers'    => $this->loadPromotionInstancesForPackage($pkg),
                 'popular_tier'       => $station ? ($station['popular_tier'] ?? $pkg['popular_tier'] ?? null) : ($pkg['popular_tier'] ?? null),
                 'popular_label'      => $station ? ($station['popular_label'] ?? $pkg['popular_label'] ?? '') : ($pkg['popular_label'] ?? ''),
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
@@ -310,7 +310,7 @@ class AdminSurfacePackagesController
                 'package_type'       => $pkg['package_type'] ?? 'tier_configuration',
                 'service_refs'       => $serviceRefs,
                 'tiers'              => $tiers,
-                'promotion_tiers'    => $this->normalisePromotionTiers($pkg['promotion_tiers'] ?? []),
+                'promotion_tiers'    => $this->loadPromotionInstancesForPackage($pkg),
                 'popular_tier'       => $station ? ($station['popular_tier'] ?? $pkg['popular_tier'] ?? null) : ($pkg['popular_tier'] ?? null),
                 'popular_label'      => $station ? ($station['popular_label'] ?? $pkg['popular_label'] ?? '') : ($pkg['popular_label'] ?? ''),
                 'faq_refs'           => $pkg['faq_refs'] ?? [],
@@ -787,6 +787,11 @@ class AdminSurfacePackagesController
 
     // ── Promotion tier write endpoints ────────────────────────────────────────
 
+    // ── Promotion tier write endpoints ────────────────────────────────────────
+    // Phase 4: all writes target cz_service_promotion_station on the service post.
+    // cz_package.promotion_tiers is never written; the package post is used only
+    // to resolve the service ID via service_refs.
+
     public function createPromotionTier(\WP_REST_Request $request): \WP_REST_Response
     {
         $packageId = (int) $request->get_param('id');
@@ -803,31 +808,28 @@ class AdminSurfacePackagesController
 
         $pkg = get_post_meta($packageId, 'cz_package', true);
         if (!is_array($pkg)) {
-            $pkg = (new PackageSchema())->defaultPackage();
+            return $this->error('Package meta not found.', 404);
         }
 
         $serviceRefs     = array_map('intval', $pkg['service_refs'] ?? []);
         $serviceId       = $serviceRefs[0] ?? 0;
-        $addedInclusions = [];
+        if ($serviceId <= 0) {
+            return $this->error('No service linked to this package.', 422);
+        }
 
-        if (!empty($body['new_inclusions']) && is_array($body['new_inclusions']) && $serviceId > 0) {
+        $addedInclusions = [];
+        if (!empty($body['new_inclusions']) && is_array($body['new_inclusions'])) {
             $addedInclusions = $this->addInclusionsToService($serviceId, $body['new_inclusions']);
         }
 
-        $promoId = PackageSchema::generatePromotionTierId();
-        $tier    = $this->buildPromotionTier($promoId, $body, $addedInclusions);
+        $promoId  = PackageSchema::generatePromotionTierId();
+        $instance = PackageSchema::buildPromotionInstance($promoId, $body, $addedInclusions);
 
-        if (!isset($pkg['promotion_tiers']) || !is_array($pkg['promotion_tiers'])) {
-            $pkg['promotion_tiers'] = [];
-        }
-        $pkg['promotion_tiers'][] = $tier;
+        $instances = $this->getOrInitPromotionInstances($serviceId, $pkg);
+        $instances[] = $instance;
+        $this->writePromotionStation($serviceId, $instances);
 
-        update_post_meta($packageId, 'cz_package', $pkg);
-
-        $saved     = get_post_meta($packageId, 'cz_package', true);
-        $savedTier = $this->findPromoInMeta($saved, $promoId) ?? $tier;
-
-        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $savedTier]);
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $instance]);
     }
 
     public function savePromotionTier(\WP_REST_Request $request): \WP_REST_Response
@@ -850,36 +852,35 @@ class AdminSurfacePackagesController
             return $this->error('Package meta not found.', 404);
         }
 
-        $promos = is_array($pkg['promotion_tiers'] ?? null) ? $pkg['promotion_tiers'] : [];
-        $idx    = null;
-        foreach ($promos as $i => $t) {
-            if (is_array($t) && ($t['id'] ?? '') === $promoId) {
-                $idx = $i;
-                break;
-            }
+        $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
+        $serviceId   = $serviceRefs[0] ?? 0;
+        if ($serviceId <= 0) {
+            return $this->error('No service linked to this package.', 422);
         }
 
-        if ($idx === null) {
+        $instances = $this->getOrInitPromotionInstances($serviceId, $pkg);
+        $existing  = PackageSchema::findPromoInInstances($instances, $promoId);
+        if ($existing === null) {
             return $this->error('Promotion tier not found.', 404);
         }
 
-        $serviceRefs     = array_map('intval', $pkg['service_refs'] ?? []);
-        $serviceId       = $serviceRefs[0] ?? 0;
         $addedInclusions = [];
-
-        if (!empty($body['new_inclusions']) && is_array($body['new_inclusions']) && $serviceId > 0) {
+        if (!empty($body['new_inclusions']) && is_array($body['new_inclusions'])) {
             $addedInclusions = $this->addInclusionsToService($serviceId, $body['new_inclusions']);
         }
 
-        $promos[$idx]           = $this->buildPromotionTier($promoId, $body, $addedInclusions, $promos[$idx]);
-        $pkg['promotion_tiers'] = array_values($promos);
+        $updated = PackageSchema::buildPromotionInstance($promoId, $body, $addedInclusions, $existing);
+        foreach ($instances as &$inst) {
+            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
+                $inst = $updated;
+                break;
+            }
+        }
+        unset($inst);
 
-        update_post_meta($packageId, 'cz_package', $pkg);
+        $this->writePromotionStation($serviceId, $instances);
 
-        $saved     = get_post_meta($packageId, 'cz_package', true);
-        $savedTier = $this->findPromoInMeta($saved, $promoId) ?? $promos[$idx];
-
-        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $savedTier]);
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $updated]);
     }
 
     public function archivePromotionTier(\WP_REST_Request $request): \WP_REST_Response
@@ -897,24 +898,28 @@ class AdminSurfacePackagesController
             return $this->error('Package meta not found.', 404);
         }
 
-        $promos = is_array($pkg['promotion_tiers'] ?? null) ? $pkg['promotion_tiers'] : [];
-        $found  = false;
+        $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
+        $serviceId   = $serviceRefs[0] ?? 0;
+        if ($serviceId <= 0) {
+            return $this->error('No service linked to this package.', 422);
+        }
 
-        foreach ($promos as &$tier) {
-            if (is_array($tier) && ($tier['id'] ?? '') === $promoId) {
-                $tier['status'] = 'archived';
+        $instances = $this->getOrInitPromotionInstances($serviceId, $pkg);
+        $found     = false;
+        foreach ($instances as &$inst) {
+            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
+                $inst['status'] = 'archived';
                 $found = true;
                 break;
             }
         }
-        unset($tier);
+        unset($inst);
 
         if (!$found) {
             return $this->error('Promotion tier not found.', 404);
         }
 
-        $pkg['promotion_tiers'] = $promos;
-        update_post_meta($packageId, 'cz_package', $pkg);
+        $this->writePromotionStation($serviceId, $instances);
 
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'archived']);
     }
@@ -934,41 +939,87 @@ class AdminSurfacePackagesController
             return $this->error('Package meta not found.', 404);
         }
 
-        $promos = is_array($pkg['promotion_tiers'] ?? null) ? $pkg['promotion_tiers'] : [];
-        $found  = false;
+        $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
+        $serviceId   = $serviceRefs[0] ?? 0;
+        if ($serviceId <= 0) {
+            return $this->error('No service linked to this package.', 422);
+        }
 
-        foreach ($promos as &$tier) {
-            if (is_array($tier) && ($tier['id'] ?? '') === $promoId) {
-                $tier['status'] = 'active';
+        $instances = $this->getOrInitPromotionInstances($serviceId, $pkg);
+        $found     = false;
+        foreach ($instances as &$inst) {
+            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
+                $inst['status'] = 'active';
                 $found = true;
                 break;
             }
         }
-        unset($tier);
+        unset($inst);
 
         if (!$found) {
             return $this->error('Promotion tier not found.', 404);
         }
 
-        $pkg['promotion_tiers'] = $promos;
-        update_post_meta($packageId, 'cz_package', $pkg);
+        $this->writePromotionStation($serviceId, $instances);
 
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'active']);
     }
 
-    // ── Promotion tier helpers ─────────────────────────────────────────────────
+    // ── Promotion Station helpers (Phase 4) ───────────────────────────────────
 
     /**
-     * Builds a sanitised promotion tier array from a request body.
-     * Falls back to $existing values for any field not present in $body.
-     * Merges $addedInclusions into the stored inclusions list.
+     * Return current promotion instances for this package's service.
+     * If cz_service_promotion_station is already migrated, returns its instances.
+     * Otherwise bridges from cz_package.promotion_tiers (lazy migration on first write).
      *
-     * @param  string $id
-     * @param  array  $body
-     * @param  array  $addedInclusions
-     * @param  array  $existing
-     * @return array<string, mixed>
+     * @return array<int, array<string, mixed>>
      */
+    private function getOrInitPromotionInstances(int $serviceId, array $pkg): array
+    {
+        $promoStation = get_post_meta($serviceId, 'cz_service_promotion_station', true);
+        if (is_array($promoStation) && !empty($promoStation['migrated'])) {
+            return $promoStation['instances'] ?? [];
+        }
+        // Fall back to legacy package meta (triggers lazy migration on next write).
+        return is_array($pkg['promotion_tiers'] ?? null) ? $pkg['promotion_tiers'] : [];
+    }
+
+    /**
+     * Write promotion instances to cz_service_promotion_station and mark as migrated.
+     * Never writes to cz_package.promotion_tiers.
+     */
+    private function writePromotionStation(int $serviceId, array $instances): void
+    {
+        update_post_meta($serviceId, 'cz_service_promotion_station', [
+            'instances' => array_values($instances),
+            'migrated'  => true,
+        ]);
+    }
+
+    /**
+     * Load normalised promotion instances for a package's linked service.
+     * Reads from cz_service_promotion_station when migrated; falls back to cz_package.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadPromotionInstancesForPackage(array $pkg): array
+    {
+        $serviceRefs = array_map('intval', $pkg['service_refs'] ?? []);
+        $serviceId   = $serviceRefs[0] ?? 0;
+        if ($serviceId <= 0) {
+            return PackageSchema::normalisePromotionInstances($pkg['promotion_tiers'] ?? []);
+        }
+        $promoStation = get_post_meta($serviceId, 'cz_service_promotion_station', true);
+        if (is_array($promoStation) && !empty($promoStation['migrated'])) {
+            return PackageSchema::normalisePromotionInstances($promoStation['instances'] ?? []);
+        }
+        // Legacy bridge: not yet migrated.
+        return PackageSchema::normalisePromotionInstances($pkg['promotion_tiers'] ?? []);
+    }
+
+    // ── Legacy promotion tier helpers (kept for compatibility) ────────────────
+
+    /** @deprecated Delegate to PackageSchema::buildPromotionInstance() */
     private function buildPromotionTier(string $id, array $body, array $addedInclusions = [], array $existing = []): array
     {
         // Inclusions: [{id, label}] selected from service pool.
