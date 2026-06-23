@@ -850,16 +850,23 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     const { setFooter, close } = ctx;
     const isLiveState = platformStatus === 'active' || platformStatus === 'disabled';
 
+    // Enable/Disable is only meaningful once a service has been published at least once.
+    // New drafts (overview never settled, never active) leave it disabled to prevent the
+    // admin needing to Enable before Publish. After publishing succeeds the flag flips
+    // reactively; if publishing fails the flag remains false.
+    const hasBeenPublished =
+      overviewStatus === 'active' || moduleStatus?.overview === 'settled';
+
     setFooter(
       <div class="cz-tf-footer">
-        {/* Split button — only for active/disabled states */}
+        {/* Split button — visible for active/disabled; Enable disabled for new drafts */}
         {tab === 'service' && isLiveState && (
           <div class={`cz-footer-split${platformStatus === 'active' ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
-            {/* Primary action: Disable (active) or Enable (disabled) */}
+            {/* Primary action: Disable (active) or Enable (disabled/unpublished) */}
             <button
               type="button"
               class="cz-footer-split__btn"
-              disabled={station.loading.status}
+              disabled={!hasBeenPublished || station.loading.status}
               onClick={() => handleToggleActiveRef.current()}
             >
               {station.loading.status ? '…' : platformStatus === 'active' ? 'Disable' : 'Enable'}
@@ -868,7 +875,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             <button
               type="button"
               class="cz-footer-split__chevron"
-              disabled={station.loading.status}
+              disabled={!hasBeenPublished || station.loading.status}
               onClick={(e) => { e.stopPropagation(); setSplitOpen((v) => !v); }}
               aria-label="More actions"
             >
@@ -893,13 +900,13 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           Cancel
         </button>
         <div class="cz-tf-footer__spacer" />
-        {/* Publish — visible for active/disabled; disabled when station is not active */}
+        {/* Publish — available when canPublish; no longer gated on platformStatus */}
         {tab === 'service' && isLiveState && (
           <button
             type="button"
             class="cz-admin-btn cz-admin-btn--primary"
             onClick={() => setShowPublishModal(true)}
-            disabled={platformStatus !== 'active' || !canPublish || station.loading.status}
+            disabled={!canPublish || station.loading.status}
           >
             {station.loading.status ? '…' : 'Publish'}
           </button>
@@ -907,7 +914,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       </div>
     );
     return () => setFooter(null);
-  }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, ctx.setFooter, ctx.close]);
+  }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, overviewStatus, moduleStatus, ctx.setFooter, ctx.close]);
 
   // ── Pre-resolved display values for view cards ────────────────────────────
   const rawDisplayTitle = stationOverviewDraft?.title.trim() || service.title.trim() || '';
@@ -915,8 +922,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const displayExcerpt  = stationOverviewDraft?.excerpt.trim() || service.excerpt?.trim() || '';
   const displayContent  = stationOverviewDraft?.content.trim() || service.content?.trim() || '';
   const displayCategory = stationOverviewDraft
-    ? (allCategories.find(c => stationOverviewDraft.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
-    : (service.categories[0]?.name ?? 'Not selected');
+    ? decodeHtml(allCategories.find(c => stationOverviewDraft.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
+    : decodeHtml(service.categories[0]?.name ?? 'Not selected');
   const decodedServiceTitle = decodeHtml(service.title);
 
   return (
@@ -1006,12 +1013,12 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             label="Promotion Configuration"
             count={relatedPkg
               ? `${promotionCount} promotion${promotionCount !== 1 ? 's' : ''} configured`
-              : '0 promotion configured'}
+              : '0 promotions configured'}
             desc={relatedPkg
               ? 'Promotions are managed in the Promotions workstation.'
-              : 'No active promotion.'}
+              : 'Create and manage promotions for this service.'}
             status={promoStatus}
-            onView={relatedPkg ? handleOpenPromoConfig : undefined}
+            onView={handleOpenPromoConfig}
           />
           {relatedPkg && tiers && (
             <div class="cz-req-detail__section cz-sv-section--no-border">

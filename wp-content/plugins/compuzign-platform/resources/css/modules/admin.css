@@ -3758,7 +3758,7 @@ body.compuzign-admin-page footer.site-footer {
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   line-height: var(--admin-lh-s-label);
-  padding: 2px 9px 2px 0;
+  padding: 2px 9px;
 }
 
 button.cz-module-status-pill {
@@ -3772,7 +3772,7 @@ button.cz-module-status-pill {
 .cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--admin-warning); }
 
 .cz-module-status-pill__marker {
-  padding-left: 9px;
+  padding-left: 0;
   padding-right: 5px;
   min-width: 10px;
   text-align: center;

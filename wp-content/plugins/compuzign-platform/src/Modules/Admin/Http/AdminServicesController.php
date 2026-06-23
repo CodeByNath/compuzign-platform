@@ -398,6 +398,16 @@ class AdminServicesController
         $post = get_post($id);
         $meta = get_post_meta($id, self::META_KEY, true) ?: [];
 
+        // Resolve assigned categories for the step data so the frontend can populate
+        // service.categories without a separate fetch. This prevents Discard Draft
+        // from losing the category display on new services.
+        $assignedTerms = wp_get_post_terms($id, self::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
+        $assignedCats  = array_map(fn($t) => [
+            'id'   => (int) $t->term_id,
+            'name' => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'slug' => $t->slug,
+        ], is_array($assignedTerms) ? $assignedTerms : []);
+
         return rest_ensure_response([
             'success' => true,
             'service' => [
@@ -406,6 +416,7 @@ class AdminServicesController
                 'slug'            => $post->post_name,
                 'platform_status' => $meta['platform_status'] ?? 'disabled',
                 'module_status'   => $meta['module_status']   ?? $this->defaultModuleStatus(),
+                'categories'      => $assignedCats,
             ],
             'drafts'  => [
                 'overview'   => $overviewDraft,

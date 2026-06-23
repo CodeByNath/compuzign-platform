@@ -90,7 +90,7 @@ function buildServiceItemForStationHandoff(summary: StationSummary): ServiceItem
 // ── New-service creation helper ───────────────────────────────────────────────
 
 function buildNewServiceItem(
-  data: { id: number; title: string; slug: string; platform_status: string; module_status: Record<string, string> },
+  data: { id: number; title: string; slug: string; platform_status: string; module_status: Record<string, string>; categories?: Array<{ id: number; name: string; slug: string }> },
   drafts?: AdminServiceDetailResponse['drafts'] | null,
 ): ServiceItem {
   const ov = drafts?.overview;
@@ -100,7 +100,7 @@ function buildNewServiceItem(
     slug:       data.slug,
     excerpt:    ov?.excerpt ?? '',
     content:    ov?.content ?? '',
-    categories: [],
+    categories: (data.categories ?? []).filter(c => c.id !== null) as Category[],
     inclusions: [],
     faqs:       [],
     availability: { is_available: true, message: '' },

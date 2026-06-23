@@ -37,7 +37,7 @@ export function getOverviewNotes(
     : checkOverviewCompleteness(service);
 
   if (!c.title)    notes.push({ id: 'overview.title.missing',    message: 'Title missing' });
-  if (!c.excerpt)  notes.push({ id: 'overview.excerpt.missing',  message: 'Short description missing' });
+  // excerpt (short description) is disabled from the workflow — no notification fired for missing excerpt.
   if (!c.category) notes.push({ id: 'overview.category.missing', message: 'Category not selected' });
   if (!c.content)  notes.push({ id: 'overview.content.missing',  message: 'Description missing' });
 
@@ -57,8 +57,9 @@ export function getOverviewNotes(
 export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteContext): ModuleNote[] {
   const notes: ModuleNote[] = [];
 
+  // Empty inclusions: return no notes so the pill shows a dim dot (·) rather than
+  // a numeric badge. The pending-dim status on the card already communicates this state.
   if (inclusions.length === 0) {
-    notes.push({ id: 'inclusions.empty', message: 'No features added' });
     return notes;
   }
 
@@ -84,8 +85,9 @@ export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteCont
 export function getFaqsNotes(faqs: ServiceFaq[], ctx: NoteContext): ModuleNote[] {
   const notes: ModuleNote[] = [];
 
+  // Zero FAQs: return no notes so the pill shows a dim dot (·) rather than a numeric
+  // badge. Incomplete FAQ items (missing question or answer) still generate numeric notes below.
   if (faqs.length === 0) {
-    notes.push({ id: 'faqs.empty', message: 'No questions added' });
     return notes;
   }
 
