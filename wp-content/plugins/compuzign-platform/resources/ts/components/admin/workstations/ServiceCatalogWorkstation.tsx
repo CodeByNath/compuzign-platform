@@ -30,7 +30,12 @@ const STATION_STATUS_PILL: Record<StationStatus, { cls: string; label: string }>
 };
 
 function resolveStationStatus(station: StationSummary): StationStatus {
-  if (station.platform_status === 'disabled') return 'disabled';
+  if (station.platform_status === 'disabled') {
+    // Never-published: overview not yet settled — show Pending, not Disabled.
+    // Disabled is reserved for services that were once live and explicitly turned off.
+    if ((station.module_status as Record<string, string>)?.overview !== 'settled') return 'pending';
+    return 'disabled';
+  }
   if (station.has_drafts) return 'drafts';
   if (Object.values(station.module_status).some((v) => v === 'pending')) return 'pending';
   return 'active';

@@ -41,15 +41,8 @@ export function getOverviewNotes(
   if (!c.category) notes.push({ id: 'overview.category.missing', message: 'Category not selected' });
   if (!c.content)  notes.push({ id: 'overview.content.missing',  message: 'Description missing' });
 
-  // State-context notes only appear when all fields pass.
-  if (c.complete) {
-    if (ctx.platformStatus !== 'active')
-      notes.push({ id: 'overview.platform.inactive', message: 'Waiting for service activation' });
-    else if (ctx.hasDraft)
-      notes.push({ id: 'overview.module.draft', message: 'Draft saved — settle to publish' });
-    else if (ctx.moduleTransition === 'pending')
-      notes.push({ id: 'overview.module.pending', message: 'Changes ready to settle' });
-  }
+  // When all fields are complete the pill shows full-colour Pending with no numeric badge.
+  // The pending-full pill status already communicates readiness; no context note needed.
 
   return notes;
 }
@@ -70,14 +63,7 @@ export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteCont
       message: `${unlabelled} feature${unlabelled !== 1 ? 's have' : ' has'} no label`,
     });
 
-  if (unlabelled === 0) {
-    if (ctx.platformStatus !== 'active')
-      notes.push({ id: 'inclusions.platform.inactive', message: 'Waiting for service activation' });
-    else if (ctx.hasDraft)
-      notes.push({ id: 'inclusions.module.draft', message: 'Draft saved — settle to publish' });
-    else if (ctx.moduleTransition === 'pending')
-      notes.push({ id: 'inclusions.module.pending', message: 'Changes ready to settle' });
-  }
+  // When all labels are present the pill shows full-colour Pending with no numeric badge.
 
   return notes;
 }
@@ -105,14 +91,7 @@ export function getFaqsNotes(faqs: ServiceFaq[], ctx: NoteContext): ModuleNote[]
       message: `${noA} question${noA !== 1 ? 's are' : ' is'} missing an answer`,
     });
 
-  if (noQ === 0 && noA === 0) {
-    if (ctx.platformStatus !== 'active')
-      notes.push({ id: 'faqs.platform.inactive', message: 'Waiting for service activation' });
-    else if (ctx.hasDraft)
-      notes.push({ id: 'faqs.module.draft', message: 'Draft saved — settle to publish' });
-    else if (ctx.moduleTransition === 'pending')
-      notes.push({ id: 'faqs.module.pending', message: 'Changes ready to settle' });
-  }
+  // When all questions and answers are complete the pill shows full-colour Pending with no numeric badge.
 
   return notes;
 }

@@ -445,9 +445,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [showPublishModal,   setShowPublishModal] = useState(false);
   const [discardConfirm,     setDiscardConfirm]   = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
   const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
-  const [exitDialog,         setExitDialog]       = useState<'unsaved' | 'pending' | null>(null);
+  const [exitDialog,         setExitDialog]       = useState<'unsaved' | 'pending' | 'new-service-draft' | null>(null);
   const [exitSaving,         setExitSaving]       = useState(false);
   const [splitOpen,          setSplitOpen]        = useState(false);
+  const [newSvcFields,       setNewSvcFields]     = useState({ title: false, category: false, description: false });
 
   useEffect(() => {
     if (!saveOk) return;
@@ -722,6 +723,12 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     if (module === 'faqs')       await revertFaqs();
   }, [discardConfirm, revertOverview, revertInclusions, revertFaqs]);
 
+  // ── New never-published service detection ──────────────────────────────────
+  // platform_status is 'disabled' and overview has never been settled.
+  // Used to drive the "Pending" table status, the "Move to Trash" footer action,
+  // and the new-service exit prompt.
+  const isNewNeverPublished = platformStatus === 'disabled' && moduleStatus?.overview !== 'settled';
+
   // ── Exit workflow helpers ─────────────────────────────────────────────────
 
   // Bypass the close guard — used after the admin explicitly acts on an exit dialog.
@@ -729,6 +736,36 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     ctx.setCloseGuard(null);
     ctx.close();
   }, [ctx]);
+
+  // ── New-service exit prompt handlers ──────────────────────────────────────
+
+  const handleNewSvcSaveDraft = useCallback(async () => {
+    if (!stationOverviewDraft) return;
+    setExitSaving(true);
+    try {
+      // Unchecked fields fall back to the existing draft value — nothing is wiped.
+      // Checked fields are explicitly confirmed; unchecked fields are preserved as-is.
+      const draft: OverviewDraft = {
+        title:       newSvcFields.title       ? stationOverviewDraft.title                      : stationOverviewDraft.title,
+        excerpt:     stationOverviewDraft.excerpt ?? '',
+        content:     newSvcFields.description ? stationOverviewDraft.content                    : stationOverviewDraft.content,
+        category_id: newSvcFields.category    ? (stationOverviewDraft.category_ids[0] ?? null)  : (stationOverviewDraft.category_ids[0] ?? null),
+      };
+      await saveOverview(draft);
+      setExitDialog(null);
+      setNewSvcFields({ title: false, category: false, description: false });
+      closeWithoutGuard();
+    } finally {
+      setExitSaving(false);
+    }
+  }, [newSvcFields, stationOverviewDraft, saveOverview, closeWithoutGuard]);
+
+  const handleNewSvcTrash = useCallback(async () => {
+    setExitDialog(null);
+    setNewSvcFields({ title: false, category: false, description: false });
+    const result = await trashStation();
+    if (result) ctx.close();
+  }, [trashStation, ctx]);
 
   // Save whichever module is currently open and return the new module_status.
   // Throws on API failure so callers can surface the error.
@@ -795,9 +832,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   // ── Close guard registration ──────────────────────────────────────────────
   // Registered once; reads current state via ref to avoid stale closures.
-  const exitStateRef = useRef({ editingSection, isEditorDirty, isActive, hasPendingModules });
+  const exitStateRef = useRef({ editingSection, isEditorDirty, isActive, hasPendingModules, isNewNeverPublished, stationOverviewDraft });
   useEffect(() => {
-    exitStateRef.current = { editingSection, isEditorDirty, isActive, hasPendingModules };
+    exitStateRef.current = { editingSection, isEditorDirty, isActive, hasPendingModules, isNewNeverPublished, stationOverviewDraft };
   });
 
   const { setCloseGuard } = ctx;
@@ -806,6 +843,11 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       const s = exitStateRef.current;
       if (s.editingSection && s.isEditorDirty) {
         setExitDialog('unsaved');
+        return false;
+      }
+      // New never-published service with a saved draft — ask what to keep before leaving.
+      if (s.isNewNeverPublished && s.stationOverviewDraft !== null) {
+        setExitDialog('new-service-draft');
         return false;
       }
       if (s.isActive && s.hasPendingModules) {
@@ -859,17 +901,29 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
     setFooter(
       <div class="cz-tf-footer">
-        {/* Split button — visible for active/disabled; Enable disabled for new drafts */}
+        {/* Split button — visible for active/disabled states */}
         {tab === 'service' && isLiveState && (
           <div class={`cz-footer-split${platformStatus === 'active' ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
-            {/* Primary action: Disable (active) or Enable (disabled/unpublished) */}
+            {/* Primary action:
+                Active         → Disable
+                Disabled+published → Enable
+                New never-published → Move to Trash */}
             <button
               type="button"
               class="cz-footer-split__btn"
-              disabled={!hasBeenPublished || station.loading.status}
-              onClick={() => handleToggleActiveRef.current()}
+              disabled={station.loading.status}
+              onClick={() => {
+                if (isNewNeverPublished) handleTrashRef.current();
+                else handleToggleActiveRef.current();
+              }}
             >
-              {station.loading.status ? '…' : platformStatus === 'active' ? 'Disable' : 'Enable'}
+              {station.loading.status
+                ? '…'
+                : platformStatus === 'active'
+                  ? 'Disable'
+                  : isNewNeverPublished
+                    ? 'Move to Trash'
+                    : 'Enable'}
             </button>
             {/* Chevron — opens lifecycle dropdown */}
             <button
@@ -1228,6 +1282,72 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
               disabled={exitSaving}
             >
               {exitSaving ? 'Settling…' : 'Settle Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── New never-published service exit prompt ──────────────────────────── */}
+    {exitDialog === 'new-service-draft' && (
+      <div
+        class="cz-publish-confirm-overlay"
+        onClick={(e) => { if (e.target === e.currentTarget) setExitDialog(null); }}
+      >
+        <div class="cz-publish-confirm">
+          <div class="cz-publish-confirm__header">
+            <h3 class="cz-publish-confirm__title">Before you leave</h3>
+          </div>
+          <div class="cz-publish-confirm__body">
+            <p class="cz-publish-confirm__lead">
+              Select the fields you want to keep in your draft.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:var(--cz-space-3);margin-top:var(--cz-space-3)">
+              {[
+                { key: 'title',       label: 'Title',       value: stationOverviewDraft?.title || '(empty)'        },
+                { key: 'category',    label: 'Category',    value: displayCategory || 'Not selected'               },
+                { key: 'description', label: 'Description', value: stationOverviewDraft?.content ? '…' : '(empty)' },
+              ].map(({ key, label, value }) => (
+                <label key={key} style="display:flex;align-items:center;gap:var(--cz-space-3);cursor:pointer">
+                  <input
+                    type="checkbox"
+                    checked={(newSvcFields as Record<string, boolean>)[key]}
+                    onChange={(e) => setNewSvcFields(prev => ({ ...prev, [key]: (e.target as HTMLInputElement).checked }))}
+                  />
+                  <span>
+                    <strong style="font-size:var(--admin-fs-label)">{label}</strong>
+                    <span style="margin-left:var(--cz-space-2);font-size:var(--admin-fs-s-label);color:var(--admin-text-faint)">
+                      {value}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div class="cz-publish-confirm__footer">
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              onClick={() => setExitDialog(null)}
+              disabled={exitSaving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--danger"
+              onClick={handleNewSvcTrash}
+              disabled={exitSaving}
+            >
+              Move to Trash
+            </button>
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={handleNewSvcSaveDraft}
+              disabled={exitSaving || (!newSvcFields.title && !newSvcFields.category && !newSvcFields.description)}
+            >
+              {exitSaving ? 'Saving…' : 'Save Draft'}
             </button>
           </div>
         </div>
