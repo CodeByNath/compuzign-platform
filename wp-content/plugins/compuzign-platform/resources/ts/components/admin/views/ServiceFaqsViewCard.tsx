@@ -1,5 +1,4 @@
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
-import { noteCount } from '@/components/admin/utils/moduleNotifications';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
 
@@ -57,7 +56,7 @@ export function ServiceFaqsViewCard({
         </div>
       </div>
 
-      {panelOpen && noteCount(notes) > 0 && (
+      {panelOpen && notes.length > 0 && (
         <ModuleNotificationPanel notes={notes} />
       )}
 

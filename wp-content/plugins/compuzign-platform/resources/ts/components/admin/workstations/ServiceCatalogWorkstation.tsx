@@ -165,11 +165,11 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
   const featuresNotes: ModuleNote[] = [
     { id: 'new-service.features.activation', message: 'Waiting for service activation.', type: 'info' },
-    { id: 'new-service.features.action',     message: 'Edit and include features.',       type: 'info' },
+    { id: 'new-service.features.action',     message: 'Edit and add features.',          type: 'info' },
   ];
   const questionsNotes: ModuleNote[] = [
     { id: 'new-service.questions.activation', message: 'Waiting for service activation.', type: 'info' },
-    { id: 'new-service.questions.action',     message: 'Edit and add common questions.',  type: 'info' },
+    { id: 'new-service.questions.action',     message: 'Edit and add questions.',          type: 'info' },
   ];
 
   const handleSave = useCallback(async () => {
