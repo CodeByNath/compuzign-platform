@@ -3245,18 +3245,29 @@ body.compuzign-admin-page footer.site-footer {
   border-bottom: none;
 }
 
-.cz-footer-split__item:hover {
+.cz-footer-split__item:hover:not(:disabled) {
   background: var(--admin-accent-a12);
   color: var(--admin-accent-hover);
+}
+
+.cz-footer-split__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .cz-footer-split__item--danger {
   color: var(--admin-error);
 }
 
-.cz-footer-split__item--danger:hover {
+.cz-footer-split__item--danger:hover:not(:disabled) {
   background: var(--admin-error-a10);
   color: var(--admin-error);
+}
+
+.cz-footer-split__item--danger:disabled {
+  color: var(--admin-error);
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ── Service Catalog — service view drawer ───────────────────────────────────── */

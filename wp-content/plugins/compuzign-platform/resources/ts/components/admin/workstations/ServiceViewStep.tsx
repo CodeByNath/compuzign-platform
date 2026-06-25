@@ -967,14 +967,18 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 >
                   Archive
                 </button>
-                <button
-                  type="button"
-                  class="cz-footer-split__item cz-footer-split__item--danger"
-                  disabled={station.loading.status}
-                  onClick={() => handleTrashRef.current()}
-                >
-                  Move to Trash
-                </button>
+                {/* Move to Trash is the primary action for new never-published drafts —
+                    don't repeat it inside the dropdown in that state. */}
+                {!isNewNeverPublished && (
+                  <button
+                    type="button"
+                    class="cz-footer-split__item cz-footer-split__item--danger"
+                    disabled={station.loading.status}
+                    onClick={() => handleTrashRef.current()}
+                  >
+                    Move to Trash
+                  </button>
+                )}
               </div>
             )}
           </div>
