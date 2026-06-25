@@ -559,6 +559,6 @@ export interface PermanentDeleteResponse {
 }
 
 export interface AdminCatalogResponse {
-  categories: Array<{ id: number | null; name: string; slug: string }>;
+  categories: Array<{ id: number | null; name: string; slug: string; description: string }>;
   stations:   StationSummary[];
 }

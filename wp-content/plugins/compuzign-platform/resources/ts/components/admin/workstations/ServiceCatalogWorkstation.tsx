@@ -48,12 +48,12 @@ function resolveStationStatus(station: StationSummary): StationStatus {
 // integer IDs; null only appears for synthetic "Uncategorised" groupings.
 // Filter null-ID entries out before passing to contexts expecting Category[].
 
-type AdminCategory = { id: number | null; name: string; slug: string };
+type AdminCategory = { id: number | null; name: string; slug: string; description?: string };
 
 function normalizeAdminCategories(cats: AdminCategory[]): Category[] {
   return cats
-    .filter((c): c is { id: number; name: string; slug: string } => c.id !== null)
-    .map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
+    .filter((c): c is { id: number; name: string; slug: string; description?: string } => c.id !== null)
+    .map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description ?? '' }));
 }
 
 // ── Drawer handoff adapter ────────────────────────────────────────────────────
