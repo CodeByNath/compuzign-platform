@@ -153,9 +153,10 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [overviewPanelOpen, setOverviewPanelOpen] = useState(false);
 
-  const overviewNotes: ModuleNote[] = [
-    { id: 'new-service.overview.start', message: 'Edit to start a new service.', type: 'info' },
-  ];
+  const overviewComplete = !!draft.title.trim() && !!draft.content.trim() && draft.category_id !== null;
+  const overviewNotes: ModuleNote[] = overviewComplete
+    ? [{ id: 'new-service.overview.waiting', message: 'Waiting for service publication.', type: 'info' }]
+    : [{ id: 'new-service.overview.start',   message: 'Edit to start a new service.',     type: 'info' }];
 
   const [featuresPanelOpen,   setFeaturesPanelOpen]   = useState(false);
   const [questionsPanelOpen,  setQuestionsPanelOpen]  = useState(false);

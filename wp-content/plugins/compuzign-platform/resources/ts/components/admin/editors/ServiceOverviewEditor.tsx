@@ -88,6 +88,15 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
       </div>
 
       <div class="cz-tf-field">
+        <label class="cz-tf-label">Description</label>
+        <textarea
+          class="cz-tf-textarea"
+          value={draft.content}
+          onInput={(e) => onChange({ content: (e.target as HTMLTextAreaElement).value })}
+        />
+      </div>
+
+      <div class="cz-tf-field">
         <label class="cz-tf-label">Category</label>
         <select
           class={`cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
@@ -107,12 +116,9 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
             ))}
         </select>
 
-        {/* Category description — shown below select when selected and has a description */}
-        {selectedCat?.description && (
-          <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">
-            {selectedCat.description}
-          </p>
-        )}
+        <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">
+          {selectedCat?.description || 'Description optional'}
+        </p>
 
         {/* Inline category creation */}
         {!addOpen ? (
@@ -165,15 +171,6 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
             </div>
           </div>
         )}
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Description</label>
-        <textarea
-          class="cz-tf-textarea cz-tf-textarea--tall"
-          value={draft.content}
-          onInput={(e) => onChange({ content: (e.target as HTMLTextAreaElement).value })}
-        />
       </div>
     </div>
   );
