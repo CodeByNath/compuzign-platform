@@ -100,14 +100,14 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
         <label class="cz-tf-label">Category</label>
         <select
           class={`cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
-          value={draft.category_id !== null ? String(draft.category_id) : ''}
+          value={draft.category_id !== null ? String(draft.category_id) : '__add__'}
           onChange={(e) => {
             const val = (e.target as HTMLSelectElement).value;
             if (val === '__add__') { setAddOpen(true); return; }
             onChange({ category_id: val ? parseInt(val, 10) : null });
           }}
         >
-          <option value="">Select Category</option>
+          <option value="__add__">+ Add category</option>
           {categories
             .filter((c) => c.id !== null)
             .map((cat) => (
@@ -115,12 +115,13 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
                 {decodeHtml(cat.name)}
               </option>
             ))}
-          <option value="__add__">+ Add category</option>
         </select>
 
-        <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">
-          {selectedCat?.description || 'Description optional'}
-        </p>
+        {selectedCat && (
+          selectedCat.description
+            ? <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">{selectedCat.description}</p>
+            : <button type="button" class="cz-tf-add-btn" onClick={() => setAddOpen(true)}>+ Add description</button>
+        )}
 
         {/* Inline category creation — triggered by selecting "+ Add category" */}
         {addOpen && (
