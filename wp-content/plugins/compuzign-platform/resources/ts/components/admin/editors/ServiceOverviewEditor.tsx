@@ -152,7 +152,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
         ) : (
           <select
             class={`cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
-            value={draft.category_id !== null ? String(draft.category_id) : '__add__'}
+            value={draft.category_id !== null ? String(draft.category_id) : ''}
             onChange={(e) => {
               const val = (e.target as HTMLSelectElement).value;
               if (val === '__add__') { enterAddMode(); return; }
@@ -161,7 +161,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
               onChange({ category_id: id });
             }}
           >
-            <option value="__add__">+ Add category</option>
+            <option value="" disabled hidden>Browse categories</option>
             {categories
               .filter((c) => c.id !== null)
               .map((cat) => (
@@ -169,6 +169,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
                   {decodeHtml(cat.name)}
                 </option>
               ))}
+            <option value="__add__">+ Add category</option>
           </select>
         )}
 
