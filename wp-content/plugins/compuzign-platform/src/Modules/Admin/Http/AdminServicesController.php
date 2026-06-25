@@ -183,6 +183,16 @@ class AdminServicesController
             'permission_callback' => [$this, 'requireAdmin'],
         ]);
 
+        // ── Inline service category update ────────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/service-categories/(?P<id>\d+)', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'updateServiceCategory'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id' => ['required' => true, 'type' => 'integer'],
+            ],
+        ]);
+
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getPackageStation'],
@@ -903,6 +913,42 @@ class AdminServicesController
                 'id'          => $termId,
                 'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'slug'        => $term->slug,
+                'description' => get_term_meta($termId, 'cz_category_description', true) ?: '',
+            ],
+        ]);
+    }
+
+    // ── Inline service category update ───────────────────────────────────────
+
+    public function updateServiceCategory(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $termId = (int) $request->get_param('id');
+        $term   = get_term($termId, self::CATEGORY_TAXONOMY);
+
+        if (!$term instanceof \WP_Term) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+        }
+
+        $body = $request->get_json_params();
+        $name = isset($body['name']) ? sanitize_text_field((string) $body['name']) : null;
+        $desc = isset($body['description']) ? sanitize_textarea_field((string) $body['description']) : null;
+
+        if ($name !== null && $name !== '') {
+            wp_update_term($termId, self::CATEGORY_TAXONOMY, ['name' => $name]);
+        }
+
+        if ($desc !== null) {
+            update_term_meta($termId, 'cz_category_description', $desc);
+        }
+
+        $updated = get_term($termId, self::CATEGORY_TAXONOMY);
+
+        return rest_ensure_response([
+            'success'  => true,
+            'category' => [
+                'id'          => $termId,
+                'name'        => html_entity_decode($updated->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'        => $updated->slug,
                 'description' => get_term_meta($termId, 'cz_category_description', true) ?: '',
             ],
         ]);

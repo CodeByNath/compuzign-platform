@@ -80,6 +80,18 @@ export function createServiceCategory(payload: {
   return apiClient.post('admin/service-categories', payload);
 }
 
+// Service category inline update (name and/or description).
+export function updateServiceCategory(
+  id:      number,
+  payload: { name?: string; description?: string },
+): Promise<{
+  success:   boolean;
+  message?:  string;
+  category?: { id: number; name: string; slug: string; description: string };
+}> {
+  return apiClient.post(`admin/service-categories/${id}`, payload);
+}
+
 // Temporary — Phase 0 migration readiness audit. Remove after migration is validated.
 export function fetchMigrationAudit(): Promise<MigrationAudit> {
   return apiClient.get<MigrationAudit>('admin/migration-audit');

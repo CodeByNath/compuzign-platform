@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
-import { createServiceCategory } from '@/api/endpoints/admin';
+import { createServiceCategory, updateServiceCategory } from '@/api/endpoints/admin';
 
 function decodeHtml(s: string): string {
   if (typeof document === 'undefined') return s;
@@ -47,6 +47,11 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
   const [creating,   setCreating]   = useState(false);
   const [createErr,  setCreateErr]  = useState<string | null>(null);
 
+  const [editOpen,   setEditOpen]   = useState(false);
+  const [editDesc,   setEditDesc]   = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editErr,    setEditErr]    = useState<string | null>(null);
+
   const selectedCat = categories.find(c => c.id === draft.category_id);
 
   const handleCreate = useCallback(async () => {
@@ -74,6 +79,36 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
   }, [newName, newDesc, onChange, onCategoryCreated]);
 
   const cancelAdd = () => { setAddOpen(false); setNewName(''); setNewDesc(''); setCreateErr(null); };
+
+  const openEditDesc = () => {
+    setEditDesc(selectedCat?.description ?? '');
+    setEditErr(null);
+    setEditOpen(true);
+  };
+
+  const cancelEditDesc = () => { setEditOpen(false); setEditDesc(''); setEditErr(null); };
+
+  const handleEditDesc = useCallback(async () => {
+    if (!selectedCat) return;
+    setEditSaving(true);
+    setEditErr(null);
+    try {
+      const res = await updateServiceCategory(selectedCat.id, { description: editDesc.trim() });
+      if (res.success && res.category) {
+        const updated: Category = { id: res.category.id, name: res.category.name, slug: res.category.slug, description: res.category.description };
+        setCategories(prev => prev.map(c => c.id === updated.id ? updated : c));
+        onCategoryCreated?.(updated);
+        setEditOpen(false);
+        setEditDesc('');
+      } else {
+        setEditErr(res.message ?? 'Failed to update category.');
+      }
+    } catch (e) {
+      setEditErr(e instanceof Error ? e.message : 'Failed to update category.');
+    } finally {
+      setEditSaving(false);
+    }
+  }, [selectedCat, editDesc, onCategoryCreated]);
 
   return (
     <div class="cz-tf-form">
@@ -120,7 +155,32 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
         {selectedCat && (
           selectedCat.description
             ? <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">{selectedCat.description}</p>
-            : <button type="button" class="cz-tf-add-btn" onClick={() => setAddOpen(true)}>+ Add description</button>
+            : <button type="button" class="cz-tf-add-btn" onClick={openEditDesc}>+ Add description</button>
+        )}
+
+        {/* Category description editor — triggered by "+ Add description" */}
+        {editOpen && (
+          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: var(--cz-space-2); padding: var(--cz-space-3); background: var(--admin-accent-a12); border-radius: var(--admin-radius)">
+            <p style="margin: 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">{selectedCat?.name}</p>
+            <textarea
+              class="cz-tf-textarea"
+              placeholder="Category description"
+              value={editDesc}
+              rows={2}
+              onInput={(e) => setEditDesc((e.target as HTMLTextAreaElement).value)}
+            />
+            {editErr && (
+              <p style="margin: 0; font-size: var(--admin-fs-s-label); color: var(--admin-error)">{editErr}</p>
+            )}
+            <div style="display: flex; gap: var(--cz-space-2)">
+              <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={handleEditDesc} disabled={editSaving}>
+                {editSaving ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={cancelEditDesc} disabled={editSaving}>
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Inline category creation — triggered by selecting "+ Add category" */}
