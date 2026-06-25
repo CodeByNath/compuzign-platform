@@ -777,8 +777,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setExitDialog(null);
     setNewSvcFields({ title: false, category: false, description: false });
     const result = await trashStation();
-    if (result) ctx.close();
-  }, [trashStation, ctx]);
+    // Bypass the close guard — trashing is terminal and must not re-open the exit dialog.
+    if (result) closeWithoutGuard();
+  }, [trashStation, closeWithoutGuard]);
 
   // Save whichever module is currently open and return the new module_status.
   // Throws on API failure so callers can surface the error.
@@ -886,14 +887,18 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const handleArchive = useCallback(async () => {
     setSplitOpen(false);
     const result = await archiveStation();
-    if (result) ctx.close();
-  }, [archiveStation, ctx]);
+    // Terminal action — bypass the close guard so a new-never-published draft does
+    // not re-trigger the exit dialog and trap the drawer on the archived service.
+    if (result) closeWithoutGuard();
+  }, [archiveStation, closeWithoutGuard]);
 
   const handleTrash = useCallback(async () => {
     setSplitOpen(false);
     const result = await trashStation();
-    if (result) ctx.close();
-  }, [trashStation, ctx]);
+    // Terminal action — bypass the close guard so a new-never-published draft does
+    // not re-trigger the exit dialog and loop back into the trashed service.
+    if (result) closeWithoutGuard();
+  }, [trashStation, closeWithoutGuard]);
 
   const handleArchiveRef = useRef(handleArchive);
   handleArchiveRef.current = handleArchive;
@@ -942,7 +947,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             <button
               type="button"
               class="cz-footer-split__chevron"
-              disabled={!hasBeenPublished || station.loading.status}
+              disabled={station.loading.status}
               onClick={(e) => { e.stopPropagation(); setSplitOpen((v) => !v); }}
               aria-label="More actions"
             >
@@ -950,13 +955,24 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd" />
               </svg>
             </button>
-            {/* Dropdown: Archive + Trash */}
+            {/* Dropdown: Archive + Trash. Trigger always opens; each action gates itself.
+                Archive is only meaningful once published; Trash is always available. */}
             {splitOpen && (
               <div class="cz-footer-split__menu">
-                <button type="button" class="cz-footer-split__item" onClick={() => handleArchiveRef.current()}>
+                <button
+                  type="button"
+                  class="cz-footer-split__item"
+                  disabled={!hasBeenPublished || station.loading.status}
+                  onClick={() => handleArchiveRef.current()}
+                >
                   Archive
                 </button>
-                <button type="button" class="cz-footer-split__item cz-footer-split__item--danger" onClick={() => handleTrashRef.current()}>
+                <button
+                  type="button"
+                  class="cz-footer-split__item cz-footer-split__item--danger"
+                  disabled={station.loading.status}
+                  onClick={() => handleTrashRef.current()}
+                >
                   Move to Trash
                 </button>
               </div>
