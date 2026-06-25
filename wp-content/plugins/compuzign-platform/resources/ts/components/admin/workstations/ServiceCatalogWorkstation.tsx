@@ -142,6 +142,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
   const [tab,     setTab]     = useState<'service' | 'commercial'>('service');
   const [editing, setEditing] = useState(false);
+  const [localCategories, setLocalCategories] = useState<Category[]>(allCategories);
   const [draft,   setDraft]   = useState<OverviewDraft>({
     title:       '',
     excerpt:     '',
@@ -154,6 +155,18 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
   const overviewNotes: ModuleNote[] = [
     { id: 'new-service.overview.start', message: 'Edit to start a new service.', type: 'info' },
+  ];
+
+  const [featuresPanelOpen,   setFeaturesPanelOpen]   = useState(false);
+  const [questionsPanelOpen,  setQuestionsPanelOpen]  = useState(false);
+
+  const featuresNotes: ModuleNote[] = [
+    { id: 'new-service.features.activation', message: 'Waiting for service activation.', type: 'info' },
+    { id: 'new-service.features.action',     message: 'Edit and include features.',       type: 'info' },
+  ];
+  const questionsNotes: ModuleNote[] = [
+    { id: 'new-service.questions.activation', message: 'Waiting for service activation.', type: 'info' },
+    { id: 'new-service.questions.action',     message: 'Edit and add common questions.',  type: 'info' },
   ];
 
   const handleSave = useCallback(async () => {
@@ -177,7 +190,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           mode:     'drawer',
           title:    newService.title,
           titleDot: 'var(--admin-error)',
-          initialStepData: { service: newService, packages, openAction: doOpen, allCategories, onRefresh },
+          initialStepData: { service: newService, packages, openAction: doOpen, allCategories: localCategories, onRefresh },
           steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
         });
       } else {
@@ -254,7 +267,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                   <p class="drawerModule__label">Category</p>
                   <p class="drawerModule__value">
                     {draft.category_id !== null
-                      ? decodeHtml(allCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
+                      ? decodeHtml(localCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
                       : 'Not selected'
                     }
                   </p>
@@ -305,9 +318,14 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="drawerModule__subtitle">Add and manage the features included in this service.</p>
               </div>
               <div class="drawerModule__status drawerModule__status--dim">
-                <ModuleStatusPill status="pending-dim" notes={[]} />
+                <ModuleStatusPill
+                  status="pending-dim"
+                  notes={featuresNotes}
+                  onOpen={() => setFeaturesPanelOpen(o => !o)}
+                />
               </div>
             </div>
+            {featuresPanelOpen && <ModuleNotificationPanel notes={featuresNotes} />}
             <div class="drawerModule__body">
               <div class="drawerModule__empty">
                 <p class="drawerModule__empty-title">No features</p>
@@ -347,9 +365,14 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="drawerModule__subtitle">Add questions and answers for this service.</p>
               </div>
               <div class="drawerModule__status drawerModule__status--dim">
-                <ModuleStatusPill status="pending-dim" notes={[]} />
+                <ModuleStatusPill
+                  status="pending-dim"
+                  notes={questionsNotes}
+                  onOpen={() => setQuestionsPanelOpen(o => !o)}
+                />
               </div>
             </div>
+            {questionsPanelOpen && <ModuleNotificationPanel notes={questionsNotes} />}
             <div class="drawerModule__body">
               <div class="drawerModule__empty">
                 <p class="drawerModule__empty-title">No questions added</p>
@@ -433,7 +456,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
         <ServiceOverviewEditor
           draft={draft}
           onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-          categories={allCategories}
+          categories={localCategories}
+          onCategoryCreated={(cat) => setLocalCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat])}
         />
       </InlineEditorShell>
     )}

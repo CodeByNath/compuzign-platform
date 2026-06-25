@@ -26,16 +26,17 @@ export function initOverviewDraft(service: ServiceItem): OverviewDraft {
 }
 
 interface Props {
-  draft:      OverviewDraft;
-  onChange:   (patch: Partial<OverviewDraft>) => void;
-  categories: Category[];
+  draft:               OverviewDraft;
+  onChange:            (patch: Partial<OverviewDraft>) => void;
+  categories:          Category[];
+  onCategoryCreated?:  (cat: Category) => void;
 }
 
 // Short Description (excerpt) is temporarily disabled and hidden from workflow, but retained for future use.
 // The field, its data, and the OverviewDraft.excerpt property remain intact.
 // It does not participate in completeness, lifecycle state, or notification calculations while hidden.
 
-export function ServiceOverviewEditor({ draft, onChange, categories: initialCategories }: Props) {
+export function ServiceOverviewEditor({ draft, onChange, categories: initialCategories, onCategoryCreated }: Props) {
   // Local category list starts from the prop; new categories are appended inline
   // without requiring a full catalog refetch during the current drawer session.
   const [categories, setCategories] = useState<Category[]>(initialCategories);
@@ -57,6 +58,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
       if (res.success && res.category) {
         const cat: Category = { id: res.category.id, name: res.category.name, slug: res.category.slug, description: res.category.description };
         setCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat]);
+        onCategoryCreated?.(cat);
         onChange({ category_id: cat.id });
         setAddOpen(false);
         setNewName('');
@@ -69,7 +71,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
     } finally {
       setCreating(false);
     }
-  }, [newName, newDesc, onChange]);
+  }, [newName, newDesc, onChange, onCategoryCreated]);
 
   const cancelAdd = () => { setAddOpen(false); setNewName(''); setNewDesc(''); setCreateErr(null); };
 

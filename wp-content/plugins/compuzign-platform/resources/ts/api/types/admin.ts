@@ -535,6 +535,7 @@ export interface CreateServiceResponse {
     slug:            string;
     platform_status: string;
     module_status:   Record<string, string>;
+    categories:      Array<{ id: number; name: string; slug: string; description: string }>;
   };
   drafts: ServiceModuleDrafts;
 }
