@@ -6,7 +6,7 @@ import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import { createService } from '@/api/endpoints/admin';
 import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
-import { renderModuleStatus } from '@/components/admin/utils/moduleStatus';
+import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -227,7 +227,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="drawerModule__subtitle">General information about your service.</p>
               </div>
               <div class="drawerModule__status drawerModule__status--dim">
-                {renderModuleStatus('pending-dim')}
+                <ModuleStatusPill status="pending-dim" notes={[]} />
               </div>
             </div>
             <div class="drawerModule__body">
@@ -293,7 +293,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="drawerModule__subtitle">Add and manage the features included in this service.</p>
               </div>
               <div class="drawerModule__status drawerModule__status--dim">
-                {renderModuleStatus('pending-dim')}
+                <ModuleStatusPill status="pending-dim" notes={[]} />
               </div>
             </div>
             <div class="drawerModule__body">
@@ -335,7 +335,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="drawerModule__subtitle">Add questions and answers for this service.</p>
               </div>
               <div class="drawerModule__status drawerModule__status--dim">
-                {renderModuleStatus('pending-dim')}
+                <ModuleStatusPill status="pending-dim" notes={[]} />
               </div>
             </div>
             <div class="drawerModule__body">
