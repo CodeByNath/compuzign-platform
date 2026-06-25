@@ -697,8 +697,10 @@
   align-self: center;
 }
 
-.cz-admin-status-dot--active { color: var(--admin-success); }
-.cz-admin-status-dot--faint  { color: var(--admin-text-faint); }
+.cz-admin-status-dot--active   { color: var(--admin-success);    }
+.cz-admin-status-dot--pending  { color: var(--admin-warning);    }
+.cz-admin-status-dot--inactive { color: var(--admin-error);      }
+.cz-admin-status-dot--faint    { color: var(--admin-text-faint); }
 
 .cz-admin-status-strip__version {
   margin-left: auto;
@@ -4086,6 +4088,7 @@ button.cz-module-status-pill {
 .drawerModule__status {
   display: flex;
   align-items: center;
+  gap: var(--cz-space-2);
   flex-shrink: 0;
 }
 

@@ -8,8 +8,9 @@ import { checkOverviewCompleteness, checkOverviewCompletenessFromDraft } from '.
 import type { ServiceItem } from '@/api/types/cost-builder';
 
 export interface ModuleNote {
-  id:      string;   // stable dot-path key for React rendering
-  message: string;   // human-readable note shown in the panel
+  id:      string;                        // stable dot-path key for React rendering
+  message: string;                        // human-readable note shown in the panel
+  type:    'error' | 'warning' | 'info'; // error = counts toward badge; info = panel only; warning = reserved
 }
 
 export interface NoteContext {
@@ -18,8 +19,10 @@ export interface NoteContext {
   hasDraft?:         boolean;  // true when a draft exists for this module
 }
 
+// Only 'error' notes increment the numeric badge on the pill.
+// 'info' and 'warning' notes appear in the notification panel but do not count.
 export function noteCount(notes: ModuleNote[]): number {
-  return notes.length;
+  return notes.filter(n => n.type === 'error').length;
 }
 
 // ── Per-module generators ─────────────────────────────────────────────────────
@@ -36,13 +39,20 @@ export function getOverviewNotes(
     ? checkOverviewCompletenessFromDraft(draft)
     : checkOverviewCompleteness(service);
 
-  if (!c.title)    notes.push({ id: 'overview.title.missing',    message: 'Title missing' });
+  if (!c.title)    notes.push({ id: 'overview.title.missing',    message: 'Title missing',         type: 'error' });
   // excerpt (short description) is disabled from the workflow — no notification fired for missing excerpt.
-  if (!c.category) notes.push({ id: 'overview.category.missing', message: 'Category not selected' });
-  if (!c.content)  notes.push({ id: 'overview.content.missing',  message: 'Description missing' });
+  if (!c.category) notes.push({ id: 'overview.category.missing', message: 'Category not selected', type: 'error' });
+  if (!c.content)  notes.push({ id: 'overview.content.missing',  message: 'Description missing',   type: 'error' });
 
-  // When all fields are complete the pill shows full-colour Pending with no numeric badge.
-  // The pending-full pill status already communicates readiness; no context note needed.
+  // Info notes — shown in the panel but do not produce a numeric badge.
+  if (c.complete) {
+    if (ctx.platformStatus !== 'active')
+      notes.push({ id: 'overview.platform.inactive', message: 'Waiting for service activation', type: 'info' });
+    else if (ctx.hasDraft)
+      notes.push({ id: 'overview.module.draft',      message: 'Draft saved — settle to publish', type: 'info' });
+    else if (ctx.moduleTransition === 'pending')
+      notes.push({ id: 'overview.module.pending',    message: 'Changes ready to settle',         type: 'info' });
+  }
 
   return notes;
 }
@@ -50,8 +60,8 @@ export function getOverviewNotes(
 export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteContext): ModuleNote[] {
   const notes: ModuleNote[] = [];
 
-  // Empty inclusions: return no notes so the pill shows a dim dot (·) rather than
-  // a numeric badge. The pending-dim status on the card already communicates this state.
+  // Empty inclusions: return no notes so the pill shows a dim dot rather than a numeric badge.
+  // The pending-dim status on the card already communicates this state.
   if (inclusions.length === 0) {
     return notes;
   }
@@ -61,9 +71,18 @@ export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteCont
     notes.push({
       id:      'inclusions.labels.missing',
       message: `${unlabelled} feature${unlabelled !== 1 ? 's have' : ' has'} no label`,
+      type:    'error',
     });
 
-  // When all labels are present the pill shows full-colour Pending with no numeric badge.
+  // Info notes when all labels are present.
+  if (unlabelled === 0) {
+    if (ctx.platformStatus !== 'active')
+      notes.push({ id: 'inclusions.platform.inactive', message: 'Waiting for service activation', type: 'info' });
+    else if (ctx.hasDraft)
+      notes.push({ id: 'inclusions.module.draft',      message: 'Draft saved — settle to publish', type: 'info' });
+    else if (ctx.moduleTransition === 'pending')
+      notes.push({ id: 'inclusions.module.pending',    message: 'Changes ready to settle',         type: 'info' });
+  }
 
   return notes;
 }
@@ -71,8 +90,7 @@ export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteCont
 export function getFaqsNotes(faqs: ServiceFaq[], ctx: NoteContext): ModuleNote[] {
   const notes: ModuleNote[] = [];
 
-  // Zero FAQs: return no notes so the pill shows a dim dot (·) rather than a numeric
-  // badge. Incomplete FAQ items (missing question or answer) still generate numeric notes below.
+  // Zero FAQs: return no notes so the pill shows a dim dot rather than a numeric badge.
   if (faqs.length === 0) {
     return notes;
   }
@@ -84,14 +102,24 @@ export function getFaqsNotes(faqs: ServiceFaq[], ctx: NoteContext): ModuleNote[]
     notes.push({
       id:      'faqs.question.missing',
       message: `${noQ} question${noQ !== 1 ? 's are' : ' is'} missing a question`,
+      type:    'error',
     });
   if (noA > 0)
     notes.push({
       id:      'faqs.answer.missing',
       message: `${noA} question${noA !== 1 ? 's are' : ' is'} missing an answer`,
+      type:    'error',
     });
 
-  // When all questions and answers are complete the pill shows full-colour Pending with no numeric badge.
+  // Info notes when all questions and answers are complete.
+  if (noQ === 0 && noA === 0) {
+    if (ctx.platformStatus !== 'active')
+      notes.push({ id: 'faqs.platform.inactive', message: 'Waiting for service activation', type: 'info' });
+    else if (ctx.hasDraft)
+      notes.push({ id: 'faqs.module.draft',      message: 'Draft saved — settle to publish', type: 'info' });
+    else if (ctx.moduleTransition === 'pending')
+      notes.push({ id: 'faqs.module.pending',    message: 'Changes ready to settle',         type: 'info' });
+  }
 
   return notes;
 }
