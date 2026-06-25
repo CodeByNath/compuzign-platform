@@ -7,6 +7,8 @@ import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types
 import { createService } from '@/api/endpoints/admin';
 import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
 import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
+import { ModuleNotificationPanel } from '@/components/admin/ui/ModuleNotificationPanel';
+import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -148,6 +150,11 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   });
   const [saving,  setSaving]  = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [overviewPanelOpen, setOverviewPanelOpen] = useState(false);
+
+  const overviewNotes: ModuleNote[] = [
+    { id: 'new-service.overview.start', message: 'Edit to start a new service.', type: 'info' },
+  ];
 
   const handleSave = useCallback(async () => {
     if (!draft.title.trim()) { setSaveErr('Title is required.'); return; }
@@ -227,9 +234,14 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
                 <p class="drawerModule__subtitle">General information about your service.</p>
               </div>
               <div class="drawerModule__status drawerModule__status--dim">
-                <ModuleStatusPill status="pending-dim" notes={[]} />
+                <ModuleStatusPill
+                  status="pending-dim"
+                  notes={overviewNotes}
+                  onOpen={() => setOverviewPanelOpen(o => !o)}
+                />
               </div>
             </div>
+            {overviewPanelOpen && <ModuleNotificationPanel notes={overviewNotes} />}
             <div class="drawerModule__body">
               <div class="drawerModule__fields">
                 <div class="drawerModule__field">
