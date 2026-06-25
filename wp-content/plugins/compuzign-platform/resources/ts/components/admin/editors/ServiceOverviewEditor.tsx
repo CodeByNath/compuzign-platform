@@ -103,6 +103,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
           value={draft.category_id !== null ? String(draft.category_id) : ''}
           onChange={(e) => {
             const val = (e.target as HTMLSelectElement).value;
+            if (val === '__add__') { setAddOpen(true); return; }
             onChange({ category_id: val ? parseInt(val, 10) : null });
           }}
         >
@@ -114,23 +115,15 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
                 {decodeHtml(cat.name)}
               </option>
             ))}
+          <option value="__add__">+ Add category</option>
         </select>
 
         <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">
           {selectedCat?.description || 'Description optional'}
         </p>
 
-        {/* Inline category creation */}
-        {!addOpen ? (
-          <button
-            type="button"
-            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-            style="margin-top: 6px"
-            onClick={() => setAddOpen(true)}
-          >
-            Add category
-          </button>
-        ) : (
+        {/* Inline category creation — triggered by selecting "+ Add category" */}
+        {addOpen && (
           <div style="margin-top: 8px; display: flex; flex-direction: column; gap: var(--cz-space-2); padding: var(--cz-space-3); background: var(--admin-accent-a12); border-radius: var(--admin-radius)">
             <input
               type="text"
