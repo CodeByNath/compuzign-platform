@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useEffect } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { createServiceCategory, updateServiceCategory } from '@/api/endpoints/admin';
 
@@ -47,12 +47,17 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
   const [creating,   setCreating]   = useState(false);
   const [createErr,  setCreateErr]  = useState<string | null>(null);
 
-  const [editOpen,   setEditOpen]   = useState(false);
   const [editDesc,   setEditDesc]   = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editErr,    setEditErr]    = useState<string | null>(null);
 
   const selectedCat = categories.find(c => c.id === draft.category_id);
+
+  // Reset description field whenever the selected category changes.
+  useEffect(() => {
+    setEditDesc(selectedCat?.description ?? '');
+    setEditErr(null);
+  }, [draft.category_id]);
 
   const handleCreate = useCallback(async () => {
     if (!newName.trim()) { setCreateErr('Name is required.'); return; }
@@ -80,13 +85,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
 
   const cancelAdd = () => { setAddOpen(false); setNewName(''); setNewDesc(''); setCreateErr(null); };
 
-  const openEditDesc = () => {
-    setEditDesc(selectedCat?.description ?? '');
-    setEditErr(null);
-    setEditOpen(true);
-  };
-
-  const cancelEditDesc = () => { setEditOpen(false); setEditDesc(''); setEditErr(null); };
+  const cancelEditDesc = () => { setEditDesc(selectedCat?.description ?? ''); setEditErr(null); };
 
   const handleEditDesc = useCallback(async () => {
     if (!selectedCat) return;
@@ -98,8 +97,6 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
         const updated: Category = { id: res.category.id, name: res.category.name, slug: res.category.slug, description: res.category.description };
         setCategories(prev => prev.map(c => c.id === updated.id ? updated : c));
         onCategoryCreated?.(updated);
-        setEditOpen(false);
-        setEditDesc('');
       } else {
         setEditErr(res.message ?? 'Failed to update category.');
       }
@@ -153,18 +150,10 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
         </select>
 
         {selectedCat && (
-          selectedCat.description
-            ? <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint); line-height: var(--admin-lh-s-label)">{selectedCat.description}</p>
-            : <button type="button" class="cz-tf-add-btn" onClick={openEditDesc}>+ Add description</button>
-        )}
-
-        {/* Category description editor — triggered by "+ Add description" */}
-        {editOpen && (
-          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: var(--cz-space-2); padding: var(--cz-space-3); background: var(--admin-accent-a12); border-radius: var(--admin-radius)">
-            <p style="margin: 0; font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">{selectedCat?.name}</p>
+          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: var(--cz-space-2)">
             <textarea
               class="cz-tf-textarea"
-              placeholder="Category description"
+              placeholder="Category description (optional)"
               value={editDesc}
               rows={2}
               onInput={(e) => setEditDesc((e.target as HTMLTextAreaElement).value)}
