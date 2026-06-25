@@ -1,16 +1,11 @@
 // Unified module status pill.
 //
-// Renders as:   [dot]  [pill]
-//
-// Dot and pill are separate elements inside the parent drawerModule__status flex container.
-// Gap between them is controlled by .drawerModule__status { gap } in CSS — no inline style.
-//
-// When any notes exist (counted or informational):
+// When any notes exist (error or info):
 //   → pill is a button that opens the notification panel.
-// When noteCount > 0 (non-informational notes only):
+// When noteCount > 0 (error notes only):
 //   → pill shows the numeric marker inside it.
-// When noteCount === 0 but informational notes exist:
-//   → pill is still a button, but shows no marker number.
+// When only info notes exist:
+//   → pill is a button, no marker number.
 // When no notes at all:
 //   → pill is a static span.
 //
@@ -25,52 +20,40 @@ interface Props {
   onOpen?:  () => void;       // called when pill is clicked to open the panel
 }
 
-const PILL_META: Record<string, { cls: string; label: string; dotCls: string }> = {
-  'active':       { cls: 'cz-module-status-pill--active',   label: 'Active',   dotCls: 'cz-admin-status-dot--active'   },
-  'disabled':     { cls: 'cz-module-status-pill--inactive', label: 'Disabled', dotCls: 'cz-admin-status-dot--inactive' },
-  'pending-dim':  { cls: 'cz-module-status-pill--pending',  label: 'Pending',  dotCls: 'cz-admin-status-dot--pending'  },
-  'pending-full': { cls: 'cz-module-status-pill--pending',  label: 'Pending',  dotCls: 'cz-admin-status-dot--pending'  },
+const PILL_META: Record<string, { cls: string; label: string }> = {
+  'active':       { cls: 'cz-module-status-pill--active',   label: 'Active'   },
+  'disabled':     { cls: 'cz-module-status-pill--inactive', label: 'Disabled' },
+  'pending-dim':  { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
+  'pending-full': { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
 };
 
-const FALLBACK = { cls: 'cz-module-status-pill--pending', label: 'Pending', dotCls: 'cz-admin-status-dot--pending' };
+const FALLBACK = { cls: 'cz-module-status-pill--pending', label: 'Pending' };
 
 export function ModuleStatusPill({ status, notes, onOpen }: Props) {
-  const count    = noteCount(notes);        // non-informational only — drives the badge
-  const hasNotes = notes.length > 0;       // any notes — drives button vs span
+  const count    = noteCount(notes);    // error notes only — drives the numeric badge
+  const hasNotes = notes.length > 0;   // any notes — drives button vs span
   const meta     = PILL_META[status] ?? FALLBACK;
-  const pillCls  = `cz-module-status-pill ${meta.cls}`;
-  const dot      = <span class={`cz-admin-status-dot ${meta.dotCls}`} />;
+  const cls      = `cz-module-status-pill ${meta.cls}`;
 
-  // Pill with numeric marker + clickable (non-informational notes exist)
+  // Error notes: clickable pill with numeric badge
   if (count > 0 && onOpen) {
     return (
-      <>
-        {dot}
-        <button type="button" class={pillCls} onClick={onOpen}>
-          <span class="cz-module-status-pill__marker">{count}</span>
-          {meta.label}
-        </button>
-      </>
+      <button type="button" class={cls} onClick={onOpen}>
+        <span class="cz-module-status-pill__marker">{count}</span>
+        {meta.label}
+      </button>
     );
   }
 
-  // Pill clickable but no badge (only informational notes)
+  // Info notes only: clickable pill, no badge
   if (hasNotes && onOpen) {
     return (
-      <>
-        {dot}
-        <button type="button" class={pillCls} onClick={onOpen}>
-          {meta.label}
-        </button>
-      </>
+      <button type="button" class={cls} onClick={onOpen}>
+        {meta.label}
+      </button>
     );
   }
 
-  // Static pill — no notes at all
-  return (
-    <>
-      {dot}
-      <span class={pillCls}>{meta.label}</span>
-    </>
-  );
+  // No notes: static pill
+  return <span class={cls}>{meta.label}</span>;
 }
