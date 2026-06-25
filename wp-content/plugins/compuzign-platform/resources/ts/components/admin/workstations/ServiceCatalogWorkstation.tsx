@@ -158,17 +158,21 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   const overviewComplete = !!draft.title.trim() && !!draft.content.trim() && draft.category_id !== null;
   const overviewNotes: ModuleNote[] = overviewComplete
     ? [{ id: 'new-service.overview.waiting', message: 'Waiting for service publication.', type: 'info' }]
-    : [{ id: 'new-service.overview.start',   message: 'Edit to start a new service.',     type: 'info' }];
+    : [{ id: 'new-service.overview.start',   message: 'Edit and create a service.',       type: 'info' }];
 
   const [featuresPanelOpen,   setFeaturesPanelOpen]   = useState(false);
   const [questionsPanelOpen,  setQuestionsPanelOpen]  = useState(false);
 
-  const featuresNotes: ModuleNote[] = overviewComplete
-    ? [{ id: 'new-service.features.action',     message: 'Edit and add features.',          type: 'info' }]
-    : [{ id: 'new-service.features.activation', message: 'Waiting for service activation.', type: 'info' }];
-  const questionsNotes: ModuleNote[] = overviewComplete
-    ? [{ id: 'new-service.questions.action',     message: 'Edit and add questions.',          type: 'info' }]
-    : [{ id: 'new-service.questions.activation', message: 'Waiting for service activation.', type: 'info' }];
+  // Locked state: the Included Features / Common Questions Edit buttons are always
+  // disabled until the service exists, so the pill always shows the activation prompt.
+  // The "Edit and add …" prompt is owned by the view step (getInclusionsNotes/getFaqsNotes),
+  // which fires once the service exists and the module Edit button is enabled.
+  const featuresNotes: ModuleNote[] = [
+    { id: 'new-service.features.activation', message: 'Waiting for service activation.', type: 'info' },
+  ];
+  const questionsNotes: ModuleNote[] = [
+    { id: 'new-service.questions.activation', message: 'Waiting for service activation.', type: 'info' },
+  ];
 
   const handleSave = useCallback(async () => {
     if (!draft.title.trim()) { setSaveErr('Title is required.'); return; }

@@ -60,9 +60,10 @@ export function getOverviewNotes(
 export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteContext): ModuleNote[] {
   const notes: ModuleNote[] = [];
 
-  // Empty inclusions: return no notes so the pill shows a dim dot rather than a numeric badge.
-  // The pending-dim status on the card already communicates this state.
+  // Empty inclusions: the module is editable (service exists) but has nothing yet.
+  // Surface the action prompt so the Pending pill opens with guidance.
   if (inclusions.length === 0) {
+    notes.push({ id: 'inclusions.empty.action', message: 'Edit and add features.', type: 'info' });
     return notes;
   }
 
@@ -90,8 +91,10 @@ export function getInclusionsNotes(inclusions: ServiceInclusion[], ctx: NoteCont
 export function getFaqsNotes(faqs: ServiceFaq[], ctx: NoteContext): ModuleNote[] {
   const notes: ModuleNote[] = [];
 
-  // Zero FAQs: return no notes so the pill shows a dim dot rather than a numeric badge.
+  // Zero FAQs: the module is editable (service exists) but has nothing yet.
+  // Surface the action prompt so the Pending pill opens with guidance.
   if (faqs.length === 0) {
+    notes.push({ id: 'faqs.empty.action', message: 'Edit and add questions.', type: 'info' });
     return notes;
   }
 
