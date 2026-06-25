@@ -12,6 +12,7 @@ import {
   saveServicePromotion,
   archiveServicePromotion,
   reactivateServicePromotion,
+  updateServiceCategory,
 } from '@/api/endpoints/admin';
 import type {
   SurfacePackageDetailResponse,
@@ -435,6 +436,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
   const [inclusionsDraft,  setInclusionsDraft]  = useState<InclusionsDraft | null>(null);
   const [faqsDraft,        setFaqsDraft]        = useState<FaqsDraft | null>(null);
+  // Category description for the overview editor — lifted from ServiceOverviewEditor.
+  const [catDesc,         setCatDesc]         = useState('');
+  const [catDescOriginal, setCatDescOriginal] = useState('');
   // Snapshots taken at editor-open time for dirty detection — never mutated after init.
   const [overviewOriginal,   setOverviewOriginal]   = useState<OverviewDraft | null>(null);
   const [inclusionsOriginal, setInclusionsOriginal] = useState<InclusionsDraft | null>(null);
@@ -522,12 +526,16 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     const draft: OverviewDraft = wc
       ? { title: wc.title, excerpt: wc.excerpt, content: wc.content, category_id: wc.category_ids[0] ?? null }
       : initOverviewDraft(service);
+    const catId = draft.category_id;
+    const desc  = catId ? (allCategories.find(c => c.id === catId)?.description ?? '') : '';
+    setCatDesc(desc);
+    setCatDescOriginal(desc);
     setOverviewOriginal(draft);
     setOverviewDraft(draft);
     setEditingSection('overview');
     setOpenPanel(null);
     setSaveErr(null);
-  }, [service, stationOverviewDraft]);
+  }, [service, stationOverviewDraft, allCategories]);
 
   const openInclusionsEditor = useCallback(() => {
     const draft: InclusionsDraft = { items: inclusions };
@@ -552,9 +560,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setOverviewDraft(null);    setOverviewOriginal(null);
     setInclusionsDraft(null);  setInclusionsOriginal(null);
     setFaqsDraft(null);        setFaqsOriginal(null);
+    setCatDesc(catDescOriginal);
     setSaveErr(null);
     setSaving(false);
-  }, []);
+  }, [catDescOriginal]);
 
   const handleSaveOverview = useCallback(async () => {
     if (!overviewDraft) return;
@@ -562,6 +571,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null);
     try {
       await saveOverview(overviewDraft);
+      if (overviewDraft.category_id !== null && catDesc.trim() !== catDescOriginal.trim()) {
+        await updateServiceCategory(overviewDraft.category_id, { description: catDesc.trim() });
+      }
+      setCatDescOriginal(catDesc);
       setOpenPanel(null);
       setEditingSection(null);
       setOverviewDraft(null);    setOverviewOriginal(null);
@@ -571,7 +584,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     } finally {
       setSaving(false);
     }
-  }, [overviewDraft, saveOverview]);
+  }, [overviewDraft, catDesc, catDescOriginal, saveOverview]);
 
   const handleSaveInclusions = useCallback(async () => {
     if (!inclusionsDraft) return;
@@ -1368,6 +1381,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           draft={overviewDraft}
           onChange={(patch) => setOverviewDraft((d) => d ? { ...d, ...patch } : d)}
           categories={allCategories}
+          catDescription={catDesc}
+          onCatDescriptionChange={setCatDesc}
         />
       </InlineEditorShell>
     )}

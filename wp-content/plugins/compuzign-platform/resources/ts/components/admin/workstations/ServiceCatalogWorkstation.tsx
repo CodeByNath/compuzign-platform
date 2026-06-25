@@ -4,7 +4,7 @@ import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
-import { createService } from '@/api/endpoints/admin';
+import { createService, updateServiceCategory } from '@/api/endpoints/admin';
 import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
 import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '@/components/admin/ui/ModuleNotificationPanel';
@@ -149,8 +149,10 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
     content:     '',
     category_id: null,
   });
-  const [saving,  setSaving]  = useState(false);
-  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [saving,           setSaving]           = useState(false);
+  const [saveErr,          setSaveErr]          = useState<string | null>(null);
+  const [catDesc,          setCatDesc]          = useState('');
+  const [catDescOriginal,  setCatDescOriginal]  = useState('');
   const [overviewPanelOpen, setOverviewPanelOpen] = useState(false);
 
   const overviewComplete = !!draft.title.trim() && !!draft.content.trim() && draft.category_id !== null;
@@ -183,6 +185,9 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
         category_ids: [draft.category_id],
       });
       if (result.success) {
+        if (draft.category_id !== null && catDesc.trim() !== catDescOriginal.trim()) {
+          await updateServiceCategory(draft.category_id, { description: catDesc.trim() });
+        }
         const newService = buildNewServiceItem(result.service, result.drafts);
         onRefresh?.();
         ctx.close();
@@ -202,7 +207,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
     } finally {
       setSaving(false);
     }
-  }, [draft, doOpen, packages, allCategories, onRefresh, ctx]);
+  }, [draft, catDesc, catDescOriginal, doOpen, packages, allCategories, onRefresh, ctx]);
 
   return (
     <>
@@ -290,7 +295,12 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
               <button
                 type="button"
                 class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                  const desc = localCategories.find(c => c.id === draft.category_id)?.description ?? '';
+                  setCatDesc(desc);
+                  setCatDescOriginal(desc);
+                  setEditing(true);
+                }}
               >
                 Edit
               </button>
@@ -450,7 +460,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
       <InlineEditorShell
         title="Create Service"
         onSave={handleSave}
-        onCancel={() => { setEditing(false); setSaveErr(null); }}
+        onCancel={() => { setEditing(false); setSaveErr(null); setCatDesc(catDescOriginal); }}
         saving={saving}
         saveErr={saveErr}
       >
@@ -458,6 +468,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           draft={draft}
           onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
           categories={localCategories}
+          catDescription={catDesc}
+          onCatDescriptionChange={setCatDesc}
           onCategoryCreated={(cat) => setLocalCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat])}
         />
       </InlineEditorShell>
