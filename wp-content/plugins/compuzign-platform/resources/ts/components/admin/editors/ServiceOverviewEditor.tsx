@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { createServiceCategory } from '@/api/endpoints/admin';
 
@@ -43,29 +43,63 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
   // without requiring a full catalog refetch during the current drawer session.
   const [categories, setCategories] = useState<Category[]>(initialCategories);
 
-  const [addOpen,   setAddOpen]   = useState(false);
-  const [newName,   setNewName]   = useState('');
-  const [newDesc,   setNewDesc]   = useState('');
-  const [creating,  setCreating]  = useState(false);
-  const [createErr, setCreateErr] = useState<string | null>(null);
+  // Single inline workflow: the Category selector either renders a <select> (normal)
+  // or transforms into a name <input> (adding). The two are mutually exclusive.
+  const [isAdding,   setIsAdding]   = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [creating,   setCreating]   = useState(false);
+  const [createErr,  setCreateErr]  = useState<string | null>(null);
+
+  const inputRef      = useRef<HTMLInputElement>(null);
+  const committingRef = useRef(false);
 
   const selectedCat = categories.find(c => c.id === draft.category_id);
 
-  const handleCreate = useCallback(async () => {
-    if (!newName.trim()) { setCreateErr('Name is required.'); return; }
+  // The description editor reveals once a category is selected (normal mode), or
+  // once the first character of a new category name is entered (add mode).
+  const showDescription = isAdding ? newCatName.trim().length > 0 : !!selectedCat;
+
+  // Auto-focus the inline name input when entering add mode.
+  useEffect(() => {
+    if (isAdding) inputRef.current?.focus();
+  }, [isAdding]);
+
+  const enterAddMode = () => {
+    setNewCatName('');
+    setCreateErr(null);
+    onCatDescriptionChange('');   // fresh description for the new category
+    setIsAdding(true);
+  };
+
+  const exitAddMode = () => {
+    setIsAdding(false);
+    setNewCatName('');
+    setCreateErr(null);
+    // Restore the currently selected category's description (add mode cleared it).
+    onCatDescriptionChange(selectedCat?.description ?? '');
+  };
+
+  // Immediate creation on commit (Enter, or blur when moving to the description).
+  // Empty name simply exits add mode without creating anything.
+  const commitNewCategory = useCallback(async () => {
+    if (committingRef.current) return;
+    const name = newCatName.trim();
+    if (!name) { setIsAdding(false); setCreateErr(null); return; }
+    committingRef.current = true;
     setCreating(true);
     setCreateErr(null);
     try {
-      const res = await createServiceCategory({ name: newName.trim(), description: newDesc.trim() });
+      const res = await createServiceCategory({ name });
       if (res.success && res.category) {
         const cat: Category = { id: res.category.id, name: res.category.name, slug: res.category.slug, description: res.category.description };
         setCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat]);
         onCategoryCreated?.(cat);
-        onCatDescriptionChange(cat.description ?? '');
+        // If the name matched an existing category, surface its real description
+        // instead of silently overwriting it on Save. New categories keep what was typed.
+        if (res.existing && cat.description) onCatDescriptionChange(cat.description);
         onChange({ category_id: cat.id });
-        setAddOpen(false);
-        setNewName('');
-        setNewDesc('');
+        setIsAdding(false);
+        setNewCatName('');
       } else {
         setCreateErr(res.message ?? 'Failed to create category.');
       }
@@ -73,10 +107,9 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
       setCreateErr(e instanceof Error ? e.message : 'Failed to create category.');
     } finally {
       setCreating(false);
+      committingRef.current = false;
     }
-  }, [newName, newDesc, onChange, onCategoryCreated, onCatDescriptionChange]);
-
-  const cancelAdd = () => { setAddOpen(false); setNewName(''); setNewDesc(''); setCreateErr(null); };
+  }, [newCatName, onChange, onCategoryCreated, onCatDescriptionChange]);
 
   return (
     <div class="cz-tf-form">
@@ -101,28 +134,51 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
 
       <div class="cz-tf-field">
         <label class="cz-tf-label">Category</label>
-        <select
-          class={`cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
-          value={draft.category_id !== null ? String(draft.category_id) : '__add__'}
-          onChange={(e) => {
-            const val = (e.target as HTMLSelectElement).value;
-            if (val === '__add__') { setAddOpen(true); return; }
-            const id = val ? parseInt(val, 10) : null;
-            onCatDescriptionChange(id ? (categories.find(c => c.id === id)?.description ?? '') : '');
-            onChange({ category_id: id });
-          }}
-        >
-          <option value="__add__">+ Add category</option>
-          {categories
-            .filter((c) => c.id !== null)
-            .map((cat) => (
-              <option key={cat.slug} value={String(cat.id)}>
-                {decodeHtml(cat.name)}
-              </option>
-            ))}
-        </select>
+        {isAdding ? (
+          <input
+            ref={inputRef}
+            type="text"
+            class="cz-tf-input"
+            placeholder="New category name"
+            value={newCatName}
+            disabled={creating}
+            onInput={(e) => setNewCatName((e.target as HTMLInputElement).value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter')       { e.preventDefault(); commitNewCategory(); }
+              else if (e.key === 'Escape') { e.preventDefault(); exitAddMode(); }
+            }}
+            onBlur={commitNewCategory}
+          />
+        ) : (
+          <select
+            class={`cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
+            value={draft.category_id !== null ? String(draft.category_id) : '__add__'}
+            onChange={(e) => {
+              const val = (e.target as HTMLSelectElement).value;
+              if (val === '__add__') { enterAddMode(); return; }
+              const id = val ? parseInt(val, 10) : null;
+              onCatDescriptionChange(id ? (categories.find(c => c.id === id)?.description ?? '') : '');
+              onChange({ category_id: id });
+            }}
+          >
+            <option value="__add__">+ Add category</option>
+            {categories
+              .filter((c) => c.id !== null)
+              .map((cat) => (
+                <option key={cat.slug} value={String(cat.id)}>
+                  {decodeHtml(cat.name)}
+                </option>
+              ))}
+          </select>
+        )}
 
-        {selectedCat && (
+        {createErr && (
+          <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-error)">
+            {createErr}
+          </p>
+        )}
+
+        {showDescription && (
           <textarea
             class="cz-tf-textarea"
             placeholder="Category description (optional)"
@@ -131,49 +187,6 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
             style="margin-top: 8px"
             onInput={(e) => onCatDescriptionChange((e.target as HTMLTextAreaElement).value)}
           />
-        )}
-
-        {/* Inline category creation — triggered by selecting "+ Add category" */}
-        {addOpen && (
-          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: var(--cz-space-2); padding: var(--cz-space-3); background: var(--admin-accent-a12); border-radius: var(--admin-radius)">
-            <input
-              type="text"
-              class="cz-tf-input"
-              placeholder="Category name"
-              value={newName}
-              onInput={(e) => setNewName((e.target as HTMLInputElement).value)}
-            />
-            <textarea
-              class="cz-tf-textarea"
-              placeholder="Description (optional)"
-              value={newDesc}
-              rows={2}
-              onInput={(e) => setNewDesc((e.target as HTMLTextAreaElement).value)}
-            />
-            {createErr && (
-              <p style="margin: 0; font-size: var(--admin-fs-s-label); color: var(--admin-error)">
-                {createErr}
-              </p>
-            )}
-            <div style="display: flex; gap: var(--cz-space-2)">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                onClick={handleCreate}
-                disabled={creating}
-              >
-                {creating ? 'Creating…' : 'Create'}
-              </button>
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                onClick={cancelAdd}
-                disabled={creating}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
         )}
       </div>
     </div>
