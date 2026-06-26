@@ -11,6 +11,7 @@ import {
   createSurfacePackage,
 } from '@/api/endpoints/admin';
 import { InlineEditorShell } from '../InlineEditorShell';
+import { ReadBlock } from '../ReadBlock';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type {
   SurfacePackageSummary,
@@ -373,155 +374,102 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         <>
 
           {/* Tier Overview */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header">
-                <p class="cz-req-detail__section-title">Tier Overview</p>
-              </div>
-              <div class="cz-sv-module-body">
-                <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
-                </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Price</span>
-                  <span class="cz-sv-overview-block__value">
-                    {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '—')}
-                  </span>
-                </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Billing Cycle</span>
-                  <span class="cz-sv-overview-block__value">{capitalize(billingCycle)}</span>
-                </div>
-                {isPopular && (
-                  <div class="cz-sv-overview-block__meta">
-                    <span class="cz-req-contact-grid__label">Presentation</span>
-                    <span class="cz-sv-overview-block__value">
-                      <span class="cz-tier-badge cz-tier-badge--popular">{popularLabel || 'Best'}</span>
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div class="cz-sv-module-footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={openOverviewEditor}
-                >
-                  ✎ Edit
-                </button>
-              </div>
+          <ReadBlock title="Tier Overview" onEdit={openOverviewEditor} noBorder>
+            <div class="cz-sv-overview-block__identity">
+              <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
             </div>
-          </div>
+            <div class="cz-sv-overview-block__meta">
+              <span class="cz-req-contact-grid__label">Price</span>
+              <span class="cz-sv-overview-block__value">
+                {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '—')}
+              </span>
+            </div>
+            <div class="cz-sv-overview-block__meta">
+              <span class="cz-req-contact-grid__label">Billing Cycle</span>
+              <span class="cz-sv-overview-block__value">{capitalize(billingCycle)}</span>
+            </div>
+            {isPopular && (
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Presentation</span>
+                <span class="cz-sv-overview-block__value">
+                  <span class="cz-tier-badge cz-tier-badge--popular">{popularLabel || 'Best'}</span>
+                </span>
+              </div>
+            )}
+          </ReadBlock>
 
           {/* Included Features */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
-                <p class="cz-req-detail__section-title">
-                  Included Features
-                  {overviewSaved && selIncCount > 0 && (
-                    <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selIncCount}</span>
-                  )}
-                </p>
+          <ReadBlock
+            title="Included Features"
+            count={overviewSaved ? selIncCount : undefined}
+            onEdit={overviewSaved ? () => setEditingSection('inclusions') : undefined}
+            noBorder
+          >
+            {!overviewSaved ? (
+              <p class="cz-tf-hint">Save the tier overview first to enable features, FAQs and publishing.</p>
+            ) : selIncCount > 0 ? (
+              <div class="cz-sc-inclusion-pool">
+                {pendingIncs.map((p) => (
+                  <span key={p.label} class="cz-tf-chip">
+                    {p.label}
+                    <span class="cz-tf-new-badge">new</span>
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
+                      onClick={() => setEditingSection('inclusions')}
+                    >✎</button>
+                  </span>
+                ))}
+                {selExistingIncs.map((inc) => (
+                  <span key={inc.id} class="cz-tf-chip">
+                    {inc.label}
+                    <button
+                      type="button"
+                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
+                      onClick={() => setEditingSection('inclusions')}
+                    >✎</button>
+                  </span>
+                ))}
               </div>
-              <div class="cz-sv-module-body">
-                {!overviewSaved ? (
-                  <p class="cz-tf-hint">Save the tier overview first to enable features, FAQs and publishing.</p>
-                ) : selIncCount > 0 ? (
-                  <div class="cz-sc-inclusion-pool">
-                    {pendingIncs.map((p) => (
-                      <span key={p.label} class="cz-tf-chip">
-                        {p.label}
-                        <span class="cz-tf-new-badge">new</span>
-                        <button
-                          type="button"
-                          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
-                          onClick={() => setEditingSection('inclusions')}
-                        >✎</button>
-                      </span>
-                    ))}
-                    {selExistingIncs.map((inc) => (
-                      <span key={inc.id} class="cz-tf-chip">
-                        {inc.label}
-                        <button
-                          type="button"
-                          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
-                          onClick={() => setEditingSection('inclusions')}
-                        >✎</button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div class="cz-sv-overview-block__identity">
-                    <p class="cz-sv-overview-block__name">Add inclusions</p>
-                  </div>
-                )}
+            ) : (
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name">Add inclusions</p>
               </div>
-              {overviewSaved && (
-                <div class="cz-sv-module-footer">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={() => setEditingSection('inclusions')}
-                  >
-                    ✎ Edit
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+            )}
+          </ReadBlock>
 
           {/* Common Questions */}
-          <div class="cz-req-detail__section">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
-                <p class="cz-req-detail__section-title">
-                  Common Questions
-                  {overviewSaved && selFaqCount > 0 && (
-                    <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selFaqCount}</span>
-                  )}
-                </p>
-              </div>
-              <div class="cz-sv-module-body">
-                {!overviewSaved ? (
-                  <p class="cz-tf-hint">Save the tier overview first to enable features, FAQs and publishing.</p>
-                ) : selFaqCount > 0 ? (
-                  <div class="cz-sc-faq-list">
-                    {pendingFaqs.map((p) => (
-                      <div key={p.question} class="cz-sc-faq-item">
-                        <p class="cz-sc-faq-item__q">
-                          {p.question}
-                          <span class="cz-tf-new-badge">new</span>
-                        </p>
-                        {p.answer && <p class="cz-sc-faq-item__a">{p.answer}</p>}
-                      </div>
-                    ))}
-                    {selExistingFaqs.map((faq) => (
-                      <div key={faq.id} class="cz-sc-faq-item">
-                        <p class="cz-sc-faq-item__q">{faq.question}</p>
-                        {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
-                      </div>
-                    ))}
+          <ReadBlock
+            title="Common Questions"
+            count={overviewSaved ? selFaqCount : undefined}
+            onEdit={overviewSaved ? () => setEditingSection('faqs') : undefined}
+          >
+            {!overviewSaved ? (
+              <p class="cz-tf-hint">Save the tier overview first to enable features, FAQs and publishing.</p>
+            ) : selFaqCount > 0 ? (
+              <div class="cz-sc-faq-list">
+                {pendingFaqs.map((p) => (
+                  <div key={p.question} class="cz-sc-faq-item">
+                    <p class="cz-sc-faq-item__q">
+                      {p.question}
+                      <span class="cz-tf-new-badge">new</span>
+                    </p>
+                    {p.answer && <p class="cz-sc-faq-item__a">{p.answer}</p>}
                   </div>
-                ) : (
-                  <div class="cz-sv-overview-block__identity">
-                    <p class="cz-sv-overview-block__name">Add FAQs</p>
+                ))}
+                {selExistingFaqs.map((faq) => (
+                  <div key={faq.id} class="cz-sc-faq-item">
+                    <p class="cz-sc-faq-item__q">{faq.question}</p>
+                    {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
                   </div>
-                )}
+                ))}
               </div>
-              {overviewSaved && (
-                <div class="cz-sv-module-footer">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={() => setEditingSection('faqs')}
-                  >
-                    ✎ Edit
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+            ) : (
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name">Add FAQs</p>
+              </div>
+            )}
+          </ReadBlock>
 
           {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
           {saveOk && <div class="cz-admin-ok-msg">Tier saved successfully.</div>}
@@ -573,14 +521,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       {tab === 'service' && (
         <>
           {service ? (
-            <div class="cz-sv-commercial-block">
-              <div class="cz-sv-commercial-block__header">
-                <span class="cz-sv-commercial-block__label">{decodeHtml(service.title)}</span>
-                <div class="cz-sv-commercial-block__status">
-                  <span class="cz-admin-status-dot" style="color:var(--admin-success)" />
-                  <span class="cz-status-pill cz-status-pill--active">Linked</span>
-                </div>
-              </div>
+            <ReadBlock title={decodeHtml(service.title)} noBorder>
               {service.excerpt && (
                 <p
                   class="cz-sv-commercial-block__count"
@@ -608,7 +549,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                   </p>
                 </div>
               )}
-            </div>
+            </ReadBlock>
           ) : (
             <div class="cz-req-detail__section">
               <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
