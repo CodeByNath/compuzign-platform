@@ -162,16 +162,21 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
   const [featuresPanelOpen,   setFeaturesPanelOpen]   = useState(false);
   const [questionsPanelOpen,  setQuestionsPanelOpen]  = useState(false);
+  const [packagePanelOpen,    setPackagePanelOpen]    = useState(false);
 
-  // Locked state: the Included Features / Common Questions Edit buttons are always
-  // disabled until the service exists, so the pill always shows the activation prompt.
-  // The "Edit and add …" prompt is owned by the view step (getInclusionsNotes/getFaqsNotes),
-  // which fires once the service exists and the module Edit button is enabled.
+  // Locked state: the Included Features / Common Questions / Package Summary action
+  // buttons are always disabled until the service exists, so the pill always shows the
+  // activation prompt. The "Edit and …" prompts are owned by the view step
+  // (getInclusionsNotes / getFaqsNotes / getPackageNotes), which fire once the service
+  // exists and the module action is enabled.
   const featuresNotes: ModuleNote[] = [
     { id: 'new-service.features.activation', message: 'Waiting for service activation.', type: 'info' },
   ];
   const questionsNotes: ModuleNote[] = [
     { id: 'new-service.questions.activation', message: 'Waiting for service activation.', type: 'info' },
+  ];
+  const packageNotes: ModuleNote[] = [
+    { id: 'new-service.package.activation', message: 'Waiting for service activation.', type: 'info' },
   ];
 
   const handleSave = useCallback(async () => {
@@ -409,12 +414,49 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 
       {tab === 'commercial' && (
         <>
-          <CommercialBlock
-            label="Package Summary"
-            count="0 tiers configured"
-            desc="Pricing and tiers not available."
-            status="pending-dim"
-          />
+          {/* Drawer Principle v1 — Locked state: shell visible, action disabled; modules unavailable until service exists */}
+          {/* ── Commercial Module: Package Summary ───────────────────────────────── */}
+          <div class="drawerModule drawerModule--locked">
+            <div class="drawerModule__header">
+              <span class="drawerModule__icon">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="drawerModule__icon-svg"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
+                </svg>
+              </span>
+              <div class="drawerModule__heading">
+                <p class="drawerModule__title">Package Summary</p>
+                <p class="drawerModule__subtitle">Pricing and tiers for this service.</p>
+              </div>
+              <div class="drawerModule__status drawerModule__status--dim">
+                <ModuleStatusPill
+                  status="pending-dim"
+                  notes={packageNotes}
+                  onOpen={() => setPackagePanelOpen(o => !o)}
+                />
+              </div>
+            </div>
+            {packagePanelOpen && <ModuleNotificationPanel notes={packageNotes} />}
+            <div class="drawerModule__body">
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">0 tiers configured</p>
+                <p class="drawerModule__empty-copy">Pricing and tiers not available.</p>
+              </div>
+            </div>
+            <div class="drawerModule__footer">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
+                View
+              </button>
+            </div>
+          </div>
+          {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
+
           <CommercialBlock
             label="Promotion Configuration"
             count="0 promotion configured"

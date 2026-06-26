@@ -3,8 +3,9 @@
 // Used by ModuleStatusPill (marker count) and ModuleNotificationPanel (note list).
 
 import type { ServiceInclusion, ServiceFaq } from '@/api/types/cost-builder';
-import type { OverviewDraftData } from '@/api/types/admin';
+import type { OverviewDraftData, SurfacePackageSummary } from '@/api/types/admin';
 import { checkOverviewCompleteness, checkOverviewCompletenessFromDraft } from './moduleStatus';
+import type { TierLike } from './moduleStatus';
 import type { ServiceItem } from '@/api/types/cost-builder';
 
 export interface ModuleNote {
@@ -122,6 +123,64 @@ export function getFaqsNotes(faqs: ServiceFaq[], ctx: NoteContext): ModuleNote[]
       notes.push({ id: 'faqs.module.draft',      message: 'Draft saved — settle to publish', type: 'info' });
     else if (ctx.moduleTransition === 'pending')
       notes.push({ id: 'faqs.module.pending',    message: 'Changes ready to settle',         type: 'info' });
+  }
+
+  return notes;
+}
+
+// ── Commercial generators (Package Station) ───────────────────────────────────
+// Mirror the Service module generators: empty/editable → info action prompt,
+// completeness gap → error, complete → lifecycle info. Pure functions; no call
+// sites yet (added for the Package Summary migration, Step 1).
+
+// Package Summary card. `pkg` is the service's related Package Station summary, or
+// null when no package exists yet. A tier counts as configured via its `configured` flag.
+export function getPackageNotes(pkg: SurfacePackageSummary | null, ctx: NoteContext): ModuleNote[] {
+  const notes: ModuleNote[] = [];
+
+  const configuredTierCount = pkg
+    ? Object.values(pkg.tiers).filter(t => t?.configured).length
+    : 0;
+
+  // No package, or no tier configured yet: editable but empty — surface the action prompt.
+  if (!pkg || configuredTierCount === 0) {
+    notes.push({ id: 'package.empty.action', message: 'Edit and configure pricing tiers.', type: 'info' });
+    return notes;
+  }
+
+  // Tiers configured: lifecycle info only.
+  if (ctx.platformStatus !== 'active')
+    notes.push({ id: 'package.platform.inactive', message: 'Waiting for service activation', type: 'info' });
+  else if (ctx.moduleTransition === 'pending')
+    notes.push({ id: 'package.module.pending',    message: 'Changes ready to settle',         type: 'info' });
+
+  return notes;
+}
+
+// Single tier card. `tier` is the tier summary/detail (structural `TierLike`), or
+// undefined for an unconfigured slot. `contact` (when present) counts as a price.
+export function getTierNotes(tier: TierLike | undefined, ctx: NoteContext): ModuleNote[] {
+  const notes: ModuleNote[] = [];
+
+  const hasPrice = !!tier && (tier.price !== null || !!tier.contact);
+  const hasCycle = !!tier && !!tier.billing_cycle;
+
+  // Empty/unconfigured tier: editable but nothing set yet — surface the action prompt.
+  if (!tier || (!hasPrice && !hasCycle)) {
+    notes.push({ id: 'tier.empty.action', message: 'Edit and configure this tier.', type: 'info' });
+    return notes;
+  }
+
+  // Partially configured: a required pricing field is missing.
+  if (!hasPrice || !hasCycle)
+    notes.push({ id: 'tier.pricing.incomplete', message: 'Add price and billing cycle to complete this tier.', type: 'error' });
+
+  // Complete: lifecycle info.
+  if (hasPrice && hasCycle) {
+    if (ctx.platformStatus !== 'active')
+      notes.push({ id: 'tier.platform.inactive', message: 'Waiting for service activation', type: 'info' });
+    else if (ctx.moduleTransition === 'pending')
+      notes.push({ id: 'tier.module.pending',    message: 'Changes ready to settle',         type: 'info' });
   }
 
   return notes;

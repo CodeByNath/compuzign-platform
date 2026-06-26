@@ -40,6 +40,9 @@ import type { FaqsDraft } from '../editors/ServiceFaqsEditor';
 import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { ServiceInclusionsViewCard } from '../views/ServiceInclusionsViewCard';
 import { ServiceFaqsViewCard } from '../views/ServiceFaqsViewCard';
+import { ModuleStatusPill } from '../ui/ModuleStatusPill';
+import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
+import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -256,17 +259,16 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
             const inclLabel  = `${inclCount} ${inclCount === 1 ? 'inclusion' : 'inclusions'}`;
             const faqLabel   = `${faqCount} ${faqCount === 1 ? 'Common Question' : 'Common Questions'}`;
             return (
-              <div key={tierId} class="cz-sv-commercial-block">
-                <div class="cz-sv-commercial-block__header">
-                  <span class="cz-sv-commercial-block__label">Tier Summary</span>
-                  <div
-                    class="cz-sv-commercial-block__status"
-                    style={status === 'pending-dim' ? 'opacity:0.45' : undefined}
-                  >
-                    {renderModuleStatus(status)}
+              <div key={tierId} class="drawerModule">
+                <div class="drawerModule__header">
+                  <div class="drawerModule__heading">
+                    <p class="drawerModule__title">Tier Summary</p>
+                  </div>
+                  <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
+                    <ModuleStatusPill status={status} notes={[]} />
                   </div>
                 </div>
-                <div class="cz-sv-commercial-block__body">
+                <div class="drawerModule__body">
                   <p class="cz-sv-commercial-block__count">Package {TIER_LABELS[tierId]}</p>
                   {tier?.label?.trim() && (
                     <p class="cz-sp-transit__sublabel">{tier.label}</p>
@@ -284,7 +286,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                     {inclLabel} | {faqLabel}
                   </p>
                 </div>
-                <div class="cz-sv-commercial-block__footer">
+                <div class="drawerModule__footer">
                   <button
                     type="button"
                     class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
@@ -448,7 +450,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [saveOk,             setSaveOk]           = useState(false);
   const [showPublishModal,   setShowPublishModal] = useState(false);
   const [discardConfirm,     setDiscardConfirm]   = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
-  const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
+  const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | 'package' | null>(null);
   const [exitDialog,         setExitDialog]       = useState<'unsaved' | 'pending' | 'new-service-draft' | null>(null);
   const [exitSaving,         setExitSaving]       = useState(false);
   const [splitOpen,          setSplitOpen]        = useState(false);
@@ -1013,6 +1015,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     : decodeHtml(service.categories[0]?.name ?? 'Not selected');
   const decodedServiceTitle = decodeHtml(service.title);
 
+  // Package Summary notes — module-owned, mirrors the Service module view cards.
+  const packageNotes = getPackageNotes(relatedPkg, { platformStatus });
+
   return (
     <>
     <div class="cz-req-detail">
@@ -1088,14 +1093,59 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {/* ── Commercial tab: Surface Layer ─────────────────────────────── */}
       {tab === 'commercial' && (
         <>
-          <CommercialBlock
-            label="Package Summary"
-            count={pkgSummaryCount}
-            desc={pkgSummaryDesc}
-            status={pkgSummaryStatus}
-            descHighlight={pkgSummaryDescPending}
-            onView={pkgSummaryOnView}
-          />
+          {/* ── Commercial Module: Package Summary ───────────────────────────────── */}
+          <div class="drawerModule">
+            <div class="drawerModule__header">
+              <span class="drawerModule__icon">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="drawerModule__icon-svg"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
+                </svg>
+              </span>
+              <div class="drawerModule__heading">
+                <p class="drawerModule__title">Package Summary</p>
+                <p class="drawerModule__subtitle">Pricing and tiers for this service.</p>
+              </div>
+              <div class={`drawerModule__status${pkgSummaryStatus === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
+                <ModuleStatusPill
+                  status={pkgSummaryStatus}
+                  notes={packageNotes}
+                  onOpen={() => setOpenPanel(p => p === 'package' ? null : 'package')}
+                />
+              </div>
+            </div>
+            {openPanel === 'package' && packageNotes.length > 0 && (
+              <ModuleNotificationPanel notes={packageNotes} />
+            )}
+            <div class="drawerModule__body">
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">{pkgSummaryCount}</p>
+                <p
+                  class="drawerModule__empty-copy"
+                  style={pkgSummaryDescPending ? 'color:var(--admin-warning)' : undefined}
+                >
+                  {pkgSummaryDesc}
+                </p>
+              </div>
+            </div>
+            <div class="drawerModule__footer">
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                onClick={pkgSummaryOnView}
+                disabled={!pkgSummaryOnView}
+              >
+                View
+              </button>
+            </div>
+          </div>
+          {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
           <CommercialBlock
             label="Promotion Configuration"
             count={relatedPkg
@@ -1487,6 +1537,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
   const [editingTierId, setEditingTierId]   = useState<string | null>(null);
   const [draft,         setDraft]           = useState<TierDraft | null>(null);
+  // Single Individual Tier drawer: editingSection === null → tier view (3 module cards);
+  // a named value → that section's InlineEditorShell. Sections edit slices of the one
+  // shared TierDraft in memory; only Publish Tier persists via saveServicePackageStationTier.
+  const [editingSection,  setEditingSection]  = useState<'tier-overview' | 'tier-inclusions' | 'tier-faqs' | null>(null);
+  const [sectionOriginal, setSectionOriginal] = useState<TierDraft | null>(null);
   const [saving,        setSaving]          = useState(false);
   const [saveErr,       setSaveErr]         = useState<string | null>(null);
   const [saveOk,        setSaveOk]          = useState(false);
@@ -1508,10 +1563,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     };
     setEditingTierId(tierId);
     setDraft(tierDraftFromDetail(detail as SurfaceTierDetail, data.station.popular_tier, tierId, data.station.popular_label));
+    setEditingSection(null);
+    setSectionOriginal(null);
     setSaveErr(null);
     setSaveOk(false);
   };
 
+  // Publish Tier — the single backend write for the whole TierDraft.
   const handleSave = useCallback(async () => {
     if (!draft || !editingTierId) return;
     setSaving(true); setSaveErr(null);
@@ -1527,9 +1585,48 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     }
   }, [draft, editingTierId, serviceId, refetch, onRefresh]);
 
+  // Disable/Enable Tier — flips enabled and Publishes through the same save path.
+  const handleToggleEnabled = useCallback(async () => {
+    if (!draft || !editingTierId) return;
+    const next = { ...draft, enabled: !draft.enabled };
+    setDraft(next);
+    setSaving(true); setSaveErr(null);
+    try {
+      await saveServicePackageStationTier(serviceId, editingTierId, next);
+      setSaveOk(true);
+      refetch();
+      onRefresh?.();
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }, [draft, editingTierId, serviceId, refetch, onRefresh]);
+
+  // Section edit lifecycle — in-memory only. Save keeps the live draft changes and
+  // returns to tier view; Cancel reverts the slice to the pre-edit snapshot.
+  const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => {
+    setSectionOriginal(draft);
+    setEditingSection(section);
+    setSaveErr(null);
+    setSaveOk(false);
+  };
+  const saveSection = async () => {
+    setEditingSection(null);
+    setSectionOriginal(null);
+  };
+  const cancelSection = () => {
+    if (sectionOriginal) setDraft(sectionOriginal);
+    setEditingSection(null);
+    setSectionOriginal(null);
+  };
+
+  // Returns to the tier list — no backend write unless Publish was clicked.
   const handleBack = () => {
     setEditingTierId(null);
     setDraft(null);
+    setEditingSection(null);
+    setSectionOriginal(null);
     setSaveErr(null);
     setSaveOk(false);
     setNewIncLabel('');
@@ -1579,10 +1676,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                   </div>
                   <div class="drawerModule__status">
                     {isConfigured && (
-                      <span class={`cz-module-status-pill cz-module-status-pill--${isEnabled ? 'active' : 'inactive'}`}>
-                        <span class="cz-module-status-pill__marker">{isEnabled ? '●' : '●'}</span>
-                        {isEnabled ? 'Active' : 'Disabled'}
-                      </span>
+                      <ModuleStatusPill status={isEnabled ? 'active' : 'disabled'} notes={[]} />
                     )}
                   </div>
                 </div>
@@ -1601,10 +1695,167 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // ── Tier edit form ────────────────────────────────────────────────────────
+  // ── Individual Tier drawer ────────────────────────────────────────────────
   const incPool = svc.inclusions;
   const faqPool = svc.faqs;
 
+  // Edit mode — InlineEditorShell over a slice of the shared TierDraft (in-memory).
+  if (editingSection === 'tier-overview') {
+    return (
+      <InlineEditorShell title="Tier Overview" onSave={saveSection} onCancel={cancelSection} saving={false} saveErr={null}>
+        <div class="cz-tf-form">
+          {/* Contact toggle */}
+          <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
+            <input type="checkbox" id="tier-contact" checked={draft.contact}
+              onChange={(e) => setDraft(d => d ? { ...d, contact: (e.target as HTMLInputElement).checked, price: null } : d)} />
+            <label class="cz-tf-label" for="tier-contact" style="margin: 0">Contact Us (no fixed price)</label>
+          </div>
+          {!draft.contact && (
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Price</label>
+              <input type="number" class="cz-tf-input" min="0" step="0.01"
+                value={draft.price ?? ''}
+                onInput={(e) => {
+                  const v = (e.target as HTMLInputElement).value;
+                  setDraft(d => d ? { ...d, price: v === '' ? null : parseFloat(v) } : d);
+                }} />
+            </div>
+          )}
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Billing Cycle</label>
+            <select class="cz-tf-select" value={draft.billing_cycle}
+              onChange={(e) => setDraft(d => d ? { ...d, billing_cycle: (e.target as HTMLSelectElement).value } : d)}>
+              <option value="monthly">Monthly</option>
+              <option value="annually">Annually</option>
+              <option value="one-time">One-time</option>
+            </select>
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Display Label (optional)</label>
+            <input type="text" class="cz-tf-input" value={draft.label}
+              onInput={(e) => setDraft(d => d ? { ...d, label: (e.target as HTMLInputElement).value } : d)} />
+          </div>
+          <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
+            <input type="checkbox" id="tier-popular" checked={draft.popular}
+              onChange={(e) => setDraft(d => d ? { ...d, popular: (e.target as HTMLInputElement).checked } : d)} />
+            <label class="cz-tf-label" for="tier-popular" style="margin: 0">Mark as popular tier</label>
+          </div>
+          {draft.popular && (
+            <div class="cz-tf-field">
+              <label class="cz-tf-label">Popular badge label</label>
+              <input type="text" class="cz-tf-input" value={draft.popular_label}
+                onInput={(e) => setDraft(d => d ? { ...d, popular_label: (e.target as HTMLInputElement).value } : d)} />
+            </div>
+          )}
+        </div>
+      </InlineEditorShell>
+    );
+  }
+
+  if (editingSection === 'tier-inclusions') {
+    return (
+      <InlineEditorShell title="Included Features" onSave={saveSection} onCancel={cancelSection} saving={false} saveErr={null}>
+        <div class="cz-tf-form">
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Inclusions</label>
+            {draft.inclusions_override.length > 0 && (
+              <div class="cz-sc-inclusion-pool" style="margin-bottom: var(--cz-space-2)">
+                {draft.inclusions_override.map((inc) => (
+                  <span key={inc.id} class="cz-tf-chip">
+                    {inc.label}
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
+                      onClick={() => setDraft(d => d ? { ...d, inclusions_override: d.inclusions_override.filter(i => i.id !== inc.id) } : d)}>
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {incPool.length > 0 && (
+              <select class="cz-tf-select" value=""
+                onChange={(e) => {
+                  const sel = e.target as HTMLSelectElement;
+                  const id = sel.value;
+                  if (!id) return;
+                  const inc = incPool.find(i => i.id === id);
+                  if (inc && !draft.inclusions_override.find(i => i.id === id)) {
+                    setDraft(d => d ? { ...d, inclusions_override: [...d.inclusions_override, inc] } : d);
+                  }
+                  sel.value = '';
+                }}>
+                <option value="">Add from pool…</option>
+                {incPool.filter(i => !draft.inclusions_override.find(s => s.id === i.id)).map(i => (
+                  <option key={i.id} value={i.id}>{i.label}</option>
+                ))}
+              </select>
+            )}
+            <div style="display:flex; gap: var(--cz-space-2); margin-top: var(--cz-space-2)">
+              <input type="text" class="cz-tf-input" placeholder="New inclusion label"
+                value={newIncLabel}
+                onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)} />
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                onClick={() => {
+                  if (!newIncLabel.trim()) return;
+                  setDraft(d => d ? { ...d, new_inclusions: [...d.new_inclusions, { label: newIncLabel.trim() }] } : d);
+                  setNewIncLabel('');
+                }}>Add</button>
+            </div>
+            {draft.new_inclusions.length > 0 && (
+              <div style="margin-top: var(--cz-space-1); font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
+                New: {draft.new_inclusions.map(i => i.label).join(', ')}
+              </div>
+            )}
+          </div>
+        </div>
+      </InlineEditorShell>
+    );
+  }
+
+  if (editingSection === 'tier-faqs') {
+    return (
+      <InlineEditorShell title="Common Questions" onSave={saveSection} onCancel={cancelSection} saving={false} saveErr={null}>
+        <div class="cz-tf-form">
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">FAQs</label>
+            {draft.faq_refs.length > 0 && (
+              <div style="margin-bottom: var(--cz-space-2)">
+                {draft.faq_refs.map(ref => {
+                  const faq = faqPool.find(f => f.id === ref);
+                  return (
+                    <div key={ref} style="display:flex; align-items:center; gap: var(--cz-space-2); margin-bottom: 4px">
+                      <span style="font-size: var(--admin-fs-s-label); color: var(--admin-text)">{faq?.question ?? ref}</span>
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                        onClick={() => setDraft(d => d ? { ...d, faq_refs: d.faq_refs.filter(r => r !== ref) } : d)}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {faqPool.length > 0 && (
+              <select class="cz-tf-select" value=""
+                onChange={(e) => {
+                  const sel = e.target as HTMLSelectElement;
+                  const id = sel.value;
+                  if (!id) return;
+                  if (!draft.faq_refs.includes(id)) {
+                    setDraft(d => d ? { ...d, faq_refs: [...d.faq_refs, id] } : d);
+                  }
+                  sel.value = '';
+                }}>
+                <option value="">Add FAQ from pool…</option>
+                {faqPool.filter(f => !draft.faq_refs.includes(f.id)).map(f => (
+                  <option key={f.id} value={f.id}>{f.question}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+      </InlineEditorShell>
+    );
+  }
+
+  // View mode — three Service-style module cards over the same TierDraft.
+  const tierPriceText = draft.contact ? 'Contact Us' : (draft.price != null ? `$${draft.price}` : '—');
   return (
     <div class="cz-req-detail">
       <div class="cz-sv-tabs" style="margin-bottom: 0">
@@ -1614,170 +1865,141 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           </svg>
         </button>
         <span style="font-size: var(--admin-fs-sub); font-weight: var(--admin-fw-strong); color: var(--admin-text); padding-left: var(--cz-space-3)">
-          {TIER_LABELS[editingTierId]}
+          {draft.label.trim() || TIER_LABELS[editingTierId]}
         </span>
       </div>
 
-      <div class="cz-tf-form" style="padding: var(--cz-space-5) var(--cz-space-6); overflow-y: auto; flex: 1">
-
-        {/* Contact toggle */}
-        <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-          <input type="checkbox" id="tier-contact" checked={draft.contact}
-            onChange={(e) => setDraft(d => d ? { ...d, contact: (e.target as HTMLInputElement).checked, price: null } : d)} />
-          <label class="cz-tf-label" for="tier-contact" style="margin: 0">Contact Us (no fixed price)</label>
-        </div>
-
-        {/* Price */}
-        {!draft.contact && (
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Price</label>
-            <input type="number" class="cz-tf-input" min="0" step="0.01"
-              value={draft.price ?? ''}
-              onInput={(e) => {
-                const v = (e.target as HTMLInputElement).value;
-                setDraft(d => d ? { ...d, price: v === '' ? null : parseFloat(v) } : d);
-              }} />
-          </div>
-        )}
-
-        {/* Billing Cycle */}
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Billing Cycle</label>
-          <select class="cz-tf-select" value={draft.billing_cycle}
-            onChange={(e) => setDraft(d => d ? { ...d, billing_cycle: (e.target as HTMLSelectElement).value } : d)}>
-            <option value="monthly">Monthly</option>
-            <option value="annually">Annually</option>
-            <option value="one-time">One-time</option>
-          </select>
-        </div>
-
-        {/* Label */}
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Display Label (optional)</label>
-          <input type="text" class="cz-tf-input" value={draft.label}
-            onInput={(e) => setDraft(d => d ? { ...d, label: (e.target as HTMLInputElement).value } : d)} />
-        </div>
-
-        {/* Enabled */}
-        <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-          <input type="checkbox" id="tier-enabled" checked={draft.enabled}
-            onChange={(e) => setDraft(d => d ? { ...d, enabled: (e.target as HTMLInputElement).checked } : d)} />
-          <label class="cz-tf-label" for="tier-enabled" style="margin: 0">Tier is active (visible in Cost Builder)</label>
-        </div>
-
-        {/* Popular tier */}
-        <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-          <input type="checkbox" id="tier-popular" checked={draft.popular}
-            onChange={(e) => setDraft(d => d ? { ...d, popular: (e.target as HTMLInputElement).checked } : d)} />
-          <label class="cz-tf-label" for="tier-popular" style="margin: 0">Mark as popular tier</label>
-        </div>
-        {draft.popular && (
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Popular badge label</label>
-            <input type="text" class="cz-tf-input" value={draft.popular_label}
-              onInput={(e) => setDraft(d => d ? { ...d, popular_label: (e.target as HTMLInputElement).value } : d)} />
-          </div>
-        )}
-
-        {/* Inclusions */}
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Inclusions</label>
-          {draft.inclusions_override.length > 0 && (
-            <div class="cz-sc-inclusion-pool" style="margin-bottom: var(--cz-space-2)">
-              {draft.inclusions_override.map((inc) => (
-                <span key={inc.id} class="cz-tf-chip">
-                  {inc.label}
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
-                    onClick={() => setDraft(d => d ? { ...d, inclusions_override: d.inclusions_override.filter(i => i.id !== inc.id) } : d)}>
-                    ✕
-                  </button>
-                </span>
-              ))}
+      {/* ── Tier Module: Tier Overview ───────────────────────────────────────── */}
+      <div class="cz-req-detail__section cz-sv-section--no-border">
+        <div class="drawerModule drawerOverview service">
+          <div class="drawerModule__header">
+            <div class="drawerModule__heading">
+              <p class="drawerModule__title">Tier Overview</p>
+              <p class="drawerModule__subtitle">Pricing and presentation for this tier.</p>
             </div>
-          )}
-          {incPool.length > 0 && (
-            <select class="cz-tf-select" value=""
-              onChange={(e) => {
-                const sel = e.target as HTMLSelectElement;
-                const id = sel.value;
-                if (!id) return;
-                const inc = incPool.find(i => i.id === id);
-                if (inc && !draft.inclusions_override.find(i => i.id === id)) {
-                  setDraft(d => d ? { ...d, inclusions_override: [...d.inclusions_override, inc] } : d);
-                }
-                sel.value = '';
-              }}>
-              <option value="">Add from pool…</option>
-              {incPool.filter(i => !draft.inclusions_override.find(s => s.id === i.id)).map(i => (
-                <option key={i.id} value={i.id}>{i.label}</option>
-              ))}
-            </select>
-          )}
-          <div style="display:flex; gap: var(--cz-space-2); margin-top: var(--cz-space-2)">
-            <input type="text" class="cz-tf-input" placeholder="New inclusion label"
-              value={newIncLabel}
-              onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)} />
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-              onClick={() => {
-                if (!newIncLabel.trim()) return;
-                setDraft(d => d ? { ...d, new_inclusions: [...d.new_inclusions, { label: newIncLabel.trim() }] } : d);
-                setNewIncLabel('');
-              }}>Add</button>
           </div>
-          {draft.new_inclusions.length > 0 && (
-            <div style="margin-top: var(--cz-space-1); font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
-              New: {draft.new_inclusions.map(i => i.label).join(', ')}
+          <div class="drawerModule__body">
+            <div class="drawerModule__fields">
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Label</p>
+                <p class="drawerModule__value">{draft.label.trim() || TIER_LABELS[editingTierId]}</p>
+              </div>
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Price</p>
+                <p class="drawerModule__value">{tierPriceText}</p>
+              </div>
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Billing Cycle</p>
+                <p class="drawerModule__value">{draft.billing_cycle || '—'}</p>
+              </div>
+              {draft.popular && (
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Presentation</p>
+                  <p class="drawerModule__value">Popular{draft.popular_label ? ` · ${draft.popular_label}` : ''}</p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+          <div class="drawerModule__footer">
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-overview')}>
+              Edit
+            </button>
+          </div>
         </div>
-
-        {/* FAQs */}
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">FAQs</label>
-          {draft.faq_refs.length > 0 && (
-            <div style="margin-bottom: var(--cz-space-2)">
-              {draft.faq_refs.map(ref => {
-                const faq = faqPool.find(f => f.id === ref);
-                return (
-                  <div key={ref} style="display:flex; align-items:center; gap: var(--cz-space-2); margin-bottom: 4px">
-                    <span style="font-size: var(--admin-fs-s-label); color: var(--admin-text)">{faq?.question ?? ref}</span>
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                      onClick={() => setDraft(d => d ? { ...d, faq_refs: d.faq_refs.filter(r => r !== ref) } : d)}>✕</button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {faqPool.length > 0 && (
-            <select class="cz-tf-select" value=""
-              onChange={(e) => {
-                const sel = e.target as HTMLSelectElement;
-                const id = sel.value;
-                if (!id) return;
-                if (!draft.faq_refs.includes(id)) {
-                  setDraft(d => d ? { ...d, faq_refs: [...d.faq_refs, id] } : d);
-                }
-                sel.value = '';
-              }}>
-              <option value="">Add FAQ from pool…</option>
-              {faqPool.filter(f => !draft.faq_refs.includes(f.id)).map(f => (
-                <option key={f.id} value={f.id}>{f.question}</option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {saveErr && <p class="cz-admin-error-msg" style="margin-top: var(--cz-space-3)">{saveErr}</p>}
-        {saveOk  && <p class="cz-admin-ok-msg"   style="margin-top: var(--cz-space-3)">Saved.</p>}
       </div>
 
+      {/* ── Tier Module: Included Features ───────────────────────────────────── */}
+      <div class="cz-req-detail__section cz-sv-section--no-border">
+        <div class="drawerModule">
+          <div class="drawerModule__header">
+            <div class="drawerModule__heading">
+              <p class="drawerModule__title">
+                Included Features
+                {draft.inclusions_override.length > 0 && (
+                  <span class="drawerModule__count">{draft.inclusions_override.length}</span>
+                )}
+              </p>
+              <p class="drawerModule__subtitle">Features included in this tier.</p>
+            </div>
+          </div>
+          <div class="drawerModule__body">
+            {draft.inclusions_override.length > 0 ? (
+              <div class="cz-sc-inclusion-pool">
+                {draft.inclusions_override.map((inc) => (
+                  <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+                ))}
+              </div>
+            ) : (
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No features</p>
+                <p class="drawerModule__empty-copy">Add features included in this tier.</p>
+              </div>
+            )}
+          </div>
+          <div class="drawerModule__footer">
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-inclusions')}>
+              Edit
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tier Module: Common Questions ────────────────────────────────────── */}
+      <div class="cz-req-detail__section cz-sv-section--no-border">
+        <div class="drawerModule">
+          <div class="drawerModule__header">
+            <div class="drawerModule__heading">
+              <p class="drawerModule__title">
+                Common Questions
+                {draft.faq_refs.length > 0 && (
+                  <span class="drawerModule__count">{draft.faq_refs.length}</span>
+                )}
+              </p>
+              <p class="drawerModule__subtitle">Questions and answers for this tier.</p>
+            </div>
+          </div>
+          <div class="drawerModule__body">
+            {draft.faq_refs.length > 0 ? (
+              <div>
+                {draft.faq_refs.map(ref => {
+                  const faq = faqPool.find(f => f.id === ref);
+                  return (
+                    <p key={ref} class="drawerModule__empty-copy" style="margin: 0 0 4px">{faq?.question ?? ref}</p>
+                  );
+                })}
+              </div>
+            ) : (
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No questions added</p>
+                <p class="drawerModule__empty-copy">Add common questions for this tier.</p>
+              </div>
+            )}
+          </div>
+          <div class="drawerModule__footer">
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-faqs')}>
+              Edit
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {(saveErr || saveOk) && (
+        <div class="cz-req-detail__section cz-sv-section--no-border">
+          {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+          {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+        </div>
+      )}
+
       <div class="cz-tf-footer">
+        <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={handleToggleEnabled} disabled={saving}>
+          {draft.enabled ? 'Disable Tier' : 'Enable Tier'}
+        </button>
         <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleBack} disabled={saving}>
-          Back
+          Cancel
         </button>
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Saving…' : 'Publish Tier'}
         </button>
       </div>
     </div>
