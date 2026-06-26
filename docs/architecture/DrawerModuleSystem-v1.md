@@ -176,12 +176,6 @@ These classes live inside `.drawerModule__body` and are body-content patterns, n
 | `SurfacePackagesWorkstation.tsx` | 1442 | Tier Common Questions — existing tier view/edit flow |
 | `ServiceViewStep.tsx` | 355 | Promotions empty state (no-border header, no footer) |
 
-### ReadBlock UI
-
-| File | Lines | Context |
-|---|---|---|
-| `ReadBlock.tsx` | 15 | Generic read-only content block — used exclusively by PromotionsWorkstation at 6 call sites: Promotion Identity, Pricing, Inclusions, Add-ons, Not Included, Campaign |
-
 ### Transit UI
 
 | File | Lines | Context |
@@ -191,6 +185,10 @@ These classes live inside `.drawerModule__body` and are body-content patterns, n
 
 Both transit view files are currently orphaned — they exist in the codebase but have no active import site.
 
+### Migrated to `.drawerModule`
+
+`ReadBlock.tsx` (used exclusively by PromotionsWorkstation for the six Promotion sections — Identity, Pricing, Inclusions, Add-ons, Not Included, Campaign) was re-shelled from `.cz-sv-module` to `.drawerModule` during the Promotion drawer presentation convergence (Step 6). It is no longer a `.cz-sv-module` consumer.
+
 ### Legacy Removable UI
 
-None. All remaining `.cz-sv-module` usages are actively used (Commercial, ReadBlock) or are planned for future connection (Transit). No usage is safe to remove without a broader assessment of those contexts.
+None. All remaining `.cz-sv-module` usages are actively used (Commercial) or are planned for future connection (Transit). No usage is safe to remove without a broader assessment of those contexts.

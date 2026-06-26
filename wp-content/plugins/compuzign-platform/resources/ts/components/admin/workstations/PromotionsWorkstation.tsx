@@ -492,8 +492,8 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
 
         {/* ── Tabs ──────────────────────────────────────────────────────── */}
         <div class="cz-sv-tabs">
-          <button type="button" class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('commercial')}>Commercial</button>
-          <button type="button" class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('service')}>Service</button>
+          <button type="button" class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('commercial')}>Promotion</button>
+          <button type="button" class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('service')}>Service Details</button>
         </div>
 
         {/* ── Commercial Tab ──────────────────────────────────────────── */}
