@@ -1048,6 +1048,24 @@
   text-align: right;
 }
 
+/* Commercial status columns (Basic/Standard/Premium/Enterprise/Promotions) */
+.cz-sc-table__tier {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Service Catalog filter dropdowns (Browse Category / Status) */
+.cz-sc-filters {
+  display: flex;
+  gap: var(--cz-space-5);
+  margin-bottom: var(--cz-space-5);
+  flex-wrap: wrap;
+}
+
+.cz-sc-filters__field {
+  min-width: 200px;
+}
+
 .cz-sc-table__confirm-label {
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text-muted);

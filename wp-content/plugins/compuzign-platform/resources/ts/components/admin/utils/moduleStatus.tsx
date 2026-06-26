@@ -97,6 +97,43 @@ export function resolveTierStatus(tier: TierLike | undefined, opts: TierStatusOp
   return opts.pkgStatus === 'active' ? 'active' : 'pending-full';
 }
 
+// ── Station commercial summary (list-view display) ─────────────────────────────
+// Pure derivation of the at-a-glance commercial status shown in the Service Catalog
+// row, reusing the same surface-package data and resolvers the drawer uses. No fetch.
+//
+// Known limitation: surface-package-derived only. Services whose tiers live in the
+// new cz_service_package_station meta have no matching surface package, so they
+// resolve to pending-dim — consistent with what the drawer reveals today.
+
+export const COMMERCIAL_TIER_KEYS = ['basic', 'standard', 'premium', 'enterprise'] as const;
+export type CommercialTierKey = typeof COMMERCIAL_TIER_KEYS[number];
+
+export interface StationCommercialSummary {
+  tiers:       Record<CommercialTierKey, string>;  // 5-state per tier
+  promoStatus: string;                              // 5-state for promotions
+}
+
+export function resolveStationCommercialSummary(
+  serviceId: number,
+  packages:  SurfacePackageSummary[],
+): StationCommercialSummary {
+  const pkg = packages.find((p) => p.service_refs.includes(serviceId)) ?? null;
+  const pkgStatus = pkg?.platform_status ?? 'disabled';
+
+  const tiers = {} as Record<CommercialTierKey, string>;
+  for (const key of COMMERCIAL_TIER_KEYS) {
+    tiers[key] = resolveTierStatus(pkg?.tiers[key], { pkgStatus });
+  }
+
+  // Promotions — same rule the drawer uses (useServiceStation).
+  const promotionCount = pkg?.promotion_tiers.length ?? 0;
+  const promoStatus = !pkg || promotionCount === 0
+    ? 'pending-dim'
+    : pkg.platform_status === 'active' ? 'active' : 'pending-full';
+
+  return { tiers, promoStatus };
+}
+
 // ── Status pill renderer ──────────────────────────────────────────────────────
 
 export const STATUS_PILL_MAP: Record<string, { dot: string; cls: string; label: string }> = {

@@ -7,6 +7,7 @@ import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types
 import { createService, updateServiceCategory } from '@/api/endpoints/admin';
 import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
 import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
+import { resolveStationCommercialSummary } from '@/components/admin/utils/moduleStatus';
 import { ModuleNotificationPanel } from '@/components/admin/ui/ModuleNotificationPanel';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { InlineEditorShell } from '../InlineEditorShell';
@@ -536,11 +537,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
 
-  useEffect(() => {
-    if (data && activeCategory === null && data.categories.length > 0) {
-      setActiveCategory(data.categories[0].slug);
-    }
-  }, [data]);
+  // Default category is All Categories (activeCategory === null). No auto-select.
 
   const handleViewService = (station: StationSummary) => {
     const item   = buildServiceItemForStationHandoff(station);
@@ -630,30 +627,31 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
         </div>
       ) : (
         <>
-          <div class="cz-pricing-category-tabs cz-pricing-category-tabs--split">
-            <div class="cz-pricing-category-tabs__group">
-              {allCategories.map((cat) => (
-                <button
-                  key={cat.slug}
-                  type="button"
-                  class={`cz-pricing-tab${activeCategory === cat.slug ? ' cz-pricing-tab--active' : ''}`}
-                  onClick={() => { setActiveCategory(cat.slug); setStatusFilter('active'); }}
-                >
-                  {decodeHtml(cat.name)}
-                </button>
-              ))}
+          <div class="cz-sc-filters">
+            <div class="cz-tf-field cz-sc-filters__field">
+              <label class="cz-tf-label">Browse Category</label>
+              <select
+                class="cz-tf-select"
+                value={activeCategory ?? ''}
+                onChange={(e) => setActiveCategory((e.target as HTMLSelectElement).value || null)}
+              >
+                <option value="">All Categories</option>
+                {allCategories.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>{decodeHtml(cat.name)}</option>
+                ))}
+              </select>
             </div>
-            <div class="cz-pricing-category-tabs__group">
-              {(['active', 'pending', 'drafts', 'disabled', 'all'] as const).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  class={`cz-pricing-tab${statusFilter === f ? ' cz-pricing-tab--active' : ''}`}
-                  onClick={() => setStatusFilter(f)}
-                >
-                  {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              ))}
+            <div class="cz-tf-field cz-sc-filters__field">
+              <label class="cz-tf-label">Status</label>
+              <select
+                class="cz-tf-select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter((e.target as HTMLSelectElement).value as StatusFilter)}
+              >
+                {(['active', 'pending', 'drafts', 'disabled', 'all'] as const).map((f) => (
+                  <option key={f} value={f}>{f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -667,18 +665,31 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                 <table class="cz-sc-table">
                   <thead>
                     <tr>
-                      <th class="cz-sc-table__service">Service</th>
-                      <th class="cz-sc-table__status">Status</th>
-                      <th class="cz-sc-table__actions">Actions</th>
+                      <th class="cz-sc-table__service">Service Title</th>
+                      {TIER_KEYS.map((tierId) => (
+                        <th key={tierId} class="cz-sc-table__tier">{TIER_LABELS[tierId]}</th>
+                      ))}
+                      <th class="cz-sc-table__tier">Promotions</th>
+                      <th class="cz-sc-table__status">Service Status</th>
+                      <th class="cz-sc-table__actions">View</th>
                     </tr>
                   </thead>
                   <tbody>
                     {visibleStations.map((station) => {
-                      const st   = resolveStationStatus(station);
-                      const pill = STATION_STATUS_PILL[st];
+                      const st      = resolveStationStatus(station);
+                      const pill    = STATION_STATUS_PILL[st];
+                      const summary = resolveStationCommercialSummary(station.id, packages);
                       return (
                         <tr key={station.id}>
                           <td class="cz-sc-table__service cz-sc-table__name">{station.title}</td>
+                          {TIER_KEYS.map((tierId) => (
+                            <td key={tierId} class="cz-sc-table__tier">
+                              <ModuleStatusPill status={summary.tiers[tierId]} notes={[]} />
+                            </td>
+                          ))}
+                          <td class="cz-sc-table__tier">
+                            <ModuleStatusPill status={summary.promoStatus} notes={[]} />
+                          </td>
                           <td class="cz-sc-table__status">
                             <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
                           </td>
