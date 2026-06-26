@@ -222,25 +222,31 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
+  // Context-aware tab ordering: the originating context (initialTab) renders first
+  // and active. Establishes the navigation rule for future tabs (Campaigns, etc.).
+  const TAB_LABELS: Record<'packages' | 'promotions', string> = {
+    packages:   'Packages',
+    promotions: 'Promotions',
+  };
+  const orderedTabs: Array<'packages' | 'promotions'> = initialTab === 'promotions'
+    ? ['promotions', 'packages']
+    : ['packages', 'promotions'];
+
   return (
     <div class="cz-req-detail">
 
-      {/* Tab bar */}
+      {/* Tab bar — originating context first */}
       <div class="cz-sv-tabs">
-        <button
-          type="button"
-          class={`cz-sv-tab${tab === 'packages' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('packages')}
-        >
-          Packages
-        </button>
-        <button
-          type="button"
-          class={`cz-sv-tab${tab === 'promotions' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('promotions')}
-        >
-          Promotions
-        </button>
+        {orderedTabs.map((t) => (
+          <button
+            key={t}
+            type="button"
+            class={`cz-sv-tab${tab === t ? ' cz-sv-tab--active' : ''}`}
+            onClick={() => setTab(t)}
+          >
+            {TAB_LABELS[t]}
+          </button>
+        ))}
       </div>
 
       {/* Packages tab */}
