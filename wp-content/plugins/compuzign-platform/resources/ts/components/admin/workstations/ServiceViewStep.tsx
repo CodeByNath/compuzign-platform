@@ -42,7 +42,7 @@ import { ServiceInclusionsViewCard } from '../views/ServiceInclusionsViewCard';
 import { ServiceFaqsViewCard } from '../views/ServiceFaqsViewCard';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
-import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
+import { getPackageNotes, getTierNotes } from '@/components/admin/utils/moduleNotifications';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -150,6 +150,8 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
   const [tab, setTab]         = useState<'packages' | 'promotions'>(initialTab);
   const [detail, setDetail]   = useState<SurfacePackageDetailResponse | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  // Single-open accordion for the tier cards' notification panels.
+  const [openTierPanel, setOpenTierPanel] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSurfacePackageDetail(packageId)
@@ -256,25 +258,34 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
             const cycleText  = tier?.billing_cycle ?? 'Not available';
             const inclCount  = tier?.inclusions_override?.length ?? 0;
             const faqCount   = tier?.faq_refs?.length ?? 0;
-            const inclLabel  = `${inclCount} ${inclCount === 1 ? 'inclusion' : 'inclusions'}`;
-            const faqLabel   = `${faqCount} ${faqCount === 1 ? 'Common Question' : 'Common Questions'}`;
+            const featLabel  = `${inclCount} ${inclCount === 1 ? 'feature' : 'features'}`;
+            const faqLabel   = `${faqCount} ${faqCount === 1 ? 'common question' : 'common questions'}`;
+            const tierNotes  = getTierNotes(tier, { platformStatus: pkg.platform_status ?? 'disabled' });
             return (
               <div key={tierId} class="drawerModule">
                 <div class="drawerModule__header">
                   <div class="drawerModule__heading">
-                    <p class="drawerModule__title">Tier Summary</p>
+                    <p class="drawerModule__title">Package {TIER_LABELS[tierId]}</p>
+                    {tier?.label?.trim() && (
+                      <p class="drawerModule__subtitle">{tier.label}</p>
+                    )}
                   </div>
                   <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
-                    <ModuleStatusPill status={status} notes={[]} />
+                    <ModuleStatusPill
+                      status={status}
+                      notes={tierNotes}
+                      onOpen={() => setOpenTierPanel(p => p === tierId ? null : tierId)}
+                    />
                   </div>
                 </div>
+                {openTierPanel === tierId && tierNotes.length > 0 && (
+                  <ModuleNotificationPanel notes={tierNotes} />
+                )}
                 <div class="drawerModule__body">
-                  <p class="cz-sv-commercial-block__count">Package {TIER_LABELS[tierId]}</p>
-                  {tier?.label?.trim() && (
-                    <p class="cz-sp-transit__sublabel">{tier.label}</p>
-                  )}
+                  <p class="cz-sv-commercial-block__count">Tier summary</p>
                   {showData ? (
                     <p class="cz-sv-commercial-block__desc">
+                      Price:{' '}
                       <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
                       {' · '}
                       <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
@@ -283,7 +294,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                     <p class="cz-sv-commercial-block__desc">View Tier Overview and manage pricing.</p>
                   )}
                   <p class="cz-sv-commercial-block__desc" style="color:var(--admin-text-faint)">
-                    {inclLabel} | {faqLabel}
+                    Includes: {featLabel} | {faqLabel}
                   </p>
                 </div>
                 <div class="drawerModule__footer">
