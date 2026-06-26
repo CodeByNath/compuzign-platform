@@ -4,7 +4,9 @@ The canonical CSS presentation layer for all Service Station drawer module cards
 
 Established during the Drawer Module UI Standardisation pass (2026-06-22).
 
-See also: [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) for lifecycle and state machine rules.
+See also:
+- [ServiceDrawerModuleArchitecture-v1.md](ServiceDrawerModuleArchitecture-v1.md) — canonical behavioural spec for the completed Service modules (notifications, footer actions, category workflows, lifecycle).
+- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) for lifecycle and state machine rules.
 
 ---
 
@@ -46,7 +48,7 @@ The compound selector `.drawerOverview.service` scopes the field/label/value sys
 
 ## Rule 3 — Future Modules Inherit `.drawerModule`
 
-Any future Service Station module card must:
+Any future Service Station module card must (CSS scope):
 
 - Use `.drawerModule` as the root class
 - Add only module-specific body content styling inside `drawerModule__body`
@@ -54,6 +56,8 @@ Any future Service Station module card must:
 - Not create a parallel drawer UI system
 
 Body-specific content classes (chip pools, lists, grids) may use whatever naming fits the module. The outer frame must be `.drawerModule`.
+
+This rule covers CSS only. For the full build checklist (notifications, status, view/edit, state ownership, lifecycle actions), see ServiceDrawerModuleArchitecture-v1 → *Extension Guidelines & Commercial Migration Template*.
 
 ---
 

@@ -5,6 +5,8 @@ Does not cover Transit Hub, Packages, Promotions, Requests, CRM, or any other wo
 
 For the drawer module CSS system, class reference, and legacy audit: [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md)
 
+For the completed Service modules' full implemented behavioural architecture (notifications, footer actions, category selector/description workflows, view/edit/inline-editor behaviour): [ServiceDrawerModuleArchitecture-v1.md](ServiceDrawerModuleArchitecture-v1.md) — the canonical spec and Commercial-migration template.
+
 ---
 
 ## A Drawer Is a System
@@ -143,6 +145,8 @@ This is the reference behavior for all future drawer modules. Any CSS rule that 
 
 The Service Catalog is the reference implementation for Drawer Principle v1.
 
+The files below are the state-machine essentials cited by this document. For the **complete drawer module file index**, see ServiceDrawerModuleArchitecture-v1 → *Key Files (canonical index)*.
+
 ### Key Files
 
 **Drawer system (outer shell)**
@@ -220,6 +224,8 @@ Each will have:
 
 ## Module Status Model
 
+> **Canonical owner.** This section is the single source of truth for the module status model. Other drawer docs (ServiceDrawerModuleArchitecture-v1, DrawerModuleSystem-v1) reference it and must not restate the five-state table or resolver list.
+
 All modules use the same five-state lifecycle. This is the platform standard. Relationship vocabulary ("Linked", "Connected", "Associated") must never appear in status pills or dots.
 
 ### 5-State Lifecycle
@@ -263,7 +269,7 @@ For tiers: `pending-dim` when one of `price` / `billing_cycle` is present but no
 
 Any future module entering the drawer system must follow these principles and inherit drawer behavior rather than inventing new drawer rules.
 
-The pattern to follow:
+The conceptual pattern:
 
 1. A module has a fixed shell structure.
 2. States affect content and actions, not the shell.
@@ -271,3 +277,5 @@ The pattern to follow:
 4. Locked state disables only the action control — the shell stays visible and laid out.
 5. New state shows placeholder content — the shell is fully rendered.
 6. A module may have a Catalog lifecycle, a Transit lifecycle, and a management surface. These are not separate modules — they are presentations of the same module.
+
+For the **actionable build checklist** (the concrete steps to construct a new module — frame, header, notifications, status, view/edit, state ownership, lifecycle actions), see ServiceDrawerModuleArchitecture-v1 → *Extension Guidelines & Commercial Migration Template*. This document owns the principles; that section owns the build steps.
