@@ -66,6 +66,7 @@
   --cz-grid-gap: clamp(20px, 2.5vw, 32px);
 
   /* Radius */
+  --cz-radius-xs: 8px;
   --cz-radius-sm: 12px;
   --cz-radius-md: 20px;
   --cz-radius-lg: 24px;
