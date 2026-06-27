@@ -1,6 +1,7 @@
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
+import { Skeleton } from '../ui/Skeleton';
 
 interface ServiceInclusionsViewCardProps {
   status:        string;
@@ -26,6 +27,9 @@ export function ServiceInclusionsViewCard({
   onDiscard,
 }: ServiceInclusionsViewCardProps) {
   const statusDimmed = status === 'pending-dim';
+  // The feature pool is sourced from the authoritative detail; shimmer the body
+  // until it resolves instead of flashing the (possibly stale/empty) handoff list.
+  const loading = status === 'loading';
 
   return (
     <div class="drawerModule">
@@ -45,7 +49,7 @@ export function ServiceInclusionsViewCard({
         <div class="drawerModule__heading">
           <p class="drawerModule__title">
             Included Features
-            {inclusions.length > 0 && (
+            {!loading && inclusions.length > 0 && (
               <span class="drawerModule__count">{inclusions.length}</span>
             )}
           </p>
@@ -61,7 +65,13 @@ export function ServiceInclusionsViewCard({
       )}
 
       <div class="drawerModule__body">
-        {inclusions.length > 0 ? (
+        {loading ? (
+          <div class="cz-sc-inclusion-pool">
+            <Skeleton width="96px" height="26px" />
+            <Skeleton width="120px" height="26px" />
+            <Skeleton width="80px" height="26px" />
+          </div>
+        ) : inclusions.length > 0 ? (
           <div class="cz-sc-inclusion-pool">
             {inclusions.map((inc) => (
               <span key={inc.id} class="cz-tf-chip">

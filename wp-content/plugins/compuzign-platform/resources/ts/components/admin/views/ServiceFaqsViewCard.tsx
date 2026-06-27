@@ -1,6 +1,7 @@
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
+import { Skeleton } from '../ui/Skeleton';
 
 interface ServiceFaqsViewCardProps {
   status:        string;
@@ -26,6 +27,9 @@ export function ServiceFaqsViewCard({
   onDiscard,
 }: ServiceFaqsViewCardProps) {
   const statusDimmed = status === 'pending-dim';
+  // The FAQ pool is sourced from the authoritative detail; shimmer the body until
+  // it resolves instead of flashing the (possibly stale/empty) handoff list.
+  const loading = status === 'loading';
 
   return (
     <div class="drawerModule">
@@ -45,7 +49,7 @@ export function ServiceFaqsViewCard({
         <div class="drawerModule__heading">
           <p class="drawerModule__title">
             Common Questions
-            {faqs.length > 0 && (
+            {!loading && faqs.length > 0 && (
               <span class="drawerModule__count">{faqs.length}</span>
             )}
           </p>
@@ -61,7 +65,14 @@ export function ServiceFaqsViewCard({
       )}
 
       <div class="drawerModule__body">
-        {faqs.length > 0 ? (
+        {loading ? (
+          <div class="cz-sc-faq-list">
+            <div class="cz-sc-faq-item">
+              <p class="cz-sc-faq-item__q"><Skeleton width="60%" /></p>
+              <p class="cz-sc-faq-item__a"><Skeleton width="90%" /></p>
+            </div>
+          </div>
+        ) : faqs.length > 0 ? (
           <div class="cz-sc-faq-list">
             {faqs.map((faq) => (
               <div key={faq.id} class="cz-sc-faq-item">

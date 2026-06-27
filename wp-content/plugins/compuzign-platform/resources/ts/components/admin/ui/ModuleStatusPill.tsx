@@ -13,9 +13,10 @@
 
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { noteCount } from '@/components/admin/utils/moduleNotifications';
+import { Skeleton } from './Skeleton';
 
 interface Props {
-  status:   string;           // 'active' | 'pending-dim' | 'pending-full' | 'disabled'
+  status:   string;           // 'active' | 'pending-dim' | 'pending-full' | 'disabled' | 'loading'
   notes:    ModuleNote[];     // full note list — count derived internally
   onOpen?:  () => void;       // called when pill is clicked to open the panel
 }
@@ -25,14 +26,17 @@ const PILL_META: Record<string, { cls: string; label: string }> = {
   'disabled':     { cls: 'cz-module-status-pill--inactive', label: 'Disabled'  },
   'pending-dim':  { cls: 'cz-module-status-pill--pending',  label: 'Pending'   },
   'pending-full': { cls: 'cz-module-status-pill--pending',  label: 'Pending'   },
-  // Neutral placeholder while authoritative detail is still loading. Rendered as a
-  // static muted pill (pass notes={[]}); it is not a lifecycle state.
-  'loading':      { cls: 'cz-module-status-pill--loading',  label: 'Loading…'  },
 };
 
 const FALLBACK = { cls: 'cz-module-status-pill--pending', label: 'Pending' };
 
 export function ModuleStatusPill({ status, notes, onOpen }: Props) {
+  // Authoritative detail still in flight — show a shimmer sized to the pill rather
+  // than a status derived from the lightweight handoff. Not a lifecycle state.
+  if (status === 'loading') {
+    return <Skeleton width="58px" height="20px" />;
+  }
+
   const count    = noteCount(notes);    // error notes only — drives the numeric badge
   const hasNotes = notes.length > 0;   // any notes — drives button vs span
   const meta     = PILL_META[status] ?? FALLBACK;

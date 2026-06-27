@@ -3753,7 +3753,6 @@ button.cz-module-status-pill {
 .cz-module-status-pill--active   { background: var(--admin-success-a10); color: var(--admin-success); }
 .cz-module-status-pill--inactive { background: var(--admin-error-a10);   color: var(--admin-error);   }
 .cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--admin-warning); }
-.cz-module-status-pill--loading  { background: var(--admin-accent-a12);  color: var(--admin-text-faint); }
 
 .cz-module-status-pill__marker {
   padding-left: 0;
@@ -3762,6 +3761,34 @@ button.cz-module-status-pill {
   text-align: center;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+}
+
+/* ── Skeleton shimmer — neutral placeholder for async-dependent values ───────── */
+/* Holds layout stable while authoritative detail is in flight, replacing values  */
+/* that would otherwise flash when derived from the lightweight catalog handoff.   */
+.cz-skeleton {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: var(--admin-radius);
+  background: linear-gradient(
+    90deg,
+    var(--admin-white-a05) 25%,
+    var(--admin-white-a15) 50%,
+    var(--admin-white-a05) 75%
+  );
+  background-size: 200% 100%;
+  animation: cz-skeleton-shimmer 1.4s ease-in-out infinite;
+  color: transparent;
+  user-select: none;
+}
+
+@keyframes cz-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cz-skeleton { animation: none; }
 }
 
 /* ── Module notification panel ──────────────────────────────────────────────── */

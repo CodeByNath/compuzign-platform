@@ -1,6 +1,7 @@
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
+import { Skeleton } from '../ui/Skeleton';
 
 interface ServiceOverviewViewCardProps {
   status:          string;
@@ -31,6 +32,9 @@ export function ServiceOverviewViewCard({
   onDiscard,
 }: ServiceOverviewViewCardProps) {
   const statusDimmed = status === 'pending-dim';
+  // Title / Category / Description are sourced from the authoritative detail; until
+  // it resolves, shimmer the values instead of rendering the handoff fallback.
+  const loading = status === 'loading';
 
   return (
     <div class="drawerModule drawerOverview service">
@@ -65,24 +69,39 @@ export function ServiceOverviewViewCard({
         <div class="drawerModule__fields">
           <div class="drawerModule__field">
             <p class="drawerModule__label">Title</p>
-            <p class="drawerModule__value">
-              {displayTitle || 'New Service'}
-            </p>
+            {loading ? (
+              <p class="drawerModule__value"><Skeleton width="55%" /></p>
+            ) : (
+              <p class="drawerModule__value">
+                {displayTitle || 'New Service'}
+              </p>
+            )}
           </div>
           <div class="drawerModule__field">
             <p class="drawerModule__label">Category</p>
-            <p class="drawerModule__value">{displayCategory}</p>
+            {loading ? (
+              <p class="drawerModule__value"><Skeleton width="40%" /></p>
+            ) : (
+              <p class="drawerModule__value">{displayCategory}</p>
+            )}
           </div>
           <div class="drawerModule__field">
             <p class="drawerModule__label">Description</p>
-            <p class={`drawerModule__value${displayContent ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
-              {displayContent
-                ? displayContent
-                : displayTitle
-                  ? `Enter a description for the ${displayTitle}.`
-                  : 'Enter a description for the service.'
-              }
-            </p>
+            {loading ? (
+              <p class="drawerModule__value">
+                <Skeleton width="100%" />
+                <Skeleton width="80%" />
+              </p>
+            ) : (
+              <p class={`drawerModule__value${displayContent ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
+                {displayContent
+                  ? displayContent
+                  : displayTitle
+                    ? `Enter a description for the ${displayTitle}.`
+                    : 'Enter a description for the service.'
+                }
+              </p>
+            )}
           </div>
         </div>
       </div>
