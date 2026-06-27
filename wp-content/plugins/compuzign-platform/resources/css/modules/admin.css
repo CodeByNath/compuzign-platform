@@ -283,6 +283,7 @@
 
   /* ── Radius — single shared value; removes sharp edges ─────────────────── */
   --admin-radius: 4px;
+  --admin-btn-radius-base: 8px;   /* Buttons — softer than shared structural radius */
 
   /* ── Depth / shadow scale ─────────────────────────────────────────────────── */
   /* Structural: flat (0) → card (1) → drawer (2) → modal (3)                   */
@@ -778,7 +779,7 @@
   align-items: center;
   gap: 6px;
   padding: 7px var(--cz-space-4);
-  border-radius: var(--cz-radius-xs);
+  border-radius: var(--admin-btn-radius-base);
   font-size: var(--admin-fs-label);
   font-weight: var(--admin-fw-strong);
   cursor: pointer;
