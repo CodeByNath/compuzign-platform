@@ -335,6 +335,12 @@
   --admin-space-cell-v:   10px;   /* table cell vertical padding */
   --admin-space-cell-h:   16px;   /* table cell horizontal padding */
   --admin-space-header-v: 20px;   /* drawer/panel header vertical padding */
+  --admin-space-pill-v:   2px;    /* status pill vertical padding */
+  --admin-space-pill-h:   9px;    /* status pill horizontal padding */
+
+  /* ── Status pill footprint — single source for the canonical pill + its ─────── */
+  /* loading shimmer, so both stay the same width.                                */
+  --admin-pill-min-width: 72px;
 
   /* ── Root styles ──────────────────────────────────────────────────────────── */
   display: flex;
@@ -1665,25 +1671,6 @@
   background: var(--admin-warning-a12);
   border-color: var(--admin-warning-a30);
   color: var(--admin-warning);
-}
-
-.cz-status-pill {
-  display: inline-block;
-  padding: 2px 9px;
-  border-radius: var(--admin-radius);
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-strong);
-  line-height: var(--admin-lh-s-label);
-}
-
-.cz-status-pill--active {
-  background: var(--admin-success-a10);
-  color: var(--admin-success);
-}
-
-.cz-status-pill--inactive {
-  background: var(--admin-error-a10);
-  color: var(--admin-error);
 }
 
 /* ── Requests workstation ───────────────────────────────────────────────────── */
@@ -3522,27 +3509,6 @@ body.compuzign-admin-page footer.site-footer {
   justify-content: center;
 }
 
-/* ── Promotion status pills ─────────────────────────────────────────────────── */
-.cz-status-pill--draft {
-  background: var(--admin-white-a08);
-  color: var(--admin-text-muted);
-}
-
-.cz-status-pill--pending {
-  background: var(--admin-warning-a12);
-  color: var(--admin-warning);
-}
-
-.cz-status-pill--archived {
-  background: var(--admin-white-a08);
-  color: var(--admin-text-muted);
-}
-
-.cz-status-pill--trashed {
-  background: var(--admin-error-a10);
-  color: var(--admin-error);
-}
-
 /* ── Admin notice banner ────────────────────────────────────────────────────── */
 .cz-admin-notice {
   padding: 10px 14px;
@@ -3733,15 +3699,18 @@ body.compuzign-admin-page footer.site-footer {
   gap: var(--cz-space-2);
 }
 
-/* ── Module status unified pill ─────────────────────────────────────────────── */
+/* ── Module status unified pill — single canonical status pill ──────────────── */
 .cz-module-status-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: var(--admin-pill-min-width);
   border-radius: var(--admin-radius);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   line-height: var(--admin-lh-s-label);
-  padding: 2px 9px;
+  padding: var(--admin-space-pill-v) var(--admin-space-pill-h);
+  text-align: center;
 }
 
 button.cz-module-status-pill {
@@ -3750,9 +3719,12 @@ button.cz-module-status-pill {
   font-family: inherit;
 }
 
-.cz-module-status-pill--active   { background: var(--admin-success-a10); color: var(--admin-success); }
-.cz-module-status-pill--inactive { background: var(--admin-error-a10);   color: var(--admin-error);   }
-.cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--admin-warning); }
+.cz-module-status-pill--active   { background: var(--admin-success-a10); color: var(--admin-success);     }
+.cz-module-status-pill--inactive { background: var(--admin-error-a10);   color: var(--admin-error);       }
+.cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--admin-warning);     }
+.cz-module-status-pill--draft    { background: var(--admin-white-a08);   color: var(--admin-text-muted);  }
+.cz-module-status-pill--archived { background: var(--admin-white-a08);   color: var(--admin-text-muted);  }
+.cz-module-status-pill--trashed  { background: var(--admin-error-a10);   color: var(--admin-error);       }
 
 .cz-module-status-pill__marker {
   padding-left: 0;

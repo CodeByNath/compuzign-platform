@@ -1754,7 +1754,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
         </div>
         <div class="cz-sp-pkg-header__actions">
           <span class={`cz-admin-status-dot ${isEnabled ? 'cz-admin-status-dot--active' : 'cz-admin-status-dot--faint'}`} />
-          <span class={`cz-status-pill ${isEnabled ? 'cz-status-pill--active' : 'cz-status-pill--inactive'}`}>
+          <span class={`cz-module-status-pill ${isEnabled ? 'cz-module-status-pill--active' : 'cz-module-status-pill--inactive'}`}>
             {isEnabled ? 'Active' : 'Disabled'}
           </span>
         </div>
@@ -1806,7 +1806,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
                         <span class="cz-tier-badge cz-tier-badge--popular">Popular</span>
                       )}
                       {isConfigured && !tierEnabled && (
-                        <span class="cz-status-pill cz-status-pill--inactive">Off</span>
+                        <span class="cz-module-status-pill cz-module-status-pill--inactive">Off</span>
                       )}
                     </div>
                   </td>

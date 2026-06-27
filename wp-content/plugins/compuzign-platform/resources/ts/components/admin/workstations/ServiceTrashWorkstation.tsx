@@ -91,7 +91,7 @@ export function ServiceTrashWorkstation({ refreshKey }: Props) {
                   <tr key={station.id}>
                     <td class="cz-sc-table__service cz-sc-table__name">{station.title}</td>
                     <td class="cz-sc-table__status">
-                      <span class="cz-status-pill cz-status-pill--trashed">Trashed</span>
+                      <span class="cz-module-status-pill cz-module-status-pill--trashed">Trashed</span>
                     </td>
                     <td class="cz-sc-table__actions">
                       {pendingDeleteId === station.id ? (

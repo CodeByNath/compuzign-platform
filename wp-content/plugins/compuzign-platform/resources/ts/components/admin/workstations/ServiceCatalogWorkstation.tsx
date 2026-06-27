@@ -26,10 +26,10 @@ type StatusFilter = 'all' | 'active' | 'pending' | 'drafts' | 'disabled';
 type StationStatus = 'active' | 'pending' | 'drafts' | 'disabled';
 
 const STATION_STATUS_PILL: Record<StationStatus, { cls: string; label: string }> = {
-  'active':   { cls: 'cz-status-pill--active',   label: 'Active'   },
-  'pending':  { cls: 'cz-status-pill--pending',  label: 'Pending'  },
-  'drafts':   { cls: 'cz-status-pill--pending',  label: 'Pending'  },
-  'disabled': { cls: 'cz-status-pill--inactive', label: 'Disabled' },
+  'active':   { cls: 'cz-module-status-pill--active',   label: 'Active'   },
+  'pending':  { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
+  'drafts':   { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
+  'disabled': { cls: 'cz-module-status-pill--inactive', label: 'Disabled' },
 };
 
 function resolveStationStatus(station: StationSummary): StationStatus {
@@ -709,7 +709,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                             <ModuleStatusPill status={summary.promoStatus} notes={[]} />
                           </td>
                           <td class="cz-sc-table__status">
-                            <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
+                            <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>
                           </td>
                           <td class="cz-sc-table__actions">
                             <button

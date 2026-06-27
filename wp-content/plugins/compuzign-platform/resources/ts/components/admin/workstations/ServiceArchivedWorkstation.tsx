@@ -91,7 +91,7 @@ export function ServiceArchivedWorkstation({ refreshKey }: Props) {
                   <tr key={station.id}>
                     <td class="cz-sc-table__service cz-sc-table__name">{station.title}</td>
                     <td class="cz-sc-table__status">
-                      <span class="cz-status-pill cz-status-pill--archived">Archived</span>
+                      <span class="cz-module-status-pill cz-module-status-pill--archived">Archived</span>
                     </td>
                     <td class="cz-sc-table__actions">
                       {pendingTrashId === station.id ? (

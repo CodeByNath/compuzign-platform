@@ -130,7 +130,7 @@ export function PricingWorkstation({ refreshKey }: Props) {
                         )}
                       </td>
                       <td style="text-align:center">
-                        <span class={`cz-status-pill cz-status-pill--${isActive ? 'active' : 'inactive'}`}>
+                        <span class={`cz-module-status-pill cz-module-status-pill--${isActive ? 'active' : 'inactive'}`}>
                           {isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>

@@ -34,7 +34,8 @@ export function ModuleStatusPill({ status, notes, onOpen }: Props) {
   // Authoritative detail still in flight — show a shimmer sized to the pill rather
   // than a status derived from the lightweight handoff. Not a lifecycle state.
   if (status === 'loading') {
-    return <Skeleton width="58px" height="20px" />;
+    // Match the canonical pill footprint so the layout doesn't shift on resolve.
+    return <Skeleton width="var(--admin-pill-min-width)" height="20px" />;
   }
 
   const count    = noteCount(notes);    // error notes only — drives the numeric badge

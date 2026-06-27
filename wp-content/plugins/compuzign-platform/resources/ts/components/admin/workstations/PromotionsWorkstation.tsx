@@ -62,9 +62,9 @@ function slugify(s: string): string {
 }
 
 function statusPillClass(status: string): string {
-  if (status === 'active')   return 'cz-status-pill cz-status-pill--active';
-  if (status === 'archived') return 'cz-status-pill cz-status-pill--archived';
-  return 'cz-status-pill cz-status-pill--draft';
+  if (status === 'active')   return 'cz-module-status-pill cz-module-status-pill--active';
+  if (status === 'archived') return 'cz-module-status-pill cz-module-status-pill--archived';
+  return 'cz-module-status-pill cz-module-status-pill--draft';
 }
 
 // ── Local types ───────────────────────────────────────────────────────────────
@@ -1080,7 +1080,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
         <div class="cz-sp-pkg-header__left">
           <p class="cz-sp-pkg-header__title">
             {pkg.title}
-            {!isEnabled && <span class="cz-status-pill cz-status-pill--inactive">Disabled</span>}
+            {!isEnabled && <span class="cz-module-status-pill cz-module-status-pill--inactive">Disabled</span>}
           </p>
           <p class="cz-sp-pkg-header__service">{serviceNames}</p>
         </div>

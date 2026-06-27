@@ -76,9 +76,6 @@ export function ServiceInclusionsViewCard({
             {inclusions.map((inc) => (
               <span key={inc.id} class="cz-tf-chip">
                 {inc.label}
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={onEdit}>
-                  ✎
-                </button>
               </span>
             ))}
           </div>

@@ -68,9 +68,9 @@ export const TIER_LABELS: Record<string, string> = {
 };
 
 const PROMO_STATUS_MAP: Record<string, { dot: string; cls: string; label: string }> = {
-  'active':   { dot: 'var(--admin-success)',    cls: 'cz-status-pill--active',   label: 'Active'   },
-  'archived': { dot: 'var(--admin-error)',      cls: 'cz-status-pill--inactive', label: 'Archived' },
-  'draft':    { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft',    label: 'Draft'    },
+  'active':   { dot: 'var(--admin-success)',    cls: 'cz-module-status-pill--active',   label: 'Active'   },
+  'archived': { dot: 'var(--admin-error)',      cls: 'cz-module-status-pill--inactive', label: 'Archived' },
+  'draft':    { dot: 'var(--admin-text-faint)', cls: 'cz-module-status-pill--draft',    label: 'Draft'    },
 };
 
 // ── CommercialBlock ───────────────────────────────────────────────────────────
@@ -390,7 +390,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                     </div>
                     <div class="drawerModule__status">
                       <span class="cz-admin-status-dot" style={`color:${ps.dot}`} />
-                      <span class={`cz-status-pill ${ps.cls}`}>{ps.label}</span>
+                      <span class={`cz-module-status-pill ${ps.cls}`}>{ps.label}</span>
                     </div>
                   </div>
                   <div class="drawerModule__footer">

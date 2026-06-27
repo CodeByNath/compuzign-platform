@@ -136,10 +136,10 @@ export function resolveStationCommercialSummary(
 // ── Status pill renderer ──────────────────────────────────────────────────────
 
 export const STATUS_PILL_MAP: Record<string, { dot: string; cls: string; label: string }> = {
-  'active':       { dot: 'var(--admin-success)',    cls: 'cz-status-pill--active',   label: 'Active'   },
-  'disabled':     { dot: 'var(--admin-error)',      cls: 'cz-status-pill--inactive', label: 'Disabled' },
-  'pending-dim':  { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'  },
-  'pending-full': { dot: 'var(--admin-warning)',    cls: 'cz-status-pill--pending',  label: 'Pending'  },
+  'active':       { dot: 'var(--admin-success)',    cls: 'cz-module-status-pill--active',   label: 'Active'   },
+  'disabled':     { dot: 'var(--admin-error)',      cls: 'cz-module-status-pill--inactive', label: 'Disabled' },
+  'pending-dim':  { dot: 'var(--admin-warning)',    cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
+  'pending-full': { dot: 'var(--admin-warning)',    cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
 };
 
 export function statusDotColor(status: string): string {
@@ -148,11 +148,11 @@ export function statusDotColor(status: string): string {
 
 export function renderModuleStatus(status: string) {
   const pill = STATUS_PILL_MAP[status]
-    ?? { dot: 'var(--admin-text-faint)', cls: 'cz-status-pill--draft', label: 'Pending' };
+    ?? { dot: 'var(--admin-text-faint)', cls: 'cz-module-status-pill--draft', label: 'Pending' };
   return (
     <>
       <span class="cz-admin-status-dot" style={`color:${pill.dot}`} />
-      <span class={`cz-status-pill ${pill.cls}`}>{pill.label}</span>
+      <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>
     </>
   );
 }

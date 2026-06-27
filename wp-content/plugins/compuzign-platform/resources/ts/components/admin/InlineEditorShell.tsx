@@ -43,7 +43,7 @@ export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, is
           <span class="cz-ies__title">{title}</span>
         </div>
         <span class="cz-ies__live-badge">
-          <span class="cz-status-pill cz-status-pill--active">Live Editor</span>
+          <span class="cz-module-status-pill cz-module-status-pill--active">Live Editor</span>
         </span>
       </div>
 
