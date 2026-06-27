@@ -12,6 +12,13 @@ import {
 } from '@/api/endpoints/admin';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ReadBlock } from '../ReadBlock';
+import { ServiceContextPanel } from '../views/ServiceContextPanel';
+import {
+  evaluateModule,
+  tierOverviewModule,
+  tierFeaturesModule,
+  tierFaqsModule,
+} from '@/components/admin/utils/moduleNotifications';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type {
   SurfacePackageSummary,
@@ -93,6 +100,8 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
   const [tab, setTab] = useState<'commercial' | 'service'>('commercial');
   const [editingSection, setEditingSection] = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
+  // Single-open accordion for the Commercial cards' notification panels.
+  const [openTierPanel, setOpenTierPanel] = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
 
   // ── Tier fields ──────────────────────────────────────────────────────────
   const [tierId, setTierId]                 = useState<string>(initialTierId ?? 'basic');
@@ -328,6 +337,30 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   const poolOnlyIncs = (service?.inclusions ?? []).filter((i) => !selIncIds.has(i.id));
   const poolOnlyFaqs = (service?.faqs ?? []).filter((f) => !selFaqIds.has(f.id));
 
+  // ── Module lifecycle (shared generic evaluator) ────────────────────────────
+  // Same composition as the new ServiceTierStep: Tier Overview is the parent;
+  // Included Features and Common Questions gate on it. Until the overview is ready
+  // they resolve to pending-dim with a "Waiting for Tier Overview." note. Only the
+  // data source differs (component state here vs TierDraft in the new screen).
+  const platformStatus = detail.package.platform_status ?? 'disabled';
+  const parsedPrice    = priceIsContact ? null : (Number.isFinite(parseFloat(priceStr)) ? parseFloat(priceStr) : null);
+  const tierLike       = { enabled: currentEnabled, price: parsedPrice, billing_cycle: billingCycle || null, contact: priceIsContact };
+  const tierOverviewComplete = (tierLike.price !== null || tierLike.contact) && !!tierLike.billing_cycle;
+  // Children unlock once the overview has been confirmed (create-mode gate) and is complete.
+  const tierOverviewReady = overviewSaved && tierOverviewComplete;
+
+  const overviewState = evaluateModule(tierOverviewModule, tierLike, { platformStatus });
+  const featuresState = evaluateModule(
+    tierFeaturesModule,
+    { count: selIncCount },
+    { platformStatus, parentReady: tierOverviewReady, parentLabel: 'Tier Overview' },
+  );
+  const faqsState = evaluateModule(
+    tierFaqsModule,
+    { count: selFaqCount },
+    { platformStatus, parentReady: tierOverviewReady, parentLabel: 'Tier Overview' },
+  );
+
   return (
     <>
     <div class="cz-req-detail">
@@ -355,17 +388,17 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       <div class="cz-sv-tabs">
         <button
           type="button"
-          class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('commercial')}
-        >
-          Commercial
-        </button>
-        <button
-          type="button"
           class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('service')}
         >
           Service
+        </button>
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('commercial')}
+        >
+          Commercial
         </button>
       </div>
 
@@ -374,7 +407,15 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         <>
 
           {/* Tier Overview */}
-          <ReadBlock title="Tier Overview" onEdit={openOverviewEditor} noBorder>
+          <ReadBlock
+            title="Tier Overview"
+            status={overviewState.status}
+            notes={overviewState.notes}
+            panelOpen={openTierPanel === 'tier-overview'}
+            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-overview' ? null : 'tier-overview'))}
+            onEdit={openOverviewEditor}
+            noBorder
+          >
             <div class="cz-sv-overview-block__identity">
               <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
             </div>
@@ -402,6 +443,10 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
           <ReadBlock
             title="Included Features"
             count={overviewSaved ? selIncCount : undefined}
+            status={featuresState.status}
+            notes={featuresState.notes}
+            panelOpen={openTierPanel === 'tier-features'}
+            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-features' ? null : 'tier-features'))}
             onEdit={overviewSaved ? () => setEditingSection('inclusions') : undefined}
             noBorder
           >
@@ -442,6 +487,10 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
           <ReadBlock
             title="Common Questions"
             count={overviewSaved ? selFaqCount : undefined}
+            status={faqsState.status}
+            notes={faqsState.notes}
+            panelOpen={openTierPanel === 'tier-faqs'}
+            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-faqs' ? null : 'tier-faqs'))}
             onEdit={overviewSaved ? () => setEditingSection('faqs') : undefined}
           >
             {!overviewSaved ? (
@@ -521,87 +570,22 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       {tab === 'service' && (
         <>
           {service ? (
-            <ReadBlock title={decodeHtml(service.title)} noBorder>
-              {service.excerpt && (
-                <p
-                  class="cz-sv-commercial-block__count"
-                  style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical"
-                >
-                  {service.excerpt}
-                </p>
-              )}
-              {service.categories && service.categories.length > 0 && (
-                <div class="cz-sv-overview-block__meta" style="margin-top:var(--cz-space-2)">
-                  <span class="cz-req-contact-grid__label">Category</span>
-                  <span class="cz-sv-overview-block__value">
-                    {service.categories.map((c) => decodeHtml(c.name)).join(', ')}
-                  </span>
-                </div>
-              )}
-              {service.content && (
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Description</span>
-                  <p
-                    class="cz-sv-overview-block__desc"
-                    style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical"
-                  >
-                    {service.content}
-                  </p>
-                </div>
-              )}
-            </ReadBlock>
+            <ServiceContextPanel
+              title={decodeHtml(service.title)}
+              category={
+                service.categories && service.categories.length > 0
+                  ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
+                  : 'Not selected'
+              }
+              content={service.content ?? ''}
+              inclusions={service.inclusions ?? []}
+              faqs={service.faqs ?? []}
+            />
           ) : (
             <div class="cz-req-detail__section">
               <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
             </div>
           )}
-
-          {/* Pricing Summary with status dots */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <p class="cz-req-detail__section-title">Pricing Summary</p>
-            <div class="cz-sp-tier-table-wrap">
-              <table class="cz-sp-tier-table">
-                <thead>
-                  <tr>
-                    <th>Tier</th>
-                    <th>Price</th>
-                    <th>Cycle</th>
-                    <th class="cz-sp-tier-table__center">Features</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TIERS.map((t) => {
-                    const tierData      = detail.package.tiers[t];
-                    const isCurrentTier = t === tierId;
-                    const isTierActive  = tierData ? (tierData.enabled !== false) : false;
-                    const dotColor      = isCurrentTier
-                      ? 'var(--admin-accent)'
-                      : isTierActive ? 'var(--admin-success)' : 'var(--admin-text-faint)';
-
-                    return (
-                      <tr key={t}>
-                        <td class="cz-sp-tier-table__name">
-                          <div class="cz-sp-tier-table__name-inner">
-                            <span class="cz-admin-status-dot" style={`color:${dotColor}`} />
-                            <span>{TIER_LABELS[t]}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span class={`cz-price-tag${tierData?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                            {tierData ? fmtPrice(tierData.price) : '—'}
-                          </span>
-                        </td>
-                        <td class="cz-sp-tier-table__muted">{tierData?.billing_cycle ?? '—'}</td>
-                        <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                          {tierData?.inclusions_override?.length ?? '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
 
           {/* Service Tab Footer */}
           <div class="cz-tf-footer">
@@ -1296,132 +1280,87 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
       {tab === 'commercial' && (
         <>
           {/* Tier Overview */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header">
-                <p class="cz-req-detail__section-title">Tier Overview</p>
-              </div>
-              <div class="cz-sv-module-body">
-                <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
-                </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Price</span>
-                  <span class="cz-sv-overview-block__value">
-                    {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '0.00')}
-                  </span>
-                </div>
-                <div class="cz-sv-overview-block__meta">
-                  <span class="cz-req-contact-grid__label">Billing Cycle</span>
-                  <span class="cz-sv-overview-block__value">{capitalize(billingCycle)}</span>
-                </div>
-                {isPopular && (
-                  <div class="cz-sv-overview-block__meta">
-                    <span class="cz-req-contact-grid__label">Presentation</span>
-                    <span class="cz-sv-overview-block__value">
-                      <span class="cz-tier-badge cz-tier-badge--popular">{popularLabel || 'Best'}</span>
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div class="cz-sv-module-footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={openOverviewEditor}>
-                  ✎ Edit
-                </button>
-              </div>
+          <ReadBlock title="Tier Overview" onEdit={openOverviewEditor} noBorder>
+            <div class="cz-sv-overview-block__identity">
+              <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
             </div>
-          </div>
+            <div class="cz-sv-overview-block__meta">
+              <span class="cz-req-contact-grid__label">Price</span>
+              <span class="cz-sv-overview-block__value">
+                {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '0.00')}
+              </span>
+            </div>
+            <div class="cz-sv-overview-block__meta">
+              <span class="cz-req-contact-grid__label">Billing Cycle</span>
+              <span class="cz-sv-overview-block__value">{capitalize(billingCycle)}</span>
+            </div>
+            {isPopular && (
+              <div class="cz-sv-overview-block__meta">
+                <span class="cz-req-contact-grid__label">Presentation</span>
+                <span class="cz-sv-overview-block__value">
+                  <span class="cz-tier-badge cz-tier-badge--popular">{popularLabel || 'Best'}</span>
+                </span>
+              </div>
+            )}
+          </ReadBlock>
 
           {/* Included Features */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
-                <p class="cz-req-detail__section-title">
-                  Included Features
-                  {selIncCount > 0 && (
-                    <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selIncCount}</span>
-                  )}
-                </p>
+          <ReadBlock
+            title="Included Features"
+            count={selIncCount}
+            onEdit={() => setEditingSection('inclusions')}
+            noBorder
+          >
+            {selIncCount > 0 ? (
+              <div class="cz-sc-inclusion-pool">
+                {pendingIncs.map((p) => (
+                  <span key={p.label} class="cz-tf-chip">
+                    {p.label}
+                    <span class="cz-tf-new-badge">new</span>
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={() => setEditingSection('inclusions')}>✎</button>
+                  </span>
+                ))}
+                {selExistingIncs.map((inc) => (
+                  <span key={inc.id} class="cz-tf-chip">
+                    {inc.label}
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={() => setEditingSection('inclusions')}>✎</button>
+                  </span>
+                ))}
               </div>
-              <div class="cz-sv-module-body">
-                {selIncCount > 0 ? (
-                  <div class="cz-sc-inclusion-pool">
-                    {pendingIncs.map((p) => (
-                      <span key={p.label} class="cz-tf-chip">
-                        {p.label}
-                        <span class="cz-tf-new-badge">new</span>
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={() => setEditingSection('inclusions')}>✎</button>
-                      </span>
-                    ))}
-                    {selExistingIncs.map((inc) => (
-                      <span key={inc.id} class="cz-tf-chip">
-                        {inc.label}
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit" onClick={() => setEditingSection('inclusions')}>✎</button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div class="cz-sv-overview-block__identity">
-                    <p class="cz-sv-overview-block__name">Add inclusions</p>
-                  </div>
-                )}
+            ) : (
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name">Add inclusions</p>
               </div>
-              <div class="cz-sv-module-footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={() => setEditingSection('inclusions')}
-                >
-                  ✎ Edit
-                </button>
-              </div>
-            </div>
-          </div>
+            )}
+          </ReadBlock>
 
           {/* Common Questions */}
-          <div class="cz-req-detail__section">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
-                <p class="cz-req-detail__section-title">
-                  Common Questions
-                  {selFaqCount > 0 && (
-                    <span style="font-weight:400;color:var(--admin-text-faint);margin-left:6px">{selFaqCount}</span>
-                  )}
-                </p>
-              </div>
-              <div class="cz-sv-module-body">
-                {selFaqCount > 0 ? (
-                  <div class="cz-sc-faq-list">
-                    {pendingFaqs.map((p) => (
-                      <div key={p.question} class="cz-sc-faq-item">
-                        <p class="cz-sc-faq-item__q">{p.question}<span class="cz-tf-new-badge">new</span></p>
-                        {p.answer && <p class="cz-sc-faq-item__a">{p.answer}</p>}
-                      </div>
-                    ))}
-                    {selExistingFaqs.map((faq) => (
-                      <div key={faq.id} class="cz-sc-faq-item">
-                        <p class="cz-sc-faq-item__q">{faq.question}</p>
-                        {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
-                      </div>
-                    ))}
+          <ReadBlock
+            title="Common Questions"
+            count={selFaqCount}
+            onEdit={() => setEditingSection('faqs')}
+          >
+            {selFaqCount > 0 ? (
+              <div class="cz-sc-faq-list">
+                {pendingFaqs.map((p) => (
+                  <div key={p.question} class="cz-sc-faq-item">
+                    <p class="cz-sc-faq-item__q">{p.question}<span class="cz-tf-new-badge">new</span></p>
+                    {p.answer && <p class="cz-sc-faq-item__a">{p.answer}</p>}
                   </div>
-                ) : (
-                  <div class="cz-sv-overview-block__identity">
-                    <p class="cz-sv-overview-block__name">Add FAQs</p>
+                ))}
+                {selExistingFaqs.map((faq) => (
+                  <div key={faq.id} class="cz-sc-faq-item">
+                    <p class="cz-sc-faq-item__q">{faq.question}</p>
+                    {faq.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
                   </div>
-                )}
+                ))}
               </div>
-              <div class="cz-sv-module-footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={() => setEditingSection('faqs')}
-                >
-                  ✎ Edit
-                </button>
+            ) : (
+              <div class="cz-sv-overview-block__identity">
+                <p class="cz-sv-overview-block__name">Add FAQs</p>
               </div>
-            </div>
-          </div>
+            )}
+          </ReadBlock>
 
           {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
 
@@ -1447,24 +1386,17 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
       {tab === 'service' && (
         <>
           {service ? (
-            <div class="cz-sv-commercial-block">
-              <div class="cz-sv-commercial-block__header">
-                <span class="cz-sv-commercial-block__label">{decodeHtml(service.title)}</span>
-              </div>
-              {service.excerpt && (
-                <p class="cz-sv-commercial-block__count" style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical">
-                  {service.excerpt}
-                </p>
-              )}
-              {service.categories && service.categories.length > 0 && (
-                <div class="cz-sv-overview-block__meta" style="margin-top:var(--cz-space-2)">
-                  <span class="cz-req-contact-grid__label">Category</span>
-                  <span class="cz-sv-overview-block__value">
-                    {service.categories.map((c) => decodeHtml(c.name)).join(', ')}
-                  </span>
-                </div>
-              )}
-            </div>
+            <ServiceContextPanel
+              title={decodeHtml(service.title)}
+              category={
+                service.categories && service.categories.length > 0
+                  ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
+                  : 'Not selected'
+              }
+              content={service.content ?? ''}
+              inclusions={service.inclusions ?? []}
+              faqs={service.faqs ?? []}
+            />
           ) : (
             <div class="cz-req-detail__section">
               <p class="cz-sc-pkg-block__empty-msg">No service selected.</p>

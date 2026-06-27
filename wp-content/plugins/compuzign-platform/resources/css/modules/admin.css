@@ -3330,11 +3330,6 @@ body.compuzign-admin-page footer.site-footer {
   line-height: var(--admin-lh-s-label);
 }
 
-/* Drawer Principle v1 — Temporary Disabled Rule: state must not apply to the shell; applies to action control only */
-/* .cz-sv-module--locked {
-  pointer-events: none;
-} */
-
 /* Surface Package block inside service view */
 .cz-sc-pkg-block {
   padding: var(--cz-space-4);
@@ -3730,50 +3725,6 @@ body.compuzign-admin-page footer.site-footer {
   box-shadow: var(--admin-depth-ring-sm);
 }
 
-/* ── Service View — module shell ────────────────────────────────────────────── */
-.cz-sv-module {
-  display: flex;
-  flex-direction: column;
-  background: var(--admin-bg);
-  border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius);
-  transition: background var(--cz-transition-fast);
-}
-
-.cz-sv-module:hover {
-  background: var(--admin-accent-a12);
-}
-
-.cz-sv-module-header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--cz-space-4);
-  border-bottom: 1px solid var(--admin-border-blue);
-}
-
-.cz-sv-module-header--no-border {
-  border-bottom: none;
-}
-
-.cz-sv-module-header .cz-req-detail__section-title {
-  margin: 0;
-}
-
-.cz-sv-module-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-4);
-  padding: var(--cz-space-4);
-}
-
-.cz-sv-module-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 var(--cz-space-4) var(--cz-space-4);
-}
-
 .cz-sv-overview-block__status {
   display: flex;
   align-items: center;
@@ -3972,62 +3923,6 @@ button.cz-module-status-pill {
   font-size: var(--admin-fs-s-label);
   color: var(--admin-text);
   line-height: 1.5;
-}
-
-/* ── Service View — commercial blocks ────────────────────────────────────────── */
-.cz-sv-commercial-block {
-  padding: var(--cz-space-4);
-  background: var(--admin-bg);
-  border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius);
-  margin-bottom: var(--cz-space-4);
-  transition: background var(--cz-transition-fast);
-}
-
-.cz-sv-commercial-block:hover {
-  background: var(--admin-accent-a12);
-}
-
-.cz-sv-commercial-block__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--cz-space-2);
-}
-
-.cz-sv-commercial-block__label {
-  font-size: var(--admin-fs-label);
-  font-weight: var(--admin-fw-strong);
-  color: var(--admin-text);
-}
-
-.cz-sv-commercial-block__status {
-  display: flex;
-  align-items: center;
-  gap: var(--cz-space-2);
-}
-
-.cz-sv-commercial-block__body {
-  display: flex;
-  flex-direction: column;
-}
-
-.cz-sv-commercial-block__count {
-  margin: 0 0 var(--cz-space-2);
-  font-size: var(--admin-fs-s-label);
-  color: var(--admin-text-muted);
-}
-
-.cz-sv-commercial-block__desc {
-  margin: 0 0 var(--cz-space-3);
-  font-size: var(--admin-fs-s-label);
-  color: var(--admin-text-faint);
-  line-height: 1.5;
-}
-
-.cz-sv-commercial-block__footer {
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* Suppress bottom divider — used where bordered blocks already provide separation */

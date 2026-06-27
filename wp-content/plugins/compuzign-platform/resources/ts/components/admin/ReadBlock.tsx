@@ -1,4 +1,7 @@
 import type { ComponentChildren } from 'preact';
+import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import { ModuleStatusPill } from './ui/ModuleStatusPill';
+import { ModuleNotificationPanel } from './ui/ModuleNotificationPanel';
 
 interface Props {
   title: string;
@@ -6,10 +9,24 @@ interface Props {
   onEdit?: () => void;
   editDisabled?: boolean;
   noBorder?: boolean;
+  // Optional module lifecycle. When `status` is supplied the canonical
+  // ModuleStatusPill renders in the header and, when opened, the
+  // ModuleNotificationPanel renders between header and body — the same
+  // structure every drawerModule uses. Omit all of these for a plain read card.
+  status?: string;
+  notes?: ModuleNote[];
+  panelOpen?: boolean;
+  onTogglePanel?: () => void;
   children: ComponentChildren;
 }
 
-export function ReadBlock({ title, count, onEdit, editDisabled, noBorder, children }: Props) {
+export function ReadBlock({
+  title, count, onEdit, editDisabled, noBorder,
+  status, notes, panelOpen, onTogglePanel, children,
+}: Props) {
+  const moduleNotes = notes ?? [];
+  const showPanel   = !!status && panelOpen === true && moduleNotes.length > 0;
+
   return (
     <div class={`cz-req-detail__section${noBorder ? ' cz-sv-section--no-border' : ''}`}>
       <div class="drawerModule">
@@ -22,7 +39,17 @@ export function ReadBlock({ title, count, onEdit, editDisabled, noBorder, childr
               )}
             </p>
           </div>
+          {status && (
+            <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
+              <ModuleStatusPill
+                status={status}
+                notes={moduleNotes}
+                onOpen={onTogglePanel}
+              />
+            </div>
+          )}
         </div>
+        {showPanel && <ModuleNotificationPanel notes={moduleNotes} />}
         <div class="drawerModule__body">
           {children}
         </div>

@@ -1,6 +1,5 @@
 // Shared module status utilities.
-// Used by both the Catalog lifecycle (ServiceViewStep) and Transit lifecycles
-// (ServiceOverviewTransitView, PackageSummaryTransitView).
+// Used by the Catalog lifecycle (ServiceViewStep) and the shared drawer modules.
 
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
 import type { OverviewDraftData, SurfacePackageSummary } from '@/api/types/admin';

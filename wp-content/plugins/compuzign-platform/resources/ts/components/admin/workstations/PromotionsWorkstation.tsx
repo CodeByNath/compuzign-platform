@@ -11,6 +11,7 @@ import {
 } from '@/api/endpoints/admin';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ReadBlock } from '../ReadBlock';
+import { ServiceContextPanel } from '../views/ServiceContextPanel';
 import { PackageSelectServiceStep } from './SurfacePackagesWorkstation';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type {
@@ -633,20 +634,17 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
         {tab === 'service' && (
           <>
             {service ? (
-              <div class="cz-sv-commercial-block">
-                <div class="cz-sv-commercial-block__header">
-                  <span class="cz-sv-commercial-block__label">{service.title}</span>
-                </div>
-                {service.excerpt && (
-                  <p class="cz-sv-commercial-block__count">{service.excerpt}</p>
-                )}
-                {service.categories && service.categories.length > 0 && (
-                  <div class="cz-sv-overview-block__meta" style="margin-top:var(--cz-space-2)">
-                    <span class="cz-req-contact-grid__label">Category</span>
-                    <span class="cz-sv-overview-block__value">{service.categories.map((c) => c.name).join(', ')}</span>
-                  </div>
-                )}
-              </div>
+              <ServiceContextPanel
+                title={service.title}
+                category={
+                  service.categories && service.categories.length > 0
+                    ? service.categories.map((c) => c.name).join(', ')
+                    : 'Not selected'
+                }
+                content={service.content ?? ''}
+                inclusions={service.inclusions ?? []}
+                faqs={service.faqs ?? []}
+              />
             ) : (
               <div class="cz-req-detail__section">
                 <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>

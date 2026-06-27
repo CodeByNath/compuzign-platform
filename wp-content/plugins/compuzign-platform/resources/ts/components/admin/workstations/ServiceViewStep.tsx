@@ -28,7 +28,7 @@ import type {
 import { useApi } from '@/hooks/useApi';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
-import { renderModuleStatus, resolveTierStatus, statusDotColor } from '@/components/admin/utils/moduleStatus';
+import { resolveTierStatus, statusDotColor } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { useServiceStation } from '@/hooks/useServiceStation';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -40,9 +40,17 @@ import type { FaqsDraft } from '../editors/ServiceFaqsEditor';
 import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { ServiceInclusionsViewCard } from '../views/ServiceInclusionsViewCard';
 import { ServiceFaqsViewCard } from '../views/ServiceFaqsViewCard';
+import { ServiceContextPanel } from '../views/ServiceContextPanel';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
-import { getPackageNotes, getTierNotes } from '@/components/admin/utils/moduleNotifications';
+import {
+  getPackageNotes,
+  getTierNotes,
+  evaluateModule,
+  tierOverviewModule,
+  tierFeaturesModule,
+  tierFaqsModule,
+} from '@/components/admin/utils/moduleNotifications';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -82,23 +90,27 @@ export interface CommercialBlockProps {
 
 export function CommercialBlock({ label, count, desc, status, onView, descHighlight }: CommercialBlockProps) {
   return (
-    <div class="cz-sv-commercial-block">
-      <div class="cz-sv-commercial-block__header">
-        <span class="cz-sv-commercial-block__label">{label}</span>
-        <div class="cz-sv-commercial-block__status">
-          {renderModuleStatus(status)}
+    <div class="drawerModule">
+      <div class="drawerModule__header">
+        <div class="drawerModule__heading">
+          <p class="drawerModule__title">{label}</p>
+        </div>
+        <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
+          <ModuleStatusPill status={status} notes={[]} />
         </div>
       </div>
-      <div class="cz-sv-commercial-block__body">
-        <p class="cz-sv-commercial-block__count">{count}</p>
-        <p
-          class="cz-sv-commercial-block__desc"
-          style={descHighlight ? 'color:var(--admin-warning)' : undefined}
-        >
-          {desc}
-        </p>
+      <div class="drawerModule__body">
+        <div class="drawerModule__empty">
+          <p class="drawerModule__empty-title">{count}</p>
+          <p
+            class="drawerModule__empty-copy"
+            style={descHighlight ? 'color:var(--admin-warning)' : undefined}
+          >
+            {desc}
+          </p>
+        </div>
       </div>
-      <div class="cz-sv-commercial-block__footer">
+      <div class="drawerModule__footer">
         <button
           type="button"
           class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
@@ -288,20 +300,22 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                   <ModuleNotificationPanel notes={tierNotes} />
                 )}
                 <div class="drawerModule__body">
-                  <p class="cz-sv-commercial-block__count">Tier summary</p>
-                  {showData ? (
-                    <p class="cz-sv-commercial-block__desc">
-                      Price:{' '}
-                      <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
-                      {' · '}
-                      <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
+                  <div class="drawerModule__empty">
+                    <p class="drawerModule__empty-title">Tier summary</p>
+                    {showData ? (
+                      <p class="drawerModule__empty-copy">
+                        Price:{' '}
+                        <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
+                        {' · '}
+                        <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
+                      </p>
+                    ) : (
+                      <p class="drawerModule__empty-copy">View Tier Overview and manage pricing.</p>
+                    )}
+                    <p class="drawerModule__empty-copy" style="color:var(--admin-text-faint)">
+                      Includes: {featLabel} | {faqLabel}
                     </p>
-                  ) : (
-                    <p class="cz-sv-commercial-block__desc">View Tier Overview and manage pricing.</p>
-                  )}
-                  <p class="cz-sv-commercial-block__desc" style="color:var(--admin-text-faint)">
-                    Includes: {featLabel} | {faqLabel}
-                  </p>
+                  </div>
                 </div>
                 <div class="drawerModule__footer">
                   <button
@@ -365,20 +379,21 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
               const s  = promo.status ?? 'draft';
               const ps = PROMO_STATUS_MAP[s] ?? PROMO_STATUS_MAP['draft'];
               return (
-                <div key={promo.id} class="cz-sv-commercial-block">
-                  <div class="cz-sv-commercial-block__header">
-                    <span class="cz-sv-commercial-block__label">Promotion</span>
-                    <div class="cz-sv-commercial-block__status">
+                <div key={promo.id} class="drawerModule">
+                  <div class="drawerModule__header">
+                    <div class="drawerModule__heading">
+                      <p class="drawerModule__title">{promo.name || '(unnamed)'}</p>
+                      <p class="drawerModule__subtitle">
+                        {promo.based_on ? `Based on ${TIER_LABELS[promo.based_on] ?? promo.based_on}` : 'No base tier.'}
+                        {promo.price != null ? ` · $${promo.price.toLocaleString()}` : ''}
+                      </p>
+                    </div>
+                    <div class="drawerModule__status">
                       <span class="cz-admin-status-dot" style={`color:${ps.dot}`} />
                       <span class={`cz-status-pill ${ps.cls}`}>{ps.label}</span>
                     </div>
                   </div>
-                  <p class="cz-sv-commercial-block__count">{promo.name || '(unnamed)'}</p>
-                  <p class="cz-sv-commercial-block__desc">
-                    {promo.based_on ? `Based on ${TIER_LABELS[promo.based_on] ?? promo.based_on}` : 'No base tier.'}
-                    {promo.price != null ? ` · $${promo.price.toLocaleString()}` : ''}
-                  </p>
-                  <div class="cz-sv-commercial-block__footer">
+                  <div class="drawerModule__footer">
                     <button
                       type="button"
                       class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
@@ -393,14 +408,16 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
           </>
         ) : (
           <div class="cz-req-detail__section">
-            <div class="cz-sv-module">
-              <div class="cz-sv-module-header cz-sv-module-header--no-border">
-                <p class="cz-req-detail__section-title">Promotions</p>
+            <div class="drawerModule">
+              <div class="drawerModule__header">
+                <div class="drawerModule__heading">
+                  <p class="drawerModule__title">Promotions</p>
+                </div>
               </div>
-              <div class="cz-sv-module-body">
-                <div class="cz-sv-overview-block__identity">
-                  <p class="cz-sv-overview-block__name">No promotions configured</p>
-                  <p class="cz-sv-overview-block__excerpt">Add from the Promotions workstation.</p>
+              <div class="drawerModule__body">
+                <div class="drawerModule__empty">
+                  <p class="drawerModule__empty-title">No promotions configured</p>
+                  <p class="drawerModule__empty-copy">Add from the Promotions workstation.</p>
                 </div>
               </div>
             </div>
@@ -1547,6 +1564,9 @@ function tierDraftFromDetail(detail: SurfaceTierDetail, popularTier: string | nu
 export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const serviceId = ctx.stepData.serviceId as number;
   const onRefresh = ctx.stepData.onRefresh as (() => void) | undefined;
+  // Full parent service (richer than the station's service stub) — read-only
+  // context for the Service tab. Passed through by handleOpenTierConfig.
+  const serviceItem = ctx.stepData.service as ServiceItem | undefined;
 
   const { data, loading, error, refetch } = useApi<ServicePackageStationResponse>(
     () => fetchServicePackageStation(serviceId)
@@ -1565,6 +1585,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [newIncLabel,   setNewIncLabel]     = useState('');
   const [newFaqQ,       setNewFaqQ]         = useState('');
   const [newFaqA,       setNewFaqA]         = useState('');
+  // Individual Tier drawer: Commercial (the tier's own modules) | Service (read-only
+  // parent context). Commercial is the working context, so it is the default.
+  const [tierTab,       setTierTab]         = useState<'commercial' | 'service'>('commercial');
+  // Single-open accordion for the Commercial cards' notification panels.
+  const [openTierPanel, setOpenTierPanel]   = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -1584,6 +1609,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setSectionOriginal(null);
     setSaveErr(null);
     setSaveOk(false);
+    setTierTab('commercial');
+    setOpenTierPanel(null);
   };
 
   // Publish Tier — the single backend write for the whole TierDraft.
@@ -1871,8 +1898,46 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // View mode — three Service-style module cards over the same TierDraft.
+  // View mode — Service | Commercial tabs over the same TierDraft.
   const tierPriceText = draft.contact ? 'Contact Us' : (draft.price != null ? `$${draft.price}` : '—');
+
+  // Module lifecycle via the generic evaluator. Tier Overview is the parent; Included
+  // Features and Common Questions gate on it — until pricing is complete they resolve
+  // to pending-dim with a "Waiting for Tier Overview." note (no new status).
+  const tierLike = {
+    enabled:       draft.enabled,
+    price:         draft.price,
+    billing_cycle: draft.billing_cycle,
+    contact:       draft.contact,
+  };
+  const platformStatus       = station.platform_status ?? 'disabled';
+  const tierOverviewComplete = (draft.price !== null || draft.contact) && !!draft.billing_cycle;
+
+  const overviewState = evaluateModule(tierOverviewModule, tierLike, { platformStatus });
+  const featuresState = evaluateModule(
+    tierFeaturesModule,
+    { count: draft.inclusions_override.length },
+    { platformStatus, parentReady: tierOverviewComplete, parentLabel: 'Tier Overview' },
+  );
+  const faqsState = evaluateModule(
+    tierFaqsModule,
+    { count: draft.faq_refs.length },
+    { platformStatus, parentReady: tierOverviewComplete, parentLabel: 'Tier Overview' },
+  );
+
+  const renderTierStatus = (
+    key: 'tier-overview' | 'tier-features' | 'tier-faqs',
+    state: { status: string; notes: typeof overviewState.notes },
+  ) => (
+    <div class={`drawerModule__status${state.status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
+      <ModuleStatusPill
+        status={state.status}
+        notes={state.notes}
+        onOpen={() => setOpenTierPanel((p) => (p === key ? null : key))}
+      />
+    </div>
+  );
+
   return (
     <div class="cz-req-detail">
       <div class="cz-sv-tabs" style="margin-bottom: 0">
@@ -1886,125 +1951,175 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         </span>
       </div>
 
-      {/* ── Tier Module: Tier Overview ───────────────────────────────────────── */}
-      <div class="cz-req-detail__section cz-sv-section--no-border">
-        <div class="drawerModule drawerOverview service">
-          <div class="drawerModule__header">
-            <div class="drawerModule__heading">
-              <p class="drawerModule__title">Tier Overview</p>
-              <p class="drawerModule__subtitle">Pricing and presentation for this tier.</p>
-            </div>
-          </div>
-          <div class="drawerModule__body">
-            <div class="drawerModule__fields">
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Label</p>
-                <p class="drawerModule__value">{draft.label.trim() || TIER_LABELS[editingTierId]}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Price</p>
-                <p class="drawerModule__value">{tierPriceText}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Billing Cycle</p>
-                <p class="drawerModule__value">{draft.billing_cycle || '—'}</p>
-              </div>
-              {draft.popular && (
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Presentation</p>
-                  <p class="drawerModule__value">Popular{draft.popular_label ? ` · ${draft.popular_label}` : ''}</p>
+      {/* Service | Commercial tabs */}
+      <div class="cz-sv-tabs">
+        <button
+          type="button"
+          class={`cz-sv-tab${tierTab === 'service' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTierTab('service')}
+        >
+          Service
+        </button>
+        <button
+          type="button"
+          class={`cz-sv-tab${tierTab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTierTab('commercial')}
+        >
+          Commercial
+        </button>
+      </div>
+
+      {/* ── Commercial tab: the tier's own modules ───────────────────────────── */}
+      {tierTab === 'commercial' && (
+        <>
+          {/* ── Tier Module: Tier Overview ───────────────────────────────────── */}
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <div class="drawerModule drawerOverview service">
+              <div class="drawerModule__header">
+                <div class="drawerModule__heading">
+                  <p class="drawerModule__title">Tier Overview</p>
+                  <p class="drawerModule__subtitle">Pricing and presentation for this tier.</p>
                 </div>
+                {renderTierStatus('tier-overview', overviewState)}
+              </div>
+              {openTierPanel === 'tier-overview' && overviewState.notes.length > 0 && (
+                <ModuleNotificationPanel notes={overviewState.notes} />
               )}
+              <div class="drawerModule__body">
+                <div class="drawerModule__fields">
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Label</p>
+                    <p class="drawerModule__value">{draft.label.trim() || TIER_LABELS[editingTierId]}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Price</p>
+                    <p class="drawerModule__value">{tierPriceText}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Billing Cycle</p>
+                    <p class="drawerModule__value">{draft.billing_cycle || '—'}</p>
+                  </div>
+                  {draft.popular && (
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Presentation</p>
+                      <p class="drawerModule__value">Popular{draft.popular_label ? ` · ${draft.popular_label}` : ''}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div class="drawerModule__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-overview')}>
+                  Edit
+                </button>
+              </div>
             </div>
           </div>
-          <div class="drawerModule__footer">
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-overview')}>
-              Edit
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* ── Tier Module: Included Features ───────────────────────────────────── */}
-      <div class="cz-req-detail__section cz-sv-section--no-border">
-        <div class="drawerModule">
-          <div class="drawerModule__header">
-            <div class="drawerModule__heading">
-              <p class="drawerModule__title">
-                Included Features
-                {draft.inclusions_override.length > 0 && (
-                  <span class="drawerModule__count">{draft.inclusions_override.length}</span>
+          {/* ── Tier Module: Included Features ─────────────────────────────────── */}
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <div class="drawerModule">
+              <div class="drawerModule__header">
+                <div class="drawerModule__heading">
+                  <p class="drawerModule__title">
+                    Included Features
+                    {draft.inclusions_override.length > 0 && (
+                      <span class="drawerModule__count">{draft.inclusions_override.length}</span>
+                    )}
+                  </p>
+                  <p class="drawerModule__subtitle">Features included in this tier.</p>
+                </div>
+                {renderTierStatus('tier-features', featuresState)}
+              </div>
+              {openTierPanel === 'tier-features' && featuresState.notes.length > 0 && (
+                <ModuleNotificationPanel notes={featuresState.notes} />
+              )}
+              <div class="drawerModule__body">
+                {draft.inclusions_override.length > 0 ? (
+                  <div class="cz-sc-inclusion-pool">
+                    {draft.inclusions_override.map((inc) => (
+                      <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <div class="drawerModule__empty">
+                    <p class="drawerModule__empty-title">No features</p>
+                    <p class="drawerModule__empty-copy">Add features included in this tier.</p>
+                  </div>
                 )}
-              </p>
-              <p class="drawerModule__subtitle">Features included in this tier.</p>
+              </div>
+              <div class="drawerModule__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-inclusions')}>
+                  Edit
+                </button>
+              </div>
             </div>
           </div>
-          <div class="drawerModule__body">
-            {draft.inclusions_override.length > 0 ? (
-              <div class="cz-sc-inclusion-pool">
-                {draft.inclusions_override.map((inc) => (
-                  <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
-                ))}
-              </div>
-            ) : (
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">No features</p>
-                <p class="drawerModule__empty-copy">Add features included in this tier.</p>
-              </div>
-            )}
-          </div>
-          <div class="drawerModule__footer">
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-inclusions')}>
-              Edit
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* ── Tier Module: Common Questions ────────────────────────────────────── */}
-      <div class="cz-req-detail__section cz-sv-section--no-border">
-        <div class="drawerModule">
-          <div class="drawerModule__header">
-            <div class="drawerModule__heading">
-              <p class="drawerModule__title">
-                Common Questions
-                {draft.faq_refs.length > 0 && (
-                  <span class="drawerModule__count">{draft.faq_refs.length}</span>
+          {/* ── Tier Module: Common Questions ──────────────────────────────────── */}
+          <div class="cz-req-detail__section cz-sv-section--no-border">
+            <div class="drawerModule">
+              <div class="drawerModule__header">
+                <div class="drawerModule__heading">
+                  <p class="drawerModule__title">
+                    Common Questions
+                    {draft.faq_refs.length > 0 && (
+                      <span class="drawerModule__count">{draft.faq_refs.length}</span>
+                    )}
+                  </p>
+                  <p class="drawerModule__subtitle">Questions and answers for this tier.</p>
+                </div>
+                {renderTierStatus('tier-faqs', faqsState)}
+              </div>
+              {openTierPanel === 'tier-faqs' && faqsState.notes.length > 0 && (
+                <ModuleNotificationPanel notes={faqsState.notes} />
+              )}
+              <div class="drawerModule__body">
+                {draft.faq_refs.length > 0 ? (
+                  <div>
+                    {draft.faq_refs.map(ref => {
+                      const faq = faqPool.find(f => f.id === ref);
+                      return (
+                        <p key={ref} class="drawerModule__empty-copy" style="margin: 0 0 4px">{faq?.question ?? ref}</p>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div class="drawerModule__empty">
+                    <p class="drawerModule__empty-title">No questions added</p>
+                    <p class="drawerModule__empty-copy">Add common questions for this tier.</p>
+                  </div>
                 )}
-              </p>
-              <p class="drawerModule__subtitle">Questions and answers for this tier.</p>
+              </div>
+              <div class="drawerModule__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-faqs')}>
+                  Edit
+                </button>
+              </div>
             </div>
           </div>
-          <div class="drawerModule__body">
-            {draft.faq_refs.length > 0 ? (
-              <div>
-                {draft.faq_refs.map(ref => {
-                  const faq = faqPool.find(f => f.id === ref);
-                  return (
-                    <p key={ref} class="drawerModule__empty-copy" style="margin: 0 0 4px">{faq?.question ?? ref}</p>
-                  );
-                })}
-              </div>
-            ) : (
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">No questions added</p>
-                <p class="drawerModule__empty-copy">Add common questions for this tier.</p>
-              </div>
-            )}
-          </div>
-          <div class="drawerModule__footer">
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-faqs')}>
-              Edit
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {(saveErr || saveOk) && (
-        <div class="cz-req-detail__section cz-sv-section--no-border">
-          {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
-          {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
-        </div>
+          {(saveErr || saveOk) && (
+            <div class="cz-req-detail__section cz-sv-section--no-border">
+              {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+              {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Service tab: read-only parent context ────────────────────────────── */}
+      {tierTab === 'service' && (
+        <ServiceContextPanel
+          title={decodeHtml(serviceItem?.title ?? svc.title)}
+          category={
+            serviceItem && serviceItem.categories.length > 0
+              ? serviceItem.categories.map((c) => decodeHtml(c.name)).join(', ')
+              : 'Not selected'
+          }
+          content={serviceItem?.content ?? ''}
+          inclusions={svc.inclusions}
+          faqs={svc.faqs}
+        />
       )}
 
       <div class="cz-tf-footer">
