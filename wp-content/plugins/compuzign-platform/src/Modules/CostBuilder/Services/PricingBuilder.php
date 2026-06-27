@@ -64,6 +64,9 @@ class PricingBuilder
 
         $categories         = [];
         $servicesByCategory = [];
+        // Term IDs surfaced by the curated ORDERED_CATEGORIES pass, so the append
+        // pass below can skip them and avoid duplicates.
+        $handledTermIds     = [];
 
         foreach (self::ORDERED_CATEGORIES as $name) {
             $slug = sanitize_title($name);
@@ -85,6 +88,7 @@ class PricingBuilder
                 'name' => $term->name,
                 'slug' => $term->slug,
             ];
+            $handledTermIds[(int) $term->term_id] = true;
 
             $posts    = $this->repository->findByCategory((int) $term->term_id);
             $payloads = [];
@@ -114,6 +118,57 @@ class PricingBuilder
                 'category_slug' => $term->slug,
                 'services'      => $payloads,
             ];
+        }
+
+        // ── Append admin-created categories beyond the curated four ──────────────
+        // Newly created cz_service_category terms surface on the frontend once they
+        // contain at least one active published service. Curated terms are skipped
+        // via $handledTermIds; empty categories are excluded. Existing service
+        // filtering, sorting, and payload shape are identical to the loop above.
+        $extraTerms = get_terms([
+            'taxonomy'   => 'cz_service_category',
+            'hide_empty' => false,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        ]);
+        if (is_array($extraTerms)) {
+            foreach ($extraTerms as $term) {
+                if (!$term instanceof \WP_Term || isset($handledTermIds[(int) $term->term_id])) {
+                    continue;
+                }
+
+                $posts    = $this->repository->findByCategory((int) $term->term_id);
+                $payloads = [];
+                foreach ($posts as $post) {
+                    $meta = $this->repository->getMeta($post->ID);
+                    if (MetaSchema::resolvePlatformStatus($meta, $post->post_status) !== 'active') {
+                        continue;
+                    }
+                    $payloads[] = $this->buildServicePayload($post);
+                }
+
+                // Exclude empty categories — only surface when active content exists.
+                if (empty($payloads)) {
+                    continue;
+                }
+
+                usort($payloads, fn($a, $b) =>
+                    ($a['meta']['sort_order'] ?? 0) <=> ($b['meta']['sort_order'] ?? 0)
+                    ?: strcmp($a['title'], $b['title'])
+                );
+
+                $categories[] = [
+                    'id'   => (int) $term->term_id,
+                    'name' => $term->name,
+                    'slug' => $term->slug,
+                ];
+                $servicesByCategory[] = [
+                    'category_id'   => (int) $term->term_id,
+                    'category_name' => $term->name,
+                    'category_slug' => $term->slug,
+                    'services'      => $payloads,
+                ];
+            }
         }
 
         return [
