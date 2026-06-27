@@ -65,6 +65,9 @@ export interface ServiceStation {
   faqs:          ServiceFaqItem[];
   tiers:         Record<TierId, PricingTierData> | undefined;
   overviewDraft: OverviewDraftData | null;
+  // Authoritative settled overview fields (from adminDetail), for the display
+  // fallback chain: draft → settledOverview → passed CostBuilder service.
+  settledOverview: { title: string; excerpt: string; content: string; categories: Array<{ id: number; name: string; slug: string }> } | null;
 
   // ── Module registry ────────────────────────────────────────────────────────
   moduleStatus:       Record<string, string> | undefined;
@@ -175,7 +178,14 @@ export function useServiceStation(
 
   // ── Derived: module status resolvers ──────────────────────────────────────
   const overviewDraft  = adminDetail?.drafts.overview ?? null;
-  const overviewStatus = resolveOverviewStatus(service, {
+  // Authoritative settled overview source: prefer adminDetail's settled fields
+  // (refreshed on settle/publish below) over the passed-in CostBuilder service,
+  // which can be stale/incomplete for migrated services. A draft still wins inside
+  // resolveOverviewStatus / getOverviewNotes. Read order: draft → adminDetail → service.
+  const overviewSource: ServiceItem = adminDetail
+    ? { ...service, title: adminDetail.title, excerpt: adminDetail.excerpt, content: adminDetail.content, categories: adminDetail.categories }
+    : service;
+  const overviewStatus = resolveOverviewStatus(overviewSource, {
     platformStatus,
     moduleTransition: moduleStatus?.overview ?? 'not-configured',
   }, overviewDraft);
@@ -219,7 +229,7 @@ export function useServiceStation(
     hasDraft:         adminDetail?.drafts.faqs != null,
   };
 
-  const overviewNotes   = getOverviewNotes(service, noteCtxOverview, overviewDraft);
+  const overviewNotes   = getOverviewNotes(overviewSource, noteCtxOverview, overviewDraft);
   const inclusionsNotes = getInclusionsNotes(inclusions as unknown as ServiceInclusion[], noteCtxInclusions);
   const faqsNotes       = getFaqsNotes(faqs as unknown as ServiceFaq[], noteCtxFaqs);
 
@@ -228,9 +238,17 @@ export function useServiceStation(
     inclusionsStatus === 'pending-full' || inclusionsStatus === 'pending-dim' ||
     faqsStatus === 'pending-full' || faqsStatus === 'pending-dim';
 
+  // A saved inclusions/FAQ draft is an independent publish enabler — but only for an
+  // already-active service (settling a module change). For a new/incomplete service we
+  // must not allow Publish off a content draft while the overview is still incomplete.
+  const hasContentDraft =
+    adminDetail?.drafts.inclusions != null ||
+    adminDetail?.drafts.faqs != null;
+
   const canPublish =
     overviewStatus === 'pending-full' ||
-    (overviewStatus === 'active' && hasModulePendingChanges);
+    (overviewStatus === 'active' && hasModulePendingChanges) ||
+    (isActive && hasContentDraft);
 
   // ── Derived: surface layer ─────────────────────────────────────────────────
   const pkgIsActive         = relatedPkg?.platform_status === 'active';
@@ -337,6 +355,10 @@ export function useServiceStation(
       if (result.success) {
         setAdminDetail(prev => prev ? {
           ...prev,
+          title:         result.service.title,
+          excerpt:       result.service.excerpt,
+          content:       result.service.content,
+          categories:    result.service.categories,
           module_status: result.module_status,
           drafts: { overview: null, inclusions: null, faqs: null },
         } : prev);
@@ -361,6 +383,10 @@ export function useServiceStation(
       if (settleResult.success) {
         setAdminDetail(prev => prev ? {
           ...prev,
+          title:         settleResult.service.title,
+          excerpt:       settleResult.service.excerpt,
+          content:       settleResult.service.content,
+          categories:    settleResult.service.categories,
           module_status: settleResult.module_status,
           drafts: { overview: null, inclusions: null, faqs: null },
         } : prev);
@@ -485,6 +511,9 @@ export function useServiceStation(
     faqs,
     tiers,
     overviewDraft,
+    settledOverview: adminDetail
+      ? { title: adminDetail.title, excerpt: adminDetail.excerpt, content: adminDetail.content, categories: adminDetail.categories }
+      : null,
     moduleStatus,
     hasPendingModules,
     pendingModuleNames,

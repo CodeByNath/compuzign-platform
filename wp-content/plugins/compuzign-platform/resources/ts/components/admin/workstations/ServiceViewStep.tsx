@@ -457,7 +457,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     hasInclusionsDraft, hasFaqsDraft,
     overviewStatus, inclusionsStatus, faqsStatus,
     overviewNotes, inclusionsNotes, faqsNotes,
-    relatedPkg, inclusions, faqs, tiers, overviewDraft: stationOverviewDraft,
+    relatedPkg, inclusions, faqs, tiers, overviewDraft: stationOverviewDraft, settledOverview,
     pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc, pkgSummaryDescPending,
     promoStatus, promotionCount,
     inclSummary, faqsSummary,
@@ -475,6 +475,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   // Category description for the overview editor — lifted from ServiceOverviewEditor.
   const [catDesc,         setCatDesc]         = useState('');
   const [catDescOriginal, setCatDescOriginal] = useState('');
+  // Local, mutable category list seeded from the passed-in snapshot. Patched on
+  // category-description save so reopening the editor in the same drawer session
+  // reads the just-saved description instead of the stale prop. Mirrors ServiceCreateStep.
+  const [localCategories, setLocalCategories] = useState<Category[]>(allCategories);
   // Snapshots taken at editor-open time for dirty detection — never mutated after init.
   const [overviewOriginal,   setOverviewOriginal]   = useState<OverviewDraft | null>(null);
   const [inclusionsOriginal, setInclusionsOriginal] = useState<InclusionsDraft | null>(null);
@@ -563,7 +567,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       ? { title: wc.title, excerpt: wc.excerpt, content: wc.content, category_id: wc.category_ids[0] ?? null }
       : initOverviewDraft(service);
     const catId = draft.category_id;
-    const desc  = catId ? (allCategories.find(c => c.id === catId)?.description ?? '') : '';
+    const desc  = catId ? (localCategories.find(c => c.id === catId)?.description ?? '') : '';
     setCatDesc(desc);
     setCatDescOriginal(desc);
     setOverviewOriginal(draft);
@@ -571,7 +575,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setEditingSection('overview');
     setOpenPanel(null);
     setSaveErr(null);
-  }, [service, stationOverviewDraft, allCategories]);
+  }, [service, stationOverviewDraft, localCategories]);
 
   const openInclusionsEditor = useCallback(() => {
     const draft: InclusionsDraft = { items: inclusions };
@@ -609,6 +613,11 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       await saveOverview(overviewDraft);
       if (overviewDraft.category_id !== null && catDesc.trim() !== catDescOriginal.trim()) {
         await updateServiceCategory(overviewDraft.category_id, { description: catDesc.trim() });
+        // Patch the saved description into the local list so an in-session editor
+        // reopen reads the new value instead of the stale snapshot.
+        const savedCatId = overviewDraft.category_id;
+        const savedDesc  = catDesc.trim();
+        setLocalCategories(prev => prev.map(c => c.id === savedCatId ? { ...c, description: savedDesc } : c));
       }
       setCatDescOriginal(catDesc);
       setOpenPanel(null);
@@ -1040,13 +1049,14 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, overviewStatus, moduleStatus, ctx.setFooter, ctx.close]);
 
   // ── Pre-resolved display values for view cards ────────────────────────────
-  const rawDisplayTitle = stationOverviewDraft?.title.trim() || service.title.trim() || '';
+  // Fallback order mirrors the status path: draft → adminDetail settled → CostBuilder service.
+  const rawDisplayTitle = stationOverviewDraft?.title.trim() || settledOverview?.title.trim() || service.title.trim() || '';
   const displayTitle    = rawDisplayTitle ? decodeHtml(rawDisplayTitle) : '';
-  const displayExcerpt  = stationOverviewDraft?.excerpt.trim() || service.excerpt?.trim() || '';
-  const displayContent  = stationOverviewDraft?.content.trim() || service.content?.trim() || '';
+  const displayExcerpt  = stationOverviewDraft?.excerpt.trim() || settledOverview?.excerpt?.trim() || service.excerpt?.trim() || '';
+  const displayContent  = stationOverviewDraft?.content.trim() || settledOverview?.content?.trim() || service.content?.trim() || '';
   const displayCategory = stationOverviewDraft
     ? decodeHtml(allCategories.find(c => stationOverviewDraft.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
-    : decodeHtml(service.categories[0]?.name ?? 'Not selected');
+    : decodeHtml(settledOverview?.categories[0]?.name ?? service.categories[0]?.name ?? 'Not selected');
   const decodedServiceTitle = decodeHtml(service.title);
 
   // Package Summary notes — module-owned, mirrors the Service module view cards.
@@ -1484,7 +1494,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         <ServiceOverviewEditor
           draft={overviewDraft}
           onChange={(patch) => setOverviewDraft((d) => d ? { ...d, ...patch } : d)}
-          categories={allCategories}
+          categories={localCategories}
           catDescription={catDesc}
           onCatDescriptionChange={setCatDesc}
         />

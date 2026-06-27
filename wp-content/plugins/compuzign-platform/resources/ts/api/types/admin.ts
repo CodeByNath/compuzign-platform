@@ -421,7 +421,7 @@ export interface AdminServiceDetailResponse {
   title:           string;
   excerpt:         string;
   content:         string;
-  categories:      Array<{ id: number; name: string; slug: string }>;
+  categories:      Array<{ id: number; name: string; slug: string; description?: string }>;
   inclusions:      ServiceInclusionItem[];
   faqs:            ServiceFaqItem[];
   platform_status: string;
