@@ -1502,8 +1502,10 @@ class AdminServicesController
 
     private function isOverviewComplete(\WP_Post $post): bool
     {
+        // Overview completeness = title + category + content. Excerpt is intentionally
+        // NOT required — it is not collected in the current Overview workflow, so it must
+        // not block module settlement. Aligns with the frontend completeness gate.
         if (trim($post->post_title) === '')   return false;
-        if (trim($post->post_excerpt) === '')  return false;
         if (trim($post->post_content) === '')  return false;
         $terms = wp_get_post_terms($post->ID, self::CATEGORY_TAXONOMY, ['fields' => 'ids']);
         return !empty($terms);
