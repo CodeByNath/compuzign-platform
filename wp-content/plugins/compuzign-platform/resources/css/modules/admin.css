@@ -335,12 +335,15 @@
   --admin-space-cell-v:   10px;   /* table cell vertical padding */
   --admin-space-cell-h:   16px;   /* table cell horizontal padding */
   --admin-space-header-v: 20px;   /* drawer/panel header vertical padding */
-  --admin-space-pill-v:   2px;    /* status pill vertical padding */
-  --admin-space-pill-h:   9px;    /* status pill horizontal padding */
+  --admin-space-pill-v:   var(--cz-space-1);  /* status pill vertical padding — 4px */
+  --admin-space-pill-h:   9px;                /* status pill horizontal padding */
+  /* No global radius token sits at 8px (the --cz-radius scale starts at 12px), so */
+  /* the pill corner maps to the 8px spacing primitive.                            */
+  --admin-radius-pill:    var(--cz-space-2);  /* status pill corner — 8px */
 
   /* ── Status pill footprint — single source for the canonical pill + its ─────── */
   /* loading shimmer, so both stay the same width.                                */
-  --admin-pill-min-width: 72px;
+  --admin-pill-min-width: var(--cz-space-16); /* 64px */
 
   /* ── Root styles ──────────────────────────────────────────────────────────── */
   display: flex;
@@ -2393,7 +2396,6 @@ body.compuzign-admin-page footer.site-footer {
 
 /* Small button modifier — used in dense table rows */
 .cz-admin-btn--sm {
-  padding: 4px 10px;
   font-size: var(--admin-fs-s-label);
 }
 
@@ -3705,7 +3707,7 @@ body.compuzign-admin-page footer.site-footer {
   align-items: center;
   justify-content: center;
   min-width: var(--admin-pill-min-width);
-  border-radius: var(--admin-radius);
+  border-radius: var(--admin-radius-pill);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   line-height: var(--admin-lh-s-label);
