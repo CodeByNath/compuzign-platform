@@ -44,6 +44,25 @@ function resolveStationStatus(station: StationSummary): StationStatus {
   return 'active';
 }
 
+// Display-only pill (label + class). Decoupled from resolveStationStatus (which stays
+// the filter bucket) so the label can distinguish a live service with unsettled changes
+// from a never-published one — without altering filtering. Frontend visibility is
+// gated only by platform_status; "Active · changes pending" still means the service
+// is live on the public Cost Builder.
+function stationStatusLabel(station: StationSummary): { cls: string; label: string } {
+  if (station.platform_status === 'disabled') {
+    return (station.module_status as Record<string, string>)?.overview !== 'settled'
+      ? { cls: STATION_STATUS_PILL.pending.cls,  label: 'Pending'  }
+      : { cls: STATION_STATUS_PILL.disabled.cls, label: 'Disabled' };
+  }
+  const hasUnsettled =
+    station.has_drafts ||
+    Object.values(station.module_status).some((v) => v === 'pending');
+  return hasUnsettled
+    ? { cls: STATION_STATUS_PILL.active.cls, label: 'Active · changes pending' }
+    : { cls: STATION_STATUS_PILL.active.cls, label: 'Active' };
+}
+
 // ── Category normalization ────────────────────────────────────────────────────
 // AdminCatalogResponse returns id: number | null. Real taxonomy terms always have
 // integer IDs; null only appears for synthetic "Uncategorised" groupings.
@@ -676,8 +695,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                   </thead>
                   <tbody>
                     {visibleStations.map((station) => {
-                      const st      = resolveStationStatus(station);
-                      const pill    = STATION_STATUS_PILL[st];
+                      const pill    = stationStatusLabel(station);
                       const summary = resolveStationCommercialSummary(station.id, packages);
                       return (
                         <tr key={station.id}>

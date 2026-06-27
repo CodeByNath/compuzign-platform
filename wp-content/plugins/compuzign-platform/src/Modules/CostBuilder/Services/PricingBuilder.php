@@ -125,6 +125,11 @@ class PricingBuilder
         // contain at least one active published service. Curated terms are skipped
         // via $handledTermIds; empty categories are excluded. Existing service
         // filtering, sorting, and payload shape are identical to the loop above.
+        //
+        // FUTURE (next phase): visibility will become an explicit business decision,
+        // not implicit from active content. This gate will additionally require a
+        // per-term frontend-visible flag (hidden by default). See
+        // docs/architecture/category-frontend-visibility-roadmap.md.
         $extraTerms = get_terms([
             'taxonomy'   => 'cz_service_category',
             'hide_empty' => false,
