@@ -359,6 +359,8 @@ export function useServiceStation(
           excerpt:       result.service.excerpt,
           content:       result.service.content,
           categories:    result.service.categories,
+          inclusions:    result.inclusions,
+          faqs:          result.faqs,
           module_status: result.module_status,
           drafts: { overview: null, inclusions: null, faqs: null },
         } : prev);
@@ -387,6 +389,8 @@ export function useServiceStation(
           excerpt:       settleResult.service.excerpt,
           content:       settleResult.service.content,
           categories:    settleResult.service.categories,
+          inclusions:    settleResult.inclusions,
+          faqs:          settleResult.faqs,
           module_status: settleResult.module_status,
           drafts: { overview: null, inclusions: null, faqs: null },
         } : prev);
