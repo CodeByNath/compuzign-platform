@@ -146,8 +146,13 @@ export function useServiceStation(
   const isActive       = platformStatus === 'active';
 
   // ── Derived: module data (draft-preferred) ─────────────────────────────────
-  const inclusions = (adminDetail?.drafts.inclusions ?? service.inclusions ?? []) as ServiceInclusionItem[];
-  const faqs       = (adminDetail?.drafts.faqs       ?? service.faqs       ?? []) as ServiceFaqItem[];
+  // Read priority: draft → authoritative settled pool (adminDetail) → passed-in
+  // CostBuilder service → empty. adminDetail.inclusions/faqs is the canonical
+  // service-owned pool (cz_service_inclusions / cz_service_faqs) returned by the
+  // drawer's own fetch; the passed-in ServiceItem can be stale/empty for migrated
+  // services, so it must not shadow the settled pool.
+  const inclusions = (adminDetail?.drafts.inclusions ?? adminDetail?.inclusions ?? service.inclusions ?? []) as ServiceInclusionItem[];
+  const faqs       = (adminDetail?.drafts.faqs       ?? adminDetail?.faqs       ?? service.faqs       ?? []) as ServiceFaqItem[];
   const tiers      = service.pricing?.tiers;
 
   // ── Derived: module registry ───────────────────────────────────────────────
