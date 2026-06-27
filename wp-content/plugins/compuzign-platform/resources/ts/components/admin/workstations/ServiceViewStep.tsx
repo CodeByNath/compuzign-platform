@@ -453,7 +453,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const station = useServiceStation(service, packages, onRefresh);
   const {
-    platformStatus, isActive, canPublish, hasPendingModules, pendingModuleNames, moduleStatus,
+    platformStatus, isActive, detailLoaded, canPublish, hasPendingModules, pendingModuleNames, moduleStatus,
     hasInclusionsDraft, hasFaqsDraft,
     overviewStatus, inclusionsStatus, faqsStatus,
     overviewNotes, inclusionsNotes, faqsNotes,
@@ -1103,8 +1103,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <ServiceOverviewViewCard
-            status={overviewStatus}
-            notes={overviewNotes}
+            status={detailLoaded ? overviewStatus : 'loading'}
+            notes={detailLoaded ? overviewNotes : []}
             panelOpen={openPanel === 'overview'}
             onTogglePanel={() => setOpenPanel(p => p === 'overview' ? null : 'overview')}
             displayTitle={displayTitle}
@@ -1120,8 +1120,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
           <ServiceInclusionsViewCard
-            status={inclusionsStatus}
-            notes={inclusionsNotes}
+            status={detailLoaded ? inclusionsStatus : 'loading'}
+            notes={detailLoaded ? inclusionsNotes : []}
             panelOpen={openPanel === 'inclusions'}
             onTogglePanel={() => setOpenPanel(p => p === 'inclusions' ? null : 'inclusions')}
             inclusions={inclusions}
@@ -1134,8 +1134,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
           <ServiceFaqsViewCard
-            status={faqsStatus}
-            notes={faqsNotes}
+            status={detailLoaded ? faqsStatus : 'loading'}
+            notes={detailLoaded ? faqsNotes : []}
             panelOpen={openPanel === 'faqs'}
             onTogglePanel={() => setOpenPanel(p => p === 'faqs' ? null : 'faqs')}
             faqs={faqs}
@@ -1170,10 +1170,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 <p class="drawerModule__title">Package Summary</p>
                 <p class="drawerModule__subtitle">Pricing and tiers for this service.</p>
               </div>
-              <div class={`drawerModule__status${pkgSummaryStatus === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
+              <div class={`drawerModule__status${(detailLoaded ? pkgSummaryStatus : 'loading') === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
                 <ModuleStatusPill
-                  status={pkgSummaryStatus}
-                  notes={packageNotes}
+                  status={detailLoaded ? pkgSummaryStatus : 'loading'}
+                  notes={detailLoaded ? packageNotes : []}
                   onOpen={() => setOpenPanel(p => p === 'package' ? null : 'package')}
                 />
               </div>

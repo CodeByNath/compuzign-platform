@@ -59,6 +59,10 @@ export interface ServiceStation {
   // ── Identity ──────────────────────────────────────────────────────────────
   platformStatus: string;
   isActive:       boolean;
+  // True once the authoritative service detail fetch has resolved (success or
+  // failure). While false, module pills should show a neutral loading placeholder
+  // instead of a status derived from the minimal catalog handoff.
+  detailLoaded:   boolean;
 
   // ── Module data (draft-preferred) ─────────────────────────────────────────
   inclusions:    ServiceInclusionItem[];
@@ -135,13 +139,18 @@ export function useServiceStation(
   onRefresh?: () => void,
 ): ServiceStation {
   const [adminDetail, setAdminDetail] = useState<AdminServiceDetailResponse | null>(null);
+  const [detailLoaded, setDetailLoaded] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [creatingPkg,  setCreatingPkg]  = useState(false);
 
   useEffect(() => {
+    setDetailLoaded(false);
     fetchAdminServiceDetail(service.id)
       .then(setAdminDetail)
-      .catch(() => {}); // non-fatal — falls back to CostBuilder data
+      .catch(() => {}) // non-fatal — falls back to CostBuilder data
+      // Resolved (success or failure): authoritative detail attempt is done, so module
+      // pills may stop showing the loading placeholder.
+      .finally(() => setDetailLoaded(true));
   }, [service.id]);
 
   // ── Derived: identity ──────────────────────────────────────────────────────
@@ -511,6 +520,7 @@ export function useServiceStation(
   return {
     platformStatus,
     isActive,
+    detailLoaded,
     inclusions,
     faqs,
     tiers,

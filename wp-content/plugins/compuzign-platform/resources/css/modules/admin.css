@@ -3752,6 +3752,7 @@ button.cz-module-status-pill {
 .cz-module-status-pill--active   { background: var(--admin-success-a10); color: var(--admin-success); }
 .cz-module-status-pill--inactive { background: var(--admin-error-a10);   color: var(--admin-error);   }
 .cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--admin-warning); }
+.cz-module-status-pill--loading  { background: var(--admin-accent-a12);  color: var(--admin-text-faint); }
 
 .cz-module-status-pill__marker {
   padding-left: 0;

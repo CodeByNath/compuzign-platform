@@ -21,10 +21,13 @@ interface Props {
 }
 
 const PILL_META: Record<string, { cls: string; label: string }> = {
-  'active':       { cls: 'cz-module-status-pill--active',   label: 'Active'   },
-  'disabled':     { cls: 'cz-module-status-pill--inactive', label: 'Disabled' },
-  'pending-dim':  { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
-  'pending-full': { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
+  'active':       { cls: 'cz-module-status-pill--active',   label: 'Active'    },
+  'disabled':     { cls: 'cz-module-status-pill--inactive', label: 'Disabled'  },
+  'pending-dim':  { cls: 'cz-module-status-pill--pending',  label: 'Pending'   },
+  'pending-full': { cls: 'cz-module-status-pill--pending',  label: 'Pending'   },
+  // Neutral placeholder while authoritative detail is still loading. Rendered as a
+  // static muted pill (pass notes={[]}); it is not a lifecycle state.
+  'loading':      { cls: 'cz-module-status-pill--loading',  label: 'Loading…'  },
 };
 
 const FALLBACK = { cls: 'cz-module-status-pill--pending', label: 'Pending' };
