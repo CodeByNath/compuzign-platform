@@ -563,9 +563,23 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   const openOverviewEditor = useCallback(() => {
     const wc = stationOverviewDraft;
-    const draft: OverviewDraft = wc
-      ? { title: wc.title, excerpt: wc.excerpt, content: wc.content, category_id: wc.category_ids[0] ?? null }
-      : initOverviewDraft(service);
+    // Seed order: existing draft → authoritative settled overview (adminDetail) →
+    // minimal catalog handoff service (last resort). The handoff service carries
+    // empty content, so seeding from it would open the editor blank and let a save
+    // of any other field overwrite the live description with empty.
+    let draft: OverviewDraft;
+    if (wc) {
+      draft = { title: wc.title, excerpt: wc.excerpt, content: wc.content, category_id: wc.category_ids[0] ?? null };
+    } else if (settledOverview) {
+      draft = {
+        title:       settledOverview.title,
+        excerpt:     settledOverview.excerpt,
+        content:     settledOverview.content,
+        category_id: settledOverview.categories[0]?.id ?? null,
+      };
+    } else {
+      draft = initOverviewDraft(service);
+    }
     const catId = draft.category_id;
     const desc  = catId ? (localCategories.find(c => c.id === catId)?.description ?? '') : '';
     setCatDesc(desc);
@@ -575,7 +589,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setEditingSection('overview');
     setOpenPanel(null);
     setSaveErr(null);
-  }, [service, stationOverviewDraft, localCategories]);
+  }, [service, stationOverviewDraft, settledOverview, localCategories]);
 
   const openInclusionsEditor = useCallback(() => {
     const draft: InclusionsDraft = { items: inclusions };
