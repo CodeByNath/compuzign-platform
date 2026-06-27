@@ -988,7 +988,7 @@
 
 .cz-sc-table th {
   padding: 10px 14px;
-  text-align: left;
+  text-align: center;
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
   line-height: var(--admin-lh-s-label);
@@ -1002,6 +1002,7 @@
 
 .cz-sc-table th:first-child {
   border-radius: 0;
+  text-align: left;
 }
 
 .cz-sc-table td {
@@ -1045,7 +1046,7 @@
 }
 
 .cz-sc-table__actions {
-  text-align: right;
+  text-align: center;
 }
 
 /* Commercial status columns (Basic/Standard/Premium/Enterprise/Promotions) */
