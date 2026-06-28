@@ -635,9 +635,6 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
             — manage your service library and availability.
           </p>
         </div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
-          + New Service
-        </button>
       </div>
 
       {totalStations === 0 ? (
@@ -672,6 +669,12 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div class="cz-sc-section__actions">
+            <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
+              + New Service
+            </button>
           </div>
 
           {visibleStations.length === 0 ? (

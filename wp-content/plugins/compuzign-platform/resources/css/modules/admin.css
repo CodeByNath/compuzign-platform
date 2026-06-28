@@ -284,6 +284,12 @@
   /* ── Radius — single shared value; removes sharp edges ─────────────────── */
   --admin-radius: 4px;
   --admin-btn-radius-base: 8px;   /* Buttons — softer than shared structural radius */
+  /*
+   * Admin base radius token.
+   * Use --admin-radius-base going forward for shared UI surfaces.
+   * Keep --admin-btn-radius-base for button-specific inheritance/children.
+   */
+  --admin-radius-base: var(--admin-btn-radius-base);
 
   /* ── Depth / shadow scale ─────────────────────────────────────────────────── */
   /* Structural: flat (0) → card (1) → drawer (2) → modal (3)                   */
@@ -616,24 +622,16 @@
 
 .cz-admin-topbar__menu-btn {
   background: transparent;
-  border: none;
+  border: 1px solid var(--admin-accent-a30);
   color: var(--admin-text-muted);
   cursor: pointer;
   font-size: var(--admin-fs-icon);
-  padding: var(--cz-space-1);
-  line-height: 1;
-  border-radius: var(--admin-radius);
+  padding: var(--cz-space-1) var(--cz-space-2) var(--cz-space-2);
+  border-radius: var(--admin-radius-base);
   transition: color var(--cz-transition-fast);
 }
 
 .cz-admin-topbar__menu-btn:hover {
-  color: var(--admin-text);
-}
-
-.cz-admin-topbar__title {
-  font-size: var(--admin-fs-l-label);
-  font-weight: var(--admin-fw-strong);
-  line-height: var(--admin-lh-l-label);
   color: var(--admin-text);
 }
 
@@ -721,7 +719,7 @@
 /* ── Workstation area ───────────────────────────────────────────────────────── */
 .cz-admin-workstation-area {
   flex: 1;
-  padding: var(--cz-space-7) var(--cz-space-7) var(--cz-space-12);
+  padding: var(--cz-space-6) var(--cz-space-6) var(--cz-space-12);
   overflow-y: auto;
 }
 
@@ -733,6 +731,10 @@
   gap: var(--cz-space-4);
   margin-bottom: var(--cz-space-6);
   flex-wrap: wrap;
+}
+
+.cz-ws-header .cz-tf-label {
+  display: none;
 }
 
 .cz-ws-title {
@@ -758,7 +760,7 @@
 .cz-ws-card {
   background: var(--admin-bg);
   border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius);
+  border-radius: var(--admin-radius-base);
   padding: var(--cz-space-5);
   margin-bottom: var(--cz-space-5);
 }
@@ -997,7 +999,7 @@
 }
 
 .cz-sc-table th {
-  padding: 10px 14px;
+  padding: var(--cz-space-4) var(--cz-space-3);
   text-align: center;
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
@@ -1069,12 +1071,20 @@
 .cz-sc-filters {
   display: flex;
   gap: var(--cz-space-5);
-  margin-bottom: var(--cz-space-5);
   flex-wrap: wrap;
+  margin-bottom: var(--cz-space-12);
 }
 
 .cz-sc-filters__field {
   min-width: 200px;
+}
+
+.cz-sc-section__actions {
+  padding: var(--cz-space-6) 0;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .cz-sc-table__confirm-label {
@@ -2881,6 +2891,7 @@ body.compuzign-admin-page footer.site-footer {
   background-position: right 12px center;
   padding-right: 32px;
   cursor: pointer;
+  border-radius: var(--admin-radius-base);
 }
 .cz-tf-select--unset {
   color: var(--admin-text-faint);
