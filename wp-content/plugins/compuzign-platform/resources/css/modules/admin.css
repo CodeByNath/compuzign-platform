@@ -1223,6 +1223,30 @@
   margin-right: var(--cz-space-2);
 }
 
+/* Row-selection checkbox column (Bin) — narrow, centred. */
+.cz-sc-table__select {
+  width: 1%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.cz-sc-table__select input {
+  accent-color: var(--admin-accent);
+  cursor: pointer;
+}
+
+/* Bin bulk-action cluster (lives in the workstation Actions zone). */
+.cz-bin-bulk {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+}
+
+.cz-bin-bulk__count {
+  font-size: var(--admin-fs-s-label);
+  color: var(--admin-text-muted);
+}
+
 .cz-sc-table__service {
   text-align: left;
 }

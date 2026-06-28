@@ -10,6 +10,7 @@ import { BundlesWorkstation } from './workstations/BundlesWorkstation';
 import { FeaturedWorkstation } from './workstations/FeaturedWorkstation';
 import { RequestsWorkstation } from './workstations/RequestsWorkstation';
 import { HealthWorkstation } from './workstations/HealthWorkstation';
+import { BinWorkstation } from './workstations/BinWorkstation';
 
 interface Props {
   active: WorkstationId;
@@ -40,6 +41,8 @@ export function WorkstationRouter({ active, refreshKey, openAction }: Props) {
       return <RequestsWorkstation refreshKey={refreshKey} openAction={openAction} />;
     case 'health':
       return <HealthWorkstation refreshKey={refreshKey} />;
+    case 'bin':
+      return <BinWorkstation refreshKey={refreshKey} />;
     default:
       return (
         <div class="cz-admin-empty">

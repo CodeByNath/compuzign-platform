@@ -122,7 +122,8 @@ export type WorkstationId =
   | 'bundles'
   | 'featured'
   | 'requests'
-  | 'health';
+  | 'health'
+  | 'bin';
 
 export interface WorkstationDef {
   id:      WorkstationId;
@@ -137,12 +138,13 @@ export const WORKSTATIONS: WorkstationDef[] = [
   { id: 'service-catalog',   label: 'Service Catalog',   icon: '◫', group: 'catalog'    },
   { id: 'service-archived',  label: 'Archived',          icon: '',  group: 'catalog',   parent: 'service-catalog' },
   { id: 'service-trash',     label: 'Trash',             icon: '',  group: 'catalog',   parent: 'service-catalog' },
-  { id: 'surface-packages',  label: 'Service Packages',  icon: '◧', group: 'catalog'    },
-  { id: 'promotions',       label: 'Promotions',        icon: '◷', group: 'catalog'    },
+  { id: 'surface-packages',  label: 'Service Packages',  icon: '◧', group: 'catalog',   parent: 'service-catalog' },
+  { id: 'promotions',       label: 'Promotions',        icon: '◷', group: 'catalog',   parent: 'service-catalog' },
   { id: 'bundles',          label: 'Bundles',           icon: '❐', group: 'catalog'    },
   { id: 'featured',         label: 'Featured Controls', icon: '◆', group: 'catalog'    },
   { id: 'requests',         label: 'Requests & Quotes', icon: '◌', group: 'operations' },
   { id: 'health',           label: 'Health & Status',   icon: '◉', group: 'operations' },
+  { id: 'bin',              label: 'Bin',               icon: '🗑', group: 'operations' },
 ];
 
 export const WORKSTATION_LABELS: Record<WorkstationId, string> = Object.fromEntries(
