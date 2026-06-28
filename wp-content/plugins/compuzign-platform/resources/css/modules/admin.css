@@ -801,13 +801,17 @@
 /* .cz-shell-table-card inside .cz-shell-workstation__content and a <table> inside  */
 /* .cz-shell-table-scroll: the card fills remaining height, only the table body     */
 /* scrolls, and the header sticks. See docs/architecture/AdminShellSystem-v2.md.    */
-/* CSS-only contract — no markup primitive. Service Catalog is not migrated yet.    */
+/* Used by Service Catalog as of P4 (the bounded scroll wiring is just below).      */
 .cz-shell-table-card {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Self-contained card surface (replaces .cz-ws-card for table views). */
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: var(--admin-radius-base);
 }
 
 .cz-shell-table-scroll {
@@ -830,6 +834,18 @@
   top: 0;
   z-index: 2;
   background: linear-gradient(var(--admin-accent-a12), var(--admin-accent-a12)), var(--admin-bg);
+}
+
+/* Table layout × shell wiring (generic; replaces the .cz-sc-catalog pilot).        */
+/* When the mounted workstation hosts a table-card, bound the SHARED scroll host    */
+/* and give the workstation a definite height so the table owns its internal scroll.*/
+/* Flowing workstations (no table-card) keep overflow-y:auto and min-height:100%.   */
+.cz-admin-workstation-area:has(.cz-shell-table-card) {
+  overflow: hidden;
+}
+.cz-admin-workstation-area:has(.cz-shell-table-card) > .cz-shell-workstation {
+  height: 100%;
+  min-height: 0;
 }
 /* ── / Admin Shell System — P3 ───────────────────────────────────────────────── */
 
@@ -1097,60 +1113,9 @@
   color: var(--admin-error);
 }
 
-/* ── Admin Shell System — P4 pilot: Service Catalog table viewport ────────────── */
-/* Scoped to .cz-sc-catalog only. Chrome (header/filters/actions) stays fixed; the */
-/* card stretches to fill the viewport; only the table body scrolls; the table     */
-/* header is sticky. Google-Drive-style: chrome still, list scrolls in its panel.  */
-/* See docs/architecture/AdminShellSystem-v2.md.                                    */
-
-/* Flip the SHARED scroll host to overflow:hidden ONLY when the catalog is mounted, */
-/* so Service Catalog owns its internal scroll. Other workstations keep overflow:   */
-/* auto (the :has guard means this rule never matches for them).                    */
-.cz-admin-workstation-area:has(> .cz-sc-catalog) {
-  overflow: hidden;
-}
-
-.cz-sc-catalog {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.cz-sc-catalog > .cz-ws-header,
-.cz-sc-catalog > .cz-sc-filters,
-.cz-sc-catalog > .cz-sc-section__actions {
-  flex: 0 0 auto;
-}
-
-.cz-sc-catalog > .cz-ws-card {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.cz-sc-catalog .cz-sc-table-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-
-.cz-sc-catalog .cz-sc-table {
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-/* Opaque header (composite the translucent tint over the solid base) so scrolling */
-/* rows don't bleed through the sticky header. */
-.cz-sc-catalog .cz-sc-table th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: linear-gradient(var(--admin-accent-a12), var(--admin-accent-a12)), var(--admin-bg);
-}
-/* ── / Admin Shell System — P4 pilot ─────────────────────────────────────────── */
+/* Service Catalog table-scroll migrated to the generic shell primitives in P4      */
+/* (.cz-shell-workstation + .cz-shell-table-card/-scroll). The former .cz-sc-catalog */
+/* pilot block was removed; see docs/architecture/AdminShellSystem-v2.md.            */
 
 /* ── Service Catalog table ──────────────────────────────────────────────────── */
 .cz-sc-table-wrap {

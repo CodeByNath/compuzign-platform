@@ -10,6 +10,7 @@ import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
 import { resolveStationCommercialSummary } from '@/components/admin/utils/moduleStatus';
 import { ModuleNotificationPanel } from '@/components/admin/ui/ModuleNotificationPanel';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import { Workstation } from '../shell/Workstation';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -626,8 +627,8 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     : categoryStations.filter((s) => resolveStationStatus(s) === statusFilter);
 
   return (
-    <div class="cz-sc-catalog">
-      <div class="cz-ws-header">
+    <Workstation>
+      <Workstation.Header className="cz-ws-header">
         <div>
           <h2 class="cz-ws-title">Services</h2>
           <p class="cz-ws-subtitle">
@@ -635,15 +636,17 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
             — manage your service library and availability.
           </p>
         </div>
-      </div>
+      </Workstation.Header>
 
       {totalStations === 0 ? (
-        <div class="cz-admin-empty">
-          <p>No services in catalog. Use the import endpoint to load from XLSX.</p>
-        </div>
+        <Workstation.Content>
+          <div class="cz-admin-empty">
+            <p>No services in catalog. Use the import endpoint to load from XLSX.</p>
+          </div>
+        </Workstation.Content>
       ) : (
         <>
-          <div class="cz-sc-filters">
+          <Workstation.Toolbar className="cz-sc-filters">
             <div class="cz-tf-field cz-sc-filters__field">
               <label class="cz-tf-label">Browse Category</label>
               <select
@@ -669,21 +672,22 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
                 ))}
               </select>
             </div>
-          </div>
+          </Workstation.Toolbar>
 
-          <div class="cz-sc-section__actions">
+          <Workstation.Actions className="cz-sc-section__actions">
             <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
               + New Service
             </button>
-          </div>
+          </Workstation.Actions>
 
+          <Workstation.Content>
           {visibleStations.length === 0 ? (
             <div class="cz-admin-empty">
               <p>No services match the current filter.</p>
             </div>
           ) : (
-            <div class="cz-ws-card" style="padding:0;overflow:hidden">
-              <div class="cz-sc-table-wrap">
+            <div class="cz-shell-table-card">
+              <div class="cz-shell-table-scroll">
                 <table class="cz-sc-table">
                   <thead>
                     <tr>
@@ -731,8 +735,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
               </div>
             </div>
           )}
+          </Workstation.Content>
         </>
       )}
-    </div>
+    </Workstation>
   );
 }
