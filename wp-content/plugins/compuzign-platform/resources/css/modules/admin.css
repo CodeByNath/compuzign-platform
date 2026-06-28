@@ -1148,14 +1148,10 @@
 }
 
 .cz-sc-table td {
-  padding: 10px 14px;
+  padding: var(--cz-space-3) var(--cz-space-4);
   border-bottom: 1px solid var(--admin-border-blue);
   color: var(--admin-text);
   vertical-align: middle;
-}
-
-.cz-sc-table tr:last-child td {
-  border-bottom: none;
 }
 
 .cz-sc-table tr:hover td {
