@@ -485,8 +485,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
             status="pending-dim"
           />
 
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <p class="cz-req-detail__section-title">Pricing Summary</p>
+          <div class="cz-shell-section cz-shell-section--no-border">
+            <p class="cz-shell-section__title">Pricing Summary</p>
             <div class="cz-sp-tier-table-wrap">
               <table class="cz-sp-tier-table">
                 <thead>

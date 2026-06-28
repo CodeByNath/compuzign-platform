@@ -28,7 +28,7 @@ export function ReadBlock({
   const showPanel   = !!status && panelOpen === true && moduleNotes.length > 0;
 
   return (
-    <div class={`cz-req-detail__section${noBorder ? ' cz-sv-section--no-border' : ''}`}>
+    <div class={`cz-shell-section${noBorder ? ' cz-shell-section--no-border' : ''}`}>
       <div class="drawerModule">
         <div class="drawerModule__header">
           <div class="drawerModule__heading">

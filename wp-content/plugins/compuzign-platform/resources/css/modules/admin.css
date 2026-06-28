@@ -1906,17 +1906,25 @@
   gap: 0;
 }
 
-.cz-req-detail__section {
+/* ── Admin Shell System — P5: Section primitive ──────────────────────────────── */
+/* The global Section primitive. Promoted from the Requests-owned                  */
+/* .cz-req-detail__section so other modules stop borrowing that name. Both          */
+/* selectors share these rules (alias now, rename later — the legacy name retires   */
+/* at C2). See docs/architecture/AdminShellSystem-v2.md.                            */
+.cz-req-detail__section,
+.cz-shell-section {
   padding-bottom: var(--cz-space-6);
   margin-bottom: var(--cz-space-6);
 }
 
-.cz-req-detail__section:last-of-type {
+.cz-req-detail__section:last-of-type,
+.cz-shell-section:last-of-type {
   margin-bottom: 0;
   padding-bottom: 0;
 }
 
-.cz-req-detail__section-title {
+.cz-req-detail__section-title,
+.cz-shell-section__title {
   margin: 0 0 var(--cz-space-3);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-strong);
@@ -1926,20 +1934,28 @@
   color: var(--admin-text);
 }
 
-.cz-req-detail__section-title .cz-tf-count {
+.cz-req-detail__section-title .cz-tf-count,
+.cz-shell-section__title .cz-tf-count {
   margin-left: var(--cz-space-2);
   vertical-align: middle;
   text-transform: none;
   letter-spacing: 0;
 }
 
-.cz-req-detail__section-count {
+.cz-req-detail__section-count,
+.cz-shell-section__count {
   font-weight: 400;
   color: var(--admin-text-faint);
   margin-left: var(--cz-space-2);
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* Reserved structural sub-parts for the documented Section contract. No visual    */
+/* treatment yet — content sits on the surrounding surface.                        */
+.cz-shell-section__body {}
+.cz-shell-section__footer {}
+/* ── / Admin Shell System — P5 ───────────────────────────────────────────────── */
 
 .cz-req-contact-grid {
   display: grid;
@@ -4070,8 +4086,10 @@ button.cz-module-status-pill {
   line-height: 1.5;
 }
 
-/* Suppress bottom divider — used where bordered blocks already provide separation */
-.cz-sv-section--no-border {
+/* Suppress bottom divider — used where bordered blocks already provide separation. */
+/* Aliased to the Section primitive modifier (P5). */
+.cz-sv-section--no-border,
+.cz-shell-section--no-border {
   border-bottom: none;
 }
 

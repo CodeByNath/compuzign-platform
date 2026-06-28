@@ -646,7 +646,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
                 faqs={service.faqs ?? []}
               />
             ) : (
-              <div class="cz-req-detail__section">
+              <div class="cz-shell-section">
                 <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
               </div>
             )}

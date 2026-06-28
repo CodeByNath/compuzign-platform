@@ -367,7 +367,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── Tier selector (create mode only) ──────────────────────────────── */}
       {isNew && (
-        <div class="cz-req-detail__section cz-sv-section--no-border">
+        <div class="cz-shell-section cz-shell-section--no-border">
           <div class="cz-tf-field">
             <label class="cz-tf-label">Tier *</label>
             <select
@@ -582,7 +582,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               faqs={service.faqs ?? []}
             />
           ) : (
-            <div class="cz-req-detail__section">
+            <div class="cz-shell-section">
               <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
             </div>
           )}
@@ -1398,7 +1398,7 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
               faqs={service.faqs ?? []}
             />
           ) : (
-            <div class="cz-req-detail__section">
+            <div class="cz-shell-section">
               <p class="cz-sc-pkg-block__empty-msg">No service selected.</p>
             </div>
           )}

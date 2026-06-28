@@ -330,8 +330,8 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
             );
           })}
 
-          <div class="cz-req-detail__section cz-sv-section--no-border">
-            <p class="cz-req-detail__section-title">Pricing Summary</p>
+          <div class="cz-shell-section cz-shell-section--no-border">
+            <p class="cz-shell-section__title">Pricing Summary</p>
             <div class="cz-sp-tier-table-wrap">
               <table class="cz-sp-tier-table">
                 <thead>
@@ -407,7 +407,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
             })}
           </>
         ) : (
-          <div class="cz-req-detail__section">
+          <div class="cz-shell-section">
             <div class="drawerModule">
               <div class="drawerModule__header">
                 <div class="drawerModule__heading">
@@ -1216,8 +1216,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             onView={handleOpenPromoConfig}
           />
           {relatedPkg && tiers && (
-            <div class="cz-req-detail__section cz-sv-section--no-border">
-              <p class="cz-req-detail__section-title">Pricing Summary</p>
+            <div class="cz-shell-section cz-shell-section--no-border">
+              <p class="cz-shell-section__title">Pricing Summary</p>
               <div class="cz-sp-tier-table-wrap">
                 <table class="cz-sp-tier-table">
                   <thead>
@@ -1726,7 +1726,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           return (
             <div
               key={tierId}
-              class="cz-req-detail__section cz-sv-section--no-border"
+              class="cz-shell-section cz-shell-section--no-border"
               style="cursor: pointer"
               onClick={() => openTierEdit(tierId)}
             >
@@ -1997,7 +1997,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       {tierTab === 'commercial' && (
         <>
           {/* ── Tier Module: Tier Overview ───────────────────────────────────── */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
+          <div class="cz-shell-section cz-shell-section--no-border">
             <div class="drawerModule drawerOverview service">
               <div class="drawerModule__header">
                 <div class="drawerModule__heading">
@@ -2040,7 +2040,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           </div>
 
           {/* ── Tier Module: Included Features ─────────────────────────────────── */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
+          <div class="cz-shell-section cz-shell-section--no-border">
             <div class="drawerModule">
               <div class="drawerModule__header">
                 <div class="drawerModule__heading">
@@ -2080,7 +2080,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           </div>
 
           {/* ── Tier Module: Common Questions ──────────────────────────────────── */}
-          <div class="cz-req-detail__section cz-sv-section--no-border">
+          <div class="cz-shell-section cz-shell-section--no-border">
             <div class="drawerModule">
               <div class="drawerModule__header">
                 <div class="drawerModule__heading">
@@ -2123,7 +2123,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           </div>
 
           {(saveErr || saveOk) && (
-            <div class="cz-req-detail__section cz-sv-section--no-border">
+            <div class="cz-shell-section cz-shell-section--no-border">
               {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
               {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
             </div>
@@ -2273,7 +2273,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
         )}
 
         {promotions.map((promo) => (
-          <div key={promo.id} class="cz-req-detail__section cz-sv-section--no-border">
+          <div key={promo.id} class="cz-shell-section cz-shell-section--no-border">
             <div class="drawerModule">
               <div class="drawerModule__header">
                 <div class="drawerModule__heading">
