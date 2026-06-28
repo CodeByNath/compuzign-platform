@@ -629,7 +629,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     <div>
       <div class="cz-ws-header">
         <div>
-          <h2 class="cz-ws-title">Service Catalog</h2>
+          <h2 class="cz-ws-title">Services</h2>
           <p class="cz-ws-subtitle">
             {totalStations} service{totalStations !== 1 ? 's' : ''} across {allCategories.length} categories
             — manage your service library and availability.

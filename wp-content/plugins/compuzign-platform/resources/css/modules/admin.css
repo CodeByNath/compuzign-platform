@@ -635,6 +635,13 @@
   color: var(--admin-text);
 }
 
+.cz-admin-topbar__title {
+  font-size: var(--admin-fs-l-label);
+  font-weight: var(--admin-fw-strong);
+  line-height: var(--admin-lh-l-label);
+  color: var(--admin-text);
+}
+
 .cz-admin-topbar__meta {
   margin-left: auto;
   font-size: var(--admin-fs-s-label);
