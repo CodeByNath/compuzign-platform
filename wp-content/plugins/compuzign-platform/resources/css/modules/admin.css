@@ -786,11 +786,52 @@
   flex: 0 0 auto;
 }
 
+/* Content is the single stretch zone and hosts one content layout (table/split/   */
+/* canvas/…). It is a flex column so that layout child can fill it.                 */
 .cz-shell-workstation__content {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 /* ── / Admin Shell System — P2 ───────────────────────────────────────────────── */
+
+/* ── Admin Shell System — P3: Table layout primitive ─────────────────────────── */
+/* Generic table layout, extracted from the Service Catalog pilot. Drop a          */
+/* .cz-shell-table-card inside .cz-shell-workstation__content and a <table> inside  */
+/* .cz-shell-table-scroll: the card fills remaining height, only the table body     */
+/* scrolls, and the header sticks. See docs/architecture/AdminShellSystem-v2.md.    */
+/* CSS-only contract — no markup primitive. Service Catalog is not migrated yet.    */
+.cz-shell-table-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cz-shell-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* border-collapse:separate keeps cell borders under a sticky header. */
+.cz-shell-table-scroll > table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Opaque sticky header — composite the translucent tint over the solid base so     */
+/* scrolling rows don't bleed through.                                              */
+.cz-shell-table-scroll > table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(var(--admin-accent-a12), var(--admin-accent-a12)), var(--admin-bg);
+}
+/* ── / Admin Shell System — P3 ───────────────────────────────────────────────── */
 
 /* ── Workstation shared ─────────────────────────────────────────────────────── */
 .cz-ws-header {
