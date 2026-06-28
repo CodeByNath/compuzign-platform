@@ -626,7 +626,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     : categoryStations.filter((s) => resolveStationStatus(s) === statusFilter);
 
   return (
-    <div>
+    <div class="cz-sc-catalog">
       <div class="cz-ws-header">
         <div>
           <h2 class="cz-ws-title">Services</h2>

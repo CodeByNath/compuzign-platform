@@ -1031,6 +1031,61 @@
   color: var(--admin-error);
 }
 
+/* ── Admin Shell System — P4 pilot: Service Catalog table viewport ────────────── */
+/* Scoped to .cz-sc-catalog only. Chrome (header/filters/actions) stays fixed; the */
+/* card stretches to fill the viewport; only the table body scrolls; the table     */
+/* header is sticky. Google-Drive-style: chrome still, list scrolls in its panel.  */
+/* See docs/architecture/AdminShellSystem-v2.md.                                    */
+
+/* Flip the SHARED scroll host to overflow:hidden ONLY when the catalog is mounted, */
+/* so Service Catalog owns its internal scroll. Other workstations keep overflow:   */
+/* auto (the :has guard means this rule never matches for them).                    */
+.cz-admin-workstation-area:has(> .cz-sc-catalog) {
+  overflow: hidden;
+}
+
+.cz-sc-catalog {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cz-sc-catalog > .cz-ws-header,
+.cz-sc-catalog > .cz-sc-filters,
+.cz-sc-catalog > .cz-sc-section__actions {
+  flex: 0 0 auto;
+}
+
+.cz-sc-catalog > .cz-ws-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cz-sc-catalog .cz-sc-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cz-sc-catalog .cz-sc-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Opaque header (composite the translucent tint over the solid base) so scrolling */
+/* rows don't bleed through the sticky header. */
+.cz-sc-catalog .cz-sc-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(var(--admin-accent-a12), var(--admin-accent-a12)), var(--admin-bg);
+}
+/* ── / Admin Shell System — P4 pilot ─────────────────────────────────────────── */
+
 /* ── Service Catalog table ──────────────────────────────────────────────────── */
 .cz-sc-table-wrap {
   overflow-x: auto;
