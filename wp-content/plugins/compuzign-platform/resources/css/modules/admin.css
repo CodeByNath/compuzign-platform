@@ -767,6 +767,31 @@
 }
 /* ── / Admin Shell System — P1 ───────────────────────────────────────────────── */
 
+/* ── Admin Shell System — P2: Workstation contract ───────────────────────────── */
+/* The shared internal layout every workstation inherits. header / toolbar /       */
+/* actions / content are FLAT SIBLINGS; only content stretches. Generalised from   */
+/* the Service Catalog pilot (.cz-sc-catalog) — see                                */
+/* docs/architecture/AdminShellSystem-v2.md. Default is "flowing" (min-height:100%, */
+/* so short pages fill and tall pages let the viewport scroll). A table/stretch     */
+/* layout opts into bounded internal scroll on top of this (P3/P4).                 */
+.cz-shell-workstation {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.cz-shell-workstation__header,
+.cz-shell-workstation__toolbar,
+.cz-shell-workstation__actions {
+  flex: 0 0 auto;
+}
+
+.cz-shell-workstation__content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* ── / Admin Shell System — P2 ───────────────────────────────────────────────── */
+
 /* ── Workstation shared ─────────────────────────────────────────────────────── */
 .cz-ws-header {
   display: flex;
