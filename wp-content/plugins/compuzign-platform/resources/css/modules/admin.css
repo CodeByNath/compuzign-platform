@@ -730,6 +730,43 @@
   overflow-y: auto;
 }
 
+/* ── Admin Shell System — P1: definite-height chain + App-Shell aliases ───────── */
+/* See docs/architecture/AdminShellSystem-v2.md. Alias now, rename later:          */
+/* cz-app-runtime / cz-shell-* are reserved here and activate in P2+.              */
+/* Definite height (not min-height) is required so flex children can bound their   */
+/* own overflow instead of growing the page.                                       */
+.cz-admin-root,
+.cz-app-runtime,
+.cz-shell-app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* WP admin bar offset — inert unless body/html carries .admin-bar */
+.admin-bar .cz-admin-root,
+.admin-bar .cz-app-runtime,
+.admin-bar .cz-shell-app {
+  height: calc(100vh - 32px);
+}
+@media screen and (max-width: 782px) {
+  .admin-bar .cz-admin-root,
+  .admin-bar .cz-app-runtime,
+  .admin-bar .cz-shell-app {
+    height: calc(100vh - 46px);
+  }
+}
+
+/* Allow the column + scroll host to shrink so nested overflow engages */
+.cz-admin-main,
+.cz-shell-main {
+  min-height: 0;
+}
+.cz-admin-workstation-area,
+.cz-shell-viewport {
+  min-height: 0;
+}
+/* ── / Admin Shell System — P1 ───────────────────────────────────────────────── */
+
 /* ── Workstation shared ─────────────────────────────────────────────────────── */
 .cz-ws-header {
   display: flex;
