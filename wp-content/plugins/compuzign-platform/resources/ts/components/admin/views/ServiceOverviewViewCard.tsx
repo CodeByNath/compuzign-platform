@@ -54,7 +54,7 @@ export function ServiceOverviewViewCard({
         </span>
         <div class="drawerModule__heading">
           <p class="drawerModule__title">Service Overview</p>
-          <p class="drawerModule__subtitle">General information about your service.</p>
+          <p class="drawerModule__subtitle">General information about the service.</p>
         </div>
         <div class={`drawerModule__status${statusDimmed ? ' drawerModule__status--dim' : ''}`}>
           <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />

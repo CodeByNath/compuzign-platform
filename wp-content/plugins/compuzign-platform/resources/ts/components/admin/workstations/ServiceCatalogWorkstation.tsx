@@ -237,6 +237,22 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
     }
   }, [draft, catDesc, catDescOriginal, doOpen, packages, allCategories, onRefresh, ctx]);
 
+  // Drawer Principle v1 — render footer in the shared shell footer slot (not inline
+  // in the scrolling body) so it aligns with the standard drawer footer. Single
+  // action → right-aligned via the leading spacer.
+  useEffect(() => {
+    const { setFooter, close } = ctx;
+    setFooter(
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>
+          Cancel
+        </button>
+      </div>,
+    );
+    return () => setFooter(null);
+  }, [ctx.setFooter, ctx.close]);
+
   return (
     <>
     <div class="cz-req-detail">
@@ -278,7 +294,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
               </span>
               <div class="drawerModule__heading">
                 <p class="drawerModule__title">Service Overview</p>
-                <p class="drawerModule__subtitle">General information about your service.</p>
+                <p class="drawerModule__subtitle">General information about the service.</p>
               </div>
               <div class="drawerModule__status drawerModule__status--dim">
                 <ModuleStatusPill
@@ -513,12 +529,6 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
         </>
       )}
 
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-          Cancel
-        </button>
-      </div>
     </div>
 
     {editing && (

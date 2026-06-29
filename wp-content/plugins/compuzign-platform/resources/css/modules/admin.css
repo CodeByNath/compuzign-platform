@@ -3336,12 +3336,12 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-footer-split__btn {
-  border-radius: var(--admin-radius) 0 0 var(--admin-radius);
+  border-radius: var(--admin-btn-radius-base) 0 0 var(--admin-btn-radius-base);
   border-right: none;
 }
 
 .cz-footer-split__chevron {
-  border-radius: 0 var(--admin-radius) var(--admin-radius) 0;
+  border-radius: 0 var(--admin-btn-radius-base) var(--admin-btn-radius-base) 0;
   padding: 7px var(--cz-space-3);
 }
 
@@ -4244,18 +4244,19 @@ button.cz-module-status-pill {
   padding: var(--cz-space-3) var(--cz-space-5);
 }
 
-/* ── Service Overview drawer scope (drawerOverview service) ─────────────────── */
-/* Applied to ServiceOverviewViewCard root: class="drawerModule drawerOverview service" */
-/* Scopes the Overview-specific field/label/value system.                         */
+/* ── Drawer Overview label/value scope (drawerOverview) ─────────────────────── */
+/* Applied to any module that reuses the Overview field/label/value system, e.g.  */
+/* class="drawerModule drawerOverview service" (Service Overview) and              */
+/* class="drawerModule drawerOverview tier" (Package tier cards).                  */
 /* All shared frame styles above apply via .drawerModule.                         */
 
-.drawerOverview.service .drawerModule__fields {
+.drawerOverview .drawerModule__fields {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-3);
 }
 
-.drawerOverview.service .drawerModule__field {
+.drawerOverview .drawerModule__field {
   display: grid;
   grid-template-columns: 100px 1fr;
   gap: var(--cz-space-3);
@@ -4263,7 +4264,7 @@ button.cz-module-status-pill {
   max-width: 90%;
 }
 
-.drawerOverview.service .drawerModule__label {
+.drawerOverview .drawerModule__label {
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-normal);
   color: var(--admin-text-faint);
@@ -4271,20 +4272,20 @@ button.cz-module-status-pill {
   margin: 0;
 }
 
-.drawerOverview.service .drawerModule__value {
+.drawerOverview .drawerModule__value {
   margin: 0;
   font-size: var(--admin-fs-label);
   color: var(--admin-text);
   line-height: var(--admin-lh-label);
 }
 
-.drawerOverview.service .drawerModule__value--muted {
+.drawerOverview .drawerModule__value--muted {
   color: var(--admin-text-muted);
   font-size: var(--admin-fs-s-label);
   line-height: var(--admin-lh-s-label);
 }
 
-.drawerOverview.service .drawerModule__value--clamp {
+.drawerOverview .drawerModule__value--clamp {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;

@@ -28,7 +28,7 @@ import type {
 import { useApi } from '@/hooks/useApi';
 import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
-import { resolveTierStatus, statusDotColor } from '@/components/admin/utils/moduleStatus';
+import { resolveTierStatus, statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { useServiceStation } from '@/hooks/useServiceStation';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -280,13 +280,23 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
             const faqLabel   = `${faqCount} ${faqCount === 1 ? 'common question' : 'common questions'}`;
             const tierNotes  = getTierNotes(tier, { platformStatus: pkg.platform_status ?? 'disabled' });
             return (
-              <div key={tierId} class="drawerModule">
+              <div key={tierId} class="drawerModule drawerOverview tier">
                 <div class="drawerModule__header">
+                  <span class="drawerModule__icon">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      class="drawerModule__icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
+                    </svg>
+                  </span>
                   <div class="drawerModule__heading">
                     <p class="drawerModule__title">Package {TIER_LABELS[tierId]}</p>
-                    {tier?.label?.trim() && (
-                      <p class="drawerModule__subtitle">{tier.label}</p>
-                    )}
+                    <p class="drawerModule__subtitle">Brief summary about the tier.</p>
                   </div>
                   <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
                     <ModuleStatusPill
@@ -300,21 +310,23 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                   <ModuleNotificationPanel notes={tierNotes} />
                 )}
                 <div class="drawerModule__body">
-                  <div class="drawerModule__empty">
-                    <p class="drawerModule__empty-title">Tier summary</p>
-                    {showData ? (
-                      <p class="drawerModule__empty-copy">
-                        Price:{' '}
-                        <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
-                        {' · '}
-                        <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
-                      </p>
-                    ) : (
-                      <p class="drawerModule__empty-copy">View Tier Overview and manage pricing.</p>
-                    )}
-                    <p class="drawerModule__empty-copy" style="color:var(--admin-text-faint)">
-                      Includes: {featLabel} | {faqLabel}
-                    </p>
+                  <div class="drawerModule__fields">
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Pricing</p>
+                      {showData ? (
+                        <p class="drawerModule__value">
+                          <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
+                          {' · '}
+                          <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
+                        </p>
+                      ) : (
+                        <p class="drawerModule__value drawerModule__value--muted">View Tier Overview and manage pricing.</p>
+                      )}
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Includes</p>
+                      <p class="drawerModule__value">{featLabel} | {faqLabel}</p>
+                    </div>
                   </div>
                 </div>
                 <div class="drawerModule__footer">
@@ -349,8 +361,10 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                     return (
                       <tr key={tierId}>
                         <td class="cz-sp-tier-table__name">
-                          <span class="cz-admin-status-dot" style={`color:${statusDotColor(status)};margin-right:6px`} />
-                          {TIER_LABELS[tierId]}
+                          <div class="cz-sp-tier-table__name-inner">
+                            <span class={`cz-admin-status-dot ${statusDotClass(status)}`} />
+                            <span>{TIER_LABELS[tierId]}</span>
+                          </div>
                         </td>
                         <td>
                           <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
@@ -980,7 +994,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       <div class="cz-tf-footer">
         {/* Split button — visible for active/disabled states */}
         {tab === 'service' && isLiveState && (
-          <div class={`cz-footer-split${platformStatus === 'active' ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
+          <div class={`cz-footer-split${platformStatus === 'active' || isNewNeverPublished ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
             {/* Primary action:
                 Active         → Disable
                 Disabled+published → Enable
@@ -1031,7 +1045,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                 {!isNewNeverPublished && (
                   <button
                     type="button"
-                    class="cz-footer-split__item cz-footer-split__item--danger"
+                    class="cz-footer-split__item"
                     disabled={station.loading.status}
                     onClick={() => handleTrashRef.current()}
                   >
@@ -1042,10 +1056,12 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             )}
           </div>
         )}
+        {/* No left-side actions (e.g. Commercial tab) → push the single Cancel right. */}
+        {!(tab === 'service' && isLiveState) && <div class="cz-tf-footer__spacer" />}
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>
           Cancel
         </button>
-        <div class="cz-tf-footer__spacer" />
+        {tab === 'service' && isLiveState && <div class="cz-tf-footer__spacer" />}
         {/* Publish — available when canPublish; no longer gated on platformStatus */}
         {tab === 'service' && isLiveState && (
           <button

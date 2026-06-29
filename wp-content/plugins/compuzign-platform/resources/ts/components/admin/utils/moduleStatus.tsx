@@ -146,6 +146,19 @@ export function statusDotColor(status: string): string {
   return STATUS_PILL_MAP[status]?.dot ?? 'var(--admin-text-faint)';
 }
 
+// Token-based status-dot modifier class (mirrors statusDotColor) so tables can use
+// the reusable .cz-admin-status-dot--* classes instead of inline colour styles.
+const STATUS_DOT_CLASS_MAP: Record<string, string> = {
+  'active':       'cz-admin-status-dot--active',
+  'disabled':     'cz-admin-status-dot--inactive',
+  'pending-dim':  'cz-admin-status-dot--pending',
+  'pending-full': 'cz-admin-status-dot--pending',
+};
+
+export function statusDotClass(status: string): string {
+  return STATUS_DOT_CLASS_MAP[status] ?? 'cz-admin-status-dot--faint';
+}
+
 export function renderModuleStatus(status: string) {
   const pill = STATUS_PILL_MAP[status]
     ?? { dot: 'var(--admin-text-faint)', cls: 'cz-module-status-pill--draft', label: 'Pending' };
