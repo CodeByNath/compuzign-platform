@@ -295,7 +295,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                     </svg>
                   </span>
                   <div class="drawerModule__heading">
-                    <p class="drawerModule__title">Package {TIER_LABELS[tierId]}</p>
+                    <p class="drawerModule__title">Package {tier?.label?.trim() || TIER_LABELS[tierId]}</p>
                     <p class="drawerModule__subtitle">Brief summary about the tier.</p>
                   </div>
                   <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
@@ -1749,7 +1749,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               <div class="drawerModule">
                 <div class="drawerModule__header">
                   <div class="drawerModule__heading">
-                    <p class="drawerModule__title">{TIER_LABELS[tierId]}</p>
+                    <p class="drawerModule__title">{detail?.label?.trim() || TIER_LABELS[tierId]}</p>
                     <p class="drawerModule__subtitle">
                       {isConfigured
                         ? (detail.price !== null
