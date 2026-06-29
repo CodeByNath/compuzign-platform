@@ -384,7 +384,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               onClick={() => a.handleToggleEnabled()}
               disabled={saving}
             >
-              {currentEnabled ? 'Disable Tier' : 'Enable Tier'}
+              {currentEnabled ? 'Disable' : 'Enable'}
             </button>
           )}
           <div class="cz-tf-footer__spacer" />
@@ -411,7 +411,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               onClick={() => a.handleSave()}
               disabled={saving}
             >
-              {saving ? 'Saving…' : 'Publish Tier'}
+              {saving ? 'Saving…' : 'Publish'}
             </button>
           )}
         </div>
@@ -419,7 +419,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         <div class="cz-tf-footer">
           <div class="cz-tf-footer__spacer" />
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>
-            Done
+            Cancel
           </button>
         </div>
       ),
@@ -440,6 +440,17 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
   if (!detail) return null;
 
   const service = detail.service;
+
+  // Existing navigation path back to the parent Service Overview. When this tier
+  // drawer was opened from the Service drawer, the drawer config carries `pkgBack`
+  // in stepData — the same function wired to the drawer's Back button. Standalone
+  // (opened from the Packages workstation list) there is no parent to return to, so
+  // the View action is disabled. No new navigation is introduced.
+  const viewService = ctx.stepData.pkgBack as (() => void) | undefined;
+
+  // Parent service totals (full service inventory, not the tier's selected subset).
+  const svcFeatureCount  = service?.inclusions?.length ?? 0;
+  const svcQuestionCount = service?.faqs?.length ?? 0;
 
   const selIncCount = selExistingIncs.length + pendingIncs.length;
   const selFaqCount = selExistingFaqs.length + pendingFaqs.length;
@@ -591,21 +602,11 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                   <span key={p.label} class="cz-tf-chip">
                     {p.label}
                     <span class="cz-tf-new-badge">new</span>
-                    <button
-                      type="button"
-                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
-                      onClick={() => setEditingSection('inclusions')}
-                    >✎</button>
                   </span>
                 ))}
                 {selExistingIncs.map((inc) => (
                   <span key={inc.id} class="cz-tf-chip">
                     {inc.label}
-                    <button
-                      type="button"
-                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
-                      onClick={() => setEditingSection('inclusions')}
-                    >✎</button>
                   </span>
                 ))}
               </div>
@@ -664,20 +665,50 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       )}
 
       {/* ── Service Tab ────────────────────────────────────────────────────── */}
+      {/* Simple parent-service context card. The Commercial tab manages the tier;
+          this tab gives clear context back to the linked service. */}
       {tab === 'service' && (
         <>
           {service ? (
-            <ServiceContextPanel
-              title={decodeHtml(service.title)}
-              category={
-                service.categories && service.categories.length > 0
-                  ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
-                  : 'Not selected'
-              }
-              content={service.content ?? ''}
-              inclusions={service.inclusions ?? []}
-              faqs={service.faqs ?? []}
-            />
+            <div class="cz-shell-section cz-shell-section--no-border">
+              <div class="drawerModule drawerOverview service">
+                <div class="drawerModule__header">
+                  <span class="drawerModule__icon drawerModule__icon--overview">
+                    {TIER_OVERVIEW_ICON}
+                  </span>
+                  <div class="drawerModule__heading">
+                    <p class="drawerModule__title">Service Overview</p>
+                    <p class="drawerModule__subtitle">The service this tier belongs to.</p>
+                  </div>
+                </div>
+                <div class="drawerModule__body">
+                  <div class="drawerModule__fields">
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Title</p>
+                      <p class="drawerModule__value">{decodeHtml(service.title) || 'Untitled service'}</p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Features</p>
+                      <p class="drawerModule__value">{svcFeatureCount}</p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Questions</p>
+                      <p class="drawerModule__value">{svcQuestionCount}</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="drawerModule__footer">
+                  <button
+                    type="button"
+                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={() => viewService?.()}
+                    disabled={!viewService}
+                  >
+                    View
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : (
             <div class="cz-shell-section">
               <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
@@ -1390,7 +1421,7 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
         <div class="cz-tf-footer">
           <div class="cz-tf-footer__spacer" />
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>
-            Done
+            Cancel
           </button>
         </div>
       ),
