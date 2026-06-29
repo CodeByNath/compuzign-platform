@@ -331,6 +331,72 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
     setEditingSection(null);
   }, []);
 
+  // ── Shared shell footer ─────────────────────────────────────────────────────
+  // The footer is pushed into the ActionShell footer slot (sticky, outside the
+  // scroll body) instead of being rendered inline, so every Package step presents
+  // the same Header / Tabs / Body / Footer shell as the Service drawer. Actions are
+  // read through a ref so the effect can depend only on the primitives that change
+  // the footer's visible content — avoiding a setFooter → re-render loop.
+  const footerActionsRef = useRef({ handleToggleEnabled, handleSave, openOverviewEditor, close: ctx.close });
+  footerActionsRef.current = { handleToggleEnabled, handleSave, openOverviewEditor, close: ctx.close };
+
+  useEffect(() => {
+    const { setFooter } = ctx;
+    if (ctx.progress === 'loading' || loadErr || !detail) { setFooter(null); return; }
+    const a = footerActionsRef.current;
+    setFooter(
+      tab === 'commercial' ? (
+        <div class="cz-tf-footer">
+          {tierPersisted && (
+            <button
+              type="button"
+              class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
+              onClick={() => a.handleToggleEnabled()}
+              disabled={saving}
+            >
+              {currentEnabled ? 'Disable Tier' : 'Enable Tier'}
+            </button>
+          )}
+          <div class="cz-tf-footer__spacer" />
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--secondary"
+            onClick={() => a.close()}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          {isNew && !overviewSaved ? (
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={() => a.openOverviewEditor()}
+            >
+              Save Tier Overview
+            </button>
+          ) : (
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--primary"
+              onClick={() => a.handleSave()}
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : 'Publish Tier'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div class="cz-tf-footer">
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>
+            Done
+          </button>
+        </div>
+      ),
+    );
+    return () => setFooter(null);
+  }, [tab, tierPersisted, currentEnabled, saving, isNew, overviewSaved, detail, loadErr, ctx.progress, ctx.setFooter]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (ctx.progress === 'loading') {
@@ -556,47 +622,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
 
           {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
           {saveOk && <div class="cz-admin-ok-msg">Tier saved successfully.</div>}
-
-          {/* Commercial Tab Footer */}
-          <div class="cz-tf-footer">
-            {tierPersisted && (
-              <button
-                type="button"
-                class={`cz-admin-btn ${currentEnabled ? 'cz-admin-btn--danger' : 'cz-admin-btn--secondary'}`}
-                onClick={handleToggleEnabled}
-                disabled={saving}
-              >
-                {currentEnabled ? 'Disable Tier' : 'Enable Tier'}
-              </button>
-            )}
-            <div class="cz-tf-footer__spacer" />
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--secondary"
-              onClick={ctx.close}
-              disabled={saving}
-            >
-              Cancel
-            </button>
-            {isNew && !overviewSaved ? (
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--primary"
-                onClick={openOverviewEditor}
-              >
-                Save Tier Overview
-              </button>
-            ) : (
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--primary"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? 'Saving…' : 'Publish Tier'}
-              </button>
-            )}
-          </div>
         </>
       )}
 
@@ -620,14 +645,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
               <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
             </div>
           )}
-
-          {/* Service Tab Footer */}
-          <div class="cz-tf-footer">
-            <div class="cz-tf-footer__spacer" />
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => ctx.close()}>
-              Done
-            </button>
-          </div>
         </>
       )}
     </div>
@@ -999,6 +1016,23 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
     ctx.goNext();
   };
 
+  // Footer rendered into the shared shell slot (see TierManageStep) — keeps every
+  // Package step on the same drawer-shell contract. Static Cancel action here.
+  const closeRef = useRef(ctx.close);
+  closeRef.current = ctx.close;
+  useEffect(() => {
+    const { setFooter } = ctx;
+    setFooter(
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => closeRef.current()}>
+          Cancel
+        </button>
+      </div>,
+    );
+    return () => setFooter(null);
+  }, [ctx.setFooter]);
+
   const activeCatName = activeCat !== null
     ? decodeHtml(categories.find((c) => c.id === activeCat)?.name ?? '')
     : '';
@@ -1136,13 +1170,6 @@ export function PackageSelectServiceStep({ ctx }: { ctx: StepContext }) {
           value={searchQuery}
           onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
         />
-      </div>
-
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-          Cancel
-        </button>
       </div>
     </div>
   );
@@ -1296,6 +1323,43 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
     }
   };
 
+  // Footer rendered into the shared shell slot (see TierManageStep). Actions read
+  // through a ref so the effect depends only on the primitives that drive the
+  // footer's visible content, avoiding a setFooter → re-render loop.
+  const footerActionsRef = useRef({ handlePublish, close: ctx.close });
+  footerActionsRef.current = { handlePublish, close: ctx.close };
+
+  useEffect(() => {
+    const { setFooter } = ctx;
+    const a = footerActionsRef.current;
+    setFooter(
+      tab === 'commercial' ? (
+        <div class="cz-tf-footer">
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--primary"
+            onClick={() => a.handlePublish()}
+            disabled={saving || !overviewSaved}
+          >
+            {saving ? 'Creating…' : 'Publish Tier'}
+          </button>
+        </div>
+      ) : (
+        <div class="cz-tf-footer">
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>
+            Done
+          </button>
+        </div>
+      ),
+    );
+    return () => setFooter(null);
+  }, [tab, saving, overviewSaved, ctx.setFooter]);
+
   return (
     <>
     <div class="cz-req-detail">
@@ -1397,22 +1461,6 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
           </ReadBlock>
 
           {saveErr && <div class="cz-admin-error-msg">{saveErr}</div>}
-
-          {/* Footer */}
-          <div class="cz-tf-footer">
-            <div class="cz-tf-footer__spacer" />
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--primary"
-              onClick={handlePublish}
-              disabled={saving || !overviewSaved}
-            >
-              {saving ? 'Creating…' : 'Publish Tier'}
-            </button>
-          </div>
         </>
       )}
 
@@ -1436,13 +1484,6 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
               <p class="cz-sc-pkg-block__empty-msg">No service selected.</p>
             </div>
           )}
-
-          <div class="cz-tf-footer">
-            <div class="cz-tf-footer__spacer" />
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => ctx.close()}>
-              Done
-            </button>
-          </div>
         </>
       )}
     </div>
