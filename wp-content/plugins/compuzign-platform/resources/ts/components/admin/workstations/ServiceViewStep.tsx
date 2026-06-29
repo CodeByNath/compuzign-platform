@@ -320,7 +320,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
                           <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
                         </p>
                       ) : (
-                        <p class="drawerModule__value drawerModule__value--muted">View Tier Overview and manage pricing.</p>
+                        <p class="drawerModule__value">View Tier Overview and manage pricing.</p>
                       )}
                     </div>
                     <div class="drawerModule__field">

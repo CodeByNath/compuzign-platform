@@ -133,7 +133,15 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
                 onClick={config.onBack}
                 aria-label="Back"
               >
-                ‹
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
+                </svg>
               </button>
             </div>
           )}
@@ -142,22 +150,6 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
               <span class="cz-admin-status-dot" style={`color:${config.titleDot}`} />
             )}
             <h2 class="cz-action-shell__title">{title}</h2>
-            {isMultiStep && (
-              <div class="cz-action-shell__step-dots">
-                {config.steps.map((s, i) => (
-                  <span
-                    key={s.id}
-                    class={[
-                      'cz-action-shell__step-dot',
-                      i === currentStep ? 'cz-action-shell__step-dot--active' : '',
-                      i < currentStep ? 'cz-action-shell__step-dot--done' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  />
-                ))}
-              </div>
-            )}
           </div>
           <div class="cz-action-shell__header-end">
             <button class="cz-action-shell__close" onClick={handleClose} aria-label="Close">

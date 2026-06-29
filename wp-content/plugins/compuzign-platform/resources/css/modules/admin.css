@@ -1431,29 +1431,6 @@
   text-overflow: ellipsis;
 }
 
-.cz-action-shell__step-dots {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.cz-action-shell__step-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--admin-white-a15);
-  transition: background var(--cz-transition-fast), transform var(--cz-transition-fast);
-}
-
-.cz-action-shell__step-dot--active {
-  background: var(--admin-accent);
-  transform: scale(1.25);
-}
-
-.cz-action-shell__step-dot--done {
-  background: var(--admin-success);
-}
-
 .cz-action-shell__close {
   display: inline-flex;
   align-items: center;
@@ -1484,12 +1461,12 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid var(--admin-border-blue);
-  color: var(--admin-accent);
+  border: none;
+  color: var(--admin-text-muted);
   cursor: pointer;
   padding: var(--cz-space-2);
-  border-radius: var(--admin-radius);
-  transition: color var(--cz-transition-fast), background var(--cz-transition-fast), border-color var(--cz-transition-fast);
+  border-radius: var(--admin-btn-radius-base);
+  transition: color var(--cz-transition-fast), background var(--cz-transition-fast), box-shadow var(--cz-transition-fast);
   flex-shrink: 0;
 }
 
@@ -1500,15 +1477,14 @@
 }
 
 .cz-action-shell__back:hover {
+  color: var(--admin-text);
   background: var(--admin-accent-a12);
-  border-color: var(--admin-accent);
-  color: var(--admin-accent);
+  box-shadow: var(--admin-depth-1);
 }
 
 .cz-action-shell__back:active {
   background: var(--admin-accent-a15);
-  border-color: var(--admin-accent);
-  color: var(--admin-accent);
+  color: var(--admin-text);
 }
 
 .cz-action-shell__close:focus-visible,
@@ -1516,10 +1492,6 @@
   outline: none;
   background: var(--admin-accent-a12);
   box-shadow: var(--admin-depth-ring-sm);
-}
-
-.cz-action-shell__back:focus-visible {
-  border-color: var(--admin-accent);
 }
 
 /* ── ActionShell — step breadcrumb bar ──────────────────────────────────────── */
@@ -3301,7 +3273,6 @@ body.compuzign-admin-page footer.site-footer {
   flex-shrink: 0;
   padding-left: var(--cz-space-6);
   padding-right: var(--cz-space-6);
-  border-top: 1px solid var(--admin-border);
   margin-top: 0;
 }
 
@@ -3827,9 +3798,13 @@ body.compuzign-admin-page footer.site-footer {
 
 /* ── Service View — tab bar ──────────────────────────────────────────────────── */
 .cz-sv-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   margin: 0 calc(-1 * var(--cz-space-6)) var(--cz-space-5);
   padding: 0 calc(var(--cz-space-6) - var(--cz-space-2)) var(--cz-space-2);
+  background: var(--admin-bg);
   border-bottom: 1px solid var(--admin-border-blue);
 }
 
@@ -3848,7 +3823,7 @@ body.compuzign-admin-page footer.site-footer {
 }
 
 .cz-sv-tab:hover {
-  background: var(--admin-accent-a12);
+  color: var(--admin-accent-text);
 }
 
 .cz-sv-tab--active {
