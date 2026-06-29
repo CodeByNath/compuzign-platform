@@ -71,6 +71,22 @@ function decodeHtml(s: string): string {
   return el.value;
 }
 
+// Tier Overview module icon — the same lightweight document glyph the Service
+// Overview card uses. Wrapped by ReadBlock in the shared `.drawerModule__icon` frame.
+const TIER_OVERVIEW_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    class="drawerModule__icon-svg"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
+    <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
+  </svg>
+);
+
 function resolvePopularTier(pkg: SurfacePackageSummary): string | null {
   const isTierActive = (id: string): boolean => {
     const t = pkg.tiers[id];
@@ -385,20 +401,23 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       )}
 
       {/* ── Tab bar ────────────────────────────────────────────────────────── */}
+      {/* Commercial is the entry context for a tier, so it leads from the left;
+          Service is the supporting reference tab. Display order only — routing
+          and the default `tab` state are unchanged. */}
       <div class="cz-sv-tabs">
-        <button
-          type="button"
-          class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('service')}
-        >
-          Service
-        </button>
         <button
           type="button"
           class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('commercial')}
         >
           Commercial
+        </button>
+        <button
+          type="button"
+          class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTab('service')}
+        >
+          Service
         </button>
       </div>
 
@@ -409,6 +428,10 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
           {/* Tier Overview */}
           <ReadBlock
             title="Tier Overview"
+            subtitle="General information about the tier."
+            icon={TIER_OVERVIEW_ICON}
+            iconVariant="drawerModule__icon--overview"
+            scopeClass="drawerOverview tier"
             status={overviewState.status}
             notes={overviewState.notes}
             panelOpen={openTierPanel === 'tier-overview'}
@@ -416,27 +439,38 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             onEdit={openOverviewEditor}
             noBorder
           >
-            <div class="cz-sv-overview-block__identity">
-              <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
-            </div>
-            <div class="cz-sv-overview-block__meta">
-              <span class="cz-req-contact-grid__label">Price</span>
-              <span class="cz-sv-overview-block__value">
-                {priceIsContact ? 'Contact' : (priceStr ? `$${parseFloat(priceStr).toLocaleString()}` : '—')}
-              </span>
-            </div>
-            <div class="cz-sv-overview-block__meta">
-              <span class="cz-req-contact-grid__label">Billing Cycle</span>
-              <span class="cz-sv-overview-block__value">{capitalize(billingCycle)}</span>
-            </div>
-            {isPopular && (
-              <div class="cz-sv-overview-block__meta">
-                <span class="cz-req-contact-grid__label">Presentation</span>
-                <span class="cz-sv-overview-block__value">
-                  <span class="cz-tier-badge cz-tier-badge--popular">{popularLabel || 'Best'}</span>
-                </span>
+            <div class="drawerModule__fields">
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Label</p>
+                <p class="drawerModule__value">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
               </div>
-            )}
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Price</p>
+                {priceIsContact ? (
+                  <p class="drawerModule__value">Contact</p>
+                ) : priceStr ? (
+                  <p class="drawerModule__value">${parseFloat(priceStr).toLocaleString()}</p>
+                ) : (
+                  <p class="drawerModule__value drawerModule__value--muted">Not configured</p>
+                )}
+              </div>
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Billing Cycle</p>
+                {billingCycle ? (
+                  <p class="drawerModule__value">{capitalize(billingCycle)}</p>
+                ) : (
+                  <p class="drawerModule__value drawerModule__value--muted">Not selected</p>
+                )}
+              </div>
+              {isPopular && (
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Presentation</p>
+                  <p class="drawerModule__value">
+                    <span class="cz-tier-badge cz-tier-badge--popular">{popularLabel || 'Best'}</span>
+                  </p>
+                </div>
+              )}
+            </div>
           </ReadBlock>
 
           {/* Included Features */}

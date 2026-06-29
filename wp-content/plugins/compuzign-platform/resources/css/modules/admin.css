@@ -1397,6 +1397,7 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
+  gap: var(--cz-space-xs);
   padding: 18px var(--cz-space-6);
   border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;
