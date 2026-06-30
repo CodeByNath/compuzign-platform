@@ -1348,8 +1348,7 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
     setPopularLabel(overviewDraft.popularLabel);
     setOverviewSaved(true);
     setEditingSection(null);
-    const svc = ctx.stepData.service as SurfaceServiceInfo;
-    ctx.setTitle(`${TIER_LABELS[overviewDraft.tierId] ?? overviewDraft.tierId} — ${decodeHtml(svc?.title ?? 'New Package')}`);
+    ctx.setTitle('Package');
   }, [overviewDraft, ctx]);
 
   const handleSaveInclusions = useCallback(async () => {
@@ -1838,7 +1837,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
     openAction({
       id:   `tier-${pkg.post_id}-${tierId}`,
       mode: 'drawer',
-      title: `${TIER_LABELS[tierId]} — ${serviceNames}`,
+      title: 'Package',
       initialStepData: {
         packageId:      pkg.post_id,
         tierId,
@@ -1853,7 +1852,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
     openAction({
       id:   `tier-setup-${pkg.post_id}-${tierId}`,
       mode: 'drawer',
-      title: `Set Up ${TIER_LABELS[tierId]} — ${serviceNames}`,
+      title: 'Package',
       initialStepData: {
         packageId:      pkg.post_id,
         tierId,
@@ -1869,7 +1868,7 @@ function PackageCard({ pkg, openAction, onRefetch }: PackageCardProps) {
     openAction({
       id:   `tier-create-${pkg.post_id}`,
       mode: 'drawer',
-      title: `Add Tier — ${serviceNames}`,
+      title: 'Package',
       initialStepData: {
         packageId:      pkg.post_id,
         tierId:         null,
@@ -2038,7 +2037,7 @@ export function SurfacePackagesWorkstation({ refreshKey, openAction }: Props) {
     openAction({
       id:             'package-create',
       mode:           'drawer',
-      title:          'New Package',
+      title:          'Package',
       hideStepHeader: true,
       initialStepData: {
         allServices,

@@ -196,7 +196,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
     doOpen?.({
       id:             `pkg-detail-${packageId}`,
       mode:           'drawer',
-      title:          pkgTitle,
+      title:          'Package',
       onBack:         pkgBack,
       hideStepHeader: true,
       initialStepData: {
@@ -222,7 +222,7 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
     doOpen({
       id:     `promo-view-${promo.id}`,
       mode:   'drawer',
-      title:  promo.name || '(unnamed)',
+      title:  'Promotion',
       onBack: () => reopenSelf('promotions'),
       initialStepData: {
         packageId,
@@ -697,7 +697,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     const onBack = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
-      title:    decodeHtml(service.title),
+      title:    'Service',
       initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
@@ -711,7 +711,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       doOpen({
         id:             `pkg-detail-${pkgId}`,
         mode:           'drawer',
-        title:          pkgTitle,
+        title:          'Package',
         onBack,
         hideStepHeader: true,
         initialStepData: {
@@ -735,7 +735,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       doOpen({
         id:             `service-tiers-${service.id}`,
         mode:           'drawer',
-        title:          decodeHtml(service.title),
+        title:          'Package',
         onBack,
         hideStepHeader: true,
         initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
@@ -750,7 +750,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     const onBack = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
-      title:    decodeHtml(service.title),
+      title:    'Service',
       initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
@@ -761,7 +761,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       doOpen({
         id:             `pkg-detail-${relatedPkg.post_id}`,
         mode:           'drawer',
-        title:          relatedPkg.title,
+        title:          'Package',
         onBack,
         hideStepHeader: true,
         initialStepData: {
@@ -785,7 +785,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       doOpen({
         id:             `service-promos-${service.id}`,
         mode:           'drawer',
-        title:          decodeHtml(service.title),
+        title:          'Promotion',
         onBack,
         hideStepHeader: true,
         initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },

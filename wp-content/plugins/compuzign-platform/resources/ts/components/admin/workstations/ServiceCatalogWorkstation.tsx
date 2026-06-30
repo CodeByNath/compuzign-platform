@@ -222,7 +222,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
         doOpen({
           id:       `service-view-${newService.id}`,
           mode:     'drawer',
-          title:    newService.title,
+          title:    'Service',
           initialStepData: { service: newService, packages, openAction: doOpen, allCategories: localCategories, onRefresh },
           steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
         });
@@ -573,7 +573,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     openAction({
       id:       `service-view-${station.id}`,
       mode:     'drawer',
-      title:    station.title,
+      title:    'Service',
       initialStepData: {
         service:       item,
         packages,
@@ -589,7 +589,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     openAction({
       id:    'service-create',
       mode:  'drawer',
-      title: 'New Service',
+      title: 'Service',
       initialStepData: {
         packages,
         openAction,

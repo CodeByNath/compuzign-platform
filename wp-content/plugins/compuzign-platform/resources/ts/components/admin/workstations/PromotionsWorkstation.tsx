@@ -230,8 +230,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
       setBasedOn(identityDraft.basedOn);
       setHeadline(identityDraft.headline);
       setDescription(identityDraft.description);
-      const svcTitle = detail?.service?.title ?? serviceFromStep?.title ?? '';
-      ctx.setTitle(`${identityDraft.name} — ${svcTitle}`);
+      ctx.setTitle('Promotion');
       setEditingSection(null);
       setIdentityDraft(null);
     } catch (err) {
@@ -1032,7 +1031,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
     openAction({
       id:   `promo-view-${pkg.post_id}-${promo.id}`,
       mode: 'drawer',
-      title: `${promo.name || 'Promotion'} — ${serviceNames}`,
+      title: 'Promotion',
       initialStepData: {
         packageId:   pkg.post_id,
         promoId:     promo.id,
@@ -1048,7 +1047,7 @@ function PromotionPackageCard({ pkg, openAction, onRefetch }: CardProps) {
     openAction({
       id:   `promo-create-${pkg.post_id}`,
       mode: 'drawer',
-      title: `New Promotion — ${serviceNames}`,
+      title: 'Promotion',
       initialStepData: {
         packageId:   pkg.post_id,
         promoId:     null,
@@ -1201,7 +1200,7 @@ export function PromotionsWorkstation({ refreshKey, openAction }: Props) {
     openAction({
       id:             'promotion-create',
       mode:           'drawer',
-      title:          'New Promotion',
+      title:          'Promotion',
       hideStepHeader: true,
       initialStepData: {
         allServices,
