@@ -234,20 +234,19 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
-  // Context-aware tab ordering: the originating context (initialTab) renders first
-  // and active. Establishes the navigation rule for future tabs (Campaigns, etc.).
+  // Drawer Tab Contract — fixed order Details | Connections. The originating context
+  // (initialTab) only seeds which tab is active (via the `tab` state); it never
+  // reorders the tabs. Details = this drawer's own modules, Connections = related.
   const TAB_LABELS: Record<'packages' | 'promotions', string> = {
-    packages:   'Packages',
-    promotions: 'Promotions',
+    packages:   'Details',
+    promotions: 'Connections',
   };
-  const orderedTabs: Array<'packages' | 'promotions'> = initialTab === 'promotions'
-    ? ['promotions', 'packages']
-    : ['packages', 'promotions'];
+  const orderedTabs: Array<'packages' | 'promotions'> = ['packages', 'promotions'];
 
   return (
     <div class="cz-req-detail">
 
-      {/* Tab bar — originating context first */}
+      {/* Tab bar — fixed order Details | Connections */}
       <div class="cz-sv-tabs">
         {orderedTabs.map((t) => (
           <button
@@ -1101,14 +1100,14 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('service')}
         >
-          Service
+          Details
         </button>
         <button
           type="button"
           class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('commercial')}
         >
-          Commercial
+          Connections
         </button>
       </div>
 
@@ -1989,21 +1988,22 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         </span>
       </div>
 
-      {/* Service | Commercial tabs */}
+      {/* Drawer Tab Contract — fixed order Details | Connections (Details = tier's
+          own modules, Connections = parent service context). State keys unchanged. */}
       <div class="cz-sv-tabs">
-        <button
-          type="button"
-          class={`cz-sv-tab${tierTab === 'service' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTierTab('service')}
-        >
-          Service
-        </button>
         <button
           type="button"
           class={`cz-sv-tab${tierTab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTierTab('commercial')}
         >
-          Commercial
+          Details
+        </button>
+        <button
+          type="button"
+          class={`cz-sv-tab${tierTab === 'service' ? ' cz-sv-tab--active' : ''}`}
+          onClick={() => setTierTab('service')}
+        >
+          Connections
         </button>
       </div>
 

@@ -262,14 +262,14 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('service')}
         >
-          Service
+          Details
         </button>
         <button
           type="button"
           class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('commercial')}
         >
-          Commercial
+          Connections
         </button>
       </div>
 

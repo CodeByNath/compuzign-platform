@@ -508,23 +508,22 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       )}
 
       {/* ── Tab bar ────────────────────────────────────────────────────────── */}
-      {/* Commercial is the entry context for a tier, so it leads from the left;
-          Service is the supporting reference tab. Display order only — routing
-          and the default `tab` state are unchanged. */}
+      {/* Drawer Tab Contract — fixed order Details | Connections (Details = the tier's
+          own modules, Connections = parent service context). State keys unchanged. */}
       <div class="cz-sv-tabs">
         <button
           type="button"
           class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('commercial')}
         >
-          Commercial
+          Details
         </button>
         <button
           type="button"
           class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
           onClick={() => setTab('service')}
         >
-          Service
+          Connections
         </button>
       </div>
 
@@ -1443,10 +1442,10 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
       {/* ── Tab bar ────────────────────────────────────────────────────────── */}
       <div class="cz-sv-tabs">
         <button type="button" class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('commercial')}>
-          Commercial
+          Details
         </button>
         <button type="button" class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`} onClick={() => setTab('service')}>
-          Service
+          Connections
         </button>
       </div>
 
