@@ -1,7 +1,9 @@
 # Admin Workstation Drawer Principles — v1
 
-Reference implementation: Service Catalog only.
-Does not cover Transit Hub, Packages, Promotions, Requests, CRM, or any other workstation.
+**Scope — two layers, different reach:**
+
+- **Drawer Header & Navigation Contract** and **Drawer Tab Contract** (below) are **platform-wide**. They are the locked contract for **every admin drawer** — Service, Package, Promotion, and any future drawer. These sections are the canonical owner of drawer header titles, the single left control, the reserved right slot, and the fixed `Details | Connections` tab model.
+- **Module state machine / lifecycle** (New / Locked / View / Edit, status model) — reference implementation is **Service Catalog only**. It does not yet cover Transit Hub, Packages, Promotions, Requests, or CRM as built surfaces, though those drawers must adopt the platform-wide contract above.
 
 For the drawer module CSS system, class reference, and legacy audit: [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md)
 
@@ -13,12 +15,86 @@ For the completed Service modules' full implemented behavioural architecture (no
 
 A drawer consists of:
 
-- **Header** — title, navigation controls, close action
-- **Tabs** — e.g. Service / Commercial; separates logical content areas within the drawer
-- **Body** — contains the drawer modules
-- **Footer** — primary and secondary actions
+- **Header** — a static workspace label, a single left navigation control, and a reserved right slot. Governed by the *Drawer Header & Navigation Contract* below.
+- **Tabs** — a fixed two-tab `Details | Connections` model. Governed by the *Drawer Tab Contract* below.
+- **Body** — contains the drawer modules.
+- **Footer** — primary and secondary actions.
 
 The drawer body contains modules. Modules are persistent.
+
+---
+
+## Drawer Header & Navigation Contract
+
+> **Platform-wide and locked.** Applies to every admin drawer. The header describes the **workspace/location, not the current record.**
+
+### Header title is the workspace, not the record
+
+The header title is a **static workspace label** that names *where the user is*, never the name of the record being edited:
+
+| Drawer | Header label |
+|---|---|
+| Service drawer | `Service` |
+| Package / Tier drawer | `Package` |
+| Promotion drawer | `Promotion` |
+| (future drawers) | the workspace noun, e.g. `Bundle`, `Campaign` |
+
+The record name lives **inside the body**, as a module value or a body-level name element — never in the header. A drawer must surface the record name somewhere in its body before its header is allowed to drop the record name.
+
+### No status dot in the header
+
+The header carries **no status dot**. Status is a module concern and lives only in the module status pills. The header is label-only.
+
+### Single left control — Back *or* Close, never both
+
+The header has exactly **one** navigation control, on the left:
+
+- **Back** — shown when a previous drawer exists (a nested/pushed drawer).
+- **Close** — shown when this is a root drawer (no previous drawer).
+
+The two are mutually exclusive. A drawer never shows Back and Close at the same time. Closing remains available from the footer; removing the header Close from a nested drawer must not remove its ability to close.
+
+### Right side reserved
+
+The right side of the header is **reserved for a future action centre**. It is rendered but left visually empty for now. Do not place actions there yet.
+
+### InlineEditorShell is the reference header
+
+The inline editor (`InlineEditorShell`) is the canonical reference for the header pattern and already conforms:
+
+- **Back** (single left control)
+- **Module title** (e.g. `Service Overview`, `Tier Overview`)
+- **Live Editor** badge
+- **No tabs**
+
+An inline editor names the *module* it is editing (not the workspace and not a tab set), carries the Live Editor badge, and has no tab bar.
+
+---
+
+## Drawer Tab Contract
+
+> **Platform-wide and locked.** Applies to every non-editor drawer. Inline editors have no tabs.
+
+### Fixed two tabs: `Details | Connections`
+
+Every non-editor drawer uses exactly two tabs, in this fixed order:
+
+- **Details** — always the **current workspace's own** modules (what I am editing).
+- **Connections** — always the **related entities** (what this is connected to).
+
+This replaces the earlier per-drawer `Service / Commercial`, `Packages / Promotions`, `Promotion / Service Details` labels, which were workspace-specific and overloaded (e.g. "Commercial" meant *related* in the Service drawer but *own* in the Tier drawer). `Details / Connections` normalises by **role**, not by layer:
+
+| Drawer | Details (own) | Connections (related) |
+|---|---|---|
+| Service | Service Overview, Included Features, Common Questions | Package Summary, Promotions, … |
+| Package / Tier | Tier modules (Tier Overview, Features, Questions) | Service context, Promotions, … |
+| Promotion | Promotion modules | Service / Package context |
+
+### Order never changes; only the active tab changes
+
+The tab order is **permanently** `Details | Connections`. Drawers must **not** reorder tabs by entry point. When a drawer is opened from a connection (a promotion, a package, another related entity), the order stays the same and **Connections is simply made the active tab**. Any "selected tab moves to the front" logic is removed.
+
+This gives a predictable drawer everywhere: the left tab is always "what I'm editing" and the right tab is always "what it's connected to." `Details` always represents the workspace named in the header.
 
 ---
 
@@ -262,6 +338,21 @@ Status resolution is centralised in `resources/ts/components/admin/utils/moduleS
 `pending-dim` is triggered by field-level completeness, not a backend `configured` boolean. This allows partial detection within a single render pass.
 
 For tiers: `pending-dim` when one of `price` / `billing_cycle` is present but not both.
+
+---
+
+## Drawer Contract Migration — Staging
+
+Sequence for converging existing drawers onto the *Drawer Header & Navigation Contract* and *Drawer Tab Contract* above. This is staging only — it **references** the contract and does not restate it; the sections above are canonical. No stage touches data, routing, save/publish, status logic, PricingBuilder, or backend.
+
+1. **`ActionShell` single left control.** Render exactly one left control (Back when a previous drawer exists, else Close) and a reserved-empty right slot, per *Single left control* and *Right side reserved*. Precondition: every nested (Back) drawer must keep a footer close so close capability is not lost.
+2. **Body name presence.** Ensure each Package, Tier, and Promotion drawer surfaces its record name in the body before its header is relabelled (per *Header title is the workspace, not the record*). Service already satisfies this.
+3. **Header → workspace label + drop status dot.** Replace record-name titles with the static workspace label and remove the header status dot, per *Header title is the workspace* and *No status dot in the header*. Start with the Service drawer.
+4. **Tabs → `Details | Connections`.** Relabel by role (own → Details, related → Connections) and **delete entry-point reordering**, keeping fixed order with active-tab selection, per the *Drawer Tab Contract*.
+5. *(defer)* Consolidate in-body secondary back buttons into the header contract.
+6. *(defer)* Rename internal tab state keys to `details` / `connections`.
+
+`InlineEditorShell` already conforms to the header contract (*InlineEditorShell is the reference header*) and needs no change.
 
 ---
 

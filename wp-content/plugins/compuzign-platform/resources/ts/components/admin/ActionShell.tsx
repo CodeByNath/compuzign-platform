@@ -125,8 +125,10 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     >
       <div class="cz-action-shell__panel">
         <div class="cz-action-shell__header">
-          {config.onBack && (
-            <div class="cz-action-shell__header-start">
+          {/* Drawer Header & Navigation Contract — single left control: Back when a
+              previous drawer exists (config.onBack), otherwise Close. Never both. */}
+          <div class="cz-action-shell__header-start">
+            {config.onBack ? (
               <button
                 type="button"
                 class="cz-action-shell__back"
@@ -143,27 +145,29 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
                   <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
                 </svg>
               </button>
-            </div>
-          )}
+            ) : (
+              <button class="cz-action-shell__close" onClick={handleClose} aria-label="Close">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div class="cz-action-shell__header-mid">
             {config.titleDot && (
               <span class="cz-admin-status-dot" style={`color:${config.titleDot}`} />
             )}
             <h2 class="cz-action-shell__title">{title}</h2>
           </div>
-          <div class="cz-action-shell__header-end">
-            <button class="cz-action-shell__close" onClick={handleClose} aria-label="Close">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
+          {/* Reserved for future header actions (action centre). Intentionally empty
+              per the Drawer Header & Navigation Contract — right side reserved. */}
+          <div class="cz-action-shell__header-end" />
         </div>
 
         {isMultiStep && !config.hideStepHeader && (
