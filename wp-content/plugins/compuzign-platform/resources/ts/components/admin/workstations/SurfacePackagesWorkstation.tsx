@@ -688,12 +688,22 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                       <p class="drawerModule__value">{decodeHtml(service.title) || 'Untitled service'}</p>
                     </div>
                     <div class="drawerModule__field">
-                      <p class="drawerModule__label">Features</p>
-                      <p class="drawerModule__value">{svcFeatureCount}</p>
+                      <p class="drawerModule__label">Category</p>
+                      <p class="drawerModule__value">
+                        {service.categories && service.categories.length > 0
+                          ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
+                          : 'Not selected'}
+                      </p>
                     </div>
                     <div class="drawerModule__field">
-                      <p class="drawerModule__label">Questions</p>
-                      <p class="drawerModule__value">{svcQuestionCount}</p>
+                      <p class="drawerModule__label">Description</p>
+                      <p class={`drawerModule__value${service.content ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
+                        {service.content ? decodeHtml(service.content) : 'No description provided.'}
+                      </p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Includes</p>
+                      <p class="drawerModule__value">{svcFeatureCount} features | {svcQuestionCount} common questions</p>
                     </div>
                   </div>
                 </div>
