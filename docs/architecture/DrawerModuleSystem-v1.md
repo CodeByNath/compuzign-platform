@@ -87,6 +87,34 @@ No new Service Station drawer module may be built using `.cz-sv-module`.
 
 ---
 
+## Rule 6 — `--muted` Values Are Restricted
+
+`.drawerModule__value--muted` exists for placeholder text that carries no label of its
+own. It must **not** be applied to a labelled Overview field value.
+
+Allowed:
+
+- **Label-less self-standing placeholder text** — a value rendered without an adjacent
+  `.drawerModule__label` to give it context.
+- **Explicitly empty content states** — a field whose content genuinely does not exist
+  yet (e.g. a Description with no body copy), where the muting communicates *empty*.
+
+Not allowed:
+
+- **Labelled Overview values that are merely pending configuration.** A field that has a
+  label and shows established placeholder wording (e.g. Price → `Not configured`,
+  Billing Cycle → `Not selected`) renders as a **normal** `.drawerModule__value`. The
+  label already supplies context, so muting it just makes a normal value look broken.
+
+In short: keep the established placeholder *wording* for a missing value, but do not mute
+it. Muting is reserved for label-less or genuinely-empty placeholders.
+
+> ReadBlock note: `ReadBlock.tsx` renders the bare `.drawerModule` card frame directly
+> (no `.cz-shell-section` wrapper), so its module-to-module spacing follows the shared
+> `.drawerModule` rhythm — identical to the Service drawer view cards.
+
+---
+
 ## CSS Location
 
 `resources/css/modules/admin.css`
@@ -132,7 +160,7 @@ All selectors are descendant rules scoped under `.drawerOverview.service`.
 | `.drawerOverview.service .drawerModule__field` | Single field row — 100px label / 1fr value grid |
 | `.drawerOverview.service .drawerModule__label` | Field label — faint, small |
 | `.drawerOverview.service .drawerModule__value` | Field value — normal weight |
-| `.drawerOverview.service .drawerModule__value--muted` | Muted placeholder value |
+| `.drawerOverview.service .drawerModule__value--muted` | Muted placeholder value — restricted; see Rule 6 |
 | `.drawerOverview.service .drawerModule__value--clamp` | Clamped description — 3 lines max |
 
 ---

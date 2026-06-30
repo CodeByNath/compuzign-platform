@@ -8,7 +8,6 @@ interface Props {
   count?: number;
   onEdit?: () => void;
   editDisabled?: boolean;
-  noBorder?: boolean;
   // Optional full-module header parts, matching the Service Overview card.
   // `icon` is the inner SVG; it is wrapped in the shared `.drawerModule__icon`
   // frame (add `iconVariant` for the per-module variant hook). `subtitle` renders
@@ -31,16 +30,18 @@ interface Props {
 }
 
 export function ReadBlock({
-  title, count, onEdit, editDisabled, noBorder,
+  title, count, onEdit, editDisabled,
   icon, iconVariant, subtitle, scopeClass,
   status, notes, panelOpen, onTogglePanel, children,
 }: Props) {
   const moduleNotes = notes ?? [];
   const showPanel   = !!status && panelOpen === true && moduleNotes.length > 0;
 
+  // Renders the canonical self-contained `.drawerModule` card directly — the same
+  // bare frame the Service drawer view cards use (no `.cz-shell-section` wrapper),
+  // so module-to-module spacing follows the shared `.drawerModule` rhythm.
   return (
-    <div class={`cz-shell-section${noBorder ? ' cz-shell-section--no-border' : ''}`}>
-      <div class={`drawerModule${scopeClass ? ` ${scopeClass}` : ''}`}>
+    <div class={`drawerModule${scopeClass ? ` ${scopeClass}` : ''}`}>
         <div class="drawerModule__header">
           {icon && (
             <span class={`drawerModule__icon${iconVariant ? ` ${iconVariant}` : ''}`}>
@@ -78,11 +79,10 @@ export function ReadBlock({
               onClick={onEdit}
               disabled={editDisabled}
             >
-              ✎ Edit
+              Edit
             </button>
           </div>
         )}
-      </div>
     </div>
   );
 }

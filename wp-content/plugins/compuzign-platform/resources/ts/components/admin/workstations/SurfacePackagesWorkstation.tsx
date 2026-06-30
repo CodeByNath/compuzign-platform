@@ -544,7 +544,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             panelOpen={openTierPanel === 'tier-overview'}
             onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-overview' ? null : 'tier-overview'))}
             onEdit={openOverviewEditor}
-            noBorder
           >
             <div class="drawerModule__fields">
               <div class="drawerModule__field">
@@ -558,7 +557,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 ) : priceStr ? (
                   <p class="drawerModule__value">${parseFloat(priceStr).toLocaleString()}</p>
                 ) : (
-                  <p class="drawerModule__value drawerModule__value--muted">Not configured</p>
+                  <p class="drawerModule__value">Not configured</p>
                 )}
               </div>
               <div class="drawerModule__field">
@@ -566,7 +565,7 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
                 {billingCycle ? (
                   <p class="drawerModule__value">{capitalize(billingCycle)}</p>
                 ) : (
-                  <p class="drawerModule__value drawerModule__value--muted">Not selected</p>
+                  <p class="drawerModule__value">Not selected</p>
                 )}
               </div>
               {isPopular && (
@@ -592,7 +591,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             panelOpen={openTierPanel === 'tier-features'}
             onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-features' ? null : 'tier-features'))}
             onEdit={overviewSaved ? () => setEditingSection('inclusions') : undefined}
-            noBorder
           >
             {!overviewSaved ? (
               <p class="cz-tf-hint">Save the tier overview first to enable features, FAQs and publishing.</p>
@@ -1457,7 +1455,7 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
       {tab === 'commercial' && (
         <>
           {/* Tier Overview */}
-          <ReadBlock title="Tier Overview" onEdit={openOverviewEditor} noBorder>
+          <ReadBlock title="Tier Overview" onEdit={openOverviewEditor}>
             <div class="cz-sv-overview-block__identity">
               <p class="cz-sv-overview-block__name">{label || (TIER_LABELS[tierId] ?? tierId)}</p>
             </div>
@@ -1486,7 +1484,6 @@ export function PackageCreateTierStep({ ctx }: { ctx: StepContext }) {
             title="Included Features"
             count={selIncCount}
             onEdit={() => setEditingSection('inclusions')}
-            noBorder
           >
             {selIncCount > 0 ? (
               <div class="cz-sc-inclusion-pool">

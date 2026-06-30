@@ -500,7 +500,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
         {/* ── Commercial Tab ──────────────────────────────────────────── */}
         {tab === 'commercial' && (
           <>
-            <ReadBlock title="Promotion Identity" onEdit={openIdentityEditor} noBorder>
+            <ReadBlock title="Promotion Identity" onEdit={openIdentityEditor}>
               <div class="cz-sv-overview-block__identity">
                 <p class="cz-sv-overview-block__name">{name || '(unnamed)'}</p>
               </div>
@@ -528,7 +528,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
               )}
             </ReadBlock>
 
-            <ReadBlock title="Pricing" onEdit={openPricingEditor} editDisabled={!identitySaved} noBorder>
+            <ReadBlock title="Pricing" onEdit={openPricingEditor} editDisabled={!identitySaved}>
               <div class="cz-sv-overview-block__meta">
                 <span class="cz-req-contact-grid__label">Price</span>
                 <span class="cz-sv-overview-block__value">
@@ -549,7 +549,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
               )}
             </ReadBlock>
 
-            <ReadBlock title="Inclusions" count={selIncCount} onEdit={openInclusionsEditor} editDisabled={!identitySaved} noBorder>
+            <ReadBlock title="Inclusions" count={selIncCount} onEdit={openInclusionsEditor} editDisabled={!identitySaved}>
               {selIncCount > 0 ? (
                 <div class="cz-sc-inclusion-pool">
                   {pendingIncs.map((p, i) => (
@@ -567,7 +567,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
               )}
             </ReadBlock>
 
-            <ReadBlock title="Add-ons" count={addons.length || undefined} onEdit={openAddonsEditor} editDisabled={!identitySaved} noBorder>
+            <ReadBlock title="Add-ons" count={addons.length || undefined} onEdit={openAddonsEditor} editDisabled={!identitySaved}>
               {addons.length > 0 ? (
                 <div class="cz-sc-inclusion-pool">
                   {addons.map((a, i) => (
@@ -579,7 +579,7 @@ export function PromotionViewStep({ ctx }: { ctx: StepContext }) {
               )}
             </ReadBlock>
 
-            <ReadBlock title="Not Included" count={selExclusions.length || undefined} onEdit={openExclusionsEditor} editDisabled={!identitySaved} noBorder>
+            <ReadBlock title="Not Included" count={selExclusions.length || undefined} onEdit={openExclusionsEditor} editDisabled={!identitySaved}>
               {selExclusions.length > 0 ? (
                 <div class="cz-sc-inclusion-pool">
                   {selExclusions.map((exc) => (
