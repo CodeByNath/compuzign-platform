@@ -30,7 +30,6 @@ import { TierManageStep } from './SurfacePackagesWorkstation';
 import { PromotionViewStep } from './PromotionsWorkstation';
 import { resolveTierStatus, statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
-import { ReadBlock } from '../ReadBlock';
 import { useServiceStation } from '@/hooks/useServiceStation';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -265,36 +264,6 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
       {/* Packages tab */}
       {tab === 'packages' && (
         <>
-          {/* Package identity — canonical record name in the drawer body. Once the
-              header becomes the static "Package" workspace label (Stage 3), this is
-              where the package being configured is named. Mirrors Service Overview
-              leading the Service drawer's own tab; reuses ReadBlock + the
-              .drawerOverview.service field scope (no new UI pattern). */}
-          <ReadBlock
-            title="Package Overview"
-            subtitle="The package this configuration belongs to."
-            icon={
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                class="drawerModule__icon-svg"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
-              </svg>
-            }
-            iconVariant="drawerModule__icon--overview"
-            scopeClass="drawerOverview service"
-          >
-            <div class="drawerModule__fields">
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Name</p>
-                <p class="drawerModule__value">{decodeHtml(pkgTitle) || 'Untitled package'}</p>
-              </div>
-            </div>
-          </ReadBlock>
           {TIER_KEYS.map((tierId) => {
             const tier       = pkg.tiers[tierId];
             const status     = resolveTierStatus(tier, { pkgStatus: pkg.platform_status ?? 'disabled' });
