@@ -223,7 +223,6 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           id:       `service-view-${newService.id}`,
           mode:     'drawer',
           title:    newService.title,
-          titleDot: 'var(--admin-error)',
           initialStepData: { service: newService, packages, openAction: doOpen, allCategories: localCategories, onRefresh },
           steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
         });
@@ -571,14 +570,10 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
 
   const handleViewService = (station: StationSummary) => {
     const item   = buildServiceItemForStationHandoff(station);
-    const svcDot = station.platform_status === 'active'
-      ? 'var(--admin-success)'
-      : 'var(--admin-error)';
     openAction({
       id:       `service-view-${station.id}`,
       mode:     'drawer',
       title:    station.title,
-      titleDot: svcDot,
       initialStepData: {
         service:       item,
         packages,

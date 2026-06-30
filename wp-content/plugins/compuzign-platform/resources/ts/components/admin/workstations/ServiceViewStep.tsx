@@ -698,7 +698,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       id:       `service-view-${service.id}`,
       mode:     'drawer',
       title:    decodeHtml(service.title),
-      titleDot: `var(--admin-${isActive ? 'success' : 'error'})`,
       initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
@@ -752,7 +751,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       id:       `service-view-${service.id}`,
       mode:     'drawer',
       title:    decodeHtml(service.title),
-      titleDot: `var(--admin-${isActive ? 'success' : 'error'})`,
       initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });

@@ -1397,7 +1397,9 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--cz-space-xs);
+  /* Matches the InlineEditorShell nav gap (.cz-ies__nav) so the spacing between
+     the left control and the title is consistent across every drawer header. */
+  gap: var(--cz-space-4);
   padding: 18px var(--cz-space-6);
   border-bottom: 1px solid var(--admin-border-blue);
   flex-shrink: 0;

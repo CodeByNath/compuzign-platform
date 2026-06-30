@@ -28,7 +28,6 @@ export interface ActionConfig {
   id: string;
   mode: ActionMode;
   title: string;
-  titleDot?: string;
   steps: ActionStep[];
   confirmClose?: boolean;
   hideStepHeader?: boolean;
@@ -160,9 +159,6 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
             )}
           </div>
           <div class="cz-action-shell__header-mid">
-            {config.titleDot && (
-              <span class="cz-admin-status-dot" style={`color:${config.titleDot}`} />
-            )}
             <h2 class="cz-action-shell__title">{title}</h2>
           </div>
           {/* Reserved for future header actions (action centre). Intentionally empty
