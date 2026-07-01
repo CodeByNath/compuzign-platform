@@ -13,6 +13,7 @@ import {
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ReadBlock } from '../ReadBlock';
 import { ServiceContextPanel } from '../views/ServiceContextPanel';
+import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import {
   evaluateModule,
   tierOverviewModule,
@@ -668,53 +669,19 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
         <>
           {service ? (
             <div class="cz-shell-section cz-shell-section--no-border">
-              <div class="drawerModule drawerOverview service">
-                <div class="drawerModule__header">
-                  <span class="drawerModule__icon drawerModule__icon--overview">
-                    {TIER_OVERVIEW_ICON}
-                  </span>
-                  <div class="drawerModule__heading">
-                    <p class="drawerModule__title">Service Overview</p>
-                    <p class="drawerModule__subtitle">The service this tier belongs to.</p>
-                  </div>
-                </div>
-                <div class="drawerModule__body">
-                  <div class="drawerModule__fields">
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Title</p>
-                      <p class="drawerModule__value">{decodeHtml(service.title) || 'Untitled service'}</p>
-                    </div>
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Category</p>
-                      <p class="drawerModule__value">
-                        {service.categories && service.categories.length > 0
-                          ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
-                          : 'Not selected'}
-                      </p>
-                    </div>
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Description</p>
-                      <p class={`drawerModule__value${service.content ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
-                        {service.content ? decodeHtml(service.content) : 'No description provided.'}
-                      </p>
-                    </div>
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Includes</p>
-                      <p class="drawerModule__value">{svcFeatureCount} features | {svcQuestionCount} common questions</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="drawerModule__footer">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={() => viewService?.()}
-                    disabled={!viewService}
-                  >
-                    View
-                  </button>
-                </div>
-              </div>
+              <ServiceOverviewViewCard
+                mode="connection"
+                subtitle="The service this tier belongs to."
+                displayTitle={decodeHtml(service.title) || 'Untitled service'}
+                displayContent={service.content ? decodeHtml(service.content) : ''}
+                displayCategory={
+                  service.categories && service.categories.length > 0
+                    ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
+                    : 'Not selected'
+                }
+                includesLabel={`${svcFeatureCount} features | ${svcQuestionCount} common questions`}
+                onView={viewService}
+              />
             </div>
           ) : (
             <div class="cz-shell-section">

@@ -3,38 +3,64 @@ import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
 import { Skeleton } from '../ui/Skeleton';
 
+// Render modes — one module, two presentations. Data ownership stays with the
+// caller; `mode` only gates chrome (status/notes/footer) and content shape.
+//   'details'    — the canonical owning workspace view: status pill, notes panel,
+//                  Edit / Discard footer, editing-oriented empty states.
+//   'connection' — read-only transit view for another workspace's Connections tab:
+//                  no status pill, no notes, View-only footer, configurable
+//                  subtitle, optional Includes field.
+type ServiceOverviewMode = 'details' | 'connection';
+
 interface ServiceOverviewViewCardProps {
-  status:          string;
-  notes:           ModuleNote[];
-  panelOpen:       boolean;
-  onTogglePanel:   () => void;
+  mode?:           ServiceOverviewMode;
   displayTitle:    string;
   // Short Description (excerpt) is temporarily disabled and hidden from workflow.
   // The prop is retained so the call site requires no change; the field is not rendered.
-  displayExcerpt:  string;
+  displayExcerpt?: string;
   displayContent:  string;
   displayCategory: string;
-  hasDraft:        boolean;
-  onEdit:          () => void;
-  onDiscard:       () => void;
+  // Header subtitle. Defaults to the canonical Details wording; connection callers
+  // pass their own ("The service this package belongs to.", etc.).
+  subtitle?:       string;
+  // ── Details-mode lifecycle (owned by the service workspace) ──
+  status?:         string;
+  notes?:          ModuleNote[];
+  panelOpen?:      boolean;
+  onTogglePanel?:  () => void;
+  hasDraft?:       boolean;
+  onEdit?:         () => void;
+  onDiscard?:      () => void;
+  // ── Connection-mode extras ──
+  // Optional "N features | N common questions" summary line.
+  includesLabel?:  string;
+  // Read-only View action; button is disabled when absent.
+  onView?:         () => void;
 }
 
 export function ServiceOverviewViewCard({
-  status,
-  notes,
-  panelOpen,
-  onTogglePanel,
+  mode = 'details',
   displayTitle,
   displayContent,
   displayCategory,
-  hasDraft,
+  subtitle,
+  status = 'idle',
+  notes = [],
+  panelOpen = false,
+  onTogglePanel,
+  hasDraft = false,
   onEdit,
   onDiscard,
+  includesLabel,
+  onView,
 }: ServiceOverviewViewCardProps) {
+  const isConnection = mode === 'connection';
   const statusDimmed = status === 'pending-dim';
   // Title / Category / Description are sourced from the authoritative detail; until
   // it resolves, shimmer the values instead of rendering the handoff fallback.
-  const loading = status === 'loading';
+  // Connection mode receives already-resolved data, so it never shimmers.
+  const loading = !isConnection && status === 'loading';
+  const headerSubtitle = subtitle ?? 'General information about the service.';
 
   return (
     <div class="drawerModule drawerOverview service">
@@ -54,14 +80,16 @@ export function ServiceOverviewViewCard({
         </span>
         <div class="drawerModule__heading">
           <p class="drawerModule__title">Service Overview</p>
-          <p class="drawerModule__subtitle">General information about the service.</p>
+          <p class="drawerModule__subtitle">{headerSubtitle}</p>
         </div>
-        <div class={`drawerModule__status${statusDimmed ? ' drawerModule__status--dim' : ''}`}>
-          <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />
-        </div>
+        {!isConnection && (
+          <div class={`drawerModule__status${statusDimmed ? ' drawerModule__status--dim' : ''}`}>
+            <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel ?? (() => {})} />
+          </div>
+        )}
       </div>
 
-      {panelOpen && notes.length > 0 && (
+      {!isConnection && panelOpen && notes.length > 0 && (
         <ModuleNotificationPanel notes={notes} />
       )}
 
@@ -96,25 +124,46 @@ export function ServiceOverviewViewCard({
               <p class={`drawerModule__value${displayContent ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
                 {displayContent
                   ? displayContent
-                  : displayTitle
-                    ? `Enter a description for the ${displayTitle}.`
-                    : 'Enter a description for the service.'
+                  : isConnection
+                    ? 'No description provided.'
+                    : displayTitle
+                      ? `Enter a description for the ${displayTitle}.`
+                      : 'Enter a description for the service.'
                 }
               </p>
             )}
           </div>
+          {isConnection && includesLabel && (
+            <div class="drawerModule__field">
+              <p class="drawerModule__label">Includes</p>
+              <p class="drawerModule__value">{includesLabel}</p>
+            </div>
+          )}
         </div>
       </div>
 
       <div class="drawerModule__footer">
-        {hasDraft && (
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
-            Discard Draft
+        {isConnection ? (
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+            onClick={() => onView?.()}
+            disabled={!onView}
+          >
+            View
           </button>
+        ) : (
+          <>
+            {hasDraft && (
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
+                Discard Draft
+              </button>
+            )}
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
+              Edit
+            </button>
+          </>
         )}
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
-          Edit
-        </button>
       </div>
     </div>
   );
