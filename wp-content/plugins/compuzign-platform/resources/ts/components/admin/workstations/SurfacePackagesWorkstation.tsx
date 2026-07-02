@@ -671,7 +671,6 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
             <div class="cz-shell-section cz-shell-section--no-border">
               <ServiceOverviewViewCard
                 mode="connection"
-                subtitle="The service this tier belongs to."
                 displayTitle={decodeHtml(service.title) || 'Untitled service'}
                 displayContent={service.content ? decodeHtml(service.content) : ''}
                 displayCategory={

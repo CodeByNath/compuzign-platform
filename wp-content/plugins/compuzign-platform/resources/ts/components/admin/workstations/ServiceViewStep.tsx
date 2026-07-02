@@ -395,7 +395,6 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
             <div class="cz-shell-section cz-shell-section--no-border">
               <ServiceOverviewViewCard
                 mode="connection"
-                subtitle="The service this package belongs to."
                 displayTitle={decodeHtml(svc.title) || 'Untitled service'}
                 displayContent={svc.content ? decodeHtml(svc.content) : ''}
                 displayCategory={

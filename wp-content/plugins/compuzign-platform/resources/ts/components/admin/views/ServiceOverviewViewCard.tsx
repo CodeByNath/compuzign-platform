@@ -8,8 +8,9 @@ import { Skeleton } from '../ui/Skeleton';
 //   'details'    — the canonical owning workspace view: status pill, notes panel,
 //                  Edit / Discard footer, editing-oriented empty states.
 //   'connection' — read-only transit view for another workspace's Connections tab:
-//                  no status pill, no notes, View-only footer, configurable
-//                  subtitle, optional Includes field.
+//                  same icon / title / subtitle as Details; status pill + notes
+//                  panel shown when a status/notes are supplied; View-only footer
+//                  (no Edit / Discard); optional Includes field.
 type ServiceOverviewMode = 'details' | 'connection';
 
 interface ServiceOverviewViewCardProps {
@@ -60,6 +61,9 @@ export function ServiceOverviewViewCard({
   // it resolves, shimmer the values instead of rendering the handoff fallback.
   // Connection mode receives already-resolved data, so it never shimmers.
   const loading = !isConnection && status === 'loading';
+  // Details always carries a status; connection shows the pill only when a real
+  // status is supplied ('idle' is the read-only no-status default).
+  const showStatus = !isConnection || status !== 'idle';
   const headerSubtitle = subtitle ?? 'General information about the service.';
 
   return (
@@ -82,14 +86,14 @@ export function ServiceOverviewViewCard({
           <p class="drawerModule__title">Service Overview</p>
           <p class="drawerModule__subtitle">{headerSubtitle}</p>
         </div>
-        {!isConnection && (
+        {showStatus && (
           <div class={`drawerModule__status${statusDimmed ? ' drawerModule__status--dim' : ''}`}>
             <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel ?? (() => {})} />
           </div>
         )}
       </div>
 
-      {!isConnection && panelOpen && notes.length > 0 && (
+      {panelOpen && notes.length > 0 && (
         <ModuleNotificationPanel notes={notes} />
       )}
 
