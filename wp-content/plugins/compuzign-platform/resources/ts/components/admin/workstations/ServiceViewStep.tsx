@@ -24,6 +24,7 @@ import type {
   FaqItem,
 } from '@/api/types/admin';
 import { useApi } from '@/hooks/useApi';
+import { resolveTierStatus, statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { useServiceStation } from '@/hooks/useServiceStation';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -40,6 +41,7 @@ import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
 import {
   getPackageNotes,
+  getTierNotes,
   evaluateModule,
   tierOverviewModule,
   tierFeaturesModule,
@@ -1261,6 +1263,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [tierTab,       setTierTab]         = useState<'commercial' | 'service'>('commercial');
   // Single-open accordion for the Commercial cards' notification panels.
   const [openTierPanel, setOpenTierPanel]   = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
+  // Single-open accordion for the tier-overview summary cards' notification panels (keyed by tierId).
+  const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -1395,50 +1399,133 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
   const { station, service: svc } = data;
 
-  // ── Tier selector view ────────────────────────────────────────────────────
+  // ── Tier overview view — polished 4-tier summary cards + Pricing Summary ─────
+  // Presentation ported from the retired PackageDetailStep (final polished form at
+  // commit 2ac771e). Bound to Package Station data only (station.tiers is the same
+  // SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
+  // No legacy fetch (fetchSurfacePackageDetail) or legacy routing is reintroduced.
   if (!editingTierId || !draft) {
+    const pkgStatus = station.platform_status ?? 'disabled';
     return (
       <div class="cz-req-detail">
-        <div class="cz-ws-header" style="padding: var(--cz-space-5) var(--cz-space-6) var(--cz-space-4)">
-          <div>
-            <h3 class="cz-ws-title" style="font-size: var(--admin-fs-sub)">Tier Configuration</h3>
-            <p class="cz-ws-subtitle">Select a tier to configure pricing and inclusions.</p>
-          </div>
-        </div>
-
         {TIER_KEYS.map((tierId) => {
-          const detail = station.tiers[tierId];
-          const isConfigured = detail && (detail.billing_cycle || detail.price !== null || detail.contact || detail.inclusions_override?.length > 0);
-          const isEnabled = detail?.enabled ?? false;
+          const tier       = station.tiers[tierId];
+          const status     = resolveTierStatus(tier, { pkgStatus });
+          const showData   = !!(tier && (tier.price !== null || tier.billing_cycle || tier.contact));
+          const priceOk    = !!(tier && (tier.price !== null || tier.contact));
+          const cycleOk    = !!tier?.billing_cycle;
+          const priceText  = tier?.contact && tier.price === null
+            ? 'Contact'
+            : tier?.price != null ? `$${tier.price.toFixed(2)}` : '$0.00';
+          const cycleText  = tier?.billing_cycle ?? 'Not available';
+          const inclCount  = tier?.inclusions_override?.length ?? 0;
+          const faqCount   = tier?.faq_refs?.length ?? 0;
+          const featLabel  = `${inclCount} ${inclCount === 1 ? 'feature' : 'features'}`;
+          const faqLabel   = `${faqCount} ${faqCount === 1 ? 'common question' : 'common questions'}`;
+          const tierNotes  = getTierNotes(tier, { platformStatus: pkgStatus });
           return (
-            <div
-              key={tierId}
-              class="cz-shell-section cz-shell-section--no-border"
-              style="cursor: pointer"
-              onClick={() => openTierEdit(tierId)}
-            >
-              <div class="drawerModule">
-                <div class="drawerModule__header">
-                  <div class="drawerModule__heading">
-                    <p class="drawerModule__title">{detail?.label?.trim() || TIER_LABELS[tierId]}</p>
-                    <p class="drawerModule__subtitle">
-                      {isConfigured
-                        ? (detail.price !== null
-                            ? `$${detail.price} / ${detail.billing_cycle}`
-                            : detail.contact ? 'Contact Us' : detail.billing_cycle ?? 'Configured')
-                        : 'Not configured'}
-                    </p>
-                  </div>
-                  <div class="drawerModule__status">
-                    {isConfigured && (
-                      <ModuleStatusPill status={isEnabled ? 'active' : 'disabled'} notes={[]} />
+            <div key={tierId} class="drawerModule drawerOverview tier">
+              <div class="drawerModule__header">
+                <span class="drawerModule__icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    class="drawerModule__icon-svg"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
+                  </svg>
+                </span>
+                <div class="drawerModule__heading">
+                  <p class="drawerModule__title">Package {tier?.label?.trim() || TIER_LABELS[tierId]}</p>
+                  <p class="drawerModule__subtitle">Brief summary about the tier.</p>
+                </div>
+                <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
+                  <ModuleStatusPill
+                    status={status}
+                    notes={tierNotes}
+                    onOpen={() => setOpenSummaryTier(p => p === tierId ? null : tierId)}
+                  />
+                </div>
+              </div>
+              {openSummaryTier === tierId && tierNotes.length > 0 && (
+                <ModuleNotificationPanel notes={tierNotes} />
+              )}
+              <div class="drawerModule__body">
+                <div class="drawerModule__fields">
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Pricing</p>
+                    {showData ? (
+                      <p class="drawerModule__value">
+                        <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
+                        {' · '}
+                        <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
+                      </p>
+                    ) : (
+                      <p class="drawerModule__value">View Tier Overview and manage pricing.</p>
                     )}
                   </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Includes</p>
+                    <p class="drawerModule__value">{featLabel} | {faqLabel}</p>
+                  </div>
                 </div>
+              </div>
+              <div class="drawerModule__footer">
+                <button
+                  type="button"
+                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  onClick={() => openTierEdit(tierId)}
+                >
+                  View
+                </button>
               </div>
             </div>
           );
         })}
+
+        <div class="cz-shell-section cz-shell-section--no-border">
+          <p class="cz-shell-section__title">Pricing Summary</p>
+          <div class="cz-sp-tier-table-wrap">
+            <table class="cz-sp-tier-table">
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Price</th>
+                  <th>Cycle</th>
+                  <th class="cz-sp-tier-table__center">Features</th>
+                </tr>
+              </thead>
+              <tbody>
+                {TIER_KEYS.map((tierId) => {
+                  const tier   = station.tiers[tierId];
+                  const status = resolveTierStatus(tier, { pkgStatus });
+                  return (
+                    <tr key={tierId}>
+                      <td class="cz-sp-tier-table__name">
+                        <div class="cz-sp-tier-table__name-inner">
+                          <span class={`cz-admin-status-dot ${statusDotClass(status)}`} />
+                          <span>{TIER_LABELS[tierId]}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                          {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
+                        </span>
+                      </td>
+                      <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
+                      <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                        {tier?.inclusions_override?.length ? tier.inclusions_override.length : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         <div class="cz-tf-footer">
           <div class="cz-tf-footer__spacer" />
