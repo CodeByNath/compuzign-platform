@@ -125,7 +125,13 @@ export function ServiceOverviewViewCard({
                 <Skeleton width="80%" />
               </p>
             ) : (
-              <p class={`drawerModule__value${displayContent ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
+              <p class={`drawerModule__value${
+                displayContent
+                  ? ' drawerModule__value--clamp'
+                  : isConnection
+                    ? ''                              // read-only value — not muted just for being a placeholder
+                    : ' drawerModule__value--muted'
+              }`}>
                 {displayContent
                   ? displayContent
                   : isConnection

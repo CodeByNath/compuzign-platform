@@ -392,20 +392,18 @@ function PackageDetailStep({ ctx }: { ctx: StepContext }) {
       {tab === 'promotions' && (
         <>
           {svc && (
-            <div class="cz-shell-section cz-shell-section--no-border">
-              <ServiceOverviewViewCard
-                mode="connection"
-                displayTitle={decodeHtml(svc.title) || 'Untitled service'}
-                displayContent={svc.content ? decodeHtml(svc.content) : ''}
-                displayCategory={
-                  svc.categories && svc.categories.length > 0
-                    ? svc.categories.map((c) => decodeHtml(c.name)).join(', ')
-                    : 'Not selected'
-                }
-                includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
-                onView={pkgBack}
-              />
-            </div>
+            <ServiceOverviewViewCard
+              mode="connection"
+              displayTitle={decodeHtml(svc.title) || 'Untitled service'}
+              displayContent={svc.content ? decodeHtml(svc.content) : ''}
+              displayCategory={
+                svc.categories && svc.categories.length > 0
+                  ? svc.categories.map((c) => decodeHtml(c.name)).join(', ')
+                  : 'Not selected'
+              }
+              includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
+              onView={pkgBack}
+            />
           )}
 
           {/* Promotions */}
@@ -494,7 +492,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     hasInclusionsDraft, hasFaqsDraft,
     overviewStatus, inclusionsStatus, faqsStatus,
     overviewNotes, inclusionsNotes, faqsNotes,
-    relatedPkg, inclusions, faqs, tiers, overviewDraft: stationOverviewDraft, settledOverview,
+    relatedPkg, inclusions, faqs, overviewDraft: stationOverviewDraft, settledOverview,
     pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc, pkgSummaryDescPending,
     promoStatus, promotionCount,
     inclSummary, faqsSummary,
@@ -1252,7 +1250,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             status={promoStatus}
             onView={handleOpenPromoConfig}
           />
-          {relatedPkg && tiers && (
+          {relatedPkg && (
             <div class="cz-shell-section cz-shell-section--no-border">
               <p class="cz-shell-section__title">Pricing Summary</p>
               <div class="cz-sp-tier-table-wrap">
@@ -1267,7 +1265,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                   </thead>
                   <tbody>
                     {TIER_KEYS.map((tierId) => {
-                      const tier = tiers[tierId];
+                      const tier = relatedPkg.tiers[tierId];
                       return (
                         <tr key={tierId}>
                           <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
@@ -1278,7 +1276,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
                           </td>
                           <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
                           <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                            {tier?.features?.length ? tier.features.length : '—'}
+                            {tier?.inclusion_count ? tier.inclusion_count : '—'}
                           </td>
                         </tr>
                       );

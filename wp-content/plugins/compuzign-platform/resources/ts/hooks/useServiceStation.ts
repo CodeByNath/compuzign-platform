@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
-import type { ServiceItem, ServiceInclusion, ServiceFaq, PricingTierData, TierId } from '@/api/types/cost-builder';
+import type { ServiceItem, ServiceInclusion, ServiceFaq, TierId } from '@/api/types/cost-builder';
 import {
   archiveService,
   createSurfacePackage,
@@ -67,7 +67,6 @@ export interface ServiceStation {
   // ── Module data (draft-preferred) ─────────────────────────────────────────
   inclusions:    ServiceInclusionItem[];
   faqs:          ServiceFaqItem[];
-  tiers:         Record<TierId, PricingTierData> | undefined;
   overviewDraft: OverviewDraftData | null;
   // Authoritative settled overview fields (from adminDetail), for the display
   // fallback chain: draft → settledOverview → passed CostBuilder service.
@@ -165,7 +164,6 @@ export function useServiceStation(
   // services, so it must not shadow the settled pool.
   const inclusions = (adminDetail?.drafts.inclusions ?? adminDetail?.inclusions ?? service.inclusions ?? []) as ServiceInclusionItem[];
   const faqs       = (adminDetail?.drafts.faqs       ?? adminDetail?.faqs       ?? service.faqs       ?? []) as ServiceFaqItem[];
-  const tiers      = service.pricing?.tiers;
 
   // ── Derived: module registry ───────────────────────────────────────────────
   // adminDetail.module_status is authoritative (loaded on drawer open).
@@ -523,7 +521,6 @@ export function useServiceStation(
     detailLoaded,
     inclusions,
     faqs,
-    tiers,
     overviewDraft,
     settledOverview: adminDetail
       ? { title: adminDetail.title, excerpt: adminDetail.excerpt, content: adminDetail.content, categories: adminDetail.categories }

@@ -668,20 +668,18 @@ export function TierManageStep({ ctx }: { ctx: StepContext }) {
       {tab === 'service' && (
         <>
           {service ? (
-            <div class="cz-shell-section cz-shell-section--no-border">
-              <ServiceOverviewViewCard
-                mode="connection"
-                displayTitle={decodeHtml(service.title) || 'Untitled service'}
-                displayContent={service.content ? decodeHtml(service.content) : ''}
-                displayCategory={
-                  service.categories && service.categories.length > 0
-                    ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
-                    : 'Not selected'
-                }
-                includesLabel={`${svcFeatureCount} features | ${svcQuestionCount} common questions`}
-                onView={viewService}
-              />
-            </div>
+            <ServiceOverviewViewCard
+              mode="connection"
+              displayTitle={decodeHtml(service.title) || 'Untitled service'}
+              displayContent={service.content ? decodeHtml(service.content) : ''}
+              displayCategory={
+                service.categories && service.categories.length > 0
+                  ? service.categories.map((c) => decodeHtml(c.name)).join(', ')
+                  : 'Not selected'
+              }
+              includesLabel={`${svcFeatureCount} features | ${svcQuestionCount} common questions`}
+              onView={viewService}
+            />
           ) : (
             <div class="cz-shell-section">
               <p class="cz-sc-pkg-block__empty-msg">No service linked to this package.</p>
