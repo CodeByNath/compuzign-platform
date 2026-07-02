@@ -499,7 +499,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     toggleActive, archiveStation, trashStation, settleModules, publishService,
     saveOverview, saveInclusions, saveFaqs,
     revertOverview, revertInclusions, revertFaqs,
-    createPackageIfMissing,
   } = station;
 
   // Drawer Principle v1 — module state machine: null = View, named value = Edit (InlineEditorShell active)
@@ -714,7 +713,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     }
   }, [faqsDraft, saveFaqs]);
 
-  const handleOpenTierConfig = async () => {
+  const handleOpenTierConfig = () => {
     const onBack = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
@@ -723,46 +722,19 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
 
-    if (relatedPkg) {
-      // Legacy path: service has a cz_surface_package post — use existing Package drawer.
-      const pkg = await createPackageIfMissing(service.id, service.title);
-      if (!pkg) return;
-      const { pkgId, pkgTitle } = pkg;
-      ctx.close();
-      doOpen({
-        id:             `pkg-detail-${pkgId}`,
-        mode:           'drawer',
-        title:          'Package',
-        onBack,
-        hideStepHeader: true,
-        initialStepData: {
-          packageId:      pkgId,
-          pkgTitle,
-          initialTab:     'packages',
-          openAction:     doOpen,
-          pkgBack:        onBack,
-          tierId:         null,
-          isNew:          false,
-          currentEnabled: true,
-        },
-        steps: [
-          { id: 'pkg-detail', title: 'Package',   component: PackageDetailStep },
-          { id: 'tier-form',  title: 'Edit Tier', component: TierManageStep    },
-        ],
-      });
-    } else {
-      // Phase 2 path: service born after Phase 1 — use Service Station-owned tier editing.
-      ctx.close();
-      doOpen({
-        id:             `service-tiers-${service.id}`,
-        mode:           'drawer',
-        title:          'Package',
-        onBack,
-        hideStepHeader: true,
-        initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
-        steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
-      });
-    }
+    // All tier management routes exclusively through the Service Station-owned Package
+    // Station (cz_service_package_station). The legacy cz_surface_package drawer path
+    // has been retired.
+    ctx.close();
+    doOpen({
+      id:             `service-tiers-${service.id}`,
+      mode:           'drawer',
+      title:          'Package',
+      onBack,
+      hideStepHeader: true,
+      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
+      steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
+    });
   };
 
   const pkgSummaryOnView = isActive && !station.loading.creating ? handleOpenTierConfig : undefined;
@@ -1740,6 +1712,46 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   if (loading) return <div class="cz-admin-loading"><Spinner label="Loading tiers…" /></div>;
   if (error)   return <div class="cz-admin-error-msg">Failed to load tier data: {error}</div>;
   if (!data)   return null;
+
+  // Defensive guard against incomplete migration data. The endpoint returns HTTP 200 with
+  // { success:false } and no station payload when cz_service_package_station has not been
+  // seeded for this service. Fail with a clear empty state instead of crashing on an
+  // undefined station — this is a guard only, never a fallback to legacy package data.
+  if (!data.success || !data.station) {
+    return (
+      <div class="cz-req-detail">
+        <div class="drawerModule">
+          <div class="drawerModule__header">
+            <div class="drawerModule__heading">
+              <p class="drawerModule__title">Tier configuration unavailable</p>
+              <p class="drawerModule__subtitle">This service has no Package Station yet.</p>
+            </div>
+          </div>
+          <div class="drawerModule__body">
+            <div class="drawerModule__empty">
+              <p class="drawerModule__empty-title">Package Station not found</p>
+              <p class="drawerModule__empty-copy">
+                This service’s pricing station has not been initialised, which can happen if
+                migration has not completed for it. Refresh to try again; if the problem
+                persists, contact an administrator.
+              </p>
+            </div>
+          </div>
+          <div class="drawerModule__footer">
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => refetch()}>
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="cz-tf-footer">
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const { station, service: svc } = data;
 
