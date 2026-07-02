@@ -117,8 +117,6 @@ export type WorkstationId =
   | 'service-catalog'
   | 'service-archived'
   | 'service-trash'
-  | 'surface-packages'
-  | 'promotions'
   | 'bundles'
   | 'featured'
   | 'requests'
@@ -138,8 +136,6 @@ export const WORKSTATIONS: WorkstationDef[] = [
   { id: 'service-catalog',   label: 'Service Catalog',   icon: '◫', group: 'catalog'    },
   { id: 'service-archived',  label: 'Archived',          icon: '',  group: 'catalog',   parent: 'service-catalog' },
   { id: 'service-trash',     label: 'Trash',             icon: '',  group: 'catalog',   parent: 'service-catalog' },
-  { id: 'surface-packages',  label: 'Service Packages',  icon: '◧', group: 'catalog',   parent: 'service-catalog' },
-  { id: 'promotions',       label: 'Promotions',        icon: '◷', group: 'catalog',   parent: 'service-catalog' },
   { id: 'bundles',          label: 'Bundles',           icon: '❐', group: 'catalog'    },
   { id: 'featured',         label: 'Featured Controls', icon: '◆', group: 'catalog'    },
   { id: 'requests',         label: 'Requests & Quotes', icon: '◌', group: 'operations' },
@@ -286,39 +282,6 @@ export interface SurfaceTierDetail {
   enabled: boolean;
 }
 
-export interface SurfaceServiceInfo {
-  id: number;
-  title: string;
-  slug: string;
-  excerpt: string;
-  content?: string;
-  categories?: Array<{ id: number; name: string; slug: string }>;
-  inclusions: InclusionItem[];
-  faqs: FaqItem[];
-}
-
-export interface SurfacePackageDetailData {
-  post_id: number;
-  post_status: string;
-  platform_status: string;
-  title: string;
-  package_type: string;
-  service_refs: number[];
-  tiers: Record<string, SurfaceTierDetail>;
-  promotion_tiers: PromotionTier[];
-  popular_tier: string | null;
-  popular_label: string;
-  faq_refs: string[];
-  display_contexts: string[];
-  migration_complete: boolean;
-}
-
-export interface SurfacePackageDetailResponse {
-  success: boolean;
-  package: SurfacePackageDetailData;
-  service: SurfaceServiceInfo | null;
-}
-
 export interface TierSavePayload {
   label: string;
   price: number | null;
@@ -331,20 +294,6 @@ export interface TierSavePayload {
   enabled: boolean;
   new_inclusions: Array<{ label: string }>;
   new_faqs: Array<{ question: string; answer: string }>;
-}
-
-export interface TierSaveResponse {
-  success: boolean;
-  package_meta: SurfacePackageDetailData;
-  new_inclusions_added: number;
-  new_faqs_added: number;
-}
-
-export interface PackageStatusResponse {
-  success: boolean;
-  platform_status: string;
-  /** @deprecated Use platform_status instead. */
-  post_status: string;
 }
 
 export interface PromotionTierPayload {
@@ -367,24 +316,6 @@ export interface PromotionTierPayload {
   is_featured: boolean;
   metadata?: Record<string, string>;
   new_inclusions?: Array<{ label: string }>;
-}
-
-export interface PromotionTierSaveResponse {
-  success: boolean;
-  promo_id: string;
-  promotion_tier: PromotionTier;
-}
-
-export interface PromotionTierArchiveResponse {
-  success: boolean;
-  promo_id: string;
-  status: 'archived';
-}
-
-export interface PromotionTierReactivateResponse {
-  success: boolean;
-  promo_id: string;
-  status: 'active';
 }
 
 export interface AcceptIntakeResponse {
@@ -510,16 +441,6 @@ export interface ServiceStatusResponse {
     /** @deprecated Use platform_status instead. */
     is_active: boolean;
   };
-}
-
-export interface CreateSurfacePackagePayload {
-  service_id: number;
-  title?: string;
-}
-
-export interface CreateSurfacePackageResponse {
-  success: boolean;
-  package_id: number;
 }
 
 export interface CreateServicePayload {

@@ -4,8 +4,6 @@ import { OverviewWorkstation } from './workstations/OverviewWorkstation';
 import { ServiceCatalogWorkstation } from './workstations/ServiceCatalogWorkstation';
 import { ServiceArchivedWorkstation } from './workstations/ServiceArchivedWorkstation';
 import { ServiceTrashWorkstation } from './workstations/ServiceTrashWorkstation';
-import { SurfacePackagesWorkstation } from './workstations/SurfacePackagesWorkstation';
-import { PromotionsWorkstation } from './workstations/PromotionsWorkstation';
 import { BundlesWorkstation } from './workstations/BundlesWorkstation';
 import { FeaturedWorkstation } from './workstations/FeaturedWorkstation';
 import { RequestsWorkstation } from './workstations/RequestsWorkstation';
@@ -29,10 +27,6 @@ export function WorkstationRouter({ active, refreshKey, openAction }: Props) {
       return <ServiceArchivedWorkstation refreshKey={refreshKey} />;
     case 'service-trash':
       return <ServiceTrashWorkstation refreshKey={refreshKey} />;
-    case 'surface-packages':
-      return <SurfacePackagesWorkstation refreshKey={refreshKey} openAction={openAction} />;
-    case 'promotions':
-      return <PromotionsWorkstation refreshKey={refreshKey} openAction={openAction} />;
     case 'bundles':
       return <BundlesWorkstation refreshKey={refreshKey} />;
     case 'featured':
