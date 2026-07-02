@@ -36,7 +36,6 @@ import type { FaqsDraft } from '../editors/ServiceFaqsEditor';
 import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { ServiceInclusionsViewCard } from '../views/ServiceInclusionsViewCard';
 import { ServiceFaqsViewCard } from '../views/ServiceFaqsViewCard';
-import { ServiceContextPanel } from '../views/ServiceContextPanel';
 import { ReadBlock } from '../ReadBlock';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
@@ -418,7 +417,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       title:          'Package',
       onBack,
       hideStepHeader: true,
-      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
+      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: onBack },
       steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
     });
   };
@@ -1258,8 +1257,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const serviceId = ctx.stepData.serviceId as number;
   const onRefresh = ctx.stepData.onRefresh as (() => void) | undefined;
   // Full parent service (richer than the station's service stub) — read-only
-  // context for the Service tab. Passed through by handleOpenTierConfig.
+  // context for the Connections tab. Passed through by handleOpenTierConfig.
   const serviceItem = ctx.stepData.service as ServiceItem | undefined;
+  // Return-to-Service navigation (the same handler wired to the drawer's Back), used by
+  // the service-overview connection card's View action.
+  const serviceBack = ctx.stepData.serviceBack as (() => void) | undefined;
+  // Parent service lifecycle status for the connection card's pill (active vs disabled).
+  const serviceConnStatus = (serviceItem?.meta?.platform_status ?? 'disabled') === 'active' ? 'active' : 'disabled';
 
   const { data, loading, error, refetch } = useApi<ServicePackageStationResponse>(
     () => fetchServicePackageStation(serviceId)
@@ -1375,6 +1379,45 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setNewFaqA('');
   };
 
+  // Footer handlers via ref — latest closures without re-subscribing the footer effect.
+  const footerRef = useRef({ handleSave, handleToggleEnabled, close: ctx.close });
+  footerRef.current = { handleSave, handleToggleEnabled, close: ctx.close };
+
+  // Pin the drawer footer in the shell's footer slot (matching the Service Overview
+  // drawer) instead of rendering it inline inside the scrolling body. Edit mode leaves
+  // the slot empty — InlineEditorShell carries its own Save/Cancel footer.
+  useEffect(() => {
+    const { setFooter } = ctx;
+    const a = footerRef.current;
+    const closeFooter = (
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
+      </div>
+    );
+    if (loading || error || !data || !data.success || !data.station) {
+      setFooter(closeFooter);
+    } else if (editingSection != null) {
+      setFooter(null);
+    } else if (!editingTierId || !draft) {
+      setFooter(closeFooter);
+    } else {
+      setFooter(
+        <div class="cz-tf-footer">
+          <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => a.handleToggleEnabled()} disabled={saving}>
+            {draft.enabled ? 'Disable' : 'Enable'}
+          </button>
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()} disabled={saving}>Cancel</button>
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.handleSave()} disabled={saving}>
+            {saving ? 'Saving…' : 'Publish'}
+          </button>
+        </div>,
+      );
+    }
+    return () => setFooter(null);
+  }, [loading, error, data, editingSection, editingTierId, draft, saving, ctx.setFooter]);
+
   if (loading) return <div class="cz-admin-loading"><Spinner label="Loading tiers…" /></div>;
   if (error)   return <div class="cz-admin-error-msg">Failed to load tier data: {error}</div>;
   if (!data)   return null;
@@ -1408,12 +1451,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               Refresh
             </button>
           </div>
-        </div>
-        <div class="cz-tf-footer">
-          <div class="cz-tf-footer__spacer" />
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-            Close
-          </button>
         </div>
       </div>
     );
@@ -1575,6 +1612,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         {overviewTab === 'connections' && (
           <ServiceOverviewViewCard
             mode="connection"
+            status={serviceConnStatus}
+            notes={[]}
             displayTitle={decodeHtml(serviceItem?.title ?? svc.title) || 'Untitled service'}
             displayContent={serviceItem?.content ? decodeHtml(serviceItem.content) : ''}
             displayCategory={
@@ -1583,15 +1622,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                 : 'Not selected'
             }
             includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
+            onView={serviceBack}
           />
         )}
-
-        <div class="cz-tf-footer">
-          <div class="cz-tf-footer__spacer" />
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-            Close
-          </button>
-        </div>
       </div>
     );
   }
@@ -1916,33 +1949,24 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         </>
       )}
 
-      {/* ── Service tab: read-only parent context ────────────────────────────── */}
+      {/* ── Connections tab: parent service (same service-overview connection card
+             as the package overview's Connections tab). ─────────────────────────── */}
       {tierTab === 'service' && (
-        <ServiceContextPanel
-          title={decodeHtml(serviceItem?.title ?? svc.title)}
-          category={
+        <ServiceOverviewViewCard
+          mode="connection"
+          status={serviceConnStatus}
+          notes={[]}
+          displayTitle={decodeHtml(serviceItem?.title ?? svc.title) || 'Untitled service'}
+          displayContent={serviceItem?.content ? decodeHtml(serviceItem.content) : ''}
+          displayCategory={
             serviceItem && serviceItem.categories.length > 0
               ? serviceItem.categories.map((c) => decodeHtml(c.name)).join(', ')
               : 'Not selected'
           }
-          content={serviceItem?.content ?? ''}
-          inclusions={svc.inclusions}
-          faqs={svc.faqs}
+          includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
+          onView={serviceBack}
         />
       )}
-
-      <div class="cz-tf-footer">
-        <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={handleToggleEnabled} disabled={saving}>
-          {draft.enabled ? 'Disable' : 'Enable'}
-        </button>
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
-          Cancel
-        </button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Publish'}
-        </button>
-      </div>
     </div>
   );
 }
