@@ -37,6 +37,7 @@ import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { ServiceInclusionsViewCard } from '../views/ServiceInclusionsViewCard';
 import { ServiceFaqsViewCard } from '../views/ServiceFaqsViewCard';
 import { ServiceContextPanel } from '../views/ServiceContextPanel';
+import { ReadBlock } from '../ReadBlock';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
 import {
@@ -62,6 +63,25 @@ export const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise'
 export const TIER_LABELS: Record<string, string> = {
   basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
 };
+
+// Tier module icons — the same glyphs the Service Overview / Features / FAQs cards use,
+// reused by the individual-tier ReadBlock cards (restored refined tier presentation).
+const TIER_OVERVIEW_ICON = (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
+    <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
+    <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
+  </svg>
+);
+const TIER_FEATURES_ICON = (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
+    <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+  </svg>
+);
+const TIER_FAQS_ICON = (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
+    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+  </svg>
+);
 
 
 // ── CommercialBlock ───────────────────────────────────────────────────────────
@@ -1265,6 +1285,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [openTierPanel, setOpenTierPanel]   = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
   // Single-open accordion for the tier-overview summary cards' notification panels (keyed by tierId).
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
+  // Package overview view: Details (tier cards + pricing) | Connections (parent service).
+  const [overviewTab, setOverviewTab] = useState<'details' | 'connections'>('details');
 
   useEffect(() => {
     if (!saveOk) return;
@@ -1408,6 +1430,27 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     const pkgStatus = station.platform_status ?? 'disabled';
     return (
       <div class="cz-req-detail">
+        {/* Drawer Tab Contract — fixed order Details | Connections. Details = this
+            package's tier modules; Connections = the parent service. */}
+        <div class="cz-sv-tabs">
+          <button
+            type="button"
+            class={`cz-sv-tab${overviewTab === 'details' ? ' cz-sv-tab--active' : ''}`}
+            onClick={() => setOverviewTab('details')}
+          >
+            Details
+          </button>
+          <button
+            type="button"
+            class={`cz-sv-tab${overviewTab === 'connections' ? ' cz-sv-tab--active' : ''}`}
+            onClick={() => setOverviewTab('connections')}
+          >
+            Connections
+          </button>
+        </div>
+
+        {overviewTab === 'details' && (
+        <>
         {TIER_KEYS.map((tierId) => {
           const tier       = station.tiers[tierId];
           const status     = resolveTierStatus(tier, { pkgStatus });
@@ -1526,6 +1569,22 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             </table>
           </div>
         </div>
+        </>
+        )}
+
+        {overviewTab === 'connections' && (
+          <ServiceOverviewViewCard
+            mode="connection"
+            displayTitle={decodeHtml(serviceItem?.title ?? svc.title) || 'Untitled service'}
+            displayContent={serviceItem?.content ? decodeHtml(serviceItem.content) : ''}
+            displayCategory={
+              serviceItem && serviceItem.categories.length > 0
+                ? serviceItem.categories.map((c) => decodeHtml(c.name)).join(', ')
+                : 'Not selected'
+            }
+            includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
+          />
+        )}
 
         <div class="cz-tf-footer">
           <div class="cz-tf-footer__spacer" />
@@ -1723,35 +1782,17 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     { platformStatus, parentReady: tierOverviewComplete, parentLabel: 'Tier Overview' },
   );
 
-  const renderTierStatus = (
-    key: 'tier-overview' | 'tier-features' | 'tier-faqs',
-    state: { status: string; notes: typeof overviewState.notes },
-  ) => (
-    <div class={`drawerModule__status${state.status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
-      <ModuleStatusPill
-        status={state.status}
-        notes={state.notes}
-        onOpen={() => setOpenTierPanel((p) => (p === key ? null : key))}
-      />
-    </div>
-  );
-
   return (
     <div class="cz-req-detail">
-      <div class="cz-sv-tabs" style="margin-bottom: 0">
-        <button type="button" class="cz-action-shell__back" onClick={handleBack} disabled={saving} aria-label="Back to tier list">
+      {/* Drawer Tab Contract — fixed order Details | Connections, with a leading Back
+          control returning to the package overview. Single header: the tier name lives
+          in the Tier Overview card, not a second header row. */}
+      <div class="cz-sv-tabs">
+        <button type="button" class="cz-action-shell__back" onClick={handleBack} disabled={saving} aria-label="Back to package overview">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
             <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
           </svg>
         </button>
-        <span style="font-size: var(--admin-fs-sub); font-weight: var(--admin-fw-strong); color: var(--admin-text); padding-left: var(--cz-space-3)">
-          {draft.label.trim() || TIER_LABELS[editingTierId]}
-        </span>
-      </div>
-
-      {/* Drawer Tab Contract — fixed order Details | Connections (Details = tier's
-          own modules, Connections = parent service context). State keys unchanged. */}
-      <div class="cz-sv-tabs">
         <button
           type="button"
           class={`cz-sv-tab${tierTab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
@@ -1771,131 +1812,100 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       {/* ── Commercial tab: the tier's own modules ───────────────────────────── */}
       {tierTab === 'commercial' && (
         <>
-          {/* ── Tier Module: Tier Overview ───────────────────────────────────── */}
-          <div class="cz-shell-section cz-shell-section--no-border">
-            <div class="drawerModule drawerOverview service">
-              <div class="drawerModule__header">
-                <div class="drawerModule__heading">
-                  <p class="drawerModule__title">Tier Overview</p>
-                  <p class="drawerModule__subtitle">Pricing and presentation for this tier.</p>
-                </div>
-                {renderTierStatus('tier-overview', overviewState)}
+          {/* Tier Overview */}
+          <ReadBlock
+            title="Tier Overview"
+            subtitle="Pricing and presentation for this tier."
+            icon={TIER_OVERVIEW_ICON}
+            iconVariant="drawerModule__icon--overview"
+            scopeClass="drawerOverview tier"
+            status={overviewState.status}
+            notes={overviewState.notes}
+            panelOpen={openTierPanel === 'tier-overview'}
+            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-overview' ? null : 'tier-overview'))}
+            onEdit={() => openSection('tier-overview')}
+          >
+            <div class="drawerModule__fields">
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Label</p>
+                <p class="drawerModule__value">{draft.label.trim() || TIER_LABELS[editingTierId]}</p>
               </div>
-              {openTierPanel === 'tier-overview' && overviewState.notes.length > 0 && (
-                <ModuleNotificationPanel notes={overviewState.notes} />
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Price</p>
+                <p class="drawerModule__value">{tierPriceText}</p>
+              </div>
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Billing Cycle</p>
+                <p class="drawerModule__value">{draft.billing_cycle || '—'}</p>
+              </div>
+              {draft.popular && (
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Presentation</p>
+                  <p class="drawerModule__value">Popular{draft.popular_label ? ` · ${draft.popular_label}` : ''}</p>
+                </div>
               )}
-              <div class="drawerModule__body">
-                <div class="drawerModule__fields">
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Label</p>
-                    <p class="drawerModule__value">{draft.label.trim() || TIER_LABELS[editingTierId]}</p>
-                  </div>
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Price</p>
-                    <p class="drawerModule__value">{tierPriceText}</p>
-                  </div>
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Billing Cycle</p>
-                    <p class="drawerModule__value">{draft.billing_cycle || '—'}</p>
-                  </div>
-                  {draft.popular && (
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Presentation</p>
-                      <p class="drawerModule__value">Popular{draft.popular_label ? ` · ${draft.popular_label}` : ''}</p>
+            </div>
+          </ReadBlock>
+
+          {/* Included Features */}
+          <ReadBlock
+            title="Included Features"
+            subtitle="Features included in this tier."
+            icon={TIER_FEATURES_ICON}
+            iconVariant="drawerModule__icon--features"
+            count={draft.inclusions_override.length}
+            status={featuresState.status}
+            notes={featuresState.notes}
+            panelOpen={openTierPanel === 'tier-features'}
+            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-features' ? null : 'tier-features'))}
+            onEdit={() => openSection('tier-inclusions')}
+          >
+            {draft.inclusions_override.length > 0 ? (
+              <div class="cz-sc-inclusion-pool">
+                {draft.inclusions_override.map((inc) => (
+                  <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
+                ))}
+              </div>
+            ) : (
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No features</p>
+                <p class="drawerModule__empty-copy">Add features included in this tier.</p>
+              </div>
+            )}
+          </ReadBlock>
+
+          {/* Common Questions */}
+          <ReadBlock
+            title="Common Questions"
+            subtitle="Questions and answers for this tier."
+            icon={TIER_FAQS_ICON}
+            iconVariant="drawerModule__icon--faqs"
+            count={draft.faq_refs.length}
+            status={faqsState.status}
+            notes={faqsState.notes}
+            panelOpen={openTierPanel === 'tier-faqs'}
+            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-faqs' ? null : 'tier-faqs'))}
+            onEdit={() => openSection('tier-faqs')}
+          >
+            {draft.faq_refs.length > 0 ? (
+              <div class="cz-sc-faq-list">
+                {draft.faq_refs.map(ref => {
+                  const faq = faqPool.find(f => f.id === ref);
+                  return (
+                    <div key={ref} class="cz-sc-faq-item">
+                      <p class="cz-sc-faq-item__q">{faq?.question ?? ref}</p>
+                      {faq?.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
                     </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-              <div class="drawerModule__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-overview')}>
-                  Edit
-                </button>
+            ) : (
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No questions added</p>
+                <p class="drawerModule__empty-copy">Add common questions for this tier.</p>
               </div>
-            </div>
-          </div>
-
-          {/* ── Tier Module: Included Features ─────────────────────────────────── */}
-          <div class="cz-shell-section cz-shell-section--no-border">
-            <div class="drawerModule">
-              <div class="drawerModule__header">
-                <div class="drawerModule__heading">
-                  <p class="drawerModule__title">
-                    Included Features
-                    {draft.inclusions_override.length > 0 && (
-                      <span class="drawerModule__count">{draft.inclusions_override.length}</span>
-                    )}
-                  </p>
-                  <p class="drawerModule__subtitle">Features included in this tier.</p>
-                </div>
-                {renderTierStatus('tier-features', featuresState)}
-              </div>
-              {openTierPanel === 'tier-features' && featuresState.notes.length > 0 && (
-                <ModuleNotificationPanel notes={featuresState.notes} />
-              )}
-              <div class="drawerModule__body">
-                {draft.inclusions_override.length > 0 ? (
-                  <div class="cz-sc-inclusion-pool">
-                    {draft.inclusions_override.map((inc) => (
-                      <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
-                    ))}
-                  </div>
-                ) : (
-                  <div class="drawerModule__empty">
-                    <p class="drawerModule__empty-title">No features</p>
-                    <p class="drawerModule__empty-copy">Add features included in this tier.</p>
-                  </div>
-                )}
-              </div>
-              <div class="drawerModule__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-inclusions')}>
-                  Edit
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Tier Module: Common Questions ──────────────────────────────────── */}
-          <div class="cz-shell-section cz-shell-section--no-border">
-            <div class="drawerModule">
-              <div class="drawerModule__header">
-                <div class="drawerModule__heading">
-                  <p class="drawerModule__title">
-                    Common Questions
-                    {draft.faq_refs.length > 0 && (
-                      <span class="drawerModule__count">{draft.faq_refs.length}</span>
-                    )}
-                  </p>
-                  <p class="drawerModule__subtitle">Questions and answers for this tier.</p>
-                </div>
-                {renderTierStatus('tier-faqs', faqsState)}
-              </div>
-              {openTierPanel === 'tier-faqs' && faqsState.notes.length > 0 && (
-                <ModuleNotificationPanel notes={faqsState.notes} />
-              )}
-              <div class="drawerModule__body">
-                {draft.faq_refs.length > 0 ? (
-                  <div>
-                    {draft.faq_refs.map(ref => {
-                      const faq = faqPool.find(f => f.id === ref);
-                      return (
-                        <p key={ref} class="drawerModule__empty-copy" style="margin: 0 0 4px">{faq?.question ?? ref}</p>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div class="drawerModule__empty">
-                    <p class="drawerModule__empty-title">No questions added</p>
-                    <p class="drawerModule__empty-copy">Add common questions for this tier.</p>
-                  </div>
-                )}
-              </div>
-              <div class="drawerModule__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openSection('tier-faqs')}>
-                  Edit
-                </button>
-              </div>
-            </div>
-          </div>
+            )}
+          </ReadBlock>
 
           {(saveErr || saveOk) && (
             <div class="cz-shell-section cz-shell-section--no-border">
@@ -1923,14 +1933,14 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
       <div class="cz-tf-footer">
         <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={handleToggleEnabled} disabled={saving}>
-          {draft.enabled ? 'Disable Tier' : 'Enable Tier'}
+          {draft.enabled ? 'Disable' : 'Enable'}
         </button>
         <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleBack} disabled={saving}>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close} disabled={saving}>
           Cancel
         </button>
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Publish Tier'}
+          {saving ? 'Saving…' : 'Publish'}
         </button>
       </div>
     </div>
