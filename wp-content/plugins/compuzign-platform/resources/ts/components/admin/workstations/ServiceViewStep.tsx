@@ -399,7 +399,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   }, [faqsDraft, saveFaqs]);
 
   const handleOpenTierConfig = () => {
-    const onBack = () => doOpen({
+    const serviceReturn = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
       title:    'Service',
@@ -409,15 +409,18 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
     // All tier management routes exclusively through the Service Station-owned Package
     // Station (cz_service_package_station). The legacy cz_surface_package drawer path
-    // has been retired.
+    // has been retired. The single header Back is context-aware: while a tier is open,
+    // ServiceTierStep sets tierBack.current to return to the package overview; at the
+    // overview it falls through to the parent Service drawer.
+    const tierBack: { current: (() => void) | null } = { current: null };
     ctx.close();
     doOpen({
       id:             `service-tiers-${service.id}`,
       mode:           'drawer',
       title:          'Package',
-      onBack,
+      onBack:         () => (tierBack.current ?? serviceReturn)(),
       hideStepHeader: true,
-      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: onBack },
+      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: serviceReturn, tierBack },
       steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
     });
   };
@@ -1379,6 +1382,18 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setNewFaqA('');
   };
 
+  // Context-aware header Back: while a tier is open, the drawer's single header Back
+  // returns to the package overview; at the overview it falls through to the Service
+  // drawer (handled by handleOpenTierConfig's onBack delegate).
+  const tierBack = ctx.stepData.tierBack as { current: (() => void) | null } | undefined;
+  const handleBackRef = useRef(handleBack);
+  handleBackRef.current = handleBack;
+  useEffect(() => {
+    if (!tierBack) return;
+    tierBack.current = editingTierId ? () => handleBackRef.current() : null;
+    return () => { tierBack.current = null; };
+  }, [editingTierId, tierBack]);
+
   // Footer handlers via ref — latest closures without re-subscribing the footer effect.
   const footerRef = useRef({ handleSave, handleToggleEnabled, close: ctx.close });
   footerRef.current = { handleSave, handleToggleEnabled, close: ctx.close };
@@ -1817,15 +1832,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
   return (
     <div class="cz-req-detail">
-      {/* Drawer Tab Contract — fixed order Details | Connections, with a leading Back
-          control returning to the package overview. Single header: the tier name lives
-          in the Tier Overview card, not a second header row. */}
+      {/* Drawer Tab Contract — fixed order Details | Connections. Back-to-overview is
+          handled by the single drawer header Back (context-aware), not a second control. */}
       <div class="cz-sv-tabs">
-        <button type="button" class="cz-action-shell__back" onClick={handleBack} disabled={saving} aria-label="Back to package overview">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
-            <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
-          </svg>
-        </button>
         <button
           type="button"
           class={`cz-sv-tab${tierTab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
