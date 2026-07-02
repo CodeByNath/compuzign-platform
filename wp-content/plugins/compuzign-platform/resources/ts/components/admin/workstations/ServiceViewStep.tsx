@@ -3,7 +3,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem, TierId } from '@/api/types/cost-builder';
 import {
-  fetchSurfacePackageDetail,
   fetchServicePackageStation,
   saveServicePackageStationTier,
   setServicePackageStationTierEnabled,
@@ -15,7 +14,6 @@ import {
   updateServiceCategory,
 } from '@/api/endpoints/admin';
 import type {
-  SurfacePackageDetailResponse,
   SurfacePackageSummary,
   PromotionTier,
   PromotionTierPayload,
@@ -26,9 +24,6 @@ import type {
   FaqItem,
 } from '@/api/types/admin';
 import { useApi } from '@/hooks/useApi';
-import { TierManageStep } from './SurfacePackagesWorkstation';
-import { PromotionViewStep } from './PromotionsWorkstation';
-import { resolveTierStatus, statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { useServiceStation } from '@/hooks/useServiceStation';
 import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -45,7 +40,6 @@ import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
 import {
   getPackageNotes,
-  getTierNotes,
   evaluateModule,
   tierOverviewModule,
   tierFeaturesModule,
@@ -67,11 +61,6 @@ export const TIER_LABELS: Record<string, string> = {
   basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
 };
 
-const PROMO_STATUS_MAP: Record<string, { dot: string; cls: string; label: string }> = {
-  'active':   { dot: 'var(--admin-success)',    cls: 'cz-module-status-pill--active',   label: 'Active'   },
-  'archived': { dot: 'var(--admin-error)',      cls: 'cz-module-status-pill--inactive', label: 'Archived' },
-  'draft':    { dot: 'var(--admin-text-faint)', cls: 'cz-module-status-pill--draft',    label: 'Draft'    },
-};
 
 // ── CommercialBlock ───────────────────────────────────────────────────────────
 // Reusable summary card for the Commercial tab.
@@ -144,331 +133,6 @@ function isFaqsDirty(a: FaqsDraft, b: FaqsDraft): boolean {
     item.id !== b.items[i].id ||
     item.question !== b.items[i].question ||
     item.answer   !== b.items[i].answer,
-  );
-}
-
-// ── PackageDetailStep ─────────────────────────────────────────────────────────
-// Unified package overview drawer opened from the Service Commercial tab.
-// Packages tab  → 4 tier cards + pricing summary; tier View → goNext → TierManageStep.
-// Promotions tab → promotion cards; promo View → doOpen → PromotionViewStep drawer.
-
-function PackageDetailStep({ ctx }: { ctx: StepContext }) {
-  const packageId  = ctx.stepData.packageId  as number;
-  const pkgTitle   = ctx.stepData.pkgTitle   as string ?? '';
-  const initialTab = (ctx.stepData.initialTab as 'packages' | 'promotions') ?? 'packages';
-  const doOpen     = ctx.stepData.openAction  as ((config: ActionConfig) => void) | undefined;
-  const pkgBack    = ctx.stepData.pkgBack     as (() => void) | undefined;
-
-  const [tab, setTab]         = useState<'packages' | 'promotions'>(initialTab);
-  const [detail, setDetail]   = useState<SurfacePackageDetailResponse | null>(null);
-  const [loadErr, setLoadErr] = useState<string | null>(null);
-  // Single-open accordion for the tier cards' notification panels.
-  const [openTierPanel, setOpenTierPanel] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchSurfacePackageDetail(packageId)
-      .then(setDetail)
-      .catch((err: unknown) => {
-        setLoadErr(err instanceof Error ? err.message : 'Failed to load package.');
-      });
-  }, [packageId]);
-
-  if (!detail && !loadErr) {
-    return <div class="cz-action-progress"><Spinner label="Loading package…" /></div>;
-  }
-  if (loadErr || !detail) {
-    return <div class="cz-admin-error-msg">{loadErr ?? 'Package data unavailable.'}</div>;
-  }
-
-  const pkg          = detail.package;
-  const promos       = pkg.promotion_tiers ?? [];
-  const svc          = detail.service;
-  const pkgStatus = pkg.platform_status ?? 'disabled';
-
-  const handleManageTier = (tierId: string) => {
-    const t = pkg.tiers[tierId];
-    ctx.setStepData('tierId', tierId);
-    ctx.setStepData('isNew', false);
-    ctx.setStepData('currentEnabled', t?.enabled ?? true);
-    ctx.goNext();
-  };
-
-  const reopenSelf = (activeTab: 'packages' | 'promotions') => {
-    doOpen?.({
-      id:             `pkg-detail-${packageId}`,
-      mode:           'drawer',
-      title:          'Package',
-      onBack:         pkgBack,
-      hideStepHeader: true,
-      initialStepData: {
-        packageId,
-        pkgTitle,
-        initialTab:     activeTab,
-        openAction:     doOpen,
-        pkgBack,
-        tierId:         null,
-        isNew:          false,
-        currentEnabled: true,
-      },
-      steps: [
-        { id: 'pkg-detail', title: 'Package',   component: PackageDetailStep },
-        { id: 'tier-form',  title: 'Edit Tier', component: TierManageStep    },
-      ],
-    });
-  };
-
-  const handleManagePromo = (promo: PromotionTier) => {
-    if (!doOpen) return;
-    ctx.close();
-    doOpen({
-      id:     `promo-view-${promo.id}`,
-      mode:   'drawer',
-      title:  'Promotion',
-      onBack: () => reopenSelf('promotions'),
-      initialStepData: {
-        packageId,
-        promoId: promo.id,
-        promo,
-        isNew:   false,
-      },
-      steps: [{ id: 'promo-view', title: 'Promotion', component: PromotionViewStep }],
-    });
-  };
-
-  // Drawer Tab Contract — fixed order Details | Connections. The originating context
-  // (initialTab) only seeds which tab is active (via the `tab` state); it never
-  // reorders the tabs. Details = this drawer's own modules, Connections = related.
-  const TAB_LABELS: Record<'packages' | 'promotions', string> = {
-    packages:   'Details',
-    promotions: 'Connections',
-  };
-  const orderedTabs: Array<'packages' | 'promotions'> = ['packages', 'promotions'];
-
-  return (
-    <div class="cz-req-detail">
-
-      {/* Tab bar — fixed order Details | Connections */}
-      <div class="cz-sv-tabs">
-        {orderedTabs.map((t) => (
-          <button
-            key={t}
-            type="button"
-            class={`cz-sv-tab${tab === t ? ' cz-sv-tab--active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {TAB_LABELS[t]}
-          </button>
-        ))}
-      </div>
-
-      {/* Packages tab */}
-      {tab === 'packages' && (
-        <>
-          {TIER_KEYS.map((tierId) => {
-            const tier       = pkg.tiers[tierId];
-            const status     = resolveTierStatus(tier, { pkgStatus: pkg.platform_status ?? 'disabled' });
-            const showData   = !!(tier && (tier.price !== null || tier.billing_cycle || (tier as any).contact));
-            const priceOk    = !!(tier && (tier.price !== null || tier.contact));
-            const cycleOk    = !!tier?.billing_cycle;
-            const priceText  = tier?.contact && tier.price === null
-              ? 'Contact'
-              : tier?.price != null ? `$${tier.price.toFixed(2)}` : '$0.00';
-            const cycleText  = tier?.billing_cycle ?? 'Not available';
-            const inclCount  = tier?.inclusions_override?.length ?? 0;
-            const faqCount   = tier?.faq_refs?.length ?? 0;
-            const featLabel  = `${inclCount} ${inclCount === 1 ? 'feature' : 'features'}`;
-            const faqLabel   = `${faqCount} ${faqCount === 1 ? 'common question' : 'common questions'}`;
-            const tierNotes  = getTierNotes(tier, { platformStatus: pkg.platform_status ?? 'disabled' });
-            return (
-              <div key={tierId} class="drawerModule drawerOverview tier">
-                <div class="drawerModule__header">
-                  <span class="drawerModule__icon">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="drawerModule__icon-svg"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
-                    </svg>
-                  </span>
-                  <div class="drawerModule__heading">
-                    <p class="drawerModule__title">Package {tier?.label?.trim() || TIER_LABELS[tierId]}</p>
-                    <p class="drawerModule__subtitle">Brief summary about the tier.</p>
-                  </div>
-                  <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
-                    <ModuleStatusPill
-                      status={status}
-                      notes={tierNotes}
-                      onOpen={() => setOpenTierPanel(p => p === tierId ? null : tierId)}
-                    />
-                  </div>
-                </div>
-                {openTierPanel === tierId && tierNotes.length > 0 && (
-                  <ModuleNotificationPanel notes={tierNotes} />
-                )}
-                <div class="drawerModule__body">
-                  <div class="drawerModule__fields">
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Pricing</p>
-                      {showData ? (
-                        <p class="drawerModule__value">
-                          <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
-                          {' · '}
-                          <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
-                        </p>
-                      ) : (
-                        <p class="drawerModule__value">View Tier Overview and manage pricing.</p>
-                      )}
-                    </div>
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Includes</p>
-                      <p class="drawerModule__value">{featLabel} | {faqLabel}</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="drawerModule__footer">
-                  <button
-                    type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={() => handleManageTier(tierId)}
-                  >
-                    View
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-
-          <div class="cz-shell-section cz-shell-section--no-border">
-            <p class="cz-shell-section__title">Pricing Summary</p>
-            <div class="cz-sp-tier-table-wrap">
-              <table class="cz-sp-tier-table">
-                <thead>
-                  <tr>
-                    <th>Tier</th>
-                    <th>Price</th>
-                    <th>Cycle</th>
-                    <th class="cz-sp-tier-table__center">Features</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TIER_KEYS.map((tierId) => {
-                    const tier   = pkg.tiers[tierId];
-                    const status = resolveTierStatus(tier, { pkgStatus });
-                    return (
-                      <tr key={tierId}>
-                        <td class="cz-sp-tier-table__name">
-                          <div class="cz-sp-tier-table__name-inner">
-                            <span class={`cz-admin-status-dot ${statusDotClass(status)}`} />
-                            <span>{TIER_LABELS[tierId]}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                            {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
-                          </span>
-                        </td>
-                        <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
-                        <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                          {tier?.inclusions_override?.length ? tier.inclusions_override.length : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Connections tab — related workspaces linked to this Package. The Package
-          itself is the current workspace, so it never appears here; the parent
-          Service is the primary connection, promotions follow. The Service Overview
-          card reuses the tier drawer's Service tab card style. */}
-      {tab === 'promotions' && (
-        <>
-          {svc && (
-            <ServiceOverviewViewCard
-              mode="connection"
-              displayTitle={decodeHtml(svc.title) || 'Untitled service'}
-              displayContent={svc.content ? decodeHtml(svc.content) : ''}
-              displayCategory={
-                svc.categories && svc.categories.length > 0
-                  ? svc.categories.map((c) => decodeHtml(c.name)).join(', ')
-                  : 'Not selected'
-              }
-              includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
-              onView={pkgBack}
-            />
-          )}
-
-          {/* Promotions */}
-          {promos.length > 0 ? (
-          <>
-            {promos.map((promo) => {
-              const s  = promo.status ?? 'draft';
-              const ps = PROMO_STATUS_MAP[s] ?? PROMO_STATUS_MAP['draft'];
-              return (
-                <div key={promo.id} class="drawerModule">
-                  <div class="drawerModule__header">
-                    <div class="drawerModule__heading">
-                      <p class="drawerModule__title">{promo.name || '(unnamed)'}</p>
-                      <p class="drawerModule__subtitle">
-                        {promo.based_on ? `Based on ${TIER_LABELS[promo.based_on] ?? promo.based_on}` : 'No base tier.'}
-                        {promo.price != null ? ` · $${promo.price.toLocaleString()}` : ''}
-                      </p>
-                    </div>
-                    <div class="drawerModule__status">
-                      <span class="cz-admin-status-dot" style={`color:${ps.dot}`} />
-                      <span class={`cz-module-status-pill ${ps.cls}`}>{ps.label}</span>
-                    </div>
-                  </div>
-                  <div class="drawerModule__footer">
-                    <button
-                      type="button"
-                      class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                      onClick={() => handleManagePromo(promo)}
-                    >
-                      View
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          <div class="cz-shell-section">
-            <div class="drawerModule">
-              <div class="drawerModule__header">
-                <div class="drawerModule__heading">
-                  <p class="drawerModule__title">Promotions</p>
-                </div>
-              </div>
-              <div class="drawerModule__body">
-                <div class="drawerModule__empty">
-                  <p class="drawerModule__empty-title">No promotions configured</p>
-                  <p class="drawerModule__empty-copy">Add from the Promotions workstation.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          )}
-        </>
-      )}
-
-      {/* Footer */}
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>
-          Cancel
-        </button>
-      </div>
-
-    </div>
   );
 }
 
@@ -748,43 +412,19 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
 
-    if (relatedPkg) {
-      // Legacy path: service has a cz_surface_package post — open Package drawer on promotions tab.
-      ctx.close();
-      doOpen({
-        id:             `pkg-detail-${relatedPkg.post_id}`,
-        mode:           'drawer',
-        title:          'Package',
-        onBack,
-        hideStepHeader: true,
-        initialStepData: {
-          packageId:      relatedPkg.post_id,
-          pkgTitle:       relatedPkg.title,
-          initialTab:     'promotions',
-          openAction:     doOpen,
-          pkgBack:        onBack,
-          tierId:         null,
-          isNew:          false,
-          currentEnabled: true,
-        },
-        steps: [
-          { id: 'pkg-detail', title: 'Package',   component: PackageDetailStep },
-          { id: 'tier-form',  title: 'Edit Tier', component: TierManageStep    },
-        ],
-      });
-    } else {
-      // Phase 4 path: service born after Phase 1 — use Service Station-owned promotion editing.
-      ctx.close();
-      doOpen({
-        id:             `service-promos-${service.id}`,
-        mode:           'drawer',
-        title:          'Promotion',
-        onBack,
-        hideStepHeader: true,
-        initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
-        steps: [{ id: 'service-promos', title: 'Promotions', component: ServicePromotionStep }],
-      });
-    }
+    // All promotion management routes exclusively through the Service Station-owned
+    // Promotion Station (cz_service_promotion_station). The legacy cz_surface_package
+    // promotion drawer path has been retired.
+    ctx.close();
+    doOpen({
+      id:             `service-promos-${service.id}`,
+      mode:           'drawer',
+      title:          'Promotion',
+      onBack,
+      hideStepHeader: true,
+      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
+      steps: [{ id: 'service-promos', title: 'Promotions', component: ServicePromotionStep }],
+    });
   };
 
   const handleConfirmPublish = useCallback(async () => {
