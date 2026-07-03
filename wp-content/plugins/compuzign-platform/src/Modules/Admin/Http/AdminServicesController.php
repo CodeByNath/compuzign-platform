@@ -220,6 +220,32 @@ class AdminServicesController
             ],
         ]);
 
+        // Phase 2 — P3: per-module tier draft save. Persists a draft and marks the
+        // module pending; does not commit current_occupant. Additive to the atomic
+        // save route above, which stays live. Not called by the frontend until P5.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>[a-z]+)', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'savePackageStationTierModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'     => ['required' => true, 'type' => 'integer'],
+                'tier'   => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
+                'module' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::TIER_MODULES, true)],
+            ],
+        ]);
+
+        // Phase 2 — P3: settle a tier. Commits the draft-preferred state into
+        // current_occupant, clears drafts, marks all modules settled.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/settle', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'settlePackageStationTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'   => ['required' => true, 'type' => 'integer'],
+                'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
+            ],
+        ]);
+
         // ── Promotion Station management (Phase 4 — service-owned paths) ──────
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station', [
             'methods'             => 'GET',
@@ -969,11 +995,17 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
 
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $tiers = [];
-        foreach (\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS as $tierId) {
-            $tiers[$tierId] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot(
-                $station['tiers'][$tierId] ?? []
-            );
+        foreach ($PS::ALLOWED_TIERS as $tierId) {
+            // P3 additive read exposure: settled detail (unchanged 8 fields) plus the
+            // raw drafts + module_status, returned SEPARATELY. No server-side merge —
+            // the hook derives draft-preferred client-side (parity with useServiceStation).
+            $slot   = $PS::ensureTierLifecycle($station['tiers'][$tierId] ?? []);
+            $detail = $PS::normaliseTierSlot($slot);
+            $detail['drafts']        = $slot['drafts'];
+            $detail['module_status'] = $slot['module_status'];
+            $tiers[$tierId] = $detail;
         }
 
         $rawInc     = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
@@ -1153,6 +1185,120 @@ class AdminServicesController
         update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
 
         return rest_ensure_response(['success' => true, 'tier_id' => $tierId, 'enabled' => $enabled]);
+    }
+
+    /**
+     * Phase 2 — P3: per-module tier draft save.
+     * Persists drafts[$module] and marks the module pending. Does NOT touch
+     * current_occupant, so Cost Builder visibility (platform_status) is unchanged.
+     * References only — P3 does not create service-pool items (that is a later phase).
+     */
+    public function savePackageStationTierModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $tierId    = sanitize_key((string) $request->get_param('tier'));
+        $module    = sanitize_key((string) $request->get_param('module'));
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        if (!in_array($module, $PS::TIER_MODULES, true)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) { $body = []; }
+
+        $slot = $PS::ensureTierLifecycle($station['tiers'][$tierId] ?? []);
+
+        if ($module === 'overview') {
+            $contact = !empty($body['contact']);
+            $price   = null;
+            if (!$contact && array_key_exists('price', $body) && $body['price'] !== null && $body['price'] !== '') {
+                $price = (float) $body['price'];
+            }
+            $draftValue = [
+                'label'         => sanitize_text_field((string) ($body['label'] ?? '')),
+                'price'         => $price,
+                'contact'       => $contact,
+                'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
+            ];
+        } elseif ($module === 'features') {
+            $draftValue = [];
+            if (is_array($body['inclusions_override'] ?? null)) {
+                foreach ($body['inclusions_override'] as $inc) {
+                    if (!is_array($inc)) { continue; }
+                    $id = sanitize_text_field((string) ($inc['id'] ?? ''));
+                    $lb = sanitize_text_field((string) ($inc['label'] ?? ''));
+                    if ($id !== '' && $lb !== '') { $draftValue[] = ['id' => $id, 'label' => $lb]; }
+                }
+            }
+        } else { // faqs
+            $draftValue = [];
+            if (is_array($body['faq_refs'] ?? null)) {
+                foreach ($body['faq_refs'] as $ref) {
+                    $ref = sanitize_text_field((string) $ref);
+                    if ($ref !== '') { $draftValue[] = $ref; }
+                }
+            }
+        }
+
+        $slot['drafts'][$module]        = $draftValue;
+        $slot['module_status'][$module] = 'pending';
+        $station['tiers'][$tierId]      = $slot;
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        return rest_ensure_response([
+            'success'       => true,
+            'tier_id'       => $tierId,
+            'module'        => $module,
+            'tier'          => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+        ]);
+    }
+
+    /**
+     * Phase 2 — P3: settle a tier.
+     * Commits the draft-preferred state of every module into current_occupant,
+     * clears drafts, marks all modules settled, and re-derives station status.
+     */
+    public function settlePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $tierId    = sanitize_key((string) $request->get_param('tier'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $slot = $PS::settleTierSlot($station['tiers'][$tierId] ?? []);
+        $station['tiers'][$tierId]  = $slot;
+        $station['platform_status'] = $PS::deriveStationStatus($station);
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        return rest_ensure_response([
+            'success'       => true,
+            'tier_id'       => $tierId,
+            'tier'          => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+        ]);
     }
 
     // ── Promotion Station management (Phase 4 — service-owned paths) ──────────

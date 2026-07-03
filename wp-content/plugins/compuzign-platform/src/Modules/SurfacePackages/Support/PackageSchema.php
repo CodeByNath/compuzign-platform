@@ -928,4 +928,34 @@ class PackageSchema
         $slot['module_status'] = $status;
         return $slot;
     }
+
+    /**
+     * Settle a tier slot (Phase 2 — P3): commit the draft-preferred state of every
+     * module into current_occupant, then clear drafts and mark all modules settled.
+     * Draft wins over the settled occupant per module; a module with no draft keeps
+     * its settled value. `enabled` is preserved from the existing occupant — settle
+     * never toggles a tier's live state. Settles whatever is present (completeness is
+     * a resolver/notes concern, not a backend gate).
+     */
+    public static function settleTierSlot(array $slot): array
+    {
+        $slot   = self::ensureTierLifecycle($slot);
+        $occ    = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? null) : null;
+        $drafts = $slot['drafts'];
+
+        $ov = is_array($drafts['overview'] ?? null) ? $drafts['overview'] : [];
+
+        $tierData = [
+            'label'               => $ov['label']         ?? ($occ['label']         ?? ''),
+            'price'               => array_key_exists('price', $ov) ? $ov['price'] : ($occ['price'] ?? null),
+            'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
+            'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
+            'inclusions_override' => is_array($drafts['features'] ?? null) ? $drafts['features'] : ($occ['inclusions_override'] ?? []),
+            'features'            => $occ['features'] ?? [],
+            'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
+        ];
+        $enabled = ($occ['platform_status'] ?? 'active') === 'active';
+
+        return self::commitTierLifecycle(self::upsertOccupant($slot, $tierData, $enabled));
+    }
 }
