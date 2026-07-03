@@ -1319,7 +1319,19 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     if (!draft || !editingTierId) return;
     setSaving(true); setSaveErr(null);
     try {
-      await saveServicePackageStationTier(serviceId, editingTierId, draft);
+      const res = await saveServicePackageStationTier(serviceId, editingTierId, draft);
+      // Re-seed the working copy from the saved tier so newly created features/FAQs —
+      // now attached to inclusions_override / faq_refs by the backend — appear in the
+      // still-open drawer, and new_inclusions / new_faqs are cleared. Drawer stays open.
+      const savedTier = res?.station?.tiers?.[editingTierId];
+      if (res?.success && savedTier) {
+        setDraft(tierDraftFromDetail(
+          savedTier,
+          res.station.popular_tier,
+          editingTierId,
+          res.station.popular_label,
+        ));
+      }
       setSaveOk(true);
       refetch();
       onRefresh?.();
@@ -1702,16 +1714,27 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         <div class="cz-tf-form">
           <div class="cz-tf-field">
             <label class="cz-tf-label">Inclusions</label>
-            {draft.inclusions_override.length > 0 && (
-              <div class="cz-sc-inclusion-pool" style="margin-bottom: var(--cz-space-2)">
+            {(draft.inclusions_override.length > 0 || draft.new_inclusions.length > 0) && (
+              <div class="cz-ie-list">
                 {draft.inclusions_override.map((inc) => (
-                  <span key={inc.id} class="cz-tf-chip">
-                    {inc.label}
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
+                  <div key={inc.id} class="cz-ie-row">
+                    <input type="text" class="cz-tf-input" value={inc.label} readOnly />
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                      aria-label="Remove"
                       onClick={() => setDraft(d => d ? { ...d, inclusions_override: d.inclusions_override.filter(i => i.id !== inc.id) } : d)}>
                       ✕
                     </button>
-                  </span>
+                  </div>
+                ))}
+                {draft.new_inclusions.map((inc, idx) => (
+                  <div key={`new-inc-${idx}`} class="cz-ie-row">
+                    <input type="text" class="cz-tf-input" value={inc.label} readOnly />
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                      aria-label="Remove"
+                      onClick={() => setDraft(d => d ? { ...d, new_inclusions: d.new_inclusions.filter((_, i) => i !== idx) } : d)}>
+                      ✕
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -1733,22 +1756,25 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </select>
             )}
-            <div style="display:flex; gap: var(--cz-space-2); margin-top: var(--cz-space-2)">
+            <div class="cz-tf-inline-add">
               <input type="text" class="cz-tf-input" placeholder="New inclusion label"
                 value={newIncLabel}
-                onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)} />
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                onClick={() => {
-                  if (!newIncLabel.trim()) return;
+                onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' || !newIncLabel.trim()) return;
+                  e.preventDefault();
                   setDraft(d => d ? { ...d, new_inclusions: [...d.new_inclusions, { label: newIncLabel.trim() }] } : d);
                   setNewIncLabel('');
-                }}>Add</button>
-            </div>
-            {draft.new_inclusions.length > 0 && (
-              <div style="margin-top: var(--cz-space-1); font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
-                New: {draft.new_inclusions.map(i => i.label).join(', ')}
+                }} />
+              <div class="cz-tf-inline-add__actions">
+                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                  onClick={() => {
+                    if (!newIncLabel.trim()) return;
+                    setDraft(d => d ? { ...d, new_inclusions: [...d.new_inclusions, { label: newIncLabel.trim() }] } : d);
+                    setNewIncLabel('');
+                  }}>Add</button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </InlineEditorShell>
@@ -1761,18 +1787,27 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         <div class="cz-tf-form">
           <div class="cz-tf-field">
             <label class="cz-tf-label">FAQs</label>
-            {draft.faq_refs.length > 0 && (
-              <div style="margin-bottom: var(--cz-space-2)">
+            {(draft.faq_refs.length > 0 || draft.new_faqs.length > 0) && (
+              <div class="cz-ie-list">
                 {draft.faq_refs.map(ref => {
                   const faq = faqPool.find(f => f.id === ref);
                   return (
-                    <div key={ref} style="display:flex; align-items:center; gap: var(--cz-space-2); margin-bottom: 4px">
-                      <span style="font-size: var(--admin-fs-s-label); color: var(--admin-text)">{faq?.question ?? ref}</span>
+                    <div key={ref} class="cz-ie-row">
+                      <input type="text" class="cz-tf-input" value={faq?.question ?? ref} readOnly />
                       <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                        aria-label="Remove"
                         onClick={() => setDraft(d => d ? { ...d, faq_refs: d.faq_refs.filter(r => r !== ref) } : d)}>✕</button>
                     </div>
                   );
                 })}
+                {draft.new_faqs.map((f, idx) => (
+                  <div key={`new-faq-${idx}`} class="cz-ie-row">
+                    <input type="text" class="cz-tf-input" value={f.question} readOnly />
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                      aria-label="Remove"
+                      onClick={() => setDraft(d => d ? { ...d, new_faqs: d.new_faqs.filter((_, i) => i !== idx) } : d)}>✕</button>
+                  </div>
+                ))}
               </div>
             )}
             {faqPool.length > 0 && (
@@ -1794,17 +1829,17 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             )}
             {/* Add new — parity with Included Features: create a new FAQ and add it
                 to the service pool (anchor/consumer model; new_faqs already carried
-                by the tier draft and persisted on Publish). */}
-            <div style="display:flex; flex-direction:column; gap: var(--cz-space-2); margin-top: var(--cz-space-2)">
+                by the tier draft and persisted on Publish). Matches the Service FAQ
+                editor's inline-add (question + answer). */}
+            <div class="cz-tf-inline-add">
               <input type="text" class="cz-tf-input" placeholder="New question"
                 value={newFaqQ}
                 onInput={(e) => setNewFaqQ((e.target as HTMLInputElement).value)} />
-              <div style="display:flex; gap: var(--cz-space-2)">
-                <textarea class="cz-tf-textarea" placeholder="Answer (optional)" rows={2}
-                  style="flex:1"
-                  value={newFaqA}
-                  onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)} />
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+              <textarea class="cz-tf-textarea" placeholder="Answer (optional)" rows={2}
+                value={newFaqA}
+                onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)} />
+              <div class="cz-tf-inline-add__actions">
+                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
                   onClick={() => {
                     if (!newFaqQ.trim()) return;
                     setDraft(d => d ? { ...d, new_faqs: [...d.new_faqs, { question: newFaqQ.trim(), answer: newFaqA.trim() }] } : d);
@@ -1813,11 +1848,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                   }}>Add</button>
               </div>
             </div>
-            {draft.new_faqs.length > 0 && (
-              <div style="margin-top: var(--cz-space-1); font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
-                New: {draft.new_faqs.map(f => f.question).join(', ')}
-              </div>
-            )}
           </div>
         </div>
       </InlineEditorShell>
