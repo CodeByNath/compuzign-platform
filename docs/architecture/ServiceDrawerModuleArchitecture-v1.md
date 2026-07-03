@@ -102,7 +102,7 @@ Reusable drawer components and their contracts. These are module-agnostic — Co
 |---|---|---|
 | `ActionShell` | Drawer shell: header, tabs, body and footer slots, multi-step management | Opened via `openAction({ mode:'drawer', title, steps })`. Exposes through step `ctx`: `stepData`, `setStepData`, `setFooter`, `setCloseGuard`, `close`. |
 | `InlineEditorShell` | Edit-state carrier; wraps a module editor and provides the Save / Cancel actions | Props: `title`, `onSave`, `onCancel`, `saving`, `saveErr`, `isDirty`; children = the module editor. |
-| `ModuleStatusPill` | Renders the status pill from a status + the module's notes; clickable when notes and `onOpen` are present. No module-specific logic. | Props: `status`, `notes: ModuleNote[]`, `onOpen?`. Error notes → button with numeric badge; info-only notes → button, no badge; no notes → static span. |
+| `ModuleStatusPill` | Renders the status pill from a status + the module's notes; clickable when notes and `onOpen` are present. No module-specific logic. | Props: `status`, `notes: ModuleNote[]`, `onOpen?`. Any notes (error or info) → button that opens the panel; no notes → static span. The pill shows the lifecycle label only — never a count. |
 | `ModuleNotificationPanel` | Renders the module's note list (plain, no severity icons) | Props: `notes: ModuleNote[]`. Renders nothing when empty. |
 | `ServiceOverviewViewCard` / `ServiceInclusionsViewCard` / `ServiceFaqsViewCard` | Read-only module presentation: header + pill + panel + body + footer actions | Props: `status`, `notes`, `panelOpen`, `onTogglePanel`, module data, `hasDraft`, `onEdit`, `onDiscard`. Panel gate: `panelOpen && notes.length > 0`. |
 | `ServiceOverviewEditor` / `ServiceInclusionsEditor` / `ServiceFaqsEditor` | Edit-mode form for the module's working draft | Controlled via `draft` + `onChange`. Overview additionally: `categories`, `catDescription`, `onCatDescriptionChange`, `onCategoryCreated`. |
@@ -117,12 +117,11 @@ Reusable drawer components and their contracts. These are module-agnostic — Co
 
 Two presentation components, both module-agnostic (see *Shared Components* for contracts):
 
-**`ModuleStatusPill`** interprets the note array only — it contains no module-specific logic:
+**`ModuleStatusPill`** interprets the note array only — it contains no module-specific logic. The pill communicates **lifecycle only** (its label is `Active` / `Pending` / `Disabled`); it never carries a count or a context-specific variant (see the *Module Status Model* in the Principles doc — the canonical owner of "the pill shows lifecycle status only"):
 
 | Condition | Render |
 |---|---|
-| `noteCount(notes) > 0` (error notes) **and** `onOpen` | `<button>` with numeric marker badge (error count) |
-| `notes.length > 0` (info only) **and** `onOpen` | `<button>`, no badge |
+| `notes.length > 0` (error or info) **and** `onOpen` | `<button>` that opens the notification panel — lifecycle label only, no marker/count |
 | no notes | static `<span>` |
 
 The label/class come from `PILL_META[status]` (`active` / `disabled` / `pending-dim` / `pending-full`), falling back to a `Pending` pill.
@@ -131,7 +130,7 @@ The label/class come from `PILL_META[status]` (`active` / `disabled` / `pending-
 
 ### Panel open gate
 
-The panel is gated on `panelOpen && notes.length > 0` — **not** on error count. Deliberate: info-only note sets (e.g. "Edit and add features.") must still open the panel even though they contribute zero to the badge.
+The panel is gated on `panelOpen && notes.length > 0` — any note, error or info, opens it. Deliberate: info-only note sets (e.g. "Edit and add features.") must still open the panel and make the pill clickable.
 
 ### Notification ownership
 
@@ -144,8 +143,10 @@ The panel is gated on `panelOpen && notes.length > 0` — **not** on error count
 
 `ModuleNote.type` is `'error' | 'warning' | 'info'` (`warning` reserved/unused).
 
-- **`error`** — counts toward the numeric badge (`noteCount` filters `type === 'error'`). A blocking completeness gap (missing title, missing label, missing answer).
-- **`info`** — never counts toward the badge; appears in the panel only. Guidance or lifecycle waiting states. The pill is still a clickable button when only info notes exist.
+- **`error`** — a blocking completeness gap (missing title, missing label, missing answer).
+- **`info`** — guidance or lifecycle waiting states.
+
+Both types render identically in the panel and both make the pill a clickable button. The type no longer drives any pill badge — the pill is lifecycle-only. `noteCount` (error-only) is retained as a utility but is not surfaced in the pill; a module that wants to distinguish blocking gaps from guidance does so through the note *content* in the panel, not through the pill.
 
 ### Current notification content
 
@@ -366,7 +367,7 @@ When migrating Commercial modules (Package Summary, Promotion Configuration), in
 
 1. **Frame** — use `.drawerModule` (+ a module scope class only if a unique body system is required). No `.cz-sv-module` for new drawer modules (DrawerModuleSystem → Rule 3).
 2. **Header** — icon + title/subtitle + `.drawerModule__status` holding `ModuleStatusPill`.
-3. **Notifications** — own the module's notes; pass `notes` + `onOpen`; render `ModuleNotificationPanel` below the header; gate on `notes.length > 0`. Errors drive the badge, info drives guidance.
+3. **Notifications** — own the module's notes; pass `notes` + `onOpen`; render `ModuleNotificationPanel` below the header; gate on `notes.length > 0`. Any notes make the pill a clickable button; the pill label stays lifecycle-only (no count). Blocking gaps vs guidance are distinguished by note content in the panel.
 4. **Status** — use the 5-state lifecycle and `moduleStatus.tsx` resolvers (Principles → *Module Status Model*).
 5. **View / Edit** — deliver Edit through `InlineEditorShell` with module Save/Cancel; keep View and Edit as one module in one drawer position.
 6. **States** — Locked/New affect only the action control, never the shell (Principles → *Temporary Disabled Rule*).
