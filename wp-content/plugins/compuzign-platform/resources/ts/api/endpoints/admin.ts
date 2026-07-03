@@ -14,6 +14,9 @@ import type {
   MigrationPhase4Result,
   ServicePackageStationResponse,
   ServiceTierSaveResponse,
+  TierLifecycleResponse,
+  TierModuleKey,
+  TierModuleSavePayload,
   ServicePromotionStationResponse,
   ServicePromotionSaveResponse,
   ModuleRevertResponse,
@@ -172,6 +175,32 @@ export function setServicePackageStationTierEnabled(
   return apiClient.post(
     `admin/services/${serviceId}/package-station/tiers/${tierId}/enabled`,
     { enabled },
+  );
+}
+
+// Phase 2 (P3/P4) — per-module tier draft save. Persists drafts[module] and marks
+// the module pending without touching the settled occupant. Consumed by usePackageStation.
+export function saveServicePackageStationTierModule(
+  serviceId: number,
+  tierId:    string,
+  module:    TierModuleKey,
+  payload:   TierModuleSavePayload,
+): Promise<TierLifecycleResponse> {
+  return apiClient.post<TierLifecycleResponse>(
+    `admin/services/${serviceId}/package-station/tiers/${tierId}/modules/${module}`,
+    payload,
+  );
+}
+
+// Phase 2 (P3/P4) — settle a tier: commit the draft-preferred state into the
+// occupant, clear drafts, mark all modules settled.
+export function settleServicePackageStationTier(
+  serviceId: number,
+  tierId:    string,
+): Promise<TierLifecycleResponse> {
+  return apiClient.post<TierLifecycleResponse>(
+    `admin/services/${serviceId}/package-station/tiers/${tierId}/settle`,
+    {},
   );
 }
 

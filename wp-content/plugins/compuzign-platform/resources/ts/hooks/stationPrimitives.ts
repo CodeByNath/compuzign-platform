@@ -40,3 +40,21 @@ export function patchModuleDraft<C extends ModuleContainer>(
     module_status: moduleStatus,
   } as C;
 }
+
+/**
+ * Nested variant: patch one module draft on one tier inside a `tiers` map, reusing
+ * `patchModuleDraft` for the slot-level write. Lets `usePackageStation` patch a tier
+ * slot in place without hand-rolling the same nested spread. Returns the map
+ * unchanged when the tier is absent.
+ */
+export function patchTierModuleDraft<T extends ModuleContainer>(
+  tiers:        Record<string, T>,
+  tierId:       string,
+  moduleKey:    string,
+  draftValue:   unknown,
+  moduleStatus: Record<string, string>,
+): Record<string, T> {
+  const slot = tiers[tierId];
+  if (!slot) return tiers;
+  return { ...tiers, [tierId]: patchModuleDraft(slot, moduleKey, draftValue, moduleStatus) };
+}

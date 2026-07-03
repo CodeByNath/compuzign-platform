@@ -943,6 +943,17 @@ class PackageSchema
         $occ    = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? null) : null;
         $drafts = $slot['drafts'];
 
+        // Defence-in-depth (carried-forward guard): nothing to settle — no current
+        // occupant and no pending drafts. Do not mint an empty occupant; return the
+        // slot unchanged (a null draft means "no draft"; an empty array is a real one).
+        $hasDraft = false;
+        foreach (self::TIER_MODULES as $module) {
+            if (($drafts[$module] ?? null) !== null) { $hasDraft = true; break; }
+        }
+        if ($occ === null && !$hasDraft) {
+            return $slot;
+        }
+
         $ov = is_array($drafts['overview'] ?? null) ? $drafts['overview'] : [];
 
         $tierData = [

@@ -280,6 +280,47 @@ export interface SurfaceTierDetail {
   features: string[];
   faq_refs: string[];
   enabled: boolean;
+  // Phase 2 (P3) additive read exposure: the tier's pending per-module drafts and
+  // module lifecycle status, returned alongside the settled fields above. Optional
+  // because pre-P3 responses (and locally-constructed fallbacks) omit them; the
+  // draft-preferred merge is performed client-side by usePackageStation.
+  drafts?: TierDrafts;
+  module_status?: Record<string, string>;
+}
+
+// Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response
+// carried by the package station. `overview` holds tier-owned scalars; `features`
+// and `faqs` hold references into the service pool (anchor/consumer model).
+export interface TierOverviewDraft {
+  label: string;
+  price: number | null;
+  contact: boolean;
+  billing_cycle: string;
+}
+
+export interface TierDrafts {
+  overview: TierOverviewDraft | null;
+  features: InclusionItem[] | null;
+  faqs:     string[] | null;
+}
+
+export type TierModuleKey = 'overview' | 'features' | 'faqs';
+
+export type TierModuleSavePayload =
+  | TierOverviewDraft
+  | { inclusions_override: InclusionItem[] }
+  | { faq_refs: string[] };
+
+// Response of the per-module save and settle endpoints. `tier` is the settled
+// detail (unchanged by a draft save; rewritten by settle); `drafts`/`module_status`
+// are the full updated maps for the tier.
+export interface TierLifecycleResponse {
+  success:       boolean;
+  tier_id:       string;
+  module?:       TierModuleKey;
+  tier:          SurfaceTierDetail;
+  drafts:        TierDrafts;
+  module_status: Record<string, string>;
 }
 
 export interface TierSavePayload {
