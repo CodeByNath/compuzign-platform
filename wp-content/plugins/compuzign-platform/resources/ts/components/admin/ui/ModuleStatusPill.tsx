@@ -1,18 +1,18 @@
 // Unified module status pill.
 //
+// The pill communicates LIFECYCLE ONLY (Active / Pending / Disabled). It never
+// carries counts or context-specific variants — a module looks the same wherever
+// it renders. Any additional detail (blocking gaps, guidance) is surfaced through
+// the notification panel, not the pill.
+//
 // When any notes exist (error or info):
 //   → pill is a button that opens the notification panel.
-// When noteCount > 0 (error notes only):
-//   → pill shows the numeric marker inside it.
-// When only info notes exist:
-//   → pill is a button, no marker number.
 // When no notes at all:
 //   → pill is a static span.
 //
 // The pending-dim opacity (0.45) is applied by the parent .drawerModule__status--dim wrapper.
 
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
-import { noteCount } from '@/components/admin/utils/moduleNotifications';
 import { Skeleton } from './Skeleton';
 
 interface Props {
@@ -38,22 +38,12 @@ export function ModuleStatusPill({ status, notes, onOpen }: Props) {
     return <Skeleton width="var(--admin-pill-min-width)" height="20px" />;
   }
 
-  const count    = noteCount(notes);    // error notes only — drives the numeric badge
   const hasNotes = notes.length > 0;   // any notes — drives button vs span
   const meta     = PILL_META[status] ?? FALLBACK;
   const cls      = `cz-module-status-pill ${meta.cls}`;
 
-  // Error notes: clickable pill with numeric badge
-  if (count > 0 && onOpen) {
-    return (
-      <button type="button" class={cls} onClick={onOpen}>
-        <span class="cz-module-status-pill__marker">{count}</span>
-        {meta.label}
-      </button>
-    );
-  }
-
-  // Info notes only: clickable pill, no badge
+  // Any notes (error or info): clickable pill that opens the notification panel.
+  // The pill label stays lifecycle-only — the count lives in the panel, not here.
   if (hasNotes && onOpen) {
     return (
       <button type="button" class={cls} onClick={onOpen}>

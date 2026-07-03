@@ -178,7 +178,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     overviewStatus, inclusionsStatus, faqsStatus,
     overviewNotes, inclusionsNotes, faqsNotes,
     relatedPkg, inclusions, faqs, overviewDraft: stationOverviewDraft, settledOverview,
-    pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc, pkgSummaryDescPending,
+    pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc,
     promoStatus, promotionCount,
     inclSummary, faqsSummary,
     toggleActive, archiveStation, trashStation, settleModules, publishService,
@@ -855,10 +855,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             <div class="drawerModule__body">
               <div class="drawerModule__empty">
                 <p class="drawerModule__empty-title">{pkgSummaryCount}</p>
-                <p
-                  class="drawerModule__empty-copy"
-                  style={pkgSummaryDescPending ? 'color:var(--admin-warning)' : undefined}
-                >
+                <p class="drawerModule__empty-copy">
                   {pkgSummaryDesc}
                 </p>
               </div>
@@ -1507,8 +1504,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           const tier       = station.tiers[tierId];
           const status     = resolveTierStatus(tier, { pkgStatus });
           const showData   = !!(tier && (tier.price !== null || tier.billing_cycle || tier.contact));
-          const priceOk    = !!(tier && (tier.price !== null || tier.contact));
-          const cycleOk    = !!tier?.billing_cycle;
           const priceText  = tier?.contact && tier.price === null
             ? 'Contact'
             : tier?.price != null ? `$${tier.price.toFixed(2)}` : '$0.00';
@@ -1535,7 +1530,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                 </span>
                 <div class="drawerModule__heading">
                   <p class="drawerModule__title">Package {tier?.label?.trim() || TIER_LABELS[tierId]}</p>
-                  <p class="drawerModule__subtitle">Brief summary about the tier.</p>
+                  <p class="drawerModule__subtitle">Pricing and inclusions for this tier.</p>
                 </div>
                 <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
                   <ModuleStatusPill
@@ -1554,9 +1549,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                     <p class="drawerModule__label">Pricing</p>
                     {showData ? (
                       <p class="drawerModule__value">
-                        <span style={priceOk ? undefined : 'color:var(--admin-warning)'}>{priceText}</span>
+                        <span>{priceText}</span>
                         {' · '}
-                        <span style={cycleOk ? undefined : 'color:var(--admin-warning)'}>{cycleText}</span>
+                        <span>{cycleText}</span>
                       </p>
                     ) : (
                       <p class="drawerModule__value">View Tier Overview and manage pricing.</p>
@@ -1796,6 +1791,32 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                   <option key={f.id} value={f.id}>{f.question}</option>
                 ))}
               </select>
+            )}
+            {/* Add new — parity with Included Features: create a new FAQ and add it
+                to the service pool (anchor/consumer model; new_faqs already carried
+                by the tier draft and persisted on Publish). */}
+            <div style="display:flex; flex-direction:column; gap: var(--cz-space-2); margin-top: var(--cz-space-2)">
+              <input type="text" class="cz-tf-input" placeholder="New question"
+                value={newFaqQ}
+                onInput={(e) => setNewFaqQ((e.target as HTMLInputElement).value)} />
+              <div style="display:flex; gap: var(--cz-space-2)">
+                <textarea class="cz-tf-textarea" placeholder="Answer (optional)" rows={2}
+                  style="flex:1"
+                  value={newFaqA}
+                  onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)} />
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  onClick={() => {
+                    if (!newFaqQ.trim()) return;
+                    setDraft(d => d ? { ...d, new_faqs: [...d.new_faqs, { question: newFaqQ.trim(), answer: newFaqA.trim() }] } : d);
+                    setNewFaqQ('');
+                    setNewFaqA('');
+                  }}>Add</button>
+              </div>
+            </div>
+            {draft.new_faqs.length > 0 && (
+              <div style="margin-top: var(--cz-space-1); font-size: var(--admin-fs-s-label); color: var(--admin-text-faint)">
+                New: {draft.new_faqs.map(f => f.question).join(', ')}
+              </div>
             )}
           </div>
         </div>
