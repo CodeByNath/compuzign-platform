@@ -24,6 +24,7 @@ import type { FaqsDraft } from '@/components/admin/editors/ServiceFaqsEditor';
 import { resolveOverviewStatus, resolvePackageStatus } from '@/components/admin/utils/moduleStatus';
 import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/components/admin/utils/moduleNotifications';
 import type { NoteContext, ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import { patchModuleDraft } from './stationPrimitives';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -426,11 +427,7 @@ export function useServiceStation(
       category_ids: draft.category_id !== null ? [draft.category_id] : [],
     });
     if (!result.success) throw new Error('Failed to save changes.');
-    setAdminDetail(prev => prev ? {
-      ...prev,
-      drafts:        { ...prev.drafts, overview: result.draft },
-      module_status: result.module_status,
-    } : prev);
+    setAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', result.draft, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
   }, [service.id, onRefresh]);
@@ -438,11 +435,7 @@ export function useServiceStation(
   const saveInclusions = useCallback(async (draft: InclusionsDraft): Promise<Record<string, string>> => {
     const result = await updateServiceInclusions(service.id, { inclusions: draft.items });
     if (!result.success) throw new Error('Failed to save inclusions.');
-    setAdminDetail(prev => prev ? {
-      ...prev,
-      drafts:        { ...prev.drafts, inclusions: result.inclusions },
-      module_status: result.module_status,
-    } : prev);
+    setAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', result.inclusions, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
   }, [service.id, onRefresh]);
@@ -450,11 +443,7 @@ export function useServiceStation(
   const saveFaqs = useCallback(async (draft: FaqsDraft): Promise<Record<string, string>> => {
     const result = await updateServiceFaqs(service.id, { faqs: draft.items });
     if (!result.success) throw new Error('Failed to save FAQs.');
-    setAdminDetail(prev => prev ? {
-      ...prev,
-      drafts:        { ...prev.drafts, faqs: result.faqs },
-      module_status: result.module_status,
-    } : prev);
+    setAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', result.faqs, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
   }, [service.id, onRefresh]);
@@ -462,11 +451,7 @@ export function useServiceStation(
   const revertOverview = useCallback(async (): Promise<void> => {
     const result = await revertServiceModule(service.id, 'overview');
     if (result.success) {
-      setAdminDetail(prev => prev ? {
-        ...prev,
-        drafts:        { ...prev.drafts, overview: null },
-        module_status: result.module_status,
-      } : prev);
+      setAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', null, result.module_status) : prev);
       onRefresh?.();
     }
   }, [service.id, onRefresh]);
@@ -474,11 +459,7 @@ export function useServiceStation(
   const revertInclusions = useCallback(async (): Promise<void> => {
     const result = await revertServiceModule(service.id, 'inclusions');
     if (result.success) {
-      setAdminDetail(prev => prev ? {
-        ...prev,
-        drafts:        { ...prev.drafts, inclusions: null },
-        module_status: result.module_status,
-      } : prev);
+      setAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', null, result.module_status) : prev);
       onRefresh?.();
     }
   }, [service.id, onRefresh]);
@@ -486,11 +467,7 @@ export function useServiceStation(
   const revertFaqs = useCallback(async (): Promise<void> => {
     const result = await revertServiceModule(service.id, 'faqs');
     if (result.success) {
-      setAdminDetail(prev => prev ? {
-        ...prev,
-        drafts:        { ...prev.drafts, faqs: null },
-        module_status: result.module_status,
-      } : prev);
+      setAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', null, result.module_status) : prev);
       onRefresh?.();
     }
   }, [service.id, onRefresh]);
