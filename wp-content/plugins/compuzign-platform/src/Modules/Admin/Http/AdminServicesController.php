@@ -1081,10 +1081,16 @@ class AdminServicesController
             'faq_refs'            => $faqRefs,
         ];
 
-        $station['tiers'][$tierId] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::upsertOccupant(
-            $station['tiers'][$tierId] ?? ['current_occupant' => null, 'history' => []],
-            $tierData,
-            $enabled
+        // P2 store schema: an atomic tier save is a direct commit — the written slot
+        // carries the lifecycle layer with no pending drafts and every module settled.
+        // Additive/inert (no read path consumes it yet); response shape is unchanged
+        // because it is built from normaliseTierSlot, which ignores these keys.
+        $station['tiers'][$tierId] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::commitTierLifecycle(
+            \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::upsertOccupant(
+                $station['tiers'][$tierId] ?? ['current_occupant' => null, 'history' => []],
+                $tierData,
+                $enabled
+            )
         );
 
         if (array_key_exists('popular', $body)) {

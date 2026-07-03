@@ -17,6 +17,12 @@ class PackageSchema
     public const ALLOWED_PROMOTION_STATUSES  = ['draft', 'active', 'archived'];
     public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise'];
 
+    // Phase 2 tier lifecycle (P2 — store schema): the per-tier-module draft + status
+    // layer stored inside each cz_service_package_station tier slot, alongside
+    // current_occupant. Additive and inert in P2 — nothing reads these until P3.
+    public const TIER_MODULES                = ['overview', 'features', 'faqs'];
+    public const ALLOWED_MODULE_STATUSES     = ['not-configured', 'pending', 'settled'];
+
     public function register(): void
     {
         add_action('init', [$this, 'registerPostMeta']);
@@ -852,5 +858,74 @@ class PackageSchema
             'billing_cycle' => null, 'inclusions_override' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false,
         ];
+    }
+
+    // ── Tier lifecycle layer (Phase 2 — P2 store schema) ─────────────────────
+    //
+    // Each cz_service_package_station tier slot gains a `drafts` map (pending
+    // per-module edits, null when none) and a `module_status` map
+    // (not-configured|pending|settled), stored alongside current_occupant/history.
+    // current_occupant stays the settled record. These keys are additive and inert
+    // in P2 — no read path surfaces or consumes them until P3.
+
+    /**
+     * The empty lifecycle layer: no pending drafts, every module not-configured.
+     *
+     * @return array{drafts: array<string, null>, module_status: array<string, string>}
+     */
+    public static function emptyTierLifecycle(): array
+    {
+        $drafts = [];
+        $status = [];
+        foreach (self::TIER_MODULES as $module) {
+            $drafts[$module] = null;
+            $status[$module] = 'not-configured';
+        }
+        return ['drafts' => $drafts, 'module_status' => $status];
+    }
+
+    /**
+     * Ensure a tier slot carries a complete, valid lifecycle layer, defaulting any
+     * missing/invalid keys. Idempotent. module_status defaults derive from occupant
+     * presence: a configured occupant is a committed record (settled); an empty slot
+     * is not-configured. This is the read-time defaulter — first wired into the read
+     * path in P3; it is intentionally not called anywhere in P2.
+     */
+    public static function ensureTierLifecycle(array $slot): array
+    {
+        $configured = self::isOccupantFormat($slot) && !empty($slot['current_occupant']);
+        $default    = $configured ? 'settled' : 'not-configured';
+
+        $drafts = (isset($slot['drafts']) && is_array($slot['drafts'])) ? $slot['drafts'] : [];
+        $status = (isset($slot['module_status']) && is_array($slot['module_status'])) ? $slot['module_status'] : [];
+
+        foreach (self::TIER_MODULES as $module) {
+            if (!array_key_exists($module, $drafts)) {
+                $drafts[$module] = null;
+            }
+            if (!in_array($status[$module] ?? null, self::ALLOWED_MODULE_STATUSES, true)) {
+                $status[$module] = $default;
+            }
+        }
+
+        $slot['drafts']        = $drafts;
+        $slot['module_status'] = $status;
+        return $slot;
+    }
+
+    /**
+     * The lifecycle layer for a fully-committed tier slot: no pending drafts, every
+     * module settled. Applied after an atomic (direct-commit) occupant write so the
+     * persisted slot carries the P2 schema. Preserves current_occupant / history.
+     */
+    public static function commitTierLifecycle(array $slot): array
+    {
+        $status = [];
+        foreach (self::TIER_MODULES as $module) {
+            $status[$module] = 'settled';
+        }
+        $slot['drafts']        = self::emptyTierLifecycle()['drafts'];
+        $slot['module_status'] = $status;
+        return $slot;
     }
 }
