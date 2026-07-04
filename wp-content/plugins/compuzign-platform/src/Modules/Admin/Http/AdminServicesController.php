@@ -1476,10 +1476,9 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $promoStation = get_post_meta($serviceId, self::META_PROMOTION_STATION, true);
-        $instances    = (is_array($promoStation) && !empty($promoStation['migrated']))
-            ? \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normalisePromotionInstances($promoStation['instances'] ?? [])
-            : [];
+        $instances = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normalisePromotionInstances(
+            $this->readPromotionStation($serviceId)
+        );
 
         $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
         $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
@@ -1628,13 +1627,43 @@ class AdminServicesController
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'active']);
     }
 
-    /** @return array<int, array<string, mixed>> */
+    /**
+     * Reads current promotion instances, bridging to the legacy cz_package post when
+     * this service's promotion station has not been Phase 4-migrated yet. Mirrors the
+     * fallback already used by AdminSurfacePackagesController::loadPromotionInstancesForPackage()
+     * and PackageRepository, so create/save/archive/reactivate never stamp migrated=>true
+     * over an empty station while promotions still exist only on the source package.
+     *
+     * @return array<int, array<string, mixed>>
+     */
     private function readPromotionStation(int $serviceId): array
     {
         $promoStation = get_post_meta($serviceId, self::META_PROMOTION_STATION, true);
-        return (is_array($promoStation) && !empty($promoStation['migrated']))
-            ? ($promoStation['instances'] ?? [])
-            : [];
+        if (is_array($promoStation) && !empty($promoStation['migrated'])) {
+            return $promoStation['instances'] ?? [];
+        }
+        return \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normalisePromotionInstances(
+            $this->legacyPromotionInstances($serviceId)
+        );
+    }
+
+    /**
+     * Legacy bridge — remove when Phase 4 migration is confirmed complete for all services.
+     * Follows this service's package station migration_source_id to the source cz_package
+     * post and reads its promotion_tiers, same source AdminSurfacePackagesController and
+     * PackageRepository already read for the Connections summary and Cost Builder.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function legacyPromotionInstances(int $serviceId): array
+    {
+        $station  = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $sourceId = is_array($station) ? (int) ($station['migration_source_id'] ?? 0) : 0;
+        if ($sourceId <= 0) {
+            return [];
+        }
+        $pkg = get_post_meta($sourceId, 'cz_package', true);
+        return is_array($pkg) ? ($pkg['promotion_tiers'] ?? []) : [];
     }
 
     private function writePromotionStationDirect(int $serviceId, array $instances): void
