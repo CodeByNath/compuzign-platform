@@ -2,6 +2,7 @@
 
 namespace CompuZign\Platform\Modules\Admin\Http;
 
+use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
 
 class AdminServicesController
@@ -782,18 +783,21 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'No status parameter provided.'], 422);
         }
 
-        // When entering a bin state, capture the current normal state for restore.
-        // Only write previous_platform_status when leaving active/disabled — not when
-        // transitioning between archived/trashed, so the original state is preserved.
-        if (in_array($platformStatus, ['archived', 'trashed'], true)) {
-            $currentStatus = $meta['platform_status'] ?? 'disabled';
-            if (in_array($currentStatus, ['active', 'disabled'], true)) {
-                $meta['previous_platform_status'] = $currentStatus;
-            }
+        // Engine-computed transition: previous_platform_status is captured when
+        // entering a bin state from active/disabled and preserved on bin→bin moves
+        // (StationLifecycle::capturePrevious owns that rule).
+        $change = StationLifecycle::applyStatus(
+            (string) ($meta['platform_status'] ?? 'disabled'),
+            $platformStatus,
+            isset($meta['previous_platform_status']) ? (string) $meta['previous_platform_status'] : null
+        );
+
+        if ($change['previous_status'] !== null) {
+            $meta['previous_platform_status'] = $change['previous_status'];
         }
 
         // Rule 1: never write post_status — CompuZign owns lifecycle via platform_status.
-        $meta['platform_status'] = $platformStatus;
+        $meta['platform_status'] = $change['status'];
 
         // On activation: drafts stay pending; modules without drafts resolved from canonical.
         if ($platformStatus === 'active') {
@@ -835,12 +839,13 @@ class AdminServicesController
         $meta          = is_array($meta) ? $meta : [];
         $currentStatus = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
 
-        if (!in_array($currentStatus, ['archived', 'trashed'], true)) {
+        $change = StationLifecycle::restore($currentStatus);
+        if ($change === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Service is not in a restorable state.'], 422);
         }
 
-        $meta['platform_status']          = 'disabled';
-        $meta['previous_platform_status'] = '';
+        $meta['platform_status']          = $change['status'];
+        $meta['previous_platform_status'] = $change['previous_status'] ?? '';
 
         update_post_meta($id, self::META_KEY, $meta);
         $meta = get_post_meta($id, self::META_KEY, true);
@@ -876,7 +881,7 @@ class AdminServicesController
         $meta           = is_array($meta) ? $meta : [];
         $platformStatus = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
 
-        if ($platformStatus !== 'trashed') {
+        if (!StationLifecycle::canDelete($platformStatus)) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed services can be permanently deleted.'], 422);
         }
 
