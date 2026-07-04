@@ -194,10 +194,12 @@ class AdminSurfacePackagesController
 
     // ── migration read-only guard ─────────────────────────────────────────────
     // Phase 1: cz_surface_package is retired/read-only. Package data is now owned
-    // by cz_service_package_station meta. Tier and package write operations are
-    // blocked here until the new commercial management UI is implemented in Phase 2.
-    // Promotion writes are intentionally NOT blocked — they remain the active path
-    // until Phase 4 moves them to the Promotion Station.
+    // by cz_service_package_station meta. Tier, package, and promotion write
+    // operations are all blocked here — the Service Station (AdminServicesController)
+    // is the sole writer of cz_service_package_station, cz_service_inclusions,
+    // cz_service_faqs, and cz_service_promotion_station. The Phase 4 Promotion
+    // Station route on the Service Station is the live path; these legacy routes
+    // stay registered read-only so existing clients get a clear 423 instead of a 404.
 
     private function migrationReadOnly(): \WP_REST_Response
     {
@@ -325,6 +327,9 @@ class AdminSurfacePackagesController
 
     public function saveTier(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
@@ -468,6 +473,9 @@ class AdminSurfacePackagesController
      */
     public function setTierEnabled(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
@@ -557,6 +565,12 @@ class AdminSurfacePackagesController
      */
     private function addInclusionsToService(int $serviceId, array $items): array
     {
+        // Phase 1 migration guard (see migrationReadOnly()): every public caller of this
+        // helper is now blocked before reaching it, so this is defense-in-depth against
+        // a future call site re-introducing a write to the Service-owned inclusion pool.
+        return [];
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $raw  = get_post_meta($serviceId, 'cz_service_inclusions', true) ?: [];
         $pool = (isset($raw['inclusions']) && is_array($raw['inclusions'])) ? $raw['inclusions'] : [];
 
@@ -601,6 +615,12 @@ class AdminSurfacePackagesController
      */
     private function addFaqsToService(int $serviceId, array $items): array
     {
+        // Phase 1 migration guard (see migrationReadOnly()): every public caller of this
+        // helper is now blocked before reaching it, so this is defense-in-depth against
+        // a future call site re-introducing a write to the Service-owned FAQ pool.
+        return [];
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $pool = get_post_meta($serviceId, 'cz_service_faqs', true) ?: [];
         if (!is_array($pool)) {
             $pool = [];
@@ -794,6 +814,9 @@ class AdminSurfacePackagesController
 
     public function createPromotionTier(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $post      = get_post($packageId);
 
@@ -834,6 +857,9 @@ class AdminSurfacePackagesController
 
     public function savePromotionTier(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $promoId   = sanitize_key((string) $request->get_param('promo'));
 
@@ -885,6 +911,9 @@ class AdminSurfacePackagesController
 
     public function archivePromotionTier(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $promoId   = sanitize_key((string) $request->get_param('promo'));
 
@@ -926,6 +955,9 @@ class AdminSurfacePackagesController
 
     public function reactivatePromotionTier(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->migrationReadOnly();
+
+        // @phpstan-ignore-next-line — blocked during Phase 1 migration; restore in Phase 2
         $packageId = (int) $request->get_param('id');
         $promoId   = sanitize_key((string) $request->get_param('promo'));
 
