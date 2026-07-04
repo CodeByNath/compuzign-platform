@@ -402,6 +402,55 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const handleArchive    = async (id: string) => { await promo.archivePromotion(id); };
   const handleReactivate = async (id: string) => { await promo.reactivatePromotion(id); };
 
+  // Pin the drawer footer in the shell's footer slot (matching ServiceTierStep) instead of
+  // rendering it inline inside the scrolling body. Edit mode leaves the slot empty —
+  // InlineEditorShell carries its own Save/Cancel footer. The list's New/Close pair lives
+  // here; an open promotion's lifecycle action (Archive/Reactivate) lives here too, never
+  // on the list card itself.
+  const footerRef = useRef({ openCreate, handleArchive, handleReactivate, close: ctx.close });
+  footerRef.current = { openCreate, handleArchive, handleReactivate, close: ctx.close };
+
+  useEffect(() => {
+    const { setFooter } = ctx;
+    const a = footerRef.current;
+    const closeFooter = (
+      <div class="cz-tf-footer">
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
+      </div>
+    );
+    if (!promo.detailLoaded || !promo.detail) {
+      setFooter(closeFooter);
+    } else if (editingSection != null) {
+      setFooter(null);
+    } else if (!editingPromoId) {
+      setFooter(
+        <div class="cz-tf-footer">
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.openCreate()}>New</button>
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
+        </div>,
+      );
+    } else {
+      const current = promo.detail.promotions.find(p => p.id === editingPromoId);
+      if (!current) {
+        setFooter(closeFooter);
+      } else {
+        setFooter(
+          <div class="cz-tf-footer">
+            {current.status !== 'archived'
+              ? <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => a.handleArchive(current.id)}>Archive</button>
+              : <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.handleReactivate(current.id)}>Reactivate</button>
+            }
+            <div class="cz-tf-footer__spacer" />
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
+          </div>,
+        );
+      }
+    }
+    return () => setFooter(null);
+  }, [promo.detailLoaded, promo.detail, editingSection, editingPromoId, ctx.setFooter]);
+
   if (!promo.detailLoaded) return <div class="cz-admin-loading"><Spinner label="Loading promotions…" /></div>;
   if (!promo.detail)       return <div class="cz-admin-error-msg">Promotion Station not found.</div>;
 
@@ -411,18 +460,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   if (!isNew && !editingPromoId) {
     return (
       <div class="cz-req-detail">
-        <div class="cz-ws-header" style="padding: var(--cz-space-5) var(--cz-space-6) var(--cz-space-4)">
-          <div>
-            <h3 class="cz-ws-title" style="font-size: var(--admin-fs-sub)">Promotions</h3>
-            <p class="cz-ws-subtitle">{promotions.length} promotion{promotions.length !== 1 ? 's' : ''} configured</p>
-          </div>
-          <div class="cz-ws-actions">
-            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={openCreate}>
-              New Promotion
-            </button>
-          </div>
-        </div>
-
         {promotions.length === 0 && (
           <div style="padding: var(--cz-space-6); color: var(--admin-text-faint)">
             No promotions yet.
@@ -431,13 +468,12 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
         {promotions.map((p) => (
           <div key={p.id} class="cz-shell-section cz-shell-section--no-border">
-            <div class="drawerModule">
+            <div class="drawerModule drawerOverview promotion">
               <div class="drawerModule__header">
                 <div class="drawerModule__heading">
                   <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
                   <p class="drawerModule__subtitle">
                     {p.based_on ? `Based on ${p.based_on}` : 'No base tier'}
-                    {p.price !== null ? ` · $${p.price}` : ''}
                   </p>
                 </div>
                 <div class="drawerModule__status">
@@ -447,21 +483,32 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                   </span>
                 </div>
               </div>
+              <div class="drawerModule__body">
+                <div class="drawerModule__fields">
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Name</p>
+                    <p class="drawerModule__value">{p.name || '(unnamed)'}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Headline</p>
+                    <p class="drawerModule__value">{p.headline || '—'}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Price</p>
+                    <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Description</p>
+                    <p class="drawerModule__value">{p.description || '—'}</p>
+                  </div>
+                </div>
+              </div>
               <div class="drawerModule__footer">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openViewDetail(p)}>View</button>
-                {p.status !== 'archived'
-                  ? <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => handleArchive(p.id)}>Archive</button>
-                  : <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => handleReactivate(p.id)}>Reactivate</button>
-                }
               </div>
             </div>
           </div>
         ))}
-
-        <div class="cz-tf-footer">
-          <div class="cz-tf-footer__spacer" />
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>Close</button>
-        </div>
       </div>
     );
   }
