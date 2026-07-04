@@ -20,9 +20,7 @@ const BASED_ON_TIERS = [
   { id: 'enterprise', label: 'Enterprise' },
 ];
 
-type PromoDraft = Omit<PromotionTierPayload, 'new_inclusions'> & {
-  new_inclusions: Array<{ label: string }>;
-};
+type PromoDraft = Omit<PromotionTierPayload, 'new_inclusions'>;
 
 function emptyPromoDraft(): PromoDraft {
   return {
@@ -31,7 +29,6 @@ function emptyPromoDraft(): PromoDraft {
     features: [], inclusions: [], exclusions: [], badge: '',
     campaign_label: '', starts_at: null, ends_at: null,
     priority: 0, is_featured: false, metadata: {},
-    new_inclusions: [],
   };
 }
 
@@ -44,7 +41,6 @@ function draftFromPromo(p: PromotionTier): PromoDraft {
     badge: p.badge, campaign_label: p.campaign_label,
     starts_at: p.starts_at, ends_at: p.ends_at,
     priority: p.priority, is_featured: p.is_featured, metadata: { ...(p.metadata ?? {}) },
-    new_inclusions: [],
   };
 }
 
@@ -80,6 +76,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const [isNew,          setIsNew]          = useState(false);
   const [saveErr,        setSaveErr]        = useState<string | null>(null);
   const [saveOk,         setSaveOk]         = useState(false);
+  // Immediate canonical pool creation (mirrors ServiceTierStep's handleCreateInclusion) —
+  // a separate request from the promotion save. On success the new item's id is appended
+  // into the currently open draft, exactly as if it had been picked from "Add from pool…".
+  const [showAddInclusion,  setShowAddInclusion]  = useState(false);
+  const [newInclusionLabel, setNewInclusionLabel] = useState('');
+  const [creating,          setCreating]          = useState(false);
+  const [createErr,         setCreateErr]         = useState<string | null>(null);
 
   useEffect(() => {
     if (!saveOk) return;
@@ -87,9 +90,28 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     return () => clearTimeout(t);
   }, [saveOk]);
 
-  const openCreate = () => { const d = emptyPromoDraft(); setIsNew(true); setEditingPromoId(null); setDraft(d); setPromoOriginal(d); setSaveErr(null); setSaveOk(false); };
-  const openEdit   = (p: PromotionTier) => { const d = draftFromPromo(p); setIsNew(false); setEditingPromoId(p.id); setDraft(d); setPromoOriginal(d); setSaveErr(null); setSaveOk(false); };
-  const handleBack = () => { setDraft(null); setPromoOriginal(null); setEditingPromoId(null); setIsNew(false); setSaveErr(null); setSaveOk(false); };
+  const resetAddInclusion = () => { setShowAddInclusion(false); setNewInclusionLabel(''); setCreateErr(null); };
+
+  const openCreate = () => { const d = emptyPromoDraft(); setIsNew(true); setEditingPromoId(null); setDraft(d); setPromoOriginal(d); setSaveErr(null); setSaveOk(false); resetAddInclusion(); };
+  const openEdit   = (p: PromotionTier) => { const d = draftFromPromo(p); setIsNew(false); setEditingPromoId(p.id); setDraft(d); setPromoOriginal(d); setSaveErr(null); setSaveOk(false); resetAddInclusion(); };
+  const handleBack = () => { setDraft(null); setPromoOriginal(null); setEditingPromoId(null); setIsNew(false); setSaveErr(null); setSaveOk(false); resetAddInclusion(); };
+
+  const handleCreateInclusion = async () => {
+    const label = newInclusionLabel.trim();
+    if (!label) return;
+    setCreateErr(null);
+    setCreating(true);
+    try {
+      const item = await promo.createInclusion(label);
+      if (!item) { setCreateErr('Failed to create feature.'); return; }
+      setDraft(d => (d && !d.inclusions.find(i => i.id === item.id)) ? { ...d, inclusions: [...d.inclusions, item] } : d);
+      setNewInclusionLabel('');
+      setShowAddInclusion(false);
+    } finally {
+      setCreating(false);
+    }
+  };
+  const cancelAddInclusion = () => resetAddInclusion();
 
   const handleSave = useCallback(async () => {
     if (!draft) return;
@@ -274,6 +296,30 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
               ))}
             </select>
           )}
+          {showAddInclusion ? (
+            <div class="cz-tf-inline-add">
+              <input type="text" class="cz-tf-input" placeholder="New feature label"
+                value={newInclusionLabel}
+                onInput={(e) => setNewInclusionLabel((e.target as HTMLInputElement).value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateInclusion(); } }}
+                autoFocus />
+              <div class="cz-tf-inline-add__actions">
+                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                  onClick={handleCreateInclusion} disabled={creating}>
+                  {creating ? '…' : 'Create'}
+                </button>
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  onClick={cancelAddInclusion} disabled={creating}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" class="cz-tf-add-btn" onClick={() => setShowAddInclusion(true)}>
+              + Create new feature
+            </button>
+          )}
+          {createErr && <p class="cz-admin-error-msg">{createErr}</p>}
         </div>
 
         <div class="cz-tf-field">

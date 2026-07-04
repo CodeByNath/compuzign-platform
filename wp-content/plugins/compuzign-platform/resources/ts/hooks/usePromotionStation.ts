@@ -5,6 +5,7 @@ import {
   saveServicePromotion,
   archiveServicePromotion,
   reactivateServicePromotion,
+  createServiceInclusionPoolItem,
 } from '@/api/endpoints/admin';
 import type {
   ServicePromotionStationResponse,
@@ -12,6 +13,7 @@ import type {
   PromotionTier,
   PromotionTierPayload,
   PromotionStatus,
+  InclusionItem,
 } from '@/api/types/admin';
 
 // ── usePromotionStation ──────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ export interface PromotionStation {
   savePromotion:       (promoId: string, payload: PromotionTierPayload) => Promise<ServicePromotionSaveResponse | null>;
   archivePromotion:    (promoId: string) => Promise<boolean>;
   reactivatePromotion: (promoId: string) => Promise<boolean>;
+  createInclusion:     (label: string) => Promise<InclusionItem | null>;
   refetch:      () => void;
 }
 
@@ -113,6 +116,25 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
     } catch { return false; } finally { setSaving(false); }
   }, [serviceId, onRefresh, patchStatus]);
 
+  const createInclusion = useCallback(async (label: string): Promise<InclusionItem | null> => {
+    setSaving(true);
+    try {
+      const res = await createServiceInclusionPoolItem(serviceId, label);
+      if (!res.success) return null;
+      setDetail(prev => prev ? {
+        ...prev,
+        service: {
+          ...prev.service,
+          inclusions: prev.service.inclusions.some(i => i.id === res.inclusion.id)
+            ? prev.service.inclusions
+            : [...prev.service.inclusions, res.inclusion],
+        },
+      } : prev);
+      onRefresh?.();
+      return res.inclusion;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh]);
+
   return {
     detail,
     detailLoaded,
@@ -123,6 +145,7 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
     savePromotion,
     archivePromotion,
     reactivatePromotion,
+    createInclusion,
     refetch: load,
   };
 }
