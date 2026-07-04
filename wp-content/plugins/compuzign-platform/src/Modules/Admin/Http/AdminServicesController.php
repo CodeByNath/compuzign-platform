@@ -356,6 +356,32 @@ class AdminServicesController
                 'module' => ['required' => true, 'type' => 'string'],
             ],
         ]);
+
+        // ── Promotion travel transitions (engine C3) ──────────────────────────
+        // The only status writes for promotion instances. Archive is rewired
+        // through the engine on its existing route; reactivate stays a legacy
+        // alias until the C5 UI cutover retires it.
+        foreach (['publish', 'toggle', 'trash', 'restore'] as $transition) {
+            register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/' . $transition, [
+                'methods'             => 'POST',
+                'callback'            => [$this, $transition . 'Promotion'],
+                'permission_callback' => [$this, 'requireAdmin'],
+                'args'                => [
+                    'id'    => ['required' => true, 'type' => 'integer'],
+                    'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+                ],
+            ]);
+        }
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)', [
+            'methods'             => 'DELETE',
+            'callback'            => [$this, 'permanentDeletePromotion'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'type' => 'integer'],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
@@ -1672,7 +1698,41 @@ class AdminServicesController
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $updated]);
     }
 
+    /** archive: active|disabled → archived. Engine transition on the existing route (C3). */
     public function archiveServicePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->transitionPromotion($request, 'archive');
+    }
+
+    /** publish: draft|disabled → active, committing any pending drafts first (settle + activate). */
+    public function publishPromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->transitionPromotion($request, 'publish');
+    }
+
+    /** toggle: active ⇄ disabled. */
+    public function togglePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->transitionPromotion($request, 'toggle');
+    }
+
+    /** trash: active|disabled|archived → trashed. */
+    public function trashPromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->transitionPromotion($request, 'trash');
+    }
+
+    /** restore: archived|trashed → disabled — never straight to active. */
+    public function restorePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->transitionPromotion($request, 'restore');
+    }
+
+    /**
+     * Permanent delete — the only operation that removes an instance from the
+     * array. Legal only from trashed (engine-validated).
+     */
+    public function permanentDeletePromotion(\WP_REST_Request $request): \WP_REST_Response
     {
         $serviceId = (int) $request->get_param('id');
         $promoId   = sanitize_key((string) $request->get_param('promo'));
@@ -1682,26 +1742,98 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
+        $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $current = $this->readPromotionStation($serviceId);
-        $found   = false;
-        foreach ($current as &$inst) {
-            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
-                $inst['status'] = 'archived';
-                $found = true;
-                break;
-            }
-        }
-        unset($inst);
-
-        if (!$found) {
+        $index   = $this->findPromotionIndex($current, $promoId);
+        if ($index === null) {
             return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
         }
 
+        $ensured = $PS::ensurePromotionLifecycle($current[$index]);
+        if (!StationLifecycle::canDelete($ensured['lifecycle']['status'])) {
+            return rest_ensure_response(['success' => false, 'message' => 'Only trashed promotions can be permanently deleted.']);
+        }
+
+        array_splice($current, $index, 1);
         $this->writePromotionStationDirect($serviceId, $current);
 
-        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'archived']);
+        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'deleted' => true]);
     }
 
+    /**
+     * C3 — apply one engine transition to a promotion instance. Writes BOTH the
+     * legacy top-level status (still the public/back-compat field) and the
+     * envelope's status/previous_status, keeping the mirror exact. publish
+     * composes settle + activate: pending drafts are committed before the flip.
+     */
+    private function transitionPromotion(\WP_REST_Request $request, string $action): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $current = $this->readPromotionStation($serviceId);
+        $index   = $this->findPromotionIndex($current, $promoId);
+        if ($index === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
+        }
+
+        $instance = $PS::ensurePromotionLifecycle($current[$index]);
+        $status   = $instance['lifecycle']['status'];
+        $previous = $instance['lifecycle']['previous_status'];
+
+        $change = match ($action) {
+            'publish' => StationLifecycle::publish($status, $previous),
+            'toggle'  => StationLifecycle::toggle($status, $previous),
+            'archive' => StationLifecycle::archive($status, $previous),
+            'trash'   => StationLifecycle::trash($status, $previous),
+            'restore' => StationLifecycle::restore($status),
+            default   => null,
+        };
+        if ($change === null) {
+            return rest_ensure_response([
+                'success' => false,
+                'message' => sprintf('Cannot %s a %s promotion.', $action, $status),
+            ]);
+        }
+
+        if ($action === 'publish') {
+            $instance = $PS::settlePromotionInstance($instance);
+        }
+
+        $instance['status']                          = $change['status'];
+        $instance['lifecycle']['status']             = $change['status'];
+        $instance['lifecycle']['previous_status']    = $change['previous_status'];
+
+        $current[$index] = $instance;
+        $this->writePromotionStationDirect($serviceId, $current);
+
+        $response = [
+            'success'         => true,
+            'promo_id'        => $promoId,
+            'status'          => $change['status'],
+            'previous_status' => $change['previous_status'],
+        ];
+        if ($action === 'publish') {
+            // Publish settles: return the committed instance + lifecycle layer so
+            // the client can patch in place (same contract as the C2 responses).
+            $response += $this->promotionLifecycleResponse($serviceId, $instance);
+        }
+        return rest_ensure_response($response);
+    }
+
+    /**
+     * LEGACY ALIAS (until C5) — direct archived→active flip predating the engine.
+     * Not an engine transition (restore lands on disabled); kept only so the
+     * pre-cutover UI's Reactivate button works. The C5 cutover moves the UI to
+     * restore + publish and retires this route. Envelope consistency is
+     * guaranteed by ensurePromotionLifecycle's top-level-wins mirror rule.
+     */
     public function reactivateServicePromotion(\WP_REST_Request $request): \WP_REST_Response
     {
         $serviceId = (int) $request->get_param('id');
