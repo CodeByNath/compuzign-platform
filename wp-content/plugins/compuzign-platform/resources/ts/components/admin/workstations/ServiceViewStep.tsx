@@ -384,7 +384,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const pkgSummaryOnView = isActive && !station.loading.creating ? handleOpenTierConfig : undefined;
 
   const handleOpenPromoConfig = () => {
-    const onBack = () => doOpen({
+    const serviceReturn = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
       title:    'Service',
@@ -394,15 +394,19 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
     // All promotion management routes exclusively through the Service Station-owned
     // Promotion Station (cz_service_promotion_station). The legacy cz_surface_package
-    // promotion drawer path has been retired.
+    // promotion drawer path has been retired. The single header Back is context-aware:
+    // while a promotion's detail view is open, ServicePromotionStep sets promoBack.current
+    // to return to the promotion list; at the list it falls through to the parent Service
+    // drawer (mirrors handleOpenTierConfig's tierBack).
+    const promoBack: { current: (() => void) | null } = { current: null };
     ctx.close();
     doOpen({
       id:             `service-promos-${service.id}`,
       mode:           'drawer',
       title:          'Promotion',
-      onBack,
+      onBack:         () => (promoBack.current ?? serviceReturn)(),
       hideStepHeader: true,
-      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh },
+      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: serviceReturn, promoBack },
       steps: [{ id: 'service-promos', title: 'Promotions', component: ServicePromotionStep }],
     });
   };
