@@ -1516,11 +1516,9 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
         }
 
-        $addedInclusions = $this->addItemsToInclusionPool($serviceId, $body['new_inclusions'] ?? []);
-
         $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $promoId  = $PS::generatePromotionTierId();
-        $instance = $PS::buildPromotionInstance($promoId, $body, $addedInclusions);
+        $instance = $PS::buildPromotionInstance($promoId, $body);
 
         $current   = $this->readPromotionStation($serviceId);
         $current[] = $instance;
@@ -1551,8 +1549,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
         }
 
-        $addedInclusions = $this->addItemsToInclusionPool($serviceId, $body['new_inclusions'] ?? []);
-        $updated = $PS::buildPromotionInstance($promoId, $body, $addedInclusions, $existing);
+        $updated = $PS::buildPromotionInstance($promoId, $body, [], $existing);
 
         foreach ($current as &$inst) {
             if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {

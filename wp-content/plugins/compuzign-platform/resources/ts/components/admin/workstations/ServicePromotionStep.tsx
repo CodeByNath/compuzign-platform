@@ -15,9 +15,11 @@ import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { decodeHtml } from './serviceDrawerShared';
 
 // ── ServicePromotionStep ──────────────────────────────────────────────────────
-// Phase 4: Service Station-owned promotion management.
-// Used when a service was born after Phase 1 and has no legacy cz_surface_package post.
-// Reads and writes directly to cz_service_promotion_station via service-level endpoints.
+// Service Station-owned promotion management (cz_service_promotion_station). Reads and
+// writes exclusively through service-level endpoints; the controller's own read path
+// transparently bridges to a service's legacy cz_surface_package promotion data when
+// this station hasn't been migrated for it yet, so this component works the same
+// regardless of a service's migration state.
 //
 // Drawer shape mirrors ServiceTierStep: list (all promotions) <-> individual promotion
 // detail (Details/Connections tabs), full-screen swap, Back to return. Promotion Overview,
@@ -50,7 +52,7 @@ const PROMO_FAQS_ICON = (
   </svg>
 );
 
-type PromoDraft = Omit<PromotionTierPayload, 'new_inclusions'>;
+type PromoDraft = PromotionTierPayload;
 
 // Promotion Overview module's own transient draft — the scalar fields owned by this
 // module. Inclusions/exclusions/features/starts_at/ends_at/metadata are not part of

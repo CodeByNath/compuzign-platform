@@ -372,7 +372,6 @@ export interface PromotionTierPayload {
   priority: number;
   is_featured: boolean;
   metadata?: Record<string, string>;
-  new_inclusions?: Array<{ label: string }>;
 }
 
 export interface AcceptIntakeResponse {
