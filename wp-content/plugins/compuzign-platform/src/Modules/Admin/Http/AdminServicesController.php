@@ -1516,21 +1516,38 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $instances = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normalisePromotionInstances(
-            $this->readPromotionStation($serviceId)
-        );
+        $PS  = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $raw = $this->readPromotionStation($serviceId);
+        $instances = $PS::normalisePromotionInstances($raw);
+
+        // C1 — lifecycle envelopes are ensured on the RAW instances (normalise
+        // whitelists fields and would drop the stored envelope).
+        $rawById = [];
+        foreach ($raw as $rawInst) {
+            if (is_array($rawInst) && !empty($rawInst['id'])) {
+                $rawById[(string) $rawInst['id']] = $rawInst;
+            }
+        }
 
         $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
         $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
         $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
 
-        // B2 — pool refs resolve at read time: id authoritative, labels refreshed
-        // from the inclusion pool. Inclusions flag danglers (missing); exclusions
-        // never do (an off-pool exclusion ref is legitimate). The admin save
-        // round-trip then persists the refreshed labels.
         foreach ($instances as &$inst) {
+            // B2 — pool refs resolve at read time: id authoritative, labels refreshed
+            // from the inclusion pool. Inclusions flag danglers (missing); exclusions
+            // never do (an off-pool exclusion ref is legitimate). The admin save
+            // round-trip then persists the refreshed labels.
             $inst['inclusions'] = PoolReferences::refreshInclusionLabels($incPool, $inst['inclusions']);
             $inst['exclusions'] = PoolReferences::refreshInclusionLabels($incPool, $inst['exclusions'], false);
+
+            // C1 additive read exposure: raw drafts + module_status returned
+            // SEPARATELY, no server-side merge — the hook derives draft-preferred
+            // client-side (parity with the tier P3 read shape). Travel state stays
+            // on the legacy top-level status field until C3.
+            $ensured = $PS::ensurePromotionLifecycle($rawById[$inst['id']] ?? $inst);
+            $inst['drafts']        = $ensured['lifecycle']['drafts'];
+            $inst['module_status'] = $ensured['lifecycle']['module_status'];
         }
         unset($inst);
 

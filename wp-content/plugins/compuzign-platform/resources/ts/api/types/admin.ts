@@ -207,6 +207,30 @@ export interface RequestSummary {
 export type BasedOnTier = 'basic' | 'standard' | 'premium' | 'enterprise';
 export type PromotionStatus = 'draft' | 'active' | 'archived';
 
+// Lifecycle engine C1 — promotion module drafts, the travelling-instance
+// counterpart of TierDrafts. Overview carries the module's scalar fields only;
+// status is deliberately absent — travel state is engine-owned, never draftable.
+// All slots stay null until the C2 draft-save endpoints land.
+export interface PromotionOverviewDraft {
+  name: string;
+  slug: string;
+  based_on: BasedOnTier | null;
+  headline: string;
+  description: string;
+  price: number | null;
+  billing_label: string;
+  badge: string;
+  campaign_label: string;
+  priority: number;
+  is_featured: boolean;
+}
+
+export interface PromotionDrafts {
+  overview: PromotionOverviewDraft | null;
+  features: InclusionItem[] | null;
+  faqs: string[] | null;
+}
+
 export interface PromotionTier {
   id: string;
   name: string;
@@ -228,6 +252,11 @@ export interface PromotionTier {
   priority: number;
   is_featured: boolean;
   metadata: Record<string, string>;
+  // C1 — additive lifecycle read exposure: raw drafts + module_status returned
+  // SEPARATELY by getPromotionStation (no server-side merge; the hook derives
+  // draft-preferred client-side — parity with SurfaceTierDetail's P3/P4 shape).
+  drafts?: PromotionDrafts;
+  module_status?: Record<string, string>;
 }
 
 // ── Surface Packages river types ─────────────────────────────────────────────

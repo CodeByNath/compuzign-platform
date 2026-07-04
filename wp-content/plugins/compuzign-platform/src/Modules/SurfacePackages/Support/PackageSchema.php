@@ -23,6 +23,13 @@ class PackageSchema
     public const TIER_MODULES                = ['overview', 'features', 'faqs'];
     public const ALLOWED_MODULE_STATUSES     = ['not-configured', 'pending', 'settled'];
 
+    // Lifecycle engine C1 — promotion instance envelope. Same module trio as tiers;
+    // envelope statuses come from the engine (StationLifecycle::STATUSES), NOT from
+    // ALLOWED_PROMOTION_STATUSES: the legacy top-level status field stays the
+    // authoritative, client-facing value (and keeps its narrower vocabulary) until
+    // the transition endpoints (C3) own all status writes.
+    public const PROMOTION_MODULES           = ['overview', 'features', 'faqs'];
+
     public function register(): void
     {
         add_action('init', [$this, 'registerPostMeta']);
@@ -400,7 +407,7 @@ class PackageSchema
             ? sanitize_title((string) $body['slug'])
             : (sanitize_title($name) ?: ($existing['slug'] ?? ''));
 
-        return [
+        $instance = [
             'id'             => $id,
             'name'           => $name,
             'slug'           => $slug,
@@ -422,6 +429,15 @@ class PackageSchema
             'is_featured'    => (bool) ($body['is_featured'] ?? $existing['is_featured'] ?? false),
             'metadata'       => $existing['metadata'] ?? [],
         ];
+
+        // Lifecycle envelope passthrough (engine C1): whole-record saves must not
+        // strip a persisted envelope. Sourced from $existing only — a request body
+        // can never write lifecycle state; transitions (C3) own those writes.
+        if (isset($existing['lifecycle']) && is_array($existing['lifecycle'])) {
+            $instance['lifecycle'] = $existing['lifecycle'];
+        }
+
+        return $instance;
     }
 
     public static function parseDatetimeFromBody(array $body, array $existing, string $key): ?string
@@ -493,6 +509,100 @@ class PackageSchema
             }
         }
         return null;
+    }
+
+    // ── Promotion instance lifecycle envelope (engine C1) ─────────────────────
+    // Each instance gains a `lifecycle` map — the travelling-instance counterpart
+    // of the tier slot's drafts/module_status layer, plus the engine's travel
+    // state. Lazily backfilled on read (ensurePromotionLifecycle); never written
+    // from a request body. The legacy top-level `status` field remains the
+    // authoritative value until the transition endpoints (C3) own status writes;
+    // lifecycle.status mirrors it in the meantime.
+
+    /**
+     * The empty envelope: travel state draft, no history, no pending drafts,
+     * every module not-configured.
+     *
+     * @return array{status: string, previous_status: ?string, drafts: array<string, null>, module_status: array<string, string>}
+     */
+    public static function emptyPromotionLifecycle(): array
+    {
+        $drafts = [];
+        $status = [];
+        foreach (self::PROMOTION_MODULES as $module) {
+            $drafts[$module] = null;
+            $status[$module] = 'not-configured';
+        }
+        return [
+            'status'          => 'draft',
+            'previous_status' => null,
+            'drafts'          => $drafts,
+            'module_status'   => $status,
+        ];
+    }
+
+    /**
+     * Guarantee a valid lifecycle envelope on a promotion instance, deriving
+     * defaults for missing/invalid keys. Idempotent.
+     *
+     * lifecycle.status backfills from the legacy top-level status (draft/active/
+     * archived map 1:1 into the engine vocabulary; anything else → draft).
+     * module_status defaults derive from settled content — parity with
+     * ensureTierLifecycle's occupant-derived defaults.
+     *
+     * @param  array<string, mixed> $instance
+     * @return array<string, mixed> the instance with `lifecycle` guaranteed
+     */
+    public static function ensurePromotionLifecycle(array $instance): array
+    {
+        $engineStatuses = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUSES;
+        $lc = (isset($instance['lifecycle']) && is_array($instance['lifecycle'])) ? $instance['lifecycle'] : [];
+
+        $status = $lc['status'] ?? null;
+        if (!is_string($status) || !in_array($status, $engineStatuses, true)) {
+            $top    = (string) ($instance['status'] ?? 'draft');
+            $status = in_array($top, $engineStatuses, true) ? $top : 'draft';
+        }
+
+        $previous = $lc['previous_status'] ?? null;
+        if (!is_string($previous) || !in_array($previous, $engineStatuses, true)) {
+            $previous = null;
+        }
+
+        $drafts       = (isset($lc['drafts']) && is_array($lc['drafts'])) ? $lc['drafts'] : [];
+        $moduleStatus = (isset($lc['module_status']) && is_array($lc['module_status'])) ? $lc['module_status'] : [];
+        foreach (self::PROMOTION_MODULES as $module) {
+            if (!array_key_exists($module, $drafts)) {
+                $drafts[$module] = null;
+            }
+            if (!in_array($moduleStatus[$module] ?? null, self::ALLOWED_MODULE_STATUSES, true)) {
+                $moduleStatus[$module] = self::promotionModuleDefaultStatus($module, $instance);
+            }
+        }
+
+        $instance['lifecycle'] = [
+            'status'          => $status,
+            'previous_status' => $previous,
+            'drafts'          => $drafts,
+            'module_status'   => $moduleStatus,
+        ];
+        return $instance;
+    }
+
+    /**
+     * Content-derived module_status default for instances predating the envelope:
+     * settled when the module already has settled content, else not-configured
+     * (never pending — pending exists only once a draft has been saved).
+     */
+    private static function promotionModuleDefaultStatus(string $module, array $instance): string
+    {
+        $hasContent = match ($module) {
+            'overview' => trim((string) ($instance['name'] ?? '')) !== '',
+            'features' => is_array($instance['inclusions'] ?? null) && $instance['inclusions'] !== [],
+            'faqs'     => is_array($instance['faq_refs'] ?? null) && $instance['faq_refs'] !== [],
+            default    => false,
+        };
+        return $hasContent ? 'settled' : 'not-configured';
     }
 
     private static function coerceInclusionArray(mixed $items): array
