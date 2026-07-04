@@ -246,6 +246,16 @@ class AdminServicesController
             ],
         ]);
 
+        // Phase 2 — P5: station-level popular tier selection. `popular_tier` is a
+        // package-module concern, not part of the per-tier overview draft, so it
+        // gets its own station-level write (body: { tier_id: string|null, label }).
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/popular', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'setPackageStationPopular'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
         // ── Promotion Station management (Phase 4 — service-owned paths) ──────
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station', [
             'methods'             => 'GET',
@@ -1298,6 +1308,47 @@ class AdminServicesController
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
+        ]);
+    }
+
+    /**
+     * Phase 2 — P5: set the station-level popular tier.
+     * `tier_id` selects the popular tier (must be a known tier); a null/empty
+     * `tier_id` clears the selection. `label` is the popular badge text.
+     */
+    public function setPackageStationPopular(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $body   = $request->get_json_params();
+        if (!is_array($body)) { $body = []; }
+        $tierId = sanitize_key((string) ($body['tier_id'] ?? ''));
+
+        if ($tierId !== '' && in_array($tierId, $PS::ALLOWED_TIERS, true)) {
+            $station['popular_tier']  = $tierId;
+            $station['popular_label'] = sanitize_text_field((string) ($body['label'] ?? ''));
+        } else {
+            $station['popular_tier']  = null;
+            $station['popular_label'] = '';
+        }
+
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        return rest_ensure_response([
+            'success'       => true,
+            'popular_tier'  => $station['popular_tier'],
+            'popular_label' => $station['popular_label'],
         ]);
     }
 

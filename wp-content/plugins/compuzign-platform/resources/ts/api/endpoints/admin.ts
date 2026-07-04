@@ -204,6 +204,20 @@ export function settleServicePackageStationTier(
   );
 }
 
+// Phase 2 (P5) — set the station-level popular tier. `popular_tier` is a
+// package-module concern, not part of the per-tier overview draft, so it has
+// its own station-level write. A null tierId clears the selection.
+export function setServicePackageStationPopular(
+  serviceId: number,
+  tierId:    string | null,
+  label:     string,
+): Promise<{ success: boolean; popular_tier: string | null; popular_label: string }> {
+  return apiClient.post(
+    `admin/services/${serviceId}/package-station/popular`,
+    { tier_id: tierId, label },
+  );
+}
+
 export function fetchAdminRequests(): Promise<AdminRequestsResponse> {
   return apiClient.get<AdminRequestsResponse>('admin/requests');
 }

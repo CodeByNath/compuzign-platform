@@ -1,17 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { Spinner } from '@/components/ui/Spinner';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
-import { fetchServicePackageStation, saveServicePackageStationTier } from '@/api/endpoints/admin';
-import type { ServicePackageStationResponse, SurfaceTierDetail, InclusionItem } from '@/api/types/admin';
-import { useApi } from '@/hooks/useApi';
-import { resolveTierStatus, statusDotClass } from '@/components/admin/utils/moduleStatus';
+import type { InclusionItem, TierOverviewDraft } from '@/api/types/admin';
+import { usePackageStation } from '@/hooks/usePackageStation';
+import { statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { ReadBlock } from '../ReadBlock';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
-import { getTierNotes, evaluateModule, tierOverviewModule, tierFeaturesModule, tierFaqsModule } from '@/components/admin/utils/moduleNotifications';
+import { getTierNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
 
 // Tier module icons — the same glyphs the Service Overview / Features / FAQs cards use,
@@ -34,39 +33,15 @@ const TIER_FAQS_ICON = (
 );
 
 // ── ServiceTierStep ───────────────────────────────────────────────────────────
-// Phase 2: Service Station-owned tier configuration drawer.
-// Used when a service was born after Phase 1 and has no legacy cz_surface_package post.
-// Reads and writes directly to cz_service_package_station via service-level endpoints.
+// Phase 2 (L5): Service Station-owned tier configuration drawer.
+// P5 Step 1: consumes usePackageStation (single source, draft-preferred derive,
+// patch-in-place). Per-module Save persists a draft; footer Publish settles the tier.
+// popular_tier is a station-level action (setPopularTier), not part of the overview draft.
 
-type TierDraft = {
-  label:               string;
-  price:               number | null;
-  contact:             boolean;
-  billing_cycle:       string;
-  inclusions_override: InclusionItem[];
-  faq_refs:            string[];
-  popular:             boolean;
-  popular_label:       string;
-  enabled:             boolean;
-  new_inclusions:      Array<{ label: string }>;
-  new_faqs:            Array<{ question: string; answer: string }>;
-};
-
-function tierDraftFromDetail(detail: SurfaceTierDetail, popularTier: string | null, tierId: string, popularLabel: string): TierDraft {
-  return {
-    label:               detail.label,
-    price:               detail.price,
-    contact:             detail.contact,
-    billing_cycle:       detail.billing_cycle ?? 'monthly',
-    inclusions_override: detail.inclusions_override,
-    faq_refs:            detail.faq_refs,
-    popular:             popularTier === tierId,
-    popular_label:       popularTier === tierId ? popularLabel : '',
-    enabled:             detail.enabled,
-    new_inclusions:      [],
-    new_faqs:            [],
-  };
-}
+// Transient overview-editor form draft. Extends the tier-owned overview scalars with the
+// station-level popular fields the editor surfaces; on save, the overview scalars go
+// through saveTierOverview and popular goes through setPopularTier (station-level).
+type OverviewEditDraft = TierOverviewDraft & { popular: boolean; popular_label: string };
 
 export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const serviceId = ctx.stepData.serviceId as number;
@@ -80,28 +55,27 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Parent service lifecycle status for the connection card's pill (active vs disabled).
   const serviceConnStatus = (serviceItem?.meta?.platform_status ?? 'disabled') === 'active' ? 'active' : 'disabled';
 
-  const { data, loading, error, refetch } = useApi<ServicePackageStationResponse>(
-    () => fetchServicePackageStation(serviceId)
-  );
+  // Single client-side owner of the package station (package module + all tiers).
+  const pkg     = usePackageStation(serviceId, onRefresh);
+  const station = pkg.station;
+  const svc     = pkg.service;
 
-  const [editingTierId, setEditingTierId]   = useState<string | null>(null);
-  const [draft,         setDraft]           = useState<TierDraft | null>(null);
+  const [editingTierId, setEditingTierId] = useState<string | null>(null);
   // Single Individual Tier drawer: editingSection === null → tier view (3 module cards);
-  // a named value → that section's InlineEditorShell. Sections edit slices of the one
-  // shared TierDraft in memory; only Publish Tier persists via saveServicePackageStationTier.
-  const [editingSection,  setEditingSection]  = useState<'tier-overview' | 'tier-inclusions' | 'tier-faqs' | null>(null);
-  const [sectionOriginal, setSectionOriginal] = useState<TierDraft | null>(null);
-  const [saving,        setSaving]          = useState(false);
-  const [saveErr,       setSaveErr]         = useState<string | null>(null);
-  const [saveOk,        setSaveOk]          = useState(false);
-  const [newIncLabel,   setNewIncLabel]     = useState('');
-  const [newFaqQ,       setNewFaqQ]         = useState('');
-  const [newFaqA,       setNewFaqA]         = useState('');
+  // a named value → that section's InlineEditorShell over a transient per-module draft.
+  const [editingSection, setEditingSection] = useState<'tier-overview' | 'tier-inclusions' | 'tier-faqs' | null>(null);
+  // Per-module transient drafts (§2): seeded from the hook's draft-preferred view on open,
+  // saved independently via saveTierX. Only one is active at a time (the open section).
+  const [overviewDraft, setOverviewDraft] = useState<OverviewEditDraft | null>(null);
+  const [featuresDraft, setFeaturesDraft] = useState<InclusionItem[] | null>(null);
+  const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [saveOk,  setSaveOk]  = useState(false);
   // Individual Tier drawer: Commercial (the tier's own modules) | Service (read-only
   // parent context). Commercial is the working context, so it is the default.
-  const [tierTab,       setTierTab]         = useState<'commercial' | 'service'>('commercial');
+  const [tierTab, setTierTab] = useState<'commercial' | 'service'>('commercial');
   // Single-open accordion for the Commercial cards' notification panels.
-  const [openTierPanel, setOpenTierPanel]   = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
+  const [openTierPanel, setOpenTierPanel] = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
   // Single-open accordion for the tier-overview summary cards' notification panels (keyed by tierId).
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   // Package overview view: Details (tier cards + pricing) | Connections (parent service).
@@ -114,96 +88,118 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   }, [saveOk]);
 
   const openTierEdit = (tierId: string) => {
-    if (!data) return;
-    const detail = data.station.tiers[tierId] ?? {
-      label: '', price: null, contact: false, billing_cycle: null,
-      inclusions_override: [], features: [], faq_refs: [], enabled: false,
-    };
     setEditingTierId(tierId);
-    setDraft(tierDraftFromDetail(detail as SurfaceTierDetail, data.station.popular_tier, tierId, data.station.popular_label));
     setEditingSection(null);
-    setSectionOriginal(null);
+    setOverviewDraft(null);
+    setFeaturesDraft(null);
+    setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
     setTierTab('commercial');
     setOpenTierPanel(null);
   };
 
-  // Publish Tier — the single backend write for the whole TierDraft.
-  const handleSave = useCallback(async () => {
-    if (!draft || !editingTierId) return;
-    setSaving(true); setSaveErr(null);
-    try {
-      const res = await saveServicePackageStationTier(serviceId, editingTierId, draft);
-      // Re-seed the working copy from the saved tier so newly created features/FAQs —
-      // now attached to inclusions_override / faq_refs by the backend — appear in the
-      // still-open drawer, and new_inclusions / new_faqs are cleared. Drawer stays open.
-      const savedTier = res?.station?.tiers?.[editingTierId];
-      if (res?.success && savedTier) {
-        setDraft(tierDraftFromDetail(
-          savedTier,
-          res.station.popular_tier,
-          editingTierId,
-          res.station.popular_label,
-        ));
-      }
-      setSaveOk(true);
-      refetch();
-      onRefresh?.();
-    } catch (e) {
-      setSaveErr(e instanceof Error ? e.message : 'Save failed.');
-    } finally {
-      setSaving(false);
-    }
-  }, [draft, editingTierId, serviceId, refetch, onRefresh]);
-
-  // Disable/Enable Tier — flips enabled and Publishes through the same save path.
-  const handleToggleEnabled = useCallback(async () => {
-    if (!draft || !editingTierId) return;
-    const next = { ...draft, enabled: !draft.enabled };
-    setDraft(next);
-    setSaving(true); setSaveErr(null);
-    try {
-      await saveServicePackageStationTier(serviceId, editingTierId, next);
-      setSaveOk(true);
-      refetch();
-      onRefresh?.();
-    } catch (e) {
-      setSaveErr(e instanceof Error ? e.message : 'Save failed.');
-    } finally {
-      setSaving(false);
-    }
-  }, [draft, editingTierId, serviceId, refetch, onRefresh]);
-
-  // Section edit lifecycle — in-memory only. Save keeps the live draft changes and
-  // returns to tier view; Cancel reverts the slice to the pre-edit snapshot.
+  // Section edit lifecycle — seed the section's transient draft from the hook's
+  // draft-preferred view; Save persists it via the hook, Cancel discards it.
   const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => {
-    setSectionOriginal(draft);
+    if (!editingTierId) return;
+    const view = pkg.tierView(editingTierId);
+    if (!view) return;
+    const d = view.detail;
+    if (section === 'tier-overview') {
+      setOverviewDraft({
+        label:         d.label,
+        price:         d.price,
+        contact:       d.contact,
+        billing_cycle: d.billing_cycle ?? 'monthly',
+        popular:       pkg.popularTier === editingTierId,
+        popular_label: pkg.popularTier === editingTierId ? pkg.popularLabel : '',
+      });
+    } else if (section === 'tier-inclusions') {
+      setFeaturesDraft([...d.inclusions_override]);
+    } else {
+      setFaqsDraft([...d.faq_refs]);
+    }
     setEditingSection(section);
     setSaveErr(null);
     setSaveOk(false);
   };
+
+  // Per-module Save — persist-through the hook (draft + patch-in-place), then return to
+  // tier view. popular is committed station-level, separate from the overview draft.
   const saveSection = async () => {
-    setEditingSection(null);
-    setSectionOriginal(null);
+    if (!editingTierId) return;
+    setSaveErr(null);
+    try {
+      let ok = true;
+      if (editingSection === 'tier-overview' && overviewDraft) {
+        const r = await pkg.saveTierOverview(editingTierId, {
+          label:         overviewDraft.label,
+          price:         overviewDraft.price,
+          contact:       overviewDraft.contact,
+          billing_cycle: overviewDraft.billing_cycle,
+        });
+        ok = !!r?.success;
+        if (ok) {
+          if (overviewDraft.popular) {
+            ok = await pkg.setPopularTier(editingTierId, overviewDraft.popular_label);
+          } else if (pkg.popularTier === editingTierId) {
+            ok = await pkg.setPopularTier(null, '');
+          }
+        }
+      } else if (editingSection === 'tier-inclusions' && featuresDraft) {
+        const r = await pkg.saveTierFeatures(editingTierId, featuresDraft);
+        ok = !!r?.success;
+      } else if (editingSection === 'tier-faqs' && faqsDraft) {
+        const r = await pkg.saveTierFaqs(editingTierId, faqsDraft);
+        ok = !!r?.success;
+      }
+      if (!ok) { setSaveErr('Save failed.'); return; }
+      setSaveOk(true);
+      setEditingSection(null);
+      setOverviewDraft(null);
+      setFeaturesDraft(null);
+      setFaqsDraft(null);
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : 'Save failed.');
+    }
   };
   const cancelSection = () => {
-    if (sectionOriginal) setDraft(sectionOriginal);
     setEditingSection(null);
-    setSectionOriginal(null);
-  };
-
-  // Returns to the tier list — no backend write unless Publish was clicked.
-  const handleBack = () => {
-    setEditingTierId(null);
-    setDraft(null);
-    setEditingSection(null);
-    setSectionOriginal(null);
+    setOverviewDraft(null);
+    setFeaturesDraft(null);
+    setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
-    setNewIncLabel('');
-    setNewFaqQ('');
-    setNewFaqA('');
+  };
+
+  // Publish → settle the tier (commit drafts to the occupant). No-ops backend-side when
+  // there is no occupant and no drafts; the footer disables Publish in that case.
+  const handleSettle = async () => {
+    if (!editingTierId) return;
+    setSaveErr(null);
+    const r = await pkg.settleTier(editingTierId);
+    if (r?.success) setSaveOk(true); else setSaveErr('Publish failed.');
+  };
+  // Disable/Enable — separate lifecycle action (immediate, not draft-staged).
+  const handleToggleEnabled = async () => {
+    if (!editingTierId) return;
+    const view = pkg.tierView(editingTierId);
+    if (!view) return;
+    setSaveErr(null);
+    const ok = await pkg.toggleTierEnabled(editingTierId, !view.detail.enabled);
+    if (ok) setSaveOk(true); else setSaveErr('Update failed.');
+  };
+
+  // Returns to the tier list — drafts are already persisted by the hook, so nothing to flush.
+  const handleBack = () => {
+    setEditingTierId(null);
+    setEditingSection(null);
+    setOverviewDraft(null);
+    setFeaturesDraft(null);
+    setFaqsDraft(null);
+    setSaveErr(null);
+    setSaveOk(false);
   };
 
   // Context-aware header Back: while a tier is open, the drawer's single header Back
@@ -219,8 +215,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   }, [editingTierId, tierBack]);
 
   // Footer handlers via ref — latest closures without re-subscribing the footer effect.
-  const footerRef = useRef({ handleSave, handleToggleEnabled, close: ctx.close });
-  footerRef.current = { handleSave, handleToggleEnabled, close: ctx.close };
+  const footerRef = useRef({ handleSettle, handleToggleEnabled, close: ctx.close });
+  footerRef.current = { handleSettle, handleToggleEnabled, close: ctx.close };
 
   // Pin the drawer footer in the shell's footer slot (matching the Service Overview
   // drawer) instead of rendering it inline inside the scrolling body. Edit mode leaves
@@ -234,38 +230,41 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
       </div>
     );
-    if (loading || error || !data || !data.success || !data.station) {
+    if (!pkg.detailLoaded || !station || !svc) {
       setFooter(closeFooter);
     } else if (editingSection != null) {
       setFooter(null);
-    } else if (!editingTierId || !draft) {
+    } else if (!editingTierId) {
       setFooter(closeFooter);
     } else {
+      const view       = pkg.tierView(editingTierId);
+      const enabled    = view?.detail.enabled ?? false;
+      // Honour the settle no-op guard: nothing to settle when every module is
+      // not-configured (no drafts, no occupant).
+      const hasContent = !!view && Object.values(view.moduleStatus).some((s) => s !== 'not-configured');
       setFooter(
         <div class="cz-tf-footer">
-          <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => a.handleToggleEnabled()} disabled={saving}>
-            {draft.enabled ? 'Disable' : 'Enable'}
+          <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => a.handleToggleEnabled()} disabled={pkg.saving}>
+            {enabled ? 'Disable' : 'Enable'}
           </button>
           <div class="cz-tf-footer__spacer" />
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()} disabled={saving}>Cancel</button>
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.handleSave()} disabled={saving}>
-            {saving ? 'Saving…' : 'Publish'}
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()} disabled={pkg.saving}>Cancel</button>
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.handleSettle()} disabled={pkg.saving || !hasContent}>
+            {pkg.saving ? 'Saving…' : 'Publish'}
           </button>
         </div>,
       );
     }
     return () => setFooter(null);
-  }, [loading, error, data, editingSection, editingTierId, draft, saving, ctx.setFooter]);
+  }, [pkg.detailLoaded, pkg.station, pkg.service, pkg.tierView, pkg.saving, editingSection, editingTierId, ctx.setFooter]);
 
-  if (loading) return <div class="cz-admin-loading"><Spinner label="Loading tiers…" /></div>;
-  if (error)   return <div class="cz-admin-error-msg">Failed to load tier data: {error}</div>;
-  if (!data)   return null;
+  if (!pkg.detailLoaded) return <div class="cz-admin-loading"><Spinner label="Loading tiers…" /></div>;
 
   // Defensive guard against incomplete migration data. The endpoint returns HTTP 200 with
   // { success:false } and no station payload when cz_service_package_station has not been
-  // seeded for this service. Fail with a clear empty state instead of crashing on an
-  // undefined station — this is a guard only, never a fallback to legacy package data.
-  if (!data.success || !data.station) {
+  // seeded for this service (the hook surfaces that as a null station). Fail with a clear
+  // empty state instead of crashing — this is a guard only, never a fallback to legacy data.
+  if (!station || !svc) {
     return (
       <div class="cz-req-detail">
         <div class="drawerModule">
@@ -286,7 +285,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             </div>
           </div>
           <div class="drawerModule__footer">
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => refetch()}>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => pkg.refetch()}>
               Refresh
             </button>
           </div>
@@ -295,14 +294,10 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  const { station, service: svc } = data;
-
   // ── Tier overview view — polished 4-tier summary cards + Pricing Summary ─────
-  // Presentation ported from the retired PackageDetailStep (final polished form at
-  // commit 2ac771e). Bound to Package Station data only (station.tiers is the same
-  // SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
-  // No legacy fetch (fetchSurfacePackageDetail) or legacy routing is reintroduced.
-  if (!editingTierId || !draft) {
+  // Bound to draft-preferred tier views from usePackageStation (station.tiers is the
+  // same SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
+  if (!editingTierId) {
     const pkgStatus = station.platform_status ?? 'disabled';
     return (
       <div class="cz-req-detail">
@@ -328,18 +323,19 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         {overviewTab === 'details' && (
         <>
         {TIER_KEYS.map((tierId) => {
-          const tier       = station.tiers[tierId];
-          const status     = resolveTierStatus(tier, { pkgStatus });
-          const showData   = !!(tier && (tier.price !== null || tier.billing_cycle || tier.contact));
-          const priceText  = tier?.contact && tier.price === null
+          const view       = pkg.tierView(tierId);
+          const detail     = view?.detail;
+          const status     = view ? view.status : 'not-configured';
+          const showData   = !!(detail && (detail.price !== null || detail.billing_cycle || detail.contact));
+          const priceText  = detail?.contact && detail.price === null
             ? 'Contact'
-            : tier?.price != null ? `$${tier.price.toFixed(2)}` : '$0.00';
-          const cycleText  = tier?.billing_cycle ?? 'Not available';
-          const inclCount  = tier?.inclusions_override?.length ?? 0;
-          const faqCount   = tier?.faq_refs?.length ?? 0;
+            : detail?.price != null ? `$${detail.price.toFixed(2)}` : '$0.00';
+          const cycleText  = detail?.billing_cycle ?? 'Not available';
+          const inclCount  = detail?.inclusions_override?.length ?? 0;
+          const faqCount   = detail?.faq_refs?.length ?? 0;
           const featLabel  = `${inclCount} ${inclCount === 1 ? 'feature' : 'features'}`;
           const faqLabel   = `${faqCount} ${faqCount === 1 ? 'common question' : 'common questions'}`;
-          const tierNotes  = getTierNotes(tier, { platformStatus: pkgStatus });
+          const tierNotes  = detail ? getTierNotes(detail, { platformStatus: pkgStatus }) : [];
           return (
             <div key={tierId} class="drawerModule drawerOverview tier">
               <div class="drawerModule__header">
@@ -356,7 +352,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                   </svg>
                 </span>
                 <div class="drawerModule__heading">
-                  <p class="drawerModule__title">Package {tier?.label?.trim() || TIER_LABELS[tierId]}</p>
+                  <p class="drawerModule__title">Package {detail?.label?.trim() || TIER_LABELS[tierId]}</p>
                   <p class="drawerModule__subtitle">Pricing and inclusions for this tier.</p>
                 </div>
                 <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
@@ -417,8 +413,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               </thead>
               <tbody>
                 {TIER_KEYS.map((tierId) => {
-                  const tier   = station.tiers[tierId];
-                  const status = resolveTierStatus(tier, { pkgStatus });
+                  const view   = pkg.tierView(tierId);
+                  const detail = view?.detail;
+                  const status = view ? view.status : 'not-configured';
                   return (
                     <tr key={tierId}>
                       <td class="cz-sp-tier-table__name">
@@ -428,13 +425,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                         </div>
                       </td>
                       <td>
-                        <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                          {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
+                        <span class={`cz-price-tag${detail?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                          {detail?.price != null ? `$${detail.price.toLocaleString()}` : '—'}
                         </span>
                       </td>
-                      <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
+                      <td class="cz-sp-tier-table__muted">{detail?.billing_cycle ?? '—'}</td>
                       <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                        {tier?.inclusions_override?.length ? tier.inclusions_override.length : '—'}
+                        {detail?.inclusions_override?.length ? detail.inclusions_override.length : '—'}
                       </td>
                     </tr>
                   );
@@ -470,32 +467,33 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const incPool = svc.inclusions;
   const faqPool = svc.faqs;
 
-  // Edit mode — InlineEditorShell over a slice of the shared TierDraft (in-memory).
-  if (editingSection === 'tier-overview') {
+  // Edit mode — InlineEditorShell over the section's transient draft. Save persists via
+  // the hook (saveTierX / setPopularTier); Cancel discards the draft.
+  if (editingSection === 'tier-overview' && overviewDraft) {
     return (
-      <InlineEditorShell title="Tier Overview" onSave={saveSection} onCancel={cancelSection} saving={false} saveErr={null}>
+      <InlineEditorShell title="Tier Overview" onSave={saveSection} onCancel={cancelSection} saving={pkg.saving} saveErr={saveErr}>
         <div class="cz-tf-form">
           {/* Contact toggle */}
           <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-            <input type="checkbox" id="tier-contact" checked={draft.contact}
-              onChange={(e) => setDraft(d => d ? { ...d, contact: (e.target as HTMLInputElement).checked, price: null } : d)} />
+            <input type="checkbox" id="tier-contact" checked={overviewDraft.contact}
+              onChange={(e) => setOverviewDraft(d => d ? { ...d, contact: (e.target as HTMLInputElement).checked, price: null } : d)} />
             <label class="cz-tf-label" for="tier-contact" style="margin: 0">Contact Us (no fixed price)</label>
           </div>
-          {!draft.contact && (
+          {!overviewDraft.contact && (
             <div class="cz-tf-field">
               <label class="cz-tf-label">Price</label>
               <input type="number" class="cz-tf-input" min="0" step="0.01"
-                value={draft.price ?? ''}
+                value={overviewDraft.price ?? ''}
                 onInput={(e) => {
                   const v = (e.target as HTMLInputElement).value;
-                  setDraft(d => d ? { ...d, price: v === '' ? null : parseFloat(v) } : d);
+                  setOverviewDraft(d => d ? { ...d, price: v === '' ? null : parseFloat(v) } : d);
                 }} />
             </div>
           )}
           <div class="cz-tf-field">
             <label class="cz-tf-label">Billing Cycle</label>
-            <select class="cz-tf-select" value={draft.billing_cycle}
-              onChange={(e) => setDraft(d => d ? { ...d, billing_cycle: (e.target as HTMLSelectElement).value } : d)}>
+            <select class="cz-tf-select" value={overviewDraft.billing_cycle}
+              onChange={(e) => setOverviewDraft(d => d ? { ...d, billing_cycle: (e.target as HTMLSelectElement).value } : d)}>
               <option value="monthly">Monthly</option>
               <option value="annually">Annually</option>
               <option value="one-time">One-time</option>
@@ -503,19 +501,19 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           </div>
           <div class="cz-tf-field">
             <label class="cz-tf-label">Display Label (optional)</label>
-            <input type="text" class="cz-tf-input" value={draft.label}
-              onInput={(e) => setDraft(d => d ? { ...d, label: (e.target as HTMLInputElement).value } : d)} />
+            <input type="text" class="cz-tf-input" value={overviewDraft.label}
+              onInput={(e) => setOverviewDraft(d => d ? { ...d, label: (e.target as HTMLInputElement).value } : d)} />
           </div>
           <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-            <input type="checkbox" id="tier-popular" checked={draft.popular}
-              onChange={(e) => setDraft(d => d ? { ...d, popular: (e.target as HTMLInputElement).checked } : d)} />
+            <input type="checkbox" id="tier-popular" checked={overviewDraft.popular}
+              onChange={(e) => setOverviewDraft(d => d ? { ...d, popular: (e.target as HTMLInputElement).checked } : d)} />
             <label class="cz-tf-label" for="tier-popular" style="margin: 0">Mark as popular tier</label>
           </div>
-          {draft.popular && (
+          {overviewDraft.popular && (
             <div class="cz-tf-field">
               <label class="cz-tf-label">Popular badge label</label>
-              <input type="text" class="cz-tf-input" value={draft.popular_label}
-                onInput={(e) => setDraft(d => d ? { ...d, popular_label: (e.target as HTMLInputElement).value } : d)} />
+              <input type="text" class="cz-tf-input" value={overviewDraft.popular_label}
+                onInput={(e) => setOverviewDraft(d => d ? { ...d, popular_label: (e.target as HTMLInputElement).value } : d)} />
             </div>
           )}
         </div>
@@ -523,30 +521,20 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  if (editingSection === 'tier-inclusions') {
+  if (editingSection === 'tier-inclusions' && featuresDraft) {
     return (
-      <InlineEditorShell title="Included Features" onSave={saveSection} onCancel={cancelSection} saving={false} saveErr={null}>
+      <InlineEditorShell title="Included Features" onSave={saveSection} onCancel={cancelSection} saving={pkg.saving} saveErr={saveErr}>
         <div class="cz-tf-form">
           <div class="cz-tf-field">
             <label class="cz-tf-label">Inclusions</label>
-            {(draft.inclusions_override.length > 0 || draft.new_inclusions.length > 0) && (
+            {featuresDraft.length > 0 && (
               <div class="cz-ie-list">
-                {draft.inclusions_override.map((inc) => (
+                {featuresDraft.map((inc) => (
                   <div key={inc.id} class="cz-ie-row">
                     <input type="text" class="cz-tf-input" value={inc.label} readOnly />
                     <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                       aria-label="Remove"
-                      onClick={() => setDraft(d => d ? { ...d, inclusions_override: d.inclusions_override.filter(i => i.id !== inc.id) } : d)}>
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                {draft.new_inclusions.map((inc, idx) => (
-                  <div key={`new-inc-${idx}`} class="cz-ie-row">
-                    <input type="text" class="cz-tf-input" value={inc.label} readOnly />
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                      aria-label="Remove"
-                      onClick={() => setDraft(d => d ? { ...d, new_inclusions: d.new_inclusions.filter((_, i) => i !== idx) } : d)}>
+                      onClick={() => setFeaturesDraft(f => f ? f.filter(i => i.id !== inc.id) : f)}>
                       ✕
                     </button>
                   </div>
@@ -560,69 +548,42 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                   const id = sel.value;
                   if (!id) return;
                   const inc = incPool.find(i => i.id === id);
-                  if (inc && !draft.inclusions_override.find(i => i.id === id)) {
-                    setDraft(d => d ? { ...d, inclusions_override: [...d.inclusions_override, inc] } : d);
+                  if (inc) {
+                    setFeaturesDraft(f => (f && !f.find(i => i.id === id)) ? [...f, inc] : f);
                   }
                   sel.value = '';
                 }}>
                 <option value="">Add from pool…</option>
-                {incPool.filter(i => !draft.inclusions_override.find(s => s.id === i.id)).map(i => (
+                {incPool.filter(i => !featuresDraft.find(s => s.id === i.id)).map(i => (
                   <option key={i.id} value={i.id}>{i.label}</option>
                 ))}
               </select>
             )}
-            <div class="cz-tf-inline-add">
-              <input type="text" class="cz-tf-input" placeholder="New inclusion label"
-                value={newIncLabel}
-                onInput={(e) => setNewIncLabel((e.target as HTMLInputElement).value)}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter' || !newIncLabel.trim()) return;
-                  e.preventDefault();
-                  setDraft(d => d ? { ...d, new_inclusions: [...d.new_inclusions, { label: newIncLabel.trim() }] } : d);
-                  setNewIncLabel('');
-                }} />
-              <div class="cz-tf-inline-add__actions">
-                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                  onClick={() => {
-                    if (!newIncLabel.trim()) return;
-                    setDraft(d => d ? { ...d, new_inclusions: [...d.new_inclusions, { label: newIncLabel.trim() }] } : d);
-                    setNewIncLabel('');
-                  }}>Add</button>
-              </div>
-            </div>
           </div>
         </div>
       </InlineEditorShell>
     );
   }
 
-  if (editingSection === 'tier-faqs') {
+  if (editingSection === 'tier-faqs' && faqsDraft) {
     return (
-      <InlineEditorShell title="Common Questions" onSave={saveSection} onCancel={cancelSection} saving={false} saveErr={null}>
+      <InlineEditorShell title="Common Questions" onSave={saveSection} onCancel={cancelSection} saving={pkg.saving} saveErr={saveErr}>
         <div class="cz-tf-form">
           <div class="cz-tf-field">
             <label class="cz-tf-label">FAQs</label>
-            {(draft.faq_refs.length > 0 || draft.new_faqs.length > 0) && (
+            {faqsDraft.length > 0 && (
               <div class="cz-ie-list">
-                {draft.faq_refs.map(ref => {
+                {faqsDraft.map(ref => {
                   const faq = faqPool.find(f => f.id === ref);
                   return (
                     <div key={ref} class="cz-ie-row">
                       <input type="text" class="cz-tf-input" value={faq?.question ?? ref} readOnly />
                       <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                         aria-label="Remove"
-                        onClick={() => setDraft(d => d ? { ...d, faq_refs: d.faq_refs.filter(r => r !== ref) } : d)}>✕</button>
+                        onClick={() => setFaqsDraft(r => r ? r.filter(x => x !== ref) : r)}>✕</button>
                     </div>
                   );
                 })}
-                {draft.new_faqs.map((f, idx) => (
-                  <div key={`new-faq-${idx}`} class="cz-ie-row">
-                    <input type="text" class="cz-tf-input" value={f.question} readOnly />
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                      aria-label="Remove"
-                      onClick={() => setDraft(d => d ? { ...d, new_faqs: d.new_faqs.filter((_, i) => i !== idx) } : d)}>✕</button>
-                  </div>
-                ))}
               </div>
             )}
             {faqPool.length > 0 && (
@@ -631,70 +592,34 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                   const sel = e.target as HTMLSelectElement;
                   const id = sel.value;
                   if (!id) return;
-                  if (!draft.faq_refs.includes(id)) {
-                    setDraft(d => d ? { ...d, faq_refs: [...d.faq_refs, id] } : d);
-                  }
+                  setFaqsDraft(r => (r && !r.includes(id)) ? [...r, id] : r);
                   sel.value = '';
                 }}>
                 <option value="">Add FAQ from pool…</option>
-                {faqPool.filter(f => !draft.faq_refs.includes(f.id)).map(f => (
+                {faqPool.filter(f => !faqsDraft.includes(f.id)).map(f => (
                   <option key={f.id} value={f.id}>{f.question}</option>
                 ))}
               </select>
             )}
-            {/* Add new — parity with Included Features: create a new FAQ and add it
-                to the service pool (anchor/consumer model; new_faqs already carried
-                by the tier draft and persisted on Publish). Matches the Service FAQ
-                editor's inline-add (question + answer). */}
-            <div class="cz-tf-inline-add">
-              <input type="text" class="cz-tf-input" placeholder="New question"
-                value={newFaqQ}
-                onInput={(e) => setNewFaqQ((e.target as HTMLInputElement).value)} />
-              <textarea class="cz-tf-textarea" placeholder="Answer (optional)" rows={2}
-                value={newFaqA}
-                onInput={(e) => setNewFaqA((e.target as HTMLTextAreaElement).value)} />
-              <div class="cz-tf-inline-add__actions">
-                <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                  onClick={() => {
-                    if (!newFaqQ.trim()) return;
-                    setDraft(d => d ? { ...d, new_faqs: [...d.new_faqs, { question: newFaqQ.trim(), answer: newFaqA.trim() }] } : d);
-                    setNewFaqQ('');
-                    setNewFaqA('');
-                  }}>Add</button>
-              </div>
-            </div>
           </div>
         </div>
       </InlineEditorShell>
     );
   }
 
-  // View mode — Service | Commercial tabs over the same TierDraft.
-  const tierPriceText = draft.contact ? 'Contact Us' : (draft.price != null ? `$${draft.price}` : '—');
+  // View mode — Service | Commercial tabs over the draft-preferred tier view.
+  const view = pkg.tierView(editingTierId);
+  if (!view) return null;
+  const detail = view.detail;
 
-  // Module lifecycle via the generic evaluator. Tier Overview is the parent; Included
-  // Features and Common Questions gate on it — until pricing is complete they resolve
-  // to pending-dim with a "Waiting for Tier Overview." note (no new status).
-  const tierLike = {
-    enabled:       draft.enabled,
-    price:         draft.price,
-    billing_cycle: draft.billing_cycle,
-    contact:       draft.contact,
-  };
-  const platformStatus       = station.platform_status ?? 'disabled';
-  const tierOverviewComplete = (draft.price !== null || draft.contact) && !!draft.billing_cycle;
+  const tierPriceText = detail.contact ? 'Contact Us' : (detail.price != null ? `$${detail.price}` : '—');
+  const isPopular     = pkg.popularTier === editingTierId;
 
-  const overviewState = evaluateModule(tierOverviewModule, tierLike, { platformStatus });
-  const featuresState = evaluateModule(
-    tierFeaturesModule,
-    { count: draft.inclusions_override.length },
-    { platformStatus, parentReady: tierOverviewComplete, parentLabel: 'Tier Overview' },
-  );
-  const faqsState = evaluateModule(
-    tierFaqsModule,
-    { count: draft.faq_refs.length },
-    { platformStatus, parentReady: tierOverviewComplete, parentLabel: 'Tier Overview' },
-  );
+  // Per-module lifecycle (5-state status + notes) owned by the hook. Tier Overview is the
+  // parent; Included Features and Common Questions gate on it (pending-dim until ready).
+  const overviewState = view.modules.overview;
+  const featuresState = view.modules.features;
+  const faqsState     = view.modules.faqs;
 
   return (
     <div class="cz-req-detail">
@@ -736,7 +661,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             <div class="drawerModule__fields">
               <div class="drawerModule__field">
                 <p class="drawerModule__label">Label</p>
-                <p class="drawerModule__value">{draft.label.trim() || TIER_LABELS[editingTierId]}</p>
+                <p class="drawerModule__value">{detail.label.trim() || TIER_LABELS[editingTierId]}</p>
               </div>
               <div class="drawerModule__field">
                 <p class="drawerModule__label">Price</p>
@@ -744,12 +669,12 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               </div>
               <div class="drawerModule__field">
                 <p class="drawerModule__label">Billing Cycle</p>
-                <p class="drawerModule__value">{draft.billing_cycle || '—'}</p>
+                <p class="drawerModule__value">{detail.billing_cycle || '—'}</p>
               </div>
-              {draft.popular && (
+              {isPopular && (
                 <div class="drawerModule__field">
                   <p class="drawerModule__label">Presentation</p>
-                  <p class="drawerModule__value">Popular{draft.popular_label ? ` · ${draft.popular_label}` : ''}</p>
+                  <p class="drawerModule__value">Popular{pkg.popularLabel ? ` · ${pkg.popularLabel}` : ''}</p>
                 </div>
               )}
             </div>
@@ -761,16 +686,16 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             subtitle="Features included in this tier."
             icon={TIER_FEATURES_ICON}
             iconVariant="drawerModule__icon--features"
-            count={draft.inclusions_override.length}
+            count={detail.inclusions_override.length}
             status={featuresState.status}
             notes={featuresState.notes}
             panelOpen={openTierPanel === 'tier-features'}
             onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-features' ? null : 'tier-features'))}
             onEdit={() => openSection('tier-inclusions')}
           >
-            {draft.inclusions_override.length > 0 ? (
+            {detail.inclusions_override.length > 0 ? (
               <div class="cz-sc-inclusion-pool">
-                {draft.inclusions_override.map((inc) => (
+                {detail.inclusions_override.map((inc) => (
                   <span key={inc.id} class="cz-tf-chip">{inc.label}</span>
                 ))}
               </div>
@@ -788,16 +713,16 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             subtitle="Questions and answers for this tier."
             icon={TIER_FAQS_ICON}
             iconVariant="drawerModule__icon--faqs"
-            count={draft.faq_refs.length}
+            count={detail.faq_refs.length}
             status={faqsState.status}
             notes={faqsState.notes}
             panelOpen={openTierPanel === 'tier-faqs'}
             onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-faqs' ? null : 'tier-faqs'))}
             onEdit={() => openSection('tier-faqs')}
           >
-            {draft.faq_refs.length > 0 ? (
+            {detail.faq_refs.length > 0 ? (
               <div class="cz-sc-faq-list">
-                {draft.faq_refs.map(ref => {
+                {detail.faq_refs.map(ref => {
                   const faq = faqPool.find(f => f.id === ref);
                   return (
                     <div key={ref} class="cz-sc-faq-item">

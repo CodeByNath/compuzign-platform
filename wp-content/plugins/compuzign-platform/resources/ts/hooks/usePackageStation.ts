@@ -4,6 +4,7 @@ import {
   saveServicePackageStationTierModule,
   settleServicePackageStationTier,
   setServicePackageStationTierEnabled,
+  setServicePackageStationPopular,
 } from '@/api/endpoints/admin';
 import type {
   ServicePackageStationResponse,
@@ -22,7 +23,7 @@ import {
   tierFeaturesModule,
   tierFaqsModule,
 } from '@/components/admin/utils/moduleNotifications';
-import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import type { ModuleState } from '@/components/admin/utils/moduleNotifications';
 import { patchTierModuleDraft } from './stationPrimitives';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
@@ -92,10 +93,12 @@ export interface PackageStationTierView {
   status:       string;                       // resolveTierStatus (tier-level pill)
   drafts:       TierDrafts;
   moduleStatus: Record<string, string>;
-  notes: {
-    overview: ModuleNote[];
-    features: ModuleNote[];
-    faqs:     ModuleNote[];
+  // Per-module lifecycle: full evaluateModule result (5-state status + notes) so the
+  // consumer reads status/notes from the hook rather than re-deriving evaluateModule.
+  modules: {
+    overview: ModuleState;
+    features: ModuleState;
+    faqs:     ModuleState;
   };
 }
 
@@ -115,6 +118,8 @@ export interface PackageStation {
   saveTierFaqs:     (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
   // Commit the whole tier.
   settleTier:       (tierId: string) => Promise<TierLifecycleResponse | null>;
+  // Station-level popular tier selection (null clears). Not part of the overview draft.
+  setPopularTier:   (tierId: string | null, label: string) => Promise<boolean>;
   // Live-state toggle (separate lifecycle action).
   toggleTierEnabled: (tierId: string, enabled: boolean) => Promise<boolean>;
   refetch:          () => void;
@@ -156,18 +161,18 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
       status:       resolveTierStatus(tierLike, { pkgStatus: platformStatus }),
       drafts:       slot.drafts,
       moduleStatus: slot.module_status,
-      notes: {
-        overview: evaluateModule(tierOverviewModule, tierLike, { platformStatus }).notes,
+      modules: {
+        overview: evaluateModule(tierOverviewModule, tierLike, { platformStatus }),
         features: evaluateModule(
           tierFeaturesModule,
           { count: dp.inclusions_override.length },
           { platformStatus, parentReady: overviewComplete, parentLabel: 'Tier Overview' },
-        ).notes,
+        ),
         faqs: evaluateModule(
           tierFaqsModule,
           { count: dp.faq_refs.length },
           { platformStatus, parentReady: overviewComplete, parentLabel: 'Tier Overview' },
-        ).notes,
+        ),
       },
     };
   }, [detail, platformStatus]);
@@ -232,6 +237,22 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, onRefresh]);
 
+  // Station-level popular tier — patches station.popular_tier/label in place.
+  const setPopularTier = useCallback(async (tierId: string | null, label: string) => {
+    setSaving(true);
+    try {
+      const res = await setServicePackageStationPopular(serviceId, tierId, label);
+      if (res.success) {
+        setDetail(prev => prev ? {
+          ...prev,
+          station: { ...prev.station, popular_tier: res.popular_tier, popular_label: res.popular_label },
+        } : prev);
+        onRefresh?.();
+      }
+      return res.success;
+    } catch { return false; } finally { setSaving(false); }
+  }, [serviceId, onRefresh]);
+
   const toggleTierEnabled = useCallback(async (tierId: string, enabled: boolean) => {
     setSaving(true);
     try {
@@ -265,6 +286,7 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     saveTierFeatures,
     saveTierFaqs,
     settleTier,
+    setPopularTier,
     toggleTierEnabled,
     refetch:        load,
   };
