@@ -237,6 +237,64 @@ export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
     count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
 };
 
+// Individual Promotion sub-modules (engine C4) — assembled by usePromotionStation.
+// The travelling instance is the station-like unit here, so ctx.platformStatus
+// carries the INSTANCE's travel status (draft/active/disabled/archived/trashed),
+// not the service's. Promotion Overview owns the instance's identity + pricing;
+// Features and FAQs gate on it via parentReady, exactly like the tier trio.
+
+export interface PromotionOverviewLike {
+  name:          string;
+  price:         number | null;
+  billing_label: string;
+}
+
+function promotionOverviewProblems(key: string, p: PromotionOverviewLike | undefined): ModuleNote[] {
+  if (!p) return [];
+  const notes: ModuleNote[] = [];
+  if (!p.name.trim()) {
+    notes.push({ id: `${key}.name.missing`, message: 'Promotion name is required', type: 'error' });
+  }
+  if (p.price !== null && !p.billing_label.trim()) {
+    notes.push({ id: `${key}.billing.missing`, message: 'Add a billing label for the price', type: 'error' });
+  }
+  return notes;
+}
+
+export const promotionOverviewModule: ModuleDefinition<PromotionOverviewLike | undefined> = {
+  key:                'promotion-overview',
+  emptyPrompt:        'Edit and configure this promotion.',
+  isEmpty:            (p) => !p || (!p.name.trim() && p.price === null),
+  problems:           (p) => promotionOverviewProblems('promotion-overview', p),
+  includeDraftInTail: true,
+  resolveStatus:      (p, ctx) => {
+    if (!p || !p.name.trim()) return 'pending-dim';
+    if (ctx.moduleTransition === 'not-configured') return 'pending-dim';
+    if (ctx.moduleTransition === 'pending') return 'pending-full';
+    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
+  },
+};
+
+export const promotionFeaturesModule: ModuleDefinition<{ count: number }> = {
+  key:            'promotion-features',
+  requiresParent: true,
+  emptyPrompt:    'Edit and add included features.',
+  isEmpty:        ({ count }) => count === 0,
+  problems:       () => [],
+  resolveStatus:  ({ count }, ctx) =>
+    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+};
+
+export const promotionFaqsModule: ModuleDefinition<{ count: number }> = {
+  key:            'promotion-faqs',
+  requiresParent: true,
+  emptyPrompt:    'Edit and add questions.',
+  isEmpty:        ({ count }) => count === 0,
+  problems:       () => [],
+  resolveStatus:  ({ count }, ctx) =>
+    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+};
+
 // ── Backward-compatible generators ────────────────────────────────────────────
 // Existing call sites keep their signatures; each now delegates to the shared
 // engine, so module-notification behaviour has a single source of truth.

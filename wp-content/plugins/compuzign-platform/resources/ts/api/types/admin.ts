@@ -205,7 +205,12 @@ export interface RequestSummary {
 // ── Promotion tier types ──────────────────────────────────────────────────────
 
 export type BasedOnTier = 'basic' | 'standard' | 'premium' | 'enterprise';
-export type PromotionStatus = 'draft' | 'active' | 'archived';
+// C3 widened to the full engine vocabulary: transitions can now land instances
+// on disabled (toggle/restore) and trashed. The legacy trio remains what the
+// pre-cutover UI displays; C5 teaches the UI the full set.
+export type PromotionStatus = 'draft' | 'active' | 'disabled' | 'archived' | 'trashed';
+
+export type PromotionModuleKey = 'overview' | 'features' | 'faqs';
 
 // Lifecycle engine C1 — promotion module drafts, the travelling-instance
 // counterpart of TierDrafts. Overview carries the module's scalar fields only;
@@ -257,6 +262,39 @@ export interface PromotionTier {
   // draft-preferred client-side — parity with SurfaceTierDetail's P3/P4 shape).
   drafts?: PromotionDrafts;
   module_status?: Record<string, string>;
+}
+
+// C2 — module draft save / settle / revert response (parity with
+// TierLifecycleResponse): the raw lifecycle layer plus the normalised instance
+// for whole-record patches.
+export interface PromotionLifecycleResponse {
+  success:        boolean;
+  message?:       string;
+  promo_id:       string;
+  module?:        PromotionModuleKey;
+  drafts:         PromotionDrafts;
+  module_status:  Record<string, string>;
+  promotion_tier: PromotionTier;
+}
+
+// C3 — engine travel transition response. publish settles first and therefore
+// additionally carries the C2 lifecycle payload.
+export interface PromotionTransitionResponse {
+  success:         boolean;
+  message?:        string;
+  promo_id:        string;
+  status:          PromotionStatus;
+  previous_status: PromotionStatus | null;
+  drafts?:         PromotionDrafts;
+  module_status?:  Record<string, string>;
+  promotion_tier?: PromotionTier;
+}
+
+export interface PromotionDeleteResponse {
+  success:  boolean;
+  message?: string;
+  promo_id: string;
+  deleted?: boolean;
 }
 
 // ── Surface Packages river types ─────────────────────────────────────────────

@@ -22,6 +22,12 @@ import type {
   ModuleRevertResponse,
   ModuleSettleResponse,
   PromotionTierPayload,
+  PromotionModuleKey,
+  PromotionOverviewDraft,
+  PromotionLifecycleResponse,
+  PromotionTransitionResponse,
+  PromotionDeleteResponse,
+  InclusionItem,
   RequestEntry,
   ServiceFaqsPayload,
   ServiceFaqsResponse,
@@ -150,6 +156,96 @@ export function reactivateServicePromotion(
 ): Promise<{ success: boolean; promo_id: string; status: string }> {
   return apiClient.post(
     `admin/services/${serviceId}/promotion-station/promotions/${promoId}/reactivate`,
+  );
+}
+
+// Engine C2 — per-module promotion draft save. Persists lifecycle.drafts[module]
+// and marks the module pending without touching settled fields or travel status.
+// Body keying mirrors the tier module endpoint: overview → the draft fields
+// themselves; features → { inclusions }; faqs → { faq_refs }.
+export function saveServicePromotionModule(
+  serviceId: number,
+  promoId:   string,
+  module:    PromotionModuleKey,
+  payload:   PromotionOverviewDraft | { inclusions: InclusionItem[] } | { faq_refs: string[] },
+): Promise<PromotionLifecycleResponse> {
+  return apiClient.post<PromotionLifecycleResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/modules/${module}`,
+    payload,
+  );
+}
+
+// Engine C2 — settle an instance: commit draft-preferred state into the settled
+// fields, clear drafts. No-ops backend-side when there are no drafts.
+export function settleServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<PromotionLifecycleResponse> {
+  return apiClient.post<PromotionLifecycleResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/settle`,
+    {},
+  );
+}
+
+// Engine C2 — per-module revert: discard the draft; module_status re-derives
+// from the settled content.
+export function revertServicePromotionModule(
+  serviceId: number,
+  promoId:   string,
+  module:    PromotionModuleKey,
+): Promise<PromotionLifecycleResponse> {
+  return apiClient.post<PromotionLifecycleResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/modules/${module}/revert`,
+    {},
+  );
+}
+
+// Engine C3 — travel transitions. The only status writes for promotion
+// instances; publish composes settle + activate.
+export function publishServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<PromotionTransitionResponse> {
+  return apiClient.post<PromotionTransitionResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/publish`,
+  );
+}
+
+export function toggleServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<PromotionTransitionResponse> {
+  return apiClient.post<PromotionTransitionResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/toggle`,
+  );
+}
+
+export function trashServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<PromotionTransitionResponse> {
+  return apiClient.post<PromotionTransitionResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/trash`,
+  );
+}
+
+export function restoreServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<PromotionTransitionResponse> {
+  return apiClient.post<PromotionTransitionResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/restore`,
+  );
+}
+
+// Engine C3 — permanent removal, trashed-only; the sole operation that removes
+// an instance from the station array.
+export function permanentDeleteServicePromotion(
+  serviceId: number,
+  promoId:   string,
+): Promise<PromotionDeleteResponse> {
+  return apiClient.delete<PromotionDeleteResponse>(
+    `admin/services/${serviceId}/promotion-station/promotions/${promoId}`,
   );
 }
 
