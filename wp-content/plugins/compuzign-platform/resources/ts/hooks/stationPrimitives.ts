@@ -58,3 +58,24 @@ export function patchTierModuleDraft<T extends ModuleContainer>(
   if (!slot) return tiers;
   return { ...tiers, [tierId]: patchModuleDraft(slot, moduleKey, draftValue, moduleStatus) };
 }
+
+/**
+ * List variant: patch one module draft on one instance inside an id-keyed list,
+ * reusing `patchModuleDraft` for the container-level write. Promotion instances
+ * live in an array (unbounded, id-identified) rather than a fixed-key map, so
+ * this is the travelling-instance counterpart of `patchTierModuleDraft`. Returns
+ * the list unchanged when the instance is absent.
+ */
+export function patchInstanceModuleDraft<T extends ModuleContainer & { id: string }>(
+  instances:    T[],
+  instanceId:   string,
+  moduleKey:    string,
+  draftValue:   unknown,
+  moduleStatus: Record<string, string>,
+): T[] {
+  const idx = instances.findIndex((i) => i.id === instanceId);
+  if (idx === -1) return instances;
+  const next = instances.slice();
+  next[idx] = patchModuleDraft(instances[idx], moduleKey, draftValue, moduleStatus);
+  return next;
+}
