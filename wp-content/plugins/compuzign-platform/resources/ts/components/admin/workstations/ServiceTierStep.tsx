@@ -71,6 +71,16 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk,  setSaveOk]  = useState(false);
+  // Inline "+ Create new" affordance (P5 Step 2) — immediate canonical pool creation,
+  // separate from the tier module draft/save. Only one add-form is open at a time,
+  // scoped to whichever section (tier-inclusions | tier-faqs) is currently editing.
+  const [showAddInclusion,   setShowAddInclusion]   = useState(false);
+  const [newInclusionLabel,  setNewInclusionLabel]  = useState('');
+  const [showAddFaq,         setShowAddFaq]         = useState(false);
+  const [newFaqQuestion,     setNewFaqQuestion]     = useState('');
+  const [newFaqAnswer,       setNewFaqAnswer]       = useState('');
+  const [createErr,          setCreateErr]          = useState<string | null>(null);
+  const [creating,           setCreating]           = useState(false);
   // Individual Tier drawer: Commercial (the tier's own modules) | Service (read-only
   // parent context). Commercial is the working context, so it is the default.
   const [tierTab, setTierTab] = useState<'commercial' | 'service'>('commercial');
@@ -97,6 +107,12 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setSaveOk(false);
     setTierTab('commercial');
     setOpenTierPanel(null);
+    setShowAddInclusion(false);
+    setNewInclusionLabel('');
+    setShowAddFaq(false);
+    setNewFaqQuestion('');
+    setNewFaqAnswer('');
+    setCreateErr(null);
   };
 
   // Section edit lifecycle — seed the section's transient draft from the hook's
@@ -123,6 +139,12 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setEditingSection(section);
     setSaveErr(null);
     setSaveOk(false);
+    setShowAddInclusion(false);
+    setNewInclusionLabel('');
+    setShowAddFaq(false);
+    setNewFaqQuestion('');
+    setNewFaqAnswer('');
+    setCreateErr(null);
   };
 
   // Per-module Save — persist-through the hook (draft + patch-in-place), then return to
@@ -171,6 +193,60 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
+    setShowAddInclusion(false);
+    setNewInclusionLabel('');
+    setShowAddFaq(false);
+    setNewFaqQuestion('');
+    setNewFaqAnswer('');
+    setCreateErr(null);
+  };
+
+  // Immediate canonical pool creation (P5 Step 2) — separate request from the tier
+  // module save. On success the new item's id is appended into the currently open
+  // draft, exactly as if it had been picked from "Add from pool…"; the user still
+  // has to Save the section to persist the reference into the tier's own draft.
+  const handleCreateInclusion = async () => {
+    const label = newInclusionLabel.trim();
+    if (!label) return;
+    setCreateErr(null);
+    setCreating(true);
+    try {
+      const item = await pkg.createInclusion(label);
+      if (!item) { setCreateErr('Failed to create feature.'); return; }
+      setFeaturesDraft(f => (f && !f.find(i => i.id === item.id)) ? [...f, item] : f);
+      setNewInclusionLabel('');
+      setShowAddInclusion(false);
+    } finally {
+      setCreating(false);
+    }
+  };
+  const cancelAddInclusion = () => {
+    setShowAddInclusion(false);
+    setNewInclusionLabel('');
+    setCreateErr(null);
+  };
+
+  const handleCreateFaq = async () => {
+    const question = newFaqQuestion.trim();
+    if (!question) return;
+    setCreateErr(null);
+    setCreating(true);
+    try {
+      const item = await pkg.createFaq(question, newFaqAnswer.trim());
+      if (!item) { setCreateErr('Failed to create question.'); return; }
+      setFaqsDraft(r => (r && !r.includes(item.id)) ? [...r, item.id] : r);
+      setNewFaqQuestion('');
+      setNewFaqAnswer('');
+      setShowAddFaq(false);
+    } finally {
+      setCreating(false);
+    }
+  };
+  const cancelAddFaq = () => {
+    setShowAddFaq(false);
+    setNewFaqQuestion('');
+    setNewFaqAnswer('');
+    setCreateErr(null);
   };
 
   // Publish → settle the tier (commit drafts to the occupant). No-ops backend-side when
@@ -559,6 +635,30 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </select>
             )}
+            {showAddInclusion ? (
+              <div class="cz-tf-inline-add">
+                <input type="text" class="cz-tf-input" placeholder="New feature label"
+                  value={newInclusionLabel}
+                  onInput={(e) => setNewInclusionLabel((e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateInclusion(); } }}
+                  autoFocus />
+                <div class="cz-tf-inline-add__actions">
+                  <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                    onClick={handleCreateInclusion} disabled={creating}>
+                    {creating ? '…' : 'Create'}
+                  </button>
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={cancelAddInclusion} disabled={creating}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setShowAddInclusion(true)}>
+                + Create new feature
+              </button>
+            )}
+            {createErr && <p class="cz-admin-error-msg">{createErr}</p>}
           </div>
         </div>
       </InlineEditorShell>
@@ -601,6 +701,33 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                 ))}
               </select>
             )}
+            {showAddFaq ? (
+              <div class="cz-tf-inline-add">
+                <input type="text" class="cz-tf-input" placeholder="Question"
+                  value={newFaqQuestion}
+                  onInput={(e) => setNewFaqQuestion((e.target as HTMLInputElement).value)}
+                  autoFocus />
+                <textarea class="cz-tf-textarea" placeholder="Answer (optional)"
+                  value={newFaqAnswer}
+                  onInput={(e) => setNewFaqAnswer((e.target as HTMLTextAreaElement).value)}
+                  rows={3} />
+                <div class="cz-tf-inline-add__actions">
+                  <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                    onClick={handleCreateFaq} disabled={creating}>
+                    {creating ? '…' : 'Create'}
+                  </button>
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                    onClick={cancelAddFaq} disabled={creating}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" class="cz-tf-add-btn" onClick={() => setShowAddFaq(true)}>
+                + Create new question
+              </button>
+            )}
+            {createErr && <p class="cz-admin-error-msg">{createErr}</p>}
           </div>
         </div>
       </InlineEditorShell>

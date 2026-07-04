@@ -85,6 +85,20 @@ export interface ServiceTierSaveResponse {
   new_faqs_added:       number;
 }
 
+// Phase 2 — P5 Step 2: immediate canonical pool creation. Service owns the pool;
+// the caller attaches the returned id to a tier's module draft in a separate save.
+export interface CreateInclusionPoolItemResponse {
+  success:   boolean;
+  existing:  boolean;
+  inclusion: InclusionItem;
+}
+
+export interface CreateFaqPoolItemResponse {
+  success:  boolean;
+  existing: boolean;
+  faq:      FaqItem;
+}
+
 // Temporary — Phase 0 migration readiness audit. Remove after migration is validated.
 export interface MigrationAudit {
   counts: {

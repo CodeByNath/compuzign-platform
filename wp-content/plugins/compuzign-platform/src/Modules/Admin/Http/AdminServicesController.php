@@ -256,6 +256,24 @@ class AdminServicesController
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
 
+        // Phase 2 — P5 Step 2: immediate canonical pool creation. Service owns the
+        // pool; Tier only ever stores a reference (id) into it. These write straight
+        // to the canonical pool (no draft indirection) so a caller gets a real id back
+        // to attach to a tier's module draft in a separate, subsequent save.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/inclusion-pool/items', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createInclusionPoolItem'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/faq-pool/items', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createFaqPoolItem'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
         // ── Promotion Station management (Phase 4 — service-owned paths) ──────
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station', [
             'methods'             => 'GET',
@@ -1349,6 +1367,102 @@ class AdminServicesController
             'success'       => true,
             'popular_tier'  => $station['popular_tier'],
             'popular_label' => $station['popular_label'],
+        ]);
+    }
+
+    /**
+     * Phase 2 — P5 Step 2: create (or resolve) a single canonical inclusion.
+     * Immediate write to the Service-owned pool — no draft, no module_status change,
+     * same as the existing addItemsToInclusionPool contract used by tier saves.
+     * Dedupe is case-insensitive on label, or exact id match; a duplicate resolves
+     * to the existing item (existing: true) instead of erroring or creating a copy.
+     */
+    public function createInclusionPoolItem(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $post      = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $body  = $request->get_json_params();
+        $label = sanitize_text_field((string) ($body['label'] ?? ''));
+        if ($label === '') {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Label is required.'], 422);
+        }
+
+        $id   = sanitize_title($label);
+        $raw  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $pool = (isset($raw['inclusions']) && is_array($raw['inclusions'])) ? $raw['inclusions'] : [];
+
+        foreach ($pool as $item) {
+            if (!is_array($item)) { continue; }
+            $itemId    = (string) ($item['id'] ?? '');
+            $itemLabel = (string) ($item['label'] ?? '');
+            if ($itemId === $id || strtolower($itemLabel) === strtolower($label)) {
+                return rest_ensure_response([
+                    'success'   => true,
+                    'existing'  => true,
+                    'inclusion' => ['id' => $itemId, 'label' => $itemLabel],
+                ]);
+            }
+        }
+
+        $added = $this->addItemsToInclusionPool($serviceId, [['label' => $label]]);
+
+        return rest_ensure_response([
+            'success'   => true,
+            'existing'  => false,
+            'inclusion' => $added[0] ?? ['id' => $id, 'label' => $label],
+        ]);
+    }
+
+    /**
+     * Phase 2 — P5 Step 2: create (or resolve) a single canonical FAQ.
+     * Same immediate-write, dedupe-by-question-or-id contract as the inclusion pool.
+     */
+    public function createFaqPoolItem(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $post      = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $body     = $request->get_json_params();
+        $question = sanitize_text_field((string) ($body['question'] ?? ''));
+        if ($question === '') {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Question is required.'], 422);
+        }
+        $answer = sanitize_textarea_field((string) ($body['answer'] ?? ''));
+
+        $id   = sanitize_title($question);
+        $pool = get_post_meta($serviceId, self::META_FAQS, true);
+        $pool = is_array($pool) ? $pool : [];
+
+        foreach ($pool as $item) {
+            if (!is_array($item)) { continue; }
+            $itemId       = (string) ($item['id'] ?? '');
+            $itemQuestion = (string) ($item['question'] ?? '');
+            if ($itemId === $id || strtolower($itemQuestion) === strtolower($question)) {
+                return rest_ensure_response([
+                    'success'  => true,
+                    'existing' => true,
+                    'faq'      => [
+                        'id'       => $itemId,
+                        'question' => $itemQuestion,
+                        'answer'   => (string) ($item['answer'] ?? ''),
+                    ],
+                ]);
+            }
+        }
+
+        $addedIds = $this->addItemsToFaqPool($serviceId, [['question' => $question, 'answer' => $answer]]);
+
+        return rest_ensure_response([
+            'success'  => true,
+            'existing' => false,
+            'faq'      => ['id' => $addedIds[0] ?? $id, 'question' => $question, 'answer' => $answer],
         ]);
     }
 

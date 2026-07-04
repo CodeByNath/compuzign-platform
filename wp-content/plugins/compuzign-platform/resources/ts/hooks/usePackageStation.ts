@@ -5,6 +5,8 @@ import {
   settleServicePackageStationTier,
   setServicePackageStationTierEnabled,
   setServicePackageStationPopular,
+  createServiceInclusionPoolItem,
+  createServiceFaqPoolItem,
 } from '@/api/endpoints/admin';
 import type {
   ServicePackageStationResponse,
@@ -14,6 +16,7 @@ import type {
   TierOverviewDraft,
   TierLifecycleResponse,
   InclusionItem,
+  FaqItem,
 } from '@/api/types/admin';
 import { resolveTierStatus } from '@/components/admin/utils/moduleStatus';
 import type { TierLike } from '@/components/admin/utils/moduleStatus';
@@ -122,6 +125,11 @@ export interface PackageStation {
   setPopularTier:   (tierId: string | null, label: string) => Promise<boolean>;
   // Live-state toggle (separate lifecycle action).
   toggleTierEnabled: (tierId: string, enabled: boolean) => Promise<boolean>;
+  // Immediate canonical pool creation (P5 Step 2). Service owns the pool; the
+  // returned item's id is the caller's to attach to a tier's module draft via
+  // saveTierFeatures/saveTierFaqs — these do not touch any tier draft themselves.
+  createInclusion: (label: string) => Promise<InclusionItem | null>;
+  createFaq:       (question: string, answer: string) => Promise<FaqItem | null>;
   refetch:          () => void;
 }
 
@@ -273,6 +281,44 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     } catch { return false; } finally { setSaving(false); }
   }, [serviceId, onRefresh]);
 
+  const createInclusion = useCallback(async (label: string): Promise<InclusionItem | null> => {
+    setSaving(true);
+    try {
+      const res = await createServiceInclusionPoolItem(serviceId, label);
+      if (!res.success) return null;
+      setDetail(prev => prev ? {
+        ...prev,
+        service: {
+          ...prev.service,
+          inclusions: prev.service.inclusions.some(i => i.id === res.inclusion.id)
+            ? prev.service.inclusions
+            : [...prev.service.inclusions, res.inclusion],
+        },
+      } : prev);
+      onRefresh?.();
+      return res.inclusion;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh]);
+
+  const createFaq = useCallback(async (question: string, answer: string): Promise<FaqItem | null> => {
+    setSaving(true);
+    try {
+      const res = await createServiceFaqPoolItem(serviceId, question, answer);
+      if (!res.success) return null;
+      setDetail(prev => prev ? {
+        ...prev,
+        service: {
+          ...prev.service,
+          faqs: prev.service.faqs.some(f => f.id === res.faq.id)
+            ? prev.service.faqs
+            : [...prev.service.faqs, res.faq],
+        },
+      } : prev);
+      onRefresh?.();
+      return res.faq;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh]);
+
   return {
     station,
     service:        detail?.service ?? null,
@@ -288,6 +334,8 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     settleTier,
     setPopularTier,
     toggleTierEnabled,
+    createInclusion,
+    createFaq,
     refetch:        load,
   };
 }

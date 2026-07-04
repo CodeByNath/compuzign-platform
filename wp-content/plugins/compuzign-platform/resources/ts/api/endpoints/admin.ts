@@ -33,6 +33,8 @@ import type {
   ServiceStatusResponse,
   SurfacePackagesResponse,
   TierSavePayload,
+  CreateInclusionPoolItemResponse,
+  CreateFaqPoolItemResponse,
 } from '../types/admin';
 
 export function fetchAdminCatalog(platformStatus?: 'archived' | 'trashed'): Promise<AdminCatalogResponse> {
@@ -215,6 +217,29 @@ export function setServicePackageStationPopular(
   return apiClient.post(
     `admin/services/${serviceId}/package-station/popular`,
     { tier_id: tierId, label },
+  );
+}
+
+// Phase 2 — P5 Step 2: immediate canonical pool creation. Service owns the pool;
+// the caller attaches the returned id to a tier's module draft in a separate save.
+export function createServiceInclusionPoolItem(
+  serviceId: number,
+  label:     string,
+): Promise<CreateInclusionPoolItemResponse> {
+  return apiClient.post<CreateInclusionPoolItemResponse>(
+    `admin/services/${serviceId}/inclusion-pool/items`,
+    { label },
+  );
+}
+
+export function createServiceFaqPoolItem(
+  serviceId: number,
+  question:  string,
+  answer:    string,
+): Promise<CreateFaqPoolItemResponse> {
+  return apiClient.post<CreateFaqPoolItemResponse>(
+    `admin/services/${serviceId}/faq-pool/items`,
+    { question, answer },
   );
 }
 
