@@ -486,51 +486,50 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
         {listTab === 'details' && (
           <>
             {promotions.length === 0 && (
-              <div style="padding: var(--cz-space-6); color: var(--admin-text-faint)">
-                No promotions yet.
+              <div class="cz-admin-empty">
+                <p>No promotions yet.</p>
               </div>
             )}
 
             {promotions.map((p) => (
-              <div key={p.id} class="cz-shell-section cz-shell-section--no-border">
-                <div class="drawerModule drawerOverview promotion">
-                  <div class="drawerModule__header">
-                    <div class="drawerModule__heading">
-                      <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
-                      <p class="drawerModule__subtitle">
-                        {p.based_on ? `Based on ${p.based_on}` : 'No base tier'}
-                      </p>
+              <div key={p.id} class="drawerModule drawerOverview promotion">
+                <div class="drawerModule__header">
+                  <span class="drawerModule__icon">{PROMO_OVERVIEW_ICON}</span>
+                  <div class="drawerModule__heading">
+                    <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
+                    <p class="drawerModule__subtitle">
+                      {p.based_on ? `Based on ${p.based_on}` : 'No base tier'}
+                    </p>
+                  </div>
+                  <div class="drawerModule__status">
+                    <span class={`cz-module-status-pill cz-module-status-pill--${p.status === 'active' ? 'active' : p.status === 'archived' ? 'inactive' : 'pending'}`}>
+                      <span class="cz-module-status-pill__marker">●</span>
+                      {p.status === 'active' ? 'Active' : p.status === 'archived' ? 'Archived' : 'Draft'}
+                    </span>
+                  </div>
+                </div>
+                <div class="drawerModule__body">
+                  <div class="drawerModule__fields">
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Name</p>
+                      <p class="drawerModule__value">{p.name || '(unnamed)'}</p>
                     </div>
-                    <div class="drawerModule__status">
-                      <span class={`cz-module-status-pill cz-module-status-pill--${p.status === 'active' ? 'active' : p.status === 'archived' ? 'inactive' : 'pending'}`}>
-                        <span class="cz-module-status-pill__marker">●</span>
-                        {p.status === 'active' ? 'Active' : p.status === 'archived' ? 'Archived' : 'Draft'}
-                      </span>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Headline</p>
+                      <p class="drawerModule__value">{p.headline || '—'}</p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Price</p>
+                      <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Description</p>
+                      <p class="drawerModule__value">{p.description || '—'}</p>
                     </div>
                   </div>
-                  <div class="drawerModule__body">
-                    <div class="drawerModule__fields">
-                      <div class="drawerModule__field">
-                        <p class="drawerModule__label">Name</p>
-                        <p class="drawerModule__value">{p.name || '(unnamed)'}</p>
-                      </div>
-                      <div class="drawerModule__field">
-                        <p class="drawerModule__label">Headline</p>
-                        <p class="drawerModule__value">{p.headline || '—'}</p>
-                      </div>
-                      <div class="drawerModule__field">
-                        <p class="drawerModule__label">Price</p>
-                        <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
-                      </div>
-                      <div class="drawerModule__field">
-                        <p class="drawerModule__label">Description</p>
-                        <p class="drawerModule__value">{p.description || '—'}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="drawerModule__footer">
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openViewDetail(p)}>View</button>
-                  </div>
+                </div>
+                <div class="drawerModule__footer">
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openViewDetail(p)}>View</button>
                 </div>
               </div>
             ))}
@@ -671,13 +670,16 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-tf-field">
             <label class="cz-tf-label">Inclusions</label>
             {featuresDraft.length > 0 && (
-              <div class="cz-sc-inclusion-pool" style="margin-bottom: var(--cz-space-2)">
-                {featuresDraft.map(inc => (
-                  <span key={inc.id} class="cz-tf-chip">
-                    {inc.label}
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-tf-chip__edit"
-                      onClick={() => setFeaturesDraft(f => f ? f.filter(i => i.id !== inc.id) : f)}>✕</button>
-                  </span>
+              <div class="cz-ie-list">
+                {featuresDraft.map((inc) => (
+                  <div key={inc.id} class="cz-ie-row">
+                    <input type="text" class="cz-tf-input" value={inc.label} readOnly />
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                      aria-label="Remove"
+                      onClick={() => setFeaturesDraft(f => f ? f.filter(i => i.id !== inc.id) : f)}>
+                      ✕
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
