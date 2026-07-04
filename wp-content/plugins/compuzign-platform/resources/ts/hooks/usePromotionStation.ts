@@ -6,6 +6,7 @@ import {
   archiveServicePromotion,
   reactivateServicePromotion,
   createServiceInclusionPoolItem,
+  createServiceFaqPoolItem,
 } from '@/api/endpoints/admin';
 import type {
   ServicePromotionStationResponse,
@@ -14,6 +15,7 @@ import type {
   PromotionTierPayload,
   PromotionStatus,
   InclusionItem,
+  FaqItem,
 } from '@/api/types/admin';
 
 // ── usePromotionStation ──────────────────────────────────────────────────────
@@ -25,9 +27,6 @@ import type {
 // on a { drafts, module_status } shape that promotions don't have). Patching is a
 // plain id-keyed array find/replace, mirroring the same shape usePackageStation
 // already uses for its inclusion/faq pool arrays.
-//
-// P1: lands unused. No component consumes it yet; ServicePromotionStep still uses
-// useApi. Nothing here changes runtime behaviour.
 
 export interface PromotionStation {
   detail:       ServicePromotionStationResponse | null;
@@ -40,6 +39,7 @@ export interface PromotionStation {
   archivePromotion:    (promoId: string) => Promise<boolean>;
   reactivatePromotion: (promoId: string) => Promise<boolean>;
   createInclusion:     (label: string) => Promise<InclusionItem | null>;
+  createFaq:           (question: string, answer: string) => Promise<FaqItem | null>;
   refetch:      () => void;
 }
 
@@ -135,6 +135,25 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, onRefresh]);
 
+  const createFaq = useCallback(async (question: string, answer: string): Promise<FaqItem | null> => {
+    setSaving(true);
+    try {
+      const res = await createServiceFaqPoolItem(serviceId, question, answer);
+      if (!res.success) return null;
+      setDetail(prev => prev ? {
+        ...prev,
+        service: {
+          ...prev.service,
+          faqs: prev.service.faqs.some(f => f.id === res.faq.id)
+            ? prev.service.faqs
+            : [...prev.service.faqs, res.faq],
+        },
+      } : prev);
+      onRefresh?.();
+      return res.faq;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh]);
+
   return {
     detail,
     detailLoaded,
@@ -146,6 +165,7 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
     archivePromotion,
     reactivatePromotion,
     createInclusion,
+    createFaq,
     refetch: load,
   };
 }

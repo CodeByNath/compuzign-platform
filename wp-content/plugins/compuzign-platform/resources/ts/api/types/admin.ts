@@ -220,6 +220,7 @@ export interface PromotionTier {
   features: string[];
   inclusions: InclusionItem[];
   exclusions: InclusionItem[];
+  faq_refs: string[];
   badge: string;
   campaign_label: string;
   starts_at: string | null;
@@ -363,6 +364,7 @@ export interface PromotionTierPayload {
   features: string[];
   inclusions: InclusionItem[];
   exclusions: InclusionItem[];
+  faq_refs: string[];
   badge: string;
   campaign_label: string;
   starts_at: string | null;

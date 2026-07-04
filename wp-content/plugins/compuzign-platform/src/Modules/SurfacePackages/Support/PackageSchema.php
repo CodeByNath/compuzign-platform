@@ -365,6 +365,17 @@ class PackageSchema
             ));
         }
 
+        // FAQ refs — plain string ids into the service's shared FAQ pool, same shape
+        // and sanitisation as Tier's tier-faqs module (AdminServicesController.php).
+        $faqRefs = $existing['faq_refs'] ?? [];
+        if (array_key_exists('faq_refs', $body) && is_array($body['faq_refs'])) {
+            $faqRefs = [];
+            foreach ($body['faq_refs'] as $ref) {
+                $ref = sanitize_text_field((string) $ref);
+                if ($ref !== '') { $faqRefs[] = $ref; }
+            }
+        }
+
         // Price
         $price = $existing['price'] ?? null;
         if (array_key_exists('price', $body)) {
@@ -402,6 +413,7 @@ class PackageSchema
             'features'       => $features,
             'inclusions'     => $inclusions,
             'exclusions'     => $exclusions,
+            'faq_refs'       => $faqRefs,
             'badge'          => sanitize_text_field((string) ($body['badge'] ?? $existing['badge'] ?? '')),
             'campaign_label' => sanitize_text_field((string) ($body['campaign_label'] ?? $existing['campaign_label'] ?? '')),
             'starts_at'      => self::parseDatetimeFromBody($body, $existing, 'starts_at'),
@@ -454,6 +466,9 @@ class PackageSchema
                 'features'       => is_array($tier['features'] ?? null) ? $tier['features'] : [],
                 'inclusions'     => self::coerceInclusionArray($tier['inclusions'] ?? []),
                 'exclusions'     => self::coerceInclusionArray($tier['exclusions'] ?? []),
+                // Additive (Phase 4) — defaults to [] for legacy/pre-existing instances
+                // that predate this field, no data migration required.
+                'faq_refs'       => is_array($tier['faq_refs'] ?? null) ? array_values(array_map('strval', $tier['faq_refs'])) : [],
                 'badge'          => $tier['badge'] ?? '',
                 'campaign_label' => $tier['campaign_label'] ?? '',
                 'starts_at'      => $tier['starts_at'] ?? null,
