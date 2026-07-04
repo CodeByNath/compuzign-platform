@@ -453,6 +453,26 @@ class PackageSchema
     }
 
     /**
+     * Engine C6 — is a promotion instance's schedule window open at $nowUtc?
+     * starts_at/ends_at are stored as UTC 'Y-m-d H:i:s' (parseDatetimeFromBody),
+     * so $nowUtc must be UTC too (current_time('mysql', true)). A null bound is
+     * open-ended on that side. Scheduling is visibility logic layered on top of
+     * lifecycle status — it is not a travel state and never mutates one.
+     */
+    public static function promotionWindowOpen(array $instance, string $nowUtc): bool
+    {
+        $starts = $instance['starts_at'] ?? null;
+        if (is_string($starts) && $starts !== '' && $starts > $nowUtc) {
+            return false;
+        }
+        $ends = $instance['ends_at'] ?? null;
+        if (is_string($ends) && $ends !== '' && $ends < $nowUtc) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Normalise a raw promotion instances array to the API response shape.
      * Records without a valid id are dropped.
      *

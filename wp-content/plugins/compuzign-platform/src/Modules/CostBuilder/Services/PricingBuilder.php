@@ -446,10 +446,20 @@ class PricingBuilder
             return [];
         }
 
+        // Engine C6 — instance-level schedule window. Lifecycle status says whether
+        // the promotion is live; the window says whether it is currently visible.
+        // Both are required for public output. starts_at/ends_at are stored UTC, so
+        // compare against UTC now (current_time('mysql', true)) — unlike the
+        // station-level valid_from/valid_until check, which predates this.
+        $nowUtc = current_time('mysql', true);
+
         $active = [];
 
         foreach ($rawTiers as $tier) {
             if (!is_array($tier) || ($tier['status'] ?? '') !== 'active') {
+                continue;
+            }
+            if (!\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::promotionWindowOpen($tier, $nowUtc)) {
                 continue;
             }
 

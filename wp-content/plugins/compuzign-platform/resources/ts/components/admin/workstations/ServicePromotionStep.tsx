@@ -532,6 +532,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 )}
               </div>
             )}
+            {/* Draft: authoring instances are removable without publishing
+                (engine: draft → trashed legal; draft → archived is not). */}
+            {status === 'draft' && (
+              <button type="button" class="cz-admin-btn cz-admin-btn--danger" disabled={promo.saving} onClick={() => a.handleTrash(current.id)}>
+                {promo.saving ? '…' : 'Move to Trash'}
+              </button>
+            )}
             {/* Bin states: Restore on the left. */}
             {(status === 'archived' || status === 'trashed') && (
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={promo.saving} onClick={() => a.handleRestore(current.id)}>

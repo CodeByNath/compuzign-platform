@@ -20,9 +20,14 @@ namespace CompuZign\Platform\Modules\Admin\Support;
  * Transition table (the only legal status writes anywhere):
  *   publish : draft|disabled → active
  *   toggle  : active ⇄ disabled
- *   archive : active|disabled → archived          (captures previous_status)
- *   trash   : active|disabled|archived → trashed  (previous_status preserved on archived→trashed)
- *   restore : archived|trashed → disabled         (never to active; clears previous_status)
+ *   archive : active|disabled → archived          (captures previous_status; drafts are
+ *             NOT archivable — archive preserves published work, drafts have none)
+ *   trash   : draft|active|disabled|archived → trashed
+ *             (drafts are authoring instances and removable without publishing;
+ *              previous_status preserved on archived→trashed)
+ *   restore : archived|trashed → disabled         (never to active; clears previous_status.
+ *             A trashed draft restores to disabled like everything else — restore
+ *             does not resurrect draft-ness)
  *   delete  : legal only from trashed             (engine validates; station removes)
  *
  * The module layer (drafts / module_status: not-configured → pending → settled)
@@ -95,7 +100,9 @@ final class StationLifecycle
 
     public static function canTrash(string $current): bool
     {
-        return self::isLive($current) || $current === self::STATUS_ARCHIVED;
+        return self::isLive($current)
+            || $current === self::STATUS_ARCHIVED
+            || $current === self::STATUS_DRAFT;
     }
 
     public static function canRestore(string $current): bool
@@ -143,7 +150,7 @@ final class StationLifecycle
         ];
     }
 
-    /** trash: active|disabled|archived → trashed. archived→trashed preserves the original previous_status. */
+    /** trash: draft|active|disabled|archived → trashed. archived→trashed preserves the original previous_status. */
     public static function trash(string $current, ?string $previous = null): ?array
     {
         if (!self::canTrash($current)) {
