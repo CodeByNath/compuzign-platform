@@ -1,19 +1,11 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { Spinner } from '@/components/ui/Spinner';
 import type { StepContext } from '../ActionShell';
-import {
-  fetchServicePromotionStation,
-  createServicePromotion,
-  saveServicePromotion,
-  archiveServicePromotion,
-  reactivateServicePromotion,
-} from '@/api/endpoints/admin';
 import type {
   PromotionTier,
   PromotionTierPayload,
-  ServicePromotionStationResponse,
 } from '@/api/types/admin';
-import { useApi } from '@/hooks/useApi';
+import { usePromotionStation } from '@/hooks/usePromotionStation';
 
 // ── ServicePromotionStep ──────────────────────────────────────────────────────
 // Phase 4: Service Station-owned promotion management.
@@ -59,14 +51,11 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const serviceId = ctx.stepData.serviceId as number;
   const onRefresh = ctx.stepData.onRefresh as (() => void) | undefined;
 
-  const { data, loading, error, refetch } = useApi<ServicePromotionStationResponse>(
-    () => fetchServicePromotionStation(serviceId)
-  );
+  const promo = usePromotionStation(serviceId, onRefresh);
 
   const [draft,          setDraft]          = useState<PromoDraft | null>(null);
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [isNew,          setIsNew]          = useState(false);
-  const [saving,         setSaving]         = useState(false);
   const [saveErr,        setSaveErr]        = useState<string | null>(null);
   const [saveOk,         setSaveOk]         = useState(false);
 
@@ -82,26 +71,25 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
   const handleSave = useCallback(async () => {
     if (!draft) return;
-    setSaving(true); setSaveErr(null);
+    setSaveErr(null);
     try {
-      if (isNew)            await createServicePromotion(serviceId, draft);
-      else if (editingPromoId) await saveServicePromotion(serviceId, editingPromoId, draft);
-      setSaveOk(true); refetch(); onRefresh?.();
+      const res = isNew
+        ? await promo.createPromotion(draft)
+        : editingPromoId ? await promo.savePromotion(editingPromoId, draft) : null;
+      if (res?.success) setSaveOk(true);
+      else setSaveErr('Save failed.');
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
-    } finally {
-      setSaving(false);
     }
-  }, [draft, isNew, editingPromoId, serviceId, refetch, onRefresh]);
+  }, [draft, isNew, editingPromoId, promo]);
 
-  const handleArchive    = async (id: string) => { try { await archiveServicePromotion(serviceId, id);    refetch(); } catch {} };
-  const handleReactivate = async (id: string) => { try { await reactivateServicePromotion(serviceId, id); refetch(); } catch {} };
+  const handleArchive    = async (id: string) => { await promo.archivePromotion(id); };
+  const handleReactivate = async (id: string) => { await promo.reactivatePromotion(id); };
 
-  if (loading) return <div class="cz-admin-loading"><Spinner label="Loading promotions…" /></div>;
-  if (error)   return <div class="cz-admin-error-msg">Failed to load promotions: {error}</div>;
-  if (!data)   return null;
+  if (!promo.detailLoaded) return <div class="cz-admin-loading"><Spinner label="Loading promotions…" /></div>;
+  if (!promo.detail)       return <div class="cz-admin-error-msg">Promotion Station not found.</div>;
 
-  const { promotions, service: svc } = data;
+  const { promotions, service: svc } = promo.detail;
 
   // ── Promotion list view ───────────────────────────────────────────────────
   if (!draft) {
@@ -168,7 +156,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   return (
     <div class="cz-req-detail">
       <div class="cz-sv-tabs" style="margin-bottom: 0">
-        <button type="button" class="cz-action-shell__back" onClick={handleBack} disabled={saving} aria-label="Back">
+        <button type="button" class="cz-action-shell__back" onClick={handleBack} disabled={promo.saving} aria-label="Back">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
             <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
           </svg>
@@ -294,9 +282,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
       <div class="cz-tf-footer">
         <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleBack} disabled={saving}>Back</button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleBack} disabled={promo.saving}>Back</button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={promo.saving}>
+          {promo.saving ? 'Saving…' : 'Save'}
         </button>
       </div>
     </div>
