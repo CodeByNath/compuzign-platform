@@ -290,6 +290,19 @@ export function saveServicePackageStationTierModule(
   );
 }
 
+// Engine D1 — per-module tier revert: discard the pending draft; module_status
+// re-derives from the settled occupant. Counterpart of revertServicePromotionModule.
+export function revertServicePackageStationTierModule(
+  serviceId: number,
+  tierId:    string,
+  module:    TierModuleKey,
+): Promise<TierLifecycleResponse> {
+  return apiClient.post<TierLifecycleResponse>(
+    `admin/services/${serviceId}/package-station/tiers/${tierId}/modules/${module}/revert`,
+    {},
+  );
+}
+
 // Phase 2 (P3/P4) — settle a tier: commit the draft-preferred state into the
 // occupant, clear drafts, mark all modules settled.
 export function settleServicePackageStationTier(

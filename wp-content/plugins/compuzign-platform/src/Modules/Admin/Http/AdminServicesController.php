@@ -238,6 +238,20 @@ class AdminServicesController
 
         // Phase 2 — P3: settle a tier. Commits the draft-preferred state into
         // current_occupant, clears drafts, marks all modules settled.
+        // ── Per-module tier revert (engine D1) ────────────────────────────────
+        // Discard one module's pending draft; module_status re-derives from the
+        // settled occupant. Counterpart of the promotion module revert route.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs)/revert', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'revertPackageStationTierModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'     => ['required' => true, 'type' => 'integer'],
+                'tier'   => ['required' => true, 'type' => 'string'],
+                'module' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/settle', [
             'methods'             => 'POST',
             'callback'            => [$this, 'settlePackageStationTier'],
@@ -1384,6 +1398,49 @@ class AdminServicesController
         $slot['drafts'][$module]        = $draftValue;
         $slot['module_status'][$module] = 'pending';
         $station['tiers'][$tierId]      = $slot;
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        return rest_ensure_response([
+            'success'       => true,
+            'tier_id'       => $tierId,
+            'module'        => $module,
+            'tier'          => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+        ]);
+    }
+
+    /**
+     * Engine D1 — revert one tier module draft. Clears drafts[module]; the
+     * module's status re-derives from the settled occupant. Response shape
+     * matches savePackageStationTierModule so the hook patches identically.
+     */
+    public function revertPackageStationTierModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $tierId    = sanitize_key((string) $request->get_param('tier'));
+        $module    = sanitize_key((string) $request->get_param('module'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+        if (!in_array($tierId, $PS::ALLOWED_TIERS, true)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown tier.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $slot = $PS::revertTierModuleDraft($station['tiers'][$tierId] ?? [], $module);
+        if ($slot === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid module.']);
+        }
+
+        $station['tiers'][$tierId] = $slot;
         update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
 
         return rest_ensure_response([

@@ -1223,6 +1223,27 @@ class PackageSchema
     }
 
     /**
+     * Engine D1 — revert one tier module draft: clear the slot and re-derive the
+     * module's status from the settled occupant (settled when an occupant exists,
+     * not-configured otherwise — the same occupant-derived default
+     * ensureTierLifecycle uses). Returns null for an unknown module.
+     *
+     * @param  array<string, mixed> $slot
+     * @return array<string, mixed>|null
+     */
+    public static function revertTierModuleDraft(array $slot, string $module): ?array
+    {
+        if (!in_array($module, self::TIER_MODULES, true)) {
+            return null;
+        }
+        $slot = self::ensureTierLifecycle($slot);
+        $configured = self::isOccupantFormat($slot) && !empty($slot['current_occupant']);
+        $slot['drafts'][$module]        = null;
+        $slot['module_status'][$module] = $configured ? 'settled' : 'not-configured';
+        return $slot;
+    }
+
+    /**
      * The lifecycle layer for a fully-committed tier slot: no pending drafts, every
      * module settled. Applied after an atomic (direct-commit) occupant write so the
      * persisted slot carries the P2 schema. Preserves current_occupant / history.

@@ -266,6 +266,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     const ok = await pkg.toggleTierEnabled(editingTierId, !view.detail.enabled);
     if (ok) setSaveOk(true); else setSaveErr('Update failed.');
   };
+  // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
+  const handleRevertModule = async (module: 'overview' | 'features' | 'faqs') => {
+    if (!editingTierId) return;
+    setSaveErr(null);
+    const res = await pkg.revertTierModule(editingTierId, module);
+    if (!res?.success) setSaveErr('Failed to discard changes.');
+  };
 
   // Returns to the tier list — drafts are already persisted by the hook, so nothing to flush.
   const handleBack = () => {
@@ -805,6 +812,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                 </div>
               )}
             </div>
+            {view.drafts.overview !== null && (
+              <div class="drawerModule__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => handleRevertModule('overview')}>
+                  Discard pending changes
+                </button>
+              </div>
+            )}
           </ReadBlock>
 
           {/* Included Features */}
@@ -830,6 +844,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               <div class="drawerModule__empty">
                 <p class="drawerModule__empty-title">No features</p>
                 <p class="drawerModule__empty-copy">Add features included in this tier.</p>
+              </div>
+            )}
+            {view.drafts.features !== null && (
+              <div class="drawerModule__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => handleRevertModule('features')}>
+                  Discard pending changes
+                </button>
               </div>
             )}
           </ReadBlock>
@@ -863,6 +884,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               <div class="drawerModule__empty">
                 <p class="drawerModule__empty-title">No questions added</p>
                 <p class="drawerModule__empty-copy">Add common questions for this tier.</p>
+              </div>
+            )}
+            {view.drafts.faqs !== null && (
+              <div class="drawerModule__footer">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => handleRevertModule('faqs')}>
+                  Discard pending changes
+                </button>
               </div>
             )}
           </ReadBlock>

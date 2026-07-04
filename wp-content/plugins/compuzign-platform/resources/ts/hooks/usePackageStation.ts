@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks';
 import {
   fetchServicePackageStation,
   saveServicePackageStationTierModule,
+  revertServicePackageStationTierModule,
   settleServicePackageStationTier,
   setServicePackageStationTierEnabled,
   setServicePackageStationPopular,
@@ -15,6 +16,7 @@ import type {
   TierDrafts,
   TierOverviewDraft,
   TierLifecycleResponse,
+  TierModuleKey,
   InclusionItem,
   FaqItem,
 } from '@/api/types/admin';
@@ -119,6 +121,8 @@ export interface PackageStation {
   saveTierOverview: (tierId: string, draft: TierOverviewDraft) => Promise<TierLifecycleResponse | null>;
   saveTierFeatures: (tierId: string, refs: InclusionItem[])    => Promise<TierLifecycleResponse | null>;
   saveTierFaqs:     (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
+  // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
+  revertTierModule: (tierId: string, module: TierModuleKey) => Promise<TierLifecycleResponse | null>;
   // Commit the whole tier.
   settleTier:       (tierId: string) => Promise<TierLifecycleResponse | null>;
   // Station-level popular tier selection (null clears). Not part of the overview draft.
@@ -220,6 +224,15 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     try {
       const res = await saveServicePackageStationTierModule(serviceId, tierId, 'faqs', { faq_refs: refs });
       if (res.success) { patchModule(tierId, 'faqs', res); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh, patchModule]);
+
+  const revertTierModule = useCallback(async (tierId: string, module: TierModuleKey) => {
+    setSaving(true);
+    try {
+      const res = await revertServicePackageStationTierModule(serviceId, tierId, module);
+      if (res.success) { patchModule(tierId, module, res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, onRefresh, patchModule]);
@@ -331,6 +344,7 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     saveTierOverview,
     saveTierFeatures,
     saveTierFaqs,
+    revertTierModule,
     settleTier,
     setPopularTier,
     toggleTierEnabled,
