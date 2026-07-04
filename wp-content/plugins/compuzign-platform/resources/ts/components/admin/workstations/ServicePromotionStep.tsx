@@ -6,6 +6,7 @@ import type {
   PromotionTierPayload,
 } from '@/api/types/admin';
 import { usePromotionStation } from '@/hooks/usePromotionStation';
+import { InlineEditorShell } from '../InlineEditorShell';
 
 // ── ServicePromotionStep ──────────────────────────────────────────────────────
 // Phase 4: Service Station-owned promotion management.
@@ -47,6 +48,26 @@ function draftFromPromo(p: PromotionTier): PromoDraft {
   };
 }
 
+// Pure — no component state. Returns true when the working draft differs from
+// the snapshot taken at editor-open time. Mirrors isOverviewDirty/isInclusionsDirty/
+// isFaqsDirty in ServiceViewStep.tsx.
+function isPromoDirty(a: PromoDraft, b: PromoDraft): boolean {
+  if (
+    a.name !== b.name || a.slug !== b.slug || a.status !== b.status || a.based_on !== b.based_on ||
+    a.headline !== b.headline || a.description !== b.description || a.price !== b.price ||
+    a.billing_label !== b.billing_label || a.badge !== b.badge || a.campaign_label !== b.campaign_label ||
+    a.starts_at !== b.starts_at || a.ends_at !== b.ends_at || a.priority !== b.priority ||
+    a.is_featured !== b.is_featured
+  ) return true;
+  if (a.features.length !== b.features.length || a.features.some((f, i) => f !== b.features[i])) return true;
+  if (a.inclusions.length !== b.inclusions.length || a.inclusions.some((inc, i) => inc.id !== b.inclusions[i].id)) return true;
+  if (a.exclusions.length !== b.exclusions.length || a.exclusions.some((exc, i) => exc.id !== b.exclusions[i].id)) return true;
+  const aMeta = Object.entries(a.metadata ?? {});
+  const bMeta = Object.entries(b.metadata ?? {});
+  if (aMeta.length !== bMeta.length || aMeta.some(([k, v]) => (b.metadata ?? {})[k] !== v)) return true;
+  return false;
+}
+
 export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const serviceId = ctx.stepData.serviceId as number;
   const onRefresh = ctx.stepData.onRefresh as (() => void) | undefined;
@@ -54,6 +75,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const promo = usePromotionStation(serviceId, onRefresh);
 
   const [draft,          setDraft]          = useState<PromoDraft | null>(null);
+  const [promoOriginal,  setPromoOriginal]  = useState<PromoDraft | null>(null);
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [isNew,          setIsNew]          = useState(false);
   const [saveErr,        setSaveErr]        = useState<string | null>(null);
@@ -65,9 +87,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     return () => clearTimeout(t);
   }, [saveOk]);
 
-  const openCreate = () => { setIsNew(true); setEditingPromoId(null); setDraft(emptyPromoDraft()); setSaveErr(null); setSaveOk(false); };
-  const openEdit   = (p: PromotionTier) => { setIsNew(false); setEditingPromoId(p.id); setDraft(draftFromPromo(p)); setSaveErr(null); setSaveOk(false); };
-  const handleBack = () => { setDraft(null); setEditingPromoId(null); setIsNew(false); setSaveErr(null); setSaveOk(false); };
+  const openCreate = () => { const d = emptyPromoDraft(); setIsNew(true); setEditingPromoId(null); setDraft(d); setPromoOriginal(d); setSaveErr(null); setSaveOk(false); };
+  const openEdit   = (p: PromotionTier) => { const d = draftFromPromo(p); setIsNew(false); setEditingPromoId(p.id); setDraft(d); setPromoOriginal(d); setSaveErr(null); setSaveOk(false); };
+  const handleBack = () => { setDraft(null); setPromoOriginal(null); setEditingPromoId(null); setIsNew(false); setSaveErr(null); setSaveOk(false); };
 
   const handleSave = useCallback(async () => {
     if (!draft) return;
@@ -76,7 +98,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
       const res = isNew
         ? await promo.createPromotion(draft)
         : editingPromoId ? await promo.savePromotion(editingPromoId, draft) : null;
-      if (res?.success) setSaveOk(true);
+      if (res?.success) { setSaveOk(true); setPromoOriginal(draft); }
       else setSaveErr('Save failed.');
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
@@ -154,19 +176,15 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const incPool = svc.inclusions;
 
   return (
-    <div class="cz-req-detail">
-      <div class="cz-sv-tabs" style="margin-bottom: 0">
-        <button type="button" class="cz-action-shell__back" onClick={handleBack} disabled={promo.saving} aria-label="Back">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
-            <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
-          </svg>
-        </button>
-        <span style="font-size: var(--admin-fs-sub); font-weight: var(--admin-fw-strong); color: var(--admin-text); padding-left: var(--cz-space-3)">
-          {isNew ? 'New Promotion' : (draft.name || 'Edit Promotion')}
-        </span>
-      </div>
-
-      <div class="cz-tf-form" style="padding: var(--cz-space-5) var(--cz-space-6); overflow-y: auto; flex: 1">
+    <InlineEditorShell
+      title={isNew ? 'New Promotion' : (draft.name || 'Edit Promotion')}
+      onSave={handleSave}
+      onCancel={handleBack}
+      saving={promo.saving}
+      saveErr={saveErr}
+      isDirty={promoOriginal ? isPromoDirty(draft, promoOriginal) : false}
+    >
+      <div class="cz-tf-form">
 
         <div class="cz-tf-field">
           <label class="cz-tf-label">Name</label>
@@ -276,17 +294,8 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
             onInput={(e) => setDraft(d => d ? { ...d, priority: parseInt((e.target as HTMLInputElement).value, 10) || 0 } : d)} />
         </div>
 
-        {saveErr && <p class="cz-admin-error-msg" style="margin-top: var(--cz-space-3)">{saveErr}</p>}
-        {saveOk  && <p class="cz-admin-ok-msg"   style="margin-top: var(--cz-space-3)">Saved.</p>}
+        {saveOk && <p class="cz-admin-ok-msg" style="margin-top: var(--cz-space-3)">Saved.</p>}
       </div>
-
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={handleBack} disabled={promo.saving}>Back</button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSave} disabled={promo.saving}>
-          {promo.saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-    </div>
+    </InlineEditorShell>
   );
 }
