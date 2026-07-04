@@ -2,6 +2,7 @@
 
 namespace CompuZign\Platform\Modules\Admin\Http;
 
+use CompuZign\Platform\Modules\Admin\Support\PoolReferences;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
 
@@ -1028,6 +1029,10 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
 
+        $rawInc     = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $incPool    = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+        $rawFaqs    = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $tiers = [];
         foreach ($PS::ALLOWED_TIERS as $tierId) {
@@ -1038,12 +1043,19 @@ class AdminServicesController
             $detail = $PS::normaliseTierSlot($slot);
             $detail['drafts']        = $slot['drafts'];
             $detail['module_status'] = $slot['module_status'];
+            // B2 — pool refs resolve at read time: id authoritative, label refreshed
+            // from the pool, danglers flagged (missing) but never pruned. Applies to
+            // the settled occupant AND the pending features draft; the admin save
+            // round-trip then persists the refreshed labels.
+            $detail['inclusions_override'] = PoolReferences::refreshInclusionLabels(
+                $incPool,
+                is_array($detail['inclusions_override'] ?? null) ? $detail['inclusions_override'] : []
+            );
+            if (is_array($detail['drafts']['features'] ?? null)) {
+                $detail['drafts']['features'] = PoolReferences::refreshInclusionLabels($incPool, $detail['drafts']['features']);
+            }
             $tiers[$tierId] = $detail;
         }
-
-        $rawInc     = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
-        $incPool    = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
-        $rawFaqs    = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
 
         return rest_ensure_response([
             'success'    => true,
@@ -1488,6 +1500,16 @@ class AdminServicesController
         $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
         $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
         $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+
+        // B2 — pool refs resolve at read time: id authoritative, labels refreshed
+        // from the inclusion pool. Inclusions flag danglers (missing); exclusions
+        // never do (an off-pool exclusion ref is legitimate). The admin save
+        // round-trip then persists the refreshed labels.
+        foreach ($instances as &$inst) {
+            $inst['inclusions'] = PoolReferences::refreshInclusionLabels($incPool, $inst['inclusions']);
+            $inst['exclusions'] = PoolReferences::refreshInclusionLabels($incPool, $inst['exclusions'], false);
+        }
+        unset($inst);
 
         return rest_ensure_response([
             'success'    => true,

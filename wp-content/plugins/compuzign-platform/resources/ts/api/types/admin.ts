@@ -278,6 +278,9 @@ export interface SurfacePackagesResponse {
 export interface InclusionItem {
   id: string;
   label: string;
+  // B2 — set by the admin read endpoints when the ref no longer resolves against
+  // the service inclusion pool. The cached label is kept; the ref is never pruned.
+  missing?: boolean;
 }
 
 export interface FaqItem {
