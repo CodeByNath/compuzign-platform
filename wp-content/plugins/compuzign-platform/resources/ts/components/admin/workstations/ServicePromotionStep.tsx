@@ -152,6 +152,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [editingSection, setEditingSection] = useState<'promo-overview' | 'promo-features' | 'promo-faqs' | null>(null);
   const [detailTab,      setDetailTab]      = useState<'details' | 'connections'>('details');
+  // Promotion list view: Details (promotion cards) | Connections (parent service),
+  // matching ServiceTierStep's overviewTab at the package-overview level.
+  const [listTab,        setListTab]        = useState<'details' | 'connections'>('details');
 
   const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
   const [overviewOriginal, setOverviewOriginal] = useState<OverviewDraft | null>(null);
@@ -426,9 +429,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     } else if (!editingPromoId) {
       setFooter(
         <div class="cz-tf-footer">
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.openCreate()}>New</button>
-          <div class="cz-tf-footer__spacer" />
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.openCreate()}>New</button>
         </div>,
       );
     } else {
@@ -460,55 +463,96 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   if (!isNew && !editingPromoId) {
     return (
       <div class="cz-req-detail">
-        {promotions.length === 0 && (
-          <div style="padding: var(--cz-space-6); color: var(--admin-text-faint)">
-            No promotions yet.
-          </div>
+        {/* Drawer Tab Contract — fixed order Details | Connections, matching
+            ServiceTierStep's package-overview level. Details = promotion cards;
+            Connections = the parent service. */}
+        <div class="cz-sv-tabs">
+          <button
+            type="button"
+            class={`cz-sv-tab${listTab === 'details' ? ' cz-sv-tab--active' : ''}`}
+            onClick={() => setListTab('details')}
+          >
+            Details
+          </button>
+          <button
+            type="button"
+            class={`cz-sv-tab${listTab === 'connections' ? ' cz-sv-tab--active' : ''}`}
+            onClick={() => setListTab('connections')}
+          >
+            Connections
+          </button>
+        </div>
+
+        {listTab === 'details' && (
+          <>
+            {promotions.length === 0 && (
+              <div style="padding: var(--cz-space-6); color: var(--admin-text-faint)">
+                No promotions yet.
+              </div>
+            )}
+
+            {promotions.map((p) => (
+              <div key={p.id} class="cz-shell-section cz-shell-section--no-border">
+                <div class="drawerModule drawerOverview promotion">
+                  <div class="drawerModule__header">
+                    <div class="drawerModule__heading">
+                      <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
+                      <p class="drawerModule__subtitle">
+                        {p.based_on ? `Based on ${p.based_on}` : 'No base tier'}
+                      </p>
+                    </div>
+                    <div class="drawerModule__status">
+                      <span class={`cz-module-status-pill cz-module-status-pill--${p.status === 'active' ? 'active' : p.status === 'archived' ? 'inactive' : 'pending'}`}>
+                        <span class="cz-module-status-pill__marker">●</span>
+                        {p.status === 'active' ? 'Active' : p.status === 'archived' ? 'Archived' : 'Draft'}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="drawerModule__body">
+                    <div class="drawerModule__fields">
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Name</p>
+                        <p class="drawerModule__value">{p.name || '(unnamed)'}</p>
+                      </div>
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Headline</p>
+                        <p class="drawerModule__value">{p.headline || '—'}</p>
+                      </div>
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Price</p>
+                        <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
+                      </div>
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Description</p>
+                        <p class="drawerModule__value">{p.description || '—'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="drawerModule__footer">
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openViewDetail(p)}>View</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
         )}
 
-        {promotions.map((p) => (
-          <div key={p.id} class="cz-shell-section cz-shell-section--no-border">
-            <div class="drawerModule drawerOverview promotion">
-              <div class="drawerModule__header">
-                <div class="drawerModule__heading">
-                  <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
-                  <p class="drawerModule__subtitle">
-                    {p.based_on ? `Based on ${p.based_on}` : 'No base tier'}
-                  </p>
-                </div>
-                <div class="drawerModule__status">
-                  <span class={`cz-module-status-pill cz-module-status-pill--${p.status === 'active' ? 'active' : p.status === 'archived' ? 'inactive' : 'pending'}`}>
-                    <span class="cz-module-status-pill__marker">●</span>
-                    {p.status === 'active' ? 'Active' : p.status === 'archived' ? 'Archived' : 'Draft'}
-                  </span>
-                </div>
-              </div>
-              <div class="drawerModule__body">
-                <div class="drawerModule__fields">
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Name</p>
-                    <p class="drawerModule__value">{p.name || '(unnamed)'}</p>
-                  </div>
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Headline</p>
-                    <p class="drawerModule__value">{p.headline || '—'}</p>
-                  </div>
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Price</p>
-                    <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
-                  </div>
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Description</p>
-                    <p class="drawerModule__value">{p.description || '—'}</p>
-                  </div>
-                </div>
-              </div>
-              <div class="drawerModule__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openViewDetail(p)}>View</button>
-              </div>
-            </div>
-          </div>
-        ))}
+        {listTab === 'connections' && (
+          <ServiceOverviewViewCard
+            mode="connection"
+            status={serviceConnStatus}
+            notes={[]}
+            displayTitle={decodeHtml(serviceItem?.title ?? svc.title) || 'Untitled service'}
+            displayContent={serviceItem?.content ? decodeHtml(serviceItem.content) : ''}
+            displayCategory={
+              serviceItem && serviceItem.categories.length > 0
+                ? serviceItem.categories.map((c) => decodeHtml(c.name)).join(', ')
+                : 'Not selected'
+            }
+            includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
+            onView={serviceBack}
+          />
+        )}
       </div>
     );
   }
