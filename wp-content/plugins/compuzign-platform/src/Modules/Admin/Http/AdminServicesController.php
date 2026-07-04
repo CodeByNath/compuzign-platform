@@ -238,6 +238,19 @@ class AdminServicesController
 
         // Phase 2 — P3: settle a tier. Commits the draft-preferred state into
         // current_occupant, clears drafts, marks all modules settled.
+        // ── Tier occupant archive (engine D2) ─────────────────────────────────
+        // The shell never travels; the settled occupant moves into occupant_bin.
+        // Pending drafts block the move unless discard_drafts: true is confirmed.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/archive', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'archivePackageStationTierOccupant'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'   => ['required' => true, 'type' => 'integer'],
+                'tier' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
         // ── Per-module tier revert (engine D1) ────────────────────────────────
         // Discard one module's pending draft; module_status re-derives from the
         // settled occupant. Counterpart of the promotion module revert route.
@@ -1156,6 +1169,9 @@ class AdminServicesController
             $tiers[$tierId] = $detail;
         }
 
+        // D2 additive read exposure: the occupant bin (lazy-normalised; [] pre-D2).
+        $station = $PS::ensureOccupantBin($station);
+
         return rest_ensure_response([
             'success'    => true,
             'service_id' => $serviceId,
@@ -1166,6 +1182,7 @@ class AdminServicesController
                 'popular_label'   => $station['popular_label'] ?? '',
                 'sort_position'   => (int) ($station['sort_position'] ?? 0),
                 'bundle'          => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
+                'occupant_bin'    => $station['occupant_bin'],
             ],
             'service' => [
                 'id'         => $serviceId,
@@ -1407,6 +1424,65 @@ class AdminServicesController
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
+        ]);
+    }
+
+    /**
+     * Engine D2 — archive a shell's occupant into the occupant_bin. Pending
+     * drafts block the move unless discard_drafts: true (the UI confirms first);
+     * the failure carries code: pending_drafts so the client can prompt. One
+     * atomic meta write covers the bin append, the shell emptying, and the
+     * station-status re-derive.
+     */
+    public function archivePackageStationTierOccupant(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $tierId    = sanitize_key((string) $request->get_param('tier'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $body          = $request->get_json_params();
+        $discardDrafts = is_array($body) && !empty($body['discard_drafts']);
+
+        $result = $PS::archiveTierOccupant(
+            $station,
+            $tierId,
+            $discardDrafts,
+            $PS::generateBinId(),
+            current_time('mysql', true)
+        );
+
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_tier'   => 'Unknown tier.',
+                'no_occupant'    => 'This tier has no settled occupant to archive.',
+                'pending_drafts' => 'This tier has unsettled changes. Discard them to archive.',
+                default          => 'Archive failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+
+        $slot = $result['station']['tiers'][$tierId];
+        return rest_ensure_response([
+            'success'         => true,
+            'tier_id'         => $tierId,
+            'tier'            => $PS::normaliseTierSlot($slot),
+            'drafts'          => $slot['drafts'],
+            'module_status'   => $slot['module_status'],
+            'bin_entry'       => $result['entry'],
+            'occupant_bin'    => $result['station']['occupant_bin'],
+            'platform_status' => $result['station']['platform_status'] ?? 'disabled',
         ]);
     }
 

@@ -1222,6 +1222,120 @@ class PackageSchema
         return $slot;
     }
 
+    // ── Occupant bin (engine D2) ───────────────────────────────────────────────
+    // The shell never travels; the occupant does. Archived/trashed occupants move
+    // into the station-level occupant_bin, remembering their origin shell so
+    // restore can return them (or swap/retarget, D3). Bin entries carry the
+    // occupant's pool refs untouched — content re-resolves at read time.
+
+    /** Server-side id for a new bin entry (parity with generatePromotionTierId). */
+    public static function generateBinId(): string
+    {
+        return 'bin_' . bin2hex(random_bytes(4));
+    }
+
+    /**
+     * Guarantee a well-formed occupant_bin on a station: malformed entries are
+     * dropped, statuses clamped to the engine's bin vocabulary. Idempotent, lazy
+     * (parity with ensureTierLifecycle) — pre-D2 stations simply gain [].
+     *
+     * @param  array<string, mixed> $station
+     * @return array<string, mixed>
+     */
+    public static function ensureOccupantBin(array $station): array
+    {
+        $binStatuses = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::BIN_STATUSES;
+        $raw = (isset($station['occupant_bin']) && is_array($station['occupant_bin'])) ? $station['occupant_bin'] : [];
+
+        $out = [];
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $binId    = (string) ($entry['bin_id'] ?? '');
+            $occupant = $entry['occupant'] ?? null;
+            if ($binId === '' || !is_array($occupant) || $occupant === []) {
+                continue;
+            }
+            $status = $entry['status'] ?? '';
+            if (!in_array($status, $binStatuses, true)) {
+                $status = 'archived';
+            }
+            $origin = (string) ($entry['origin_tier'] ?? '');
+            $out[] = [
+                'bin_id'           => $binId,
+                'origin_tier'      => in_array($origin, self::ALLOWED_TIERS, true) ? $origin : '',
+                'occupant'         => $occupant,
+                'status'           => $status,
+                'previous_enabled' => (bool) ($entry['previous_enabled'] ?? false),
+                'displaced_at'     => is_string($entry['displaced_at'] ?? null) ? $entry['displaced_at'] : null,
+            ];
+        }
+
+        $station['occupant_bin'] = $out;
+        return $station;
+    }
+
+    /**
+     * Archive a shell's occupant (engine D2): the settled occupant moves into the
+     * bin as an archived entry; the shell empties to not-configured (history
+     * preserved — it belongs to the shell, not the occupant). Pending drafts
+     * block the move unless $discardDrafts — archiving operates on settled state
+     * only, never silently commits or destroys a draft. Pure; the controller owns
+     * persistence and supplies bin_id / displaced_at.
+     *
+     * @param  array<string, mixed> $station
+     * @return array{station: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function archiveTierOccupant(array $station, string $tierId, bool $discardDrafts, string $binId, ?string $displacedAt): array
+    {
+        if (!in_array($tierId, self::ALLOWED_TIERS, true)) {
+            return ['error' => 'unknown_tier'];
+        }
+
+        $station = self::ensureOccupantBin($station);
+        $slot    = self::ensureTierLifecycle($station['tiers'][$tierId] ?? []);
+
+        $occupant = (self::isOccupantFormat($slot) && !empty($slot['current_occupant']))
+            ? $slot['current_occupant']
+            : null;
+        if ($occupant === null) {
+            return ['error' => 'no_occupant'];
+        }
+
+        $hasDraft = false;
+        foreach (self::TIER_MODULES as $module) {
+            if (($slot['drafts'][$module] ?? null) !== null) {
+                $hasDraft = true;
+                break;
+            }
+        }
+        if ($hasDraft && !$discardDrafts) {
+            return ['error' => 'pending_drafts'];
+        }
+
+        $entry = [
+            'bin_id'           => $binId,
+            'origin_tier'      => $tierId,
+            'occupant'         => $occupant,
+            'status'           => 'archived',
+            'previous_enabled' => ($occupant['platform_status'] ?? 'active') === 'active',
+            'displaced_at'     => $displacedAt,
+        ];
+        $station['occupant_bin'][] = $entry;
+
+        // Empty the shell: no occupant, drafts cleared, every module not-configured.
+        $slot['current_occupant'] = null;
+        $slot['drafts']           = self::emptyTierLifecycle()['drafts'];
+        foreach (self::TIER_MODULES as $module) {
+            $slot['module_status'][$module] = 'not-configured';
+        }
+        $station['tiers'][$tierId]  = $slot;
+        $station['platform_status'] = self::deriveStationStatus($station);
+
+        return ['station' => $station, 'entry' => $entry];
+    }
+
     /**
      * Engine D1 — revert one tier module draft: clear the slot and re-derive the
      * module's status from the settled occupant (settled when an occupant exists,

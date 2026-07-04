@@ -57,6 +57,32 @@ export interface MigrationPhase2Result {
 }
 
 // Phase 2 — Service Station-owned Package Station tier management.
+// Engine D2 — a displaced tier occupant travelling through the bin. The shell
+// never travels; origin_tier remembers where the occupant came from so restore
+// (D3) can return it, swap, or retarget. Occupant pool refs travel untouched.
+// The occupant is the raw stored record (upsertOccupant shape), not the
+// normalised SurfaceTierDetail.
+export interface BinnedOccupant {
+  id?:                  string;
+  platform_status?:     string;
+  label?:               string;
+  price?:               number | null;
+  contact?:             boolean;
+  billing_cycle?:       string | null;
+  inclusions_override?: InclusionItem[];
+  features?:            string[];
+  faq_refs?:            string[];
+}
+
+export interface OccupantBinEntry {
+  bin_id:           string;
+  origin_tier:      string;
+  occupant:         BinnedOccupant;
+  status:           'archived' | 'trashed';
+  previous_enabled: boolean;
+  displaced_at:     string | null;
+}
+
 export interface ServicePackageStationData {
   platform_status: string;
   tiers:           Record<string, SurfaceTierDetail>;
@@ -64,6 +90,8 @@ export interface ServicePackageStationData {
   popular_label:   string;
   sort_position:   number;
   bundle:          { title: string; description: string; price: number | null };
+  // D2 additive read exposure — [] for stations predating the bin.
+  occupant_bin?:   OccupantBinEntry[];
 }
 
 export interface ServicePackageStationResponse {
