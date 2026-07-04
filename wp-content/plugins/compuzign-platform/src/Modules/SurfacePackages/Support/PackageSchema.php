@@ -389,11 +389,11 @@ class PackageSchema
             $price = ($body['price'] !== null && $body['price'] !== '') ? (float) $body['price'] : null;
         }
 
-        // Status
+        // Status — engine C2: travel state is never client-writable through saves.
+        // The existing value is preserved; new instances start as draft. A body
+        // `status` field is ignored (not rejected) so the pre-cutover UI keeps
+        // working; the transition endpoints (C3) become the only status writes.
         $status = $existing['status'] ?? 'draft';
-        if (!empty($body['status']) && in_array($body['status'], self::ALLOWED_PROMOTION_STATUSES, true)) {
-            $status = $body['status'];
-        }
 
         // based_on
         $basedOn = $existing['based_on'] ?? null;
@@ -558,10 +558,15 @@ class PackageSchema
         $engineStatuses = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUSES;
         $lc = (isset($instance['lifecycle']) && is_array($instance['lifecycle'])) ? $instance['lifecycle'] : [];
 
-        $status = $lc['status'] ?? null;
-        if (!is_string($status) || !in_array($status, $engineStatuses, true)) {
-            $top    = (string) ($instance['status'] ?? 'draft');
-            $status = in_array($top, $engineStatuses, true) ? $top : 'draft';
+        // Travel state: the legacy top-level status remains authoritative until the
+        // transition endpoints (C3) own all status writes — a valid top-level value
+        // always wins, so a persisted envelope can never go stale against routes
+        // that still write only the top-level field (archive/reactivate).
+        $top    = $instance['status'] ?? null;
+        $status = is_string($top) && in_array($top, $engineStatuses, true) ? $top : null;
+        if ($status === null) {
+            $stored = $lc['status'] ?? null;
+            $status = is_string($stored) && in_array($stored, $engineStatuses, true) ? $stored : 'draft';
         }
 
         $previous = $lc['previous_status'] ?? null;
@@ -603,6 +608,165 @@ class PackageSchema
             default    => false,
         };
         return $hasContent ? 'settled' : 'not-configured';
+    }
+
+    // ── Promotion module draft operations (engine C2) ─────────────────────────
+    // Draft save / settle / revert for one promotion instance — the travelling-
+    // instance counterpart of settleTierSlot and the tier module-draft writes.
+    // All pure: instance in, instance out; the controller owns persistence.
+
+    /**
+     * Sanitise a promotion overview module draft: the module's scalar fields only.
+     * Travel status is deliberately absent (engine-owned, never draftable);
+     * schedule fields and metadata stay whole-record-save concerns.
+     *
+     * @return array<string, mixed>
+     */
+    public static function sanitizePromotionOverviewDraft(array $body): array
+    {
+        $basedOn   = sanitize_text_field((string) ($body['based_on'] ?? ''));
+        $rawPrice  = $body['price'] ?? null;
+
+        return [
+            'name'           => sanitize_text_field((string) ($body['name'] ?? '')),
+            'slug'           => sanitize_title((string) ($body['slug'] ?? '')),
+            'based_on'       => in_array($basedOn, self::ALLOWED_BASED_ON, true) ? $basedOn : null,
+            'headline'       => sanitize_text_field((string) ($body['headline'] ?? '')),
+            'description'    => sanitize_textarea_field((string) ($body['description'] ?? '')),
+            'price'          => ($rawPrice !== null && $rawPrice !== '') ? (float) $rawPrice : null,
+            'billing_label'  => sanitize_text_field((string) ($body['billing_label'] ?? '')),
+            'badge'          => sanitize_text_field((string) ($body['badge'] ?? '')),
+            'campaign_label' => sanitize_text_field((string) ($body['campaign_label'] ?? '')),
+            'priority'       => (int) ($body['priority'] ?? 0),
+            'is_featured'    => (bool) ($body['is_featured'] ?? false),
+        ];
+    }
+
+    /**
+     * Persist one module draft onto an instance's lifecycle envelope and mark the
+     * module pending. The settled fields and travel status are never touched.
+     * Returns null when the module is unknown or the payload is missing its
+     * module-keyed field.
+     *
+     * Body keying mirrors the tier module-draft endpoint: overview → the draft
+     * fields themselves; features → body.inclusions; faqs → body.faq_refs.
+     *
+     * @param  array<string, mixed> $instance
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>|null
+     */
+    public static function savePromotionModuleDraft(array $instance, string $module, array $body): ?array
+    {
+        switch ($module) {
+            case 'overview':
+                $draft = self::sanitizePromotionOverviewDraft($body);
+                break;
+            case 'features':
+                if (!is_array($body['inclusions'] ?? null)) {
+                    return null;
+                }
+                $draft = self::coerceInclusionArray($body['inclusions']);
+                break;
+            case 'faqs':
+                if (!is_array($body['faq_refs'] ?? null)) {
+                    return null;
+                }
+                $draft = [];
+                foreach ($body['faq_refs'] as $ref) {
+                    $ref = sanitize_text_field((string) $ref);
+                    if ($ref !== '') {
+                        $draft[] = $ref;
+                    }
+                }
+                break;
+            default:
+                return null;
+        }
+
+        $instance = self::ensurePromotionLifecycle($instance);
+        $instance['lifecycle']['drafts'][$module]        = $draft;
+        $instance['lifecycle']['module_status'][$module] = 'pending';
+        return $instance;
+    }
+
+    /**
+     * Settle an instance: commit the draft-preferred state of every module into
+     * the settled fields, clear drafts, and re-derive module_status from the
+     * committed content (settled where content exists, not-configured where it
+     * doesn't — truthful, matching Service settle semantics rather than tier's
+     * blanket commit). NO-OPs (returns the instance unchanged) when no drafts
+     * exist. Travel status is never touched — publish (C3) composes settle +
+     * activate itself.
+     *
+     * @param  array<string, mixed> $instance
+     * @return array<string, mixed>
+     */
+    public static function settlePromotionInstance(array $instance): array
+    {
+        $instance = self::ensurePromotionLifecycle($instance);
+        $drafts   = $instance['lifecycle']['drafts'];
+
+        $hasDraft = false;
+        foreach (self::PROMOTION_MODULES as $module) {
+            if (($drafts[$module] ?? null) !== null) {
+                $hasDraft = true;
+                break;
+            }
+        }
+        if (!$hasDraft) {
+            return $instance;
+        }
+
+        $ov = is_array($drafts['overview'] ?? null) ? $drafts['overview'] : null;
+        if ($ov !== null) {
+            $name = (string) ($ov['name'] ?? $instance['name'] ?? '');
+            $slug = ($ov['slug'] ?? '') !== ''
+                ? (string) $ov['slug']
+                : (sanitize_title($name) ?: (string) ($instance['slug'] ?? ''));
+
+            $instance['name']           = $name;
+            $instance['slug']           = $slug;
+            $instance['based_on']       = $ov['based_on'] ?? null;
+            $instance['headline']       = (string) ($ov['headline'] ?? '');
+            $instance['description']    = (string) ($ov['description'] ?? '');
+            $instance['price']          = $ov['price'] ?? null;
+            $instance['billing_label']  = (string) ($ov['billing_label'] ?? '');
+            $instance['badge']          = (string) ($ov['badge'] ?? '');
+            $instance['campaign_label'] = (string) ($ov['campaign_label'] ?? '');
+            $instance['priority']       = (int) ($ov['priority'] ?? 0);
+            $instance['is_featured']    = (bool) ($ov['is_featured'] ?? false);
+        }
+
+        if (is_array($drafts['features'] ?? null)) {
+            $instance['inclusions'] = $drafts['features'];
+        }
+        if (is_array($drafts['faqs'] ?? null)) {
+            $instance['faq_refs'] = $drafts['faqs'];
+        }
+
+        foreach (self::PROMOTION_MODULES as $module) {
+            $instance['lifecycle']['drafts'][$module]        = null;
+            $instance['lifecycle']['module_status'][$module] = self::promotionModuleDefaultStatus($module, $instance);
+        }
+        return $instance;
+    }
+
+    /**
+     * Revert one module draft: clear the slot and re-derive the module's status
+     * from its settled content. Returns null for an unknown module.
+     *
+     * @param  array<string, mixed> $instance
+     * @return array<string, mixed>|null
+     */
+    public static function revertPromotionModuleDraft(array $instance, string $module): ?array
+    {
+        if (!in_array($module, self::PROMOTION_MODULES, true)) {
+            return null;
+        }
+        $instance = self::ensurePromotionLifecycle($instance);
+        $instance['lifecycle']['drafts'][$module]        = null;
+        $instance['lifecycle']['module_status'][$module] = self::promotionModuleDefaultStatus($module, $instance);
+        return $instance;
     }
 
     private static function coerceInclusionArray(mixed $items): array

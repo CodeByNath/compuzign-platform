@@ -320,6 +320,42 @@ class AdminServicesController
                 'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
             ],
         ]);
+
+        // ── Promotion module lifecycle (engine C2) ────────────────────────────
+        // Per-module draft save / settle / revert — the travelling-instance
+        // counterparts of the tier module routes. Travel status is never written
+        // here; the transition endpoints (C3) own status.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'savePromotionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'     => ['required' => true, 'type' => 'integer'],
+                'promo'  => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+                'module' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/settle', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'settlePromotion'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'    => ['required' => true, 'type' => 'integer'],
+                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)/revert', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'revertPromotionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'     => ['required' => true, 'type' => 'integer'],
+                'promo'  => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+                'module' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
@@ -1548,6 +1584,11 @@ class AdminServicesController
             $ensured = $PS::ensurePromotionLifecycle($rawById[$inst['id']] ?? $inst);
             $inst['drafts']        = $ensured['lifecycle']['drafts'];
             $inst['module_status'] = $ensured['lifecycle']['module_status'];
+            // Pending feature drafts hold pool refs too — same read-time refresh
+            // as the settled fields (parity with the tier drafts.features path).
+            if (is_array($inst['drafts']['features'] ?? null)) {
+                $inst['drafts']['features'] = PoolReferences::refreshInclusionLabels($incPool, $inst['drafts']['features']);
+            }
         }
         unset($inst);
 
@@ -1689,6 +1730,165 @@ class AdminServicesController
         $this->writePromotionStationDirect($serviceId, $current);
 
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'active']);
+    }
+
+    // ── Promotion module lifecycle handlers (engine C2) ───────────────────────
+
+    /**
+     * Per-module draft save: persists lifecycle.drafts[module], marks the module
+     * pending. Settled fields and travel status are never touched.
+     */
+    public function savePromotionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+        $module    = sanitize_key((string) $request->get_param('module'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
+        }
+
+        $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $current = $this->readPromotionStation($serviceId);
+        $index   = $this->findPromotionIndex($current, $promoId);
+        if ($index === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
+        }
+
+        $updated = $PS::savePromotionModuleDraft($current[$index], $module, $body);
+        if ($updated === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid module payload.']);
+        }
+
+        $current[$index] = $updated;
+        $this->writePromotionStationDirect($serviceId, $current);
+
+        return rest_ensure_response($this->promotionLifecycleResponse($serviceId, $updated, $module));
+    }
+
+    /**
+     * Settle: commit the draft-preferred state of every module into the settled
+     * fields, clear drafts, re-derive module_status. No-ops (no write) when the
+     * instance has no drafts. Travel status is never touched.
+     */
+    public function settlePromotion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $current = $this->readPromotionStation($serviceId);
+        $index   = $this->findPromotionIndex($current, $promoId);
+        if ($index === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
+        }
+
+        $settled = $PS::settlePromotionInstance($current[$index]);
+        if ($settled !== $current[$index]) {
+            $current[$index] = $settled;
+            $this->writePromotionStationDirect($serviceId, $current);
+        }
+
+        return rest_ensure_response($this->promotionLifecycleResponse($serviceId, $settled));
+    }
+
+    /**
+     * Per-module revert: discard the draft, module_status re-derives from the
+     * settled content.
+     */
+    public function revertPromotionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $promoId   = sanitize_key((string) $request->get_param('promo'));
+        $module    = sanitize_key((string) $request->get_param('module'));
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $current = $this->readPromotionStation($serviceId);
+        $index   = $this->findPromotionIndex($current, $promoId);
+        if ($index === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
+        }
+
+        $updated = $PS::revertPromotionModuleDraft($current[$index], $module);
+        if ($updated === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid module.']);
+        }
+
+        $current[$index] = $updated;
+        $this->writePromotionStationDirect($serviceId, $current);
+
+        return rest_ensure_response($this->promotionLifecycleResponse($serviceId, $updated, $module));
+    }
+
+    /** Index of a promotion instance in the raw instances array, or null. */
+    private function findPromotionIndex(array $instances, string $promoId): ?int
+    {
+        foreach ($instances as $i => $inst) {
+            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
+                return $i;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Shared C2 response shape — parity with the tier module lifecycle responses:
+     * the normalised instance (pool labels refreshed, B2) plus the raw drafts and
+     * module_status returned SEPARATELY for the client-side draft-preferred merge.
+     *
+     * @param  array<string, mixed> $instance raw instance (lifecycle guaranteed)
+     * @return array<string, mixed>
+     */
+    private function promotionLifecycleResponse(int $serviceId, array $instance, ?string $module = null): array
+    {
+        $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $ensured = $PS::ensurePromotionLifecycle($instance);
+
+        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+
+        // Pending feature drafts hold pool refs too — same read-time refresh as
+        // the settled fields (parity with the tier drafts.features path).
+        $drafts = $ensured['lifecycle']['drafts'];
+        if (is_array($drafts['features'] ?? null)) {
+            $drafts['features'] = PoolReferences::refreshInclusionLabels($incPool, $drafts['features']);
+        }
+
+        $normalised = $PS::normalisePromotionInstances([$ensured])[0] ?? [];
+        if ($normalised !== []) {
+            $normalised['inclusions'] = PoolReferences::refreshInclusionLabels($incPool, $normalised['inclusions']);
+            $normalised['exclusions'] = PoolReferences::refreshInclusionLabels($incPool, $normalised['exclusions'], false);
+            $normalised['drafts']        = $drafts;
+            $normalised['module_status'] = $ensured['lifecycle']['module_status'];
+        }
+
+        $response = [
+            'success'        => true,
+            'promo_id'       => (string) ($ensured['id'] ?? ''),
+            'drafts'         => $drafts,
+            'module_status'  => $ensured['lifecycle']['module_status'],
+            'promotion_tier' => $normalised,
+        ];
+        if ($module !== null) {
+            $response['module'] = $module;
+        }
+        return $response;
     }
 
     /**
