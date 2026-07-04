@@ -651,6 +651,10 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
         }
 
+        // B3 — non-blocking pool-settle guard: compare before the commit replaces
+        // the pool, so removed-but-still-referenced items can be reported.
+        $poolWarnings = $this->poolSettleWarnings($id, $module);
+
         $moduleStatus = $this->settleModule($id, $module);
 
         // Re-fetch settled canonical data for this module.
@@ -662,7 +666,7 @@ class AdminServicesController
         $faqs       = get_post_meta($id, self::META_FAQS, true);
         $faqs       = is_array($faqs) ? $faqs : [];
 
-        return rest_ensure_response([
+        $response = [
             'success'       => true,
             'module'        => $module,
             'module_status' => $moduleStatus,
@@ -675,7 +679,12 @@ class AdminServicesController
             ],
             'inclusions'    => $inclusions,
             'faqs'          => $faqs,
-        ]);
+        ];
+        if ($poolWarnings !== []) {
+            $response['pool_warnings'] = $poolWarnings;
+        }
+
+        return rest_ensure_response($response);
     }
 
     public function settleAll(\WP_REST_Request $request): \WP_REST_Response
@@ -685,6 +694,15 @@ class AdminServicesController
 
         if (!$post || $post->post_type !== self::POST_TYPE) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        // B3 — collect pool-settle warnings for every draft-bearing pool module
+        // before the commits run (the commit replaces the pool being compared).
+        $poolWarnings = [];
+        foreach (['inclusions', 'faqs'] as $poolModule) {
+            if ($this->hasDraft($id, $poolModule)) {
+                $poolWarnings = array_merge($poolWarnings, $this->poolSettleWarnings($id, $poolModule));
+            }
         }
 
         foreach (['overview', 'inclusions', 'faqs'] as $module) {
@@ -703,7 +721,7 @@ class AdminServicesController
         $faqs       = get_post_meta($id, self::META_FAQS, true);
         $faqs       = is_array($faqs) ? $faqs : [];
 
-        return rest_ensure_response([
+        $response = [
             'success'       => true,
             'module_status' => $meta['module_status'] ?? $this->defaultModuleStatus(),
             'service'       => [
@@ -715,7 +733,12 @@ class AdminServicesController
             ],
             'inclusions'    => $inclusions,
             'faqs'          => $faqs,
-        ]);
+        ];
+        if ($poolWarnings !== []) {
+            $response['pool_warnings'] = $poolWarnings;
+        }
+
+        return rest_ensure_response($response);
     }
 
     public function revertModule(\WP_REST_Request $request): \WP_REST_Response
@@ -1839,6 +1862,82 @@ class AdminServicesController
 
         update_post_meta($id, self::META_KEY, $meta);
         return $meta['module_status'];
+    }
+
+    /**
+     * B3 — non-blocking pool-settle guard. When settling would remove a pool item
+     * still referenced anywhere in the station graph (tier occupants + drafts,
+     * binned occupants, promotion instances of every status + drafts), report it
+     * so the admin UI can warn. Never blocks the settle; refs are never pruned —
+     * they degrade to dangling and re-resolve if the pool item returns.
+     *
+     * Must run BEFORE settleModule() commits, since the commit replaces the pool
+     * being compared.
+     *
+     * @return array<int, array{id: string, label: string, referenced_by: string[]}>
+     */
+    private function poolSettleWarnings(int $serviceId, string $module): array
+    {
+        if ($module === 'inclusions') {
+            $draft = get_post_meta($serviceId, self::DRAFT_INCLUSIONS, true);
+            if (!is_array($draft)) {
+                return [];
+            }
+            $existingRaw = get_post_meta($serviceId, self::META_INCLUSIONS, true);
+            $existing    = is_array($existingRaw) ? ($existingRaw['inclusions'] ?? []) : [];
+            $labelField  = 'label';
+        } elseif ($module === 'faqs') {
+            $draft = get_post_meta($serviceId, self::DRAFT_FAQS, true);
+            if (!is_array($draft)) {
+                return [];
+            }
+            $existing   = get_post_meta($serviceId, self::META_FAQS, true);
+            $existing   = is_array($existing) ? $existing : [];
+            $labelField = 'question';
+        } else {
+            return [];
+        }
+
+        $keptIds = [];
+        foreach ($draft as $item) {
+            if (is_array($item) && (string) ($item['id'] ?? '') !== '') {
+                $keptIds[(string) $item['id']] = true;
+            }
+        }
+
+        $removed = [];
+        foreach ((is_array($existing) ? $existing : []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $itemId = (string) ($item['id'] ?? '');
+            if ($itemId !== '' && !isset($keptIds[$itemId])) {
+                $removed[$itemId] = (string) ($item[$labelField] ?? '');
+            }
+        }
+        if ($removed === []) {
+            return [];
+        }
+
+        $station   = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station   = is_array($station) ? $station : [];
+        $instances = $this->readPromotionStation($serviceId);
+
+        $refs = $module === 'inclusions'
+            ? PoolReferences::collectInclusionRefs($station, $instances)
+            : PoolReferences::collectFaqRefs($station, $instances);
+
+        $warnings = [];
+        foreach ($removed as $itemId => $label) {
+            if (!empty($refs[$itemId])) {
+                $warnings[] = [
+                    'id'            => $itemId,
+                    'label'         => $label,
+                    'referenced_by' => array_values(array_unique($refs[$itemId])),
+                ];
+            }
+        }
+        return $warnings;
     }
 
     /**

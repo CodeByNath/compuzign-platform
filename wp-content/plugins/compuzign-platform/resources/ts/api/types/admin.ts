@@ -421,12 +421,23 @@ export interface AdminServiceDetailResponse {
   drafts:          ServiceModuleDrafts;
 }
 
+// B3 — non-blocking pool-settle guard entry: a pool item the settle removed
+// while it is still referenced somewhere in the station graph. Holder labels
+// are engine-formatted (e.g. 'tier:premium', 'promo:promo_ab12:draft').
+export interface PoolSettleWarning {
+  id:            string;
+  label:         string;
+  referenced_by: string[];
+}
+
 export interface ModuleSettleResponse {
   success:       boolean;
   module_status: Record<string, string>;
   service:       { id: number; title: string; excerpt: string; content: string; categories: Array<{ id: number; name: string; slug: string }> };
   inclusions:    ServiceInclusionItem[];
   faqs:          ServiceFaqItem[];
+  // Present only when the settle orphaned still-referenced pool items.
+  pool_warnings?: PoolSettleWarning[];
 }
 
 export interface ModuleRevertResponse {
