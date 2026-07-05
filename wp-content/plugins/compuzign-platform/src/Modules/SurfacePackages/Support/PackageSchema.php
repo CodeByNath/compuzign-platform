@@ -1336,6 +1336,194 @@ class PackageSchema
         return ['station' => $station, 'entry' => $entry];
     }
 
+    /** Locate a bin entry by id inside an ensured occupant_bin. */
+    private static function findBinIndex(array $bin, string $binId): ?int
+    {
+        foreach ($bin as $i => $entry) {
+            if (($entry['bin_id'] ?? '') === $binId) {
+                return $i;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether a shell currently holds settled content that a restore write would
+     * clobber. Occupant format: a non-empty current_occupant. Phase 1 flat format:
+     * any flat fields beyond the lifecycle layer (legacy data counts as occupied —
+     * restore must never silently destroy it).
+     */
+    private static function shellOccupied(array $slot): bool
+    {
+        if (self::isOccupantFormat($slot)) {
+            return !empty($slot['current_occupant']);
+        }
+        unset($slot['drafts'], $slot['module_status']);
+        return !empty($slot);
+    }
+
+    /**
+     * Restore a binned occupant into a shell (engine D3). Targeting rules:
+     *   - no mode      → the origin shell, which must be empty; an occupied origin
+     *                    demands an explicit mode (error target_occupied so the UI
+     *                    can prompt swap|retarget).
+     *   - mode swap    → the origin shell, which must be occupied; its current
+     *                    content is displaced into the bin as a new archived entry
+     *                    (bin_id/displaced_at supplied by the controller). The whole
+     *                    exchange is composed in memory — the controller persists it
+     *                    in ONE meta write, never two.
+     *   - mode retarget→ an explicit empty target shell (origin irrelevant).
+     *
+     * The engine's restore landing state (disabled, never active) translates to
+     * occupant platform_status: disabled. Modules land settled, drafts cleared
+     * (commitTierLifecycle). Pending drafts on the target shell block the write
+     * unless $discardDrafts — same never-destroy-authoring guard as archive (D2).
+     * Pool refs travel untouched; labels re-refresh at read time (B2).
+     *
+     * @param  array<string, mixed> $station
+     * @return array{station: array<string, mixed>, tier_id: string, entry: array<string, mixed>, displaced: array<string, mixed>|null}|array{error: string}
+     */
+    public static function restoreBinnedOccupant(array $station, string $binId, ?string $mode, ?string $targetTier, bool $discardDrafts, string $newBinId, ?string $displacedAt): array
+    {
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+
+        if ($mode !== null && !in_array($mode, ['swap', 'retarget'], true)) {
+            return ['error' => 'invalid_mode'];
+        }
+
+        $station = self::ensureOccupantBin($station);
+        $index   = self::findBinIndex($station['occupant_bin'], $binId);
+        if ($index === null) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+        $entry = $station['occupant_bin'][$index];
+
+        if ($engine::restore($entry['status']) === null) {
+            return ['error' => 'restore_illegal'];
+        }
+
+        if ($mode === 'retarget') {
+            if (!in_array((string) $targetTier, self::ALLOWED_TIERS, true)) {
+                return ['error' => 'unknown_tier'];
+            }
+            $tierId = $targetTier;
+        } else {
+            $tierId = $entry['origin_tier'];
+            if ($tierId === '') {
+                return ['error' => 'origin_unknown'];
+            }
+        }
+
+        $slot     = self::ensureTierLifecycle($station['tiers'][$tierId] ?? []);
+        $occupied = self::shellOccupied($slot);
+
+        if ($mode !== 'swap' && $occupied) {
+            return ['error' => 'target_occupied'];
+        }
+        if ($mode === 'swap' && !$occupied) {
+            return ['error' => 'target_not_occupied'];
+        }
+
+        $hasDraft = false;
+        foreach (self::TIER_MODULES as $module) {
+            if (($slot['drafts'][$module] ?? null) !== null) { $hasDraft = true; break; }
+        }
+        if ($hasDraft && !$discardDrafts) {
+            return ['error' => 'pending_drafts'];
+        }
+
+        array_splice($station['occupant_bin'], $index, 1);
+
+        $displaced = null;
+        if ($mode === 'swap') {
+            // Canonicalise whatever the shell holds (occupant format keeps its id;
+            // legacy flat content is minted into occupant form) and displace it.
+            $detail    = self::normaliseTierSlot($slot);
+            $canonical = self::upsertOccupant($slot, $detail, $detail['enabled']);
+            $displaced = [
+                'bin_id'           => $newBinId,
+                'origin_tier'      => $tierId,
+                'occupant'         => $canonical['current_occupant'],
+                'status'           => 'archived',
+                'previous_enabled' => $detail['enabled'],
+                'displaced_at'     => $displacedAt,
+            ];
+            $station['occupant_bin'][] = $displaced;
+            $slot = [
+                'current_occupant' => null,
+                'history'          => $canonical['history'],
+                'drafts'           => $slot['drafts'],
+                'module_status'    => $slot['module_status'],
+            ];
+        }
+
+        $occupant                    = $entry['occupant'];
+        $occupant['platform_status'] = 'disabled';
+
+        $slot['current_occupant'] = $occupant;
+        if (!isset($slot['history']) || !is_array($slot['history'])) {
+            $slot['history'] = [];
+        }
+        $slot = self::commitTierLifecycle($slot);
+
+        $station['tiers'][$tierId]  = $slot;
+        $station['platform_status'] = self::deriveStationStatus($station);
+
+        return ['station' => $station, 'tier_id' => $tierId, 'entry' => $entry, 'displaced' => $displaced];
+    }
+
+    /**
+     * Trash a bin entry (engine D3): archived → trashed, legality via the engine.
+     * Bin entries carry previous_enabled (a bool) instead of previous_status, so
+     * the engine's previous_status output is deliberately unused — the restore
+     * landing state is always disabled regardless.
+     *
+     * @param  array<string, mixed> $station
+     * @return array{station: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function trashBinnedOccupant(array $station, string $binId): array
+    {
+        $engine  = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $station = self::ensureOccupantBin($station);
+        $index   = self::findBinIndex($station['occupant_bin'], $binId);
+        if ($index === null) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+
+        $change = $engine::trash($station['occupant_bin'][$index]['status']);
+        if ($change === null) {
+            return ['error' => 'trash_illegal'];
+        }
+
+        $station['occupant_bin'][$index]['status'] = $change['status'];
+        return ['station' => $station, 'entry' => $station['occupant_bin'][$index]];
+    }
+
+    /**
+     * Permanently delete a bin entry (engine D3) — the only operation that removes
+     * an entry from occupant_bin. Legal only from trashed (engine-validated).
+     *
+     * @param  array<string, mixed> $station
+     * @return array{station: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function deleteBinnedOccupant(array $station, string $binId): array
+    {
+        $engine  = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $station = self::ensureOccupantBin($station);
+        $index   = self::findBinIndex($station['occupant_bin'], $binId);
+        if ($index === null) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+
+        $entry = $station['occupant_bin'][$index];
+        if (!$engine::canDelete($entry['status'])) {
+            return ['error' => 'delete_illegal'];
+        }
+
+        array_splice($station['occupant_bin'], $index, 1);
+        return ['station' => $station, 'entry' => $entry];
+    }
+
     /**
      * Engine D1 — revert one tier module draft: clear the slot and re-derive the
      * module's status from the settled occupant (settled when an occupant exists,

@@ -251,6 +251,42 @@ class AdminServicesController
             ],
         ]);
 
+        // ── Occupant bin travel (engine D3) ───────────────────────────────────
+        // Restore returns a binned occupant to its origin shell when empty;
+        // an occupied origin demands an explicit mode (swap displaces the
+        // current content into the bin — one atomic meta write; retarget picks
+        // an empty shell). Trash/delete legality comes from StationLifecycle;
+        // DELETE is the only remover (parity with the promotion C3 routes).
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/restore', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'restorePackageStationBinEntry'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'  => ['required' => true, 'type' => 'integer'],
+                'bin' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/trash', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'trashPackageStationBinEntry'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'  => ['required' => true, 'type' => 'integer'],
+                'bin' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)', [
+            'methods'             => 'DELETE',
+            'callback'            => [$this, 'deletePackageStationBinEntry'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id'  => ['required' => true, 'type' => 'integer'],
+                'bin' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
+            ],
+        ]);
+
         // ── Per-module tier revert (engine D1) ────────────────────────────────
         // Discard one module's pending draft; module_status re-derives from the
         // settled occupant. Counterpart of the promotion module revert route.
@@ -1483,6 +1519,154 @@ class AdminServicesController
             'bin_entry'       => $result['entry'],
             'occupant_bin'    => $result['station']['occupant_bin'],
             'platform_status' => $result['station']['platform_status'] ?? 'disabled',
+        ]);
+    }
+
+    /**
+     * Engine D3 — restore a binned occupant into a shell. Plain restore targets
+     * the origin shell (must be empty); body may carry mode: swap|retarget plus
+     * target_tier (retarget) and discard_drafts. Swap is composed in memory by
+     * the schema op and persisted here in a SINGLE meta write. Failures carry
+     * code so the UI can prompt (target_occupied → offer swap/retarget,
+     * pending_drafts → confirm discard).
+     */
+    public function restorePackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $binId     = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $body          = $request->get_json_params();
+        $mode          = is_array($body) && isset($body['mode']) ? sanitize_key((string) $body['mode']) : '';
+        $targetTier    = is_array($body) && isset($body['target_tier']) ? sanitize_key((string) $body['target_tier']) : '';
+        $discardDrafts = is_array($body) && !empty($body['discard_drafts']);
+
+        $result = $PS::restoreBinnedOccupant(
+            $station,
+            $binId,
+            $mode === '' ? null : $mode,
+            $targetTier === '' ? null : $targetTier,
+            $discardDrafts,
+            $PS::generateBinId(),
+            current_time('mysql', true)
+        );
+
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry'   => 'Bin entry not found.',
+                'invalid_mode'        => 'Invalid restore mode.',
+                'restore_illegal'     => 'This entry cannot be restored.',
+                'origin_unknown'      => 'This entry has no origin tier. Retarget it into an empty tier.',
+                'unknown_tier'        => 'Unknown target tier.',
+                'target_occupied'     => 'The target tier is occupied. Swap with its occupant or retarget to an empty tier.',
+                'target_not_occupied' => 'The origin tier is empty — restore without swap.',
+                'pending_drafts'      => 'The target tier has unsettled changes. Discard them to restore.',
+                default               => 'Restore failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+
+        $tierId = $result['tier_id'];
+        $slot   = $result['station']['tiers'][$tierId];
+        return rest_ensure_response([
+            'success'         => true,
+            'bin_id'          => $binId,
+            'tier_id'         => $tierId,
+            'tier'            => $PS::normaliseTierSlot($slot),
+            'drafts'          => $slot['drafts'],
+            'module_status'   => $slot['module_status'],
+            'displaced_entry' => $result['displaced'],
+            'occupant_bin'    => $result['station']['occupant_bin'],
+            'platform_status' => $result['station']['platform_status'] ?? 'disabled',
+        ]);
+    }
+
+    /** Engine D3 — trash a bin entry (archived → trashed, engine-validated). */
+    public function trashPackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $binId     = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $result = $PS::trashBinnedOccupant($station, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'trash_illegal'     => 'Only archived entries can be moved to trash.',
+                default             => 'Trash failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+
+        return rest_ensure_response([
+            'success'      => true,
+            'bin_id'       => $binId,
+            'bin_entry'    => $result['entry'],
+            'occupant_bin' => $result['station']['occupant_bin'],
+        ]);
+    }
+
+    /**
+     * Engine D3 — permanently delete a bin entry. Legal only from trashed
+     * (engine-validated); the only operation removing an occupant_bin entry.
+     */
+    public function deletePackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $binId     = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $result = $PS::deleteBinnedOccupant($station, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'delete_illegal'    => 'Only trashed entries can be permanently deleted.',
+                default             => 'Delete failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+
+        return rest_ensure_response([
+            'success'      => true,
+            'bin_id'       => $binId,
+            'deleted'      => true,
+            'occupant_bin' => $result['station']['occupant_bin'],
         ]);
     }
 
