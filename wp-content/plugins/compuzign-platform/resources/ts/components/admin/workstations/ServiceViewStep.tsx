@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
-import { Spinner } from '@/components/ui/Spinner';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { updateServiceCategory } from '@/api/endpoints/admin';
@@ -24,8 +23,8 @@ import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { ServiceInclusionsViewCard } from '../views/ServiceInclusionsViewCard';
 import { ServiceFaqsViewCard } from '../views/ServiceFaqsViewCard';
 import { ReadBlock } from '../ReadBlock';
-import { ModuleStatusPill } from '../ui/ModuleStatusPill';
-import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
+import { DrawerTabs } from '../DrawerTabs';
+import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import {
   getPackageNotes,
   getTierNotes,
@@ -56,37 +55,21 @@ export interface CommercialBlockProps {
 
 export function CommercialBlock({ label, count, desc, status, onView, descHighlight }: CommercialBlockProps) {
   return (
-    <div class="drawerModule">
-      <div class="drawerModule__header">
-        <div class="drawerModule__heading">
-          <p class="drawerModule__title">{label}</p>
-        </div>
-        <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
-          <ModuleStatusPill status={status} notes={[]} />
-        </div>
-      </div>
-      <div class="drawerModule__body">
-        <div class="drawerModule__empty">
-          <p class="drawerModule__empty-title">{count}</p>
-          <p
-            class="drawerModule__empty-copy"
-            style={descHighlight ? 'color:var(--admin-warning)' : undefined}
-          >
-            {desc}
-          </p>
-        </div>
-      </div>
-      <div class="drawerModule__footer">
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-          onClick={onView}
-          disabled={!onView}
+    <ReadBlock
+      title={label}
+      status={status}
+      actions={[{ id: 'view', label: 'View', onSelect: onView, disabled: !onView }]}
+    >
+      <div class="drawerModule__empty">
+        <p class="drawerModule__empty-title">{count}</p>
+        <p
+          class="drawerModule__empty-copy"
+          style={descHighlight ? 'color:var(--admin-warning)' : undefined}
         >
-          View
-        </button>
+          {desc}
+        </p>
       </div>
-    </div>
+    </ReadBlock>
   );
 }
 
@@ -125,7 +108,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const allCategories = ctx.stepData.allCategories as Category[] ?? [];
   const onRefresh    = ctx.stepData.onRefresh    as (() => void) | undefined;
 
-  const [tab, setTab] = useState<'service' | 'commercial'>('service');
+  const [tab, setTab] = useState<'details' | 'connections'>('details');
 
   const station = useServiceStation(service, packages, onRefresh);
   const {
@@ -608,7 +591,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setFooter(
       <div class="cz-tf-footer">
         {/* Split button — visible for active/disabled states */}
-        {tab === 'service' && isLiveState && (
+        {tab === 'details' && isLiveState && (
           <div class={`cz-footer-split${platformStatus === 'active' || isNewNeverPublished ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
             {/* Primary action:
                 Active         → Disable
@@ -672,13 +655,13 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           </div>
         )}
         {/* No left-side actions (e.g. Commercial tab) → push the single Cancel right. */}
-        {!(tab === 'service' && isLiveState) && <div class="cz-tf-footer__spacer" />}
+        {!(tab === 'details' && isLiveState) && <div class="cz-tf-footer__spacer" />}
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>
           Cancel
         </button>
-        {tab === 'service' && isLiveState && <div class="cz-tf-footer__spacer" />}
+        {tab === 'details' && isLiveState && <div class="cz-tf-footer__spacer" />}
         {/* Publish — available when canPublish; no longer gated on platformStatus */}
-        {tab === 'service' && isLiveState && (
+        {tab === 'details' && isLiveState && (
           <button
             type="button"
             class="cz-admin-btn cz-admin-btn--primary"
@@ -711,26 +694,11 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     <>
     <div class="cz-req-detail">
 
-      {/* ── Tab bar ───────────────────────────────────────────────────── */}
-      <div class="cz-sv-tabs">
-        <button
-          type="button"
-          class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('service')}
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('commercial')}
-        >
-          Connections
-        </button>
-      </div>
+      {/* ── Tab bar — Drawer Tab Contract ─────────────────────────────── */}
+      <DrawerTabs active={tab} onSelect={setTab} />
 
       {/* ── Service tab: Water Layer ───────────────────────────────────── */}
-      {tab === 'service' && (
+      {tab === 'details' && (
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
           <ServiceOverviewViewCard
@@ -780,57 +748,26 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       )}
 
       {/* ── Commercial tab: Surface Layer ─────────────────────────────── */}
-      {tab === 'commercial' && (
+      {tab === 'connections' && (
         <>
           {/* ── Commercial Module: Package Summary ───────────────────────────────── */}
-          <div class="drawerModule">
-            <div class="drawerModule__header">
-              <span class="drawerModule__icon">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="drawerModule__icon-svg"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
-                </svg>
-              </span>
-              <div class="drawerModule__heading">
-                <p class="drawerModule__title">Package Summary</p>
-                <p class="drawerModule__subtitle">Pricing and tiers for this service.</p>
-              </div>
-              <div class={`drawerModule__status${(detailLoaded ? pkgSummaryStatus : 'loading') === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
-                <ModuleStatusPill
-                  status={detailLoaded ? pkgSummaryStatus : 'loading'}
-                  notes={detailLoaded ? packageNotes : []}
-                  onOpen={() => setOpenPanel(p => p === 'package' ? null : 'package')}
-                />
-              </div>
+          <ReadBlock
+            title="Package Summary"
+            subtitle="Pricing and tiers for this service."
+            icon={MODULE_ICONS.package}
+            status={detailLoaded ? pkgSummaryStatus : 'loading'}
+            notes={detailLoaded ? packageNotes : []}
+            panelOpen={openPanel === 'package'}
+            onTogglePanel={() => setOpenPanel(p => p === 'package' ? null : 'package')}
+            actions={[{ id: 'view', label: 'View', onSelect: pkgSummaryOnView, disabled: !pkgSummaryOnView }]}
+          >
+            <div class="drawerModule__empty">
+              <p class="drawerModule__empty-title">{pkgSummaryCount}</p>
+              <p class="drawerModule__empty-copy">
+                {pkgSummaryDesc}
+              </p>
             </div>
-            {openPanel === 'package' && packageNotes.length > 0 && (
-              <ModuleNotificationPanel notes={packageNotes} />
-            )}
-            <div class="drawerModule__body">
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">{pkgSummaryCount}</p>
-                <p class="drawerModule__empty-copy">
-                  {pkgSummaryDesc}
-                </p>
-              </div>
-            </div>
-            <div class="drawerModule__footer">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                onClick={pkgSummaryOnView}
-                disabled={!pkgSummaryOnView}
-              >
-                View
-              </button>
-            </div>
-          </div>
+          </ReadBlock>
           {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
           <CommercialBlock
             label="Promotion Configuration"

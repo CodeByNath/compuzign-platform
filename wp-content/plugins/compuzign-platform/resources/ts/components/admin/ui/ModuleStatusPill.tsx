@@ -13,6 +13,7 @@
 // The pending-dim opacity (0.45) is applied by the parent .drawerModule__status--dim wrapper.
 
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import { PILL_META, PILL_FALLBACK } from '@/components/admin/schema/presentation';
 import { Skeleton } from './Skeleton';
 
 interface Props {
@@ -20,15 +21,6 @@ interface Props {
   notes:    ModuleNote[];     // full note list — count derived internally
   onOpen?:  () => void;       // called when pill is clicked to open the panel
 }
-
-const PILL_META: Record<string, { cls: string; label: string }> = {
-  'active':       { cls: 'cz-module-status-pill--active',   label: 'Active'    },
-  'disabled':     { cls: 'cz-module-status-pill--inactive', label: 'Disabled'  },
-  'pending-dim':  { cls: 'cz-module-status-pill--pending',  label: 'Pending'   },
-  'pending-full': { cls: 'cz-module-status-pill--pending',  label: 'Pending'   },
-};
-
-const FALLBACK = { cls: 'cz-module-status-pill--pending', label: 'Pending' };
 
 export function ModuleStatusPill({ status, notes, onOpen }: Props) {
   // Authoritative detail still in flight — show a shimmer sized to the pill rather
@@ -39,7 +31,7 @@ export function ModuleStatusPill({ status, notes, onOpen }: Props) {
   }
 
   const hasNotes = notes.length > 0;   // any notes — drives button vs span
-  const meta     = PILL_META[status] ?? FALLBACK;
+  const meta     = PILL_META[status] ?? PILL_FALLBACK;
   const cls      = `cz-module-status-pill ${meta.cls}`;
 
   // Any notes (error or info): clickable pill that opens the notification panel.

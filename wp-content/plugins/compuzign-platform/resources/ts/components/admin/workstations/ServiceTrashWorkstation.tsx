@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'preact/hooks';
+import { useEffect, useCallback } from 'preact/hooks';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { restoreService, permanentDeleteService } from '@/api/endpoints/admin';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 
 interface Props {
   refreshKey: number;
@@ -9,53 +10,27 @@ interface Props {
 
 export function ServiceTrashWorkstation({ refreshKey }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog({ platformStatus: 'trashed' });
-  const [restoring, setRestoring]           = useState<number | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const [deleting, setDeleting]             = useState(false);
+  const rowConfirm = useInlineConfirm<number>(); // per-row delete confirm + restore/delete busy
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
 
-  const handleRestore = useCallback(async (id: number) => {
-    setRestoring(id);
-    try {
+  const handleRestore = useCallback((id: number) =>
+    rowConfirm.run(id, async () => {
       await restoreService(id);
       refetch();
-    } finally {
-      setRestoring(null);
-    }
-  }, [refetch]);
+    }), [rowConfirm.run, refetch]);
 
-  const handleConfirmDelete = useCallback(async (id: number) => {
-    setDeleting(true);
-    try {
+  const handleConfirmDelete = useCallback((id: number) =>
+    rowConfirm.run(id, async () => {
       await permanentDeleteService(id);
-      setPendingDeleteId(null);
       refetch();
-    } finally {
-      setDeleting(false);
-    }
-  }, [refetch]);
+    }), [rowConfirm.run, refetch]);
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading trash…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading trash…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={refetch}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetch} />;
 
   const stations = data?.stations ?? [];
 
@@ -94,22 +69,22 @@ export function ServiceTrashWorkstation({ refreshKey }: Props) {
                       <span class="cz-module-status-pill cz-module-status-pill--trashed">Trashed</span>
                     </td>
                     <td class="cz-sc-table__actions">
-                      {pendingDeleteId === station.id ? (
+                      {rowConfirm.pendingId === station.id ? (
                         <>
                           <span class="cz-sc-table__confirm-label">Are you sure?</span>
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
-                            disabled={deleting}
+                            disabled={rowConfirm.busyId === station.id}
                             onClick={() => handleConfirmDelete(station.id)}
                           >
-                            {deleting ? 'Deleting…' : 'Confirm'}
+                            {rowConfirm.busyId === station.id ? 'Deleting…' : 'Confirm'}
                           </button>
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                            disabled={deleting}
-                            onClick={() => setPendingDeleteId(null)}
+                            disabled={rowConfirm.busyId === station.id}
+                            onClick={() => rowConfirm.cancel()}
                           >
                             Cancel
                           </button>
@@ -119,15 +94,15 @@ export function ServiceTrashWorkstation({ refreshKey }: Props) {
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                            disabled={restoring === station.id}
+                            disabled={rowConfirm.busyId === station.id}
                             onClick={() => handleRestore(station.id)}
                           >
-                            {restoring === station.id ? 'Restoring…' : 'Restore'}
+                            {rowConfirm.busyId === station.id ? 'Restoring…' : 'Restore'}
                           </button>
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--icon-only cz-admin-btn--sm"
-                            onClick={() => setPendingDeleteId(station.id)}
+                            onClick={() => rowConfirm.request(station.id)}
                             aria-label="Permanently delete"
                             title="Permanently delete"
                           >

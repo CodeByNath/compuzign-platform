@@ -4,6 +4,7 @@ import { useApi } from '@/hooks/useApi';
 import { fetchMigrationAudit, runPhaseOneMigration, runPhaseTwoMigration, runPhaseFourMigration } from '@/api/endpoints/admin';
 import type { MigrationAudit, MigrationRunResult, MigrationPhase2Result, MigrationPhase4Result } from '@/api/types/admin';
 import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 
 interface Props {
   refreshKey: number;
@@ -80,24 +81,9 @@ export function HealthWorkstation({ refreshKey }: Props) {
     if (refreshKey > 0) { refetch(); auditRefetch(); }
   }, [refreshKey]);
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading health…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading health…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" style="margin-top:12px" onClick={refetch}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetch} />;
 
   if (!data) return null;
 

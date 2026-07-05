@@ -1,15 +1,19 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import { createService, updateServiceCategory } from '@/api/endpoints/admin';
 import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
 import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
 import { resolveStationCommercialSummary } from '@/components/admin/utils/moduleStatus';
-import { ModuleNotificationPanel } from '@/components/admin/ui/ModuleNotificationPanel';
+import { PRESENTATION_PILL } from '@/components/admin/schema/presentation';
+import type { PillMeta } from '@/components/admin/schema/presentation';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import { ReadBlock } from '../ReadBlock';
+import { DrawerTabs } from '../DrawerTabs';
+import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { Workstation } from '../shell/Workstation';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
@@ -26,11 +30,13 @@ interface Props {
 type StatusFilter = 'all' | 'active' | 'pending' | 'drafts' | 'disabled';
 type StationStatus = 'active' | 'pending' | 'drafts' | 'disabled';
 
-const STATION_STATUS_PILL: Record<StationStatus, { cls: string; label: string }> = {
-  'active':   { cls: 'cz-module-status-pill--active',   label: 'Active'   },
-  'pending':  { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
-  'drafts':   { cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
-  'disabled': { cls: 'cz-module-status-pill--inactive', label: 'Disabled' },
+// Pill metadata delegates to the Presentation Status Contract chokepoint (S1a);
+// the station filter buckets 'pending' and 'drafts' both present as Pending.
+const STATION_STATUS_PILL: Record<StationStatus, PillMeta> = {
+  'active':   PRESENTATION_PILL.active,
+  'pending':  PRESENTATION_PILL.pending,
+  'drafts':   PRESENTATION_PILL.pending,
+  'disabled': PRESENTATION_PILL.disabled,
 };
 
 function resolveStationStatus(station: StationSummary): StationStatus {
@@ -50,18 +56,18 @@ function resolveStationStatus(station: StationSummary): StationStatus {
 // from a never-published one — without altering filtering. Frontend visibility is
 // gated only by platform_status; "Active · changes pending" still means the service
 // is live on the public Cost Builder.
-function stationStatusLabel(station: StationSummary): { cls: string; label: string } {
+function stationStatusLabel(station: StationSummary): PillMeta {
   if (station.platform_status === 'disabled') {
     return (station.module_status as Record<string, string>)?.overview !== 'settled'
-      ? { cls: STATION_STATUS_PILL.pending.cls,  label: 'Pending'  }
-      : { cls: STATION_STATUS_PILL.disabled.cls, label: 'Disabled' };
+      ? STATION_STATUS_PILL.pending
+      : STATION_STATUS_PILL.disabled;
   }
   const hasUnsettled =
     station.has_drafts ||
     Object.values(station.module_status).some((v) => v === 'pending');
   return hasUnsettled
     ? { cls: STATION_STATUS_PILL.active.cls, label: 'Active · changes pending' }
-    : { cls: STATION_STATUS_PILL.active.cls, label: 'Active' };
+    : STATION_STATUS_PILL.active;
 }
 
 // ── Category normalization ────────────────────────────────────────────────────
@@ -161,7 +167,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   const allCategories = ctx.stepData.allCategories as Category[];
   const onRefresh     = ctx.stepData.onRefresh     as (() => void) | undefined;
 
-  const [tab,     setTab]     = useState<'service' | 'commercial'>('service');
+  const [tab,     setTab]     = useState<'details' | 'connections'>('details');
   const [editing, setEditing] = useState(false);
   const [localCategories, setLocalCategories] = useState<Category[]>(allCategories);
   const [draft,   setDraft]   = useState<OverviewDraft>({
@@ -256,241 +262,136 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
     <>
     <div class="cz-req-detail">
 
-      <div class="cz-sv-tabs">
-        <button
-          type="button"
-          class={`cz-sv-tab${tab === 'service' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('service')}
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          class={`cz-sv-tab${tab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTab('commercial')}
-        >
-          Connections
-        </button>
-      </div>
+      <DrawerTabs active={tab} onSelect={setTab} />
 
-      {tab === 'service' && (
+      {tab === 'details' && (
         <>
           {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
-          <div class="drawerModule drawerOverview service">
-            <div class="drawerModule__header">
-              <span class="drawerModule__icon drawerModule__icon--overview">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="drawerModule__icon-svg"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
-                  <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
-                </svg>
-              </span>
-              <div class="drawerModule__heading">
-                <p class="drawerModule__title">Service Overview</p>
-                <p class="drawerModule__subtitle">General information about the service.</p>
+          <ReadBlock
+            title="Service Overview"
+            subtitle="General information about the service."
+            icon={MODULE_ICONS.overview}
+            iconVariant="drawerModule__icon--overview"
+            scopeClass="drawerOverview service"
+            status="pending-dim"
+            notes={overviewNotes}
+            panelOpen={overviewPanelOpen}
+            onTogglePanel={() => setOverviewPanelOpen(o => !o)}
+            actions={[{
+              id: 'edit',
+              label: 'Edit',
+              onSelect: () => {
+                const desc = localCategories.find(c => c.id === draft.category_id)?.description ?? '';
+                setCatDesc(desc);
+                setCatDescOriginal(desc);
+                setEditing(true);
+              },
+            }]}
+          >
+            <div class="drawerModule__fields">
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Title</p>
+                <p class="drawerModule__value">
+                  {draft.title.trim() ? draft.title : 'New Service'}
+                </p>
               </div>
-              <div class="drawerModule__status drawerModule__status--dim">
-                <ModuleStatusPill
-                  status="pending-dim"
-                  notes={overviewNotes}
-                  onOpen={() => setOverviewPanelOpen(o => !o)}
-                />
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Category</p>
+                <p class="drawerModule__value">
+                  {draft.category_id !== null
+                    ? decodeHtml(localCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
+                    : 'Not selected'
+                  }
+                </p>
               </div>
-            </div>
-            {overviewPanelOpen && <ModuleNotificationPanel notes={overviewNotes} />}
-            <div class="drawerModule__body">
-              <div class="drawerModule__fields">
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Title</p>
-                  <p class="drawerModule__value">
-                    {draft.title.trim() ? draft.title : 'New Service'}
-                  </p>
-                </div>
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Category</p>
-                  <p class="drawerModule__value">
-                    {draft.category_id !== null
-                      ? decodeHtml(localCategories.find(c => c.id === draft.category_id)?.name ?? 'Not selected')
-                      : 'Not selected'
-                    }
-                  </p>
-                </div>
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Description</p>
-                  <p class={`drawerModule__value${draft.content.trim() ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
-                    {draft.content.trim()
-                      ? draft.content
-                      : draft.title.trim()
-                        ? `Enter a description for the ${draft.title}.`
-                        : 'Enter a description for the service.'
-                    }
-                  </p>
-                </div>
+              <div class="drawerModule__field">
+                <p class="drawerModule__label">Description</p>
+                <p class={`drawerModule__value${draft.content.trim() ? ' drawerModule__value--clamp' : ' drawerModule__value--muted'}`}>
+                  {draft.content.trim()
+                    ? draft.content
+                    : draft.title.trim()
+                      ? `Enter a description for the ${draft.title}.`
+                      : 'Enter a description for the service.'
+                  }
+                </p>
               </div>
             </div>
-            <div class="drawerModule__footer">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                onClick={() => {
-                  const desc = localCategories.find(c => c.id === draft.category_id)?.description ?? '';
-                  setCatDesc(desc);
-                  setCatDescOriginal(desc);
-                  setEditing(true);
-                }}
-              >
-                Edit
-              </button>
-            </div>
-          </div>
+          </ReadBlock>
           {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
           {/* Drawer Principle v1 — Locked state: shell visible, action disabled; modules unavailable until service exists */}
           {/* ── Service Level Module: Included Features ──────────────────────────── */}
-          <div class="drawerModule drawerModule--locked">
-            <div class="drawerModule__header">
-              <span class="drawerModule__icon drawerModule__icon--features">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="drawerModule__icon-svg"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-                </svg>
-              </span>
-              <div class="drawerModule__heading">
-                <p class="drawerModule__title">Included Features</p>
-                <p class="drawerModule__subtitle">Add and manage the features included in this service.</p>
-              </div>
-              <div class="drawerModule__status drawerModule__status--dim">
-                <ModuleStatusPill
-                  status="pending-dim"
-                  notes={featuresNotes}
-                  onOpen={() => setFeaturesPanelOpen(o => !o)}
-                />
-              </div>
+          <ReadBlock
+            title="Included Features"
+            subtitle="Add and manage the features included in this service."
+            icon={MODULE_ICONS.features}
+            iconVariant="drawerModule__icon--features"
+            scopeClass="drawerModule--locked"
+            status="pending-dim"
+            notes={featuresNotes}
+            panelOpen={featuresPanelOpen}
+            onTogglePanel={() => setFeaturesPanelOpen(o => !o)}
+            actions={[{ id: 'edit', label: 'Edit', disabled: true }]}
+          >
+            <div class="drawerModule__empty">
+              <p class="drawerModule__empty-title">No features</p>
+              <p class="drawerModule__empty-copy">
+                {draft.title.trim()
+                  ? `Add features to the ${draft.title}.`
+                  : 'Configure the service to add features.'
+                }
+              </p>
             </div>
-            {featuresPanelOpen && <ModuleNotificationPanel notes={featuresNotes} />}
-            <div class="drawerModule__body">
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">No features</p>
-                <p class="drawerModule__empty-copy">
-                  {draft.title.trim()
-                    ? `Add features to the ${draft.title}.`
-                    : 'Configure the service to add features.'
-                  }
-                </p>
-              </div>
-            </div>
-            <div class="drawerModule__footer">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                Edit
-              </button>
-            </div>
-          </div>
+          </ReadBlock>
           {/* ── / Service Level Module: Included Features ────────────────────────── */}
 
           {/* ── Service Level Module: Common Questions ───────────────────────────── */}
-          <div class="drawerModule drawerModule--locked">
-            <div class="drawerModule__header">
-              <span class="drawerModule__icon drawerModule__icon--faqs">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="drawerModule__icon-svg"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-                </svg>
-              </span>
-              <div class="drawerModule__heading">
-                <p class="drawerModule__title">Common Questions</p>
-                <p class="drawerModule__subtitle">Add questions and answers for this service.</p>
-              </div>
-              <div class="drawerModule__status drawerModule__status--dim">
-                <ModuleStatusPill
-                  status="pending-dim"
-                  notes={questionsNotes}
-                  onOpen={() => setQuestionsPanelOpen(o => !o)}
-                />
-              </div>
+          <ReadBlock
+            title="Common Questions"
+            subtitle="Add questions and answers for this service."
+            icon={MODULE_ICONS.faqs}
+            iconVariant="drawerModule__icon--faqs"
+            scopeClass="drawerModule--locked"
+            status="pending-dim"
+            notes={questionsNotes}
+            panelOpen={questionsPanelOpen}
+            onTogglePanel={() => setQuestionsPanelOpen(o => !o)}
+            actions={[{ id: 'edit', label: 'Edit', disabled: true }]}
+          >
+            <div class="drawerModule__empty">
+              <p class="drawerModule__empty-title">No questions added</p>
+              <p class="drawerModule__empty-copy">
+                {draft.title.trim()
+                  ? `Add common questions for the ${draft.title}.`
+                  : 'Configure the service to add questions.'
+                }
+              </p>
             </div>
-            {questionsPanelOpen && <ModuleNotificationPanel notes={questionsNotes} />}
-            <div class="drawerModule__body">
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">No questions added</p>
-                <p class="drawerModule__empty-copy">
-                  {draft.title.trim()
-                    ? `Add common questions for the ${draft.title}.`
-                    : 'Configure the service to add questions.'
-                  }
-                </p>
-              </div>
-            </div>
-            <div class="drawerModule__footer">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                Edit
-              </button>
-            </div>
-          </div>
+          </ReadBlock>
           {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
         </>
       )}
 
-      {tab === 'commercial' && (
+      {tab === 'connections' && (
         <>
           {/* Drawer Principle v1 — Locked state: shell visible, action disabled; modules unavailable until service exists */}
           {/* ── Commercial Module: Package Summary ───────────────────────────────── */}
-          <div class="drawerModule drawerModule--locked">
-            <div class="drawerModule__header">
-              <span class="drawerModule__icon">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="drawerModule__icon-svg"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
-                </svg>
-              </span>
-              <div class="drawerModule__heading">
-                <p class="drawerModule__title">Package Summary</p>
-                <p class="drawerModule__subtitle">Pricing and tiers for this service.</p>
-              </div>
-              <div class="drawerModule__status drawerModule__status--dim">
-                <ModuleStatusPill
-                  status="pending-dim"
-                  notes={packageNotes}
-                  onOpen={() => setPackagePanelOpen(o => !o)}
-                />
-              </div>
+          <ReadBlock
+            title="Package Summary"
+            subtitle="Pricing and tiers for this service."
+            icon={MODULE_ICONS.package}
+            scopeClass="drawerModule--locked"
+            status="pending-dim"
+            notes={packageNotes}
+            panelOpen={packagePanelOpen}
+            onTogglePanel={() => setPackagePanelOpen(o => !o)}
+            actions={[{ id: 'view', label: 'View', disabled: true }]}
+          >
+            <div class="drawerModule__empty">
+              <p class="drawerModule__empty-title">0 tiers configured</p>
+              <p class="drawerModule__empty-copy">Pricing and tiers not available.</p>
             </div>
-            {packagePanelOpen && <ModuleNotificationPanel notes={packageNotes} />}
-            <div class="drawerModule__body">
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">0 tiers configured</p>
-                <p class="drawerModule__empty-copy">Pricing and tiers not available.</p>
-              </div>
-            </div>
-            <div class="drawerModule__footer">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled>
-                View
-              </button>
-            </div>
-          </div>
+          </ReadBlock>
           {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
 
           <CommercialBlock
@@ -600,24 +501,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     });
   };
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading catalog…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading catalog…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" style="margin-top:12px" onClick={refetch}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetch} />;
 
   const allStations   = data?.stations ?? [];
   const totalStations = allStations.length;

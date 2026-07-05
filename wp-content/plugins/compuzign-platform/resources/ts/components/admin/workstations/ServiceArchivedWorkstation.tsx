@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'preact/hooks';
+import { useEffect, useCallback } from 'preact/hooks';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { restoreService, trashService } from '@/api/endpoints/admin';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 
 interface Props {
   refreshKey: number;
@@ -9,53 +10,27 @@ interface Props {
 
 export function ServiceArchivedWorkstation({ refreshKey }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog({ platformStatus: 'archived' });
-  const [restoring,       setRestoring]       = useState<number | null>(null);
-  const [pendingTrashId,  setPendingTrashId]  = useState<number | null>(null);
-  const [trashing,        setTrashing]        = useState(false);
+  const rowConfirm = useInlineConfirm<number>(); // per-row trash confirm + restore/trash busy
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
 
-  const handleRestore = useCallback(async (id: number) => {
-    setRestoring(id);
-    try {
+  const handleRestore = useCallback((id: number) =>
+    rowConfirm.run(id, async () => {
       await restoreService(id);
       refetch();
-    } finally {
-      setRestoring(null);
-    }
-  }, [refetch]);
+    }), [rowConfirm.run, refetch]);
 
-  const handleConfirmTrash = useCallback(async (id: number) => {
-    setTrashing(true);
-    try {
+  const handleConfirmTrash = useCallback((id: number) =>
+    rowConfirm.run(id, async () => {
       await trashService(id);
-      setPendingTrashId(null);
       refetch();
-    } finally {
-      setTrashing(false);
-    }
-  }, [refetch]);
+    }), [rowConfirm.run, refetch]);
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading archived services…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading archived services…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={refetch}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetch} />;
 
   const stations = data?.stations ?? [];
 
@@ -94,22 +69,22 @@ export function ServiceArchivedWorkstation({ refreshKey }: Props) {
                       <span class="cz-module-status-pill cz-module-status-pill--archived">Archived</span>
                     </td>
                     <td class="cz-sc-table__actions">
-                      {pendingTrashId === station.id ? (
+                      {rowConfirm.pendingId === station.id ? (
                         <>
                           <span class="cz-sc-table__confirm-label">Move to Trash?</span>
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
-                            disabled={trashing}
+                            disabled={rowConfirm.busyId === station.id}
                             onClick={() => handleConfirmTrash(station.id)}
                           >
-                            {trashing ? 'Moving…' : 'Confirm'}
+                            {rowConfirm.busyId === station.id ? 'Moving…' : 'Confirm'}
                           </button>
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                            disabled={trashing}
-                            onClick={() => setPendingTrashId(null)}
+                            disabled={rowConfirm.busyId === station.id}
+                            onClick={() => rowConfirm.cancel()}
                           >
                             Cancel
                           </button>
@@ -119,16 +94,16 @@ export function ServiceArchivedWorkstation({ refreshKey }: Props) {
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                            disabled={restoring === station.id}
+                            disabled={rowConfirm.busyId === station.id}
                             onClick={() => handleRestore(station.id)}
                           >
-                            {restoring === station.id ? 'Restoring…' : 'Restore'}
+                            {rowConfirm.busyId === station.id ? 'Restoring…' : 'Restore'}
                           </button>
                           <button
                             type="button"
                             class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                            disabled={restoring === station.id}
-                            onClick={() => setPendingTrashId(station.id)}
+                            disabled={rowConfirm.busyId === station.id}
+                            onClick={() => rowConfirm.request(station.id)}
                           >
                             Move to Trash
                           </button>

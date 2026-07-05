@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'preact/hooks';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { restoreService, trashService, permanentDeleteService } from '@/api/endpoints/admin';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { Workstation } from '../shell/Workstation';
 import type { StationSummary } from '@/api/types/admin';
 
@@ -28,8 +29,7 @@ export function BinWorkstation({ refreshKey }: Props) {
 
   const [filter,    setFilter]    = useState<BinFilter>('all');
   const [selected,  setSelected]  = useState<Set<number>>(new Set());
-  const [pendingId, setPendingId] = useState<number | null>(null); // per-row destructive confirm
-  const [busyId,    setBusyId]    = useState<number | null>(null);
+  const rowConfirm = useInlineConfirm<number>(); // per-row destructive confirm + busy
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkBusy,    setBulkBusy]    = useState(false);
 
@@ -73,15 +73,11 @@ export function BinWorkstation({ refreshKey }: Props) {
     });
   }, []);
 
-  const handleRestore = useCallback(async (id: number) => {
-    setBusyId(id);
-    try {
+  const handleRestore = useCallback((id: number) =>
+    rowConfirm.run(id, async () => {
       await restoreService(id);
       refetchAll();
-    } finally {
-      setBusyId(null);
-    }
-  }, [refetchAll]);
+    }), [rowConfirm.run, refetchAll]);
 
   // Destructive action is context-aware: archived → move to trash, trashed → delete.
   const destroyOne = useCallback(async (station: StationSummary) => {
@@ -89,16 +85,11 @@ export function BinWorkstation({ refreshKey }: Props) {
     else await permanentDeleteService(station.id);
   }, []);
 
-  const handleConfirmDestroy = useCallback(async (station: StationSummary) => {
-    setBusyId(station.id);
-    try {
+  const handleConfirmDestroy = useCallback((station: StationSummary) =>
+    rowConfirm.run(station.id, async () => {
       await destroyOne(station);
-      setPendingId(null);
       refetchAll();
-    } finally {
-      setBusyId(null);
-    }
-  }, [destroyOne, refetchAll]);
+    }), [rowConfirm.run, destroyOne, refetchAll]);
 
   const handleBulkDelete = useCallback(async () => {
     setBulkBusy(true);
@@ -114,24 +105,9 @@ export function BinWorkstation({ refreshKey }: Props) {
     }
   }, [rows, selected, destroyOne, refetchAll]);
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading bin…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading bin…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={refetchAll}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetchAll} />;
 
   const archivedCount = archived.data?.stations?.length ?? 0;
   const trashedCount  = trashed.data?.stations?.length ?? 0;
@@ -236,7 +212,7 @@ export function BinWorkstation({ refreshKey }: Props) {
                     <tbody>
                       {rows.map((station) => {
                         const isArchived = station.platform_status === 'archived';
-                        const busy = busyId === station.id;
+                        const busy = rowConfirm.busyId === station.id;
                         return (
                           <tr key={station.id}>
                             <td class="cz-sc-table__select">
@@ -254,7 +230,7 @@ export function BinWorkstation({ refreshKey }: Props) {
                               </span>
                             </td>
                             <td class="cz-sc-table__actions">
-                              {pendingId === station.id ? (
+                              {rowConfirm.pendingId === station.id ? (
                                 <>
                                   <span class="cz-sc-table__confirm-label">
                                     {isArchived ? 'Move to Trash?' : 'Delete permanently?'}
@@ -271,7 +247,7 @@ export function BinWorkstation({ refreshKey }: Props) {
                                     type="button"
                                     class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                                     disabled={busy}
-                                    onClick={() => setPendingId(null)}
+                                    onClick={() => rowConfirm.cancel()}
                                   >
                                     Cancel
                                   </button>
@@ -290,7 +266,7 @@ export function BinWorkstation({ refreshKey }: Props) {
                                     type="button"
                                     class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--icon-only cz-admin-btn--sm"
                                     disabled={busy}
-                                    onClick={() => setPendingId(station.id)}
+                                    onClick={() => rowConfirm.request(station.id)}
                                     aria-label={isArchived ? 'Move to Trash' : 'Permanently delete'}
                                     title={isArchived ? 'Move to Trash' : 'Permanently delete'}
                                   >

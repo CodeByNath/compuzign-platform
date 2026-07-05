@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { fetchAdminRequests, fetchAdminRequest, acceptIntakeRequest } from '@/api/endpoints/admin';
 import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { RequestEntry, RequestSummary } from '@/api/types/admin';
 
@@ -232,24 +233,9 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
     });
   };
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading requests…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading requests…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" style="margin-top:12px" onClick={refetch}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetch} />;
 
   const requests = data?.requests ?? [];
 

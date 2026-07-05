@@ -1,7 +1,11 @@
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
-import { ModuleStatusPill } from '../ui/ModuleStatusPill';
-import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
+import { ReadBlock } from '../ReadBlock';
+import type { FooterAction } from '../ActionFooter';
+import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { Skeleton } from '../ui/Skeleton';
+
+// Shell + footer come from ReadBlock/ActionFooter (S1b); this file owns only
+// the Common Questions content (FAQ list, empty copy, loading shimmer).
 
 interface ServiceFaqsViewCardProps {
   status:        string;
@@ -26,88 +30,59 @@ export function ServiceFaqsViewCard({
   onEdit,
   onDiscard,
 }: ServiceFaqsViewCardProps) {
-  const statusDimmed = status === 'pending-dim';
   // The FAQ pool is sourced from the authoritative detail; shimmer the body until
   // it resolves instead of flashing the (possibly stale/empty) handoff list.
   const loading = status === 'loading';
 
+  const actions: FooterAction[] = [
+    ...(hasDraft ? [{ id: 'discard-draft', label: 'Discard Draft', onSelect: onDiscard }] : []),
+    { id: 'edit', label: 'Edit', onSelect: onEdit },
+  ];
+
   return (
-    <div class="drawerModule">
-      <div class="drawerModule__header">
-        <span class="drawerModule__icon drawerModule__icon--faqs">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            class="drawerModule__icon-svg"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-          </svg>
-        </span>
-        <div class="drawerModule__heading">
-          <p class="drawerModule__title">
-            Common Questions
-            {!loading && faqs.length > 0 && (
-              <span class="drawerModule__count">{faqs.length}</span>
-            )}
-          </p>
-          <p class="drawerModule__subtitle">Add questions and answers for this service.</p>
+    <ReadBlock
+      title="Common Questions"
+      subtitle="Add questions and answers for this service."
+      icon={MODULE_ICONS.faqs}
+      iconVariant="drawerModule__icon--faqs"
+      count={loading ? undefined : faqs.length}
+      status={status}
+      notes={notes}
+      panelOpen={panelOpen}
+      onTogglePanel={onTogglePanel}
+      actions={actions}
+    >
+      {loading ? (
+        <div class="cz-sc-faq-list">
+          <div class="cz-sc-faq-item">
+            <p class="cz-sc-faq-item__q"><Skeleton width="60%" /></p>
+            <p class="cz-sc-faq-item__a"><Skeleton width="90%" /></p>
+          </div>
         </div>
-        <div class={`drawerModule__status${statusDimmed ? ' drawerModule__status--dim' : ''}`}>
-          <ModuleStatusPill status={status} notes={notes} onOpen={onTogglePanel} />
-        </div>
-      </div>
-
-      {panelOpen && notes.length > 0 && (
-        <ModuleNotificationPanel notes={notes} />
-      )}
-
-      <div class="drawerModule__body">
-        {loading ? (
-          <div class="cz-sc-faq-list">
-            <div class="cz-sc-faq-item">
-              <p class="cz-sc-faq-item__q"><Skeleton width="60%" /></p>
-              <p class="cz-sc-faq-item__a"><Skeleton width="90%" /></p>
+      ) : faqs.length > 0 ? (
+        <div class="cz-sc-faq-list">
+          {faqs.map((faq) => (
+            <div key={faq.id} class="cz-sc-faq-item">
+              <p class="cz-sc-faq-item__q">
+                {faq.question.trim() || 'No Question Added'}
+              </p>
+              <p class="cz-sc-faq-item__a">
+                {faq.answer?.trim() || 'No Answer Added'}
+              </p>
             </div>
-          </div>
-        ) : faqs.length > 0 ? (
-          <div class="cz-sc-faq-list">
-            {faqs.map((faq) => (
-              <div key={faq.id} class="cz-sc-faq-item">
-                <p class="cz-sc-faq-item__q">
-                  {faq.question.trim() || 'No Question Added'}
-                </p>
-                <p class="cz-sc-faq-item__a">
-                  {faq.answer?.trim() || 'No Answer Added'}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div class="drawerModule__empty">
-            <p class="drawerModule__empty-title">No questions added</p>
-            <p class="drawerModule__empty-copy">
-              {serviceTitle
-                ? `Add common questions for the ${serviceTitle}.`
-                : 'Add common questions for this service.'
-              }
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div class="drawerModule__footer">
-        {hasDraft && (
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDiscard}>
-            Discard Draft
-          </button>
-        )}
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onEdit}>
-          Edit
-        </button>
-      </div>
-    </div>
+          ))}
+        </div>
+      ) : (
+        <div class="drawerModule__empty">
+          <p class="drawerModule__empty-title">No questions added</p>
+          <p class="drawerModule__empty-copy">
+            {serviceTitle
+              ? `Add common questions for the ${serviceTitle}.`
+              : 'Add common questions for this service.'
+            }
+          </p>
+        </div>
+      )}
+    </ReadBlock>
   );
 }

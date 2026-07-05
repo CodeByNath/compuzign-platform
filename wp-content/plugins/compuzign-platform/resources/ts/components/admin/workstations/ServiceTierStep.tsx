@@ -1,48 +1,30 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { InclusionItem, TierOverviewDraft } from '@/api/types/admin';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { statusDotClass } from '@/components/admin/utils/moduleStatus';
+import { TRAVEL_PILL } from '@/components/admin/schema/presentation';
+import { MODULE_ICONS } from '@/components/admin/schema/icons';
+import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { ReadBlock } from '../ReadBlock';
-import { ModuleStatusPill } from '../ui/ModuleStatusPill';
-import { ModuleNotificationPanel } from '../ui/ModuleNotificationPanel';
+import { DrawerTabs } from '../DrawerTabs';
 import { getTierNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
 
-// Tier module icons — the same glyphs the Service Overview / Features / FAQs cards use,
-// reused by the individual-tier ReadBlock cards (restored refined tier presentation).
-const TIER_OVERVIEW_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
-    <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
-    <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
-  </svg>
-);
-const TIER_FEATURES_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
-    <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-  </svg>
-);
-const TIER_FAQS_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
-    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-  </svg>
-);
+// Tier module icons come from the shared registry (schema/icons.tsx, S1b) —
+// the same glyphs the Service Overview / Features / FAQs cards use.
 
 // Travel-state pill for occupant-bin cards — bin surfaces name Archived/Trashed
-// as data labels, matching ServicePromotionStep's STATUS_PILL bin rows.
-const BIN_PILL: Record<string, { cls: string; label: string }> = {
-  archived: { cls: 'inactive', label: 'Archived' },
-  trashed:  { cls: 'inactive', label: 'Trashed' },
-};
-
+// as data labels (schema/presentation.ts TRAVEL_PILL, travel surfaces only),
+// matching ServicePromotionStep's bin rows.
 function binPill(status: string) {
-  const pill = BIN_PILL[status] ?? BIN_PILL.archived;
+  const pill = TRAVEL_PILL[status as keyof typeof TRAVEL_PILL] ?? TRAVEL_PILL.archived;
   return (
-    <span class={`cz-module-status-pill cz-module-status-pill--${pill.cls}`}>
+    <span class={`cz-module-status-pill ${pill.cls}`}>
       <span class="cz-module-status-pill__marker">●</span>
       {pill.label}
     </span>
@@ -114,7 +96,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [creating,           setCreating]           = useState(false);
   // Individual Tier drawer: Commercial (the tier's own modules) | Service (read-only
   // parent context). Commercial is the working context, so it is the default.
-  const [tierTab, setTierTab] = useState<'commercial' | 'service'>('commercial');
+  const [tierTab, setTierTab] = useState<'details' | 'connections'>('details');
   // Single-open accordion for the Commercial cards' notification panels.
   const [openTierPanel, setOpenTierPanel] = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
   // Single-open accordion for the tier-overview summary cards' notification panels (keyed by tierId).
@@ -137,8 +119,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     mode?:       'swap' | 'retarget';
     targetTier?: string;
   } | null>(null);
-  // Bin card inline delete confirm (promotion pendingDeleteId pattern).
-  const [pendingBinDelete, setPendingBinDelete] = useState<string | null>(null);
+  // Bin-card delete confirm (pending only — busy comes from pkg.saving).
+  const binDeleteConfirm = useInlineConfirm<string>();
 
   useEffect(() => {
     if (!saveOk) return;
@@ -163,7 +145,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
-    setTierTab('commercial');
+    setTierTab('details');
     setOpenTierPanel(null);
     setSplitOpen(false);
     setConfirmModal(null);
@@ -380,7 +362,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   };
 
   const handleDeleteBin = async (binId: string) => {
-    setPendingBinDelete(null);
+    binDeleteConfirm.cancel();
     setSaveErr(null);
     const res = await pkg.deleteBinEntry(binId);
     if (res && !res.success) setSaveErr(res.message ?? 'Delete failed.');
@@ -488,7 +470,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [pkg.detailLoaded, pkg.station, pkg.service, pkg.tierView, pkg.saving, editingSection, editingTierId, splitOpen, ctx.setFooter]);
 
-  if (!pkg.detailLoaded) return <div class="cz-admin-loading"><Spinner label="Loading tiers…" /></div>;
+  if (!pkg.detailLoaded) return <AsyncLoading label="Loading tiers…" />;
 
   // Defensive guard against incomplete migration data. The endpoint returns HTTP 200 with
   // { success:false } and no station payload when cz_service_package_station has not been
@@ -497,29 +479,20 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   if (!station || !svc) {
     return (
       <div class="cz-req-detail">
-        <div class="drawerModule">
-          <div class="drawerModule__header">
-            <div class="drawerModule__heading">
-              <p class="drawerModule__title">Tier configuration unavailable</p>
-              <p class="drawerModule__subtitle">This service has no Package Station yet.</p>
-            </div>
+        <ReadBlock
+          title="Tier configuration unavailable"
+          subtitle="This service has no Package Station yet."
+          actions={[{ id: 'refresh', label: 'Refresh', onSelect: () => pkg.refetch() }]}
+        >
+          <div class="drawerModule__empty">
+            <p class="drawerModule__empty-title">Package Station not found</p>
+            <p class="drawerModule__empty-copy">
+              This service’s pricing station has not been initialised, which can happen if
+              migration has not completed for it. Refresh to try again; if the problem
+              persists, contact an administrator.
+            </p>
           </div>
-          <div class="drawerModule__body">
-            <div class="drawerModule__empty">
-              <p class="drawerModule__empty-title">Package Station not found</p>
-              <p class="drawerModule__empty-copy">
-                This service’s pricing station has not been initialised, which can happen if
-                migration has not completed for it. Refresh to try again; if the problem
-                persists, contact an administrator.
-              </p>
-            </div>
-          </div>
-          <div class="drawerModule__footer">
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => pkg.refetch()}>
-              Refresh
-            </button>
-          </div>
-        </div>
+        </ReadBlock>
       </div>
     );
   }
@@ -531,24 +504,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     const pkgStatus = station.platform_status ?? 'disabled';
     return (
       <div class="cz-req-detail">
-        {/* Drawer Tab Contract — fixed order Details | Connections. Details = this
-            package's tier modules; Connections = the parent service. */}
-        <div class="cz-sv-tabs">
-          <button
-            type="button"
-            class={`cz-sv-tab${overviewTab === 'details' ? ' cz-sv-tab--active' : ''}`}
-            onClick={() => setOverviewTab('details')}
-          >
-            Details
-          </button>
-          <button
-            type="button"
-            class={`cz-sv-tab${overviewTab === 'connections' ? ' cz-sv-tab--active' : ''}`}
-            onClick={() => setOverviewTab('connections')}
-          >
-            Connections
-          </button>
-        </div>
+        {/* Drawer Tab Contract — Details = this package's tier modules;
+            Connections = the parent service. */}
+        <DrawerTabs active={overviewTab} onSelect={setOverviewTab} />
 
         {overviewTab === 'details' && (
         <>
@@ -558,7 +516,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             <button
               type="button"
               class={`cz-admin-btn cz-admin-btn--sm ${listView === 'current' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
-              onClick={() => { setListView('current'); setBinPrompt(null); setPendingBinDelete(null); }}
+              onClick={() => { setListView('current'); setBinPrompt(null); binDeleteConfirm.cancel(); }}
             >
               Current ({TIER_KEYS.length})
             </button>
@@ -682,13 +640,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                           </button>
                         </>
                       )
-                    ) : pendingBinDelete === entry.bin_id ? (
+                    ) : binDeleteConfirm.pendingId === entry.bin_id ? (
                       <>
                         <span class="cz-sc-table__confirm-label">Delete permanently?</span>
                         <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={pkg.saving} onClick={() => handleDeleteBin(entry.bin_id)}>
                           {pkg.saving ? '…' : 'Confirm'}
                         </button>
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => setPendingBinDelete(null)}>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => binDeleteConfirm.cancel()}>
                           Cancel
                         </button>
                       </>
@@ -703,7 +661,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                           </button>
                         )}
                         {entry.status === 'trashed' && (
-                          <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={pkg.saving} onClick={() => setPendingBinDelete(entry.bin_id)}>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={pkg.saving} onClick={() => binDeleteConfirm.request(entry.bin_id)}>
                             Delete Permanently
                           </button>
                         )}
@@ -734,65 +692,37 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           const faqLabel   = `${faqCount} ${faqCount === 1 ? 'common question' : 'common questions'}`;
           const tierNotes  = detail ? getTierNotes(detail, { platformStatus: pkgStatus }) : [];
           return (
-            <div key={tierId} class="drawerModule drawerOverview tier">
-              <div class="drawerModule__header">
-                <span class="drawerModule__icon">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    class="drawerModule__icon-svg"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
-                  </svg>
-                </span>
-                <div class="drawerModule__heading">
-                  <p class="drawerModule__title">Package {detail?.label?.trim() || TIER_LABELS[tierId]}</p>
-                  <p class="drawerModule__subtitle">Pricing and inclusions for this tier.</p>
+            <ReadBlock
+              key={tierId}
+              title={`Package ${detail?.label?.trim() || TIER_LABELS[tierId]}`}
+              subtitle="Pricing and inclusions for this tier."
+              icon={MODULE_ICONS.package}
+              scopeClass="drawerOverview tier"
+              status={status}
+              notes={tierNotes}
+              panelOpen={openSummaryTier === tierId}
+              onTogglePanel={() => setOpenSummaryTier(p => p === tierId ? null : tierId)}
+              actions={[{ id: 'view', label: 'View', onSelect: () => openTierEdit(tierId) }]}
+            >
+              <div class="drawerModule__fields">
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Pricing</p>
+                  {showData ? (
+                    <p class="drawerModule__value">
+                      <span>{priceText}</span>
+                      {' · '}
+                      <span>{cycleText}</span>
+                    </p>
+                  ) : (
+                    <p class="drawerModule__value">View Tier Overview and manage pricing.</p>
+                  )}
                 </div>
-                <div class={`drawerModule__status${status === 'pending-dim' ? ' drawerModule__status--dim' : ''}`}>
-                  <ModuleStatusPill
-                    status={status}
-                    notes={tierNotes}
-                    onOpen={() => setOpenSummaryTier(p => p === tierId ? null : tierId)}
-                  />
-                </div>
-              </div>
-              {openSummaryTier === tierId && tierNotes.length > 0 && (
-                <ModuleNotificationPanel notes={tierNotes} />
-              )}
-              <div class="drawerModule__body">
-                <div class="drawerModule__fields">
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Pricing</p>
-                    {showData ? (
-                      <p class="drawerModule__value">
-                        <span>{priceText}</span>
-                        {' · '}
-                        <span>{cycleText}</span>
-                      </p>
-                    ) : (
-                      <p class="drawerModule__value">View Tier Overview and manage pricing.</p>
-                    )}
-                  </div>
-                  <div class="drawerModule__field">
-                    <p class="drawerModule__label">Includes</p>
-                    <p class="drawerModule__value">{featLabel} | {faqLabel}</p>
-                  </div>
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Includes</p>
+                  <p class="drawerModule__value">{featLabel} | {faqLabel}</p>
                 </div>
               </div>
-              <div class="drawerModule__footer">
-                <button
-                  type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                  onClick={() => openTierEdit(tierId)}
-                >
-                  View
-                </button>
-              </div>
-            </div>
+            </ReadBlock>
           );
         })}
 
@@ -1073,33 +1003,19 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
   return (
     <div class="cz-req-detail">
-      {/* Drawer Tab Contract — fixed order Details | Connections. Back-to-overview is
-          handled by the single drawer header Back (context-aware), not a second control. */}
-      <div class="cz-sv-tabs">
-        <button
-          type="button"
-          class={`cz-sv-tab${tierTab === 'commercial' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTierTab('commercial')}
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          class={`cz-sv-tab${tierTab === 'service' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setTierTab('service')}
-        >
-          Connections
-        </button>
-      </div>
+      {/* Drawer Tab Contract — Details = the tier's own modules; Connections = the
+          parent service. Back-to-overview is handled by the single drawer header
+          Back (context-aware), not a second control. */}
+      <DrawerTabs active={tierTab} onSelect={setTierTab} />
 
       {/* ── Commercial tab: the tier's own modules ───────────────────────────── */}
-      {tierTab === 'commercial' && (
+      {tierTab === 'details' && (
         <>
           {/* Tier Overview */}
           <ReadBlock
             title="Tier Overview"
             subtitle="Pricing and presentation for this tier."
-            icon={TIER_OVERVIEW_ICON}
+            icon={MODULE_ICONS.overview}
             iconVariant="drawerModule__icon--overview"
             scopeClass="drawerOverview tier"
             status={overviewState.status}
@@ -1141,7 +1057,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           <ReadBlock
             title="Included Features"
             subtitle="Features included in this tier."
-            icon={TIER_FEATURES_ICON}
+            icon={MODULE_ICONS.features}
             iconVariant="drawerModule__icon--features"
             count={detail.inclusions_override.length}
             status={featuresState.status}
@@ -1175,7 +1091,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           <ReadBlock
             title="Common Questions"
             subtitle="Questions and answers for this tier."
-            icon={TIER_FAQS_ICON}
+            icon={MODULE_ICONS.faqs}
             iconVariant="drawerModule__icon--faqs"
             count={detail.faq_refs.length}
             status={faqsState.status}
@@ -1222,7 +1138,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
       {/* ── Connections tab: parent service (same service-overview connection card
              as the package overview's Connections tab). ─────────────────────────── */}
-      {tierTab === 'service' && (
+      {tierTab === 'connections' && (
         <ServiceOverviewViewCard
           mode="connection"
           status={serviceConnStatus}

@@ -3,6 +3,14 @@
 
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
 import type { OverviewDraftData, SurfacePackageSummary } from '@/api/types/admin';
+import {
+  PILL_META,
+  STATUS_DOT_COLOR,
+  STATUS_DOT_FAINT_COLOR,
+  STATUS_DOT_CLASS,
+  STATUS_DOT_FAINT_CLASS,
+  LEGACY_UNKNOWN_PILL,
+} from '@/components/admin/schema/presentation';
 
 // Structural minimum for tier status resolution.
 // Satisfied by both SurfaceTierSummary (transit) and SurfaceTierDetail (catalog/management).
@@ -155,34 +163,30 @@ export function resolveStationCommercialSummary(
 }
 
 // ── Status pill renderer ──────────────────────────────────────────────────────
+// Pill/dot metadata is owned by schema/presentation.ts (the Presentation Status
+// Contract chokepoint — S1a). This file keeps the resolver + renderer layer and
+// re-exports the combined map for existing consumers.
 
-export const STATUS_PILL_MAP: Record<string, { dot: string; cls: string; label: string }> = {
-  'active':       { dot: 'var(--admin-success)',    cls: 'cz-module-status-pill--active',   label: 'Active'   },
-  'disabled':     { dot: 'var(--admin-error)',      cls: 'cz-module-status-pill--inactive', label: 'Disabled' },
-  'pending-dim':  { dot: 'var(--admin-warning)',    cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
-  'pending-full': { dot: 'var(--admin-warning)',    cls: 'cz-module-status-pill--pending',  label: 'Pending'  },
-};
+export const STATUS_PILL_MAP: Record<string, { dot: string; cls: string; label: string }> =
+  Object.fromEntries(
+    Object.entries(PILL_META).map(([status, meta]) => [
+      status,
+      { dot: STATUS_DOT_COLOR[status] ?? STATUS_DOT_FAINT_COLOR, ...meta },
+    ]),
+  );
 
 export function statusDotColor(status: string): string {
-  return STATUS_PILL_MAP[status]?.dot ?? 'var(--admin-text-faint)';
+  return STATUS_DOT_COLOR[status] ?? STATUS_DOT_FAINT_COLOR;
 }
 
 // Token-based status-dot modifier class (mirrors statusDotColor) so tables can use
 // the reusable .cz-admin-status-dot--* classes instead of inline colour styles.
-const STATUS_DOT_CLASS_MAP: Record<string, string> = {
-  'active':       'cz-admin-status-dot--active',
-  'disabled':     'cz-admin-status-dot--inactive',
-  'pending-dim':  'cz-admin-status-dot--pending',
-  'pending-full': 'cz-admin-status-dot--pending',
-};
-
 export function statusDotClass(status: string): string {
-  return STATUS_DOT_CLASS_MAP[status] ?? 'cz-admin-status-dot--faint';
+  return STATUS_DOT_CLASS[status] ?? STATUS_DOT_FAINT_CLASS;
 }
 
 export function renderModuleStatus(status: string) {
-  const pill = STATUS_PILL_MAP[status]
-    ?? { dot: 'var(--admin-text-faint)', cls: 'cz-module-status-pill--draft', label: 'Pending' };
+  const pill = STATUS_PILL_MAP[status] ?? LEGACY_UNKNOWN_PILL;
   return (
     <>
       <span class="cz-admin-status-dot" style={`color:${pill.dot}`} />

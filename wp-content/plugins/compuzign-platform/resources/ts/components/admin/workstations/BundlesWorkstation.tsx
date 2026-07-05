@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import type { CostBuilderResponse } from '@/api/types/cost-builder';
 
 interface Props {
@@ -14,24 +14,9 @@ export function BundlesWorkstation({ refreshKey }: Props) {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading bundles…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading bundles…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" style="margin-top:12px" onClick={refetch}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetch} />;
 
   const resp = data as CostBuilderResponse | null;
   const allServices = resp?.services_by_category.flatMap((g) => g.services) ?? [];

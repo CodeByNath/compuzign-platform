@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type {
@@ -14,7 +14,12 @@ import { usePromotionStation } from '@/hooks/usePromotionStation';
 import type { PromotionView } from '@/hooks/usePromotionStation';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ReadBlock } from '../ReadBlock';
+import { DrawerTabs } from '../DrawerTabs';
 import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
+import { PRESENTATION_PILL, TRAVEL_PILL } from '@/components/admin/schema/presentation';
+import type { PillMeta } from '@/components/admin/schema/presentation';
+import { MODULE_ICONS } from '@/components/admin/schema/icons';
+import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { decodeHtml } from './serviceDrawerShared';
 
 // ── ServicePromotionStep ──────────────────────────────────────────────────────
@@ -38,24 +43,8 @@ const BASED_ON_TIERS = [
   { id: 'enterprise', label: 'Enterprise' },
 ];
 
-// Module icons — same glyphs ServiceTierStep.tsx uses for TIER_OVERVIEW_ICON /
-// TIER_FEATURES_ICON, duplicated locally per the existing per-file icon convention.
-const PROMO_OVERVIEW_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
-    <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
-    <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
-  </svg>
-);
-const PROMO_FEATURES_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
-    <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-  </svg>
-);
-const PROMO_FAQS_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
-    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-  </svg>
-);
+// Module icons come from the shared registry (schema/icons.tsx, S1b) — the same
+// glyphs the Service and Tier module cards use.
 
 // The Promotion Overview module's editor draft is exactly the C2 module draft
 // payload — travel status is engine-owned and deliberately not part of it.
@@ -115,19 +104,21 @@ function createPayload(overview: OverviewDraft): PromotionTierPayload {
 // Status pill (list rows). Current rows render presentation states only —
 // draft presents as Pending; raw travel states stay internal (Principles →
 // Operational States vs Presentation States). Bin rows name Archived/Trashed
-// as data labels, matching ServiceTierStep's BIN_PILL.
-const STATUS_PILL: Record<PromotionStatus, { cls: string; label: string }> = {
-  draft:    { cls: 'pending',  label: 'Pending' },
-  active:   { cls: 'active',   label: 'Active' },
-  disabled: { cls: 'inactive', label: 'Disabled' },
-  archived: { cls: 'inactive', label: 'Archived' },
-  trashed:  { cls: 'inactive', label: 'Trashed' },
+// as data labels (TRAVEL_PILL, travel surfaces only), matching
+// ServiceTierStep's bin cards. Metadata delegates to the Presentation Status
+// Contract chokepoint (schema/presentation.ts, S1a).
+const STATUS_PILL: Record<PromotionStatus, PillMeta> = {
+  draft:    PRESENTATION_PILL.pending,
+  active:   PRESENTATION_PILL.active,
+  disabled: PRESENTATION_PILL.disabled,
+  archived: TRAVEL_PILL.archived,
+  trashed:  TRAVEL_PILL.trashed,
 };
 
 function statusPill(status: PromotionStatus) {
   const pill = STATUS_PILL[status] ?? STATUS_PILL.draft;
   return (
-    <span class={`cz-module-status-pill cz-module-status-pill--${pill.cls}`}>
+    <span class={`cz-module-status-pill ${pill.cls}`}>
       <span class="cz-module-status-pill__marker">●</span>
       {pill.label}
     </span>
@@ -175,7 +166,8 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const [splitOpen,       setSplitOpen]       = useState(false);
   const [confirmModal,    setConfirmModal]    = useState<'publish' | 'delete' | null>(null);
   const [openPromoPanel,  setOpenPromoPanel]  = useState<'promo-overview' | 'promo-features' | 'promo-faqs' | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  // Bin-row delete confirm (pending only — busy comes from promo.saving).
+  const deleteConfirm = useInlineConfirm<string>();
   // Immediate canonical pool creation (mirrors ServiceTierStep's handleCreateInclusion/
   // handleCreateFaq) — a separate request from the module draft save. On success the new
   // item's id is appended into the currently open draft, exactly as if it had been
@@ -437,7 +429,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   };
   const handleDelete = async (id: string) => {
     setConfirmModal(null);
-    setPendingDeleteId(null);
+    deleteConfirm.cancel();
     const ok = await promo.deletePromotion(id);
     if (!ok) setSaveErr('Delete failed.');
     else if (editingPromoId === id) handleBackToList();
@@ -580,7 +572,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [promo.detailLoaded, promo.detail, promo.saving, editingSection, editingPromoId, splitOpen, ctx.setFooter]);
 
-  if (!promo.detailLoaded) return <div class="cz-admin-loading"><Spinner label="Loading promotions…" /></div>;
+  if (!promo.detailLoaded) return <AsyncLoading label="Loading promotions…" />;
   if (!promo.detail)       return <div class="cz-admin-error-msg">Promotion Station not found.</div>;
 
   const { promotions, service: svc } = promo.detail;
@@ -593,25 +585,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
     return (
       <div class="cz-req-detail">
-        {/* Drawer Tab Contract — fixed order Details | Connections, matching
-            ServiceTierStep's package-overview level. Details = promotion cards;
-            Connections = the parent service. */}
-        <div class="cz-sv-tabs">
-          <button
-            type="button"
-            class={`cz-sv-tab${listTab === 'details' ? ' cz-sv-tab--active' : ''}`}
-            onClick={() => setListTab('details')}
-          >
-            Details
-          </button>
-          <button
-            type="button"
-            class={`cz-sv-tab${listTab === 'connections' ? ' cz-sv-tab--active' : ''}`}
-            onClick={() => setListTab('connections')}
-          >
-            Connections
-          </button>
-        </div>
+        {/* Drawer Tab Contract — Details = promotion cards; Connections = the
+            parent service (matching ServiceTierStep's package-overview level). */}
+        <DrawerTabs active={listTab} onSelect={setListTab} />
 
         {listTab === 'details' && (
           <>
@@ -621,7 +597,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 <button
                   type="button"
                   class={`cz-admin-btn cz-admin-btn--sm ${listView === 'current' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
-                  onClick={() => { setListView('current'); setPendingDeleteId(null); }}
+                  onClick={() => { setListView('current'); deleteConfirm.cancel(); }}
                 >
                   Current ({currentList.length})
                 </button>
@@ -644,7 +620,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
             {shown.map((p) => (
               <div key={p.id} class="drawerModule drawerOverview promotion">
                 <div class="drawerModule__header">
-                  <span class="drawerModule__icon">{PROMO_OVERVIEW_ICON}</span>
+                  <span class="drawerModule__icon">{MODULE_ICONS.overview}</span>
                   <div class="drawerModule__heading">
                     <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
                     <p class="drawerModule__subtitle">
@@ -678,13 +654,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 <div class="drawerModule__footer">
                   {listView === 'current' ? (
                     <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openViewDetail(p)}>View</button>
-                  ) : pendingDeleteId === p.id ? (
+                  ) : deleteConfirm.pendingId === p.id ? (
                     <>
                       <span class="cz-sc-table__confirm-label">Delete permanently?</span>
                       <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleDelete(p.id)}>
                         {promo.saving ? '…' : 'Confirm'}
                       </button>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => setPendingDeleteId(null)}>
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => deleteConfirm.cancel()}>
                         Cancel
                       </button>
                     </>
@@ -699,7 +675,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                         </button>
                       )}
                       {p.status === 'trashed' && (
-                        <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={promo.saving} onClick={() => setPendingDeleteId(p.id)}>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={promo.saving} onClick={() => deleteConfirm.request(p.id)}>
                           Delete Permanently
                         </button>
                       )}
@@ -981,24 +957,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
   return (
     <div class="cz-req-detail">
-      {/* Drawer Tab Contract — fixed order Details | Connections. Details = this
-          promotion's own modules; Connections = the parent service. */}
-      <div class="cz-sv-tabs">
-        <button
-          type="button"
-          class={`cz-sv-tab${detailTab === 'details' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setDetailTab('details')}
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          class={`cz-sv-tab${detailTab === 'connections' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => setDetailTab('connections')}
-        >
-          Connections
-        </button>
-      </div>
+      {/* Drawer Tab Contract — Details = this promotion's own modules;
+          Connections = the parent service. */}
+      <DrawerTabs active={detailTab} onSelect={setDetailTab} />
 
       {detailTab === 'details' && (
         <>
@@ -1007,7 +968,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
           <ReadBlock
             title="Promotion Overview"
             subtitle="General information about this promotion."
-            icon={PROMO_OVERVIEW_ICON}
+            icon={MODULE_ICONS.overview}
             iconVariant="drawerModule__icon--overview"
             scopeClass="drawerOverview"
             status={view.modules.overview.status}
@@ -1071,7 +1032,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
           <ReadBlock
             title="Included Features"
             subtitle="Features included in this promotion."
-            icon={PROMO_FEATURES_ICON}
+            icon={MODULE_ICONS.features}
             iconVariant="drawerModule__icon--features"
             count={detail.inclusions.length}
             status={view.modules.features.status}
@@ -1103,7 +1064,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
           <ReadBlock
             title="Common Questions"
             subtitle="Questions and answers for this promotion."
-            icon={PROMO_FAQS_ICON}
+            icon={MODULE_ICONS.faqs}
             iconVariant="drawerModule__icon--faqs"
             count={detail.faq_refs.length}
             status={view.modules.faqs.status}

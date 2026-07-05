@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { useAdminOverview } from '@/hooks/useAdminOverview';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
-import { Spinner } from '@/components/ui/Spinner';
+import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 
 interface Props {
   refreshKey: number;
@@ -20,24 +20,9 @@ export function OverviewWorkstation({ refreshKey }: Props) {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
 
-  if (loading) {
-    return (
-      <div class="cz-admin-loading">
-        <Spinner label="Loading overview…" />
-      </div>
-    );
-  }
+  if (loading) return <AsyncLoading label="Loading overview…" />;
 
-  if (error) {
-    return (
-      <div>
-        <div class="cz-admin-error-msg">{error}</div>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" style="margin-top:12px" onClick={refetch}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return <AsyncError error={error} onRetry={refetch} />;
 
   if (!data) return null;
 

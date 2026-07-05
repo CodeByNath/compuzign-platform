@@ -2,10 +2,15 @@ import type { ComponentChildren } from 'preact';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { ModuleStatusPill } from './ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from './ui/ModuleNotificationPanel';
+import { ActionFooter } from './ActionFooter';
+import type { FooterAction } from './ActionFooter';
 
 interface Props {
   title: string;
   count?: number;
+  // Footer — either an ordered action descriptor list (S1b, preferred) or the
+  // legacy single-Edit shorthand. `actions` wins when both are supplied.
+  actions?: FooterAction[];
   onEdit?: () => void;
   editDisabled?: boolean;
   // Optional full-module header parts, matching the Service Overview card.
@@ -30,12 +35,15 @@ interface Props {
 }
 
 export function ReadBlock({
-  title, count, onEdit, editDisabled,
+  title, count, actions, onEdit, editDisabled,
   icon, iconVariant, subtitle, scopeClass,
   status, notes, panelOpen, onTogglePanel, children,
 }: Props) {
   const moduleNotes = notes ?? [];
   const showPanel   = !!status && panelOpen === true && moduleNotes.length > 0;
+  // Normalise the legacy onEdit shorthand into a descriptor list — one footer path.
+  const footerActions: FooterAction[] = actions
+    ?? (onEdit ? [{ id: 'edit', label: 'Edit', onSelect: onEdit, disabled: editDisabled }] : []);
 
   // Renders the canonical self-contained `.drawerModule` card directly — the same
   // bare frame the Service drawer view cards use (no `.cz-shell-section` wrapper),
@@ -71,18 +79,7 @@ export function ReadBlock({
         <div class="drawerModule__body">
           {children}
         </div>
-        {onEdit && (
-          <div class="drawerModule__footer">
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-              onClick={onEdit}
-              disabled={editDisabled}
-            >
-              Edit
-            </button>
-          </div>
-        )}
+        <ActionFooter actions={footerActions} />
     </div>
   );
 }
