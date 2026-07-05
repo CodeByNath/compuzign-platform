@@ -112,17 +112,20 @@ function createPayload(overview: OverviewDraft): PromotionTierPayload {
   };
 }
 
-// Travel-state pill (list rows) — lifecycle status only, per the module rules.
-const TRAVEL_PILL: Record<PromotionStatus, { cls: string; label: string }> = {
-  draft:    { cls: 'pending',  label: 'Draft' },
+// Status pill (list rows). Current rows render presentation states only —
+// draft presents as Pending; raw travel states stay internal (Principles →
+// Operational States vs Presentation States). Bin rows name Archived/Trashed
+// as data labels, matching ServiceTierStep's BIN_PILL.
+const STATUS_PILL: Record<PromotionStatus, { cls: string; label: string }> = {
+  draft:    { cls: 'pending',  label: 'Pending' },
   active:   { cls: 'active',   label: 'Active' },
   disabled: { cls: 'inactive', label: 'Disabled' },
   archived: { cls: 'inactive', label: 'Archived' },
   trashed:  { cls: 'inactive', label: 'Trashed' },
 };
 
-function travelPill(status: PromotionStatus) {
-  const pill = TRAVEL_PILL[status] ?? TRAVEL_PILL.draft;
+function statusPill(status: PromotionStatus) {
+  const pill = STATUS_PILL[status] ?? STATUS_PILL.draft;
   return (
     <span class={`cz-module-status-pill cz-module-status-pill--${pill.cls}`}>
       <span class="cz-module-status-pill__marker">●</span>
@@ -649,7 +652,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                     </p>
                   </div>
                   <div class="drawerModule__status">
-                    {travelPill(p.status)}
+                    {statusPill(p.status)}
                   </div>
                 </div>
                 <div class="drawerModule__body">

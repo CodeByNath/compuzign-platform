@@ -9,7 +9,7 @@ Canonical specification for the **completed Service drawer modules**:
 This document reflects the final, implemented architecture and is the **canonical behavioural / implementation reference** for the drawer module system (structure, component hierarchy, shared components, notifications, state management, lifecycle, workflows, footer actions, category flows). It is the entry point for understanding how a drawer module is built, and the template for migrating the Commercial modules next.
 
 Companion documents — each owns exactly one concern; this document cross-references them rather than restating:
-- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — **canonical owner** of the drawer state machine, the Same-Module=Same-Shell / Temporary Disabled rules, and the 5-state module status model.
+- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — **canonical owner** of the drawer state machine, the Same-Module=Same-Shell / Temporary Disabled rules, the 5-state module status model, and the Presentation Status Contract (pill vocabulary: Active / Pending / Disabled only).
 - [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md) — **canonical owner** of the CSS presentation layer and class reference.
 - [StationLifecycleEngine-v1.md](StationLifecycleEngine-v1.md) — **canonical owner** of the shared lifecycle engine: the transition table, the three station participation models (Service / Promotion instance / Tier occupant), the occupant bin, and pool-reference rules.
 
@@ -103,7 +103,7 @@ Reusable drawer components and their contracts. These are module-agnostic — Co
 |---|---|---|
 | `ActionShell` | Drawer shell: header, tabs, body and footer slots, multi-step management | Opened via `openAction({ mode:'drawer', title, steps })`. Exposes through step `ctx`: `stepData`, `setStepData`, `setFooter`, `setCloseGuard`, `close`. |
 | `InlineEditorShell` | Edit-state carrier; wraps a module editor and provides the Save / Cancel actions | Props: `title`, `onSave`, `onCancel`, `saving`, `saveErr`, `isDirty`; children = the module editor. |
-| `ModuleStatusPill` | Renders the status pill from a status + the module's notes; clickable when notes and `onOpen` are present. No module-specific logic. | Props: `status`, `notes: ModuleNote[]`, `onOpen?`. Any notes (error or info) → button that opens the panel; no notes → static span. The pill shows the lifecycle label only — never a count. |
+| `ModuleStatusPill` | Renders the status pill from a status + the module's notes; clickable when notes and `onOpen` are present. No module-specific logic. | Props: `status`, `notes: ModuleNote[]`, `onOpen?`. Any notes (error or info) → button that opens the panel; no notes → static span. The pill shows the presentation-state label only — never a count. |
 | `ModuleNotificationPanel` | Renders the module's note list (plain, no severity icons) | Props: `notes: ModuleNote[]`. Renders nothing when empty. |
 | `ServiceOverviewViewCard` / `ServiceInclusionsViewCard` / `ServiceFaqsViewCard` | Read-only module presentation: header + pill + panel + body + footer actions | Props: `status`, `notes`, `panelOpen`, `onTogglePanel`, module data, `hasDraft`, `onEdit`, `onDiscard`. Panel gate: `panelOpen && notes.length > 0`. |
 | `ServiceOverviewEditor` / `ServiceInclusionsEditor` / `ServiceFaqsEditor` | Edit-mode form for the module's working draft | Controlled via `draft` + `onChange`. Overview additionally: `categories`, `catDescription`, `onCatDescriptionChange`, `onCategoryCreated`. |
@@ -118,11 +118,11 @@ Reusable drawer components and their contracts. These are module-agnostic — Co
 
 Two presentation components, both module-agnostic (see *Shared Components* for contracts):
 
-**`ModuleStatusPill`** interprets the note array only — it contains no module-specific logic. The pill communicates **lifecycle only** (its label is `Active` / `Pending` / `Disabled`); it never carries a count or a context-specific variant (see the *Module Status Model* in the Principles doc — the canonical owner of "the pill shows lifecycle status only"):
+**`ModuleStatusPill`** interprets the note array only — it contains no module-specific logic. The pill communicates **presentation state only** (its label is `Active` / `Pending` / `Disabled`); it never carries a count, a context-specific variant, or a raw operational state (see the *Presentation Status Contract* in the Principles doc — the canonical owner of the pill vocabulary):
 
 | Condition | Render |
 |---|---|
-| `notes.length > 0` (error or info) **and** `onOpen` | `<button>` that opens the notification panel — lifecycle label only, no marker/count |
+| `notes.length > 0` (error or info) **and** `onOpen` | `<button>` that opens the notification panel — presentation-state label only, no marker/count |
 | no notes | static `<span>` |
 
 The label/class come from `PILL_META[status]` (`active` / `disabled` / `pending-dim` / `pending-full`), falling back to a `Pending` pill.
@@ -147,7 +147,7 @@ The panel is gated on `panelOpen && notes.length > 0` — any note, error or inf
 - **`error`** — a blocking completeness gap (missing title, missing label, missing answer).
 - **`info`** — guidance or lifecycle waiting states.
 
-Both types render identically in the panel and both make the pill a clickable button. The type no longer drives any pill badge — the pill is lifecycle-only. `noteCount` (error-only) is retained as a utility but is not surfaced in the pill; a module that wants to distinguish blocking gaps from guidance does so through the note *content* in the panel, not through the pill.
+Both types render identically in the panel and both make the pill a clickable button. The type no longer drives any pill badge — the pill carries the presentation-state label only. `noteCount` (error-only) is retained as a utility but is not surfaced in the pill; a module that wants to distinguish blocking gaps from guidance does so through the note *content* in the panel, not through the pill.
 
 ### Current notification content
 
@@ -169,7 +169,7 @@ Both types render identically in the panel and both make the pill a clickable bu
 
 ## 5. Module Status & Pending/Complete Lifecycle
 
-The 5-state lifecycle (`not-configured`, `pending-dim`, `pending-full`, `active`, `disabled`), its resolver utilities, the lifecycle-vs-relationship rule, and `pending-dim` detection are defined canonically in the Principles doc → *Module Status Model*. This document does not restate the model; it records only how the modules consume it.
+The 5-state lifecycle (`not-configured`, `pending-dim`, `pending-full`, `active`, `disabled`), its resolver utilities, the lifecycle-vs-relationship rule, and `pending-dim` detection are defined canonically in the Principles doc → *Module Status Model*. The pill vocabulary itself is governed by the Principles doc's *Presentation Status Contract*: the engine's operational states (`draft` … `trashed`) are never rendered as pills; pills communicate presentation state only (Active / Pending / Disabled). This document does not restate either; it records only how the modules consume them.
 
 - Backend `module_status` per module is `not-configured` | `pending` | `settled`; the service carries `platform_status` (`active` | `disabled` | `archived` | `trashed`). Resolution into the 5-state UI status lives in `moduleStatus.tsx` (`resolveOverviewStatus`, `resolveTierStatus`, `resolvePackageStatus`).
 - **Pending → Complete boundary:** a module reads **Pending** while required fields are missing (`pending-dim`) or complete-but-unpublished (`pending-full`); it becomes **Active** only when complete **and** `platform_status === 'active'`.
@@ -368,7 +368,7 @@ The Commercial modules (tiers, promotions) were migrated on this template during
 
 1. **Frame** — use `.drawerModule` (+ a module scope class only if a unique body system is required). No `.cz-sv-module` for new drawer modules (DrawerModuleSystem → Rule 3).
 2. **Header** — icon + title/subtitle + `.drawerModule__status` holding `ModuleStatusPill`.
-3. **Notifications** — own the module's notes; pass `notes` + `onOpen`; render `ModuleNotificationPanel` below the header; gate on `notes.length > 0`. Any notes make the pill a clickable button; the pill label stays lifecycle-only (no count). Blocking gaps vs guidance are distinguished by note content in the panel.
+3. **Notifications** — own the module's notes; pass `notes` + `onOpen`; render `ModuleNotificationPanel` below the header; gate on `notes.length > 0`. Any notes make the pill a clickable button; the pill label stays presentation-state-only (no count; Principles → *Presentation Status Contract*). Blocking gaps vs guidance are distinguished by note content in the panel.
 4. **Status** — use the 5-state lifecycle and `moduleStatus.tsx` resolvers (Principles → *Module Status Model*).
 5. **View / Edit** — deliver Edit through `InlineEditorShell` with module Save/Cancel; keep View and Edit as one module in one drawer position.
 6. **States** — Locked/New affect only the action control, never the shell (Principles → *Temporary Disabled Rule*).

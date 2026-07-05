@@ -32,8 +32,8 @@ const TIER_FAQS_ICON = (
   </svg>
 );
 
-// Travel-state pill for occupant-bin cards — lifecycle status only, matching
-// ServicePromotionStep's TRAVEL_PILL for the shared bin vocabulary.
+// Travel-state pill for occupant-bin cards — bin surfaces name Archived/Trashed
+// as data labels, matching ServicePromotionStep's STATUS_PILL bin rows.
 const BIN_PILL: Record<string, { cls: string; label: string }> = {
   archived: { cls: 'inactive', label: 'Archived' },
   trashed:  { cls: 'inactive', label: 'Trashed' },

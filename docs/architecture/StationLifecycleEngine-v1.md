@@ -8,7 +8,7 @@ Promotion and Tier.
 
 Companion documents:
 - [ServiceDrawerModuleArchitecture-v1.md](ServiceDrawerModuleArchitecture-v1.md) — the drawer module template every station UI follows.
-- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — drawer state machine and the 5-state module status model.
+- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — drawer state machine, the 5-state module status model, and the Presentation Status Contract (operational states are never rendered as pills).
 
 ---
 
@@ -31,6 +31,13 @@ Status vocabulary (a station may use a subset — Service never uses `draft`):
 | `disabled` | published-capable but off — also the universal restore landing state |
 | `archived` | in the bin, restorable |
 | `trashed` | in the bin, restorable, permanently deletable |
+
+These are **operational states** — storage and transition vocabulary. They are
+never rendered directly as status pills: the drawer shows derived
+**presentation states** (Active / Pending / Disabled — `draft` presents as
+Pending; `archived`/`trashed` appear only on travel surfaces, never as module
+pills). Canonical rule, vocabulary and derivation:
+AdminWorkstationDrawerPrinciples-v1 → *Presentation Status Contract*.
 
 Transition table — the only legal status writes anywhere:
 

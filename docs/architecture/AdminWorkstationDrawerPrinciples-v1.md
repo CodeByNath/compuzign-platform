@@ -2,7 +2,7 @@
 
 **Scope — two layers, different reach:**
 
-- **Drawer Header & Navigation Contract** and **Drawer Tab Contract** (below) are **platform-wide**. They are the locked contract for **every admin drawer** — Service, Package, Promotion, and any future drawer. These sections are the canonical owner of drawer header titles, the single left control, the reserved right slot, and the fixed `Details | Connections` tab model.
+- **Drawer Header & Navigation Contract**, **Drawer Tab Contract**, and **Presentation Status Contract** (below) are **platform-wide**. They are the locked contract for **every admin drawer** — Service, Package, Promotion, and any future drawer. These sections are the canonical owner of drawer header titles, the single left control, the reserved right slot, the fixed `Details | Connections` tab model, and the operational-vs-presentation state distinction with its pill vocabulary.
 - **Module state machine / lifecycle** (New / Locked / View / Edit, status model) — reference implementation is **Service Catalog only**. It does not yet cover Transit Hub, Packages, Promotions, Requests, or CRM as built surfaces, though those drawers must adopt the platform-wide contract above.
 
 For the drawer module CSS system, class reference, and legacy audit: [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md)
@@ -95,6 +95,60 @@ This replaces the earlier per-drawer `Service / Commercial`, `Packages / Promoti
 The tab order is **permanently** `Details | Connections`. Drawers must **not** reorder tabs by entry point. When a drawer is opened from a connection (a promotion, a package, another related entity), the order stays the same and **Connections is simply made the active tab**. Any "selected tab moves to the front" logic is removed.
 
 This gives a predictable drawer everywhere: the left tab is always "what I'm editing" and the right tab is always "what it's connected to." `Details` always represents the workspace named in the header.
+
+---
+
+## Presentation Status Contract
+
+> **Platform-wide and locked.** Applies to every workstation — Service, Package, Promotion, Tier, and future Bundles, Subscriptions, Case Studies, Categories, and any module that follows. This section is the canonical owner of the operational-vs-presentation state distinction and the drawer/module pill vocabulary.
+
+**The lifecycle engine stores operational states. The drawer renders presentation states. Presentation is derived from lifecycle state, module state, and notifications — never from raw lifecycle values alone.**
+
+### Two vocabularies
+
+| Layer | Vocabulary | Canonical owner |
+|---|---|---|
+| Engine — operational (travel) states | `draft` · `active` · `disabled` · `archived` · `trashed` | [StationLifecycleEngine-v1.md](StationLifecycleEngine-v1.md) |
+| Drawer — presentation states | **Active** · **Pending** · **Disabled** | this contract |
+
+Operational states are implementation states. They must never be exposed directly as drawer/module status pills. Drawer/module status pills communicate presentation state only, and the only presentation states are:
+
+| Presentation | Meaning |
+|---|---|
+| **Active** | Live, configured, no actionable issues |
+| **Pending** | Requires attention — drafts, incomplete modules, unpublished changes, waiting states. Full opacity when action is required; reduced opacity (dim) when informational |
+| **Disabled** | Intentionally turned off. Never entered automatically — it results only from an explicit user action: a direct disable, or a restore (the engine's universal restore landing state) |
+
+### Derivation examples
+
+| Situation | Presents as |
+|---|---|
+| `draft` — never published | **Pending** |
+| `not-configured` — blank slate | **Pending** |
+| Module has unpublished / pending changes | **Pending** |
+| Module requires attention (missing fields, review needed) | **Pending** |
+| Live / enabled | **Active** |
+| Disabled by the user (or landed by restore) | **Disabled** |
+
+### Pill vs panel
+
+The **status pill** communicates only the presentation state. The **notification panel** communicates the reason — *why* a module is Pending ("Promotion Overview has unpublished changes", "Common Questions not configured", "Publish to make this promotion live"). The **module lifecycle** is the engine data underneath. Users never reason about "draft" vs "pending draft" vs "settled" — they see Active / Pending / Disabled and open the panel for the why.
+
+### Archived / Trashed are travel states
+
+`archived` and `trashed` are travel states, not presentation states. They must **never** appear as drawer/module status pills. They may appear only on dedicated travel surfaces, where naming the travel state is the surface's purpose:
+
+- Bin / Trash / Archived views (including the occupant bin and in-drawer bin rows)
+- Lifecycle history
+- Audit / history displays
+
+Restore out of these states follows the engine's rules unchanged: restore lands `disabled`, never `active` (StationLifecycleEngine-v1 → transition table) — which is why a freshly restored record presents as **Disabled**, not Pending or Active.
+
+### Enforcement
+
+Both shared pill renderers enforce the vocabulary: `ModuleStatusPill` (`PILL_META`) and `renderModuleStatus` (`STATUS_PILL_MAP`) know only Active / Pending / Disabled and fall back to a Pending pill for any unknown or raw status. There is no "Draft" pill anywhere on the platform. The five-state model (→ *Module Status Model* below) is the internal resolver vocabulary that implements this contract.
+
+Conformance audit (2026-07-05): Service, Tier and the catalog/summary pills conform via the shared renderers. The one violation found — `ServicePromotionStep.tsx` list rows rendering a raw `Draft` pill — was fixed (`STATUS_PILL`: draft presents as Pending). Its bin rows, `ServiceTierStep`'s occupant-bin cards (`BIN_PILL`), and the Bin/Archived/Trashed workstations name `Archived` / `Trashed` as data labels on travel surfaces, per this contract.
 
 ---
 
@@ -300,15 +354,15 @@ Each will have:
 
 ## Module Status Model
 
-> **Canonical owner.** This section is the single source of truth for the module status model. Other drawer docs (ServiceDrawerModuleArchitecture-v1, DrawerModuleSystem-v1) reference it and must not restate the five-state table or resolver list.
-
-All modules use the same five-state lifecycle. This is the platform standard. Relationship vocabulary ("Linked", "Connected", "Associated") must never appear in status pills or dots.
+> **Canonical owner.** This section is the single source of truth for the five-state module status model and its resolvers. The pill vocabulary and the operational-vs-presentation state distinction are owned by the *Presentation Status Contract* above; the model here is the internal resolver vocabulary that implements that contract. Other drawer docs (ServiceDrawerModuleArchitecture-v1, DrawerModuleSystem-v1) reference these sections and must not restate the five-state table or resolver list.
 
 ### 5-State Lifecycle
 
+All modules use the same five-state lifecycle. It implements the *Presentation Status Contract*: `not-configured`, `pending-dim`, `pending-full` all present as the Pending family; `active` / `disabled` present as themselves. Relationship vocabulary ("Linked", "Connected", "Associated") must never appear in status pills or dots.
+
 | Status | Meaning | Visual |
 |---|---|---|
-| `not-configured` | No data exists; module is a blank slate | Faint dot · "Not configured" pill |
+| `not-configured` | No data exists; module is a blank slate | Faint dot · presents as "Pending" pill (renderer fallback — there is no dedicated pill) |
 | `pending-dim` | Some data exists but required fields are missing | Orange dot · "Pending" pill · 0.45 opacity on status indicator |
 | `pending-full` | All required data present but module is not yet published | Orange dot · "Pending" pill |
 | `active` | All required data present and published | Green dot · "Active" pill |
@@ -321,7 +375,7 @@ These are distinct concepts that must never be conflated:
 - **Lifecycle status** describes readiness and publication state. It maps to one of the five states above. All modules and their sub-components (tiers, cards, rows) use lifecycle status.
 - **Relationship status** describes an association between two entities (e.g., "Linked", "Connected"). This is a data model concept, not a UI status concept.
 
-**Rule:** A status pill or status dot always shows lifecycle status. Never show relationship vocabulary in a pill or dot. If an entity is linked but not yet configured, its status is `not-configured` — not "Linked".
+**Rule:** A status pill or status dot always shows lifecycle-derived status (rendered per the *Presentation Status Contract*). Never show relationship vocabulary in a pill or dot. If an entity is linked but not yet configured, its status is `not-configured` — presenting as Pending, not "Linked".
 
 ### Resolver Utilities
 
