@@ -134,32 +134,12 @@ export function createServicePromotion(
   );
 }
 
-export function saveServicePromotion(
-  serviceId: number,
-  promoId:   string,
-  payload:   PromotionTierPayload,
-): Promise<ServicePromotionSaveResponse> {
-  return apiClient.post<ServicePromotionSaveResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}`,
-    payload,
-  );
-}
-
 export function archiveServicePromotion(
   serviceId: number,
   promoId:   string,
 ): Promise<{ success: boolean; promo_id: string; status: string }> {
   return apiClient.post(
     `admin/services/${serviceId}/promotion-station/promotions/${promoId}/archive`,
-  );
-}
-
-export function reactivateServicePromotion(
-  serviceId: number,
-  promoId:   string,
-): Promise<{ success: boolean; promo_id: string; status: string }> {
-  return apiClient.post(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/reactivate`,
   );
 }
 

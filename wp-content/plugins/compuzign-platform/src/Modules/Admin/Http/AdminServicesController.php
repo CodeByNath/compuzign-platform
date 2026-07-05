@@ -364,25 +364,9 @@ class AdminServicesController
             ],
         ]);
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/reactivate', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'reactivateServicePromotion'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'    => ['required' => true, 'type' => 'integer'],
-                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
-            ],
-        ]);
-
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'saveServicePromotion'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'    => ['required' => true, 'type' => 'integer'],
-                'promo' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
-            ],
-        ]);
+        // E2 retirement: the whole-record save route (POST .../promotions/{promo})
+        // and the reactivate legacy alias are gone. Module drafts (C2) own content
+        // writes; the transition endpoints (C3) own every status write.
 
         // ── Promotion module lifecycle (engine C2) ────────────────────────────
         // Per-module draft save / settle / revert — the travelling-instance
@@ -422,8 +406,8 @@ class AdminServicesController
 
         // ── Promotion travel transitions (engine C3) ──────────────────────────
         // The only status writes for promotion instances. Archive is rewired
-        // through the engine on its existing route; reactivate stays a legacy
-        // alias until the C5 UI cutover retires it.
+        // through the engine on its existing route; the reactivate legacy alias
+        // was retired at E2.
         foreach (['publish', 'toggle', 'trash', 'restore'] as $transition) {
             register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/' . $transition, [
                 'methods'             => 'POST',
@@ -1978,43 +1962,6 @@ class AdminServicesController
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $instance]);
     }
 
-    public function saveServicePromotion(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $serviceId = (int) $request->get_param('id');
-        $promoId   = sanitize_key((string) $request->get_param('promo'));
-
-        $post = get_post($serviceId);
-        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
-            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
-        }
-
-        $body = $request->get_json_params();
-        if (!is_array($body)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
-        }
-
-        $PS        = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $current   = $this->readPromotionStation($serviceId);
-        $existing  = $PS::findPromoInInstances($current, $promoId);
-        if ($existing === null) {
-            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
-        }
-
-        $updated = $PS::buildPromotionInstance($promoId, $body, [], $existing);
-
-        foreach ($current as &$inst) {
-            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
-                $inst = $updated;
-                break;
-            }
-        }
-        unset($inst);
-
-        $this->writePromotionStationDirect($serviceId, $current);
-
-        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $updated]);
-    }
-
     /** archive: active|disabled → archived. Engine transition on the existing route (C3). */
     public function archiveServicePromotion(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -2142,43 +2089,6 @@ class AdminServicesController
             $response += $this->promotionLifecycleResponse($serviceId, $instance);
         }
         return rest_ensure_response($response);
-    }
-
-    /**
-     * LEGACY ALIAS (until C5) — direct archived→active flip predating the engine.
-     * Not an engine transition (restore lands on disabled); kept only so the
-     * pre-cutover UI's Reactivate button works. The C5 cutover moves the UI to
-     * restore + publish and retires this route. Envelope consistency is
-     * guaranteed by ensurePromotionLifecycle's top-level-wins mirror rule.
-     */
-    public function reactivateServicePromotion(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $serviceId = (int) $request->get_param('id');
-        $promoId   = sanitize_key((string) $request->get_param('promo'));
-
-        $post = get_post($serviceId);
-        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
-            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
-        }
-
-        $current = $this->readPromotionStation($serviceId);
-        $found   = false;
-        foreach ($current as &$inst) {
-            if (is_array($inst) && ($inst['id'] ?? '') === $promoId) {
-                $inst['status'] = 'active';
-                $found = true;
-                break;
-            }
-        }
-        unset($inst);
-
-        if (!$found) {
-            return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
-        }
-
-        $this->writePromotionStationDirect($serviceId, $current);
-
-        return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'status' => 'active']);
     }
 
     // ── Promotion module lifecycle handlers (engine C2) ───────────────────────

@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks';
 import {
   fetchServicePromotionStation,
   createServicePromotion,
-  saveServicePromotion,
   archiveServicePromotion,
-  reactivateServicePromotion,
   saveServicePromotionModule,
   settleServicePromotion,
   revertServicePromotionModule,
@@ -49,9 +47,10 @@ import { patchInstanceModuleDraft } from './stationPrimitives';
 // settle, engine transitions — via the shared primitives
 // (patchInstanceModuleDraft → patchModuleDraft).
 //
-// C4: the lifecycle members land here unused; ServicePromotionStep still runs
-// on the whole-record createPromotion/savePromotion + archive/reactivate flow
-// until the C5 cutover. Nothing existing changes behaviour.
+// E2: the whole-record savePromotion and the reactivate legacy alias are
+// retired — module drafts own content writes, the engine transitions own every
+// status write. createPromotion remains the sole whole-record entry point
+// (instances are always born draft).
 
 const EMPTY_DRAFTS: PromotionDrafts = { overview: null, features: null, faqs: null };
 const NOT_CONFIGURED: Record<string, string> = {
@@ -123,11 +122,9 @@ export interface PromotionStation {
   saving:       boolean;
   promotions:   PromotionTier[];
   service:      ServicePromotionStationResponse['service'] | null;
-  // Whole-record flow (pre-C5 UI) — unchanged.
+  // Whole-record create — instances are always born draft.
   createPromotion:     (payload: PromotionTierPayload) => Promise<ServicePromotionSaveResponse | null>;
-  savePromotion:       (promoId: string, payload: PromotionTierPayload) => Promise<ServicePromotionSaveResponse | null>;
   archivePromotion:    (promoId: string) => Promise<boolean>;
-  reactivatePromotion: (promoId: string) => Promise<boolean>;
   // Draft-preferred view of one instance (null until loaded / unknown id).
   promotionView: (promoId: string) => PromotionView | null;
   // Per-module persist-through saves (draft) — patch the source in place.
@@ -233,42 +230,10 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, onRefresh]);
 
-  const savePromotion = useCallback(async (promoId: string, payload: PromotionTierPayload) => {
-    setSaving(true);
-    try {
-      const res = await saveServicePromotion(serviceId, promoId, payload);
-      if (res.success) {
-        setDetail(prev => prev ? {
-          ...prev,
-          // Whole-record saves leave drafts untouched server-side (envelope
-          // passthrough) — preserve the client-side lifecycle layer too.
-          promotions: prev.promotions.map(p => p.id === promoId
-            ? { ...normInstance(res.promotion_tier), drafts: p.drafts, module_status: p.module_status }
-            : p),
-        } : prev);
-        onRefresh?.();
-      }
-      return res;
-    } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh]);
-
   const archivePromotion = useCallback(async (promoId: string) => {
     setSaving(true);
     try {
       const res = await archiveServicePromotion(serviceId, promoId);
-      if (res.success) {
-        patchStatus(promoId, res.status as PromotionStatus);
-        onRefresh?.();
-      }
-      return res.success;
-    } catch { return false; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchStatus]);
-
-  // LEGACY (until C5) — direct archived→active flip via the legacy alias route.
-  const reactivatePromotion = useCallback(async (promoId: string) => {
-    setSaving(true);
-    try {
-      const res = await reactivateServicePromotion(serviceId, promoId);
       if (res.success) {
         patchStatus(promoId, res.status as PromotionStatus);
         onRefresh?.();
@@ -422,9 +387,7 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
     promotions: detail?.promotions ?? [],
     service:    detail?.service ?? null,
     createPromotion,
-    savePromotion,
     archivePromotion,
-    reactivatePromotion,
     promotionView,
     savePromotionOverview,
     savePromotionFeatures,

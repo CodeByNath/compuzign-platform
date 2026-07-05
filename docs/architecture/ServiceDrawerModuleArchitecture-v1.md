@@ -11,8 +11,9 @@ This document reflects the final, implemented architecture and is the **canonica
 Companion documents — each owns exactly one concern; this document cross-references them rather than restating:
 - [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — **canonical owner** of the drawer state machine, the Same-Module=Same-Shell / Temporary Disabled rules, and the 5-state module status model.
 - [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md) — **canonical owner** of the CSS presentation layer and class reference.
+- [StationLifecycleEngine-v1.md](StationLifecycleEngine-v1.md) — **canonical owner** of the shared lifecycle engine: the transition table, the three station participation models (Service / Promotion instance / Tier occupant), the occupant bin, and pool-reference rules.
 
-Scope note: only the three Service modules above are documented here. Commercial (Package Summary, Promotions), Transit, and ReadBlock surfaces are out of scope until migrated.
+Scope note: the three Service modules above are documented in full here. The Commercial surfaces (tiers via ServiceTierStep, promotions via ServicePromotionStep) were migrated onto this architecture during the lifecycle engine migration (Stages C–D) and follow the Section 16 template; their travel behaviour is specified in StationLifecycleEngine-v1.
 
 ---
 
@@ -84,7 +85,7 @@ ActionShell                              drawer shell — header · tabs · body
     │   │     └─ (Edit) InlineEditorShell → ServiceInclusionsEditor
     │   └─ ServiceFaqsViewCard       → ModuleStatusPill + ModuleNotificationPanel
     │         └─ (Edit) InlineEditorShell → ServiceFaqsEditor
-    ├─ Commercial tab                (Package Summary, Promotions — out of scope until migrated)
+    ├─ Commercial tab                (Package Summary, Promotions — migrated; see StationLifecycleEngine-v1)
     └─ Footer (via setFooter):
           split button [ Disable | Enable | Move to Trash ] · chevron → { Archive, Move to Trash }
           Publish · Cancel
@@ -363,7 +364,7 @@ The complete drawer module file index. Other docs cross-reference this table rat
 
 This is the **single actionable checklist** for building any new drawer module. The Principles doc states the conceptual inheritance rule; DrawerModuleSystem states the CSS rule; both defer the build steps to this section.
 
-When migrating Commercial modules (Package Summary, Promotion Configuration), inherit this architecture rather than reinventing it:
+The Commercial modules (tiers, promotions) were migrated on this template during the lifecycle engine migration. When building any further drawer module, inherit this architecture rather than reinventing it:
 
 1. **Frame** — use `.drawerModule` (+ a module scope class only if a unique body system is required). No `.cz-sv-module` for new drawer modules (DrawerModuleSystem → Rule 3).
 2. **Header** — icon + title/subtitle + `.drawerModule__status` holding `ModuleStatusPill`.

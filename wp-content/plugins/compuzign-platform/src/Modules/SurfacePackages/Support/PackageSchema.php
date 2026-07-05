@@ -10,7 +10,10 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  */
 class PackageSchema
 {
-    public const ALLOWED_PLATFORM_STATUSES   = ['active', 'disabled', 'archived'];
+    // Station-level lifecycle: derived from tier occupants (deriveStationStatus),
+    // never archived — occupants travel to the bin, the station shell does not.
+    // 'archived' retired at E2 (confirmed unreachable).
+    public const ALLOWED_PLATFORM_STATUSES   = ['active', 'disabled'];
     public const ALLOWED_TYPES               = ['tier_configuration', 'bundle', 'promotion', 'homepage_collection', 'campaign'];
     public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise'];
     public const ALLOWED_CONTEXTS            = ['cost-builder', 'homepage', 'pricing-page'];

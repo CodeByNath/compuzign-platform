@@ -50,7 +50,10 @@ class PackageRepository
             return [];
         }
 
-        $now          = current_time('mysql');
+        // valid_from/valid_until are stored UTC (PackageSchema::sanitizeDatetime
+        // normalises via gmdate), so the window compares against UTC now — E2 fix
+        // for the site-local comparison flagged at C6.
+        $now          = current_time('mysql', true);
         $map          = [];
         $unmigratedIds = [];
 
@@ -64,8 +67,12 @@ class PackageRepository
                 continue;
             }
 
+            // Visible iff active. Empty status keeps the legacy tolerance (records
+            // predating platform_status read as active); any other value — known
+            // or not — is hidden. Fail-closed (E2): previously a status outside
+            // ALLOWED_PLATFORM_STATUSES slipped through as visible.
             $pkgStatus = $station['platform_status'] ?? '';
-            if (in_array($pkgStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true) && $pkgStatus !== 'active') {
+            if ($pkgStatus !== '' && $pkgStatus !== 'active') {
                 continue;
             }
 
@@ -150,8 +157,9 @@ class PackageRepository
                 continue;
             }
 
+            // Same fail-closed visibility rule as the station path (E2).
             $pkgStatus = $pkg['platform_status'] ?? '';
-            if (in_array($pkgStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true) && $pkgStatus !== 'active') {
+            if ($pkgStatus !== '' && $pkgStatus !== 'active') {
                 continue;
             }
             if (!empty($pkg['valid_from']) && $pkg['valid_from'] > $now) {
@@ -212,8 +220,9 @@ class PackageRepository
         return array_values(array_filter($posts, function (\WP_Post $post): bool {
             $pkg    = get_post_meta($post->ID, self::META_KEY, true);
             $status = is_array($pkg) ? ($pkg['platform_status'] ?? '') : '';
-            // Legacy records without platform_status treated as active when post_status=publish.
-            return !in_array($status, PackageSchema::ALLOWED_PLATFORM_STATUSES, true) || $status === 'active';
+            // Legacy records without platform_status treated as active when
+            // post_status=publish; any other value is hidden (fail-closed, E2).
+            return $status === '' || $status === 'active';
         }));
     }
 
