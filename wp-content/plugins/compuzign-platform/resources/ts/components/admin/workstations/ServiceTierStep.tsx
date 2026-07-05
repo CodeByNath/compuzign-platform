@@ -32,6 +32,37 @@ const TIER_FAQS_ICON = (
   </svg>
 );
 
+// Travel-state pill for occupant-bin cards — lifecycle status only, matching
+// ServicePromotionStep's TRAVEL_PILL for the shared bin vocabulary.
+const BIN_PILL: Record<string, { cls: string; label: string }> = {
+  archived: { cls: 'inactive', label: 'Archived' },
+  trashed:  { cls: 'inactive', label: 'Trashed' },
+};
+
+function binPill(status: string) {
+  const pill = BIN_PILL[status] ?? BIN_PILL.archived;
+  return (
+    <span class={`cz-module-status-pill cz-module-status-pill--${pill.cls}`}>
+      <span class="cz-module-status-pill__marker">●</span>
+      {pill.label}
+    </span>
+  );
+}
+
+// Whether a shell holds SETTLED content (an occupant). Client-side heuristic
+// over the settled fields — the backend is authoritative and rejects with
+// target_occupied / no_occupant when this misjudges an all-empty occupant.
+function slotOccupied(slot: { label: string; price: number | null; contact: boolean; billing_cycle: string | null; inclusions_override: unknown[]; faq_refs: unknown[] } | undefined | null): boolean {
+  return !!slot && (
+    slot.price !== null
+    || slot.contact
+    || !!slot.billing_cycle
+    || !!slot.label.trim()
+    || slot.inclusions_override.length > 0
+    || slot.faq_refs.length > 0
+  );
+}
+
 // ── ServiceTierStep ───────────────────────────────────────────────────────────
 // Phase 2 (L5): Service Station-owned tier configuration drawer.
 // P5 Step 1: consumes usePackageStation (single source, draft-preferred derive,
@@ -90,12 +121,39 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   // Package overview view: Details (tier cards + pricing) | Connections (parent service).
   const [overviewTab, setOverviewTab] = useState<'details' | 'connections'>('details');
+  // ── Occupant travel chrome (engine D4) ─────────────────────────────────────
+  // Overview Details filter: current (4 shells) | bin (displaced occupants).
+  const [listView, setListView] = useState<'current' | 'bin'>('current');
+  // Footer split-button dropdown + confirm modals (Publish settle; archive with
+  // pending drafts), mirroring ServicePromotionStep's lifecycle chrome.
+  const [splitOpen,    setSplitOpen]    = useState(false);
+  const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
+  // Per-bin-card conflict prompt, keyed by the D3 error codes: target_occupied
+  // → offer Swap / retarget; origin_unknown → retarget only; pending_drafts →
+  // confirm discard then retry the same restore params.
+  const [binPrompt, setBinPrompt] = useState<{
+    binId:       string;
+    code:        'target_occupied' | 'origin_unknown' | 'pending_drafts';
+    mode?:       'swap' | 'retarget';
+    targetTier?: string;
+  } | null>(null);
+  // Bin card inline delete confirm (promotion pendingDeleteId pattern).
+  const [pendingBinDelete, setPendingBinDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (!saveOk) return;
     const t = setTimeout(() => setSaveOk(false), 2500);
     return () => clearTimeout(t);
   }, [saveOk]);
+
+  // Close split dropdown when clicking outside (only active while open) —
+  // mirrors ServicePromotionStep / ServiceViewStep's splitOpen dismissal.
+  useEffect(() => {
+    if (!splitOpen) return;
+    const handle = () => setSplitOpen(false);
+    const t = setTimeout(() => document.addEventListener('click', handle), 0);
+    return () => { clearTimeout(t); document.removeEventListener('click', handle); };
+  }, [splitOpen]);
 
   const openTierEdit = (tierId: string) => {
     setEditingTierId(tierId);
@@ -107,6 +165,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setSaveOk(false);
     setTierTab('commercial');
     setOpenTierPanel(null);
+    setSplitOpen(false);
+    setConfirmModal(null);
     setShowAddInclusion(false);
     setNewInclusionLabel('');
     setShowAddFaq(false);
@@ -257,6 +317,12 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     const r = await pkg.settleTier(editingTierId);
     if (r?.success) setSaveOk(true); else setSaveErr('Publish failed.');
   };
+  // Footer Publish is confirm-gated (Service modal pattern) — the modal commits
+  // via the existing settle path.
+  const handleConfirmPublish = async () => {
+    setConfirmModal(null);
+    await handleSettle();
+  };
   // Disable/Enable — separate lifecycle action (immediate, not draft-staged).
   const handleToggleEnabled = async () => {
     if (!editingTierId) return;
@@ -274,6 +340,52 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     if (!res?.success) setSaveErr('Failed to discard changes.');
   };
 
+  // ── Occupant travel (engine D4) ─────────────────────────────────────────────
+
+  // Archive the open shell's settled occupant into the bin. Pending drafts come
+  // back as code: pending_drafts → confirm-discard modal, then retry with the
+  // override (the D2 contract).
+  const handleArchive = async (discardDrafts = false) => {
+    if (!editingTierId) return;
+    setSplitOpen(false);
+    setConfirmModal(null);
+    setSaveErr(null);
+    const res = await pkg.archiveTier(editingTierId, discardDrafts);
+    if (res?.success) { setSaveOk(true); return; }
+    if (res?.code === 'pending_drafts') setConfirmModal('archive-discard');
+    else setSaveErr(res?.message ?? 'Archive failed.');
+  };
+
+  // Restore a binned occupant. Conflict codes open the per-card prompt instead
+  // of surfacing as errors: target_occupied → Swap / retarget choice,
+  // origin_unknown → retarget only, pending_drafts → confirm discard and retry
+  // with the SAME mode/target.
+  const handleRestoreBin = async (binId: string, mode?: 'swap' | 'retarget', targetTier?: string, discardDrafts = false) => {
+    setSaveErr(null);
+    const res = await pkg.restoreOccupant(binId, { mode, targetTier, discardDrafts });
+    if (res?.success) { setBinPrompt(null); return; }
+    const code = res?.code;
+    if (code === 'target_occupied' || code === 'origin_unknown' || code === 'pending_drafts') {
+      setBinPrompt({ binId, code, mode, targetTier });
+    } else {
+      setBinPrompt(null);
+      setSaveErr(res?.message ?? 'Restore failed.');
+    }
+  };
+
+  const handleTrashBin = async (binId: string) => {
+    setSaveErr(null);
+    const res = await pkg.trashBinEntry(binId);
+    if (res && !res.success) setSaveErr(res.message ?? 'Move to Trash failed.');
+  };
+
+  const handleDeleteBin = async (binId: string) => {
+    setPendingBinDelete(null);
+    setSaveErr(null);
+    const res = await pkg.deleteBinEntry(binId);
+    if (res && !res.success) setSaveErr(res.message ?? 'Delete failed.');
+  };
+
   // Returns to the tier list — drafts are already persisted by the hook, so nothing to flush.
   const handleBack = () => {
     setEditingTierId(null);
@@ -283,6 +395,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
+    setSplitOpen(false);
+    setConfirmModal(null);
   };
 
   // Context-aware header Back: while a tier is open, the drawer's single header Back
@@ -298,8 +412,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   }, [editingTierId, tierBack]);
 
   // Footer handlers via ref — latest closures without re-subscribing the footer effect.
-  const footerRef = useRef({ handleSettle, handleToggleEnabled, close: ctx.close });
-  footerRef.current = { handleSettle, handleToggleEnabled, close: ctx.close };
+  const footerRef = useRef({ handleSettle, handleToggleEnabled, handleArchive, close: ctx.close });
+  footerRef.current = { handleSettle, handleToggleEnabled, handleArchive, close: ctx.close };
 
   // Pin the drawer footer in the shell's footer slot (matching the Service Overview
   // drawer) instead of rendering it inline inside the scrolling body. Edit mode leaves
@@ -325,21 +439,54 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       // Honour the settle no-op guard: nothing to settle when every module is
       // not-configured (no drafts, no occupant).
       const hasContent = !!view && Object.values(view.moduleStatus).some((s) => s !== 'not-configured');
+      // Occupant travel actions apply to the SETTLED occupant only — an
+      // unoccupied shell (even one with pending drafts) has nothing to toggle
+      // or archive.
+      const occupied   = slotOccupied(station.tiers[editingTierId]);
       setFooter(
         <div class="cz-tf-footer">
-          <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => a.handleToggleEnabled()} disabled={pkg.saving}>
-            {enabled ? 'Disable' : 'Enable'}
-          </button>
+          {/* Occupied shell: split button — Enable/Disable primary + chevron
+              menu (Archive occupant), footer parity with Service/Promotion. */}
+          {occupied && (
+            <div class={`cz-footer-split${enabled ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
+              <button
+                type="button"
+                class="cz-footer-split__btn"
+                disabled={pkg.saving}
+                onClick={() => a.handleToggleEnabled()}
+              >
+                {pkg.saving ? '…' : enabled ? 'Disable' : 'Enable'}
+              </button>
+              <button
+                type="button"
+                class="cz-footer-split__chevron"
+                disabled={pkg.saving}
+                onClick={(e) => { e.stopPropagation(); setSplitOpen((o) => !o); }}
+                aria-label="More actions"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd" />
+                </svg>
+              </button>
+              {splitOpen && (
+                <div class="cz-footer-split__menu">
+                  <button type="button" class="cz-footer-split__item" disabled={pkg.saving} onClick={() => a.handleArchive()}>
+                    Archive
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <div class="cz-tf-footer__spacer" />
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()} disabled={pkg.saving}>Cancel</button>
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.handleSettle()} disabled={pkg.saving || !hasContent}>
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => setConfirmModal('publish')} disabled={pkg.saving || !hasContent}>
             {pkg.saving ? 'Saving…' : 'Publish'}
           </button>
         </div>,
       );
     }
     return () => setFooter(null);
-  }, [pkg.detailLoaded, pkg.station, pkg.service, pkg.tierView, pkg.saving, editingSection, editingTierId, ctx.setFooter]);
+  }, [pkg.detailLoaded, pkg.station, pkg.service, pkg.tierView, pkg.saving, editingSection, editingTierId, splitOpen, ctx.setFooter]);
 
   if (!pkg.detailLoaded) return <div class="cz-admin-loading"><Spinner label="Loading tiers…" /></div>;
 
@@ -404,6 +551,173 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         </div>
 
         {overviewTab === 'details' && (
+        <>
+        {/* Current | Bin filter — only shown once something is binned (engine D4). */}
+        {(pkg.occupantBin.length > 0 || listView === 'bin') && (
+          <div style="display:flex; gap: var(--cz-space-2); margin-bottom: var(--cz-space-3)">
+            <button
+              type="button"
+              class={`cz-admin-btn cz-admin-btn--sm ${listView === 'current' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
+              onClick={() => { setListView('current'); setBinPrompt(null); setPendingBinDelete(null); }}
+            >
+              Current ({TIER_KEYS.length})
+            </button>
+            <button
+              type="button"
+              class={`cz-admin-btn cz-admin-btn--sm ${listView === 'bin' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
+              onClick={() => setListView('bin')}
+            >
+              Bin ({pkg.occupantBin.length})
+            </button>
+          </div>
+        )}
+
+        {/* ── Bin view: displaced occupants with Restore / Trash / Delete ──── */}
+        {listView === 'bin' && (
+          <>
+            {pkg.occupantBin.length === 0 && (
+              <div class="cz-admin-empty">
+                <p>The bin is empty.</p>
+              </div>
+            )}
+            {pkg.occupantBin.map((entry) => {
+              const occ        = entry.occupant;
+              const originKey  = entry.origin_tier;
+              const originName = originKey ? (TIER_LABELS[originKey] ?? originKey) : null;
+              const priceText  = occ.contact
+                ? 'Contact'
+                : occ.price != null ? `$${Number(occ.price).toFixed(2)}` : '—';
+              const inclCount  = occ.inclusions_override?.length ?? 0;
+              const faqCount   = occ.faq_refs?.length ?? 0;
+              const prompt     = binPrompt?.binId === entry.bin_id ? binPrompt : null;
+              // Retarget options: shells that look unoccupied (settled fields
+              // empty). The backend re-rejects if this misjudges.
+              const emptyTiers = TIER_KEYS.filter((k) => !slotOccupied(station.tiers[k]));
+              return (
+                <div key={entry.bin_id} class="drawerModule drawerOverview tier">
+                  <div class="drawerModule__header">
+                    <span class="drawerModule__icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
+                        <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
+                      </svg>
+                    </span>
+                    <div class="drawerModule__heading">
+                      <p class="drawerModule__title">{occ.label?.trim() || (originName ? `${originName} occupant` : 'Occupant')}</p>
+                      <p class="drawerModule__subtitle">
+                        {originName ? `From ${originName}` : 'Origin unknown'}
+                        {entry.displaced_at ? ` · ${entry.displaced_at.slice(0, 10)}` : ''}
+                      </p>
+                    </div>
+                    <div class="drawerModule__status">
+                      {binPill(entry.status)}
+                    </div>
+                  </div>
+                  <div class="drawerModule__body">
+                    <div class="drawerModule__fields">
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Pricing</p>
+                        <p class="drawerModule__value">
+                          <span>{priceText}</span>
+                          {occ.billing_cycle ? <>{' · '}<span>{occ.billing_cycle}</span></> : null}
+                        </p>
+                      </div>
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Includes</p>
+                        <p class="drawerModule__value">
+                          {inclCount} {inclCount === 1 ? 'feature' : 'features'} | {faqCount} {faqCount === 1 ? 'common question' : 'common questions'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="drawerModule__footer">
+                    {prompt ? (
+                      prompt.code === 'pending_drafts' ? (
+                        <>
+                          <span class="cz-sc-table__confirm-label">Target tier has unsettled changes. Discard them?</span>
+                          <button
+                            type="button"
+                            class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
+                            disabled={pkg.saving}
+                            onClick={() => handleRestoreBin(entry.bin_id, prompt.mode, prompt.targetTier, true)}
+                          >
+                            {pkg.saving ? '…' : 'Discard & Restore'}
+                          </button>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => setBinPrompt(null)}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span class="cz-sc-table__confirm-label">
+                            {prompt.code === 'target_occupied' ? `${originName ?? 'Origin tier'} is occupied.` : 'Choose a tier to restore into.'}
+                          </span>
+                          {prompt.code === 'target_occupied' && (
+                            <button
+                              type="button"
+                              class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
+                              disabled={pkg.saving}
+                              onClick={() => handleRestoreBin(entry.bin_id, 'swap')}
+                            >
+                              {pkg.saving ? '…' : 'Swap'}
+                            </button>
+                          )}
+                          <select
+                            class="cz-tf-select"
+                            style="width:auto"
+                            value=""
+                            disabled={pkg.saving || emptyTiers.length === 0}
+                            onChange={(e) => {
+                              const sel = e.target as HTMLSelectElement;
+                              if (sel.value) handleRestoreBin(entry.bin_id, 'retarget', sel.value);
+                              sel.value = '';
+                            }}
+                          >
+                            <option value="">{emptyTiers.length === 0 ? 'No empty tier' : 'Restore into…'}</option>
+                            {emptyTiers.map((k) => (
+                              <option key={k} value={k}>{TIER_LABELS[k]}</option>
+                            ))}
+                          </select>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => setBinPrompt(null)}>
+                            Cancel
+                          </button>
+                        </>
+                      )
+                    ) : pendingBinDelete === entry.bin_id ? (
+                      <>
+                        <span class="cz-sc-table__confirm-label">Delete permanently?</span>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={pkg.saving} onClick={() => handleDeleteBin(entry.bin_id)}>
+                          {pkg.saving ? '…' : 'Confirm'}
+                        </button>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => setPendingBinDelete(null)}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => handleRestoreBin(entry.bin_id)}>
+                          Restore
+                        </button>
+                        {entry.status === 'archived' && (
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => handleTrashBin(entry.bin_id)}>
+                            Move to Trash
+                          </button>
+                        )}
+                        {entry.status === 'trashed' && (
+                          <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={pkg.saving} onClick={() => setPendingBinDelete(entry.bin_id)}>
+                            Delete Permanently
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+          </>
+        )}
+
+        {listView === 'current' && (
         <>
         {TIER_KEYS.map((tierId) => {
           const view       = pkg.tierView(tierId);
@@ -523,6 +837,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             </table>
           </div>
         </div>
+        </>
+        )}
         </>
         )}
 
@@ -921,6 +1237,71 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
           onView={serviceBack}
         />
+      )}
+
+      {/* ── Publish / Settle confirmation modal (Service drawer pattern) ────── */}
+      {confirmModal === 'publish' && (
+        <div
+          class="cz-publish-confirm-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(null); }}
+        >
+          <div class="cz-publish-confirm">
+            <div class="cz-publish-confirm__header">
+              <h3 class="cz-publish-confirm__title">
+                Publish changes to {detail.label.trim() || TIER_LABELS[editingTierId]}?
+              </h3>
+            </div>
+            <div class="cz-publish-confirm__body">
+              <p class="cz-publish-confirm__lead">
+                This commits the pending changes as the settled state for each module.
+                The tier's live state is not changed by publishing.
+              </p>
+              <ul class="cz-publish-confirm__summary">
+                <li><strong>Tier Overview:</strong> {view.drafts.overview ? 'Pending changes' : (detail.price !== null || detail.contact) && detail.billing_cycle ? 'Ready' : 'Not configured'}</li>
+                <li><strong>Included Features:</strong> {view.drafts.features ? 'Pending changes' : `${detail.inclusions_override.length} added`}</li>
+                <li><strong>Common Questions:</strong> {view.drafts.faqs ? 'Pending changes' : `${detail.faq_refs.length} added`}</li>
+              </ul>
+            </div>
+            <div class="cz-publish-confirm__footer">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setConfirmModal(null)} disabled={pkg.saving}>
+                Cancel
+              </button>
+              <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleConfirmPublish} disabled={pkg.saving}>
+                {pkg.saving ? '…' : 'Publish'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Archive with pending drafts confirmation (engine D2 contract) ───── */}
+      {confirmModal === 'archive-discard' && (
+        <div
+          class="cz-publish-confirm-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(null); }}
+        >
+          <div class="cz-publish-confirm">
+            <div class="cz-publish-confirm__header">
+              <h3 class="cz-publish-confirm__title">
+                Archive {detail.label.trim() || TIER_LABELS[editingTierId]}'s occupant?
+              </h3>
+            </div>
+            <div class="cz-publish-confirm__body">
+              <p class="cz-publish-confirm__lead">
+                This tier has unsettled changes. Archiving moves the settled occupant
+                to the bin and discards the pending changes — they cannot be recovered.
+              </p>
+            </div>
+            <div class="cz-publish-confirm__footer">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setConfirmModal(null)} disabled={pkg.saving}>
+                Cancel
+              </button>
+              <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => handleArchive(true)} disabled={pkg.saving}>
+                {pkg.saving ? '…' : 'Discard & Archive'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

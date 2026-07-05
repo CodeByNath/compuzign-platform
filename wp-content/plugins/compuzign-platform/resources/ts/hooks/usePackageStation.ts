@@ -8,6 +8,10 @@ import {
   setServicePackageStationPopular,
   createServiceInclusionPoolItem,
   createServiceFaqPoolItem,
+  archiveServicePackageStationTierOccupant,
+  restoreServicePackageStationBinEntry,
+  trashServicePackageStationBinEntry,
+  deleteServicePackageStationBinEntry,
 } from '@/api/endpoints/admin';
 import type {
   ServicePackageStationResponse,
@@ -16,6 +20,11 @@ import type {
   TierDrafts,
   TierOverviewDraft,
   TierLifecycleResponse,
+  TierArchiveResponse,
+  BinRestoreResponse,
+  BinTrashResponse,
+  BinDeleteResponse,
+  OccupantBinEntry,
   TierModuleKey,
   InclusionItem,
   FaqItem,
@@ -129,6 +138,15 @@ export interface PackageStation {
   setPopularTier:   (tierId: string | null, label: string) => Promise<boolean>;
   // Live-state toggle (separate lifecycle action).
   toggleTierEnabled: (tierId: string, enabled: boolean) => Promise<boolean>;
+  // ── Occupant travel (engine D2–D4) ──────────────────────────────────────
+  // The shell never travels; the occupant does. These return the raw response
+  // so the consumer can key confirm flows on `code` (pending_drafts,
+  // target_occupied, origin_unknown…).
+  occupantBin:     OccupantBinEntry[];
+  archiveTier:     (tierId: string, discardDrafts?: boolean) => Promise<TierArchiveResponse | null>;
+  restoreOccupant: (binId: string, opts?: { mode?: 'swap' | 'retarget'; targetTier?: string; discardDrafts?: boolean }) => Promise<BinRestoreResponse | null>;
+  trashBinEntry:   (binId: string) => Promise<BinTrashResponse | null>;
+  deleteBinEntry:  (binId: string) => Promise<BinDeleteResponse | null>;
   // Immediate canonical pool creation (P5 Step 2). Service owns the pool; the
   // returned item's id is the caller's to attach to a tier's module draft via
   // saveTierFeatures/saveTierFaqs — these do not touch any tier draft themselves.
@@ -294,6 +312,75 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     } catch { return false; } finally { setSaving(false); }
   }, [serviceId, onRefresh]);
 
+  // ── Occupant travel (engine D2–D4) ────────────────────────────────────────
+
+  // Patch the shell + bin + station status in place from a travel response
+  // (archive empties the shell; restore refills one — possibly a different one).
+  const patchTravel = useCallback((res: TierArchiveResponse | BinRestoreResponse) => {
+    setDetail(prev => {
+      if (!prev) return prev;
+      const tiers = (res.tier_id && res.tier)
+        ? {
+            ...prev.station.tiers,
+            [res.tier_id]: normTier({ ...res.tier, drafts: res.drafts, module_status: res.module_status }),
+          }
+        : prev.station.tiers;
+      return {
+        ...prev,
+        station: {
+          ...prev.station,
+          tiers,
+          occupant_bin:    res.occupant_bin    ?? prev.station.occupant_bin,
+          platform_status: res.platform_status ?? prev.station.platform_status,
+        },
+      };
+    });
+  }, []);
+
+  const patchBin = useCallback((bin?: OccupantBinEntry[]) => {
+    if (!bin) return;
+    setDetail(prev => prev ? { ...prev, station: { ...prev.station, occupant_bin: bin } } : prev);
+  }, []);
+
+  const archiveTier = useCallback(async (tierId: string, discardDrafts = false) => {
+    setSaving(true);
+    try {
+      const res = await archiveServicePackageStationTierOccupant(serviceId, tierId, discardDrafts);
+      if (res.success) { patchTravel(res); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh, patchTravel]);
+
+  const restoreOccupant = useCallback(async (
+    binId: string,
+    opts: { mode?: 'swap' | 'retarget'; targetTier?: string; discardDrafts?: boolean } = {},
+  ) => {
+    setSaving(true);
+    try {
+      const res = await restoreServicePackageStationBinEntry(serviceId, binId, opts);
+      if (res.success) { patchTravel(res); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh, patchTravel]);
+
+  const trashBinEntry = useCallback(async (binId: string) => {
+    setSaving(true);
+    try {
+      const res = await trashServicePackageStationBinEntry(serviceId, binId);
+      if (res.success) { patchBin(res.occupant_bin); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh, patchBin]);
+
+  const deleteBinEntry = useCallback(async (binId: string) => {
+    setSaving(true);
+    try {
+      const res = await deleteServicePackageStationBinEntry(serviceId, binId);
+      if (res.success) { patchBin(res.occupant_bin); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, onRefresh, patchBin]);
+
   const createInclusion = useCallback(async (label: string): Promise<InclusionItem | null> => {
     setSaving(true);
     try {
@@ -348,6 +435,11 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     settleTier,
     setPopularTier,
     toggleTierEnabled,
+    occupantBin:    station?.occupant_bin ?? [],
+    archiveTier,
+    restoreOccupant,
+    trashBinEntry,
+    deleteBinEntry,
     createInclusion,
     createFaq,
     refetch:        load,

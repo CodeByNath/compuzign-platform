@@ -15,6 +15,10 @@ import type {
   ServicePackageStationResponse,
   ServiceTierSaveResponse,
   TierLifecycleResponse,
+  TierArchiveResponse,
+  BinRestoreResponse,
+  BinTrashResponse,
+  BinDeleteResponse,
   TierModuleKey,
   TierModuleSavePayload,
   ServicePromotionStationResponse,
@@ -312,6 +316,59 @@ export function settleServicePackageStationTier(
   return apiClient.post<TierLifecycleResponse>(
     `admin/services/${serviceId}/package-station/tiers/${tierId}/settle`,
     {},
+  );
+}
+
+// Engine D2/D4 — archive a tier's settled occupant into the occupant bin. The
+// shell empties to not-configured; pending drafts block unless discardDrafts
+// (the failure carries code: pending_drafts so the UI confirms first).
+export function archiveServicePackageStationTierOccupant(
+  serviceId:     number,
+  tierId:        string,
+  discardDrafts: boolean = false,
+): Promise<TierArchiveResponse> {
+  return apiClient.post<TierArchiveResponse>(
+    `admin/services/${serviceId}/package-station/tiers/${tierId}/archive`,
+    { discard_drafts: discardDrafts },
+  );
+}
+
+// Engine D3/D4 — restore a binned occupant. Plain restore targets the origin
+// shell (must be empty); mode 'swap' displaces the origin's current content
+// into the bin, mode 'retarget' places into an explicit empty shell. Restored
+// occupants land disabled.
+export function restoreServicePackageStationBinEntry(
+  serviceId: number,
+  binId:     string,
+  opts:      { mode?: 'swap' | 'retarget'; targetTier?: string; discardDrafts?: boolean } = {},
+): Promise<BinRestoreResponse> {
+  return apiClient.post<BinRestoreResponse>(
+    `admin/services/${serviceId}/package-station/bin/${binId}/restore`,
+    {
+      ...(opts.mode ? { mode: opts.mode } : {}),
+      ...(opts.targetTier ? { target_tier: opts.targetTier } : {}),
+      ...(opts.discardDrafts ? { discard_drafts: true } : {}),
+    },
+  );
+}
+
+export function trashServicePackageStationBinEntry(
+  serviceId: number,
+  binId:     string,
+): Promise<BinTrashResponse> {
+  return apiClient.post<BinTrashResponse>(
+    `admin/services/${serviceId}/package-station/bin/${binId}/trash`,
+    {},
+  );
+}
+
+// Trashed-only; the sole operation that removes an occupant_bin entry.
+export function deleteServicePackageStationBinEntry(
+  serviceId: number,
+  binId:     string,
+): Promise<BinDeleteResponse> {
+  return apiClient.delete<BinDeleteResponse>(
+    `admin/services/${serviceId}/package-station/bin/${binId}`,
   );
 }
 

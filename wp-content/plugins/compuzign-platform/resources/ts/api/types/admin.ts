@@ -436,6 +436,58 @@ export interface TierLifecycleResponse {
   module_status: Record<string, string>;
 }
 
+// Engine D2/D4 — tier occupant archive response. Failures carry `code`
+// (pending_drafts) so the UI can confirm-discard and retry; success carries the
+// emptied shell plus the updated bin and re-derived station status.
+export interface TierArchiveResponse {
+  success:          boolean;
+  message?:         string;
+  code?:            string;
+  tier_id?:         string;
+  tier?:            SurfaceTierDetail;
+  drafts?:          TierDrafts;
+  module_status?:   Record<string, string>;
+  bin_entry?:       OccupantBinEntry;
+  occupant_bin?:    OccupantBinEntry[];
+  platform_status?: string;
+}
+
+// Engine D3/D4 — bin restore response. Failures carry `code` for the confirm
+// flows (target_occupied → offer swap/retarget, pending_drafts → confirm
+// discard, origin_unknown → retarget only). Swap additionally returns the
+// displaced entry now in the bin.
+export interface BinRestoreResponse {
+  success:          boolean;
+  message?:         string;
+  code?:            string;
+  bin_id?:          string;
+  tier_id?:         string;
+  tier?:            SurfaceTierDetail;
+  drafts?:          TierDrafts;
+  module_status?:   Record<string, string>;
+  displaced_entry?: OccupantBinEntry | null;
+  occupant_bin?:    OccupantBinEntry[];
+  platform_status?: string;
+}
+
+export interface BinTrashResponse {
+  success:       boolean;
+  message?:      string;
+  code?:         string;
+  bin_id?:       string;
+  bin_entry?:    OccupantBinEntry;
+  occupant_bin?: OccupantBinEntry[];
+}
+
+export interface BinDeleteResponse {
+  success:       boolean;
+  message?:      string;
+  code?:         string;
+  bin_id?:       string;
+  deleted?:      boolean;
+  occupant_bin?: OccupantBinEntry[];
+}
+
 export interface TierSavePayload {
   label: string;
   price: number | null;
