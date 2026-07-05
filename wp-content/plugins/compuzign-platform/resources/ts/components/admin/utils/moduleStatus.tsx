@@ -89,11 +89,35 @@ export interface TierStatusOpts {
 
 export function resolveTierStatus(tier: TierLike | undefined, opts: TierStatusOpts): string {
   if (!tier) return 'pending-dim';
-  if (!tier.enabled) return 'disabled';
   const hasPrice = tier.price !== null || !!tier.contact;
   const hasCycle = !!tier.billing_cycle;
+  // Fully unconfigured shell — including one whose occupant travelled to the
+  // bin (archive empties the shell, E1) — reads not-configured, never Disabled.
+  if (!hasPrice && !hasCycle) return 'pending-dim';
+  if (!tier.enabled) return 'disabled';
   if (!hasPrice || !hasCycle) return 'pending-dim';
   return opts.pkgStatus === 'active' ? 'active' : 'pending-full';
+}
+
+// ── Promotion summary resolver (engine E1) ────────────────────────────────────
+// Lifecycle-derived: the pill reflects the promotion instances' own travel
+// states, not the parent package status. ≥1 active instance → active; else any
+// authoring/publishable instance (draft | disabled) → pending-full; else (no
+// instances, or bin-only archived/trashed) → pending-dim. currentCount counts
+// the non-binned instances — what "configured" means to the summaries.
+export function resolvePromotionSummary(
+  instances: Array<{ status?: string }>,
+): { status: string; currentCount: number } {
+  let hasActive = false;
+  let currentCount = 0;
+  for (const inst of instances) {
+    const s = inst.status ?? 'draft';
+    if (s === 'archived' || s === 'trashed') continue;
+    currentCount += 1;
+    if (s === 'active') hasActive = true;
+  }
+  const status = hasActive ? 'active' : currentCount > 0 ? 'pending-full' : 'pending-dim';
+  return { status, currentCount };
 }
 
 // ── Station commercial summary (list-view display) ─────────────────────────────
@@ -124,11 +148,8 @@ export function resolveStationCommercialSummary(
     tiers[key] = resolveTierStatus(pkg?.tiers[key], { pkgStatus });
   }
 
-  // Promotions — same rule the drawer uses (useServiceStation).
-  const promotionCount = pkg?.promotion_tiers.length ?? 0;
-  const promoStatus = !pkg || promotionCount === 0
-    ? 'pending-dim'
-    : pkg.platform_status === 'active' ? 'active' : 'pending-full';
+  // Promotions — lifecycle-derived (E1), same resolver the drawer uses.
+  const promoStatus = resolvePromotionSummary(pkg?.promotion_tiers ?? []).status;
 
   return { tiers, promoStatus };
 }

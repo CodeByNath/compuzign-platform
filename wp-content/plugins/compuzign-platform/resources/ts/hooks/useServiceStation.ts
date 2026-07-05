@@ -21,7 +21,7 @@ import type {
 import type { OverviewDraft } from '@/components/admin/editors/ServiceOverviewEditor';
 import type { InclusionsDraft } from '@/components/admin/editors/ServiceInclusionsEditor';
 import type { FaqsDraft } from '@/components/admin/editors/ServiceFaqsEditor';
-import { resolveOverviewStatus, resolvePackageStatus } from '@/components/admin/utils/moduleStatus';
+import { resolveOverviewStatus, resolvePackageStatus, resolvePromotionSummary } from '@/components/admin/utils/moduleStatus';
 import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/components/admin/utils/moduleNotifications';
 import type { NoteContext, ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { patchModuleDraft } from './stationPrimitives';
@@ -257,13 +257,13 @@ export function useServiceStation(
     (isActive && hasContentDraft);
 
   // ── Derived: surface layer ─────────────────────────────────────────────────
-  const pkgIsActive         = relatedPkg?.platform_status === 'active';
   const configuredTierCount = relatedPkg ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length : 0;
-  const promotionCount      = relatedPkg?.promotion_tiers.length ?? 0;
 
-  const promoStatus = !relatedPkg || promotionCount === 0
-    ? 'pending-dim'
-    : pkgIsActive ? 'active' : 'pending-full';
+  // Promotions — lifecycle-derived (E1): the pill reflects the instances' own
+  // travel states, not the parent package status; binned instances neither
+  // colour the pill nor count as configured.
+  const { status: promoStatus, currentCount: promotionCount } =
+    resolvePromotionSummary(relatedPkg?.promotion_tiers ?? []);
 
   const pkgSummaryStatus = resolvePackageStatus(relatedPkg);
 
