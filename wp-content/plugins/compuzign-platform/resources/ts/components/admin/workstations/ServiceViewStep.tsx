@@ -2,44 +2,31 @@ import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { updateServiceCategory } from '@/api/endpoints/admin';
-import type {
-  SurfacePackageSummary,
-  ServicePackageStationResponse,
-  SurfaceTierDetail,
-  InclusionItem,
-  FaqItem,
-} from '@/api/types/admin';
-import { useApi } from '@/hooks/useApi';
-import { resolveTierStatus, statusDotClass } from '@/components/admin/utils/moduleStatus';
+import type { SurfacePackageSummary } from '@/api/types/admin';
 import { useServiceStation } from '@/hooks/useServiceStation';
 import { initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { InclusionsDraft } from '../editors/ServiceInclusionsEditor';
 import type { FaqsDraft } from '../editors/ServiceFaqsEditor';
+import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
 import { ChildShell } from '@/components/admin/schema/shells/childShell';
 import {
   serviceOverviewShell,
   serviceInclusionsShell,
   serviceFaqsShell,
+  servicePackageSummaryShell,
 } from '@/components/admin/schema/shells/bindings/service';
 import type {
   ServiceOverviewShellData,
   ServiceInclusionsShellData,
   ServiceFaqsShellData,
+  ServicePackageSummaryShellData,
 } from '@/components/admin/schema/shells/bindings/service';
 import type { ShellBinding } from '@/components/admin/schema/types';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
-import { MODULE_ICONS } from '@/components/admin/schema/icons';
-import {
-  getPackageNotes,
-  getTierNotes,
-  evaluateModule,
-  tierOverviewModule,
-  tierFeaturesModule,
-  tierFaqsModule,
-} from '@/components/admin/utils/moduleNotifications';
+import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
 import { ServiceTierStep } from './ServiceTierStep';
 import { ServicePromotionStep } from './ServicePromotionStep';
@@ -737,6 +724,17 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     },
   };
 
+  // Package Summary — the package station's primary module, placed in the
+  // Connections tab in the `summary` viewpoint (Commercial group, S3a).
+  const packageSummaryShellBinding: ShellBinding<ServicePackageSummaryShellData> = {
+    data:  { headline: pkgSummaryCount, copy: pkgSummaryDesc },
+    state: detailLoaded
+      ? { status: pkgSummaryStatus, notes: packageNotes }
+      : { status: 'loading', notes: [] },
+    hasDraft: false,
+    handlers: pkgSummaryOnView ? { view: pkgSummaryOnView } : {},
+  };
+
   return (
     <>
     <div class="cz-req-detail">
@@ -745,14 +743,13 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       <DrawerTabs active={tab} onSelect={setTab} />
 
       {/* ── Service tab: Water Layer — Details group, the station's own shells
-             in `details` mode (Schema architecture S2) ───────────────────── */}
+             in the `details` viewpoint (Schema architecture S2/S3a) ───────── */}
       {tab === 'details' && (
-        <>
+        <ModeProvider mode="details">
           {/* Service Overview — overview archetype */}
           <OverviewShell
             schema={serviceOverviewShell}
             binding={overviewShellBinding}
-            mode="details"
             panelOpen={openPanel === 'overview'}
             onTogglePanel={() => setOpenPanel(p => p === 'overview' ? null : 'overview')}
           />
@@ -761,7 +758,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           <ChildShell
             schema={serviceInclusionsShell}
             binding={inclusionsShellBinding}
-            mode="details"
             panelOpen={openPanel === 'inclusions'}
             onTogglePanel={() => setOpenPanel(p => p === 'inclusions' ? null : 'inclusions')}
           />
@@ -770,34 +766,25 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           <ChildShell
             schema={serviceFaqsShell}
             binding={faqsShellBinding}
-            mode="details"
             panelOpen={openPanel === 'faqs'}
             onTogglePanel={() => setOpenPanel(p => p === 'faqs' ? null : 'faqs')}
           />
-        </>
+        </ModeProvider>
       )}
 
       {/* ── Commercial tab: Surface Layer ─────────────────────────────── */}
       {tab === 'connections' && (
         <>
-          {/* ── Commercial Module: Package Summary ───────────────────────────────── */}
-          <ReadBlock
-            title="Package Summary"
-            subtitle="Pricing and tiers for this service."
-            icon={MODULE_ICONS.package}
-            status={detailLoaded ? pkgSummaryStatus : 'loading'}
-            notes={detailLoaded ? packageNotes : []}
-            panelOpen={openPanel === 'package'}
-            onTogglePanel={() => setOpenPanel(p => p === 'package' ? null : 'package')}
-            actions={[{ id: 'view', label: 'View', onSelect: pkgSummaryOnView, disabled: !pkgSummaryOnView }]}
-          >
-            <div class="drawerModule__empty">
-              <p class="drawerModule__empty-title">{pkgSummaryCount}</p>
-              <p class="drawerModule__empty-copy">
-                {pkgSummaryDesc}
-              </p>
-            </div>
-          </ReadBlock>
+          {/* ── Commercial Module: Package Summary — overview archetype in the
+                 `summary` viewpoint (Commercial group placement) ─────────────────── */}
+          <ModeProvider mode="summary">
+            <OverviewShell
+              schema={servicePackageSummaryShell}
+              binding={packageSummaryShellBinding}
+              panelOpen={openPanel === 'package'}
+              onTogglePanel={() => setOpenPanel(p => p === 'package' ? null : 'package')}
+            />
+          </ModeProvider>
           {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
           <CommercialBlock
             label="Promotion Configuration"
@@ -1095,10 +1082,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         edit flow, unchanged). The session (draft, save/cancel, dirty state)
         stays step-owned; the schema declares which editor renders. */}
     {editingSection === 'overview' && overviewDraft && (
+      <ModeProvider mode="edit">
       <OverviewShell
         schema={serviceOverviewShell}
         binding={overviewShellBinding}
-        mode="edit"
         editSession={{
           draft:    overviewDraft,
           patch:    (p) => setOverviewDraft((d) => d ? { ...d, ...(p as Partial<OverviewDraft>) } : d),
@@ -1115,13 +1102,14 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           },
         }}
       />
+      </ModeProvider>
     )}
 
     {editingSection === 'inclusions' && inclusionsDraft && (
+      <ModeProvider mode="edit">
       <ChildShell
         schema={serviceInclusionsShell}
         binding={inclusionsShellBinding}
-        mode="edit"
         editSession={{
           draft:    inclusionsDraft,
           patch:    (p) => setInclusionsDraft((d) => d ? { ...d, ...(p as Partial<InclusionsDraft>) } : d),
@@ -1133,13 +1121,14 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           isDirty:  isEditorDirty,
         }}
       />
+      </ModeProvider>
     )}
 
     {editingSection === 'faqs' && faqsDraft && (
+      <ModeProvider mode="edit">
       <ChildShell
         schema={serviceFaqsShell}
         binding={faqsShellBinding}
-        mode="edit"
         editSession={{
           draft:    faqsDraft,
           patch:    (p) => setFaqsDraft((d) => d ? { ...d, ...(p as Partial<FaqsDraft>) } : d),
@@ -1151,6 +1140,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
           isDirty:  isEditorDirty,
         }}
       />
+      </ModeProvider>
     )}
     </>
   );

@@ -23,10 +23,13 @@ import { ServiceInclusionsEditor } from '../../../editors/ServiceInclusionsEdito
 import type { InclusionsDraft } from '../../../editors/ServiceInclusionsEditor';
 import { ServiceFaqsEditor } from '../../../editors/ServiceFaqsEditor';
 import type { FaqsDraft } from '../../../editors/ServiceFaqsEditor';
+import { packageModule } from '@/components/admin/utils/moduleNotifications';
 import type { ShellActionSchema, ShellSchema } from '../../types';
 import type {
   ItemCollectionValue,
+  MetricsValue,
   QaCollectionValue,
+  RelationSummaryValue,
   RichTextValue,
   TermValue,
   TextValue,
@@ -34,12 +37,15 @@ import type {
 
 // The canonical owning-workspace footer: Discard Draft (only while a module
 // draft exists) then Edit. Shared by all three Service module shells.
+// `view` serves the read-only viewpoints (the connections View-only footer is
+// renderer-encoded; it resolves this action).
 const DETAILS_ACTIONS: Record<string, ShellActionSchema> = {
   'discard-draft': {
     id: 'discard-draft', label: 'Discard Draft', intent: 'secondary',
     when: (b) => b.hasDraft,
   },
   edit: { id: 'edit', label: 'Edit', intent: 'secondary' },
+  view: { id: 'view', label: 'View', intent: 'secondary' },
 };
 
 const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
@@ -52,6 +58,9 @@ export interface ServiceOverviewShellData {
   title:    string;
   category: string;   // resolved display name, incl. 'Not selected'
   content:  string;
+  // Child-relation counts — supplied by relational placements (the tier/
+  // promotion drawers' Connections tabs); absent in the owning workspace.
+  includes?: { features: number; faqs: number };
 }
 
 export const serviceOverviewShell: ShellSchema<ServiceOverviewShellData> = {
@@ -84,6 +93,19 @@ export const serviceOverviewShell: ShellSchema<ServiceOverviewShellData> = {
           : 'Enter a description for the service.',
       }),
     },
+    {
+      // Relational "Includes" line — renders only in the connections
+      // viewpoint (relation-summary has no details renderer) and only when
+      // the placement supplies the counts (data-driven presence).
+      id: 'includes', element: 'relation-summary', label: 'Includes',
+      when: (d) => d.includes != null,
+      bind: (d): RelationSummaryValue => ({
+        relations: [
+          { count: d.includes?.features ?? 0, label: 'features' },
+          { count: d.includes?.faqs ?? 0, label: 'common questions' },
+        ],
+      }),
+    },
   ],
   footer:  DETAILS_FOOTER,
   actions: DETAILS_ACTIONS,
@@ -91,7 +113,7 @@ export const serviceOverviewShell: ShellSchema<ServiceOverviewShellData> = {
     render: (s) => (
       <ServiceOverviewEditor
         draft={s.draft as OverviewDraft}
-        onChange={(patch) => s.patch(patch)}
+        onChange={(patch) => s.patch?.(patch)}
         categories={(s.extras?.categories ?? []) as Category[]}
         catDescription={(s.extras?.catDescription ?? '') as string}
         onCatDescriptionChange={s.extras?.onCatDescriptionChange as (val: string) => void}
@@ -149,6 +171,36 @@ export interface ServiceFaqsShellData {
   items:        Array<{ id: string; question: string; answer: string }>;
   serviceTitle: string;   // parent identity, for the empty-state copy
 }
+
+// ── Package Summary (Commercial group, summary viewpoint) ────────────────────
+// The package station's primary module presented at a glance inside the
+// Service drawer's Connections tab. Read-only from this placement: the footer
+// routes into the Package workstation drawer via the step-supplied handler.
+
+export interface ServicePackageSummaryShellData {
+  headline: string;   // e.g. '2 tiers configured'
+  copy:     string;   // availability / guidance line
+}
+
+export const servicePackageSummaryShell: ShellSchema<ServicePackageSummaryShellData> = {
+  archetype: 'overview',
+  dna:       packageModule,
+  header: {
+    title:    'Package Summary',
+    subtitle: 'Pricing and tiers for this service.',
+    icon:     'package',
+  },
+  content: [
+    {
+      id: 'summary', element: 'metrics',
+      bind: (d): MetricsValue => ({ headline: d.headline, copy: d.copy }),
+    },
+  ],
+  footer:  { actions: ['view'] },
+  actions: {
+    view: { id: 'view', label: 'View', intent: 'secondary' },
+  },
+};
 
 export const serviceFaqsShell: ShellSchema<ServiceFaqsShellData> = {
   archetype: 'child',

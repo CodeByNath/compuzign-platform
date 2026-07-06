@@ -20,43 +20,51 @@ import type {
   ShellActionSchema,
 } from '../types';
 
-// Common props for both archetype renderers. `mode` is a prop until S3a
-// introduces ModeContext; S2 surfaces render 'details' and 'edit'.
+// Common props for both archetype renderers. The active viewpoint comes from
+// ModeContext (S3a) — placements wrap their shells in <ModeProvider>; shells
+// take no mode prop.
 export interface ShellProps<T = unknown> {
   schema:  ShellSchema<T>;
   binding: ShellBinding<T>;
-  mode:    ShellMode;
   // Notification-panel view state — surface state owned by the assembling
   // step (one open panel per surface), not DNA and not schema.
   panelOpen?:     boolean;
   onTogglePanel?: () => void;
-  // Edit session — required when mode === 'edit' (Edit Granularity: the
+  // Edit session — required in the `edit` viewpoint (Edit Granularity: the
   // draft envelope is per-module and owned by the step).
   editSession?: ShellEditSession;
 }
 
+// Connections is a read-only relational viewpoint with a View-only footer
+// (§7, locked — encoded here in the renderer, never a schema knob). Every
+// other read viewpoint renders the schema's own Footer Group.
+const CONNECTIONS_FOOTER = ['view'];
+
 // Footer Group × Action Group × ShellBinding.handlers → ActionFooter
 // descriptors. Ordered by the Footer Group; filtered by each action's
 // `when` gate; behaviour arrives exclusively as handlers from the station
-// hook / step (a schema declares intent only).
-function resolveFooterActions<T>(schema: ShellSchema<T>, binding: ShellBinding<T>): FooterAction[] {
-  return schema.footer.actions
+// hook / step (a schema declares intent only). An action is disabled while
+// it is the one in flight (`binding.busy`) or when no handler was delivered.
+function resolveFooterActions<T>(schema: ShellSchema<T>, binding: ShellBinding<T>, mode: ShellMode): FooterAction[] {
+  const ids = mode === 'connections' ? CONNECTIONS_FOOTER : schema.footer.actions;
+  return ids
     .map((id) => schema.actions[id])
     .filter((a): a is ShellActionSchema => !!a && (!a.when || a.when(binding as ShellBinding)))
     .map((a) => ({
       id:       a.id,
       label:    a.label,
       onSelect: binding.handlers[a.id],
-      disabled: !binding.handlers[a.id],
+      disabled: !binding.handlers[a.id] || binding.busy === a.id,
     }));
 }
 
 // Read frame — the canonical `.drawerModule` card. Status and notes render
 // exactly as delivered by the DNA (`binding.state`); the count is suppressed
 // while the authoritative detail is loading, matching the S1 cards.
-export function ShellReadFrame<T>({ schema, binding, panelOpen, onTogglePanel, body }: {
+export function ShellReadFrame<T>({ schema, binding, mode, panelOpen, onTogglePanel, body }: {
   schema:  ShellSchema<T>;
   binding: ShellBinding<T>;
+  mode:    ShellMode;
   panelOpen?:     boolean;
   onTogglePanel?: () => void;
   body: ComponentChildren;
@@ -75,7 +83,7 @@ export function ShellReadFrame<T>({ schema, binding, panelOpen, onTogglePanel, b
       notes={binding.state.notes}
       panelOpen={panelOpen}
       onTogglePanel={onTogglePanel}
-      actions={resolveFooterActions(schema, binding)}
+      actions={resolveFooterActions(schema, binding, mode)}
     >
       {body}
     </ReadBlock>
@@ -93,7 +101,7 @@ export function ShellEditFrame<T>({ schema, session }: {
   const editor = schema.editor;
   return (
     <InlineEditorShell
-      title={schema.header.title}
+      title={session.title ?? schema.header.title}
       onSave={() => Promise.resolve(session.onSave())}
       onCancel={session.onCancel}
       saving={session.saving}

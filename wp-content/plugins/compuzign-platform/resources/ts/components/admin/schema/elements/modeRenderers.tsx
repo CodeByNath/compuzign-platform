@@ -20,6 +20,8 @@ import type {
   TermValue,
   ItemCollectionValue,
   QaCollectionValue,
+  RelationSummaryValue,
+  MetricsValue,
 } from './library';
 
 export interface ElementRenderContext {
@@ -63,6 +65,15 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
       return v.value
         ? <p class="drawerModule__value drawerModule__value--clamp">{v.value}</p>
         : <p class="drawerModule__value drawerModule__value--muted">{v.placeholder}</p>;
+    },
+    // Relational read viewpoint: an empty prose value is a plain read-only
+    // statement, not a muted action prompt — the bound placeholder is an
+    // owning-workspace concern and does not apply here.
+    connections: (raw) => {
+      const v = raw as RichTextValue;
+      return v.value
+        ? <p class="drawerModule__value drawerModule__value--clamp">{v.value}</p>
+        : <p class="drawerModule__value">No description provided.</p>;
     },
   },
 
@@ -119,9 +130,13 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
                 <p class="cz-sc-faq-item__q">
                   {faq.question.trim() || 'No Question Added'}
                 </p>
-                <p class="cz-sc-faq-item__a">
-                  {faq.answer?.trim() || 'No Answer Added'}
-                </p>
+                {/* Owned answers (string, possibly empty) surface the gap;
+                    absent answer relations (undefined) render no line. */}
+                {faq.answer !== undefined && (
+                  <p class="cz-sc-faq-item__a">
+                    {faq.answer.trim() || 'No Answer Added'}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -131,6 +146,36 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
         <div class="drawerModule__empty">
           <p class="drawerModule__empty-title">{v.empty.title}</p>
           <p class="drawerModule__empty-copy">{v.empty.copy}</p>
+        </div>
+      );
+    },
+  },
+
+  // Compact child-relation counts — a connections-viewpoint element (its only
+  // consumer today is the related-service card's "Includes" line). No details
+  // renderer: the owning workspace presents the relations as full child shells.
+  'relation-summary': {
+    connections: (raw) => {
+      const v = raw as RelationSummaryValue;
+      return (
+        <p class="drawerModule__value">
+          {v.relations.map((r) => `${r.count} ${r.label}`).join(' | ')}
+        </p>
+      );
+    },
+  },
+
+  // At-a-glance headline + copy — a summary-viewpoint element (the Commercial
+  // group's summary blocks). Renders the shared empty-block frame the S1
+  // blocks used; no loading variant — the headline/copy are derivable before
+  // the authoritative detail resolves, matching the pre-S3a blocks.
+  metrics: {
+    summary: (raw) => {
+      const v = raw as MetricsValue;
+      return (
+        <div class="drawerModule__empty">
+          <p class="drawerModule__empty-title">{v.headline}</p>
+          <p class="drawerModule__empty-copy">{v.copy}</p>
         </div>
       );
     },

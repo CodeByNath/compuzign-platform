@@ -90,6 +90,12 @@ const FIXTURES = {
       ['value',       { value: 'Managed backup.', placeholder: 'Enter a description for the service.' }, READY],
       ['placeholder', { value: '', placeholder: 'Enter a description for the Cloud Backup.' }, READY],
     ],
+    // Relational read viewpoint (S3a): empty prose is a plain read-only
+    // statement, never the owning workspace's muted action prompt.
+    connections: [
+      ['value', { value: 'Managed backup.', placeholder: 'ignored' }, READY],
+      ['empty', { value: '', placeholder: 'ignored' },                READY],
+    ],
   },
   'item-collection': {
     details: [
@@ -105,7 +111,30 @@ const FIXTURES = {
         { id: 'f1', question: 'How?', answer: 'Easily.' },
         { id: 'f2', question: '  ',   answer: '' },          // blank q/a fallback copy
       ], empty: { title: 'No questions added', copy: '' } }, READY],
+      // Reference items (S3a, tier/promotion FAQ refs): no answer relation
+      // (undefined) → no answer line at all — distinct from an owned '' gap.
+      ['refs',    { items: [
+        { id: 'p1', question: 'How?' },
+      ], empty: { title: 'No questions added', copy: '' } }, READY],
       ['empty',   { items: [], empty: { title: 'No questions added', copy: 'Add common questions for the Cloud Backup.' } }, READY],
+    ],
+  },
+  'relation-summary': {
+    connections: [
+      ['counts', { relations: [
+        { count: 3, label: 'features' },
+        { count: 2, label: 'common questions' },
+      ] }, READY],
+      ['zero',   { relations: [
+        { count: 0, label: 'features' },
+        { count: 0, label: 'common questions' },
+      ] }, READY],
+    ],
+  },
+  metrics: {
+    summary: [
+      ['configured',   { headline: '2 tiers configured', copy: 'Package Overview includes a full summary view of pricing and tiers.' }, READY],
+      ['unconfigured', { headline: '0 tiers configured', copy: 'Pricing and tiers not available.' }, READY],
     ],
   },
   custom: {},   // escape hatch — no renderer until the first real consumer
@@ -137,6 +166,12 @@ if (resolveModeRenderer('text', 'summary') !== MODE_RENDERERS.text.details)
   failures.push('Fallback Rule: (text × summary) must fall back to the details renderer');
 if (resolveModeRenderer('text', 'table') !== undefined)
   failures.push('Fallback Rule: (text × table) must be opt-in, not fallback');
+if (resolveModeRenderer('rich-text', 'connections') !== MODE_RENDERERS['rich-text'].connections)
+  failures.push('(rich-text × connections) must use its own renderer, not the details fallback');
+if (resolveModeRenderer('relation-summary', 'details') !== undefined)
+  failures.push('relation-summary is a connections-viewpoint element — no details renderer');
+if (resolveModeRenderer('metrics', 'details') !== undefined)
+  failures.push('metrics is a summary-viewpoint element — no details renderer');
 if (resolveModeRenderer('custom', 'details') !== undefined)
   failures.push('custom must have no renderer until a real consumer registers one');
 

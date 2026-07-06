@@ -38,9 +38,27 @@ export interface ItemCollectionValue {
 }
 
 // `qa-collection` — a question/answer list (e.g. Common Questions).
+// `answer` is a data-contract distinction, not a render flag: an owned Q&A
+// item carries a string answer (possibly empty — surfaced as a gap); a
+// reference item without an answer relation carries `undefined` and the
+// answer line is absent entirely (Tier/Promotion FAQ Refs).
 export interface QaCollectionValue {
-  items: Array<{ id: string; question: string; answer: string }>;
+  items: Array<{ id: string; question: string; answer?: string }>;
   empty: { title: string; copy: string };
+}
+
+// `relation-summary` — compact counts of a station's child relations
+// (S3a amendment; e.g. "3 features | 2 common questions"). Labels arrive
+// bound so pluralisation stays a data projection.
+export interface RelationSummaryValue {
+  relations: Array<{ count: number; label: string }>;
+}
+
+// `metrics` — an at-a-glance headline + supporting copy (S3a amendment;
+// e.g. the Commercial group's "2 tiers configured" summary block).
+export interface MetricsValue {
+  headline: string;
+  copy: string;
 }
 
 // `custom` — first-class permanent escape hatch. No bound-value contract and

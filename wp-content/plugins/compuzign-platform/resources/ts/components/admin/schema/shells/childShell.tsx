@@ -1,18 +1,22 @@
-// Child Shell — archetype renderer (Schema architecture S2, §5).
+// Child Shell — archetype renderer (Schema architecture S2/S3a, §5).
 //
 // Belongs to a parent station and presents child capability data
 // (collections, references) as a bare collection body — no field labels.
-// Modes: Details · Edit (inline). Appears inside the parent Overview's
-// Connections placement (S3a).
+// Modes: Details · Edit (inline) — the active viewpoint arrives via
+// ModeContext (§7). Appears inside the parent Overview's Connections
+// placement (manifest phase, S4).
 //
-// Used by: Service Features · Service FAQs (S2) · Tier/Promotion Feature and
-// FAQ Refs (S3a bindings) · future child/reference groups.
+// Used by: Service Features · Service FAQs · Tier/Promotion Feature and FAQ
+// Refs · future child/reference groups.
 
+import { useShellMode } from '../modeContext';
 import { resolveModeRenderer } from '../elements/modeRenderers';
 import { ShellEditFrame, ShellReadFrame } from './shellFrame';
 import type { ShellProps } from './shellFrame';
 
-export function ChildShell<T>({ schema, binding, mode, panelOpen, onTogglePanel, editSession }: ShellProps<T>) {
+export function ChildShell<T>({ schema, binding, panelOpen, onTogglePanel, editSession }: ShellProps<T>) {
+  const mode = useShellMode();
+
   if (mode === 'edit') {
     return <ShellEditFrame schema={schema} session={editSession} />;
   }
@@ -30,6 +34,7 @@ export function ChildShell<T>({ schema, binding, mode, panelOpen, onTogglePanel,
     <ShellReadFrame
       schema={schema}
       binding={binding}
+      mode={mode}
       panelOpen={panelOpen}
       onTogglePanel={onTogglePanel}
       body={body}

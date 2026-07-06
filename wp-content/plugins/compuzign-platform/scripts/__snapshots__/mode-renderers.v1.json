@@ -8,10 +8,17 @@
   "rich-text.details.loading": "<p class=\"drawerModule__value\"><span class=\"cz-skeleton\" style=\"width:100%;height:1em\" aria-hidden=\"true\"></span><span class=\"cz-skeleton\" style=\"width:80%;height:1em\" aria-hidden=\"true\"></span></p>",
   "rich-text.details.value": "<p class=\"drawerModule__value drawerModule__value--clamp\">Managed backup.</p>",
   "rich-text.details.placeholder": "<p class=\"drawerModule__value drawerModule__value--muted\">Enter a description for the Cloud Backup.</p>",
+  "rich-text.connections.value": "<p class=\"drawerModule__value drawerModule__value--clamp\">Managed backup.</p>",
+  "rich-text.connections.empty": "<p class=\"drawerModule__value\">No description provided.</p>",
   "item-collection.details.loading": "<div class=\"cz-sc-inclusion-pool\"><span class=\"cz-skeleton\" style=\"width:96px;height:26px\" aria-hidden=\"true\"></span><span class=\"cz-skeleton\" style=\"width:120px;height:26px\" aria-hidden=\"true\"></span><span class=\"cz-skeleton\" style=\"width:80px;height:26px\" aria-hidden=\"true\"></span></div>",
   "item-collection.details.items": "<div class=\"cz-sc-inclusion-pool\"><span class=\"cz-tf-chip\">SSL</span><span class=\"cz-tf-chip\">Backups</span></div>",
   "item-collection.details.empty": "<div class=\"drawerModule__empty\"><p class=\"drawerModule__empty-title\">No features</p><p class=\"drawerModule__empty-copy\">Add features to the Cloud Backup.</p></div>",
   "qa-collection.details.loading": "<div class=\"cz-sc-faq-list\"><div class=\"cz-sc-faq-item\"><p class=\"cz-sc-faq-item__q\"><span class=\"cz-skeleton\" style=\"width:60%;height:1em\" aria-hidden=\"true\"></span></p><p class=\"cz-sc-faq-item__a\"><span class=\"cz-skeleton\" style=\"width:90%;height:1em\" aria-hidden=\"true\"></span></p></div></div>",
   "qa-collection.details.items": "<div class=\"cz-sc-faq-list\"><div class=\"cz-sc-faq-item\"><p class=\"cz-sc-faq-item__q\">How?</p><p class=\"cz-sc-faq-item__a\">Easily.</p></div><div class=\"cz-sc-faq-item\"><p class=\"cz-sc-faq-item__q\">No Question Added</p><p class=\"cz-sc-faq-item__a\">No Answer Added</p></div></div>",
-  "qa-collection.details.empty": "<div class=\"drawerModule__empty\"><p class=\"drawerModule__empty-title\">No questions added</p><p class=\"drawerModule__empty-copy\">Add common questions for the Cloud Backup.</p></div>"
+  "qa-collection.details.refs": "<div class=\"cz-sc-faq-list\"><div class=\"cz-sc-faq-item\"><p class=\"cz-sc-faq-item__q\">How?</p></div></div>",
+  "qa-collection.details.empty": "<div class=\"drawerModule__empty\"><p class=\"drawerModule__empty-title\">No questions added</p><p class=\"drawerModule__empty-copy\">Add common questions for the Cloud Backup.</p></div>",
+  "relation-summary.connections.counts": "<p class=\"drawerModule__value\">3 features | 2 common questions</p>",
+  "relation-summary.connections.zero": "<p class=\"drawerModule__value\">0 features | 0 common questions</p>",
+  "metrics.summary.configured": "<div class=\"drawerModule__empty\"><p class=\"drawerModule__empty-title\">2 tiers configured</p><p class=\"drawerModule__empty-copy\">Package Overview includes a full summary view of pricing and tiers.</p></div>",
+  "metrics.summary.unconfigured": "<div class=\"drawerModule__empty\"><p class=\"drawerModule__empty-title\">0 tiers configured</p><p class=\"drawerModule__empty-copy\">Pricing and tiers not available.</p></div>"
 }

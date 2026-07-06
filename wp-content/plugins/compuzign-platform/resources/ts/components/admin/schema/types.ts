@@ -29,6 +29,8 @@ export type ShellMode = 'details' | 'connections' | 'edit' | 'summary' | 'table'
 export type PlatformElementId =
   | 'text' | 'rich-text' | 'term'            // Overview content: Name, Description, Category
   | 'item-collection' | 'qa-collection'      // Child content: Inclusions chips, FAQs
+  | 'relation-summary'                       // compact child-relation counts (S3a amendment)
+  | 'metrics'                                // at-a-glance headline + copy (S3a amendment)
   | 'custom';                                // escape hatch
 
 // ── Station DNA delivery (§3) ─────────────────────────────────────────────────
@@ -78,13 +80,14 @@ export interface FooterGroup { actions: string[] }
 
 export interface ShellEditSession {
   draft: unknown;                                   // the module's working draft
-  patch:   (partial: Record<string, unknown>) => void;  // merge into the draft
+  patch?:  (partial: Record<string, unknown>) => void;  // merge into the draft (object drafts)
   replace: (next: unknown) => void;                     // swap the whole draft
   onSave:   () => Promise<void> | void;
   onCancel: () => void;
   saving:  boolean;
   saveErr: string | null;
   isDirty: boolean;
+  title?:  string;                    // session title override (e.g. the instance's own name)
   extras?: Record<string, unknown>;   // editor-specific session props (e.g. category list)
 }
 

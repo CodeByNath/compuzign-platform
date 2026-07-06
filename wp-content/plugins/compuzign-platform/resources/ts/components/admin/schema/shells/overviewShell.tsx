@@ -1,19 +1,23 @@
-// Overview Shell — archetype renderer (Schema architecture S2, §5).
+// Overview Shell — archetype renderer (Schema architecture S2/S3a, §5).
 //
 // Receives entity identity (the station's primary module) and lays its
 // Content Group out as labelled fields. Modes: Details · Edit (inline) ·
-// Connections · Summary — S2 renders Details and Edit; Connections/Summary
-// arrive with S3a (ModeContext). In its Connections viewpoint this shell
-// will also host related Child Shells (S3a).
+// Connections · Summary — the active viewpoint arrives via ModeContext (§7);
+// placements decide it, the shell never branches on hand-rolled mode props.
+// Hosting related Child Shells inside the Connections viewpoint arrives with
+// the manifest phase (S4).
 //
-// Used by: Service Overview (S2) · Tier Overview · Promotion Overview (S3a
-// bindings) · future Category / Bundle / Case Study Overview.
+// Used by: Service Overview · Tier Overview · Promotion Overview · Package
+// Summary · future Category / Bundle / Case Study Overview.
 
+import { useShellMode } from '../modeContext';
 import { resolveModeRenderer } from '../elements/modeRenderers';
 import { ShellEditFrame, ShellReadFrame } from './shellFrame';
 import type { ShellProps } from './shellFrame';
 
-export function OverviewShell<T>({ schema, binding, mode, panelOpen, onTogglePanel, editSession }: ShellProps<T>) {
+export function OverviewShell<T>({ schema, binding, panelOpen, onTogglePanel, editSession }: ShellProps<T>) {
+  const mode = useShellMode();
+
   if (mode === 'edit') {
     return <ShellEditFrame schema={schema} session={editSession} />;
   }
@@ -40,6 +44,7 @@ export function OverviewShell<T>({ schema, binding, mode, panelOpen, onTogglePan
     <ShellReadFrame
       schema={schema}
       binding={binding}
+      mode={mode}
       panelOpen={panelOpen}
       onTogglePanel={onTogglePanel}
       body={body}

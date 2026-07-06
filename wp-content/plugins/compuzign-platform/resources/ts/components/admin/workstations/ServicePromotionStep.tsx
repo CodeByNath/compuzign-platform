@@ -13,14 +13,28 @@ import type {
 import { usePromotionStation } from '@/hooks/usePromotionStation';
 import type { PromotionView } from '@/hooks/usePromotionStation';
 import { InlineEditorShell } from '../InlineEditorShell';
-import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
-import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '@/components/admin/schema/presentation';
 import type { PillMeta } from '@/components/admin/schema/presentation';
 import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
-import { decodeHtml } from './serviceDrawerShared';
+import { ModeProvider } from '@/components/admin/schema/modeContext';
+import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
+import { ChildShell } from '@/components/admin/schema/shells/childShell';
+import { serviceOverviewShell } from '@/components/admin/schema/shells/bindings/service';
+import {
+  promotionOverviewShell,
+  promotionFeaturesShell,
+  promotionFaqsShell,
+} from '@/components/admin/schema/shells/bindings/promotion';
+import type {
+  PromotionOverviewShellData,
+  PromotionFeaturesShellData,
+  PromotionFaqsShellData,
+} from '@/components/admin/schema/shells/bindings/promotion';
+import type { ShellBinding } from '@/components/admin/schema/types';
+import { PromotionOverviewEditor } from '../editors/PromotionOverviewEditor';
+import { serviceConnectionBinding, TIER_LABELS } from './serviceDrawerShared';
 
 // ── ServicePromotionStep ──────────────────────────────────────────────────────
 // Service Station-owned promotion management (cz_service_promotion_station),
@@ -36,15 +50,9 @@ import { decodeHtml } from './serviceDrawerShared';
 // modules (ReadBlock + own InlineEditorShell) with ModuleStatusPill + notes fed
 // by promotionView's evaluateModule results.
 
-const BASED_ON_TIERS = [
-  { id: 'basic', label: 'Basic' },
-  { id: 'standard', label: 'Standard' },
-  { id: 'premium', label: 'Premium' },
-  { id: 'enterprise', label: 'Enterprise' },
-];
-
 // Module icons come from the shared registry (schema/icons.tsx, S1b) — the same
-// glyphs the Service and Tier module cards use.
+// glyphs the Service and Tier module cards use. Tier labels (for "Based on
+// tier") come from serviceDrawerShared's TIER_LABELS.
 
 // The Promotion Overview module's editor draft is exactly the C2 module draft
 // payload — travel status is engine-owned and deliberately not part of it.
@@ -135,7 +143,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // the Connections tab, and the Back-to-Service navigation, mirroring ServiceTierStep.
   const serviceItem = ctx.stepData.service as ServiceItem | undefined;
   const serviceBack = ctx.stepData.serviceBack as (() => void) | undefined;
-  const serviceConnStatus = (serviceItem?.meta?.platform_status ?? 'disabled') === 'active' ? 'active' : 'disabled';
 
   const promo = usePromotionStation(serviceId, onRefresh);
 
@@ -168,17 +175,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const [openPromoPanel,  setOpenPromoPanel]  = useState<'promo-overview' | 'promo-features' | 'promo-faqs' | null>(null);
   // Bin-row delete confirm (pending only — busy comes from promo.saving).
   const deleteConfirm = useInlineConfirm<string>();
-  // Immediate canonical pool creation (mirrors ServiceTierStep's handleCreateInclusion/
-  // handleCreateFaq) — a separate request from the module draft save. On success the new
-  // item's id is appended into the currently open draft, exactly as if it had been
-  // picked from "Add from pool…".
-  const [showAddInclusion,  setShowAddInclusion]  = useState(false);
-  const [newInclusionLabel, setNewInclusionLabel] = useState('');
-  const [showAddFaq,        setShowAddFaq]        = useState(false);
-  const [newFaqQuestion,    setNewFaqQuestion]    = useState('');
-  const [newFaqAnswer,      setNewFaqAnswer]      = useState('');
-  const [creating,          setCreating]          = useState(false);
-  const [createErr,         setCreateErr]         = useState<string | null>(null);
+  // Immediate canonical pool creation lives inside the pool editors
+  // (PoolInclusionsEditor / PoolFaqsEditor); they receive
+  // promo.createInclusion / promo.createFaq through the edit session.
 
   useEffect(() => {
     if (!saveOk) return;
@@ -194,9 +193,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     const t = setTimeout(() => document.addEventListener('click', handle), 0);
     return () => { clearTimeout(t); document.removeEventListener('click', handle); };
   }, [splitOpen]);
-
-  const resetAddInclusion = () => { setShowAddInclusion(false); setNewInclusionLabel(''); setCreateErr(null); };
-  const resetAddFaq = () => { setShowAddFaq(false); setNewFaqQuestion(''); setNewFaqAnswer(''); setCreateErr(null); };
 
   // Draft-preferred lifecycle view of the open promotion (null on the list).
   const view: PromotionView | null = editingPromoId ? promo.promotionView(editingPromoId) : null;
@@ -236,7 +232,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     const d = [...view.detail.inclusions];
     setFeaturesDraft(d); setFeaturesOriginal(d);
     setEditingSection('promo-features');
-    setSaveErr(null); setSaveOk(false); resetAddInclusion();
+    setSaveErr(null); setSaveOk(false);
   };
 
   const openFaqsSection = () => {
@@ -244,7 +240,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     const d = [...view.detail.faq_refs];
     setFaqsDraft(d); setFaqsOriginal(d);
     setEditingSection('promo-faqs');
-    setSaveErr(null); setSaveOk(false); resetAddFaq();
+    setSaveErr(null); setSaveOk(false);
   };
 
   // Cancel the Promotion Overview editor — creating a new promotion returns to the list;
@@ -259,12 +255,12 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   };
 
   const handleCancelFeatures = () => {
-    setFeaturesDraft(null); setFeaturesOriginal(null); setSaveErr(null); setSaveOk(false); resetAddInclusion();
+    setFeaturesDraft(null); setFeaturesOriginal(null); setSaveErr(null); setSaveOk(false);
     setEditingSection(null);
   };
 
   const handleCancelFaqs = () => {
-    setFaqsDraft(null); setFaqsOriginal(null); setSaveErr(null); setSaveOk(false); resetAddFaq();
+    setFaqsDraft(null); setFaqsOriginal(null); setSaveErr(null); setSaveOk(false);
     setEditingSection(null);
   };
 
@@ -291,42 +287,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     promoBack.current = editingPromoId ? () => handleBackToListRef.current() : null;
     return () => { promoBack.current = null; };
   }, [editingPromoId, promoBack]);
-
-  // Immediate canonical pool creation — separate request from the module draft save.
-  const handleCreateInclusion = async () => {
-    const label = newInclusionLabel.trim();
-    if (!label) return;
-    setCreateErr(null);
-    setCreating(true);
-    try {
-      const item = await promo.createInclusion(label);
-      if (!item) { setCreateErr('Failed to create feature.'); return; }
-      setFeaturesDraft(f => (f && !f.find(i => i.id === item.id)) ? [...f, item] : f);
-      setNewInclusionLabel('');
-      setShowAddInclusion(false);
-    } finally {
-      setCreating(false);
-    }
-  };
-  const cancelAddInclusion = () => resetAddInclusion();
-
-  const handleCreateFaq = async () => {
-    const question = newFaqQuestion.trim();
-    if (!question) return;
-    setCreateErr(null);
-    setCreating(true);
-    try {
-      const item = await promo.createFaq(question, newFaqAnswer.trim());
-      if (!item) { setCreateErr('Failed to create question.'); return; }
-      setFaqsDraft(r => (r && !r.includes(item.id)) ? [...r, item.id] : r);
-      setNewFaqQuestion('');
-      setNewFaqAnswer('');
-      setShowAddFaq(false);
-    } finally {
-      setCreating(false);
-    }
-  };
-  const cancelAddFaq = () => resetAddFaq();
 
   // Promotion Overview Save — creating still uses the whole-record create (the
   // instance must exist first; it starts as draft). Editing persists a module
@@ -690,20 +650,12 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
         )}
 
         {listTab === 'connections' && (
-          <ServiceOverviewViewCard
-            mode="connection"
-            status={serviceConnStatus}
-            notes={[]}
-            displayTitle={decodeHtml(serviceItem?.title ?? svc.title) || 'Untitled service'}
-            displayContent={serviceItem?.content ? decodeHtml(serviceItem.content) : ''}
-            displayCategory={
-              serviceItem && serviceItem.categories.length > 0
-                ? serviceItem.categories.map((c) => decodeHtml(c.name)).join(', ')
-                : 'Not selected'
-            }
-            includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
-            onView={serviceBack}
-          />
+          <ModeProvider mode="connections">
+            <OverviewShell
+              schema={serviceOverviewShell}
+              binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
+            />
+          </ModeProvider>
         )}
       </div>
     );
@@ -712,247 +664,141 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const incPool = svc.inclusions;
   const faqPool = svc.faqs;
 
-  // ── Promotion Overview module editor — used both for New Promotion (create) and for
-  // editing an existing promotion's overview fields (persisted as a module draft). ────
-  if (editingSection === 'promo-overview' && overviewDraft) {
+  // ── Shell bindings — Station DNA delivered to the archetype shells (state
+  // comes straight from promotionView's evaluateModule results). Null during
+  // the New Promotion create flow, which has no instance yet. ────────────────
+  const promoBusy = promo.saving ? 'discard-draft' : null;
+  const shellBindings = view ? (() => {
+    const d = view.detail;
+    const overview: ShellBinding<PromotionOverviewShellData> = {
+      data: {
+        name:          d.name,
+        basedOnLabel:  d.based_on ? (TIER_LABELS[d.based_on] ?? d.based_on) : 'None',
+        price:         d.price,
+        billingLabel:  d.billing_label,
+        badge:         d.badge,
+        campaignLabel: d.campaign_label,
+        featured:      d.is_featured,
+        priority:      d.priority,
+        headline:      d.headline,
+        description:   d.description,
+      },
+      state:    view.modules.overview,
+      hasDraft: view.drafts.overview !== null,
+      handlers: { edit: openOverviewSection, 'discard-draft': () => handleRevert('overview') },
+      busy:     promoBusy,
+    };
+    const features: ShellBinding<PromotionFeaturesShellData> = {
+      data:     { items: d.inclusions },
+      state:    view.modules.features,
+      hasDraft: view.drafts.features !== null,
+      handlers: { edit: openFeaturesSection, 'discard-draft': () => handleRevert('features') },
+      busy:     promoBusy,
+    };
+    const faqs: ShellBinding<PromotionFaqsShellData> = {
+      data:     { refs: d.faq_refs, pool: faqPool },
+      state:    view.modules.faqs,
+      hasDraft: view.drafts.faqs !== null,
+      handlers: { edit: openFaqsSection, 'discard-draft': () => handleRevert('faqs') },
+      busy:     promoBusy,
+    };
+    return { overview, features, faqs };
+  })() : null;
+
+  // ── Promotion Overview module editor ─────────────────────────────────────────
+  // New Promotion: the instance does not exist yet, so this is instance
+  // creation (whole-record create), not a station module edit — it renders the
+  // module editor directly inside InlineEditorShell. Editing an existing
+  // promotion's overview goes through the shell's edit viewpoint below.
+  if (editingSection === 'promo-overview' && overviewDraft && isNew) {
     return (
       <InlineEditorShell
-        title={isNew ? 'New Promotion' : (overviewDraft.name || 'Promotion Overview')}
+        title="New Promotion"
         onSave={handleSaveOverview}
         onCancel={handleCancelOverview}
         saving={promo.saving}
         saveErr={saveErr}
         isDirty={overviewOriginal ? isOverviewDirty(overviewDraft, overviewOriginal) : false}
       >
-        <div class="cz-tf-form">
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Name</label>
-            <input type="text" class="cz-tf-input" value={overviewDraft.name}
-              onInput={(e) => setOverviewDraft(d => d ? { ...d, name: (e.target as HTMLInputElement).value } : d)} />
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Based on tier</label>
-            <select class="cz-tf-select" value={overviewDraft.based_on ?? ''}
-              onChange={(e) => {
-                const v = (e.target as HTMLSelectElement).value;
-                setOverviewDraft(d => d ? { ...d, based_on: (v as 'basic' | 'standard' | 'premium' | 'enterprise') || null } : d);
-              }}>
-              <option value="">None</option>
-              {BASED_ON_TIERS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Headline</label>
-            <input type="text" class="cz-tf-input" value={overviewDraft.headline}
-              onInput={(e) => setOverviewDraft(d => d ? { ...d, headline: (e.target as HTMLInputElement).value } : d)} />
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Description</label>
-            <textarea class="cz-tf-textarea" value={overviewDraft.description}
-              onInput={(e) => setOverviewDraft(d => d ? { ...d, description: (e.target as HTMLTextAreaElement).value } : d)} />
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Price</label>
-            <input type="number" class="cz-tf-input" min="0" step="0.01" value={overviewDraft.price ?? ''}
-              onInput={(e) => { const v = (e.target as HTMLInputElement).value; setOverviewDraft(d => d ? { ...d, price: v === '' ? null : parseFloat(v) } : d); }} />
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Billing label</label>
-            <input type="text" class="cz-tf-input" value={overviewDraft.billing_label}
-              onInput={(e) => setOverviewDraft(d => d ? { ...d, billing_label: (e.target as HTMLInputElement).value } : d)} />
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Badge</label>
-            <input type="text" class="cz-tf-input" value={overviewDraft.badge}
-              onInput={(e) => setOverviewDraft(d => d ? { ...d, badge: (e.target as HTMLInputElement).value } : d)} />
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Campaign label</label>
-            <input type="text" class="cz-tf-input" value={overviewDraft.campaign_label}
-              onInput={(e) => setOverviewDraft(d => d ? { ...d, campaign_label: (e.target as HTMLInputElement).value } : d)} />
-          </div>
-
-          <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-            <input type="checkbox" id="promo-overview-featured" checked={overviewDraft.is_featured}
-              onChange={(e) => setOverviewDraft(d => d ? { ...d, is_featured: (e.target as HTMLInputElement).checked } : d)} />
-            <label class="cz-tf-label" for="promo-overview-featured" style="margin: 0">Featured</label>
-          </div>
-
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Priority</label>
-            <input type="number" class="cz-tf-input" min="0" value={overviewDraft.priority}
-              onInput={(e) => setOverviewDraft(d => d ? { ...d, priority: parseInt((e.target as HTMLInputElement).value, 10) || 0 } : d)} />
-          </div>
-
-          {saveOk && <p class="cz-admin-ok-msg" style="margin-top: var(--cz-space-3)">Saved.</p>}
-        </div>
+        <PromotionOverviewEditor
+          draft={overviewDraft}
+          onChange={(patch) => setOverviewDraft(d => d ? { ...d, ...patch } : d)}
+          saveOk={saveOk}
+        />
       </InlineEditorShell>
     );
   }
 
-  // ── Included Features module editor ───────────────────────────────────────────────
-  if (editingSection === 'promo-features' && featuresDraft) {
+  if (editingSection === 'promo-overview' && overviewDraft && shellBindings) {
     return (
-      <InlineEditorShell
-        title="Included Features"
-        onSave={handleSaveFeatures}
-        onCancel={handleCancelFeatures}
-        saving={promo.saving}
-        saveErr={saveErr}
-        isDirty={featuresOriginal ? isFeaturesDirty(featuresDraft, featuresOriginal) : false}
-      >
-        <div class="cz-tf-form">
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">Inclusions</label>
-            {featuresDraft.length > 0 && (
-              <div class="cz-ie-list">
-                {featuresDraft.map((inc) => (
-                  <div key={inc.id} class="cz-ie-row">
-                    <input type="text" class="cz-tf-input" value={inc.label} readOnly />
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                      aria-label="Remove"
-                      onClick={() => setFeaturesDraft(f => f ? f.filter(i => i.id !== inc.id) : f)}>
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {incPool.length > 0 && (
-              <select class="cz-tf-select" value=""
-                onChange={(e) => {
-                  const sel = e.target as HTMLSelectElement;
-                  const id = sel.value; if (!id) return;
-                  const inc = incPool.find(i => i.id === id);
-                  if (inc) {
-                    setFeaturesDraft(f => (f && !f.find(i => i.id === id)) ? [...f, inc] : f);
-                  }
-                  sel.value = '';
-                }}>
-                <option value="">Add from pool…</option>
-                {incPool.filter(i => !featuresDraft.find(s => s.id === i.id)).map(i => (
-                  <option key={i.id} value={i.id}>{i.label}</option>
-                ))}
-              </select>
-            )}
-            {showAddInclusion ? (
-              <div class="cz-tf-inline-add">
-                <input type="text" class="cz-tf-input" placeholder="New feature label"
-                  value={newInclusionLabel}
-                  onInput={(e) => setNewInclusionLabel((e.target as HTMLInputElement).value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateInclusion(); } }}
-                  autoFocus />
-                <div class="cz-tf-inline-add__actions">
-                  <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                    onClick={handleCreateInclusion} disabled={creating}>
-                    {creating ? '…' : 'Create'}
-                  </button>
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={cancelAddInclusion} disabled={creating}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setShowAddInclusion(true)}>
-                + Create new feature
-              </button>
-            )}
-            {createErr && <p class="cz-admin-error-msg">{createErr}</p>}
-          </div>
-        </div>
-      </InlineEditorShell>
+      <ModeProvider mode="edit">
+        <OverviewShell
+          schema={promotionOverviewShell}
+          binding={shellBindings.overview}
+          editSession={{
+            draft:    overviewDraft,
+            patch:    (p) => setOverviewDraft(d => d ? { ...d, ...(p as Partial<OverviewDraft>) } : d),
+            replace:  (next) => setOverviewDraft(next as OverviewDraft),
+            onSave:   handleSaveOverview,
+            onCancel: handleCancelOverview,
+            saving:   promo.saving,
+            saveErr,
+            isDirty:  overviewOriginal ? isOverviewDirty(overviewDraft, overviewOriginal) : false,
+            title:    overviewDraft.name || 'Promotion Overview',
+            extras:   { saveOk },
+          }}
+        />
+      </ModeProvider>
     );
   }
 
-  // ── Common Questions module editor ────────────────────────────────────────────────
-  if (editingSection === 'promo-faqs' && faqsDraft) {
+  // ── Included Features module editor — the shell's edit viewpoint ─────────────
+  if (editingSection === 'promo-features' && featuresDraft && shellBindings) {
     return (
-      <InlineEditorShell
-        title="Common Questions"
-        onSave={handleSaveFaqs}
-        onCancel={handleCancelFaqs}
-        saving={promo.saving}
-        saveErr={saveErr}
-        isDirty={faqsOriginal ? isFaqsDirty(faqsDraft, faqsOriginal) : false}
-      >
-        <div class="cz-tf-form">
-          <div class="cz-tf-field">
-            <label class="cz-tf-label">FAQs</label>
-            {faqsDraft.length > 0 && (
-              <div class="cz-ie-list">
-                {faqsDraft.map(ref => {
-                  const faq = faqPool.find(f => f.id === ref);
-                  return (
-                    <div key={ref} class="cz-ie-row">
-                      <input type="text" class="cz-tf-input" value={faq?.question ?? ref} readOnly />
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                        aria-label="Remove"
-                        onClick={() => setFaqsDraft(r => r ? r.filter(x => x !== ref) : r)}>✕</button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {faqPool.length > 0 && (
-              <select class="cz-tf-select" value=""
-                onChange={(e) => {
-                  const sel = e.target as HTMLSelectElement;
-                  const id = sel.value;
-                  if (!id) return;
-                  setFaqsDraft(r => (r && !r.includes(id)) ? [...r, id] : r);
-                  sel.value = '';
-                }}>
-                <option value="">Add FAQ from pool…</option>
-                {faqPool.filter(f => !faqsDraft.includes(f.id)).map(f => (
-                  <option key={f.id} value={f.id}>{f.question}</option>
-                ))}
-              </select>
-            )}
-            {showAddFaq ? (
-              <div class="cz-tf-inline-add">
-                <input type="text" class="cz-tf-input" placeholder="Question"
-                  value={newFaqQuestion}
-                  onInput={(e) => setNewFaqQuestion((e.target as HTMLInputElement).value)}
-                  autoFocus />
-                <textarea class="cz-tf-textarea" placeholder="Answer (optional)"
-                  value={newFaqAnswer}
-                  onInput={(e) => setNewFaqAnswer((e.target as HTMLTextAreaElement).value)}
-                  rows={3} />
-                <div class="cz-tf-inline-add__actions">
-                  <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                    onClick={handleCreateFaq} disabled={creating}>
-                    {creating ? '…' : 'Create'}
-                  </button>
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    onClick={cancelAddFaq} disabled={creating}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" class="cz-tf-add-btn" onClick={() => setShowAddFaq(true)}>
-                + Create new question
-              </button>
-            )}
-            {createErr && <p class="cz-admin-error-msg">{createErr}</p>}
-          </div>
-        </div>
-      </InlineEditorShell>
+      <ModeProvider mode="edit">
+        <ChildShell
+          schema={promotionFeaturesShell}
+          binding={shellBindings.features}
+          editSession={{
+            draft:    featuresDraft,
+            replace:  (next) => setFeaturesDraft(next as InclusionItem[]),
+            onSave:   handleSaveFeatures,
+            onCancel: handleCancelFeatures,
+            saving:   promo.saving,
+            saveErr,
+            isDirty:  featuresOriginal ? isFeaturesDirty(featuresDraft, featuresOriginal) : false,
+            extras:   { pool: incPool, onCreate: (label: string) => promo.createInclusion(label) },
+          }}
+        />
+      </ModeProvider>
+    );
+  }
+
+  // ── Common Questions module editor — the shell's edit viewpoint ──────────────
+  if (editingSection === 'promo-faqs' && faqsDraft && shellBindings) {
+    return (
+      <ModeProvider mode="edit">
+        <ChildShell
+          schema={promotionFaqsShell}
+          binding={shellBindings.faqs}
+          editSession={{
+            draft:    faqsDraft,
+            replace:  (next) => setFaqsDraft(next as string[]),
+            onSave:   handleSaveFaqs,
+            onCancel: handleCancelFaqs,
+            saving:   promo.saving,
+            saveErr,
+            isDirty:  faqsOriginal ? isFaqsDirty(faqsDraft, faqsOriginal) : false,
+            extras:   { pool: faqPool, onCreate: (question: string, answer: string) => promo.createFaq(question, answer) },
+          }}
+        />
+      </ModeProvider>
     );
   }
 
   // ── Individual promotion detail view — Details (Promotion Overview + Included
   // Features + Common Questions modules) | Connections ─────────────────────────────
-  if (!view) return null;
+  if (!view || !shellBindings) return null;
   const detail = view.detail;
 
   return (
@@ -961,144 +807,33 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
           Connections = the parent service. */}
       <DrawerTabs active={detailTab} onSelect={setDetailTab} />
 
+      {/* ── Details tab: the promotion's own modules — the Details group, on
+             the archetype shells (Schema architecture S3a) ──────────────────── */}
       {detailTab === 'details' && (
-        <>
-          {/* Promotion Overview — ReadBlock with the module's lifecycle pill + notes
-              from promotionView (evaluateModule). Values are draft-preferred. */}
-          <ReadBlock
-            title="Promotion Overview"
-            subtitle="General information about this promotion."
-            icon={MODULE_ICONS.overview}
-            iconVariant="drawerModule__icon--overview"
-            scopeClass="drawerOverview"
-            status={view.modules.overview.status}
-            notes={view.modules.overview.notes}
+        <ModeProvider mode="details">
+          {/* Promotion Overview — overview archetype */}
+          <OverviewShell
+            schema={promotionOverviewShell}
+            binding={shellBindings.overview}
             panelOpen={openPromoPanel === 'promo-overview'}
             onTogglePanel={() => setOpenPromoPanel((p) => (p === 'promo-overview' ? null : 'promo-overview'))}
-            onEdit={openOverviewSection}
-          >
-            <div class="drawerModule__fields">
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Name</p>
-                <p class="drawerModule__value">{detail.name || '(unnamed)'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Based on tier</p>
-                <p class="drawerModule__value">{detail.based_on ? BASED_ON_TIERS.find(t => t.id === detail.based_on)?.label ?? detail.based_on : 'None'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Price</p>
-                <p class="drawerModule__value">{detail.price !== null ? `$${detail.price}` : '—'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Billing label</p>
-                <p class="drawerModule__value">{detail.billing_label || '—'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Badge</p>
-                <p class="drawerModule__value">{detail.badge || '—'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Campaign label</p>
-                <p class="drawerModule__value">{detail.campaign_label || '—'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Featured</p>
-                <p class="drawerModule__value">{detail.is_featured ? 'Yes' : 'No'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Priority</p>
-                <p class="drawerModule__value">{detail.priority}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Headline</p>
-                <p class="drawerModule__value">{detail.headline || '—'}</p>
-              </div>
-              <div class="drawerModule__field">
-                <p class="drawerModule__label">Description</p>
-                <p class="drawerModule__value">{detail.description || '—'}</p>
-              </div>
-            </div>
-            {view.drafts.overview !== null && (
-              <div class="drawerModule__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleRevert('overview')}>
-                  Discard pending changes
-                </button>
-              </div>
-            )}
-          </ReadBlock>
+          />
 
-          {/* Included Features — module lifecycle pill + notes; draft-preferred refs. */}
-          <ReadBlock
-            title="Included Features"
-            subtitle="Features included in this promotion."
-            icon={MODULE_ICONS.features}
-            iconVariant="drawerModule__icon--features"
-            count={detail.inclusions.length}
-            status={view.modules.features.status}
-            notes={view.modules.features.notes}
+          {/* Included Features — child archetype (pool references) */}
+          <ChildShell
+            schema={promotionFeaturesShell}
+            binding={shellBindings.features}
             panelOpen={openPromoPanel === 'promo-features'}
             onTogglePanel={() => setOpenPromoPanel((p) => (p === 'promo-features' ? null : 'promo-features'))}
-            onEdit={openFeaturesSection}
-          >
-            {detail.inclusions.length > 0 ? (
-              <div class="cz-sc-inclusion-pool">
-                {detail.inclusions.map(inc => <span key={inc.id} class="cz-tf-chip">{inc.label}</span>)}
-              </div>
-            ) : (
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">No features</p>
-                <p class="drawerModule__empty-copy">Add features included in this promotion.</p>
-              </div>
-            )}
-            {view.drafts.features !== null && (
-              <div class="drawerModule__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleRevert('features')}>
-                  Discard pending changes
-                </button>
-              </div>
-            )}
-          </ReadBlock>
+          />
 
-          {/* Common Questions — module lifecycle pill + notes; draft-preferred refs. */}
-          <ReadBlock
-            title="Common Questions"
-            subtitle="Questions and answers for this promotion."
-            icon={MODULE_ICONS.faqs}
-            iconVariant="drawerModule__icon--faqs"
-            count={detail.faq_refs.length}
-            status={view.modules.faqs.status}
-            notes={view.modules.faqs.notes}
+          {/* Common Questions — child archetype (pool references) */}
+          <ChildShell
+            schema={promotionFaqsShell}
+            binding={shellBindings.faqs}
             panelOpen={openPromoPanel === 'promo-faqs'}
             onTogglePanel={() => setOpenPromoPanel((p) => (p === 'promo-faqs' ? null : 'promo-faqs'))}
-            onEdit={openFaqsSection}
-          >
-            {detail.faq_refs.length > 0 ? (
-              <div class="cz-sc-faq-list">
-                {detail.faq_refs.map(ref => {
-                  const faq = faqPool.find(f => f.id === ref);
-                  return (
-                    <div key={ref} class="cz-sc-faq-item">
-                      <p class="cz-sc-faq-item__q">{faq?.question ?? ref}</p>
-                      {faq?.answer && <p class="cz-sc-faq-item__a">{faq.answer}</p>}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">No questions added</p>
-                <p class="drawerModule__empty-copy">Add common questions for this promotion.</p>
-              </div>
-            )}
-            {view.drafts.faqs !== null && (
-              <div class="drawerModule__footer">
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleRevert('faqs')}>
-                  Discard pending changes
-                </button>
-              </div>
-            )}
-          </ReadBlock>
+          />
 
           {(saveErr || saveOk) && (
             <div class="cz-shell-section cz-shell-section--no-border">
@@ -1106,24 +841,16 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
               {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
             </div>
           )}
-        </>
+        </ModeProvider>
       )}
 
       {detailTab === 'connections' && (
-        <ServiceOverviewViewCard
-          mode="connection"
-          status={serviceConnStatus}
-          notes={[]}
-          displayTitle={decodeHtml(serviceItem?.title ?? svc.title) || 'Untitled service'}
-          displayContent={serviceItem?.content ? decodeHtml(serviceItem.content) : ''}
-          displayCategory={
-            serviceItem && serviceItem.categories.length > 0
-              ? serviceItem.categories.map((c) => decodeHtml(c.name)).join(', ')
-              : 'Not selected'
-          }
-          includesLabel={`${svc.inclusions?.length ?? 0} features | ${svc.faqs?.length ?? 0} common questions`}
-          onView={serviceBack}
-        />
+        <ModeProvider mode="connections">
+          <OverviewShell
+            schema={serviceOverviewShell}
+            binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
+          />
+        </ModeProvider>
       )}
 
       {/* ── Publish / Settle confirmation modal (Service drawer pattern) ────── */}
