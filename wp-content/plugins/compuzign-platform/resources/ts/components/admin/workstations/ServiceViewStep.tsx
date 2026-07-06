@@ -11,17 +11,24 @@ import type {
 } from '@/api/types/admin';
 import { useApi } from '@/hooks/useApi';
 import { resolveTierStatus, statusDotClass } from '@/components/admin/utils/moduleStatus';
-import { InlineEditorShell } from '../InlineEditorShell';
 import { useServiceStation } from '@/hooks/useServiceStation';
-import { ServiceOverviewEditor, initOverviewDraft } from '../editors/ServiceOverviewEditor';
+import { initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
-import { ServiceInclusionsEditor } from '../editors/ServiceInclusionsEditor';
 import type { InclusionsDraft } from '../editors/ServiceInclusionsEditor';
-import { ServiceFaqsEditor } from '../editors/ServiceFaqsEditor';
 import type { FaqsDraft } from '../editors/ServiceFaqsEditor';
-import { ServiceOverviewViewCard } from '../views/ServiceOverviewViewCard';
-import { ServiceInclusionsViewCard } from '../views/ServiceInclusionsViewCard';
-import { ServiceFaqsViewCard } from '../views/ServiceFaqsViewCard';
+import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
+import { ChildShell } from '@/components/admin/schema/shells/childShell';
+import {
+  serviceOverviewShell,
+  serviceInclusionsShell,
+  serviceFaqsShell,
+} from '@/components/admin/schema/shells/bindings/service';
+import type {
+  ServiceOverviewShellData,
+  ServiceInclusionsShellData,
+  ServiceFaqsShellData,
+} from '@/components/admin/schema/shells/bindings/service';
+import type { ShellBinding } from '@/components/admin/schema/types';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
 import { MODULE_ICONS } from '@/components/admin/schema/icons';
@@ -676,19 +683,59 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, overviewStatus, moduleStatus, ctx.setFooter, ctx.close]);
 
-  // ── Pre-resolved display values for view cards ────────────────────────────
+  // ── Pre-resolved display values for the module shells ────────────────────
   // Fallback order mirrors the status path: draft → adminDetail settled → CostBuilder service.
   const rawDisplayTitle = stationOverviewDraft?.title.trim() || settledOverview?.title.trim() || service.title.trim() || '';
   const displayTitle    = rawDisplayTitle ? decodeHtml(rawDisplayTitle) : '';
-  const displayExcerpt  = stationOverviewDraft?.excerpt.trim() || settledOverview?.excerpt?.trim() || service.excerpt?.trim() || '';
   const displayContent  = stationOverviewDraft?.content.trim() || settledOverview?.content?.trim() || service.content?.trim() || '';
   const displayCategory = stationOverviewDraft
     ? decodeHtml(allCategories.find(c => stationOverviewDraft.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
     : decodeHtml(settledOverview?.categories[0]?.name ?? service.categories[0]?.name ?? 'Not selected');
   const decodedServiceTitle = decodeHtml(service.title);
 
-  // Package Summary notes — module-owned, mirrors the Service module view cards.
+  // Package Summary notes — module-owned, mirrors the Service module shells.
   const packageNotes = getPackageNotes(relatedPkg, { platformStatus });
+
+  // ── Shell bindings — Station DNA delivered to the S2 archetype shells ─────
+  // Assembled here (from useServiceStation's flat shape) until S4 normalises
+  // the hook to the `modules:{…}` delivery. Status/notes pass through exactly
+  // as the station derives them; 'loading' holds the pill and body shimmer
+  // until the authoritative detail resolves, matching the pre-S2 cards.
+  const overviewShellBinding: ShellBinding<ServiceOverviewShellData> = {
+    data:  { title: displayTitle, category: displayCategory, content: displayContent },
+    state: detailLoaded
+      ? { status: overviewStatus, notes: overviewNotes }
+      : { status: 'loading', notes: [] },
+    hasDraft: moduleStatus?.overview === 'pending' && stationOverviewDraft !== null,
+    handlers: {
+      edit:            openOverviewEditor,
+      'discard-draft': () => setDiscardConfirm('overview'),
+    },
+  };
+
+  const inclusionsShellBinding: ShellBinding<ServiceInclusionsShellData> = {
+    data:  { items: inclusions, serviceTitle: decodedServiceTitle },
+    state: detailLoaded
+      ? { status: inclusionsStatus, notes: inclusionsNotes }
+      : { status: 'loading', notes: [] },
+    hasDraft: moduleStatus?.inclusions === 'pending' && hasInclusionsDraft,
+    handlers: {
+      edit:            openInclusionsEditor,
+      'discard-draft': () => setDiscardConfirm('inclusions'),
+    },
+  };
+
+  const faqsShellBinding: ShellBinding<ServiceFaqsShellData> = {
+    data:  { items: faqs, serviceTitle: decodedServiceTitle },
+    state: detailLoaded
+      ? { status: faqsStatus, notes: faqsNotes }
+      : { status: 'loading', notes: [] },
+    hasDraft: moduleStatus?.faqs === 'pending' && hasFaqsDraft,
+    handlers: {
+      edit:            openFaqsEditor,
+      'discard-draft': () => setDiscardConfirm('faqs'),
+    },
+  };
 
   return (
     <>
@@ -697,53 +744,36 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       {/* ── Tab bar — Drawer Tab Contract ─────────────────────────────── */}
       <DrawerTabs active={tab} onSelect={setTab} />
 
-      {/* ── Service tab: Water Layer ───────────────────────────────────── */}
+      {/* ── Service tab: Water Layer — Details group, the station's own shells
+             in `details` mode (Schema architecture S2) ───────────────────── */}
       {tab === 'details' && (
         <>
-          {/* ── Service Level Module: Service Overview ──────────────────────────────── */}
-          <ServiceOverviewViewCard
-            status={detailLoaded ? overviewStatus : 'loading'}
-            notes={detailLoaded ? overviewNotes : []}
+          {/* Service Overview — overview archetype */}
+          <OverviewShell
+            schema={serviceOverviewShell}
+            binding={overviewShellBinding}
+            mode="details"
             panelOpen={openPanel === 'overview'}
             onTogglePanel={() => setOpenPanel(p => p === 'overview' ? null : 'overview')}
-            displayTitle={displayTitle}
-            displayExcerpt={displayExcerpt}
-            displayContent={displayContent}
-            displayCategory={displayCategory}
-            hasDraft={moduleStatus?.overview === 'pending' && stationOverviewDraft !== null}
-            onEdit={openOverviewEditor}
-            onDiscard={() => setDiscardConfirm('overview')}
           />
-          {/* ── / Service Level Module: Service Overview ─────────────────────────── */}
 
-
-          {/* ── Service Level Module: Included Features ──────────────────────────── */}
-          <ServiceInclusionsViewCard
-            status={detailLoaded ? inclusionsStatus : 'loading'}
-            notes={detailLoaded ? inclusionsNotes : []}
+          {/* Included Features — child archetype */}
+          <ChildShell
+            schema={serviceInclusionsShell}
+            binding={inclusionsShellBinding}
+            mode="details"
             panelOpen={openPanel === 'inclusions'}
             onTogglePanel={() => setOpenPanel(p => p === 'inclusions' ? null : 'inclusions')}
-            inclusions={inclusions}
-            serviceTitle={decodedServiceTitle}
-            hasDraft={moduleStatus?.inclusions === 'pending' && hasInclusionsDraft}
-            onEdit={openInclusionsEditor}
-            onDiscard={() => setDiscardConfirm('inclusions')}
           />
-          {/* ── / Service Level Module: Included Features ────────────────────────── */}
 
-          {/* ── Service Level Module: Common Questions ───────────────────────────── */}
-          <ServiceFaqsViewCard
-            status={detailLoaded ? faqsStatus : 'loading'}
-            notes={detailLoaded ? faqsNotes : []}
+          {/* Common Questions — child archetype */}
+          <ChildShell
+            schema={serviceFaqsShell}
+            binding={faqsShellBinding}
+            mode="details"
             panelOpen={openPanel === 'faqs'}
             onTogglePanel={() => setOpenPanel(p => p === 'faqs' ? null : 'faqs')}
-            faqs={faqs}
-            serviceTitle={decodedServiceTitle}
-            hasDraft={moduleStatus?.faqs === 'pending' && hasFaqsDraft}
-            onEdit={openFaqsEditor}
-            onDiscard={() => setDiscardConfirm('faqs')}
           />
-          {/* ── / Service Level Module: Common Questions ──────────────────────────── */}
         </>
       )}
 
@@ -1060,56 +1090,67 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       </div>
     )}
 
-    {/* Drawer Principle v1 — Edit state: each module rendered through InlineEditorShell */}
+    {/* Drawer Principle v1 — Edit state: the active module's shell in `edit`
+        mode (module-level, inside InlineEditorShell — the existing universal
+        edit flow, unchanged). The session (draft, save/cancel, dirty state)
+        stays step-owned; the schema declares which editor renders. */}
     {editingSection === 'overview' && overviewDraft && (
-      <InlineEditorShell
-        title="Service Overview"
-        onSave={handleSaveOverview}
-        onCancel={handleCancelEdit}
-        saving={saving}
-        saveErr={saveErr}
-        isDirty={isEditorDirty}
-      >
-        <ServiceOverviewEditor
-          draft={overviewDraft}
-          onChange={(patch) => setOverviewDraft((d) => d ? { ...d, ...patch } : d)}
-          categories={localCategories}
-          catDescription={catDesc}
-          onCatDescriptionChange={setCatDesc}
-        />
-      </InlineEditorShell>
+      <OverviewShell
+        schema={serviceOverviewShell}
+        binding={overviewShellBinding}
+        mode="edit"
+        editSession={{
+          draft:    overviewDraft,
+          patch:    (p) => setOverviewDraft((d) => d ? { ...d, ...(p as Partial<OverviewDraft>) } : d),
+          replace:  (next) => setOverviewDraft(next as OverviewDraft),
+          onSave:   handleSaveOverview,
+          onCancel: handleCancelEdit,
+          saving,
+          saveErr,
+          isDirty:  isEditorDirty,
+          extras: {
+            categories:             localCategories,
+            catDescription:         catDesc,
+            onCatDescriptionChange: setCatDesc,
+          },
+        }}
+      />
     )}
 
     {editingSection === 'inclusions' && inclusionsDraft && (
-      <InlineEditorShell
-        title="Included Features"
-        onSave={handleSaveInclusions}
-        onCancel={handleCancelEdit}
-        saving={saving}
-        saveErr={saveErr}
-        isDirty={isEditorDirty}
-      >
-        <ServiceInclusionsEditor
-          draft={inclusionsDraft}
-          onChange={setInclusionsDraft}
-        />
-      </InlineEditorShell>
+      <ChildShell
+        schema={serviceInclusionsShell}
+        binding={inclusionsShellBinding}
+        mode="edit"
+        editSession={{
+          draft:    inclusionsDraft,
+          patch:    (p) => setInclusionsDraft((d) => d ? { ...d, ...(p as Partial<InclusionsDraft>) } : d),
+          replace:  (next) => setInclusionsDraft(next as InclusionsDraft),
+          onSave:   handleSaveInclusions,
+          onCancel: handleCancelEdit,
+          saving,
+          saveErr,
+          isDirty:  isEditorDirty,
+        }}
+      />
     )}
 
     {editingSection === 'faqs' && faqsDraft && (
-      <InlineEditorShell
-        title="Common Questions"
-        onSave={handleSaveFaqs}
-        onCancel={handleCancelEdit}
-        saving={saving}
-        saveErr={saveErr}
-        isDirty={isEditorDirty}
-      >
-        <ServiceFaqsEditor
-          draft={faqsDraft}
-          onChange={setFaqsDraft}
-        />
-      </InlineEditorShell>
+      <ChildShell
+        schema={serviceFaqsShell}
+        binding={faqsShellBinding}
+        mode="edit"
+        editSession={{
+          draft:    faqsDraft,
+          patch:    (p) => setFaqsDraft((d) => d ? { ...d, ...(p as Partial<FaqsDraft>) } : d),
+          replace:  (next) => setFaqsDraft(next as FaqsDraft),
+          onSave:   handleSaveFaqs,
+          onCancel: handleCancelEdit,
+          saving,
+          saveErr,
+          isDirty:  isEditorDirty,
+        }}
+      />
     )}
     </>
   );
