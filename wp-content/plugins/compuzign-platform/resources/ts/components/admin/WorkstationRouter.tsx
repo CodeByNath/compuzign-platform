@@ -1,14 +1,7 @@
 import type { WorkstationId } from '@/api/types/admin';
 import type { ActionConfig } from './ActionShell';
-import { OverviewWorkstation } from './workstations/OverviewWorkstation';
-import { ServiceCatalogWorkstation } from './workstations/ServiceCatalogWorkstation';
-import { ServiceArchivedWorkstation } from './workstations/ServiceArchivedWorkstation';
-import { ServiceTrashWorkstation } from './workstations/ServiceTrashWorkstation';
-import { BundlesWorkstation } from './workstations/BundlesWorkstation';
-import { FeaturedWorkstation } from './workstations/FeaturedWorkstation';
-import { RequestsWorkstation } from './workstations/RequestsWorkstation';
-import { HealthWorkstation } from './workstations/HealthWorkstation';
-import { BinWorkstation } from './workstations/BinWorkstation';
+import { WORKSTATION_INDEX } from './schema/workstations';
+import { EntityTableWorkstation } from './workstations/EntityTableWorkstation';
 
 interface Props {
   active: WorkstationId;
@@ -16,32 +9,34 @@ interface Props {
   openAction: (config: ActionConfig) => void;
 }
 
-
+// Registry dispatch (S5): the WORKSTATIONS registry owns the id → surface
+// mapping; this router only realises the surface kind. Adding a workstation
+// is one registry entry — this file does not change.
 export function WorkstationRouter({ active, refreshKey, openAction }: Props) {
-  switch (active) {
-    case 'overview':
-      return <OverviewWorkstation refreshKey={refreshKey} />;
-    case 'service-catalog':
-      return <ServiceCatalogWorkstation refreshKey={refreshKey} openAction={openAction} />;
-    case 'service-archived':
-      return <ServiceArchivedWorkstation refreshKey={refreshKey} />;
-    case 'service-trash':
-      return <ServiceTrashWorkstation refreshKey={refreshKey} />;
-    case 'bundles':
-      return <BundlesWorkstation refreshKey={refreshKey} />;
-    case 'featured':
-      return <FeaturedWorkstation refreshKey={refreshKey} />;
-    case 'requests':
-      return <RequestsWorkstation refreshKey={refreshKey} openAction={openAction} />;
-    case 'health':
-      return <HealthWorkstation refreshKey={refreshKey} />;
-    case 'bin':
-      return <BinWorkstation refreshKey={refreshKey} />;
-    default:
-      return (
-        <div class="cz-admin-empty">
-          <p><strong>{active}</strong> workstation is not yet available.</p>
-        </div>
-      );
+  const def = WORKSTATION_INDEX[active];
+
+  if (!def) {
+    return (
+      <div class="cz-admin-empty">
+        <p><strong>{active}</strong> workstation is not yet available.</p>
+      </div>
+    );
   }
+
+  if (def.surface.kind === 'entity-table') {
+    const { entity, scope } = def.surface;
+    // Keyed per entity:scope — useApi fetchers are fixed at mount, so a scope
+    // change must remount the surface rather than re-render it.
+    return (
+      <EntityTableWorkstation
+        key={`${entity}:${scope}`}
+        entity={entity}
+        scope={scope}
+        refreshKey={refreshKey}
+      />
+    );
+  }
+
+  const Surface = def.surface.component();
+  return <Surface refreshKey={refreshKey} openAction={openAction} />;
 }

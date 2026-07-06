@@ -165,29 +165,15 @@ export type WorkstationId =
   | 'health'
   | 'bin';
 
+// The workstation registry itself (entries, groups, labels) lives in
+// components/admin/schema/workstations.ts (Schema architecture S5). Only the
+// type-level contract stays here; WorkstationSchema extends WorkstationDef.
 export interface WorkstationDef {
   id:      WorkstationId;
   label:   string;
-  icon:    string;
   group:   string;
   parent?: WorkstationId;
 }
-
-export const WORKSTATIONS: WorkstationDef[] = [
-  { id: 'overview',          label: 'Overview',          icon: '◈', group: 'command'    },
-  { id: 'service-catalog',   label: 'Service Catalog',   icon: '◫', group: 'catalog'    },
-  { id: 'service-archived',  label: 'Archived',          icon: '',  group: 'catalog',   parent: 'service-catalog' },
-  { id: 'service-trash',     label: 'Trash',             icon: '',  group: 'catalog',   parent: 'service-catalog' },
-  { id: 'bundles',          label: 'Bundles',           icon: '❐', group: 'catalog'    },
-  { id: 'featured',         label: 'Featured Controls', icon: '◆', group: 'catalog'    },
-  { id: 'requests',         label: 'Requests & Quotes', icon: '◌', group: 'operations' },
-  { id: 'health',           label: 'Health & Status',   icon: '◉', group: 'operations' },
-  { id: 'bin',              label: 'Bin',               icon: '🗑', group: 'operations' },
-];
-
-export const WORKSTATION_LABELS: Record<WorkstationId, string> = Object.fromEntries(
-  WORKSTATIONS.map((w) => [w.id, w.label]),
-) as Record<WorkstationId, string>;
 
 // ── Requests river types ─────────────────────────────────────────────────────
 

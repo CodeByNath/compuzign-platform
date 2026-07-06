@@ -5,6 +5,7 @@ import { fetchMigrationAudit, runPhaseOneMigration, runPhaseTwoMigration, runPha
 import type { MigrationAudit, MigrationRunResult, MigrationPhase2Result, MigrationPhase4Result } from '@/api/types/admin';
 import { Spinner } from '@/components/ui/Spinner';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { Workstation } from '../shell/Workstation';
 
 interface Props {
   refreshKey: number;
@@ -100,8 +101,8 @@ export function HealthWorkstation({ refreshKey }: Props) {
     );
 
   return (
-    <div>
-      <div class="cz-ws-header">
+    <Workstation>
+      <Workstation.Header className="cz-ws-header">
         <div>
           <h2 class="cz-ws-title">Health & System Status</h2>
           <p class="cz-ws-subtitle">
@@ -115,8 +116,9 @@ export function HealthWorkstation({ refreshKey }: Props) {
             Refresh
           </button>
         </div>
-      </div>
+      </Workstation.Header>
 
+      <Workstation.Content>
       <div class="cz-health-status-banner" data-ok={allOk ? 'true' : 'false'}>
         <span class="cz-health-status-banner__icon">{allOk ? '✓' : '!'}</span>
         <div>
@@ -482,6 +484,7 @@ export function HealthWorkstation({ refreshKey }: Props) {
           </div>
         )}
       </div>
-    </div>
+      </Workstation.Content>
+    </Workstation>
   );
 }

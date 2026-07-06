@@ -37,15 +37,19 @@ Rules:
    `__actions`, `__content` in `admin.css`. All values extend Atomic Engine
    `--cz-*` / admin tokens per the design-token discipline.
 
-## Adoption status (2026-07)
+## Adoption status (2026-07, S5 — complete)
 
 | Workstation | Uses the contract |
 |---|---|
 | `ServiceCatalogWorkstation` | ✓ (pilot) |
 | `BinWorkstation` | ✓ |
-| `OverviewWorkstation`, `BundlesWorkstation`, `FeaturedWorkstation`, `RequestsWorkstation`, `HealthWorkstation`, `ServiceArchivedWorkstation`, `ServiceTrashWorkstation` | ✗ — legacy `cz-ws-header` / `cz-ws-card` frame |
+| `OverviewWorkstation`, `BundlesWorkstation`, `FeaturedWorkstation`, `RequestsWorkstation`, `HealthWorkstation` | ✓ (S5) |
+| `EntityTableWorkstation` (generic travel surface; replaced `ServiceArchivedWorkstation` / `ServiceTrashWorkstation`) | ✓ (S5) |
 
-Full adoption is scheduled as part of Phase S5 of the Schema-Driven
-Workstation Architecture (workstations adopt the zones as they are migrated
-onto `WorkstationSchema` surfaces). Rule 3 applies to all new work
-immediately: no new workstation may hand-roll the page frame.
+Adoption completed in Phase S5 of the Schema-Driven Workstation Architecture,
+alongside the `WorkstationSchema` registry (`schema/workstations.ts`) that
+routes every surface. Header-right action buttons (e.g. Refresh on Requests /
+Health) live inside the Header zone — they are part of the `cz-ws-header`
+flex layout, not the Actions zone, which remains the below-header row (cf.
+Service Catalog's "+ New Service"). Rule 3 stands: no workstation may
+hand-roll the page frame.

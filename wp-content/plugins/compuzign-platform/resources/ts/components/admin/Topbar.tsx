@@ -1,5 +1,5 @@
-import { WORKSTATION_LABELS } from '@/api/types/admin';
 import type { WorkstationId } from '@/api/types/admin';
+import { WORKSTATION_LABELS } from './schema/workstations';
 
 interface Props {
   workstation: WorkstationId;

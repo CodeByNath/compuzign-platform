@@ -2,6 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { useAdminOverview } from '@/hooks/useAdminOverview';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { Workstation } from '../shell/Workstation';
 
 interface Props {
   refreshKey: number;
@@ -27,26 +28,28 @@ export function OverviewWorkstation({ refreshKey }: Props) {
   if (!data) return null;
 
   return (
-    <div>
-      <div class="cz-ws-header">
+    <Workstation>
+      <Workstation.Header className="cz-ws-header">
         <div>
           <h2 class="cz-ws-title">Command Centre</h2>
           <p class="cz-ws-subtitle">Service management overview</p>
         </div>
-      </div>
+      </Workstation.Header>
 
-      <div class="cz-overview-stats">
-        <div class="cz-stat-tile">
-          <span class="cz-stat-tile__label">Published Services</span>
-          <span class="cz-stat-tile__value">{data.services_published}</span>
-          <span class="cz-stat-tile__sub">in catalog</span>
+      <Workstation.Content>
+        <div class="cz-overview-stats">
+          <div class="cz-stat-tile">
+            <span class="cz-stat-tile__label">Published Services</span>
+            <span class="cz-stat-tile__value">{data.services_published}</span>
+            <span class="cz-stat-tile__sub">in catalog</span>
+          </div>
+          <div class="cz-stat-tile">
+            <span class="cz-stat-tile__label">Current Promotions</span>
+            <span class="cz-stat-tile__value">{activePromoCount}</span>
+            <span class="cz-stat-tile__sub">active offers</span>
+          </div>
         </div>
-        <div class="cz-stat-tile">
-          <span class="cz-stat-tile__label">Current Promotions</span>
-          <span class="cz-stat-tile__value">{activePromoCount}</span>
-          <span class="cz-stat-tile__sub">active offers</span>
-        </div>
-      </div>
-    </div>
+      </Workstation.Content>
+    </Workstation>
   );
 }

@@ -3,6 +3,7 @@ import { useApi } from '@/hooks/useApi';
 import { fetchAdminRequests, fetchAdminRequest, acceptIntakeRequest } from '@/api/endpoints/admin';
 import { Spinner } from '@/components/ui/Spinner';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { Workstation } from '../shell/Workstation';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { RequestEntry, RequestSummary } from '@/api/types/admin';
 
@@ -240,8 +241,8 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
   const requests = data?.requests ?? [];
 
   return (
-    <div>
-      <div class="cz-ws-header">
+    <Workstation>
+      <Workstation.Header className="cz-ws-header">
         <div>
           <h2 class="cz-ws-title">Requests & Quotes</h2>
           <p class="cz-ws-subtitle">
@@ -253,8 +254,9 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
             Refresh
           </button>
         </div>
-      </div>
+      </Workstation.Header>
 
+      <Workstation.Content>
       {requests.length === 0 ? (
         <div class="cz-admin-empty">
           <p>No quote requests yet. Submissions from the cost builder will appear here.</p>
@@ -309,6 +311,7 @@ export function RequestsWorkstation({ refreshKey, openAction }: Props) {
           </div>
         </div>
       )}
-    </div>
+      </Workstation.Content>
+    </Workstation>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { Workstation } from '../shell/Workstation';
 import type { CostBuilderResponse } from '@/api/types/cost-builder';
 
 interface Props {
@@ -23,16 +24,17 @@ export function BundlesWorkstation({ refreshKey }: Props) {
   const bundled = allServices.filter((s) => s.pricing?.bundle?.price !== null && s.pricing?.bundle?.price !== undefined);
 
   return (
-    <div>
-      <div class="cz-ws-header">
+    <Workstation>
+      <Workstation.Header className="cz-ws-header">
         <div>
           <h2 class="cz-ws-title">Bundles</h2>
           <p class="cz-ws-subtitle">
             {bundled.length} service{bundled.length !== 1 ? 's' : ''} with bundle pricing configured
           </p>
         </div>
-      </div>
+      </Workstation.Header>
 
+      <Workstation.Content>
       {bundled.length === 0 ? (
         <div class="cz-admin-empty">
           <p>
@@ -68,6 +70,7 @@ export function BundlesWorkstation({ refreshKey }: Props) {
           })}
         </div>
       )}
-    </div>
+      </Workstation.Content>
+    </Workstation>
   );
 }

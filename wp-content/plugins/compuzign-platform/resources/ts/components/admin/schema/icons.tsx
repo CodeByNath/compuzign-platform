@@ -1,12 +1,19 @@
-// Module icon registry (Schema architecture S1b).
+// Icon registry (Schema architecture S1b; nav section added in S5).
 //
-// The single home for drawer-module header glyphs. Before S1b these SVGs were
-// duplicated inline across the Service view cards, ServiceContextPanel, the
-// create-step cards, and the tier/promotion steps (4–6 copies each). A module's
-// icon is identity (Header Group) — defined once, referenced by id.
+// The single home for admin glyphs, in two sections:
 //
-// The inner SVG only; callers wrap it in the shared `.drawerModule__icon`
-// frame (ReadBlock does this via its `icon`/`iconVariant` props).
+// - MODULE_ICONS — drawer-module header glyphs. Before S1b these SVGs were
+//   duplicated inline across the Service view cards, ServiceContextPanel, the
+//   create-step cards, and the tier/promotion steps (4–6 copies each). A
+//   module's icon is identity (Header Group) — defined once, referenced by id.
+//   The inner SVG only; callers wrap it in the shared `.drawerModule__icon`
+//   frame (ReadBlock does this via its `icon`/`iconVariant` props).
+//
+// - NAV_ICONS — workstation identity glyphs for the Sidebar (retires the
+//   NavIcon switch, S5). A separate section because the two frames carry
+//   different CSS classes (`.cz-admin-nav-item__svg` vs
+//   `.drawerModule__icon-svg`); WorkstationSchema.iconId types to this
+//   section.
 
 import type { ComponentChildren } from 'preact';
 
@@ -36,6 +43,44 @@ export const MODULE_ICONS: Record<IconId, ComponentChildren> = {
   package: (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
       <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
+    </svg>
+  ),
+};
+
+// ── Nav glyphs (Heroicons v2 solid, 24×24 viewBox) ───────────────────────────
+
+export type NavIconId = 'overview' | 'catalog' | 'featured' | 'requests' | 'bin';
+
+export const NAV_ICONS: Record<NavIconId, ComponentChildren> = {
+  // Chart bars — Overview / Command Centre.
+  overview: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
+      <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
+    </svg>
+  ),
+  // Squares 2×2 — Service Catalog.
+  catalog: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
+      <path fillRule="evenodd" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" clipRule="evenodd" />
+    </svg>
+  ),
+  // Star — Featured Controls.
+  featured: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
+      <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+    </svg>
+  ),
+  // Envelope — Requests & Quotes.
+  requests: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
+      <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
+      <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
+    </svg>
+  ),
+  // Trash — Bin.
+  bin: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
+      <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd" />
     </svg>
   ),
 };

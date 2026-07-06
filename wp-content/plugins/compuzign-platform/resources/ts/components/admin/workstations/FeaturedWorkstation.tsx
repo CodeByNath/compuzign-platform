@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { Workstation } from '../shell/Workstation';
 import type { CostBuilderResponse } from '@/api/types/cost-builder';
 
 interface Props {
@@ -30,16 +31,17 @@ export function FeaturedWorkstation({ refreshKey }: Props) {
   );
 
   return (
-    <div>
-      <div class="cz-ws-header">
+    <Workstation>
+      <Workstation.Header className="cz-ws-header">
         <div>
           <h2 class="cz-ws-title">Featured Controls</h2>
           <p class="cz-ws-subtitle">
             Sort order, popular tier, and active status across all {allServices.length} services
           </p>
         </div>
-      </div>
+      </Workstation.Header>
 
+      <Workstation.Content>
       {sorted.length === 0 ? (
         <div class="cz-admin-empty">
           <p>No services in catalog. Import via the Service Catalog workstation first.</p>
@@ -97,6 +99,7 @@ export function FeaturedWorkstation({ refreshKey }: Props) {
           </div>
         </div>
       )}
-    </div>
+      </Workstation.Content>
+    </Workstation>
   );
 }
