@@ -101,6 +101,40 @@ export interface ShellEditorSchema {
 // convenience; evolves only by formal amendment. Normal evolution = Platform
 // Elements joining the Content Group.
 
+// ── Table mode — row projection (§9, S3b) ─────────────────────────────────────
+// A TableSchema drives the EntityTable renderer: columns project row data,
+// row actions declare intent (behaviour arrives as handlers from the owning
+// workstation — never from the schema), and the built-in inline confirm
+// replaces the per-surface copied confirm blocks. In S4 these embed into
+// EntitySchema.placements (table / travel).
+
+export interface ColumnDef<Row> {
+  id: string;
+  label: string;
+  cell: (row: Row) => ComponentChildren;   // data projection → cell content
+  width?: string;                          // explicit width (rarely used; layout is class-driven)
+  className?: string;                      // header/layout class (S3b realisation)
+  cellClassName?: string;                  // body-cell class when it differs from the header's
+}
+
+export interface RowActionDef<Row> {
+  id: string;                              // handler key, e.g. 'restore' | 'trash' | 'delete' | 'view'
+  label: string;
+  intent: 'primary' | 'secondary' | 'danger';
+  confirm?: { prompt: string; confirmLabel: string };   // built-in inline confirm
+  when?: (row: Row) => boolean;            // data-driven presence only
+  busyLabel?: string;                      // in-flight button text (S3b realisation)
+  icon?: ComponentChildren;                // icon-only rendering; label becomes aria-label/title
+}
+
+export interface TableSchema<Row> {
+  columns: ColumnDef<Row>[];               // { id, label, cell(row), width? }
+  rowActions: RowActionDef<Row>[];         // { id, label, intent, confirm?, when? }
+  empty: { message: string; cta?: { label: string; actionId: string } };
+  scope?: 'current' | 'archived' | 'trashed';
+  actionsLabel?: string;                   // actions column header (default 'Actions')
+}
+
 export interface ShellSchema<T = unknown> {
   archetype: 'overview' | 'child';     // §5 — the two shell behaviours
   // Reference to the living module — composition, never inheritance; the

@@ -2,15 +2,17 @@
 // Used by the Catalog lifecycle (ServiceViewStep) and the shared drawer modules.
 
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
-import type { OverviewDraftData, SurfacePackageSummary } from '@/api/types/admin';
+import type { OverviewDraftData, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
 import {
   PILL_META,
+  PRESENTATION_PILL,
   STATUS_DOT_COLOR,
   STATUS_DOT_FAINT_COLOR,
   STATUS_DOT_CLASS,
   STATUS_DOT_FAINT_CLASS,
   LEGACY_UNKNOWN_PILL,
 } from '@/components/admin/schema/presentation';
+import type { PillMeta } from '@/components/admin/schema/presentation';
 
 // Structural minimum for tier status resolution.
 // Satisfied by both SurfaceTierSummary (transit) and SurfaceTierDetail (catalog/management).
@@ -203,6 +205,54 @@ export interface ServiceStationRowSummary {
   resolvedStatus: string;         // 'active' | 'pending-full' | 'pending-dim'
   platformStatus: PlatformStatus;
   categoryLabel:  string;
+}
+
+// ── Catalog station status (list rows) ────────────────────────────────────────
+// Moved from ServiceCatalogWorkstation in S3b so the catalog TableSchema can
+// project it. Filter buckets and the display pill stay separate on purpose:
+// the bucket drives filtering; the label distinguishes a live service with
+// unsettled changes without altering which bucket it filters into.
+
+export type StationStatus = 'active' | 'pending' | 'drafts' | 'disabled';
+
+// Pill metadata delegates to the Presentation Status Contract chokepoint (S1a);
+// the station filter buckets 'pending' and 'drafts' both present as Pending.
+export const STATION_STATUS_PILL: Record<StationStatus, PillMeta> = {
+  'active':   PRESENTATION_PILL.active,
+  'pending':  PRESENTATION_PILL.pending,
+  'drafts':   PRESENTATION_PILL.pending,
+  'disabled': PRESENTATION_PILL.disabled,
+};
+
+export function resolveStationStatus(station: StationSummary): StationStatus {
+  if (station.platform_status === 'disabled') {
+    // Never-published: overview not yet settled — show Pending, not Disabled.
+    // Disabled is reserved for services that were once live and explicitly turned off.
+    if ((station.module_status as Record<string, string>)?.overview !== 'settled') return 'pending';
+    return 'disabled';
+  }
+  if (station.has_drafts) return 'drafts';
+  if (Object.values(station.module_status).some((v) => v === 'pending')) return 'pending';
+  return 'active';
+}
+
+// Display-only pill (label + class). Decoupled from resolveStationStatus (which stays
+// the filter bucket) so the label can distinguish a live service with unsettled changes
+// from a never-published one — without altering filtering. Frontend visibility is
+// gated only by platform_status; "Active · changes pending" still means the service
+// is live on the public Cost Builder.
+export function stationStatusLabel(station: StationSummary): PillMeta {
+  if (station.platform_status === 'disabled') {
+    return (station.module_status as Record<string, string>)?.overview !== 'settled'
+      ? STATION_STATUS_PILL.pending
+      : STATION_STATUS_PILL.disabled;
+  }
+  const hasUnsettled =
+    station.has_drafts ||
+    Object.values(station.module_status).some((v) => v === 'pending');
+  return hasUnsettled
+    ? { cls: STATION_STATUS_PILL.active.cls, label: 'Active · changes pending' }
+    : STATION_STATUS_PILL.active;
 }
 
 export function resolveServiceStationRowSummary(service: ServiceItem): ServiceStationRowSummary {

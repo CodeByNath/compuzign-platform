@@ -6,15 +6,15 @@ import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import { createService, updateServiceCategory } from '@/api/endpoints/admin';
 import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
-import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
-import { resolveStationCommercialSummary } from '@/components/admin/utils/moduleStatus';
-import { PRESENTATION_PILL } from '@/components/admin/schema/presentation';
-import type { PillMeta } from '@/components/admin/schema/presentation';
+import { resolveStationCommercialSummary, resolveStationStatus } from '@/components/admin/utils/moduleStatus';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
 import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { Workstation } from '../shell/Workstation';
+import { EntityTable } from '../EntityTable';
+import { serviceCatalogTable } from '@/components/admin/schema/tables/service';
+import type { ServiceCatalogRow } from '@/components/admin/schema/tables/service';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
@@ -26,49 +26,11 @@ interface Props {
 }
 
 // ── Station status ────────────────────────────────────────────────────────────
+// Filter buckets + the display pill live in utils/moduleStatus (moved in S3b
+// so the catalog TableSchema can project them); this file keeps only the
+// filter vocabulary.
 
 type StatusFilter = 'all' | 'active' | 'pending' | 'drafts' | 'disabled';
-type StationStatus = 'active' | 'pending' | 'drafts' | 'disabled';
-
-// Pill metadata delegates to the Presentation Status Contract chokepoint (S1a);
-// the station filter buckets 'pending' and 'drafts' both present as Pending.
-const STATION_STATUS_PILL: Record<StationStatus, PillMeta> = {
-  'active':   PRESENTATION_PILL.active,
-  'pending':  PRESENTATION_PILL.pending,
-  'drafts':   PRESENTATION_PILL.pending,
-  'disabled': PRESENTATION_PILL.disabled,
-};
-
-function resolveStationStatus(station: StationSummary): StationStatus {
-  if (station.platform_status === 'disabled') {
-    // Never-published: overview not yet settled — show Pending, not Disabled.
-    // Disabled is reserved for services that were once live and explicitly turned off.
-    if ((station.module_status as Record<string, string>)?.overview !== 'settled') return 'pending';
-    return 'disabled';
-  }
-  if (station.has_drafts) return 'drafts';
-  if (Object.values(station.module_status).some((v) => v === 'pending')) return 'pending';
-  return 'active';
-}
-
-// Display-only pill (label + class). Decoupled from resolveStationStatus (which stays
-// the filter bucket) so the label can distinguish a live service with unsettled changes
-// from a never-published one — without altering filtering. Frontend visibility is
-// gated only by platform_status; "Active · changes pending" still means the service
-// is live on the public Cost Builder.
-function stationStatusLabel(station: StationSummary): PillMeta {
-  if (station.platform_status === 'disabled') {
-    return (station.module_status as Record<string, string>)?.overview !== 'settled'
-      ? STATION_STATUS_PILL.pending
-      : STATION_STATUS_PILL.disabled;
-  }
-  const hasUnsettled =
-    station.has_drafts ||
-    Object.values(station.module_status).some((v) => v === 'pending');
-  return hasUnsettled
-    ? { cls: STATION_STATUS_PILL.active.cls, label: 'Active · changes pending' }
-    : STATION_STATUS_PILL.active;
-}
 
 // ── Category normalization ────────────────────────────────────────────────────
 // AdminCatalogResponse returns id: number | null. Real taxonomy terms always have
@@ -572,60 +534,15 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
           </Workstation.Actions>
 
           <Workstation.Content>
-          {visibleStations.length === 0 ? (
-            <div class="cz-admin-empty">
-              <p>No services match the current filter.</p>
-            </div>
-          ) : (
-            <div class="cz-shell-table-card">
-              <div class="cz-shell-table-scroll">
-                <table class="cz-sc-table">
-                  <thead>
-                    <tr>
-                      <th class="cz-sc-table__service">Service Title</th>
-                      {TIER_KEYS.map((tierId) => (
-                        <th key={tierId} class="cz-sc-table__tier">{TIER_LABELS[tierId]}</th>
-                      ))}
-                      <th class="cz-sc-table__tier">Promotions</th>
-                      <th class="cz-sc-table__status">Service Status</th>
-                      <th class="cz-sc-table__actions">View</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleStations.map((station) => {
-                      const pill    = stationStatusLabel(station);
-                      const summary = resolveStationCommercialSummary(station.id, packages);
-                      return (
-                        <tr key={station.id}>
-                          <td class="cz-sc-table__service cz-sc-table__name">{station.title}</td>
-                          {TIER_KEYS.map((tierId) => (
-                            <td key={tierId} class="cz-sc-table__tier">
-                              <ModuleStatusPill status={summary.tiers[tierId]} notes={[]} />
-                            </td>
-                          ))}
-                          <td class="cz-sc-table__tier">
-                            <ModuleStatusPill status={summary.promoStatus} notes={[]} />
-                          </td>
-                          <td class="cz-sc-table__status">
-                            <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>
-                          </td>
-                          <td class="cz-sc-table__actions">
-                            <button
-                              type="button"
-                              class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                              onClick={() => handleViewService(station)}
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+            <EntityTable
+              schema={serviceCatalogTable}
+              rows={visibleStations.map((station): ServiceCatalogRow => ({
+                station,
+                summary: resolveStationCommercialSummary(station.id, packages),
+              }))}
+              rowKey={(r) => r.station.id}
+              handlers={{ view: (r) => handleViewService(r.station) }}
+            />
           </Workstation.Content>
         </>
       )}

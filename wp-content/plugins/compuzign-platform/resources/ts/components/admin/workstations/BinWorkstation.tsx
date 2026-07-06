@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback, useMemo } from 'preact/hooks';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { restoreService, trashService, permanentDeleteService } from '@/api/endpoints/admin';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
-import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { Workstation } from '../shell/Workstation';
+import { EntityTable } from '../EntityTable';
+import { serviceBinTable } from '@/components/admin/schema/tables/service';
 import type { StationSummary } from '@/api/types/admin';
 
 interface Props {
@@ -13,14 +14,10 @@ interface Props {
 // Bin consolidates the Archived and Trashed surfaces into one table (P6A — UI/route
 // consolidation only; underlying data flow and endpoints are unchanged). A row's
 // platform_status is its origin: 'archived' rows move-to-trash, 'trashed' rows
-// permanently delete. P6B will harden this into a shared schema + table actions.
+// permanently delete — encoded as origin-gated row actions on the S3b travel
+// preset (serviceBinTable + EntityTable). Selection/bulk-delete stays here:
+// selection is surface state, bulk behaviour is workstation-owned.
 type BinFilter = 'all' | 'archived' | 'trashed';
-
-const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
-    <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd" />
-  </svg>
-);
 
 export function BinWorkstation({ refreshKey }: Props) {
   // Keep the existing per-status data flow; combine the two streams for display only.
@@ -29,7 +26,6 @@ export function BinWorkstation({ refreshKey }: Props) {
 
   const [filter,    setFilter]    = useState<BinFilter>('all');
   const [selected,  setSelected]  = useState<Set<number>>(new Set());
-  const rowConfirm = useInlineConfirm<number>(); // per-row destructive confirm + busy
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkBusy,    setBulkBusy]    = useState(false);
 
@@ -73,23 +69,13 @@ export function BinWorkstation({ refreshKey }: Props) {
     });
   }, []);
 
-  const handleRestore = useCallback((id: number) =>
-    rowConfirm.run(id, async () => {
-      await restoreService(id);
-      refetchAll();
-    }), [rowConfirm.run, refetchAll]);
-
-  // Destructive action is context-aware: archived → move to trash, trashed → delete.
+  // Destructive action is origin-aware: archived → move to trash, trashed → delete.
+  // Row-level transitions run through EntityTable's built-in confirm; this
+  // helper remains for the bulk path.
   const destroyOne = useCallback(async (station: StationSummary) => {
     if (station.platform_status === 'archived') await trashService(station.id);
     else await permanentDeleteService(station.id);
   }, []);
-
-  const handleConfirmDestroy = useCallback((station: StationSummary) =>
-    rowConfirm.run(station.id, async () => {
-      await destroyOne(station);
-      refetchAll();
-    }), [rowConfirm.run, destroyOne, refetchAll]);
 
   const handleBulkDelete = useCallback(async () => {
     setBulkBusy(true);
@@ -186,103 +172,23 @@ export function BinWorkstation({ refreshKey }: Props) {
           </Workstation.Actions>
 
           <Workstation.Content>
-            {rows.length === 0 ? (
-              <div class="cz-admin-empty">
-                <p>Nothing matches the current filter.</p>
-              </div>
-            ) : (
-              <div class="cz-shell-table-card">
-                <div class="cz-shell-table-scroll">
-                  <table class="cz-sc-table">
-                    <thead>
-                      <tr>
-                        <th class="cz-sc-table__select">
-                          <input
-                            type="checkbox"
-                            aria-label="Select all"
-                            checked={allSelected}
-                            onChange={toggleAll}
-                          />
-                        </th>
-                        <th class="cz-sc-table__service">Service</th>
-                        <th class="cz-sc-table__status">Status</th>
-                        <th class="cz-sc-table__actions">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((station) => {
-                        const isArchived = station.platform_status === 'archived';
-                        const busy = rowConfirm.busyId === station.id;
-                        return (
-                          <tr key={station.id}>
-                            <td class="cz-sc-table__select">
-                              <input
-                                type="checkbox"
-                                aria-label={`Select ${station.title}`}
-                                checked={selected.has(station.id)}
-                                onChange={() => toggleOne(station.id)}
-                              />
-                            </td>
-                            <td class="cz-sc-table__service cz-sc-table__name">{station.title}</td>
-                            <td class="cz-sc-table__status">
-                              <span class={`cz-module-status-pill cz-module-status-pill--${station.platform_status}`}>
-                                {isArchived ? 'Archived' : 'Trashed'}
-                              </span>
-                            </td>
-                            <td class="cz-sc-table__actions">
-                              {rowConfirm.pendingId === station.id ? (
-                                <>
-                                  <span class="cz-sc-table__confirm-label">
-                                    {isArchived ? 'Move to Trash?' : 'Delete permanently?'}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
-                                    disabled={busy}
-                                    onClick={() => handleConfirmDestroy(station)}
-                                  >
-                                    {busy ? 'Working…' : 'Confirm'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                                    disabled={busy}
-                                    onClick={() => rowConfirm.cancel()}
-                                  >
-                                    Cancel
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    type="button"
-                                    class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                                    disabled={busy}
-                                    onClick={() => handleRestore(station.id)}
-                                  >
-                                    {busy ? 'Restoring…' : 'Restore'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--icon-only cz-admin-btn--sm"
-                                    disabled={busy}
-                                    onClick={() => rowConfirm.request(station.id)}
-                                    aria-label={isArchived ? 'Move to Trash' : 'Permanently delete'}
-                                    title={isArchived ? 'Move to Trash' : 'Permanently delete'}
-                                  >
-                                    <TrashIcon />
-                                  </button>
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            <EntityTable
+              schema={serviceBinTable}
+              rows={rows}
+              rowKey={(s) => s.id}
+              handlers={{
+                restore: async (s) => { await restoreService(s.id);         refetchAll(); },
+                trash:   async (s) => { await trashService(s.id);           refetchAll(); },
+                delete:  async (s) => { await permanentDeleteService(s.id); refetchAll(); },
+              }}
+              selection={{
+                isSelected:  (s) => selected.has(s.id),
+                onToggle:    (s) => toggleOne(s.id),
+                allSelected,
+                onToggleAll: toggleAll,
+                rowLabel:    (s) => `Select ${s.title}`,
+              }}
+            />
           </Workstation.Content>
         </>
       )}

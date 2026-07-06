@@ -72,7 +72,11 @@ export const LEGACY_UNKNOWN_PILL: { dot: string; cls: string; label: string } = 
 // tables). They are never drawer/module status pills. Importing TRAVEL_PILL
 // into a non-travel renderer is a contract violation.
 
+// S3b: TRAVEL_PILL carries the dedicated travel classes (previously the
+// travel TABLES hardcoded --archived/--trashed while this map pointed at
+// --inactive — two definitions for one mapping). Archived reads muted, not
+// error-red; --trashed and --inactive share identical styling in admin.css.
 export const TRAVEL_PILL: Record<'archived' | 'trashed', PillMeta> = {
-  archived: { cls: 'cz-module-status-pill--inactive', label: 'Archived' },
-  trashed:  { cls: 'cz-module-status-pill--inactive', label: 'Trashed'  },
+  archived: { cls: 'cz-module-status-pill--archived', label: 'Archived' },
+  trashed:  { cls: 'cz-module-status-pill--trashed',  label: 'Trashed'  },
 };
