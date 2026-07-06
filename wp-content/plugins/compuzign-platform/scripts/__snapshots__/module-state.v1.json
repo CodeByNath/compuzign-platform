@@ -1,0 +1,316 @@
+{
+  "overview.complete.active": {
+    "status": "active",
+    "notes": []
+  },
+  "overview.complete.pending": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "overview.module.draft",
+        "message": "Draft saved — settle to publish",
+        "type": "info"
+      }
+    ]
+  },
+  "overview.incomplete": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "overview.title.missing",
+        "message": "Title missing",
+        "type": "error"
+      },
+      {
+        "id": "overview.content.missing",
+        "message": "Description missing",
+        "type": "error"
+      }
+    ]
+  },
+  "overview.draft.incomplete": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "overview.category.missing",
+        "message": "Category not selected",
+        "type": "error"
+      }
+    ]
+  },
+  "overview.notconfigured": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "overview.title.missing",
+        "message": "Title missing",
+        "type": "error"
+      },
+      {
+        "id": "overview.category.missing",
+        "message": "Category not selected",
+        "type": "error"
+      },
+      {
+        "id": "overview.content.missing",
+        "message": "Description missing",
+        "type": "error"
+      }
+    ]
+  },
+  "inclusions.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "inclusions.empty.action",
+        "message": "Edit and add features.",
+        "type": "info"
+      }
+    ]
+  },
+  "inclusions.unlabelled": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "inclusions.labels.missing",
+        "message": "1 feature has no label",
+        "type": "error"
+      }
+    ]
+  },
+  "inclusions.complete.draft": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "inclusions.module.draft",
+        "message": "Draft saved — settle to publish",
+        "type": "info"
+      }
+    ]
+  },
+  "inclusions.complete.offline": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "inclusions.platform.inactive",
+        "message": "Waiting for service activation",
+        "type": "info"
+      }
+    ]
+  },
+  "faqs.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "faqs.empty.action",
+        "message": "Edit and add questions.",
+        "type": "info"
+      }
+    ]
+  },
+  "faqs.gaps": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "faqs.question.missing",
+        "message": "1 question is missing a question",
+        "type": "error"
+      },
+      {
+        "id": "faqs.answer.missing",
+        "message": "1 question is missing an answer",
+        "type": "error"
+      }
+    ]
+  },
+  "faqs.complete": {
+    "status": "pending-dim",
+    "notes": []
+  },
+  "package.null": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "package.empty.action",
+        "message": "Edit and configure pricing tiers.",
+        "type": "info"
+      }
+    ]
+  },
+  "package.unconfigured": {
+    "status": "active",
+    "notes": [
+      {
+        "id": "package.empty.action",
+        "message": "Edit and configure pricing tiers.",
+        "type": "info"
+      }
+    ]
+  },
+  "package.configured": {
+    "status": "active",
+    "notes": []
+  },
+  "tier.undefined": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "tier.empty.action",
+        "message": "Edit and configure this tier.",
+        "type": "info"
+      }
+    ]
+  },
+  "tier.partial": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "tier.pricing.incomplete",
+        "message": "Add price and billing cycle to complete this tier.",
+        "type": "error"
+      }
+    ]
+  },
+  "tier.disabled": {
+    "status": "disabled",
+    "notes": []
+  },
+  "tier.complete": {
+    "status": "active",
+    "notes": []
+  },
+  "tierOverview.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "tier-overview.empty.action",
+        "message": "Edit and configure this tier.",
+        "type": "info"
+      }
+    ]
+  },
+  "tierOverview.complete": {
+    "status": "active",
+    "notes": []
+  },
+  "tierFeatures.blocked": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "tier-features.parent.waiting",
+        "message": "Waiting for Tier Overview.",
+        "type": "info"
+      }
+    ]
+  },
+  "tierFeatures.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "tier-features.empty.action",
+        "message": "Edit and add features.",
+        "type": "info"
+      }
+    ]
+  },
+  "tierFeatures.active": {
+    "status": "active",
+    "notes": []
+  },
+  "tierFeatures.offline": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "tier-features.platform.inactive",
+        "message": "Waiting for service activation",
+        "type": "info"
+      }
+    ]
+  },
+  "tierFaqs.blocked": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "tier-faqs.parent.waiting",
+        "message": "Waiting for Tier Overview.",
+        "type": "info"
+      }
+    ]
+  },
+  "tierFaqs.active": {
+    "status": "active",
+    "notes": []
+  },
+  "promoOverview.undefined": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "promotion-overview.empty.action",
+        "message": "Edit and configure this promotion.",
+        "type": "info"
+      }
+    ]
+  },
+  "promoOverview.unnamed": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "promotion-overview.empty.action",
+        "message": "Edit and configure this promotion.",
+        "type": "info"
+      }
+    ]
+  },
+  "promoOverview.billing": {
+    "status": "active",
+    "notes": [
+      {
+        "id": "promotion-overview.billing.missing",
+        "message": "Add a billing label for the price",
+        "type": "error"
+      }
+    ]
+  },
+  "promoOverview.pending": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "promotion-overview.module.draft",
+        "message": "Draft saved — settle to publish",
+        "type": "info"
+      }
+    ]
+  },
+  "promoOverview.active": {
+    "status": "active",
+    "notes": []
+  },
+  "promoFeatures.blocked": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "promotion-features.parent.waiting",
+        "message": "Waiting for Promotion Overview.",
+        "type": "info"
+      }
+    ]
+  },
+  "promoFeatures.active": {
+    "status": "active",
+    "notes": []
+  },
+  "promoFaqs.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "promotion-faqs.empty.action",
+        "message": "Edit and add questions.",
+        "type": "info"
+      }
+    ]
+  },
+  "promoFaqs.active": {
+    "status": "active",
+    "notes": []
+  }
+}
