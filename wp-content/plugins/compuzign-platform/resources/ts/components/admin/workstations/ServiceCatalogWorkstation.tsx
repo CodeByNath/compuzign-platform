@@ -13,7 +13,7 @@ import { DrawerTabs } from '../DrawerTabs';
 import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { Workstation } from '../shell/Workstation';
 import { EntityTable } from '../EntityTable';
-import { serviceCatalogTable } from '@/components/admin/schema/tables/service';
+import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 import type { ServiceCatalogRow } from '@/components/admin/schema/tables/service';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
@@ -535,7 +535,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
 
           <Workstation.Content>
             <EntityTable
-              schema={serviceCatalogTable}
+              schema={SERVICE_ENTITY.placements.table!}
               rows={visibleStations.map((station): ServiceCatalogRow => ({
                 station,
                 summary: resolveStationCommercialSummary(station.id, packages),

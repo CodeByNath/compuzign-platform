@@ -15,7 +15,6 @@ import {
   serviceOverviewShell,
   serviceInclusionsShell,
   serviceFaqsShell,
-  servicePackageSummaryShell,
 } from '@/components/admin/schema/shells/bindings/service';
 import type {
   ServiceOverviewShellData,
@@ -24,8 +23,9 @@ import type {
   ServicePackageSummaryShellData,
 } from '@/components/admin/schema/shells/bindings/service';
 import type { ShellBinding } from '@/components/admin/schema/types';
+import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 import { ReadBlock } from '../ReadBlock';
-import { DrawerTabs } from '../DrawerTabs';
+import { EntityDrawer } from '../EntityDrawer';
 import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
 import { ServiceTierStep } from './ServiceTierStep';
@@ -139,7 +139,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const [saveOk,             setSaveOk]           = useState(false);
   const [showPublishModal,   setShowPublishModal] = useState(false);
   const [discardConfirm,     setDiscardConfirm]   = useState<'overview' | 'inclusions' | 'faqs' | null>(null);
-  const [openPanel,          setOpenPanel]        = useState<'overview' | 'inclusions' | 'faqs' | 'package' | null>(null);
+  // Single-open notification-panel accordion, keyed by module key (EntityDrawer).
+  const [openPanel,          setOpenPanel]        = useState<string | null>(null);
   const [exitDialog,         setExitDialog]       = useState<'unsaved' | 'pending' | 'new-service-draft' | null>(null);
   const [exitSaving,         setExitSaving]       = useState(false);
   const [splitOpen,          setSplitOpen]        = useState(false);
@@ -735,107 +736,79 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   return (
     <>
-    <div class="cz-req-detail">
-
-      {/* ── Tab bar — Drawer Tab Contract ─────────────────────────────── */}
-      <DrawerTabs active={tab} onSelect={setTab} />
-
-      {/* ── Service tab: Water Layer — Details group, the station's own shells
-             in the `details` viewpoint (Schema architecture S2/S3a) ───────── */}
-      {tab === 'details' && (
-        <ModeProvider mode="details">
-          {/* Service Overview — overview archetype */}
-          <OverviewShell
-            schema={serviceOverviewShell}
-            binding={overviewShellBinding}
-            panelOpen={openPanel === 'overview'}
-            onTogglePanel={() => setOpenPanel(p => p === 'overview' ? null : 'overview')}
-          />
-
-          {/* Included Features — child archetype */}
-          <ChildShell
-            schema={serviceInclusionsShell}
-            binding={inclusionsShellBinding}
-            panelOpen={openPanel === 'inclusions'}
-            onTogglePanel={() => setOpenPanel(p => p === 'inclusions' ? null : 'inclusions')}
-          />
-
-          {/* Common Questions — child archetype */}
-          <ChildShell
-            schema={serviceFaqsShell}
-            binding={faqsShellBinding}
-            panelOpen={openPanel === 'faqs'}
-            onTogglePanel={() => setOpenPanel(p => p === 'faqs' ? null : 'faqs')}
-          />
-        </ModeProvider>
-      )}
-
-      {/* ── Commercial tab: Surface Layer ─────────────────────────────── */}
-      {tab === 'connections' && (
-        <>
-          {/* ── Commercial Module: Package Summary — overview archetype in the
-                 `summary` viewpoint (Commercial group placement) ─────────────────── */}
-          <ModeProvider mode="summary">
-            <OverviewShell
-              schema={servicePackageSummaryShell}
-              binding={packageSummaryShellBinding}
-              panelOpen={openPanel === 'package'}
-              onTogglePanel={() => setOpenPanel(p => p === 'package' ? null : 'package')}
+    {/* ── Drawer body — assembled from the service manifest's drawer
+           placements (Schema architecture S4). Tab state stays controlled
+           here because the footer gates on the active tab. The Commercial-
+           group tail (Promotion Configuration + Pricing Summary) is bespoke
+           trailing content pending its own DNA/placement. ─────────────── */}
+    <EntityDrawer
+      entity={SERVICE_ENTITY}
+      tab={tab}
+      onSelectTab={setTab}
+      bindings={{
+        overview:   overviewShellBinding,
+        inclusions: inclusionsShellBinding,
+        faqs:       faqsShellBinding,
+        package:    packageSummaryShellBinding,
+      }}
+      openPanel={openPanel}
+      onTogglePanel={(m) => setOpenPanel((p) => (p === m ? null : m))}
+      trailing={{
+        connections: (
+          <>
+            <CommercialBlock
+              label="Promotion Configuration"
+              count={relatedPkg
+                ? `${promotionCount} promotion${promotionCount !== 1 ? 's' : ''} configured`
+                : '0 promotions configured'}
+              desc={relatedPkg
+                ? 'Promotions are managed in the Promotions workstation.'
+                : 'Create and manage promotions for this service.'}
+              status={promoStatus}
+              onView={handleOpenPromoConfig}
             />
-          </ModeProvider>
-          {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
-          <CommercialBlock
-            label="Promotion Configuration"
-            count={relatedPkg
-              ? `${promotionCount} promotion${promotionCount !== 1 ? 's' : ''} configured`
-              : '0 promotions configured'}
-            desc={relatedPkg
-              ? 'Promotions are managed in the Promotions workstation.'
-              : 'Create and manage promotions for this service.'}
-            status={promoStatus}
-            onView={handleOpenPromoConfig}
-          />
-          {relatedPkg && (
-            <div class="cz-shell-section cz-shell-section--no-border">
-              <p class="cz-shell-section__title">Pricing Summary</p>
-              <div class="cz-sp-tier-table-wrap">
-                <table class="cz-sp-tier-table">
-                  <thead>
-                    <tr>
-                      <th>Tier</th>
-                      <th>Price</th>
-                      <th>Cycle</th>
-                      <th class="cz-sp-tier-table__center">Features</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {TIER_KEYS.map((tierId) => {
-                      const tier = relatedPkg.tiers[tierId];
-                      return (
-                        <tr key={tierId}>
-                          <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
-                          <td>
-                            <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
-                              {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
-                            </span>
-                          </td>
-                          <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
-                          <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
-                            {tier?.inclusion_count ? tier.inclusion_count : '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            {relatedPkg && (
+              <div class="cz-shell-section cz-shell-section--no-border">
+                <p class="cz-shell-section__title">Pricing Summary</p>
+                <div class="cz-sp-tier-table-wrap">
+                  <table class="cz-sp-tier-table">
+                    <thead>
+                      <tr>
+                        <th>Tier</th>
+                        <th>Price</th>
+                        <th>Cycle</th>
+                        <th class="cz-sp-tier-table__center">Features</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TIER_KEYS.map((tierId) => {
+                        const tier = relatedPkg.tiers[tierId];
+                        return (
+                          <tr key={tierId}>
+                            <td class="cz-sp-tier-table__name">{TIER_LABELS[tierId]}</td>
+                            <td>
+                              <span class={`cz-price-tag${tier?.price != null ? ' cz-price-tag--has-price' : ''}`}>
+                                {tier?.price != null ? `$${tier.price.toLocaleString()}` : '—'}
+                              </span>
+                            </td>
+                            <td class="cz-sp-tier-table__muted">{tier?.billing_cycle ?? '—'}</td>
+                            <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">
+                              {tier?.inclusion_count ? tier.inclusion_count : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          )}
-        </>
-      )}
-
+            )}
+          </>
+        ),
+      }}
+    >
       {saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
-    </div>
+    </EntityDrawer>
 
     {/* ── Publish / Settle confirmation modal ──────────────────────────────── */}
     {showPublishModal && (

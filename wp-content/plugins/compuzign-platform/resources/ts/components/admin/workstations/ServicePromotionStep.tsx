@@ -14,6 +14,8 @@ import { usePromotionStation } from '@/hooks/usePromotionStation';
 import type { PromotionView } from '@/hooks/usePromotionStation';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { DrawerTabs } from '../DrawerTabs';
+import { EntityDrawer } from '../EntityDrawer';
+import { PROMOTION_ENTITY } from '@/components/admin/schema/entities/promotion';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '@/components/admin/schema/presentation';
 import type { PillMeta } from '@/components/admin/schema/presentation';
 import { MODULE_ICONS } from '@/components/admin/schema/icons';
@@ -152,7 +154,8 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // null editingPromoId => list.
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [editingSection, setEditingSection] = useState<'promo-overview' | 'promo-features' | 'promo-faqs' | null>(null);
-  const [detailTab,      setDetailTab]      = useState<'details' | 'connections'>('details');
+  // Detail-view tab state is owned by EntityDrawer (S4) — keyed by
+  // editingPromoId so opening a promotion always lands on Details.
   // Promotion list view: Details (promotion cards) | Connections (parent service),
   // matching ServiceTierStep's overviewTab at the package-overview level.
   const [listTab,        setListTab]        = useState<'details' | 'connections'>('details');
@@ -172,7 +175,8 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // open module-notification panel, and the bin card pending-delete confirm.
   const [splitOpen,       setSplitOpen]       = useState(false);
   const [confirmModal,    setConfirmModal]    = useState<'publish' | 'delete' | null>(null);
-  const [openPromoPanel,  setOpenPromoPanel]  = useState<'promo-overview' | 'promo-features' | 'promo-faqs' | null>(null);
+  // Single-open notification-panel accordion, keyed by module key (EntityDrawer).
+  const [openPromoPanel,  setOpenPromoPanel]  = useState<string | null>(null);
   // Bin-row delete confirm (pending only — busy comes from promo.saving).
   const deleteConfirm = useInlineConfirm<string>();
   // Immediate canonical pool creation lives inside the pool editors
@@ -212,7 +216,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const openViewDetail = (p: PromotionTier) => {
     setEditingPromoId(p.id);
     setEditingSection(null);
-    setDetailTab('details');
     setOpenPromoPanel(null);
     setSaveErr(null); setSaveOk(false);
   };
@@ -268,7 +271,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const handleBackToList = () => {
     setEditingPromoId(null);
     setEditingSection(null);
-    setDetailTab('details');
     setOpenPromoPanel(null);
     setSplitOpen(false);
     setConfirmModal(null);
@@ -801,58 +803,31 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   if (!view || !shellBindings) return null;
   const detail = view.detail;
 
+  // Drawer body assembled from the promotion manifest's drawer placements
+  // (Schema architecture S4): Details = this promotion's own modules;
+  // Connections = the parent service. Keyed by promotion so opening one
+  // always lands on Details.
   return (
-    <div class="cz-req-detail">
-      {/* Drawer Tab Contract — Details = this promotion's own modules;
-          Connections = the parent service. */}
-      <DrawerTabs active={detailTab} onSelect={setDetailTab} />
-
-      {/* ── Details tab: the promotion's own modules — the Details group, on
-             the archetype shells (Schema architecture S3a) ──────────────────── */}
-      {detailTab === 'details' && (
-        <ModeProvider mode="details">
-          {/* Promotion Overview — overview archetype */}
-          <OverviewShell
-            schema={promotionOverviewShell}
-            binding={shellBindings.overview}
-            panelOpen={openPromoPanel === 'promo-overview'}
-            onTogglePanel={() => setOpenPromoPanel((p) => (p === 'promo-overview' ? null : 'promo-overview'))}
-          />
-
-          {/* Included Features — child archetype (pool references) */}
-          <ChildShell
-            schema={promotionFeaturesShell}
-            binding={shellBindings.features}
-            panelOpen={openPromoPanel === 'promo-features'}
-            onTogglePanel={() => setOpenPromoPanel((p) => (p === 'promo-features' ? null : 'promo-features'))}
-          />
-
-          {/* Common Questions — child archetype (pool references) */}
-          <ChildShell
-            schema={promotionFaqsShell}
-            binding={shellBindings.faqs}
-            panelOpen={openPromoPanel === 'promo-faqs'}
-            onTogglePanel={() => setOpenPromoPanel((p) => (p === 'promo-faqs' ? null : 'promo-faqs'))}
-          />
-
-          {(saveErr || saveOk) && (
-            <div class="cz-shell-section cz-shell-section--no-border">
-              {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
-              {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
-            </div>
-          )}
-        </ModeProvider>
-      )}
-
-      {detailTab === 'connections' && (
-        <ModeProvider mode="connections">
-          <OverviewShell
-            schema={serviceOverviewShell}
-            binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
-          />
-        </ModeProvider>
-      )}
-
+    <EntityDrawer
+      key={editingPromoId}
+      entity={PROMOTION_ENTITY}
+      bindings={{
+        overview: shellBindings.overview,
+        features: shellBindings.features,
+        faqs:     shellBindings.faqs,
+        service:  serviceConnectionBinding(serviceItem, svc, serviceBack),
+      }}
+      openPanel={openPromoPanel}
+      onTogglePanel={(m) => setOpenPromoPanel((p) => (p === m ? null : m))}
+      trailing={{
+        details: (saveErr || saveOk) && (
+          <div class="cz-shell-section cz-shell-section--no-border">
+            {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+            {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+          </div>
+        ),
+      }}
+    >
       {/* ── Publish / Settle confirmation modal (Service drawer pattern) ────── */}
       {confirmModal === 'publish' && (
         <div
@@ -917,6 +892,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
           </div>
         </div>
       )}
-    </div>
+    </EntityDrawer>
   );
 }

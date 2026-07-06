@@ -4,8 +4,9 @@
 // travel preset (Archived / Trash / Bin). Cells are pure data projections;
 // status pills delegate to the Presentation Status Contract chokepoint
 // (stationStatusLabel / TRAVEL_PILL); behaviour arrives from the owning
-// workstation as EntityTable handlers. In S4 these move under the service
-// EntitySchema's placements (table / travel).
+// workstation as EntityTable handlers. Since S4 these are reached through the
+// service manifest's placements (SERVICE_ENTITY.placements.table / .travel) —
+// this file is their definition home, the manifest is their address.
 
 import type { StationSummary } from '@/api/types/admin';
 import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';

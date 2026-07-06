@@ -4,7 +4,7 @@ import { restoreService, trashService, permanentDeleteService } from '@/api/endp
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import { Workstation } from '../shell/Workstation';
 import { EntityTable } from '../EntityTable';
-import { serviceBinTable } from '@/components/admin/schema/tables/service';
+import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 import type { StationSummary } from '@/api/types/admin';
 
 interface Props {
@@ -15,7 +15,7 @@ interface Props {
 // consolidation only; underlying data flow and endpoints are unchanged). A row's
 // platform_status is its origin: 'archived' rows move-to-trash, 'trashed' rows
 // permanently delete — encoded as origin-gated row actions on the S3b travel
-// preset (serviceBinTable + EntityTable). Selection/bulk-delete stays here:
+// preset (SERVICE_ENTITY.placements.travel.bin + EntityTable, S4). Selection/bulk-delete stays here:
 // selection is surface state, bulk behaviour is workstation-owned.
 type BinFilter = 'all' | 'archived' | 'trashed';
 
@@ -173,7 +173,7 @@ export function BinWorkstation({ refreshKey }: Props) {
 
           <Workstation.Content>
             <EntityTable
-              schema={serviceBinTable}
+              schema={SERVICE_ENTITY.placements.travel!.bin!}
               rows={rows}
               rowKey={(s) => s.id}
               handlers={{

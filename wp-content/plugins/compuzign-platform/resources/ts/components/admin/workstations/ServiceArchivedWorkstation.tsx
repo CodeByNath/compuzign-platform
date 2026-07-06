@@ -3,14 +3,15 @@ import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { restoreService, trashService } from '@/api/endpoints/admin';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import { EntityTable } from '../EntityTable';
-import { serviceArchivedTable } from '@/components/admin/schema/tables/service';
+import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 
 interface Props {
   refreshKey: number;
 }
 
-// Archived travel surface on the S3b travel preset: the table (columns, travel
-// pills, inline confirm) comes from serviceArchivedTable + EntityTable;
+// Archived travel surface on the S3b travel preset, reached through the
+// service manifest's travel placements (S4): the table (columns, travel
+// pills, inline confirm) comes from SERVICE_ENTITY.placements.travel.archived + EntityTable;
 // this file owns only data flow and the transition handlers.
 export function ServiceArchivedWorkstation({ refreshKey }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog({ platformStatus: 'archived' });
@@ -38,7 +39,7 @@ export function ServiceArchivedWorkstation({ refreshKey }: Props) {
       </div>
 
       <EntityTable
-        schema={serviceArchivedTable}
+        schema={SERVICE_ENTITY.placements.travel!.archived}
         rows={stations}
         rowKey={(s) => s.id}
         frame="ws"

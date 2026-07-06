@@ -3,14 +3,14 @@ import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { restoreService, permanentDeleteService } from '@/api/endpoints/admin';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import { EntityTable } from '../EntityTable';
-import { serviceTrashedTable } from '@/components/admin/schema/tables/service';
+import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 
 interface Props {
   refreshKey: number;
 }
 
 // Trash travel surface on the S3b travel preset: the table (columns, travel
-// pills, inline confirm) comes from serviceTrashedTable + EntityTable;
+// pills, inline confirm) comes from SERVICE_ENTITY.placements.travel.trashed + EntityTable (S4);
 // this file owns only data flow and the transition handlers.
 export function ServiceTrashWorkstation({ refreshKey }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog({ platformStatus: 'trashed' });
@@ -38,7 +38,7 @@ export function ServiceTrashWorkstation({ refreshKey }: Props) {
       </div>
 
       <EntityTable
-        schema={serviceTrashedTable}
+        schema={SERVICE_ENTITY.placements.travel!.trashed}
         rows={stations}
         rowKey={(s) => s.id}
         frame="ws"

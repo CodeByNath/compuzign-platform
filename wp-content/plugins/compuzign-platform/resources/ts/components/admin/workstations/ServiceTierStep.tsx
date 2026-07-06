@@ -10,6 +10,8 @@ import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
+import { EntityDrawer } from '../EntityDrawer';
+import { TIER_ENTITY } from '@/components/admin/schema/entities/tier';
 import { getTierNotes } from '@/components/admin/utils/moduleNotifications';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
@@ -95,11 +97,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk,  setSaveOk]  = useState(false);
-  // Individual Tier drawer: Commercial (the tier's own modules) | Service (read-only
-  // parent context). Commercial is the working context, so it is the default.
-  const [tierTab, setTierTab] = useState<'details' | 'connections'>('details');
-  // Single-open accordion for the Commercial cards' notification panels.
-  const [openTierPanel, setOpenTierPanel] = useState<'tier-overview' | 'tier-features' | 'tier-faqs' | null>(null);
+  // Individual Tier drawer tab state is owned by EntityDrawer (S4) — keyed by
+  // editingTierId so opening a tier always lands on Details.
+  // Single-open accordion for the Commercial cards' notification panels,
+  // keyed by module key (EntityDrawer).
+  const [openTierPanel, setOpenTierPanel] = useState<string | null>(null);
   // Single-open accordion for the tier-overview summary cards' notification panels (keyed by tierId).
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   // Package overview view: Details (tier cards + pricing) | Connections (parent service).
@@ -146,7 +148,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
-    setTierTab('details');
     setOpenTierPanel(null);
     setSplitOpen(false);
     setConfirmModal(null);
@@ -845,62 +846,32 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // View mode — Service | Commercial tabs over the draft-preferred tier view.
+  // View mode — the Individual Tier drawer body, assembled from the tier
+  // manifest's drawer placements (Schema architecture S4): Details = the
+  // tier's own modules; Connections = the parent service. Back-to-overview is
+  // handled by the single drawer header Back (context-aware), not a second
+  // control. Keyed by tier so opening a tier always lands on Details.
   return (
-    <div class="cz-req-detail">
-      {/* Drawer Tab Contract — Details = the tier's own modules; Connections = the
-          parent service. Back-to-overview is handled by the single drawer header
-          Back (context-aware), not a second control. */}
-      <DrawerTabs active={tierTab} onSelect={setTierTab} />
-
-      {/* ── Commercial tab: the tier's own modules — the Details group, on the
-             archetype shells (Schema architecture S3a) ─────────────────────────── */}
-      {tierTab === 'details' && (
-        <ModeProvider mode="details">
-          {/* Tier Overview — overview archetype */}
-          <OverviewShell
-            schema={tierOverviewShell}
-            binding={tierOverviewBinding}
-            panelOpen={openTierPanel === 'tier-overview'}
-            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-overview' ? null : 'tier-overview'))}
-          />
-
-          {/* Included Features — child archetype (pool references) */}
-          <ChildShell
-            schema={tierFeaturesShell}
-            binding={tierFeaturesBinding}
-            panelOpen={openTierPanel === 'tier-features'}
-            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-features' ? null : 'tier-features'))}
-          />
-
-          {/* Common Questions — child archetype (pool references) */}
-          <ChildShell
-            schema={tierFaqsShell}
-            binding={tierFaqsBinding}
-            panelOpen={openTierPanel === 'tier-faqs'}
-            onTogglePanel={() => setOpenTierPanel((p) => (p === 'tier-faqs' ? null : 'tier-faqs'))}
-          />
-
-          {(saveErr || saveOk) && (
-            <div class="cz-shell-section cz-shell-section--no-border">
-              {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
-              {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
-            </div>
-          )}
-        </ModeProvider>
-      )}
-
-      {/* ── Connections tab: parent service (same service-overview connection
-             shell as the package overview's Connections tab). ──────────────────── */}
-      {tierTab === 'connections' && (
-        <ModeProvider mode="connections">
-          <OverviewShell
-            schema={serviceOverviewShell}
-            binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
-          />
-        </ModeProvider>
-      )}
-
+    <EntityDrawer
+      key={editingTierId}
+      entity={TIER_ENTITY}
+      bindings={{
+        overview: tierOverviewBinding,
+        features: tierFeaturesBinding,
+        faqs:     tierFaqsBinding,
+        service:  serviceConnectionBinding(serviceItem, svc, serviceBack),
+      }}
+      openPanel={openTierPanel}
+      onTogglePanel={(m) => setOpenTierPanel((p) => (p === m ? null : m))}
+      trailing={{
+        details: (saveErr || saveOk) && (
+          <div class="cz-shell-section cz-shell-section--no-border">
+            {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+            {saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+          </div>
+        ),
+      }}
+    >
       {/* ── Publish / Settle confirmation modal (Service drawer pattern) ────── */}
       {confirmModal === 'publish' && (
         <div
@@ -965,6 +936,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           </div>
         </div>
       )}
-    </div>
+    </EntityDrawer>
   );
 }

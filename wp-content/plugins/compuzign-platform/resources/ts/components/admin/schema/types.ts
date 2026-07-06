@@ -135,6 +135,54 @@ export interface TableSchema<Row> {
   actionsLabel?: string;                   // actions column header (default 'Actions')
 }
 
+// ── Groups — the placement layer (§8, S4) ─────────────────────────────────────
+// The unit of placement: which shell appears where, viewed through which mode.
+// A slot names a module key; the owning manifest's `shells` record resolves it
+// to a ShellSchema. Related stations' shells (the Connections group) register
+// in the host manifest under their registry key — the same shared shell
+// object, never a copy (the module is received by the same shell, viewed
+// through a different mode, placed by a different group).
+
+export interface ShellSlot {
+  module: string;                    // module key (matches backend module key)
+  mode: ShellMode;                   // the viewpoint this placement uses
+  density?: 'full' | 'summary';      // may tighten, never expand, what renders
+}
+
+// ── Station manifests (Entity Schemas, §9, S4) ────────────────────────────────
+// The manifest declares — never re-implements — the station's identity,
+// lifecycle participation, shells, and placements. StationLifecycle.php stays
+// authoritative for transitions; manifest keys mirror backend module/endpoint
+// keys exactly (a backend module addition without a matching manifest entry
+// is a review-blocking finding).
+
+export interface EntitySchema {
+  id: 'service' | 'tier' | 'promotion' | 'category' | 'bundle' | string;
+  label: { singular: string; plural: string };
+  identity: { idOf: (d: any) => number | string; titleOf: (d: any) => string };
+
+  lifecycle: {
+    participation: 'canonical' | 'travelling-instance' | 'shell-occupant';
+    statuses: Array<'draft' | 'active' | 'disabled' | 'archived' | 'trashed'>;
+  };
+
+  ownership?: { parent: EntitySchema['id']; label: string };
+
+  shells: Record<string, ShellSchema<any>>;      // keyed by backend module key
+  actions: Record<string, ShellActionSchema>;    // entity travel actions
+
+  // permissions — reserved (§9): dark until the backend exposes capabilities
+  // in the boot payload. Deliberately not declared until then.
+
+  placements: {
+    drawer?: { details: ShellSlot[]; connections: ShellSlot[] };   // Drawer Tab Contract keys
+    table?: TableSchema<any>;
+    // Travel surfaces. `bin` is an S4 realisation: the Bin workstation's
+    // consolidated table spans both travel scopes and is a real consumer.
+    travel?: { archived: TableSchema<any>; trashed: TableSchema<any>; bin?: TableSchema<any> };
+  };
+}
+
 export interface ShellSchema<T = unknown> {
   archetype: 'overview' | 'child';     // §5 — the two shell behaviours
   // Reference to the living module — composition, never inheritance; the
