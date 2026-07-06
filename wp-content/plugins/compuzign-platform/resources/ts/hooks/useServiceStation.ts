@@ -23,7 +23,7 @@ import type { InclusionsDraft } from '@/components/admin/editors/ServiceInclusio
 import type { FaqsDraft } from '@/components/admin/editors/ServiceFaqsEditor';
 import { resolveOverviewStatus, resolvePackageStatus, resolvePromotionSummary } from '@/components/admin/utils/moduleStatus';
 import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/components/admin/utils/moduleNotifications';
-import type { NoteContext, ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import type { NoteContext, ModuleState } from '@/components/admin/utils/moduleNotifications';
 import { patchModuleDraft } from './stationPrimitives';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -88,13 +88,14 @@ export interface ServiceStation {
   relatedPkg: SurfacePackageSummary | null;
 
   // ── Resolved module computed state ────────────────────────────────────────
-  overviewStatus:   string;
-  inclusionsStatus: string;
-  faqsStatus:       string;
-  overviewNotes:    ModuleNote[];
-  inclusionsNotes:  ModuleNote[];
-  faqsNotes:        ModuleNote[];
-  canPublish:       boolean;
+  // Per-module lifecycle: full { status, notes } per module — the station
+  // modules shape shared with usePackageStation / usePromotionStation (S4).
+  modules: {
+    overview:   ModuleState;
+    inclusions: ModuleState;
+    faqs:       ModuleState;
+  };
+  canPublish: boolean;
 
   // ── Surface layer ─────────────────────────────────────────────────────────
   pkgSummaryStatus:      string;
@@ -488,12 +489,11 @@ export function useServiceStation(
     hasInclusionsDraft: adminDetail?.drafts.inclusions != null,
     hasFaqsDraft:       adminDetail?.drafts.faqs != null,
     relatedPkg,
-    overviewStatus,
-    inclusionsStatus,
-    faqsStatus,
-    overviewNotes,
-    inclusionsNotes,
-    faqsNotes,
+    modules: {
+      overview:   { status: overviewStatus,   notes: overviewNotes },
+      inclusions: { status: inclusionsStatus, notes: inclusionsNotes },
+      faqs:       { status: faqsStatus,       notes: faqsNotes },
+    },
     canPublish,
     pkgSummaryStatus,
     pkgSummaryCount,

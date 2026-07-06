@@ -108,8 +108,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const {
     platformStatus, isActive, detailLoaded, canPublish, hasPendingModules, pendingModuleNames, moduleStatus,
     hasInclusionsDraft, hasFaqsDraft,
-    overviewStatus, inclusionsStatus, faqsStatus,
-    overviewNotes, inclusionsNotes, faqsNotes,
+    modules,
     relatedPkg, inclusions, faqs, overviewDraft: stationOverviewDraft, settledOverview,
     pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc,
     promoStatus, promotionCount,
@@ -580,7 +579,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     // admin needing to Enable before Publish. After publishing succeeds the flag flips
     // reactively; if publishing fails the flag remains false.
     const hasBeenPublished =
-      overviewStatus === 'active' || moduleStatus?.overview === 'settled';
+      modules.overview.status === 'active' || moduleStatus?.overview === 'settled';
 
     setFooter(
       <div class="cz-tf-footer">
@@ -668,7 +667,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       </div>
     );
     return () => setFooter(null);
-  }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, overviewStatus, moduleStatus, ctx.setFooter, ctx.close]);
+  }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, modules.overview.status, moduleStatus, ctx.setFooter, ctx.close]);
 
   // ── Pre-resolved display values for the module shells ────────────────────
   // Fallback order mirrors the status path: draft → adminDetail settled → CostBuilder service.
@@ -684,14 +683,13 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const packageNotes = getPackageNotes(relatedPkg, { platformStatus });
 
   // ── Shell bindings — Station DNA delivered to the S2 archetype shells ─────
-  // Assembled here (from useServiceStation's flat shape) until S4 normalises
-  // the hook to the `modules:{…}` delivery. Status/notes pass through exactly
-  // as the station derives them; 'loading' holds the pill and body shimmer
+  // Status/notes pass through exactly as the station derives them (the hook's
+  // `modules:{…}` delivery, S4); 'loading' holds the pill and body shimmer
   // until the authoritative detail resolves, matching the pre-S2 cards.
   const overviewShellBinding: ShellBinding<ServiceOverviewShellData> = {
     data:  { title: displayTitle, category: displayCategory, content: displayContent },
     state: detailLoaded
-      ? { status: overviewStatus, notes: overviewNotes }
+      ? modules.overview
       : { status: 'loading', notes: [] },
     hasDraft: moduleStatus?.overview === 'pending' && stationOverviewDraft !== null,
     handlers: {
@@ -703,7 +701,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const inclusionsShellBinding: ShellBinding<ServiceInclusionsShellData> = {
     data:  { items: inclusions, serviceTitle: decodedServiceTitle },
     state: detailLoaded
-      ? { status: inclusionsStatus, notes: inclusionsNotes }
+      ? modules.inclusions
       : { status: 'loading', notes: [] },
     hasDraft: moduleStatus?.inclusions === 'pending' && hasInclusionsDraft,
     handlers: {
@@ -715,7 +713,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const faqsShellBinding: ShellBinding<ServiceFaqsShellData> = {
     data:  { items: faqs, serviceTitle: decodedServiceTitle },
     state: detailLoaded
-      ? { status: faqsStatus, notes: faqsNotes }
+      ? modules.faqs
       : { status: 'loading', notes: [] },
     hasDraft: moduleStatus?.faqs === 'pending' && hasFaqsDraft,
     handlers: {
