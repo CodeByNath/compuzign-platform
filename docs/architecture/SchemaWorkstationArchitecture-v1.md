@@ -296,6 +296,14 @@ Rules retained unchanged from v1.0 (all locked):
   `InlineEditorShell`, permanently: the lifecycle engine's draft envelope is
   per-module, and element-level editing would fork it.
 
+> **Detail-list ruling (v1.2).** The platform's repeated "detail-summary
+> card" surfaces — the tier package-overview cards, the promotion list, the
+> Category services list — are **not a seventh mode**. Each card is an
+> existing shell viewed through the `summary` viewpoint (chrome retained:
+> pill, notes, footer); the *repetition* is a placement concern, owned by the
+> Collection placement (§8). `detail-list` is a surface nickname, never a
+> schema term; `card` stays reserved for tile grids.
+
 ## 8. Groups — the placement layer
 
 Groups decide **where shells appear and in which mode**. The unit of
@@ -306,6 +314,14 @@ interface ShellSlot {
   module: string;                    // module key (matches backend module key)
   mode: ShellMode;                   // the viewpoint this placement uses
   density?: 'full' | 'summary';      // may tighten, never expand, what renders
+  footer?: string[];                 // v1.2 — placement re-selection of the footer:
+                                     // ids resolved against the shell's declared
+                                     // Action Group; select-only, never invent.
+                                     // Absent = the viewpoint's normal footer
+                                     // (schema Footer Group; the connections
+                                     // View-only override is unchanged — this
+                                     // generalises that precedent into a
+                                     // declared knob).
 }
 ```
 
@@ -319,12 +335,50 @@ Placement groups in v1:
   drawer.
 - **Parent/child placement** — a Child Shell appearing inside its parent
   Overview's Connections viewpoint.
+- **Collection placement** (v1.2) — one shell repeated over N instances of a
+  related station, each card in the `summary` (or `card`) viewpoint.
 - **Workstation groups** — `command` / `catalog` / `operations` navigation
   grouping (`GroupSchema`), and each workstation's surface.
 
 The Drawer Tab Contract is encoded here: the drawer placement schema has
 exactly two groups, `details` and `connections`, with canonical keys —
 fixed, not extensible.
+
+### Collection placement (v1.2)
+
+A collection is **the same station shell repeated over N instances of one
+related entity** — the "detail-list" shape the tier package-overview cards
+and the promotion list render by hand today (recorded S4 deferrals). Per the
+§7 detail-list ruling it decomposes cleanly into the existing layers: the
+*card* is a shell in the `summary` (or `card`) viewpoint; the *repetition*
+is this placement; the *cardinality* is surface-delivered DNA.
+
+A collection is declared as a named `ShellSlot` on the manifest
+(`placements.collections`, §9). Rules (locked):
+
+- **One shell, one binding, one mode — always.** A shell never knows it has
+  siblings. The owning surface delivers one `ShellBinding` per instance
+  (from the station hooks, per the DNA boundary) and maps them over the
+  slot's shell; the slot stays singular. No cardinality ever enters the
+  mode layer or the shell contract.
+- **No new renderer.** A collection renders as the existing archetype
+  renderers inside `ModeProvider`, mapped by the surface. A shared
+  collection helper component may be extracted only when a second consumer
+  migrates (Governance Rule) — the tier package-overview and promotion
+  list surfaces are the recorded future consumers.
+- **Footer follows placement.** The slot's `footer` re-selects from the
+  shell's declared Action Group (select-only, never invent) — a collection
+  card typically carries a single `view` transit action while the same
+  shell's Details placement carries `edit` / `discard-draft`.
+- **Transit gateway pattern.** The established entry into a collection is a
+  summary-gateway slot: a `metrics` shell placed in the Connections tab
+  with `mode: 'summary'` and a `view` footer action (precedent: the Service
+  drawer's Package Summary slot). The `view` handler — delivered by the
+  surface, never the schema — transits to the collection surface; each
+  card's `view` handler transits onward to that station's own drawer.
+- **Cross-entity resolution is unchanged.** The repeated shell registers in
+  the host manifest's `shells` record under its registry key (the S4
+  related-stations rule) — the same shared shell object, never a copy.
 
 ```ts
 interface GroupSchema { id: string; label: string; order: number }
@@ -370,6 +424,10 @@ interface EntitySchema {
     drawer?: { details: ShellSlot[]; connections: ShellSlot[] };   // Drawer Tab Contract keys
     table?: TableSchema<any>;
     travel?: { archived: TableSchema<any>; trashed: TableSchema<any> };
+    collections?: Record<string, ShellSlot>;   // v1.2 — named collection surfaces (§8):
+                                               // one slot per collection; the owning
+                                               // surface delivers ShellBinding[] and maps
+                                               // the slot's shell over them.
   };
 }
 
@@ -478,4 +536,5 @@ v1.1 correction findings:
 | 2026-07-06 | **S3a element additions** (Governance Rule) | `relation-summary` — compact child-relation counts; connections-only renderer; consumer: the related-service card's "Includes" line (tier/promotion Connections tabs). `metrics` — at-a-glance headline + copy; summary-only renderer; consumer: the Commercial group's Package Summary block. `qa-collection` bound-value contract: `answer` becomes optional — an owned item carries a string (empty = surfaced gap); a reference item without an answer relation carries `undefined` (no answer line); consumers: tier/promotion FAQ ref shells. All entries ship per-mode render cases in scripts/mode-renderer-snapshot.mjs. |
 | 2026-07-06 | **S4 — Station manifests + EntityDrawer realisation** | §9's `EntitySchema` and §8's `ShellSlot` implemented as specified; manifests live in `schema/entities/` (service / tier / promotion + `ENTITIES` registry; Requests stays out of scope per §8). `useServiceStation` normalised to the `modules:{…}` delivery first, as its own change, rendering unchanged. Realisation decisions: **(1)** related stations' shells register in the host manifest's `shells` record under their registry key (`package` in service; `service` in tier/promotion) — the same shared shell objects, so `ShellSlot` needs no cross-entity qualifier; **(2)** `placements.travel` gains optional `bin` — the Bin workstation's consolidated two-scope table is a real consumer; **(3)** `EntityDrawer` owns tab state by default (steps reset it by keying the drawer per entity instance) and accepts controlled tab props only where the drawer footer gates on the active tab (the Service drawer); the notification-panel accordion, per-tab bespoke `trailing` content, and step chrome (`children`) stay surface state/props — the boundary S3b drew for table selection; **(4)** `permissions` stays reserved and undeclared. The three station drawers (Service; Individual Tier; Promotion detail) assemble from manifests; the four table workstations reach their TableSchemas through `SERVICE_ENTITY.placements`. **Recorded deferrals:** the Commercial group's Promotion Configuration block and the two Pricing Summary tables stay bespoke `trailing` content — the promotion-summary block has no `ModuleDefinition` (blocked on DNA, not schema); the tier package-overview and promotion list surfaces keep hand-assembled `DrawerTabs` bodies (card-pane list surfaces, per the S3b bin-pane deferral); manifest `actions` are declared but not yet consumed by the footers (step JSX until a real registry consumer exists — S5/S6 path). |
 | 2026-07-06 | **S3b — TableSchema realisation** | §9's ColumnDef/RowActionDef/TableSchema implemented with presentation-config fields the real tables demanded: `className`/`cellClassName` per column (layout classes; `width` stays reserved for explicit widths), `busyLabel` + `icon` per row action (in-flight text; icon-only destructive buttons), `actionsLabel` on TableSchema (actions column header). Selection stayed OUT of the schema — it is surface state, passed to EntityTable as a prop. TRAVEL_PILL now carries the dedicated travel classes (`--archived`/`--trashed`) — previously the travel tables hardcoded them while the chokepoint pointed at `--inactive` (two definitions for one mapping); archived pills on the tier/promotion bin cards change red → muted as a result. **Recorded deferral:** the tier/promotion bin *panes* stay card-based — the tier pane's restore-conflict flows (swap / retarget select / discard-and-retry, engine D3) are not expressible in the locked RowActionDef, and the promotion bin rows share one card list with the live filter (splitting a single filter view across card and table paradigms was rejected). Table-ising them needs either a RowActionDef amendment (custom actions cell) or the S6 gap-report path. |
+| 2026-07-07 | **v1.2 — Collection placement (the "detail-list" ruling)** | Resolves the third repeated-card presentation shape before S6. Ruling: **not a mode** — a `detail-list` mode would own zero renderers (a pure alias of `summary`) and would need cardinality awareness, which is DNA delivery; the exact ambiguity class finding 13 eliminated. The card is the existing `summary` (or `card`) viewpoint; the repetition belongs to the placement layer; the cardinality belongs to the surface (N `ShellBinding`s from the station hooks). Contract additions, both additive: `ShellSlot.footer?: string[]` (placement re-selection from the shell's declared Action Group, select-only — generalises the renderer-encoded connections View-only override into a declared knob) and `EntitySchema.placements.collections?: Record<string, ShellSlot>` (named collection surfaces). §8 gains the Collection placement rules: one shell/one binding/one mode always; no new renderer (surfaces map existing shells inside `ModeProvider`; shared helper only at a second migrated consumer per Governance); footer follows placement; the summary-gateway transit pattern (metrics shell + `view` footer in the Connections tab — Package Summary precedent) is the entry point. First consumer: Category's services collection (S6). Recorded future consumers: the tier package-overview and promotion list card surfaces (S4 deferrals). No new mode, archetype, element, or renderer component. Runtime realisation lands with S6. |
 | 2026-07-07 | **S5 — Workstation registry realisation** | §8's `GroupSchema` and `WorkstationSchema` implemented in `schema/workstations.ts`; `WorkstationRouter` is registry dispatch and `Sidebar` consumes the registry + ordered `WORKSTATION_GROUPS` — adding a workstation is one registry entry. Realisation decisions: **(1)** the value-level registry (`WORKSTATIONS`, `WORKSTATION_LABELS`) moved out of `api/types/admin.ts` into the schema registry, so one file owns the inventory; the type-level contract (`WorkstationId`, `WorkstationDef`) stays put and `WorkstationSchema extends WorkstationDef` as specified (the dead decorative `icon` glyph string on `WorkstationDef` was dropped — it had no renderer). **(2)** The icon registry (`schema/icons.tsx`) gains a nav-glyph section (`NavIconId` / `NAV_ICONS`, retiring the Sidebar `NavIcon` switch) separate from `MODULE_ICONS`, because the two frames carry different CSS classes; `iconId` types to the nav section and is optional — hidden and child entries carry none. **(3)** `hiddenFromNav` joins `WorkstationSchema`: the Sidebar's hard-coded `HIDDEN_FROM_NAV` set becomes registry metadata (bundles, health, and the two travel routes surfaced via Bin). **(4)** The `entity-table` surface kind is realised by one generic `EntityTableWorkstation` for the two real consumers — `service-archived` / `service-trash` — resolving the TableSchema through `ENTITIES[entity].placements.travel[scope]` and deleting the two bespoke workstation files; data flow and transition handlers stay renderer-side per the DNA boundary (the registry declares intent only), and the router keys the surface per `entity:scope` because `useApi` fetchers are fixed at mount. `scope: 'current'` stays declared but has no consumer (the catalog keeps its bespoke component surface). **(5)** All remaining workstations adopted the four zones (Overview, Bundles, Featured, Requests, Health + the generic travel surface) with pixel parity — header-right Refresh buttons remain inside the Header zone as part of the `cz-ws-header` layout; AdminShellSystem-v2's adoption table is now fully ✓. Requests registers as `{ kind: 'component' }` per §8. Manifest `actions` remain declared-but-unconsumed (S6 path, unchanged from S4). |
