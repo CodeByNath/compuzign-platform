@@ -33,6 +33,11 @@ export interface ShellProps<T = unknown> {
   // Edit session — required in the `edit` viewpoint (Edit Granularity: the
   // draft envelope is per-module and owned by the step).
   editSession?: ShellEditSession;
+  // v1.2 (Collection placement amendment): the placed slot's footer
+  // re-selection (ShellSlot.footer) — select-only against the schema's Action
+  // Group. Passed by EntityDrawer's PlacedShell and by collection surfaces;
+  // absent → the schema's own Footer Group.
+  footer?: string[];
 }
 
 // Connections is a read-only relational viewpoint with a View-only footer
@@ -45,8 +50,10 @@ const CONNECTIONS_FOOTER = ['view'];
 // `when` gate; behaviour arrives exclusively as handlers from the station
 // hook / step (a schema declares intent only). An action is disabled while
 // it is the one in flight (`binding.busy`) or when no handler was delivered.
-function resolveFooterActions<T>(schema: ShellSchema<T>, binding: ShellBinding<T>, mode: ShellMode): FooterAction[] {
-  const ids = mode === 'connections' ? CONNECTIONS_FOOTER : schema.footer.actions;
+function resolveFooterActions<T>(schema: ShellSchema<T>, binding: ShellBinding<T>, mode: ShellMode, footer?: string[]): FooterAction[] {
+  // Precedence: the connections View-only override (locked, untouched by
+  // v1.2) → the placed slot's footer re-selection → the schema's Footer Group.
+  const ids = mode === 'connections' ? CONNECTIONS_FOOTER : (footer ?? schema.footer.actions);
   return ids
     .map((id) => schema.actions[id])
     .filter((a): a is ShellActionSchema => !!a && (!a.when || a.when(binding as ShellBinding)))
@@ -61,13 +68,14 @@ function resolveFooterActions<T>(schema: ShellSchema<T>, binding: ShellBinding<T
 // Read frame — the canonical `.drawerModule` card. Status and notes render
 // exactly as delivered by the DNA (`binding.state`); the count is suppressed
 // while the authoritative detail is loading, matching the S1 cards.
-export function ShellReadFrame<T>({ schema, binding, mode, panelOpen, onTogglePanel, body }: {
+export function ShellReadFrame<T>({ schema, binding, mode, panelOpen, onTogglePanel, body, footer }: {
   schema:  ShellSchema<T>;
   binding: ShellBinding<T>;
   mode:    ShellMode;
   panelOpen?:     boolean;
   onTogglePanel?: () => void;
   body: ComponentChildren;
+  footer?: string[];   // v1.2 slot-footer re-selection (see ShellProps)
 }) {
   const loading = binding.state.status === 'loading';
   const count   = loading ? undefined : schema.header.count?.(binding.data) ?? undefined;
@@ -83,7 +91,7 @@ export function ShellReadFrame<T>({ schema, binding, mode, panelOpen, onTogglePa
       notes={binding.state.notes}
       panelOpen={panelOpen}
       onTogglePanel={onTogglePanel}
-      actions={resolveFooterActions(schema, binding, mode)}
+      actions={resolveFooterActions(schema, binding, mode, footer)}
     >
       {body}
     </ReadBlock>

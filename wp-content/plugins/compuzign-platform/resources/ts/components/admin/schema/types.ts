@@ -147,6 +147,10 @@ export interface ShellSlot {
   module: string;                    // module key (matches backend module key)
   mode: ShellMode;                   // the viewpoint this placement uses
   density?: 'full' | 'summary';      // may tighten, never expand, what renders
+  // v1.2 (Collection placement amendment, 2026-07-07): placement-level footer
+  // re-selection — select-only against the shell's Action Group; generalises
+  // the connections View-only override. First realised by S6 (Category).
+  footer?: string[];
 }
 
 // ── Station manifests (Entity Schemas, §9, S4) ────────────────────────────────
@@ -176,6 +180,11 @@ export interface EntitySchema {
 
   placements: {
     drawer?: { details: ShellSlot[]; connections: ShellSlot[] };   // Drawer Tab Contract keys
+    // v1.2 Collection placement: one shell repeated per related item in the
+    // slot's viewpoint (card = summary; repetition = placement; cardinality =
+    // the surface's ShellBinding[]). Keyed by collection name; the slot's
+    // module key resolves through `shells` (related stations' shells rule).
+    collections?: Record<string, ShellSlot>;
     table?: TableSchema<any>;
     // Travel surfaces. `bin` is an S4 realisation: the Bin workstation's
     // consolidated table spans both travel scopes and is a real consumer.

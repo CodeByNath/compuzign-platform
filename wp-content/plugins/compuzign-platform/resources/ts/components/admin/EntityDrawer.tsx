@@ -64,6 +64,7 @@ function PlacedShell({ entity, slot, binding, panelOpen, onTogglePanel }: {
         binding={binding}
         panelOpen={panelOpen}
         onTogglePanel={onTogglePanel}
+        footer={slot.footer}
       />
     </ModeProvider>
   );

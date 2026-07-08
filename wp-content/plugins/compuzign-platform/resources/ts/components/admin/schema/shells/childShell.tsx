@@ -14,7 +14,7 @@ import { resolveModeRenderer } from '../elements/modeRenderers';
 import { ShellEditFrame, ShellReadFrame } from './shellFrame';
 import type { ShellProps } from './shellFrame';
 
-export function ChildShell<T>({ schema, binding, panelOpen, onTogglePanel, editSession }: ShellProps<T>) {
+export function ChildShell<T>({ schema, binding, panelOpen, onTogglePanel, editSession, footer }: ShellProps<T>) {
   const mode = useShellMode();
 
   if (mode === 'edit') {
@@ -38,6 +38,7 @@ export function ChildShell<T>({ schema, binding, panelOpen, onTogglePanel, editS
       panelOpen={panelOpen}
       onTogglePanel={onTogglePanel}
       body={body}
+      footer={footer}
     />
   );
 }

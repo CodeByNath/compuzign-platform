@@ -1,11 +1,16 @@
 import { useEffect, useState, useCallback, useMemo } from 'preact/hooks';
+import { useApi } from '@/hooks/useApi';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
-import { restoreService, trashService, permanentDeleteService } from '@/api/endpoints/admin';
+import {
+  restoreService, trashService, permanentDeleteService,
+  fetchAdminCategories, restoreCategory, updateCategoryStatus, permanentDeleteCategory,
+} from '@/api/endpoints/admin';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import { Workstation } from '../shell/Workstation';
 import { EntityTable } from '../EntityTable';
 import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
-import type { StationSummary } from '@/api/types/admin';
+import { CATEGORY_ENTITY } from '@/components/admin/schema/entities/category';
+import type { CategoryStationItem, StationSummary } from '@/api/types/admin';
 
 interface Props {
   refreshKey: number;
@@ -17,6 +22,10 @@ interface Props {
 // permanently delete — encoded as origin-gated row actions on the S3b travel
 // preset (SERVICE_ENTITY.placements.travel.bin + EntityTable, S4). Selection/bulk-delete stays here:
 // selection is surface state, bulk behaviour is workstation-owned.
+//
+// S6: the Category station joins as a second pane (D8 — no hidden category-archived/
+// category-trash routes; the Bin is the sole travel surface). Its rows render
+// through CATEGORY_ENTITY.placements.travel.bin; delete surfaces the D6 409 guard.
 type BinFilter = 'all' | 'archived' | 'trashed';
 
 export function BinWorkstation({ refreshKey }: Props) {
@@ -24,18 +33,25 @@ export function BinWorkstation({ refreshKey }: Props) {
   const archived = useAdminCatalog({ platformStatus: 'archived' });
   const trashed  = useAdminCatalog({ platformStatus: 'trashed' });
 
+  // Category bin streams — same two-scope shape as the service catalog.
+  const catArchived = useApi(() => fetchAdminCategories('archived'));
+  const catTrashed  = useApi(() => fetchAdminCategories('trashed'));
+
   const [filter,    setFilter]    = useState<BinFilter>('all');
   const [selected,  setSelected]  = useState<Set<number>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkBusy,    setBulkBusy]    = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
 
-  const loading = archived.loading || trashed.loading;
+  const loading = archived.loading || trashed.loading || catArchived.loading || catTrashed.loading;
   const error   = archived.error || trashed.error;
 
   const refetchAll = useCallback(() => {
     archived.refetch();
     trashed.refetch();
-  }, [archived.refetch, trashed.refetch]);
+    catArchived.refetch();
+    catTrashed.refetch();
+  }, [archived.refetch, trashed.refetch, catArchived.refetch, catTrashed.refetch]);
 
   useEffect(() => {
     if (refreshKey > 0) refetchAll();
@@ -45,6 +61,11 @@ export function BinWorkstation({ refreshKey }: Props) {
     const all = [...(archived.data?.stations ?? []), ...(trashed.data?.stations ?? [])];
     return filter === 'all' ? all : all.filter((s) => s.platform_status === filter);
   }, [archived.data, trashed.data, filter]);
+
+  const categoryRows = useMemo<CategoryStationItem[]>(() => {
+    const all = [...(catArchived.data?.categories ?? []), ...(catTrashed.data?.categories ?? [])];
+    return filter === 'all' ? all : all.filter((c) => c.platform_status === filter);
+  }, [catArchived.data, catTrashed.data, filter]);
 
   // Drop selections that are no longer visible (filter change / refetch).
   useEffect(() => {
@@ -91,13 +112,31 @@ export function BinWorkstation({ refreshKey }: Props) {
     }
   }, [rows, selected, destroyOne, refetchAll]);
 
+  // Category delete: the D6 guard returns HTTP 409 (apiClient throws). Catch it
+  // and surface the assigned-count message through the pane's error affordance
+  // rather than letting the rejection escape EntityTable's confirm runner.
+  const handleCategoryDelete = useCallback(async (row: CategoryStationItem) => {
+    setCategoryError(null);
+    try {
+      await permanentDeleteCategory(row.id);
+      refetchAll();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      const m   = msg.match(/assigned_count"?\s*:\s*(\d+)/);
+      setCategoryError(m
+        ? `Cannot delete “${row.name}”: ${m[1]} service${m[1] === '1' ? '' : 's'} still assigned. Unassign them first.`
+        : `“${row.name}” could not be deleted.`);
+    }
+  }, [refetchAll]);
+
   if (loading) return <AsyncLoading label="Loading bin…" />;
 
   if (error) return <AsyncError error={error} onRetry={refetchAll} />;
 
   const archivedCount = archived.data?.stations?.length ?? 0;
   const trashedCount  = trashed.data?.stations?.length ?? 0;
-  const total = archivedCount + trashedCount;
+  const catCount      = (catArchived.data?.categories?.length ?? 0) + (catTrashed.data?.categories?.length ?? 0);
+  const total = archivedCount + trashedCount + catCount;
 
   return (
     <Workstation>
@@ -105,7 +144,7 @@ export function BinWorkstation({ refreshKey }: Props) {
         <div>
           <h2 class="cz-ws-title">Bin</h2>
           <p class="cz-ws-subtitle">
-            {archivedCount} archived · {trashedCount} trashed — restore a service, or remove it.
+            {archivedCount} archived · {trashedCount} trashed{catCount > 0 ? ` · ${catCount} categor${catCount !== 1 ? 'ies' : 'y'}` : ''} — restore an item, or remove it.
             Permanent delete cannot be undone.
           </p>
         </div>
@@ -172,23 +211,45 @@ export function BinWorkstation({ refreshKey }: Props) {
           </Workstation.Actions>
 
           <Workstation.Content>
-            <EntityTable
-              schema={SERVICE_ENTITY.placements.travel!.bin!}
-              rows={rows}
-              rowKey={(s) => s.id}
-              handlers={{
-                restore: async (s) => { await restoreService(s.id);         refetchAll(); },
-                trash:   async (s) => { await trashService(s.id);           refetchAll(); },
-                delete:  async (s) => { await permanentDeleteService(s.id); refetchAll(); },
-              }}
-              selection={{
-                isSelected:  (s) => selected.has(s.id),
-                onToggle:    (s) => toggleOne(s.id),
-                allSelected,
-                onToggleAll: toggleAll,
-                rowLabel:    (s) => `Select ${s.title}`,
-              }}
-            />
+            {rows.length > 0 && (
+              <>
+                <p class="cz-shell-section__title">Services</p>
+                <EntityTable
+                  schema={SERVICE_ENTITY.placements.travel!.bin!}
+                  rows={rows}
+                  rowKey={(s) => s.id}
+                  handlers={{
+                    restore: async (s) => { await restoreService(s.id);         refetchAll(); },
+                    trash:   async (s) => { await trashService(s.id);           refetchAll(); },
+                    delete:  async (s) => { await permanentDeleteService(s.id); refetchAll(); },
+                  }}
+                  selection={{
+                    isSelected:  (s) => selected.has(s.id),
+                    onToggle:    (s) => toggleOne(s.id),
+                    allSelected,
+                    onToggleAll: toggleAll,
+                    rowLabel:    (s) => `Select ${s.title}`,
+                  }}
+                />
+              </>
+            )}
+
+            {categoryRows.length > 0 && (
+              <>
+                <p class="cz-shell-section__title" style="margin-top:var(--cz-space-5)">Categories</p>
+                {categoryError && <div class="cz-admin-error-msg" style="margin-bottom:var(--cz-space-3)">{categoryError}</div>}
+                <EntityTable
+                  schema={CATEGORY_ENTITY.placements.travel!.bin!}
+                  rows={categoryRows}
+                  rowKey={(c) => c.id}
+                  handlers={{
+                    restore: async (c) => { await restoreCategory(c.id);              refetchAll(); },
+                    trash:   async (c) => { await updateCategoryStatus(c.id, 'trashed'); refetchAll(); },
+                    delete:  handleCategoryDelete,
+                  }}
+                />
+              </>
+            )}
           </Workstation.Content>
         </>
       )}

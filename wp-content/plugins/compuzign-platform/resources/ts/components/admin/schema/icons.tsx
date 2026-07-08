@@ -17,7 +17,7 @@
 
 import type { ComponentChildren } from 'preact';
 
-export type IconId = 'overview' | 'features' | 'faqs' | 'package';
+export type IconId = 'overview' | 'features' | 'faqs' | 'package' | 'category';
 
 export const MODULE_ICONS: Record<IconId, ComponentChildren> = {
   // Document — Service/Tier/Promotion Overview modules.
@@ -39,6 +39,12 @@ export const MODULE_ICONS: Record<IconId, ComponentChildren> = {
       <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 01-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584zM12 18a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
     </svg>
   ),
+  // Tag — Category Overview / category station modules (S6).
+  category: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
+      <path fillRule="evenodd" d="M5.25 2.25a3 3 0 00-3 3v4.318a3 3 0 00.879 2.121l9.58 9.581c.92.92 2.39 1.186 3.548.428a18.849 18.849 0 005.441-5.44c.758-1.16.492-2.629-.428-3.548l-9.58-9.581a3 3 0 00-2.122-.879H5.25zM6.375 7.5a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" clipRule="evenodd" />
+    </svg>
+  ),
   // Cube — Package Summary / per-tier package cards.
   package: (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
@@ -49,7 +55,7 @@ export const MODULE_ICONS: Record<IconId, ComponentChildren> = {
 
 // ── Nav glyphs (Heroicons v2 solid, 24×24 viewBox) ───────────────────────────
 
-export type NavIconId = 'overview' | 'catalog' | 'featured' | 'requests' | 'bin';
+export type NavIconId = 'overview' | 'catalog' | 'category' | 'featured' | 'requests' | 'bin';
 
 export const NAV_ICONS: Record<NavIconId, ComponentChildren> = {
   // Chart bars — Overview / Command Centre.
@@ -62,6 +68,12 @@ export const NAV_ICONS: Record<NavIconId, ComponentChildren> = {
   catalog: (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
       <path fillRule="evenodd" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" clipRule="evenodd" />
+    </svg>
+  ),
+  // Tag — Categories (S6; consumed by the Phase E workstation entry).
+  category: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
+      <path fillRule="evenodd" d="M5.25 2.25a3 3 0 00-3 3v4.318a3 3 0 00.879 2.121l9.58 9.581c.92.92 2.39 1.186 3.548.428a18.849 18.849 0 005.441-5.44c.758-1.16.492-2.629-.428-3.548l-9.58-9.581a3 3 0 00-2.122-.879H5.25zM6.375 7.5a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" clipRule="evenodd" />
     </svg>
   ),
   // Star — Featured Controls.

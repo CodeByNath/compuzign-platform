@@ -8,11 +8,13 @@ import type { EntitySchema } from '../types';
 import { SERVICE_ENTITY } from './service';
 import { TIER_ENTITY } from './tier';
 import { PROMOTION_ENTITY } from './promotion';
+import { CATEGORY_ENTITY } from './category';
 
-export { SERVICE_ENTITY, TIER_ENTITY, PROMOTION_ENTITY };
+export { SERVICE_ENTITY, TIER_ENTITY, PROMOTION_ENTITY, CATEGORY_ENTITY };
 
 export const ENTITIES: Record<string, EntitySchema> = {
   service:   SERVICE_ENTITY,
   tier:      TIER_ENTITY,
   promotion: PROMOTION_ENTITY,
+  category:  CATEGORY_ENTITY,
 };

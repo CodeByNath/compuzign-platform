@@ -2,6 +2,7 @@
 
 namespace CompuZign\Platform\Modules\Admin\Http;
 
+use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Admin\Support\PoolReferences;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
@@ -444,14 +445,25 @@ class AdminServicesController
     {
         $filterStatus = $request->get_param('platform_status'); // 'archived', 'trashed', or null.
 
-        // All category terms ordered by name — used for the catalog tab bar.
+        // Live category terms ordered by name — used for the catalog tab bar and
+        // admin pickers. Selector scoping (D7): archived/trashed categories never
+        // appear here, but stay rendered on services already assigned to them
+        // (the per-service categories below are intentionally unfiltered).
         $terms      = get_terms(['taxonomy' => self::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
-        $categories = array_map(fn($t) => [
-            'id'          => (int) $t->term_id,
-            'name'        => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-            'slug'        => $t->slug,
-            'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
-        ], is_array($terms) ? $terms : []);
+        $categories = [];
+        foreach (is_array($terms) ? $terms : [] as $t) {
+            $categoryStatus = CategoryMeta::status((int) $t->term_id);
+            if (!StationLifecycle::isLive($categoryStatus)) {
+                continue;
+            }
+            $categories[] = [
+                'id'              => (int) $t->term_id,
+                'name'            => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'            => $t->slug,
+                'description'     => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
+                'platform_status' => $categoryStatus,
+            ];
+        }
 
         // All published service posts ordered by title.
         $posts = get_posts([

@@ -31,6 +31,11 @@ import type {
   PromotionLifecycleResponse,
   PromotionTransitionResponse,
   PromotionDeleteResponse,
+  CategoryDeleteResponse,
+  CategoryListResponse,
+  CategoryMutationResponse,
+  CategoryOverviewDraft,
+  CategoryOverviewSaveResponse,
   InclusionItem,
   RequestEntry,
   ServiceFaqsPayload,
@@ -97,6 +102,65 @@ export function updateServiceCategory(
   category?: { id: number; name: string; slug: string; description: string };
 }> {
   return apiClient.post(`admin/service-categories/${id}`, payload);
+}
+
+// ── Category station (S6) ─────────────────────────────────────────────────────
+// The /admin/categories family — additive beside the inline
+// /admin/service-categories convenience routes above, which stay untouched (D3).
+
+export function fetchAdminCategories(platformStatus?: 'archived' | 'trashed'): Promise<CategoryListResponse> {
+  const path = platformStatus
+    ? `admin/categories?platform_status=${platformStatus}`
+    : 'admin/categories';
+  return apiClient.get<CategoryListResponse>(path);
+}
+
+// Station create (D3): born disabled; overview settles immediately when the
+// payload is complete. Duplicate names fail (no return-existing convenience).
+export function createCategory(payload: {
+  name:         string;
+  description?: string;
+}): Promise<CategoryMutationResponse> {
+  return apiClient.post<CategoryMutationResponse>('admin/categories', payload);
+}
+
+// Save the overview draft — canonical term untouched, overview marked pending.
+export function saveCategoryOverview(
+  categoryId: number,
+  payload:    CategoryOverviewDraft,
+): Promise<CategoryOverviewSaveResponse> {
+  return apiClient.put<CategoryOverviewSaveResponse>(`admin/categories/${categoryId}/overview`, payload);
+}
+
+// Commit the draft to the term (name + description), clear it, re-derive status.
+export function settleCategoryOverview(categoryId: number): Promise<CategoryMutationResponse> {
+  return apiClient.post<CategoryMutationResponse>(`admin/categories/${categoryId}/overview/settle`, {});
+}
+
+// Discard the draft; module_status re-derives from the settled state.
+export function revertCategoryOverview(categoryId: number): Promise<CategoryMutationResponse> {
+  return apiClient.post<CategoryMutationResponse>(`admin/categories/${categoryId}/overview/revert`, {});
+}
+
+// Engine transition — the only status write for categories.
+export function updateCategoryStatus(
+  categoryId:     number,
+  platformStatus: 'active' | 'disabled' | 'archived' | 'trashed',
+): Promise<CategoryMutationResponse> {
+  return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, {
+    platform_status: platformStatus,
+  });
+}
+
+// Server-driven restore — resolves previous_platform_status, lands disabled.
+export function restoreCategory(categoryId: number): Promise<CategoryMutationResponse> {
+  return apiClient.post<CategoryMutationResponse>(`admin/categories/${categoryId}/restore`, {});
+}
+
+// Trashed-only. A D6 guard failure is an HTTP 409 (apiClient throws; the error
+// text carries { message, assigned_count }).
+export function permanentDeleteCategory(categoryId: number): Promise<CategoryDeleteResponse> {
+  return apiClient.delete<CategoryDeleteResponse>(`admin/categories/${categoryId}`);
 }
 
 // Temporary — Phase 0 migration readiness audit. Remove after migration is validated.

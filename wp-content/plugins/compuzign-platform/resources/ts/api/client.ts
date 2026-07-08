@@ -52,5 +52,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const apiClient = {
   get: <T>(path: string): Promise<T> => request<T>('GET', path),
   post: <T>(path: string, body?: unknown): Promise<T> => request<T>('POST', path, body),
+  // PUT/PATCH serve the Category station family. Some hosts block these verbs;
+  // if Hostinger rejects them, switch these two to POST + an
+  // 'X-HTTP-Method-Override' header here (WP REST honours the override) —
+  // one-place change, no fetcher edits.
+  put: <T>(path: string, body?: unknown): Promise<T> => request<T>('PUT', path, body),
+  patch: <T>(path: string, body?: unknown): Promise<T> => request<T>('PATCH', path, body),
   delete: <T>(path: string): Promise<T> => request<T>('DELETE', path),
 };

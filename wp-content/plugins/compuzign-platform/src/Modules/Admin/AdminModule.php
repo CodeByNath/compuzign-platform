@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Modules\Admin;
 
 use CompuZign\Platform\Core\Health;
+use CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController;
 use CompuZign\Platform\Modules\Admin\Http\AdminController;
 use CompuZign\Platform\Modules\Admin\Http\AdminRequestsController;
 use CompuZign\Platform\Modules\Admin\Http\AdminServicesController;
@@ -15,6 +16,7 @@ class AdminModule
         (new AdminController())->register();
         (new AdminRequestsController())->register();
         (new AdminServicesController())->register();
+        (new AdminCategoriesController())->register();
 
         add_shortcode('compuzign_admin', [$this, 'renderShortcode']);
 

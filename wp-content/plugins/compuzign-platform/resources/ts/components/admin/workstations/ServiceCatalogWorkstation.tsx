@@ -39,7 +39,10 @@ type StatusFilter = 'all' | 'active' | 'pending' | 'drafts' | 'disabled';
 
 type AdminCategory = { id: number | null; name: string; slug: string; description?: string };
 
-function normalizeAdminCategories(cats: AdminCategory[]): Category[] {
+// Exported since S6: the Category Services collection surface is the second
+// consumer — it opens the real Service drawer for each assigned service and
+// needs the identical handoff payload (do not fork a reduced Service drawer).
+export function normalizeAdminCategories(cats: AdminCategory[]): Category[] {
   return cats
     .filter((c): c is { id: number; name: string; slug: string; description?: string } => c.id !== null)
     .map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description ?? '' }));
@@ -51,7 +54,7 @@ function normalizeAdminCategories(cats: AdminCategory[]): Category[] {
 // loads authoritative data from there. This adapter only carries enough for the
 // drawer loading window — do not treat it as a second service model.
 
-function buildServiceItemForStationHandoff(summary: StationSummary): ServiceItem {
+export function buildServiceItemForStationHandoff(summary: StationSummary): ServiceItem {
   return {
     id:         summary.id,
     title:      summary.title,

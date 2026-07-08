@@ -2,6 +2,8 @@
 
 namespace CompuZign\Platform\Modules\CostBuilder\Services;
 
+use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
+use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\CostBuilder\Repositories\ServiceRepository;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
 use CompuZign\Platform\Modules\CostBuilder\Support\PriceParser;
@@ -83,6 +85,15 @@ class PricingBuilder
                 continue;
             }
 
+            // Category lifecycle gate (D1): only 'active' categories surface publicly.
+            // Terms without station meta read as active (lazy default), so behaviour
+            // is unchanged until a category is explicitly disabled/binned — a disabled
+            // curated category disappearing from the builder is the feature.
+            if (CategoryMeta::status((int) $term->term_id) !== StationLifecycle::STATUS_ACTIVE) {
+                $handledTermIds[(int) $term->term_id] = true;
+                continue;
+            }
+
             $categories[] = [
                 'id'   => (int) $term->term_id,
                 'name' => $term->name,
@@ -139,6 +150,11 @@ class PricingBuilder
         if (is_array($extraTerms)) {
             foreach ($extraTerms as $term) {
                 if (!$term instanceof \WP_Term || isset($handledTermIds[(int) $term->term_id])) {
+                    continue;
+                }
+
+                // Same D1 lifecycle gate as the curated pass above.
+                if (CategoryMeta::status((int) $term->term_id) !== StationLifecycle::STATUS_ACTIVE) {
                     continue;
                 }
 
