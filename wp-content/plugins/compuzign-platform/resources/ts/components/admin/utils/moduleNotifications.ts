@@ -270,6 +270,10 @@ export const promotionOverviewModule: ModuleDefinition<PromotionOverviewLike | u
   resolveStatus:      (p, ctx) => {
     if (!p || !p.name.trim()) return 'pending-dim';
     if (ctx.moduleTransition === 'not-configured') return 'pending-dim';
+    // A travel-disabled instance reads Disabled (mirrors resolveTierStatus's
+    // !enabled → 'disabled'), so the pill agrees with the drawer's Enable footer
+    // action instead of contradicting it with a Pending pill.
+    if (ctx.platformStatus === 'disabled') return 'disabled';
     if (ctx.moduleTransition === 'pending') return 'pending-full';
     return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
   },
