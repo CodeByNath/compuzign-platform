@@ -285,8 +285,14 @@ export const promotionFeaturesModule: ModuleDefinition<{ count: number }> = {
   emptyPrompt:    'Edit and add included features.',
   isEmpty:        ({ count }) => count === 0,
   problems:       () => [],
-  resolveStatus:  ({ count }, ctx) =>
-    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+  resolveStatus:  ({ count }, ctx) => {
+    if (count === 0) return 'pending-dim';
+    // Follow the instance's travel state so a disabled promotion reads Disabled
+    // across all its modules, not just the overview (same fix as the overview
+    // resolver — the module pill agrees with the drawer's Enable footer action).
+    if (ctx.platformStatus === 'disabled') return 'disabled';
+    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
+  },
 };
 
 export const promotionFaqsModule: ModuleDefinition<{ count: number }> = {
@@ -295,8 +301,11 @@ export const promotionFaqsModule: ModuleDefinition<{ count: number }> = {
   emptyPrompt:    'Edit and add questions.',
   isEmpty:        ({ count }) => count === 0,
   problems:       () => [],
-  resolveStatus:  ({ count }, ctx) =>
-    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+  resolveStatus:  ({ count }, ctx) => {
+    if (count === 0) return 'pending-dim';
+    if (ctx.platformStatus === 'disabled') return 'disabled';
+    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
+  },
 };
 
 // ── Category modules (S6) ─────────────────────────────────────────────────────
