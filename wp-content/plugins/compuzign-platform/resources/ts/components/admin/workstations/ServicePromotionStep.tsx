@@ -12,7 +12,7 @@ import type {
 } from '@/api/types/admin';
 import { usePromotionStation } from '@/hooks/usePromotionStation';
 import type { PromotionView } from '@/hooks/usePromotionStation';
-import { InlineEditorShell } from '../InlineEditorShell';
+import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
 import { EntityDrawer } from '../EntityDrawer';
 import { PROMOTION_ENTITY } from '@/components/admin/schema/entities/promotion';
@@ -35,7 +35,6 @@ import type {
   PromotionFaqsShellData,
 } from '@/components/admin/schema/shells/bindings/promotion';
 import type { ShellBinding } from '@/components/admin/schema/types';
-import { PromotionOverviewEditor } from '../editors/PromotionOverviewEditor';
 import { serviceConnectionBinding, TIER_LABELS } from './serviceDrawerShared';
 
 // ── ServicePromotionStep ──────────────────────────────────────────────────────
@@ -48,9 +47,15 @@ import { serviceConnectionBinding, TIER_LABELS } from './serviceDrawerShared';
 //
 // Drawer shape mirrors ServiceTierStep: list (all promotions) <-> individual
 // promotion detail (Details/Connections tabs), full-screen swap, Back to return.
-// Promotion Overview, Included Features, and Common Questions are real drawer
-// modules (ReadBlock + own InlineEditorShell) with ModuleStatusPill + notes fed
-// by promotionView's evaluateModule results.
+// The Current list renders one Promotion Overview shell card per instance plus a
+// trailing empty "New promotion" shell — the add-the-next affordance, mirroring
+// an empty Package Tier slot (a real ReadBlock card with a status pill + View
+// action, never a dotted placeholder or a bare "No promotions yet" state). View
+// on the empty shell creates the draft instance and opens its detail drawer.
+// Inside the detail drawer, Promotion Overview, Included Features, and Common
+// Questions are real drawer modules (the shell archetypes' read + edit
+// viewpoints) with ModuleStatusPill + notes fed by promotionView's evaluateModule
+// results — editing always goes through the card's shell editor, never a bare form.
 
 // Module icons come from the shared registry (schema/icons.tsx, S1b) — the same
 // glyphs the Service and Tier module cards use. Tier labels (for "Based on
@@ -135,6 +140,16 @@ function statusPill(status: PromotionStatus) {
   );
 }
 
+// Card-level pill status for a Current-list promotion shell — the instance's
+// travel state collapsed to the presentation vocabulary (draft → Pending), fed
+// to ReadBlock's ModuleStatusPill exactly like a Package Tier slot's status.
+// Archived/trashed never reach here (bin view keeps its own TRAVEL_PILL cards).
+function cardPillStatus(status: PromotionStatus): string {
+  if (status === 'active')   return 'active';
+  if (status === 'disabled') return 'disabled';
+  return 'pending-full'; // draft
+}
+
 const LIVE_STATUSES: PromotionStatus[] = ['draft', 'active', 'disabled'];
 const BIN_STATUSES:  PromotionStatus[] = ['archived', 'trashed'];
 
@@ -150,7 +165,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
   // Individual promotion detail view: editingPromoId set + editingSection null => the
   // Details/Connections tab shell (Promotion Overview + Included Features + Common
-  // Questions modules). A named editingSection => that section's InlineEditorShell.
+  // Questions modules). A named editingSection => that module's shell edit viewpoint.
   // null editingPromoId => list.
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [editingSection, setEditingSection] = useState<'promo-overview' | 'promo-features' | 'promo-faqs' | null>(null);
@@ -168,7 +183,6 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const [featuresOriginal, setFeaturesOriginal] = useState<InclusionItem[] | null>(null);
   const [faqsDraft,        setFaqsDraft]        = useState<string[] | null>(null);
   const [faqsOriginal,     setFaqsOriginal]     = useState<string[] | null>(null);
-  const [isNew,          setIsNew]          = useState(false);
   const [saveErr,        setSaveErr]        = useState<string | null>(null);
   const [saveOk,         setSaveOk]         = useState(false);
   // Lifecycle chrome: split-button dropdown, publish/delete confirm modals, the
@@ -201,15 +215,21 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // Draft-preferred lifecycle view of the open promotion (null on the list).
   const view: PromotionView | null = editingPromoId ? promo.promotionView(editingPromoId) : null;
 
-  // New Promotion opens directly into the Promotion Overview editor. On save, the user
-  // lands in the new promotion's detail view with Included Features ready to fill in.
-  const openCreate = () => {
-    const d = emptyOverviewDraft();
-    setIsNew(true);
-    setEditingPromoId(null);
-    setOverviewDraft(d); setOverviewOriginal(d);
-    setEditingSection('promo-overview');
+  // New Promotion creates the draft instance immediately (born draft, C2) and lands
+  // in its detail drawer — the Promotion Overview / Included Features / Common
+  // Questions module cards, each with a status pill + Edit action. Filling in fields
+  // happens through the card's shell editor (openOverviewSection), never a bare form.
+  // Mirrors ServiceTierStep, where the tier cards pre-exist and View opens the drawer.
+  const openCreate = async () => {
     setSaveErr(null); setSaveOk(false);
+    const res = await promo.createPromotion(createPayload(emptyOverviewDraft()));
+    if (res?.success) {
+      setEditingPromoId(res.promo_id);
+      setEditingSection(null);
+      setOpenPromoPanel(null);
+    } else {
+      setSaveErr('Could not create promotion.');
+    }
   };
 
   // List "View" — opens the full-screen promotion detail (Details/Connections tabs).
@@ -246,15 +266,11 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null); setSaveOk(false);
   };
 
-  // Cancel the Promotion Overview editor — creating a new promotion returns to the list;
-  // editing an existing one's overview returns to its detail view.
+  // Cancel the Promotion Overview editor — returns to the promotion's detail view
+  // (the instance already exists; creation is no longer entangled with this editor).
   const handleCancelOverview = () => {
     setOverviewDraft(null); setOverviewOriginal(null); setSaveErr(null); setSaveOk(false);
-    if (isNew) {
-      setIsNew(false);
-    } else {
-      setEditingSection(null);
-    }
+    setEditingSection(null);
   };
 
   const handleCancelFeatures = () => {
@@ -290,27 +306,12 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     return () => { promoBack.current = null; };
   }, [editingPromoId, promoBack]);
 
-  // Promotion Overview Save — creating still uses the whole-record create (the
-  // instance must exist first; it starts as draft). Editing persists a module
-  // DRAFT via the station lifecycle; footer Publish settles it.
+  // Promotion Overview Save — the instance already exists (created up front), so this
+  // is always a module DRAFT save via the station lifecycle; footer Publish settles it.
   const handleSaveOverview = useCallback(async () => {
-    if (!overviewDraft) return;
+    if (!overviewDraft || !editingPromoId) return;
     setSaveErr(null);
     try {
-      if (isNew) {
-        const res = await promo.createPromotion(createPayload(overviewDraft));
-        if (res?.success) {
-          setSaveOk(true);
-          setIsNew(false);
-          setEditingPromoId(res.promo_id);
-          setEditingSection(null);
-          setOverviewDraft(null); setOverviewOriginal(null);
-        } else {
-          setSaveErr('Save failed.');
-        }
-        return;
-      }
-      if (!editingPromoId) return;
       const res = await promo.savePromotionOverview(editingPromoId, overviewDraft);
       if (res?.success) {
         setSaveOk(true);
@@ -322,7 +323,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
     }
-  }, [overviewDraft, isNew, editingPromoId, promo]);
+  }, [overviewDraft, editingPromoId, promo]);
 
   // Included Features Save — persists the module draft (pool refs only).
   const handleSaveFeatures = useCallback(async () => {
@@ -410,8 +411,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   };
 
   // Pin the drawer footer in the shell's footer slot (matching ServiceTierStep).
-  // Edit mode leaves the slot empty — InlineEditorShell carries its own Save/Cancel
-  // footer. The open promotion's lifecycle actions live here, per travel state.
+  // Edit mode leaves the slot empty — the module's shell edit viewpoint carries its
+  // own Save/Cancel footer. The open promotion's lifecycle actions live here, per
+  // travel state.
   const footerRef = useRef({ openCreate, handleToggle, handleArchive, handleTrash, handleRestore, close: ctx.close });
   footerRef.current = { openCreate, handleToggle, handleArchive, handleTrash, handleRestore, close: ctx.close };
 
@@ -429,13 +431,10 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     } else if (editingSection != null) {
       setFooter(null);
     } else if (!editingPromoId) {
-      setFooter(
-        <div class="cz-tf-footer">
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
-          <div class="cz-tf-footer__spacer" />
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => a.openCreate()}>New</button>
-        </div>,
-      );
+      // List footer — Close only, right-aligned (matches ServiceTierStep's package
+      // overview). Creating a promotion is driven by the trailing "New promotion"
+      // shell card in the list body, not a footer button.
+      setFooter(closeFooter);
     } else {
       const current = promo.detail.promotions.find(p => p.id === editingPromoId);
       const v       = current ? promo.promotionView(current.id) : null;
@@ -502,9 +501,11 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 {promo.saving ? '…' : 'Restore'}
               </button>
             )}
+            {/* Single spacer → the neutral Close + the terminal action group on the
+                right, matching ServiceTierStep ([left lifecycle][spacer][Close][primary]).
+                Never more than one flex spacer, so Close cannot float to the centre. */}
             <div class="cz-tf-footer__spacer" />
             <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
-            {(isLive || status === 'draft') && <div class="cz-tf-footer__spacer" />}
             {(isLive || status === 'draft') && (
               <button
                 type="button"
@@ -515,13 +516,11 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 {promo.saving ? '…' : 'Publish'}
               </button>
             )}
-            {status === 'archived' && <div class="cz-tf-footer__spacer" />}
             {status === 'archived' && (
               <button type="button" class="cz-admin-btn cz-admin-btn--danger" disabled={promo.saving} onClick={() => a.handleTrash(current.id)}>
                 Move to Trash
               </button>
             )}
-            {status === 'trashed' && <div class="cz-tf-footer__spacer" />}
             {status === 'trashed' && (
               <button type="button" class="cz-admin-btn cz-admin-btn--danger" disabled={promo.saving} onClick={() => setConfirmModal('delete')}>
                 Delete Permanently
@@ -540,10 +539,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const { promotions, service: svc } = promo.detail;
 
   // ── Promotion list view ───────────────────────────────────────────────────
-  if (!isNew && !editingPromoId) {
+  if (!editingPromoId) {
     const currentList = promotions.filter(p => LIVE_STATUSES.includes(p.status));
     const binList     = promotions.filter(p => BIN_STATUSES.includes(p.status));
-    const shown       = listView === 'bin' ? binList : currentList;
 
     return (
       <div class="cz-req-detail">
@@ -573,81 +571,131 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
               </div>
             )}
 
-            {shown.length === 0 && (
-              <div class="cz-admin-empty">
-                <p>{listView === 'bin' ? 'The bin is empty.' : 'No promotions yet.'}</p>
-              </div>
-            )}
+            {/* ── Current view: one Promotion Overview shell card per instance,
+                followed by an always-present empty "New promotion" shell — the
+                add-the-next affordance. Same shell pattern as Package Tier slots
+                (ReadBlock + status pill + View action); no dotted placeholder,
+                no bare "No promotions yet" empty state. ─────────────────────── */}
+            {listView === 'current' && (
+              <>
+                {currentList.map((p) => (
+                  <ReadBlock
+                    key={p.id}
+                    title={p.name || 'Untitled promotion'}
+                    subtitle={p.based_on ? `Based on ${TIER_LABELS[p.based_on] ?? p.based_on}` : 'Standalone promotion'}
+                    icon={MODULE_ICONS.overview}
+                    scopeClass="drawerOverview promotion"
+                    status={cardPillStatus(p.status)}
+                    actions={[{ id: 'view', label: 'View', onSelect: () => openViewDetail(p) }]}
+                  >
+                    <div class="drawerModule__fields">
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Headline</p>
+                        <p class="drawerModule__value">{p.headline || '—'}</p>
+                      </div>
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Price</p>
+                        <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
+                      </div>
+                    </div>
+                  </ReadBlock>
+                ))}
 
-            {shown.map((p) => (
-              <div key={p.id} class="drawerModule drawerOverview promotion">
-                <div class="drawerModule__header">
-                  <span class="drawerModule__icon">{MODULE_ICONS.overview}</span>
-                  <div class="drawerModule__heading">
-                    <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
-                    <p class="drawerModule__subtitle">
-                      {p.based_on ? `Based on ${p.based_on}` : 'No base tier'}
-                    </p>
-                  </div>
-                  <div class="drawerModule__status">
-                    {statusPill(p.status)}
-                  </div>
-                </div>
-                <div class="drawerModule__body">
+                {/* Trailing empty shell — View creates the draft instance and opens
+                    its detail drawer (openCreate), which fills this slot and lets a
+                    fresh empty shell take its place on the next render. */}
+                <ReadBlock
+                  key="__new_promotion"
+                  title="New promotion"
+                  subtitle="Add another promotion to this service."
+                  icon={MODULE_ICONS.overview}
+                  scopeClass="drawerOverview promotion"
+                  status="not-configured"
+                  actions={[{ id: 'create', label: 'View', onSelect: () => { void openCreate(); } }]}
+                >
                   <div class="drawerModule__fields">
                     <div class="drawerModule__field">
-                      <p class="drawerModule__label">Name</p>
-                      <p class="drawerModule__value">{p.name || '(unnamed)'}</p>
-                    </div>
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Headline</p>
-                      <p class="drawerModule__value">{p.headline || '—'}</p>
-                    </div>
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Price</p>
-                      <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
-                    </div>
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__label">Description</p>
-                      <p class="drawerModule__value">{p.description || '—'}</p>
+                      <p class="drawerModule__value">Open to configure a new promotion’s overview, features, and questions.</p>
                     </div>
                   </div>
-                </div>
-                <div class="drawerModule__footer">
-                  {listView === 'current' ? (
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openViewDetail(p)}>View</button>
-                  ) : deleteConfirm.pendingId === p.id ? (
-                    <>
-                      <span class="cz-sc-table__confirm-label">Delete permanently?</span>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleDelete(p.id)}>
-                        {promo.saving ? '…' : 'Confirm'}
-                      </button>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => deleteConfirm.cancel()}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleRestore(p.id)}>
-                        Restore
-                      </button>
-                      {p.status === 'archived' && (
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleTrash(p.id)}>
-                          Move to Trash
-                        </button>
-                      )}
-                      {p.status === 'trashed' && (
-                        <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={promo.saving} onClick={() => deleteConfirm.request(p.id)}>
-                          Delete Permanently
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+                </ReadBlock>
 
-            {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+                {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+              </>
+            )}
+
+            {/* ── Bin view: displaced instances (archived/trashed) with Restore /
+                Trash / Delete. Travel surface — keeps its TRAVEL_PILL cards and
+                inline confirm, matching ServiceTierStep's occupant bin. ──────── */}
+            {listView === 'bin' && (
+              <>
+                {binList.length === 0 && (
+                  <div class="cz-admin-empty">
+                    <p>The bin is empty.</p>
+                  </div>
+                )}
+
+                {binList.map((p) => (
+                  <div key={p.id} class="drawerModule drawerOverview promotion">
+                    <div class="drawerModule__header">
+                      <span class="drawerModule__icon">{MODULE_ICONS.overview}</span>
+                      <div class="drawerModule__heading">
+                        <p class="drawerModule__title">{p.name || '(unnamed)'}</p>
+                        <p class="drawerModule__subtitle">
+                          {p.based_on ? `Based on ${TIER_LABELS[p.based_on] ?? p.based_on}` : 'No base tier'}
+                        </p>
+                      </div>
+                      <div class="drawerModule__status">
+                        {statusPill(p.status)}
+                      </div>
+                    </div>
+                    <div class="drawerModule__body">
+                      <div class="drawerModule__fields">
+                        <div class="drawerModule__field">
+                          <p class="drawerModule__label">Headline</p>
+                          <p class="drawerModule__value">{p.headline || '—'}</p>
+                        </div>
+                        <div class="drawerModule__field">
+                          <p class="drawerModule__label">Price</p>
+                          <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="drawerModule__footer">
+                      {deleteConfirm.pendingId === p.id ? (
+                        <>
+                          <span class="cz-sc-table__confirm-label">Delete permanently?</span>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleDelete(p.id)}>
+                            {promo.saving ? '…' : 'Confirm'}
+                          </button>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => deleteConfirm.cancel()}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleRestore(p.id)}>
+                            Restore
+                          </button>
+                          {p.status === 'archived' && (
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={promo.saving} onClick={() => handleTrash(p.id)}>
+                              Move to Trash
+                            </button>
+                          )}
+                          {p.status === 'trashed' && (
+                            <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={promo.saving} onClick={() => deleteConfirm.request(p.id)}>
+                              Delete Permanently
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+              </>
+            )}
           </>
         )}
 
@@ -707,30 +755,10 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     return { overview, features, faqs };
   })() : null;
 
-  // ── Promotion Overview module editor ─────────────────────────────────────────
-  // New Promotion: the instance does not exist yet, so this is instance
-  // creation (whole-record create), not a station module edit — it renders the
-  // module editor directly inside InlineEditorShell. Editing an existing
-  // promotion's overview goes through the shell's edit viewpoint below.
-  if (editingSection === 'promo-overview' && overviewDraft && isNew) {
-    return (
-      <InlineEditorShell
-        title="New Promotion"
-        onSave={handleSaveOverview}
-        onCancel={handleCancelOverview}
-        saving={promo.saving}
-        saveErr={saveErr}
-        isDirty={overviewOriginal ? isOverviewDirty(overviewDraft, overviewOriginal) : false}
-      >
-        <PromotionOverviewEditor
-          draft={overviewDraft}
-          onChange={(patch) => setOverviewDraft(d => d ? { ...d, ...patch } : d)}
-          saveOk={saveOk}
-        />
-      </InlineEditorShell>
-    );
-  }
-
+  // ── Promotion Overview module editor — the shell's edit viewpoint ────────────
+  // The instance always exists here (created up front), so overview edits go
+  // through the same OverviewShell edit path as every other module — no bespoke
+  // create form. This is the "proper card/editor flow" the Tier module uses.
   if (editingSection === 'promo-overview' && overviewDraft && shellBindings) {
     return (
       <ModeProvider mode="edit">
