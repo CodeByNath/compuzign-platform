@@ -7,15 +7,11 @@ import type { CategoryServiceCounts } from '@/hooks/useCategoryStation';
 import type { CategoryOverviewDraft } from '@/api/types/admin';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
-import {
-  categoryOverviewShell,
-  categoryServicesShell,
-} from '@/components/admin/schema/shells/bindings/category';
+import { categoryOverviewShell } from '@/components/admin/schema/shells/bindings/category';
 import type {
   CategoryOverviewShellData,
   CategoryServicesShellData,
 } from '@/components/admin/schema/shells/bindings/category';
-import { serviceOverviewShell } from '@/components/admin/schema/shells/bindings/service';
 import type { ServiceOverviewShellData } from '@/components/admin/schema/shells/bindings/service';
 import type { ShellBinding, ShellSchema } from '@/components/admin/schema/types';
 import { CATEGORY_ENTITY } from '@/components/admin/schema/entities/category';
@@ -36,29 +32,22 @@ export interface CategoryDrawerDeps {
   openAction:  (config: ActionConfig) => void;
 }
 
-// ── Config builders (shared by the workstation + the back-navigation) ─────────
-// Function declarations so the view step, the collection step, and their
-// mutual back-handlers can reference each other regardless of order.
+// ── Config builder (shared by the workstation, create flow, card transit) ─────
+// One canonical Category drawer. `initialTab` lands it on a chosen tab —
+// Connections, when returning from a Service opened via a Services card, so the
+// user comes back to the list they drilled from.
 
-export function buildCategoryViewConfig(category: CategoryStationItem, deps: CategoryDrawerDeps): ActionConfig {
+export function buildCategoryViewConfig(
+  category: CategoryStationItem,
+  deps: CategoryDrawerDeps,
+  initialTab: 'details' | 'connections' = 'details',
+): ActionConfig {
   return {
     id:    `category-view-${category.id}`,
     mode:  'drawer',
     title: 'Category',
-    initialStepData: { category, deps },
+    initialStepData: { category, deps, initialTab },
     steps: [{ id: 'detail', title: 'Category Detail', component: CategoryViewStep }],
-  };
-}
-
-function buildServicesCollectionConfig(category: CategoryStationItem, deps: CategoryDrawerDeps): ActionConfig {
-  return {
-    id:             `category-services-${category.id}`,
-    mode:           'drawer',
-    title:          'Category Services',
-    hideStepHeader: true,
-    onBack:         () => deps.openAction(buildCategoryViewConfig(category, deps)),
-    initialStepData: { category, deps },
-    steps: [{ id: 'services', title: 'Assigned Services', component: CategoryServicesStep }],
   };
 }
 
@@ -86,10 +75,11 @@ function summaryCardStatus(s: StationSummary): string {
 export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
   const category = ctx.stepData.category as CategoryStationItem;
   const deps     = ctx.stepData.deps     as CategoryDrawerDeps;
-  const doOpen   = deps.openAction;
   const onRefresh = deps.onRefresh;
 
-  const [tab, setTab] = useState<'details' | 'connections'>('details');
+  const [tab, setTab] = useState<'details' | 'connections'>(
+    (ctx.stepData.initialTab as 'details' | 'connections') ?? 'details',
+  );
 
   // Assigned services (read fresh at mount) → the gateway split.
   const assignedStations = useMemo(() => assignedFor(category, deps), [category.id]);
@@ -301,10 +291,55 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, isNewNeverPublished, hasBeenPublished, ctx.setFooter, ctx.close]);
 
-  // ── Gateway → collection transit ────────────────────────────────────────────
-  const openServicesCollection = useCallback(() => {
-    doOpen(buildServicesCollectionConfig(category, deps));
-  }, [category, deps, doOpen]);
+  // ── Services collection (Connections tab) ───────────────────────────────────
+  // The Collection placement (v1.2) rendered inside this drawer's Connections
+  // tab through EntityDrawer's sanctioned `trailing` slot — no separate drawer,
+  // no new tab. The shared serviceOverviewShell repeats once per assigned
+  // service in the summary viewpoint (repetition owned by the placement; the
+  // surface owns the N bindings); each card's `view` opens the real Service
+  // drawer, returning here on the Connections tab.
+  const collectionSlot  = CATEGORY_ENTITY.placements.collections!.services;
+  const collectionShell = CATEGORY_ENTITY.shells[collectionSlot.module] as ShellSchema<ServiceOverviewShellData>;
+
+  const openServiceDrawer = useCallback((s: StationSummary) => {
+    const d = deps.getCatalogData();
+    deps.openAction({
+      id:    `service-view-${s.id}`,
+      mode:  'drawer',
+      title: 'Service',
+      onBack: () => deps.openAction(buildCategoryViewConfig(category, deps, 'connections')),
+      initialStepData: {
+        service:       buildServiceItemForStationHandoff(s),
+        packages:      d.packages,
+        openAction:    deps.openAction,
+        allCategories: d.categories,
+        onRefresh:     deps.onRefresh,
+      },
+      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+    });
+  }, [category, deps]);
+
+  const servicesCollection = assignedStations.length === 0 ? null : (
+    <>
+      {assignedStations.map((s) => {
+        const binding: ShellBinding<ServiceOverviewShellData> = {
+          data: {
+            title:    decodeHtml(s.title),
+            category: decodeHtml(s.categories[0]?.name ?? 'Uncategorised'),
+            content:  '',
+          },
+          state:    { status: summaryCardStatus(s), notes: [] },
+          hasDraft: false,
+          handlers: { view: () => openServiceDrawer(s) },
+        };
+        return (
+          <ModeProvider key={s.id} mode={collectionSlot.mode}>
+            <OverviewShell schema={collectionShell} binding={binding} footer={collectionSlot.footer} />
+          </ModeProvider>
+        );
+      })}
+    </>
+  );
 
   // ── Shell bindings ──────────────────────────────────────────────────────────
   const overviewBinding: ShellBinding<CategoryOverviewShellData> = {
@@ -327,7 +362,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     },
     state: modules.services,
     hasDraft: false,
-    handlers: { view: openServicesCollection },
+    handlers: {},
   };
 
   return (
@@ -339,6 +374,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
         bindings={{ overview: overviewBinding, services: servicesBinding }}
         openPanel={openPanel}
         onTogglePanel={(m) => setOpenPanel((p) => (p === m ? null : m))}
+        trailing={{ connections: servicesCollection }}
       >
         {saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
       </EntityDrawer>
@@ -421,82 +457,5 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
         </ModeProvider>
       )}
     </>
-  );
-}
-
-// ── CategoryServicesStep ──────────────────────────────────────────────────────
-// The Collection placement surface (v1.2, first realisation): the shared
-// serviceOverviewShell repeated once per assigned service in the `summary`
-// viewpoint, each card's `view` footer opening the real Service drawer. The
-// surface owns the N bindings; no new mode, archetype, or renderer.
-
-export function CategoryServicesStep({ ctx }: { ctx: StepContext }) {
-  const category = ctx.stepData.category as CategoryStationItem;
-  const deps     = ctx.stepData.deps     as CategoryDrawerDeps;
-
-  const slot  = CATEGORY_ENTITY.placements.collections!.services;   // { module: 'service', mode: 'summary', footer: ['view'] }
-  const shell = CATEGORY_ENTITY.shells[slot.module] as ShellSchema<ServiceOverviewShellData>;   // serviceOverviewShell under 'service'
-
-  const stations = useMemo(() => assignedFor(category, deps), [category.id]);
-
-  // Cancel-only footer (Back returns to the category via the config's onBack).
-  useEffect(() => {
-    const { setFooter, close } = ctx;
-    setFooter(
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>Close</button>
-      </div>
-    );
-    return () => setFooter(null);
-  }, [ctx.setFooter, ctx.close]);
-
-  // Each card's View opens the real Service drawer (existing cross-station
-  // transit — same initialStepData the catalog assembles). Back returns here
-  // (remount reads fresh counts); Cancel closes to the workstation.
-  const openServiceDrawer = useCallback((s: StationSummary) => {
-    const d = deps.getCatalogData();
-    deps.openAction({
-      id:    `service-view-${s.id}`,
-      mode:  'drawer',
-      title: 'Service',
-      onBack: () => deps.openAction(buildServicesCollectionConfig(category, deps)),
-      initialStepData: {
-        service:       buildServiceItemForStationHandoff(s),
-        packages:      d.packages,
-        openAction:    deps.openAction,
-        allCategories: d.categories,
-        onRefresh:     deps.onRefresh,
-      },
-      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
-    });
-  }, [category, deps]);
-
-  return (
-    <div class="cz-req-detail">
-      {stations.length === 0 ? (
-        <div class="cz-admin-empty">
-          <p>No services are assigned to this category. Assign services from the Service Catalog.</p>
-        </div>
-      ) : (
-        stations.map((s) => {
-          const binding: ShellBinding<ServiceOverviewShellData> = {
-            data: {
-              title:    decodeHtml(s.title),
-              category: decodeHtml(s.categories[0]?.name ?? 'Uncategorised'),
-              content:  '',
-            },
-            state:    { status: summaryCardStatus(s), notes: [] },
-            hasDraft: false,
-            handlers: { view: () => openServiceDrawer(s) },
-          };
-          return (
-            <ModeProvider key={s.id} mode={slot.mode}>
-              <OverviewShell schema={shell} binding={binding} footer={slot.footer} />
-            </ModeProvider>
-          );
-        })
-      )}
-    </div>
   );
 }

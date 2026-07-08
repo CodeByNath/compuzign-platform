@@ -312,5 +312,73 @@
   "promoFaqs.active": {
     "status": "active",
     "notes": []
+  },
+  "categoryOverview.complete.active": {
+    "status": "active",
+    "notes": []
+  },
+  "categoryOverview.complete.pending": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "category-overview.module.draft",
+        "message": "Draft saved — settle to publish",
+        "type": "info"
+      }
+    ]
+  },
+  "categoryOverview.incomplete": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "category-overview.description.missing",
+        "message": "Description missing",
+        "type": "error"
+      }
+    ]
+  },
+  "categoryOverview.notconfigured": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "category-overview.empty.action",
+        "message": "Edit and describe this category.",
+        "type": "info"
+      }
+    ]
+  },
+  "categoryOverview.platformInactive": {
+    "status": "disabled",
+    "notes": [
+      {
+        "id": "category-overview.platform.inactive",
+        "message": "Waiting for service activation",
+        "type": "info"
+      }
+    ]
+  },
+  "categoryServices.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "category-services.empty.action",
+        "message": "Assign services to this category from the Service Catalog.",
+        "type": "info"
+      }
+    ]
+  },
+  "categoryServices.populated": {
+    "status": "active",
+    "notes": []
+  },
+  "categoryServices.platformInactive": {
+    "status": "disabled",
+    "notes": [
+      {
+        "id": "category-services.platform.inactive",
+        "message": "Waiting for service activation",
+        "type": "info"
+      }
+    ]
   }
 }
