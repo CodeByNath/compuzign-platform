@@ -154,6 +154,32 @@ function cardPillStatus(status: PromotionStatus): string {
   return 'pending-full'; // draft
 }
 
+// Canonical Promotion Overview summary body — the SAME three rows on every
+// promotion card (Current list, the trailing "New promotion" create shell, and
+// the New-state create drawer's overview card), so the empty/new card matches
+// the active/current card body contract exactly. Unconfigured fields fall back
+// to action hints (never dashes, "None", or "(unnamed)"), mirroring the Tier
+// summary card's "View Tier Overview and manage pricing." pricing row. Once a
+// field is configured its real value replaces the hint.
+function promotionCardBody(d: { based_on: string | null; headline: string; price: number | null }) {
+  return (
+    <div class="drawerModule__fields">
+      <div class="drawerModule__field">
+        <p class="drawerModule__label">Based on tier</p>
+        <p class="drawerModule__value">{d.based_on ? (TIER_LABELS[d.based_on] ?? d.based_on) : 'Select tier'}</p>
+      </div>
+      <div class="drawerModule__field">
+        <p class="drawerModule__label">Headline</p>
+        <p class="drawerModule__value">{d.headline.trim() || 'View and edit promotion.'}</p>
+      </div>
+      <div class="drawerModule__field">
+        <p class="drawerModule__label">Price</p>
+        <p class="drawerModule__value">{d.price !== null ? `$${d.price}` : 'Not configured'}</p>
+      </div>
+    </div>
+  );
+}
+
 const LIVE_STATUSES: PromotionStatus[] = ['draft', 'active', 'disabled'];
 const BIN_STATUSES:  PromotionStatus[] = ['archived', 'trashed'];
 
@@ -207,6 +233,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // Notification panel toggle for the trailing "New promotion" empty shell in the
   // Current list (its Pending pill opens the module's empty-prompt guidance).
   const [openNewPanel,    setOpenNewPanel]    = useState(false);
+  // Single-open notification-panel accordion for the Current-list promotion
+  // cards, keyed by promotion id (mirrors the Tier summary cards' openSummaryTier).
+  const [openListPanel,   setOpenListPanel]   = useState<string | null>(null);
   // Bin-row delete confirm (pending only — busy comes from promo.saving).
   const deleteConfirm = useInlineConfirm<string>();
   // Immediate canonical pool creation lives inside the pool editors
@@ -241,6 +270,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     setEditingSection(null);
     setEditingPromoId(null);
     setOpenPromoPanel(null);
+    setOpenListPanel(null);
     setCreatePanel(null);
     setSaveErr(null); setSaveOk(false);
   };
@@ -250,6 +280,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     setEditingPromoId(p.id);
     setEditingSection(null);
     setOpenPromoPanel(null);
+    setOpenListPanel(null);
     setSaveErr(null); setSaveOk(false);
   };
 
@@ -306,6 +337,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     setCreateDraft(null);
     setCreatePanel(null);
     setOpenPromoPanel(null);
+    setOpenListPanel(null);
     setSplitOpen(false);
     setConfirmModal(null);
     setSaveErr(null); setSaveOk(false);
@@ -631,30 +663,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
               icon={MODULE_ICONS.overview}
               iconVariant="drawerModule__icon--overview"
               scopeClass="drawerOverview promotion"
-              status="pending-dim"
+              status="pending-full"
               notes={overviewNotes}
               panelOpen={createPanel === 'overview'}
               onTogglePanel={() => setCreatePanel(p => (p === 'overview' ? null : 'overview'))}
               actions={[{ id: 'edit', label: 'Edit', onSelect: () => { setEditingSection('promo-overview'); setSaveErr(null); setSaveOk(false); } }]}
             >
-              <div class="drawerModule__fields">
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Name</p>
-                  <p class="drawerModule__value">{nameSet ? d.name : '(unnamed)'}</p>
-                </div>
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Based on tier</p>
-                  <p class="drawerModule__value">{d.based_on ? (TIER_LABELS[d.based_on] ?? d.based_on) : 'None'}</p>
-                </div>
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Headline</p>
-                  <p class="drawerModule__value">{d.headline || '—'}</p>
-                </div>
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Price</p>
-                  <p class="drawerModule__value">{d.price !== null ? `$${d.price}` : '—'}</p>
-                </div>
-              </div>
+              {promotionCardBody({ based_on: d.based_on, headline: d.headline, price: d.price })}
             </ReadBlock>
 
             {/* Included Features — Locked: shell visible, Edit disabled until the instance exists. */}
@@ -752,41 +767,46 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 "No promotions yet" empty state, no marketing body copy. ───────── */}
             {listView === 'current' && (
               <>
-                {currentList.map((p) => (
-                  <ReadBlock
-                    key={p.id}
-                    title={p.name || 'Untitled promotion'}
-                    subtitle="General information about this promotion."
-                    icon={MODULE_ICONS.overview}
-                    iconVariant="drawerModule__icon--overview"
-                    scopeClass="drawerOverview promotion"
-                    status={cardPillStatus(p.status)}
-                    actions={[{ id: 'view', label: 'View', onSelect: () => openViewDetail(p) }]}
-                  >
-                    <div class="drawerModule__fields">
-                      <div class="drawerModule__field">
-                        <p class="drawerModule__label">Based on tier</p>
-                        <p class="drawerModule__value">{p.based_on ? (TIER_LABELS[p.based_on] ?? p.based_on) : 'None'}</p>
-                      </div>
-                      <div class="drawerModule__field">
-                        <p class="drawerModule__label">Headline</p>
-                        <p class="drawerModule__value">{p.headline || '—'}</p>
-                      </div>
-                      <div class="drawerModule__field">
-                        <p class="drawerModule__label">Price</p>
-                        <p class="drawerModule__value">{p.price !== null ? `$${p.price}` : '—'}</p>
-                      </div>
-                    </div>
-                  </ReadBlock>
-                ))}
+                {currentList.map((p) => {
+                  // Notes follow the shared drawer notification contract — the
+                  // Promotion Overview module evaluated for this instance (empty
+                  // prompt / problems / lifecycle tail), exactly as the Tier
+                  // summary cards feed getTierNotes into their pill + panel.
+                  const s = evaluateModule(
+                    promotionOverviewModule,
+                    { name: p.name, price: p.price, billing_label: p.billing_label },
+                    { platformStatus: p.status },
+                  );
+                  return (
+                    <ReadBlock
+                      key={p.id}
+                      title={p.name || 'Untitled promotion'}
+                      subtitle="General information about this promotion."
+                      icon={MODULE_ICONS.overview}
+                      iconVariant="drawerModule__icon--overview"
+                      scopeClass="drawerOverview promotion"
+                      status={cardPillStatus(p.status)}
+                      notes={s.notes}
+                      panelOpen={openListPanel === p.id}
+                      onTogglePanel={() => setOpenListPanel(o => (o === p.id ? null : p.id))}
+                      actions={[{ id: 'view', label: 'View', onSelect: () => openViewDetail(p) }]}
+                    >
+                      {promotionCardBody({ based_on: p.based_on, headline: p.headline, price: p.price })}
+                    </ReadBlock>
+                  );
+                })}
 
-                {/* Trailing empty shell — the Promotion Overview module in its
-                    not-configured state: canonical placeholder rows + pending-dim
-                    pill + the module's own empty-prompt guidance in the notification
-                    panel (status/notes from evaluateModule, zero invented copy).
-                    View opens the New-state create drawer (no write yet); the
-                    instance is created on the overview editor Save, after which this
-                    slot fills and a fresh empty shell takes its place. */}
+                {/* Trailing empty shell — the same Promotion Overview card body as
+                    every real promotion card (the shared promotionCardBody hint
+                    rows, never "(unnamed)"/dashes) + the module's own empty-prompt
+                    guidance in the notification panel (notes from evaluateModule,
+                    zero invented copy). The pill is Pending at FULL opacity — the
+                    create shell is an active affordance, not a dormant/dim slot —
+                    so it is rendered pending-full, not the module's default
+                    not-configured pending-dim. View opens the New-state create
+                    drawer (no write yet); the instance is created on the overview
+                    editor Save, after which this slot fills and a fresh empty shell
+                    takes its place. */}
                 {(() => {
                   const s = evaluateModule(
                     promotionOverviewModule,
@@ -801,30 +821,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                       icon={MODULE_ICONS.overview}
                       iconVariant="drawerModule__icon--overview"
                       scopeClass="drawerOverview promotion"
-                      status={s.status}
+                      status="pending-full"
                       notes={s.notes}
                       panelOpen={openNewPanel}
                       onTogglePanel={() => setOpenNewPanel(o => !o)}
                       actions={[{ id: 'create', label: 'View', onSelect: () => openCreate() }]}
                     >
-                      <div class="drawerModule__fields">
-                        <div class="drawerModule__field">
-                          <p class="drawerModule__label">Name</p>
-                          <p class="drawerModule__value">(unnamed)</p>
-                        </div>
-                        <div class="drawerModule__field">
-                          <p class="drawerModule__label">Based on tier</p>
-                          <p class="drawerModule__value">None</p>
-                        </div>
-                        <div class="drawerModule__field">
-                          <p class="drawerModule__label">Headline</p>
-                          <p class="drawerModule__value">—</p>
-                        </div>
-                        <div class="drawerModule__field">
-                          <p class="drawerModule__label">Price</p>
-                          <p class="drawerModule__value">—</p>
-                        </div>
-                      </div>
+                      {promotionCardBody({ based_on: null, headline: '', price: null })}
                     </ReadBlock>
                   );
                 })()}

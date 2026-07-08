@@ -67,48 +67,53 @@ class PricingBuilder
 
         $categories         = [];
         $servicesByCategory = [];
-        // Term IDs surfaced by the curated ORDERED_CATEGORIES pass, so the append
-        // pass below can skip them and avoid duplicates.
-        $handledTermIds     = [];
 
-        foreach (self::ORDERED_CATEGORIES as $name) {
-            $slug = sanitize_title($name);
-            $term = $this->repository->findCategoryBySlug($slug);
+        // ── Enumerate real category terms from the taxonomy ──────────────────────
+        // The frontend surfaces exactly the categories that EXIST in the database,
+        // gated by the D1 lifecycle (active only) and by containing at least one
+        // active published service. A category deleted or binned in admin therefore
+        // disappears from the builder. The legacy ORDERED_CATEGORIES list is used
+        // ONLY to order the curated four ahead of admin-created categories — never to
+        // resurrect a missing term or force an empty category onto the nav (that was
+        // the old bug: the curated names were emitted from a hardcoded list, so a
+        // deleted legacy category kept showing).
+        $terms = get_terms([
+            'taxonomy'   => 'cz_service_category',
+            'hide_empty' => false,
+        ]);
+        if (!is_array($terms)) {
+            $terms = [];
+        }
 
-            if (!$term) {
-                $categories[]         = ['id' => null, 'name' => $name, 'slug' => $slug];
-                $servicesByCategory[] = [
-                    'category_id'   => null,
-                    'category_name' => $name,
-                    'category_slug' => $slug,
-                    'services'      => [],
-                ];
+        // Curated ordering: ORDERED_CATEGORIES slug → priority; all other terms sort
+        // after, alphabetically by name.
+        $orderPriority = [];
+        foreach (self::ORDERED_CATEGORIES as $index => $curatedName) {
+            $orderPriority[sanitize_title($curatedName)] = $index;
+        }
+        usort($terms, function ($a, $b) use ($orderPriority) {
+            $pa = $orderPriority[$a->slug] ?? PHP_INT_MAX;
+            $pb = $orderPriority[$b->slug] ?? PHP_INT_MAX;
+            return ($pa <=> $pb) ?: strcasecmp($a->name, $b->name);
+        });
+
+        foreach ($terms as $term) {
+            if (!$term instanceof \WP_Term) {
                 continue;
             }
 
             // Category lifecycle gate (D1): only 'active' categories surface publicly.
             // Terms without station meta read as active (lazy default), so behaviour
-            // is unchanged until a category is explicitly disabled/binned — a disabled
-            // curated category disappearing from the builder is the feature.
+            // is unchanged until a category is explicitly disabled/binned.
             if (CategoryMeta::status((int) $term->term_id) !== StationLifecycle::STATUS_ACTIVE) {
-                $handledTermIds[(int) $term->term_id] = true;
                 continue;
             }
 
-            $categories[] = [
-                'id'   => (int) $term->term_id,
-                'name' => $term->name,
-                'slug' => $term->slug,
-            ];
-            $handledTermIds[(int) $term->term_id] = true;
-
             $posts    = $this->repository->findByCategory((int) $term->term_id);
             $payloads = [];
-
             foreach ($posts as $post) {
-                // ServiceRepository::findByCategory already filters to platform_status=active.
-                // This guard is a belt-and-braces check for legacy records where the repository
-                // filter may still resolve via the backward-compat bridge (Rule 8).
+                // ServiceRepository::findByCategory already filters to platform_status=active;
+                // this guard re-checks legacy records resolved via the compat bridge (Rule 8).
                 $meta = $this->repository->getMeta($post->ID);
                 if (MetaSchema::resolvePlatformStatus($meta, $post->post_status) !== 'active') {
                     continue;
@@ -116,81 +121,30 @@ class PricingBuilder
                 $payloads[] = $this->buildServicePayload($post);
             }
 
-            // sort_order in the compiled payload reflects the surface package's sort_position
-            // when a package is active, or the canonical meta sort_order as fallback —
-            // the overlay in buildServicePayload() normalises this before we sort.
+            // Exclude empty categories — only surface when active content exists.
+            if (empty($payloads)) {
+                continue;
+            }
+
+            // sort_order reflects the surface package's sort_position when a package is
+            // active, or the canonical meta sort_order as fallback (normalised in
+            // buildServicePayload()).
             usort($payloads, fn($a, $b) =>
                 ($a['meta']['sort_order'] ?? 0) <=> ($b['meta']['sort_order'] ?? 0)
                 ?: strcmp($a['title'], $b['title'])
             );
 
+            $categories[] = [
+                'id'   => (int) $term->term_id,
+                'name' => $term->name,
+                'slug' => $term->slug,
+            ];
             $servicesByCategory[] = [
                 'category_id'   => (int) $term->term_id,
                 'category_name' => $term->name,
                 'category_slug' => $term->slug,
                 'services'      => $payloads,
             ];
-        }
-
-        // ── Append admin-created categories beyond the curated four ──────────────
-        // Newly created cz_service_category terms surface on the frontend once they
-        // contain at least one active published service. Curated terms are skipped
-        // via $handledTermIds; empty categories are excluded. Existing service
-        // filtering, sorting, and payload shape are identical to the loop above.
-        //
-        // FUTURE (next phase): visibility will become an explicit business decision,
-        // not implicit from active content. This gate will additionally require a
-        // per-term frontend-visible flag (hidden by default). See
-        // docs/architecture/category-frontend-visibility-roadmap.md.
-        $extraTerms = get_terms([
-            'taxonomy'   => 'cz_service_category',
-            'hide_empty' => false,
-            'orderby'    => 'name',
-            'order'      => 'ASC',
-        ]);
-        if (is_array($extraTerms)) {
-            foreach ($extraTerms as $term) {
-                if (!$term instanceof \WP_Term || isset($handledTermIds[(int) $term->term_id])) {
-                    continue;
-                }
-
-                // Same D1 lifecycle gate as the curated pass above.
-                if (CategoryMeta::status((int) $term->term_id) !== StationLifecycle::STATUS_ACTIVE) {
-                    continue;
-                }
-
-                $posts    = $this->repository->findByCategory((int) $term->term_id);
-                $payloads = [];
-                foreach ($posts as $post) {
-                    $meta = $this->repository->getMeta($post->ID);
-                    if (MetaSchema::resolvePlatformStatus($meta, $post->post_status) !== 'active') {
-                        continue;
-                    }
-                    $payloads[] = $this->buildServicePayload($post);
-                }
-
-                // Exclude empty categories — only surface when active content exists.
-                if (empty($payloads)) {
-                    continue;
-                }
-
-                usort($payloads, fn($a, $b) =>
-                    ($a['meta']['sort_order'] ?? 0) <=> ($b['meta']['sort_order'] ?? 0)
-                    ?: strcmp($a['title'], $b['title'])
-                );
-
-                $categories[] = [
-                    'id'   => (int) $term->term_id,
-                    'name' => $term->name,
-                    'slug' => $term->slug,
-                ];
-                $servicesByCategory[] = [
-                    'category_id'   => (int) $term->term_id,
-                    'category_name' => $term->name,
-                    'category_slug' => $term->slug,
-                    'services'      => $payloads,
-                ];
-            }
         }
 
         return [

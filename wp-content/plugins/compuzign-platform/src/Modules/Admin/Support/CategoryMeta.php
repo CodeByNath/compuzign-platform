@@ -200,10 +200,10 @@ final class CategoryMeta
 
     // ── Overview completeness ─────────────────────────────────────────────────
 
-    /** Overview completeness = name + description (service overview stance: description required). */
+    /** Overview completeness = name only; description is OPTIONAL. */
     public static function isOverviewComplete(string $name, string $description): bool
     {
-        return trim($name) !== '' && trim($description) !== '';
+        return trim($name) !== '';
     }
 
     /** Settled-state derivation: settled when complete, not-configured otherwise. */

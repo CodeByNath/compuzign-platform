@@ -106,7 +106,8 @@ export function useCategoryStation(
   // no moduleTransition, no draft — only the category's platform status.
   const servicesState = evaluateModule(categoryServicesModule, counts, { platformStatus });
 
-  const canPublish = !!station.name.trim() && !!station.description.trim();
+  // Description is optional — publishing gates on the name only.
+  const canPublish = !!station.name.trim();
 
   // ── Actions ────────────────────────────────────────────────────────────────
 

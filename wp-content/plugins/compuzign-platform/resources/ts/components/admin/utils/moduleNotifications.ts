@@ -309,13 +309,13 @@ export interface CategoryOverviewLike {
 
 export const categoryOverviewModule: ModuleDefinition<CategoryOverviewLike> = {
   key:                'category-overview',
-  emptyPrompt:        'Edit and describe this category.',
-  isEmpty:            (c) => !c.name.trim() && !c.description.trim(),
+  emptyPrompt:        'Edit and name this category.',
+  isEmpty:            (c) => !c.name.trim(),
   includeDraftInTail: true,
+  // Completeness = name only; description is OPTIONAL (no "Description missing" error).
   problems: (c) => {
     const out: ModuleNote[] = [];
-    if (!c.name.trim())        out.push({ id: 'category-overview.name.missing',        message: 'Name missing',        type: 'error' });
-    if (!c.description.trim()) out.push({ id: 'category-overview.description.missing', message: 'Description missing', type: 'error' });
+    if (!c.name.trim()) out.push({ id: 'category-overview.name.missing', message: 'Name missing', type: 'error' });
     return out;
   },
   // Canonical 5-state resolution per the S6 blueprint: settled+active → active;
@@ -324,7 +324,7 @@ export const categoryOverviewModule: ModuleDefinition<CategoryOverviewLike> = {
   // publish — deliberate divergence from the service overview's pending-full).
   resolveStatus: (c, ctx) => {
     if (ctx.moduleTransition === 'not-configured') return 'pending-dim';
-    if (!c.name.trim() || !c.description.trim())   return 'pending-dim';
+    if (!c.name.trim())                            return 'pending-dim';
     if (ctx.moduleTransition === 'pending')        return 'pending-full';
     return ctx.platformStatus === 'active' ? 'active' : 'disabled';
   },
