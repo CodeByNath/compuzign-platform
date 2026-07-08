@@ -227,7 +227,7 @@ class AdminController
                     $pkg     = $legacy['meta'];
                     $station = [
                         'platform_status'    => $pkg['platform_status'] ?? 'disabled',
-                        'tiers'              => $pkg['tiers'] ?? ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []],
+                        'tiers'              => $pkg['tiers'] ?? ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => [], 'ultimate' => []],
                         'popular_tier'       => $pkg['popular_tier'] ?? null,
                         'popular_label'      => $pkg['popular_label'] ?? '',
                         'sort_position'      => (int) ($pkg['sort_position'] ?? 0),
@@ -242,7 +242,7 @@ class AdminController
                 } else {
                     update_post_meta($serviceId, 'cz_service_package_station', [
                         'platform_status'    => 'disabled',
-                        'tiers'              => ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []],
+                        'tiers'              => ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => [], 'ultimate' => []],
                         'popular_tier'       => null,
                         'popular_label'      => '',
                         'sort_position'      => 0,

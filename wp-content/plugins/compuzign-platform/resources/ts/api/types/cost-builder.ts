@@ -1,4 +1,4 @@
-export type TierId = 'basic' | 'standard' | 'premium' | 'enterprise';
+export type TierId = 'basic' | 'standard' | 'premium' | 'enterprise' | 'ultimate';
 
 export interface Category {
   id:           number | null;

@@ -9,7 +9,7 @@ interface Props {
 }
 
 const TIER_LABELS: Record<string, string> = {
-  basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
+  basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise', ultimate: 'Ultimate',
 };
 
 export function FeaturedWorkstation({ refreshKey }: Props) {

@@ -4,7 +4,7 @@ namespace CompuZign\Platform\Modules\CostBuilder\Support;
 
 class MetaSchema
 {
-    private const ALLOWED_TIERS            = ['basic', 'standard', 'premium', 'enterprise'];
+    private const ALLOWED_TIERS            = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
     public  const ALLOWED_PLATFORM_STATUSES  = ['active', 'disabled', 'archived', 'trashed'];
     public  const ALLOWED_MODULE_TRANSITIONS  = ['settled', 'pending', 'not-configured'];
     public  const DRAFT_META_KEYS            = ['cz_service_overview_draft', 'cz_service_inclusions_draft', 'cz_service_faqs_draft'];

@@ -1,7 +1,7 @@
 // Tier station manifest (Schema architecture S4, §9).
 //
-// Shell-occupant participation: the four tier shells (basic / standard /
-// premium / enterprise) are fixed slots on the Service-owned Package Station;
+// Shell-occupant participation: the five tier shells (basic / standard /
+// premium / enterprise / ultimate) are fixed slots on the Service-owned Package Station;
 // the occupant travels (archive → bin → restore/swap/retarget), the shell
 // never does. Behaviour stays with usePackageStation and the engine (D1–D4);
 // everything here references existing presentation assets.

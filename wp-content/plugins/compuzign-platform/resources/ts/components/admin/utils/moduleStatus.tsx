@@ -138,7 +138,7 @@ export function resolvePromotionSummary(
 // new cz_service_package_station meta have no matching surface package, so they
 // resolve to pending-dim — consistent with what the drawer reveals today.
 
-export const COMMERCIAL_TIER_KEYS = ['basic', 'standard', 'premium', 'enterprise'] as const;
+export const COMMERCIAL_TIER_KEYS = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'] as const;
 export type CommercialTierKey = typeof COMMERCIAL_TIER_KEYS[number];
 
 export interface StationCommercialSummary {

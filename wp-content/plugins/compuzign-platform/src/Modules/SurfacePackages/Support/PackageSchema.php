@@ -15,10 +15,10 @@ class PackageSchema
     // 'archived' retired at E2 (confirmed unreachable).
     public const ALLOWED_PLATFORM_STATUSES   = ['active', 'disabled'];
     public const ALLOWED_TYPES               = ['tier_configuration', 'bundle', 'promotion', 'homepage_collection', 'campaign'];
-    public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise'];
+    public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
     public const ALLOWED_CONTEXTS            = ['cost-builder', 'homepage', 'pricing-page'];
     public const ALLOWED_PROMOTION_STATUSES  = ['draft', 'active', 'archived'];
-    public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise'];
+    public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
 
     // Phase 2 tier lifecycle (P2 — store schema): the per-tier-module draft + status
     // layer stored inside each cz_service_package_station tier slot, alongside

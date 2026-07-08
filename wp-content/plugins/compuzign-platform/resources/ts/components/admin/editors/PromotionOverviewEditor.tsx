@@ -1,4 +1,4 @@
-import type { PromotionOverviewDraft } from '@/api/types/admin';
+import type { PromotionOverviewDraft, BasedOnTier } from '@/api/types/admin';
 
 // Promotion Overview module editor (extracted from ServicePromotionStep in
 // S3a — the promotion shells became bindings of the archetype shells and the
@@ -12,6 +12,7 @@ const BASED_ON_TIERS = [
   { id: 'standard', label: 'Standard' },
   { id: 'premium', label: 'Premium' },
   { id: 'enterprise', label: 'Enterprise' },
+  { id: 'ultimate', label: 'Ultimate' },
 ];
 
 interface Props {
@@ -35,7 +36,7 @@ export function PromotionOverviewEditor({ draft, onChange, saveOk }: Props) {
         <select class="cz-tf-select" value={draft.based_on ?? ''}
           onChange={(e) => {
             const v = (e.target as HTMLSelectElement).value;
-            onChange({ based_on: (v as 'basic' | 'standard' | 'premium' | 'enterprise') || null });
+            onChange({ based_on: (v as BasedOnTier) || null });
           }}>
           <option value="">None</option>
           {BASED_ON_TIERS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}

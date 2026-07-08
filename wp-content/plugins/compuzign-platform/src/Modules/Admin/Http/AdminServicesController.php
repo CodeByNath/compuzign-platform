@@ -571,13 +571,13 @@ class AdminServicesController
         ];
         update_post_meta($id, self::DRAFT_OVERVIEW, $overviewDraft);
 
-        // Package Station — born with four named tier shells, all empty.
+        // Package Station — born with five named tier shells, all empty.
         // NOTE: platform_status here is a legacy Cost Builder visibility field copied from
         // cz_package during migration. It is NOT the lifecycle status of the Package Station
         // shell itself. The Package Station is structural and permanent — it has no lifecycle.
         update_post_meta($id, self::META_PACKAGE_STATION, [
             'platform_status'    => 'disabled',
-            'tiers'              => ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []],
+            'tiers'              => ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => [], 'ultimate' => []],
             'popular_tier'       => null,
             'popular_label'      => '',
             'sort_position'      => 0,

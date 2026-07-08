@@ -11,10 +11,10 @@ export function decodeHtml(s: string): string {
   return el.value;
 }
 
-export const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise'];
+export const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
 
 export const TIER_LABELS: Record<string, string> = {
-  basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise',
+  basic: 'Basic', standard: 'Standard', premium: 'Premium', enterprise: 'Enterprise', ultimate: 'Ultimate',
 };
 
 // Related-service connection binding for the tier/promotion drawers'

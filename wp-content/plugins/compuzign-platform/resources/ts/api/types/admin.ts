@@ -219,7 +219,7 @@ export interface RequestSummary {
 
 // ── Promotion tier types ──────────────────────────────────────────────────────
 
-export type BasedOnTier = 'basic' | 'standard' | 'premium' | 'enterprise';
+export type BasedOnTier = 'basic' | 'standard' | 'premium' | 'enterprise' | 'ultimate';
 // C3 widened to the full engine vocabulary: transitions can now land instances
 // on disabled (toggle/restore) and trashed. The legacy trio remains what the
 // pre-cutover UI displays; C5 teaches the UI the full set.

@@ -28,7 +28,7 @@ import { patchModuleDraft } from './stationPrimitives';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise'];
+const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
 
 // ── Result types ───────────────────────────────────────────────────────────────
 
@@ -258,7 +258,13 @@ export function useServiceStation(
     (isActive && hasContentDraft);
 
   // ── Derived: surface layer ─────────────────────────────────────────────────
-  const configuredTierCount = relatedPkg ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]).length : 0;
+  // Count the tiers actually live in the package — configured (has a price/cycle
+  // or overrides) AND enabled. `relatedPkg.tiers[t]` is always a present summary
+  // object for every tier key (empty shells included), so a bare presence check
+  // always returned 4; disabling or clearing a tier must move this number.
+  const configuredTierCount = relatedPkg
+    ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]?.configured && relatedPkg.tiers[t]?.enabled).length
+    : 0;
 
   // Promotions — lifecycle-derived (E1): the pill reflects the instances' own
   // travel states, not the parent package status; binned instances neither

@@ -23,6 +23,7 @@ class PricingBuilder
         ['id' => 'standard',   'title' => 'Standard'],
         ['id' => 'premium',    'title' => 'Premium'],
         ['id' => 'enterprise', 'title' => 'Enterprise'],
+        ['id' => 'ultimate',   'title' => 'Ultimate'],
     ];
 
     /**
@@ -228,7 +229,7 @@ class PricingBuilder
         $faqs = $this->normalizeFaqs($this->repository->getFaqs($post->ID));
 
         $hasTierInclusions = false;
-        foreach (['basic', 'standard', 'premium', 'enterprise'] as $tierId) {
+        foreach (['basic', 'standard', 'premium', 'enterprise', 'ultimate'] as $tierId) {
             if (!empty($pricing['tiers'][$tierId]['inclusions'])) {
                 $hasTierInclusions = true;
                 break;
@@ -329,7 +330,7 @@ class PricingBuilder
     private function overlayPackage(array $payload, array $package): array
     {
         // ── Tier pricing, billing cycle, inclusions ───────────────────────────
-        foreach (['basic', 'standard', 'premium', 'enterprise'] as $tierId) {
+        foreach (['basic', 'standard', 'premium', 'enterprise', 'ultimate'] as $tierId) {
             $pkgTier = $package['tiers'][$tierId] ?? null;
             if ($pkgTier === null || !isset($payload['pricing']['tiers'][$tierId])) {
                 continue;
@@ -517,7 +518,7 @@ class PricingBuilder
         $inTiers  = $pricing['tiers'] ?? $pricing;
         $outTiers = [];
 
-        foreach (['basic', 'standard', 'premium', 'enterprise'] as $k) {
+        foreach (['basic', 'standard', 'premium', 'enterprise', 'ultimate'] as $k) {
             $src = $inTiers[$k] ?? [];
 
             $features = isset($src['features']) && is_array($src['features'])
@@ -560,7 +561,7 @@ class PricingBuilder
         }
 
         $servicePool    = [];
-        $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []];
+        $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => [], 'ultimate' => []];
 
         foreach ($raw as $item) {
             if (!is_array($item)) {
@@ -612,7 +613,7 @@ class PricingBuilder
             $servicePool[] = $inc;
         }
 
-        $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => []];
+        $tierInclusions = ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => [], 'ultimate' => []];
         $tierMap        = isset($raw['tier_inclusions']) && is_array($raw['tier_inclusions'])
             ? $raw['tier_inclusions']
             : [];
