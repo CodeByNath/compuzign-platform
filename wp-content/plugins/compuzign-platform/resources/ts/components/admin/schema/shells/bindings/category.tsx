@@ -84,15 +84,13 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
   },
 };
 
-// ── Services (relation summary, D4) ───────────────────────────────────────────
+// ── Services (relation summary gateway, D4) ───────────────────────────────────
 // The category's assigned services at a glance — the servicePackageSummaryShell
-// pattern (metrics element). It heads the Connections tab, above the Services
-// collection (the Collection placement, mapped by the drawer step into the same
-// tab's `trailing` slot). No footer: the collection renders inline in the same
-// canonical drawer, so there is nothing to transit to — each service card owns
-// its own `view` into the real Service drawer. Read-only in v1: assignment
-// stays on the service side (the service is the anchor; the category emphasises
-// the relationship).
+// pattern: a metrics element + a `view` footer. Placed in the Connections tab;
+// its View transits to the dedicated Category Services collection surface (the
+// promotion-list / package-overview pattern — a Details | Connections list
+// drawer). Read-only in v1: assignment stays on the service side (the service
+// is the anchor; the category emphasises the relationship).
 
 export interface CategoryServicesShellData {
   headline: string;   // e.g. '3 services'
@@ -113,6 +111,8 @@ export const categoryServicesShell: ShellSchema<CategoryServicesShellData> = {
       bind: (d): MetricsValue => ({ headline: d.headline, copy: d.copy }),
     },
   ],
-  footer:  { actions: [] },
-  actions: {},
+  footer:  { actions: ['view'] },
+  actions: {
+    view: { id: 'view', label: 'View', intent: 'secondary' },
+  },
 };
