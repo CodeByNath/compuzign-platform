@@ -148,10 +148,16 @@ function statusPill(status: PromotionStatus) {
 // travel state collapsed to the presentation vocabulary (draft → Pending), fed
 // to ReadBlock's ModuleStatusPill exactly like a Package Tier slot's status.
 // Archived/trashed never reach here (bin view keeps its own TRAVEL_PILL cards).
-function cardPillStatus(status: PromotionStatus): string {
-  if (status === 'active')   return 'active';
-  if (status === 'disabled') return 'disabled';
-  return 'pending-full'; // draft
+// Collapse an instance's travel state + its Promotion Overview module status into
+// the one pill value the card renders — the promotion analogue of Tier's
+// resolveTierStatus. Live states own the pill (active → green, disabled → red);
+// a draft defers to the module evaluator so completeness drives opacity exactly
+// like every other card: incomplete/empty → pending-dim (dim), ready to publish →
+// pending-full (full orange). Never hardcodes an opacity.
+function cardPillStatus(travel: PromotionStatus, moduleStatus: string): string {
+  if (travel === 'active')   return 'active';
+  if (travel === 'disabled') return 'disabled';
+  return moduleStatus; // draft
 }
 
 // Canonical Promotion Overview summary body — the SAME three rows on every
@@ -644,9 +650,14 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
     const d        = createDraft ?? emptyOverviewDraft();
     const nameSet  = !!d.name.trim();
-    const overviewNotes = nameSet
-      ? [{ id: 'new-promotion.overview.waiting', message: 'Waiting for promotion publication.', type: 'info' as const }]
-      : [{ id: 'new-promotion.overview.start',   message: 'Edit and create a promotion.',        type: 'info' as const }];
+    // Overview card status + notes from the module evaluator (same source as every
+    // promotion card): empty → pending-dim (dim), named/complete → pending-full
+    // (ready to publish, full orange). No hardcoded opacity, no invented copy.
+    const overviewState = evaluateModule(
+      promotionOverviewModule,
+      { name: d.name, price: d.price, billing_label: d.billing_label },
+      { platformStatus: 'draft', moduleTransition: nameSet ? 'pending' : 'not-configured', hasDraft: false },
+    );
     const lockedFeaturesNotes = [{ id: 'new-promotion.features.activation', message: 'Waiting for promotion activation.', type: 'info' as const }];
     const lockedFaqsNotes     = [{ id: 'new-promotion.faqs.activation',     message: 'Waiting for promotion activation.', type: 'info' as const }];
 
@@ -663,8 +674,8 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
               icon={MODULE_ICONS.overview}
               iconVariant="drawerModule__icon--overview"
               scopeClass="drawerOverview promotion"
-              status="pending-full"
-              notes={overviewNotes}
+              status={overviewState.status}
+              notes={overviewState.notes}
               panelOpen={createPanel === 'overview'}
               onTogglePanel={() => setCreatePanel(p => (p === 'overview' ? null : 'overview'))}
               actions={[{ id: 'edit', label: 'Edit', onSelect: () => { setEditingSection('promo-overview'); setSaveErr(null); setSaveOk(false); } }]}
@@ -768,15 +779,11 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
             {listView === 'current' && (
               <>
                 {currentList.map((p) => {
-                  // Notes follow the shared drawer notification contract — the
-                  // Promotion Overview module evaluated for this instance (empty
-                  // prompt / problems / lifecycle tail), exactly as the Tier
-                  // summary cards feed getTierNotes into their pill + panel.
-                  const s = evaluateModule(
-                    promotionOverviewModule,
-                    { name: p.name, price: p.price, billing_label: p.billing_label },
-                    { platformStatus: p.status },
-                  );
+                  // Status + notes come straight from the hook's Promotion Overview
+                  // evaluateModule result — the same source the Tier summary cards
+                  // read via pkg.tierView(...).status / getTierNotes. No re-derived
+                  // or hardcoded status: completeness drives the opacity.
+                  const ovr = promo.promotionView(p.id)?.modules.overview;
                   return (
                     <ReadBlock
                       key={p.id}
@@ -785,8 +792,8 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                       icon={MODULE_ICONS.overview}
                       iconVariant="drawerModule__icon--overview"
                       scopeClass="drawerOverview promotion"
-                      status={cardPillStatus(p.status)}
-                      notes={s.notes}
+                      status={cardPillStatus(p.status, ovr?.status ?? 'pending-dim')}
+                      notes={ovr?.notes ?? []}
                       panelOpen={openListPanel === p.id}
                       onTogglePanel={() => setOpenListPanel(o => (o === p.id ? null : p.id))}
                       actions={[{ id: 'view', label: 'View', onSelect: () => openViewDetail(p) }]}
@@ -798,15 +805,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
                 {/* Trailing empty shell — the same Promotion Overview card body as
                     every real promotion card (the shared promotionCardBody hint
-                    rows, never "(unnamed)"/dashes) + the module's own empty-prompt
-                    guidance in the notification panel (notes from evaluateModule,
-                    zero invented copy). The pill is Pending at FULL opacity — the
-                    create shell is an active affordance, not a dormant/dim slot —
-                    so it is rendered pending-full, not the module's default
-                    not-configured pending-dim. View opens the New-state create
-                    drawer (no write yet); the instance is created on the overview
-                    editor Save, after which this slot fills and a fresh empty shell
-                    takes its place. */}
+                    rows, never "(unnamed)"/dashes). Status + notes come from the
+                    module evaluator, exactly like an empty Tier slot: not-configured
+                    resolves to pending-dim (dim) with the module's empty-prompt
+                    guidance in the panel — zero invented copy, no hardcoded opacity.
+                    View opens the New-state create drawer (no write yet); the
+                    instance is created on the overview editor Save, after which this
+                    slot fills and a fresh empty shell takes its place. */}
                 {(() => {
                   const s = evaluateModule(
                     promotionOverviewModule,
@@ -821,7 +826,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                       icon={MODULE_ICONS.overview}
                       iconVariant="drawerModule__icon--overview"
                       scopeClass="drawerOverview promotion"
-                      status="pending-full"
+                      status={s.status}
                       notes={s.notes}
                       panelOpen={openNewPanel}
                       onTogglePanel={() => setOpenNewPanel(o => !o)}
