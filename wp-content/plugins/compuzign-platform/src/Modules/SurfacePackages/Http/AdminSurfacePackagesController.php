@@ -185,6 +185,24 @@ class AdminSurfacePackagesController
             ];
         }, $posts);
 
+        // Station-first augmentation: findAll() above enumerates cz_surface_package
+        // posts only, so a service whose canonical package now lives solely in
+        // cz_service_package_station meta (net-new after the Phase 1 migration — the
+        // create route is retired/423) produced no row. On the frontend that left
+        // relatedPkg null and collapsed the catalog pill and the Service drawer's
+        // Package Summary to pending despite active tiers. Append synthesized rows
+        // for those services, deduped against the legacy rows above. Read-only —
+        // this never creates a cz_surface_package post.
+        $coveredServiceIds = [];
+        foreach ($packages as $row) {
+            foreach ($row['service_refs'] as $sid) {
+                $coveredServiceIds[(int) $sid] = true;
+            }
+        }
+        foreach ($this->synthesizeStationOnlyRows($coveredServiceIds) as $stationRow) {
+            $packages[] = $stationRow;
+        }
+
         return rest_ensure_response([
             'success'  => true,
             'total'    => count($packages),
@@ -782,6 +800,114 @@ class AdminSurfacePackagesController
             'display_contexts'   => $station['display_contexts'] ?? ['cost-builder'],
             'migration_complete' => true,
         ];
+    }
+
+    /**
+     * Station-first augmentation for the list endpoint (read-only).
+     *
+     * Enumerate published services carrying canonical cz_service_package_station
+     * meta and synthesize a package row for each one NOT already represented by a
+     * legacy cz_surface_package post. Services created after the Phase 1 migration
+     * have station meta but no legacy post (the create route is retired/423), so
+     * without this they are absent from GET /admin/surface-packages — the source
+     * the catalog pill and the Service drawer's Package Summary both read. Never
+     * writes; creates no posts.
+     *
+     * @param  array<int, true> $coveredServiceIds  service IDs already covered by a legacy row
+     * @return array<int, array<string, mixed>>
+     */
+    private function synthesizeStationOnlyRows(array $coveredServiceIds): array
+    {
+        $serviceIds = get_posts([
+            'post_type'              => 'cz_service',
+            'post_status'            => 'publish',
+            'numberposts'            => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        ]) ?: [];
+
+        $rows = [];
+        foreach ($serviceIds as $serviceId) {
+            $serviceId = (int) $serviceId;
+            if (isset($coveredServiceIds[$serviceId])) {
+                continue; // already represented by a legacy cz_surface_package row
+            }
+
+            $station = get_post_meta($serviceId, 'cz_service_package_station', true);
+            if (!is_array($station) || empty($station)) {
+                continue; // no canonical station meta — nothing to synthesize
+            }
+
+            $rows[] = $this->stationToPackageRow($serviceId, $station);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Shape a service's cz_service_package_station meta into the same list-row shape
+     * emitted by list() for legacy packages. Mirrors the legacy branch field for
+     * field so the API response stays uniform; the only intentional differences are
+     * post_id (0 — there is no backing cz_surface_package post) and
+     * migration_complete (true — the station meta is the canonical location).
+     *
+     * @param  array<string, mixed> $station
+     * @return array<string, mixed>
+     */
+    private function stationToPackageRow(int $serviceId, array $station): array
+    {
+        $post = get_post($serviceId);
+
+        $tierSummary = [];
+        foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+            $tierSummary[$tierId] = PackageSchema::summariseTierSlot($station['tiers'][$tierId] ?? []);
+        }
+
+        // Prefer the stored, derived station status (what the tier drawer renders);
+        // re-derive from occupants only when it is missing/invalid. Same fail-closed
+        // vocabulary as the legacy branch.
+        $rawStatus      = $station['platform_status'] ?? '';
+        $resolvedStatus = in_array($rawStatus, PackageSchema::ALLOWED_PLATFORM_STATUSES, true)
+                          ? $rawStatus
+                          : PackageSchema::deriveStationStatus($station);
+
+        return [
+            'post_id'            => 0,
+            'post_status'        => 'publish',
+            'platform_status'    => $resolvedStatus,
+            'title'              => $post instanceof \WP_Post ? $post->post_title : '',
+            'package_type'       => 'tier_configuration',
+            'service_refs'       => [$serviceId],
+            'services'           => $this->resolveServiceNames([$serviceId]),
+            'tiers'              => $tierSummary,
+            'promotion_tiers'    => $this->loadPromotionInstancesForService($serviceId),
+            'popular_tier'       => $station['popular_tier'] ?? null,
+            'popular_label'      => $station['popular_label'] ?? '',
+            'faq_refs'           => $station['faq_refs'] ?? [],
+            'display_contexts'   => $station['display_contexts'] ?? ['cost-builder'],
+            'migration_complete' => true,
+            'valid_from'         => $station['valid_from'] ?? null,
+            'valid_until'        => $station['valid_until'] ?? null,
+        ];
+    }
+
+    /**
+     * Load normalised promotion instances for a service directly — the station-first
+     * counterpart of loadPromotionInstancesForPackage(), which resolves the service
+     * via a legacy package's service_refs. Returns [] when the Promotion Station has
+     * not been migrated: a net-new service has no legacy package to bridge from.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadPromotionInstancesForService(int $serviceId): array
+    {
+        $promoStation = get_post_meta($serviceId, 'cz_service_promotion_station', true);
+        if (is_array($promoStation) && !empty($promoStation['migrated'])) {
+            return PackageSchema::normalisePromotionInstances($promoStation['instances'] ?? []);
+        }
+        return [];
     }
 
     private function emptyPackageRow(\WP_Post $post): array
