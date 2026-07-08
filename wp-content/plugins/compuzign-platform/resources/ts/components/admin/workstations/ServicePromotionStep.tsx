@@ -15,6 +15,8 @@ import type { PromotionView } from '@/hooks/usePromotionStation';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
 import { EntityDrawer } from '../EntityDrawer';
+import { InlineEditorShell } from '../InlineEditorShell';
+import { PromotionOverviewEditor } from '../editors/PromotionOverviewEditor';
 import { PROMOTION_ENTITY } from '@/components/admin/schema/entities/promotion';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '@/components/admin/schema/presentation';
 import type { PillMeta } from '@/components/admin/schema/presentation';
@@ -51,12 +53,13 @@ import { serviceConnectionBinding, TIER_LABELS } from './serviceDrawerShared';
 // The Current list renders one Promotion Overview shell card per instance plus a
 // trailing empty "New promotion" shell — the add-the-next affordance, mirroring
 // an empty Package Tier slot (a real ReadBlock card with a status pill + View
-// action, never a dotted placeholder or a bare "No promotions yet" state). View
-// on the empty shell creates the draft instance and opens its detail drawer.
-// Inside the detail drawer, Promotion Overview, Included Features, and Common
-// Questions are real drawer modules (the shell archetypes' read + edit
-// viewpoints) with ModuleStatusPill + notes fed by promotionView's evaluateModule
-// results — editing always goes through the card's shell editor, never a bare form.
+// action, never a dotted placeholder or a bare "No promotions yet" state). View on
+// the empty shell opens the New-state create drawer (Drawer Principle v1): Promotion
+// Overview editable with placeholders, Included Features / Common Questions Locked,
+// and the instance is written only when the overview editor Save runs (deferred
+// create — no orphan drafts), mirroring ServiceCreateStep. For an existing promotion,
+// its detail drawer's modules are the shell archetypes' read + edit viewpoints, with
+// ModuleStatusPill + notes fed by promotionView's evaluateModule results.
 
 // Module icons come from the shared registry (schema/icons.tsx, S1b) — the same
 // glyphs the Service and Tier module cards use. Tier labels (for "Based on
@@ -178,6 +181,15 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // List filter: current (draft/active/disabled) | bin (archived/trashed).
   const [listView,       setListView]       = useState<'current' | 'bin'>('current');
 
+  // Create flow (Drawer Principle v1 "New" + "Locked" states, ServiceCreateStep
+  // pattern): the trailing "New promotion" shell opens a New-state drawer — Promotion
+  // Overview editable with placeholder values, Included Features / Common Questions
+  // Locked (Edit disabled) — and the instance is NOT written until the overview editor
+  // Save (deferred create). createDraft is the persistent working copy for that session.
+  const [creating,     setCreating]     = useState(false);
+  const [createDraft,  setCreateDraft]  = useState<OverviewDraft | null>(null);
+  const [createPanel,  setCreatePanel]  = useState<string | null>(null);
+
   const [overviewDraft,    setOverviewDraft]    = useState<OverviewDraft | null>(null);
   const [overviewOriginal, setOverviewOriginal] = useState<OverviewDraft | null>(null);
   const [featuresDraft,    setFeaturesDraft]    = useState<InclusionItem[] | null>(null);
@@ -219,21 +231,18 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // Draft-preferred lifecycle view of the open promotion (null on the list).
   const view: PromotionView | null = editingPromoId ? promo.promotionView(editingPromoId) : null;
 
-  // New Promotion creates the draft instance immediately (born draft, C2) and lands
-  // in its detail drawer — the Promotion Overview / Included Features / Common
-  // Questions module cards, each with a status pill + Edit action. Filling in fields
-  // happens through the card's shell editor (openOverviewSection), never a bare form.
-  // Mirrors ServiceTierStep, where the tier cards pre-exist and View opens the drawer.
-  const openCreate = async () => {
+  // New promotion — enter the New-state drawer. No DB write here; the instance is
+  // created only when the overview editor is saved (handleSaveOverview, creating
+  // branch). Mirrors ServiceCreateStep: shell visible, Edit enabled, blank
+  // placeholders, entity does not yet exist.
+  const openCreate = () => {
+    setCreating(true);
+    setCreateDraft(emptyOverviewDraft());
+    setEditingSection(null);
+    setEditingPromoId(null);
+    setOpenPromoPanel(null);
+    setCreatePanel(null);
     setSaveErr(null); setSaveOk(false);
-    const res = await promo.createPromotion(createPayload(emptyOverviewDraft()));
-    if (res?.success) {
-      setEditingPromoId(res.promo_id);
-      setEditingSection(null);
-      setOpenPromoPanel(null);
-    } else {
-      setSaveErr('Could not create promotion.');
-    }
   };
 
   // List "View" — opens the full-screen promotion detail (Details/Connections tabs).
@@ -270,11 +279,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null); setSaveOk(false);
   };
 
-  // Cancel the Promotion Overview editor — returns to the promotion's detail view
-  // (the instance already exists; creation is no longer entangled with this editor).
+  // Cancel the Promotion Overview editor. While creating, return to the New-state
+  // drawer (keep createDraft so the placeholder rows keep any typed values); when
+  // editing an existing promotion, return to its detail view.
   const handleCancelOverview = () => {
-    setOverviewDraft(null); setOverviewOriginal(null); setSaveErr(null); setSaveOk(false);
+    setSaveErr(null); setSaveOk(false);
     setEditingSection(null);
+    if (!creating) { setOverviewDraft(null); setOverviewOriginal(null); }
   };
 
   const handleCancelFeatures = () => {
@@ -287,10 +298,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     setEditingSection(null);
   };
 
-  // Returns from the promotion detail view to the list.
+  // Returns from the promotion detail view (or the New-state create drawer) to the list.
   const handleBackToList = () => {
     setEditingPromoId(null);
     setEditingSection(null);
+    setCreating(false);
+    setCreateDraft(null);
+    setCreatePanel(null);
     setOpenPromoPanel(null);
     setSplitOpen(false);
     setConfirmModal(null);
@@ -306,16 +320,31 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   handleBackToListRef.current = handleBackToList;
   useEffect(() => {
     if (!promoBack) return;
-    promoBack.current = editingPromoId ? () => handleBackToListRef.current() : null;
+    promoBack.current = (editingPromoId || creating) ? () => handleBackToListRef.current() : null;
     return () => { promoBack.current = null; };
-  }, [editingPromoId, promoBack]);
+  }, [editingPromoId, creating, promoBack]);
 
-  // Promotion Overview Save — the instance already exists (created up front), so this
-  // is always a module DRAFT save via the station lifecycle; footer Publish settles it.
+  // Promotion Overview Save. In the create flow this is the deferred write — the
+  // instance is created here (born draft, C2), then we land in its real detail view.
+  // Otherwise it persists a module DRAFT via the station lifecycle; footer Publish
+  // settles it. Mirrors ServiceCreateStep's Save-creates-then-reopens-as-view.
   const handleSaveOverview = useCallback(async () => {
-    if (!overviewDraft || !editingPromoId) return;
     setSaveErr(null);
     try {
+      if (creating) {
+        if (!createDraft) return;
+        const res = await promo.createPromotion(createPayload(createDraft));
+        if (res?.success) {
+          setSaveOk(true);
+          setCreating(false); setCreateDraft(null);
+          setEditingPromoId(res.promo_id);
+          setEditingSection(null);
+        } else {
+          setSaveErr('Save failed.');
+        }
+        return;
+      }
+      if (!overviewDraft || !editingPromoId) return;
       const res = await promo.savePromotionOverview(editingPromoId, overviewDraft);
       if (res?.success) {
         setSaveOk(true);
@@ -327,7 +356,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
     }
-  }, [overviewDraft, editingPromoId, promo]);
+  }, [creating, createDraft, overviewDraft, editingPromoId, promo]);
 
   // Included Features Save — persists the module draft (pool refs only).
   const handleSaveFeatures = useCallback(async () => {
@@ -418,8 +447,8 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   // Edit mode leaves the slot empty — the module's shell edit viewpoint carries its
   // own Save/Cancel footer. The open promotion's lifecycle actions live here, per
   // travel state.
-  const footerRef = useRef({ openCreate, handleToggle, handleArchive, handleTrash, handleRestore, close: ctx.close });
-  footerRef.current = { openCreate, handleToggle, handleArchive, handleTrash, handleRestore, close: ctx.close };
+  const footerRef = useRef({ handleToggle, handleArchive, handleTrash, handleRestore, backToList: handleBackToList, close: ctx.close });
+  footerRef.current = { handleToggle, handleArchive, handleTrash, handleRestore, backToList: handleBackToList, close: ctx.close };
 
   useEffect(() => {
     const { setFooter } = ctx;
@@ -434,6 +463,16 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
       setFooter(closeFooter);
     } else if (editingSection != null) {
       setFooter(null);
+    } else if (creating) {
+      // New-state drawer footer — single Cancel, right-aligned. Nothing to publish
+      // until the instance exists (ServiceCreateStep parity). Cancel discards the
+      // in-progress create and returns to the list.
+      setFooter(
+        <div class="cz-tf-footer">
+          <div class="cz-tf-footer__spacer" />
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.backToList()}>Cancel</button>
+        </div>,
+      );
     } else if (!editingPromoId) {
       // List footer — Close only, right-aligned (matches ServiceTierStep's package
       // overview). Creating a promotion is driven by the trailing "New promotion"
@@ -505,12 +544,12 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 {promo.saving ? '…' : 'Restore'}
               </button>
             )}
-            {/* Close belongs to the left cluster, alongside the lifecycle/negative
-                actions. The single spacer then isolates the primary/terminal action
-                on the far right — so the main action never sits flush against Close
-                or the negative buttons. Matches the Service drawer contract
-                ([left actions + Close][spacer][primary]). */}
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
+            {/* Cancel belongs to the left cluster, alongside the lifecycle/negative
+                actions (Service drawer label + placement — ServiceViewStep). The single
+                spacer then isolates the primary/terminal action on the far right — so
+                the main action never sits flush against Cancel or the negative buttons
+                ([left actions + Cancel][spacer][primary]). */}
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Cancel</button>
             <div class="cz-tf-footer__spacer" />
             {(isLive || status === 'draft') && (
               <button
@@ -537,12 +576,140 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
       }
     }
     return () => setFooter(null);
-  }, [promo.detailLoaded, promo.detail, promo.saving, editingSection, editingPromoId, splitOpen, ctx.setFooter]);
+  }, [promo.detailLoaded, promo.detail, promo.saving, editingSection, editingPromoId, creating, splitOpen, ctx.setFooter]);
 
   if (!promo.detailLoaded) return <AsyncLoading label="Loading promotions…" />;
   if (!promo.detail)       return <div class="cz-admin-error-msg">Promotion Station not found.</div>;
 
   const { promotions, service: svc } = promo.detail;
+
+  // ── New-state create drawer (Drawer Principle v1 — New + Locked) ────────────
+  // Entered from the trailing "New promotion" shell. Promotion Overview is editable
+  // with placeholder values; Included Features / Common Questions are Locked (Edit
+  // disabled) until the instance exists. Editing the overview opens the create editor
+  // (InlineEditorShell), whose Save writes the instance. Hand-rendered ReadBlocks —
+  // the shell/binding system has no instance to bind to yet (ServiceCreateStep parity).
+  if (creating) {
+    // Create-overview editor — the one place InlineEditorShell is correct: instance
+    // creation, not a station module edit. Save = createPromotion (handleSaveOverview).
+    if (editingSection === 'promo-overview' && createDraft) {
+      return (
+        <InlineEditorShell
+          title="Create Promotion"
+          onSave={handleSaveOverview}
+          onCancel={handleCancelOverview}
+          saving={promo.saving}
+          saveErr={saveErr}
+        >
+          <PromotionOverviewEditor
+            draft={createDraft}
+            onChange={(patch) => setCreateDraft(d => d ? { ...d, ...patch } : d)}
+            saveOk={saveOk}
+          />
+        </InlineEditorShell>
+      );
+    }
+
+    const d        = createDraft ?? emptyOverviewDraft();
+    const nameSet  = !!d.name.trim();
+    const overviewNotes = nameSet
+      ? [{ id: 'new-promotion.overview.waiting', message: 'Waiting for promotion publication.', type: 'info' as const }]
+      : [{ id: 'new-promotion.overview.start',   message: 'Edit and create a promotion.',        type: 'info' as const }];
+    const lockedFeaturesNotes = [{ id: 'new-promotion.features.activation', message: 'Waiting for promotion activation.', type: 'info' as const }];
+    const lockedFaqsNotes     = [{ id: 'new-promotion.faqs.activation',     message: 'Waiting for promotion activation.', type: 'info' as const }];
+
+    return (
+      <div class="cz-req-detail">
+        <DrawerTabs active={listTab} onSelect={setListTab} />
+
+        {listTab === 'details' && (
+          <>
+            {/* Promotion Overview — New state: shell visible, Edit enabled, blank placeholders. */}
+            <ReadBlock
+              title="Promotion Overview"
+              subtitle="General information about this promotion."
+              icon={MODULE_ICONS.overview}
+              iconVariant="drawerModule__icon--overview"
+              scopeClass="drawerOverview promotion"
+              status="pending-dim"
+              notes={overviewNotes}
+              panelOpen={createPanel === 'overview'}
+              onTogglePanel={() => setCreatePanel(p => (p === 'overview' ? null : 'overview'))}
+              actions={[{ id: 'edit', label: 'Edit', onSelect: () => { setEditingSection('promo-overview'); setSaveErr(null); setSaveOk(false); } }]}
+            >
+              <div class="drawerModule__fields">
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Name</p>
+                  <p class="drawerModule__value">{nameSet ? d.name : '(unnamed)'}</p>
+                </div>
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Based on tier</p>
+                  <p class="drawerModule__value">{d.based_on ? (TIER_LABELS[d.based_on] ?? d.based_on) : 'None'}</p>
+                </div>
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Headline</p>
+                  <p class="drawerModule__value">{d.headline || '—'}</p>
+                </div>
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Price</p>
+                  <p class="drawerModule__value">{d.price !== null ? `$${d.price}` : '—'}</p>
+                </div>
+              </div>
+            </ReadBlock>
+
+            {/* Included Features — Locked: shell visible, Edit disabled until the instance exists. */}
+            <ReadBlock
+              title="Included Features"
+              subtitle="Features included in this promotion."
+              icon={MODULE_ICONS.features}
+              iconVariant="drawerModule__icon--features"
+              scopeClass="drawerModule--locked"
+              status="pending-dim"
+              notes={lockedFeaturesNotes}
+              panelOpen={createPanel === 'features'}
+              onTogglePanel={() => setCreatePanel(p => (p === 'features' ? null : 'features'))}
+              actions={[{ id: 'edit', label: 'Edit', disabled: true }]}
+            >
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No features</p>
+                <p class="drawerModule__empty-copy">Configure the promotion to add features.</p>
+              </div>
+            </ReadBlock>
+
+            {/* Common Questions — Locked. */}
+            <ReadBlock
+              title="Common Questions"
+              subtitle="Questions and answers for this promotion."
+              icon={MODULE_ICONS.faqs}
+              iconVariant="drawerModule__icon--faqs"
+              scopeClass="drawerModule--locked"
+              status="pending-dim"
+              notes={lockedFaqsNotes}
+              panelOpen={createPanel === 'faqs'}
+              onTogglePanel={() => setCreatePanel(p => (p === 'faqs' ? null : 'faqs'))}
+              actions={[{ id: 'edit', label: 'Edit', disabled: true }]}
+            >
+              <div class="drawerModule__empty">
+                <p class="drawerModule__empty-title">No questions added</p>
+                <p class="drawerModule__empty-copy">Configure the promotion to add questions.</p>
+              </div>
+            </ReadBlock>
+
+            {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
+          </>
+        )}
+
+        {listTab === 'connections' && (
+          <ModeProvider mode="connections">
+            <OverviewShell
+              schema={serviceOverviewShell}
+              binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
+            />
+          </ModeProvider>
+        )}
+      </div>
+    );
+  }
 
   // ── Promotion list view ───────────────────────────────────────────────────
   if (!editingPromoId) {
@@ -617,8 +784,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                     not-configured state: canonical placeholder rows + pending-dim
                     pill + the module's own empty-prompt guidance in the notification
                     panel (status/notes from evaluateModule, zero invented copy).
-                    View creates the draft instance and opens its detail drawer,
-                    filling this slot; a fresh empty shell takes its place. */}
+                    View opens the New-state create drawer (no write yet); the
+                    instance is created on the overview editor Save, after which this
+                    slot fills and a fresh empty shell takes its place. */}
                 {(() => {
                   const s = evaluateModule(
                     promotionOverviewModule,
@@ -637,7 +805,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                       notes={s.notes}
                       panelOpen={openNewPanel}
                       onTogglePanel={() => setOpenNewPanel(o => !o)}
-                      actions={[{ id: 'create', label: 'View', onSelect: () => { void openCreate(); } }]}
+                      actions={[{ id: 'create', label: 'View', onSelect: () => openCreate() }]}
                     >
                       <div class="drawerModule__fields">
                         <div class="drawerModule__field">
