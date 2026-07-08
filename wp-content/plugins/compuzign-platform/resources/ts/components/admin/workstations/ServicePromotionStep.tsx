@@ -19,6 +19,7 @@ import { PROMOTION_ENTITY } from '@/components/admin/schema/entities/promotion';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '@/components/admin/schema/presentation';
 import type { PillMeta } from '@/components/admin/schema/presentation';
 import { MODULE_ICONS } from '@/components/admin/schema/icons';
+import { evaluateModule, promotionOverviewModule } from '@/components/admin/utils/moduleNotifications';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
@@ -191,6 +192,9 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const [confirmModal,    setConfirmModal]    = useState<'publish' | 'delete' | null>(null);
   // Single-open notification-panel accordion, keyed by module key (EntityDrawer).
   const [openPromoPanel,  setOpenPromoPanel]  = useState<string | null>(null);
+  // Notification panel toggle for the trailing "New promotion" empty shell in the
+  // Current list (its Pending pill opens the module's empty-prompt guidance).
+  const [openNewPanel,    setOpenNewPanel]    = useState(false);
   // Bin-row delete confirm (pending only — busy comes from promo.saving).
   const deleteConfirm = useInlineConfirm<string>();
   // Immediate canonical pool creation lives inside the pool editors
@@ -501,11 +505,13 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                 {promo.saving ? '…' : 'Restore'}
               </button>
             )}
-            {/* Single spacer → the neutral Close + the terminal action group on the
-                right, matching ServiceTierStep ([left lifecycle][spacer][Close][primary]).
-                Never more than one flex spacer, so Close cannot float to the centre. */}
-            <div class="cz-tf-footer__spacer" />
+            {/* Close belongs to the left cluster, alongside the lifecycle/negative
+                actions. The single spacer then isolates the primary/terminal action
+                on the far right — so the main action never sits flush against Close
+                or the negative buttons. Matches the Service drawer contract
+                ([left actions + Close][spacer][primary]). */}
             <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()}>Close</button>
+            <div class="cz-tf-footer__spacer" />
             {(isLive || status === 'draft') && (
               <button
                 type="button"
@@ -573,22 +579,28 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
             {/* ── Current view: one Promotion Overview shell card per instance,
                 followed by an always-present empty "New promotion" shell — the
-                add-the-next affordance. Same shell pattern as Package Tier slots
-                (ReadBlock + status pill + View action); no dotted placeholder,
-                no bare "No promotions yet" empty state. ─────────────────────── */}
+                add-the-next affordance. Every card is the same drawer-module card
+                as Service/Tier Overview (ReadBlock: icon + subtitle + status pill +
+                label/value rows + View action). No dotted placeholder, no bare
+                "No promotions yet" empty state, no marketing body copy. ───────── */}
             {listView === 'current' && (
               <>
                 {currentList.map((p) => (
                   <ReadBlock
                     key={p.id}
                     title={p.name || 'Untitled promotion'}
-                    subtitle={p.based_on ? `Based on ${TIER_LABELS[p.based_on] ?? p.based_on}` : 'Standalone promotion'}
+                    subtitle="General information about this promotion."
                     icon={MODULE_ICONS.overview}
+                    iconVariant="drawerModule__icon--overview"
                     scopeClass="drawerOverview promotion"
                     status={cardPillStatus(p.status)}
                     actions={[{ id: 'view', label: 'View', onSelect: () => openViewDetail(p) }]}
                   >
                     <div class="drawerModule__fields">
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Based on tier</p>
+                        <p class="drawerModule__value">{p.based_on ? (TIER_LABELS[p.based_on] ?? p.based_on) : 'None'}</p>
+                      </div>
                       <div class="drawerModule__field">
                         <p class="drawerModule__label">Headline</p>
                         <p class="drawerModule__value">{p.headline || '—'}</p>
@@ -601,24 +613,53 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
                   </ReadBlock>
                 ))}
 
-                {/* Trailing empty shell — View creates the draft instance and opens
-                    its detail drawer (openCreate), which fills this slot and lets a
-                    fresh empty shell take its place on the next render. */}
-                <ReadBlock
-                  key="__new_promotion"
-                  title="New promotion"
-                  subtitle="Add another promotion to this service."
-                  icon={MODULE_ICONS.overview}
-                  scopeClass="drawerOverview promotion"
-                  status="not-configured"
-                  actions={[{ id: 'create', label: 'View', onSelect: () => { void openCreate(); } }]}
-                >
-                  <div class="drawerModule__fields">
-                    <div class="drawerModule__field">
-                      <p class="drawerModule__value">Open to configure a new promotion’s overview, features, and questions.</p>
-                    </div>
-                  </div>
-                </ReadBlock>
+                {/* Trailing empty shell — the Promotion Overview module in its
+                    not-configured state: canonical placeholder rows + pending-dim
+                    pill + the module's own empty-prompt guidance in the notification
+                    panel (status/notes from evaluateModule, zero invented copy).
+                    View creates the draft instance and opens its detail drawer,
+                    filling this slot; a fresh empty shell takes its place. */}
+                {(() => {
+                  const s = evaluateModule(
+                    promotionOverviewModule,
+                    { name: '', price: null, billing_label: '' },
+                    { platformStatus: 'draft', moduleTransition: 'not-configured', hasDraft: false },
+                  );
+                  return (
+                    <ReadBlock
+                      key="__new_promotion"
+                      title="New promotion"
+                      subtitle="General information about this promotion."
+                      icon={MODULE_ICONS.overview}
+                      iconVariant="drawerModule__icon--overview"
+                      scopeClass="drawerOverview promotion"
+                      status={s.status}
+                      notes={s.notes}
+                      panelOpen={openNewPanel}
+                      onTogglePanel={() => setOpenNewPanel(o => !o)}
+                      actions={[{ id: 'create', label: 'View', onSelect: () => { void openCreate(); } }]}
+                    >
+                      <div class="drawerModule__fields">
+                        <div class="drawerModule__field">
+                          <p class="drawerModule__label">Name</p>
+                          <p class="drawerModule__value">(unnamed)</p>
+                        </div>
+                        <div class="drawerModule__field">
+                          <p class="drawerModule__label">Based on tier</p>
+                          <p class="drawerModule__value">None</p>
+                        </div>
+                        <div class="drawerModule__field">
+                          <p class="drawerModule__label">Headline</p>
+                          <p class="drawerModule__value">—</p>
+                        </div>
+                        <div class="drawerModule__field">
+                          <p class="drawerModule__label">Price</p>
+                          <p class="drawerModule__value">—</p>
+                        </div>
+                      </div>
+                    </ReadBlock>
+                  );
+                })()}
 
                 {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
               </>
