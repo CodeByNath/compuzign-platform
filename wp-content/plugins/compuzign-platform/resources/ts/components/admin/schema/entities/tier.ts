@@ -11,7 +11,6 @@ import {
   tierOverviewShell,
   tierFeaturesShell,
   tierFaqsShell,
-  tierPricingShell,
 } from '../shells/bindings/tier';
 import { serviceOverviewShell } from '../shells/bindings/service';
 import type { EntitySchema } from '../types';
@@ -44,7 +43,6 @@ export const TIER_ENTITY: EntitySchema = {
     overview: tierOverviewShell,
     features: tierFeaturesShell,
     faqs:     tierFaqsShell,
-    pricing:  tierPricingShell,
     service:  serviceOverviewShell,
   },
 
@@ -67,7 +65,6 @@ export const TIER_ENTITY: EntitySchema = {
         { module: 'overview', mode: 'details' },
         { module: 'features', mode: 'details' },
         { module: 'faqs',     mode: 'details' },
-        { module: 'pricing',  mode: 'details' },
       ],
       connections: [
         { module: 'service', mode: 'connections' },

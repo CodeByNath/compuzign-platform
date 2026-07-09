@@ -6,7 +6,6 @@ import {
   settleServicePackageStationTier,
   setServicePackageStationTierEnabled,
   setServicePackageStationPopular,
-  saveServicePackageStationPricingBoard,
   createServiceInclusionPoolItem,
   createServiceFaqPoolItem,
   archiveServicePackageStationTierOccupant,
@@ -29,8 +28,6 @@ import type {
   TierModuleKey,
   InclusionItem,
   FaqItem,
-  PricingBoard,
-  TierPricingUsage,
 } from '@/api/types/admin';
 import { resolveTierStatus } from '@/components/admin/utils/moduleStatus';
 import type { TierLike } from '@/components/admin/utils/moduleStatus';
@@ -39,7 +36,6 @@ import {
   tierOverviewModule,
   tierFeaturesModule,
   tierFaqsModule,
-  tierPricingModule,
 } from '@/components/admin/utils/moduleNotifications';
 import type { ModuleState } from '@/components/admin/utils/moduleNotifications';
 import { patchTierModuleDraft } from './stationPrimitives';
@@ -57,11 +53,10 @@ import { patchTierModuleDraft } from './stationPrimitives';
 // P4: landed unused. No component consumes it yet; ServiceTierStep still uses useApi.
 // Nothing here changes runtime behaviour.
 
-const EMPTY_DRAFTS: TierDrafts = { overview: null, features: null, faqs: null, pricing: null };
+const EMPTY_DRAFTS: TierDrafts = { overview: null, features: null, faqs: null };
 const NOT_CONFIGURED: Record<string, string> = {
-  overview: 'not-configured', features: 'not-configured', faqs: 'not-configured', pricing: 'not-configured',
+  overview: 'not-configured', features: 'not-configured', faqs: 'not-configured',
 };
-const EMPTY_PRICING_BOARD: PricingBoard = { enabled: false, items: [] };
 
 // A tier slot with its lifecycle layer guaranteed present (the P3 response always
 // includes it; this normalises pre-P3 / fallback shapes so the hook can rely on it).
@@ -92,9 +87,6 @@ function normDetail(res: ServicePackageStationResponse): NormDetail {
 }
 
 // Draft-preferred detail: draft wins over the settled occupant per module.
-// pricing is draft-preferred the same way even though it never settles into
-// current_occupant — the settled `pricing` slot key stands in for "the
-// occupant" here (see PackageSchema::settleTierSlot).
 function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
   const ov = slot.drafts.overview;
   return {
@@ -105,7 +97,6 @@ function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
     billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
     inclusions_override: slot.drafts.features ?? slot.inclusions_override,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
-    pricing:             slot.drafts.pricing  ?? slot.pricing,
   };
 }
 
@@ -122,7 +113,6 @@ export interface PackageStationTierView {
     overview: ModuleState;
     features: ModuleState;
     faqs:     ModuleState;
-    pricing:  ModuleState;
   };
 }
 
@@ -140,21 +130,12 @@ export interface PackageStation {
   saveTierOverview: (tierId: string, draft: TierOverviewDraft) => Promise<TierLifecycleResponse | null>;
   saveTierFeatures: (tierId: string, refs: InclusionItem[])    => Promise<TierLifecycleResponse | null>;
   saveTierFaqs:     (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
-  // Tier Pricing Usage draft save. Revert/settle are NOT separate functions —
-  // revertTierModule/settleTier below are already generic over TierModuleKey
-  // (which now includes 'pricing') and cover this module for free.
-  saveTierPricing:  (tierId: string, draft: TierPricingUsage) => Promise<TierLifecycleResponse | null>;
   // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
   revertTierModule: (tierId: string, module: TierModuleKey) => Promise<TierLifecycleResponse | null>;
   // Commit the whole tier.
   settleTier:       (tierId: string) => Promise<TierLifecycleResponse | null>;
   // Station-level popular tier selection (null clears). Not part of the overview draft.
   setPopularTier:   (tierId: string | null, label: string) => Promise<boolean>;
-  // Package Pricing Board (declaration control centre) — package-level,
-  // immediate-write, no draft/settle. The backend seeds/reconciles against the
-  // live inclusion pool before persisting; the returned board is authoritative.
-  pricingBoard:     PricingBoard;
-  savePricingBoard: (board: PricingBoard) => Promise<boolean>;
   // Live-state toggle (separate lifecycle action).
   toggleTierEnabled: (tierId: string, enabled: boolean) => Promise<boolean>;
   // ── Occupant travel (engine D2–D4) ──────────────────────────────────────
@@ -222,18 +203,13 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
           { count: dp.faq_refs.length },
           { platformStatus, parentReady: overviewComplete, parentLabel: 'Tier Overview' },
         ),
-        pricing: evaluateModule(
-          tierPricingModule,
-          { count: (dp.pricing?.usage ?? []).filter(u => u.enabled).length },
-          { platformStatus, parentReady: overviewComplete, parentLabel: 'Tier Overview' },
-        ),
       },
     };
   }, [detail, platformStatus]);
 
   // Persist-through patch: patch the tier slot's draft + module_status in place from
   // the endpoint response, so derived values recompute without a refetch.
-  const patchModule = useCallback((tierId: string, module: TierModuleKey, res: TierLifecycleResponse) => {
+  const patchModule = useCallback((tierId: string, module: 'overview' | 'features' | 'faqs', res: TierLifecycleResponse) => {
     setDetail(prev => prev ? {
       ...prev,
       station: {
@@ -270,15 +246,6 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, onRefresh, patchModule]);
 
-  const saveTierPricing = useCallback(async (tierId: string, draft: TierPricingUsage) => {
-    setSaving(true);
-    try {
-      const res = await saveServicePackageStationTierModule(serviceId, tierId, 'pricing', draft);
-      if (res.success) { patchModule(tierId, 'pricing', res); onRefresh?.(); }
-      return res;
-    } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchModule]);
-
   const revertTierModule = useCallback(async (tierId: string, module: TierModuleKey) => {
     setSaving(true);
     try {
@@ -299,10 +266,7 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
             ...prev.station,
             tiers: {
               ...prev.station.tiers,
-              // res.tier (normaliseTierSlot) does not carry `pricing` — it never
-              // settles into current_occupant — so it must be merged in from
-              // res.pricing explicitly or settle would silently drop it locally.
-              [tierId]: { ...res.tier, drafts: res.drafts, module_status: res.module_status, pricing: res.pricing ?? undefined },
+              [tierId]: { ...res.tier, drafts: res.drafts, module_status: res.module_status },
             },
           },
         } : prev);
@@ -321,23 +285,6 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
         setDetail(prev => prev ? {
           ...prev,
           station: { ...prev.station, popular_tier: res.popular_tier, popular_label: res.popular_label },
-        } : prev);
-        onRefresh?.();
-      }
-      return res.success;
-    } catch { return false; } finally { setSaving(false); }
-  }, [serviceId, onRefresh]);
-
-  // Package Pricing Board — package-level, immediate-write. Patches
-  // station.pricing_board with the backend's seeded/reconciled response.
-  const savePricingBoard = useCallback(async (board: PricingBoard) => {
-    setSaving(true);
-    try {
-      const res = await saveServicePackageStationPricingBoard(serviceId, board);
-      if (res.success) {
-        setDetail(prev => prev ? {
-          ...prev,
-          station: { ...prev.station, pricing_board: res.pricing_board },
         } : prev);
         onRefresh?.();
       }
@@ -484,12 +431,9 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     saveTierOverview,
     saveTierFeatures,
     saveTierFaqs,
-    saveTierPricing,
     revertTierModule,
     settleTier,
     setPopularTier,
-    pricingBoard:   station?.pricing_board ?? EMPTY_PRICING_BOARD,
-    savePricingBoard,
     toggleTierEnabled,
     occupantBin:    station?.occupant_bin ?? [],
     archiveTier,

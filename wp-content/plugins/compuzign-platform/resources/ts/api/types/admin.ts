@@ -90,10 +90,6 @@ export interface ServicePackageStationData {
   popular_label:   string;
   sort_position:   number;
   bundle:          { title: string; description: string; price: number | null };
-  // Pricing Board Phase C — package-level declaration control centre. Always
-  // present (getPackageStation reconciles against the live inclusion pool at
-  // read time); required, not optional, matching `bundle` above.
-  pricing_board:   PricingBoard;
   // D2 additive read exposure — [] for stations predating the bin.
   occupant_bin?:   OccupantBinEntry[];
 }
@@ -376,65 +372,6 @@ export interface FaqItem {
   answer: string;
 }
 
-// ── Package Pricing Board (declaration control centre) ─────────────────────
-// Package-level, immediate-write, no draft/settle. One row per service
-// inclusion; central commercial source of truth for base price/unit/quantity
-// rules. Mirrors PackageSchema::sanitizePricingBoardItem/sanitizePricingBoard.
-export interface PricingBoardItem {
-  inclusion_id: string;
-  base_price: number | null;
-  unit: string | null;
-  quantity_enabled: boolean;
-  default_quantity: number | null;
-  min_quantity: number | null;
-  max_quantity: number | null;
-  enabled: boolean;
-  // Set by seedAndReconcilePricingBoard when inclusion_id no longer resolves
-  // in the live inclusion pool. The row is preserved, never dropped.
-  missing: boolean;
-}
-
-export interface PricingBoard {
-  enabled: boolean;
-  items: PricingBoardItem[];
-}
-
-// ── Tier Pricing Usage (first consumer control centre) ─────────────────────
-// Tier module ('pricing' in TierModuleKey): draft/settle-gated like
-// overview/features/faqs, but settles into its own `pricing` slot key, never
-// into current_occupant (see PackageSchema::settleTierSlot). References board
-// items by inclusion_id read-only; never writes the board. Manual tier price
-// (price/contact/billing_cycle) remains the default fallback, untouched.
-export type TierPricingMode = 'manual' | 'calculated';
-
-export interface TierPricingUsageItem {
-  inclusion_id: string;
-  quantity: number | null;
-  enabled: boolean;
-}
-
-export interface TierPricingUsage {
-  pricing_mode: TierPricingMode;
-  usage: TierPricingUsageItem[];
-}
-
-// Phase F — backend-owned, admin-only calculation preview (PackageSchema's
-// sibling PricingPreview::derive, exposed via getPackageStation only). Frontend
-// renders this verbatim; it never recomputes total/status/issues itself.
-export interface TierPricingPreviewIssue {
-  inclusion_id: string;
-  reason: string;
-}
-
-export interface TierPricingPreview {
-  total: number | null;
-  complete: boolean;
-  incomplete_count: number;
-  issues: TierPricingPreviewIssue[];
-  status: 'ready' | 'incomplete' | 'board_disabled' | 'no_items';
-  pricing_mode: TierPricingMode;
-}
-
 export interface SurfaceTierDetail {
   label: string;
   price: number | null;
@@ -450,15 +387,6 @@ export interface SurfaceTierDetail {
   // draft-preferred merge is performed client-side by usePackageStation.
   drafts?: TierDrafts;
   module_status?: Record<string, string>;
-  // Pricing Board Phase C additive read exposure: the settled Tier Pricing Usage
-  // record. Optional for the same reason as drafts/module_status above (pre-Phase-C
-  // responses and locally-constructed fallbacks omit it).
-  pricing?: TierPricingUsage;
-  // Phase F additive read exposure: the derived calculation preview for `pricing`
-  // above. Optional for the same reason; also goes stale after a save/settle/revert
-  // action until the next full station load (those responses don't carry it — Phase F
-  // scoped the derive helper to the read model only).
-  pricing_preview?: TierPricingPreview;
 }
 
 // Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response
@@ -475,22 +403,18 @@ export interface TierDrafts {
   overview: TierOverviewDraft | null;
   features: InclusionItem[] | null;
   faqs:     string[] | null;
-  pricing:  TierPricingUsage | null;
 }
 
-export type TierModuleKey = 'overview' | 'features' | 'faqs' | 'pricing';
+export type TierModuleKey = 'overview' | 'features' | 'faqs';
 
 export type TierModuleSavePayload =
   | TierOverviewDraft
   | { inclusions_override: InclusionItem[] }
-  | { faq_refs: string[] }
-  | TierPricingUsage;
+  | { faq_refs: string[] };
 
 // Response of the per-module save and settle endpoints. `tier` is the settled
 // detail (unchanged by a draft save; rewritten by settle); `drafts`/`module_status`
-// are the full updated maps for the tier. `pricing` (Phase B) is the settled Tier
-// Pricing Usage record, sibling to `tier` — it does not live inside `tier` because
-// it never settles into current_occupant.
+// are the full updated maps for the tier.
 export interface TierLifecycleResponse {
   success:       boolean;
   tier_id:       string;
@@ -498,7 +422,6 @@ export interface TierLifecycleResponse {
   tier:          SurfaceTierDetail;
   drafts:        TierDrafts;
   module_status: Record<string, string>;
-  pricing?:      TierPricingUsage | null;
 }
 
 // Engine D2/D4 — tier occupant archive response. Failures carry `code`

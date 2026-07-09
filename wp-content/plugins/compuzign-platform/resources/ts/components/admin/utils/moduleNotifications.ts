@@ -3,7 +3,7 @@
 // Used by ModuleStatusPill (marker count) and ModuleNotificationPanel (note list).
 
 import type { ServiceInclusion, ServiceFaq } from '@/api/types/cost-builder';
-import type { OverviewDraftData, SurfacePackageSummary, PricingBoard } from '@/api/types/admin';
+import type { OverviewDraftData, SurfacePackageSummary } from '@/api/types/admin';
 import {
   checkOverviewCompleteness,
   checkOverviewCompletenessFromDraft,
@@ -178,30 +178,6 @@ export const packageModule: ModuleDefinition<SurfacePackageSummary | null> = {
   resolveStatus: (pkg) => resolvePackageStatus(pkg),
 };
 
-// Package Pricing Board (declaration control centre) — package-level,
-// immediate-write, no draft/settle lifecycle of its own. `board.enabled` is
-// its own master switch, not an engine platform_status, so 'disabled' here
-// reflects that switch rather than the service's lifecycle. Not consumed by
-// any UI yet (Phase D adds the summary card) — provisional resolveStatus,
-// refine when the card is built.
-export const pricingBoardModule: ModuleDefinition<PricingBoard | null> = {
-  key:         'pricing-board',
-  emptyPrompt: 'Edit and configure pricing board items.',
-  isEmpty:     (board) => !board || board.items.length === 0,
-  problems: (board) => {
-    if (!board) return [];
-    const incomplete = board.items.filter(i => i.enabled && i.base_price === null).length;
-    return incomplete > 0
-      ? [{ id: 'pricing-board.items.incomplete', message: `${incomplete} item${incomplete !== 1 ? 's are' : ' is'} missing a base price`, type: 'error' }]
-      : [];
-  },
-  resolveStatus: (board, ctx) => {
-    if (!board || board.items.length === 0) return 'pending-dim';
-    if (!board.enabled) return 'disabled';
-    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
-  },
-};
-
 // ── Tier / pricing modules ────────────────────────────────────────────────────
 // Shared completeness for a single tier's pricing (price + billing cycle).
 
@@ -255,20 +231,6 @@ export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
   key:            'tier-faqs',
   requiresParent: true,
   emptyPrompt:    'Edit and add questions.',
-  isEmpty:        ({ count }) => count === 0,
-  problems:       () => [],
-  resolveStatus:  ({ count }, ctx) =>
-    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
-};
-
-// Tier Pricing Usage (first consumer control centre) — gated on Tier Overview
-// like Features/FAQs above. `count` is the number of enabled usage rows;
-// completeness/calculation problems are a Phase F concern, not this module's.
-// Not consumed by any UI yet (Phase E adds the Tier Connections card).
-export const tierPricingModule: ModuleDefinition<{ count: number }> = {
-  key:            'tier-pricing',
-  requiresParent: true,
-  emptyPrompt:    'Edit and configure pricing usage.',
   isEmpty:        ({ count }) => count === 0,
   problems:       () => [],
   resolveStatus:  ({ count }, ctx) =>

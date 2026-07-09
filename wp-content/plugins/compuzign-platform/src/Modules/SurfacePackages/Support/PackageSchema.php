@@ -23,13 +23,7 @@ class PackageSchema
     // Phase 2 tier lifecycle (P2 — store schema): the per-tier-module draft + status
     // layer stored inside each cz_service_package_station tier slot, alongside
     // current_occupant. Additive and inert in P2 — nothing reads these until P3.
-    //
-    // 'pricing' (Tier Pricing Usage — consumer control centre, Pricing Board
-    // Phase A): unlike overview/features/faqs it does NOT settle into
-    // current_occupant — it settles into its own `pricing` slot key
-    // (see settleTierSlot). Adding it here is additive/inert until a route
-    // exists to write a pricing draft (Phase B).
-    public const TIER_MODULES                = ['overview', 'features', 'faqs', 'pricing'];
+    public const TIER_MODULES                = ['overview', 'features', 'faqs'];
     public const ALLOWED_MODULE_STATUSES     = ['not-configured', 'pending', 'settled'];
 
     // Lifecycle engine C1 — promotion instance envelope. Same module trio as tiers;
@@ -83,7 +77,6 @@ class PackageSchema
             'sort_position'      => (int) ($data['sort_position'] ?? 0),
             'display_contexts'   => self::sanitizeContexts($data['display_contexts'] ?? []),
             'bundle'             => self::sanitizeBundle($data['bundle'] ?? []),
-            'pricing_board'      => self::sanitizePricingBoard($data['pricing_board'] ?? []),
             'valid_from'         => self::sanitizeDatetime($data['valid_from'] ?? null),
             'valid_until'        => self::sanitizeDatetime($data['valid_until'] ?? null),
             'migration_complete' => (bool) ($data['migration_complete'] ?? false),
@@ -116,7 +109,6 @@ class PackageSchema
             'sort_position'      => 0,
             'display_contexts'   => ['cost-builder'],
             'bundle'             => ['title' => '', 'description' => '', 'price' => null],
-            'pricing_board'      => ['enabled' => false, 'items' => []],
             'valid_from'         => null,
             'valid_until'        => null,
             'migration_complete' => false,
@@ -325,238 +317,6 @@ class PackageSchema
 
         $ts = strtotime((string) $raw);
         return ($ts !== false) ? gmdate('Y-m-d H:i:s', $ts) : null;
-    }
-
-    /**
-     * Nullable numeric field shared by pricing board items and tier pricing
-     * usage items (base_price, quantities). Empty/absent → null, never 0.
-     */
-    private static function sanitizeNullableFloat(mixed $value): ?float
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        return (float) $value;
-    }
-
-    // ── Package Pricing Board (declaration control centre) ────────────────────
-    // Package-level, immediate-write, no draft/settle — same tier as bundle/
-    // popular_tier/faq_refs. One row per service inclusion; central commercial
-    // source of truth for base price/unit/quantity rules. Tier Pricing Usage
-    // (below) is the first read-only consumer; it never writes here.
-    //
-    // `missing` is never client-writable — it is not trusted from inbound data
-    // (sanitizePricingBoardItem always resets it to false) and is only ever
-    // derived by seedAndReconcilePricingBoard against the live inclusion pool.
-    // Stale rows are flagged, never dropped, per the audited truth table.
-
-    /**
-     * Public entry point (Phase B route handler calls this directly — the live
-     * `cz_service_package_station` pathway manipulates package-level fields via
-     * controller-owned reads/writes, not the registerPostMeta sanitize_callback
-     * pipeline below, which only governs the separate `cz_surface_package` CPT).
-     *
-     * @param  mixed $board
-     * @return array{enabled: bool, items: array<int, array<string, mixed>>}
-     */
-    public static function sanitizePricingBoard(mixed $board): array
-    {
-        if (!is_array($board)) {
-            $board = [];
-        }
-
-        $items = [];
-        if (is_array($board['items'] ?? null)) {
-            foreach ($board['items'] as $item) {
-                $clean = self::sanitizePricingBoardItem($item);
-                if ($clean !== null) {
-                    $items[] = $clean;
-                }
-            }
-        }
-
-        return [
-            'enabled' => (bool) ($board['enabled'] ?? false),
-            'items'   => $items,
-        ];
-    }
-
-    /**
-     * Sanitise a single board row. Returns null (row dropped) only when the
-     * row is structurally invalid (no inclusion_id) — a row with an
-     * inclusion_id that no longer resolves in the pool is NOT invalid here;
-     * that is a reconcile-time `missing` flag, not a sanitize-time rejection.
-     *
-     * @return array{inclusion_id: string, base_price: float|null, unit: string|null, quantity_enabled: bool, default_quantity: float|null, min_quantity: float|null, max_quantity: float|null, enabled: bool, missing: bool}|null
-     */
-    private static function sanitizePricingBoardItem(mixed $item): ?array
-    {
-        if (!is_array($item)) {
-            return null;
-        }
-
-        $inclusionId = sanitize_text_field((string) ($item['inclusion_id'] ?? ''));
-        if ($inclusionId === '') {
-            return null;
-        }
-
-        $unit = null;
-        if (!empty($item['unit'])) {
-            $unit = sanitize_text_field((string) $item['unit']);
-        }
-
-        return [
-            'inclusion_id'     => $inclusionId,
-            'base_price'       => self::sanitizeNullableFloat($item['base_price'] ?? null),
-            'unit'             => $unit,
-            'quantity_enabled' => (bool) ($item['quantity_enabled'] ?? false),
-            'default_quantity' => self::sanitizeNullableFloat($item['default_quantity'] ?? null),
-            'min_quantity'     => self::sanitizeNullableFloat($item['min_quantity'] ?? null),
-            'max_quantity'     => self::sanitizeNullableFloat($item['max_quantity'] ?? null),
-            'enabled'          => isset($item['enabled']) ? (bool) $item['enabled'] : true,
-            'missing'          => false,
-        ];
-    }
-
-    /** Default (unconfigured) board row seeded for a pool inclusion with no existing row. */
-    private static function defaultPricingBoardItem(string $inclusionId): array
-    {
-        return [
-            'inclusion_id'     => $inclusionId,
-            'base_price'       => null,
-            'unit'             => null,
-            'quantity_enabled' => false,
-            'default_quantity' => null,
-            'min_quantity'     => null,
-            'max_quantity'     => null,
-            'enabled'          => true,
-            'missing'          => false,
-        ];
-    }
-
-    /**
-     * Seed board rows for pool inclusions that don't yet have one, and flag
-     * (never remove) rows whose inclusion_id no longer resolves in the pool.
-     * Pure — the caller (a future route/read model, Phase B+) is responsible
-     * for invoking this and, if desired, persisting the seeded result. Mirrors
-     * PoolReferences::refreshInclusionLabels's never-prune-only-flag pattern,
-     * extended with seeding since the board (unlike inclusions_override) is
-     * meant to cover every pool inclusion by default.
-     *
-     * @param  array<int, array{id: string, label: string}> $pool  Service inclusion pool (cz_service_inclusions).
-     * @param  array{enabled: bool, items: array<int, array<string, mixed>>} $board  Already-sanitised pricing_board.
-     * @return array{enabled: bool, items: array<int, array<string, mixed>>}
-     */
-    public static function seedAndReconcilePricingBoard(array $pool, array $board): array
-    {
-        $poolIds = [];
-        foreach ($pool as $inc) {
-            if (is_array($inc) && !empty($inc['id'])) {
-                $poolIds[(string) $inc['id']] = true;
-            }
-        }
-
-        $items = is_array($board['items'] ?? null) ? $board['items'] : [];
-        $seen  = [];
-        $out   = [];
-
-        foreach ($items as $item) {
-            if (!is_array($item) || empty($item['inclusion_id'])) {
-                continue;
-            }
-            $id        = (string) $item['inclusion_id'];
-            $seen[$id] = true;
-            $item['missing'] = !isset($poolIds[$id]);
-            $out[] = $item;
-        }
-
-        foreach ($pool as $inc) {
-            if (!is_array($inc) || empty($inc['id'])) {
-                continue;
-            }
-            $id = (string) $inc['id'];
-            if (isset($seen[$id])) {
-                continue;
-            }
-            $out[] = self::defaultPricingBoardItem($id);
-        }
-
-        $board['items'] = $out;
-        return $board;
-    }
-
-    // ── Tier Pricing Usage (first consumer control centre) ────────────────────
-    // New tier module ('pricing' in TIER_MODULES): draft/settle-gated like
-    // overview/features/faqs, but settles into its OWN `pricing` slot key
-    // (see settleTierSlot), never into current_occupant. References board
-    // items by inclusion_id read-only; never writes the board. Manual tier
-    // price (price/contact/billing_cycle) remains the default fallback —
-    // untouched by this module.
-
-    /**
-     * @return array{pricing_mode: string, usage: array<int, array<string, mixed>>}
-     */
-    private static function defaultTierPricingUsage(): array
-    {
-        return ['pricing_mode' => 'manual', 'usage' => []];
-    }
-
-    /**
-     * Public entry point — Phase B's savePackageStationTierModule branch calls
-     * this directly for module === 'pricing', same as the controller inlines
-     * its own sanitizing for overview/features/faqs draft bodies.
-     *
-     * @return array{pricing_mode: string, usage: array<int, array<string, mixed>>}
-     */
-    public static function sanitizeTierPricingUsageDraft(mixed $draft): array
-    {
-        if (!is_array($draft)) {
-            $draft = [];
-        }
-
-        $mode = sanitize_text_field((string) ($draft['pricing_mode'] ?? 'manual'));
-        if (!in_array($mode, ['manual', 'calculated'], true)) {
-            $mode = 'manual';
-        }
-
-        $usage = [];
-        if (is_array($draft['usage'] ?? null)) {
-            foreach ($draft['usage'] as $item) {
-                $clean = self::sanitizeTierPricingUsageItem($item);
-                if ($clean !== null) {
-                    $usage[] = $clean;
-                }
-            }
-        }
-
-        return ['pricing_mode' => $mode, 'usage' => $usage];
-    }
-
-    /**
-     * Sanitise a single usage row. Returns null (row dropped) only when
-     * structurally invalid (no inclusion_id). Reconciling a usage row against
-     * the board/pool (stale-ref `missing` flagging) is a read-time concern,
-     * not this sanitizer's — see seedAndReconcilePricingBoard for the board-
-     * side equivalent.
-     *
-     * @return array{inclusion_id: string, quantity: float|null, enabled: bool}|null
-     */
-    private static function sanitizeTierPricingUsageItem(mixed $item): ?array
-    {
-        if (!is_array($item)) {
-            return null;
-        }
-
-        $inclusionId = sanitize_text_field((string) ($item['inclusion_id'] ?? ''));
-        if ($inclusionId === '') {
-            return null;
-        }
-
-        return [
-            'inclusion_id' => $inclusionId,
-            'quantity'     => self::sanitizeNullableFloat($item['quantity'] ?? null),
-            'enabled'      => isset($item['enabled']) ? (bool) $item['enabled'] : true,
-        ];
     }
 
     // ── Promotion tier sanitizers ─────────────────────────────────────────────
@@ -1437,35 +1197,17 @@ class PackageSchema
     }
 
     /**
-     * Per-module default module_status when backfilling a slot whose stored
-     * status for that module is missing/invalid. overview/features/faqs derive
-     * from occupant presence (pre-pricing behaviour, unchanged): a configured
-     * occupant is a committed record (settled); an empty slot is not-configured.
-     * pricing derives from its OWN settled usage record instead — an occupant
-     * existing tells us nothing about whether pricing was ever authored, so it
-     * must not inherit the occupant-configured default (that would report every
-     * already-configured tier as having settled pricing the moment this module
-     * is introduced, with no pricing data to back it).
-     */
-    private static function tierModuleDefaultStatus(string $module, array $slot): string
-    {
-        if ($module === 'pricing') {
-            $usage = $slot['pricing']['usage'] ?? null;
-            return (is_array($usage) && $usage !== []) ? 'settled' : 'not-configured';
-        }
-
-        $configured = self::isOccupantFormat($slot) && !empty($slot['current_occupant']);
-        return $configured ? 'settled' : 'not-configured';
-    }
-
-    /**
      * Ensure a tier slot carries a complete, valid lifecycle layer, defaulting any
-     * missing/invalid keys. Idempotent. module_status defaults derive per-module via
-     * tierModuleDefaultStatus. This is the read-time defaulter — first wired into the
-     * read path in P3; it is intentionally not called anywhere in P2.
+     * missing/invalid keys. Idempotent. module_status defaults derive from occupant
+     * presence: a configured occupant is a committed record (settled); an empty slot
+     * is not-configured. This is the read-time defaulter — first wired into the read
+     * path in P3; it is intentionally not called anywhere in P2.
      */
     public static function ensureTierLifecycle(array $slot): array
     {
+        $configured = self::isOccupantFormat($slot) && !empty($slot['current_occupant']);
+        $default    = $configured ? 'settled' : 'not-configured';
+
         $drafts = (isset($slot['drafts']) && is_array($slot['drafts'])) ? $slot['drafts'] : [];
         $status = (isset($slot['module_status']) && is_array($slot['module_status'])) ? $slot['module_status'] : [];
 
@@ -1474,7 +1216,7 @@ class PackageSchema
                 $drafts[$module] = null;
             }
             if (!in_array($status[$module] ?? null, self::ALLOWED_MODULE_STATUSES, true)) {
-                $status[$module] = self::tierModuleDefaultStatus($module, $slot);
+                $status[$module] = $default;
             }
         }
 
@@ -1787,8 +1529,9 @@ class PackageSchema
 
     /**
      * Engine D1 — revert one tier module draft: clear the slot and re-derive the
-     * module's status via tierModuleDefaultStatus (settled occupant for content
-     * modules, settled usage record for pricing). Returns null for an unknown module.
+     * module's status from the settled occupant (settled when an occupant exists,
+     * not-configured otherwise — the same occupant-derived default
+     * ensureTierLifecycle uses). Returns null for an unknown module.
      *
      * @param  array<string, mixed> $slot
      * @return array<string, mixed>|null
@@ -1799,8 +1542,9 @@ class PackageSchema
             return null;
         }
         $slot = self::ensureTierLifecycle($slot);
+        $configured = self::isOccupantFormat($slot) && !empty($slot['current_occupant']);
         $slot['drafts'][$module]        = null;
-        $slot['module_status'][$module] = self::tierModuleDefaultStatus($module, $slot);
+        $slot['module_status'][$module] = $configured ? 'settled' : 'not-configured';
         return $slot;
     }
 
@@ -1822,19 +1566,11 @@ class PackageSchema
 
     /**
      * Settle a tier slot (Phase 2 — P3): commit the draft-preferred state of every
-     * content module (overview/features/faqs) into current_occupant, then clear
-     * drafts and mark all modules settled. Draft wins over the settled occupant
-     * per module; a module with no draft keeps its settled value. `enabled` is
-     * preserved from the existing occupant — settle never toggles a tier's live
-     * state. Settles whatever is present (completeness is a resolver/notes
-     * concern, not a backend gate).
-     *
-     * pricing (Tier Pricing Usage) settles independently into its own `pricing`
-     * slot key, never into current_occupant: a pricing-only draft must NOT mint
-     * an occupant (that would fabricate a blank, enabled Cost-Builder-visible
-     * tier out of what should remain an empty shell — no public pricing change).
-     * A tier with an occupant or a content draft still settles its pricing
-     * alongside it in the same call, same as any other module.
+     * module into current_occupant, then clear drafts and mark all modules settled.
+     * Draft wins over the settled occupant per module; a module with no draft keeps
+     * its settled value. `enabled` is preserved from the existing occupant — settle
+     * never toggles a tier's live state. Settles whatever is present (completeness is
+     * a resolver/notes concern, not a backend gate).
      */
     public static function settleTierSlot(array $slot): array
     {
@@ -1842,42 +1578,30 @@ class PackageSchema
         $occ    = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? null) : null;
         $drafts = $slot['drafts'];
 
-        $hasContentDraft = false;
-        foreach (['overview', 'features', 'faqs'] as $module) {
-            if (($drafts[$module] ?? null) !== null) { $hasContentDraft = true; break; }
+        // Defence-in-depth (carried-forward guard): nothing to settle — no current
+        // occupant and no pending drafts. Do not mint an empty occupant; return the
+        // slot unchanged (a null draft means "no draft"; an empty array is a real one).
+        $hasDraft = false;
+        foreach (self::TIER_MODULES as $module) {
+            if (($drafts[$module] ?? null) !== null) { $hasDraft = true; break; }
         }
-        $hasPricingDraft = ($drafts['pricing'] ?? null) !== null;
-        $existingPricing = $slot['pricing'] ?? self::defaultTierPricingUsage();
-
-        // Defence-in-depth (carried-forward guard): nothing to settle at all — no
-        // current occupant and no pending drafts of any kind. Do not mint an empty
-        // occupant; return the slot unchanged (a null draft means "no draft"; an
-        // empty array is a real one).
-        if ($occ === null && !$hasContentDraft && !$hasPricingDraft) {
+        if ($occ === null && !$hasDraft) {
             return $slot;
         }
 
-        if ($occ !== null || $hasContentDraft) {
-            $ov = is_array($drafts['overview'] ?? null) ? $drafts['overview'] : [];
+        $ov = is_array($drafts['overview'] ?? null) ? $drafts['overview'] : [];
 
-            $tierData = [
-                'label'               => $ov['label']         ?? ($occ['label']         ?? ''),
-                'price'               => array_key_exists('price', $ov) ? $ov['price'] : ($occ['price'] ?? null),
-                'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
-                'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
-                'inclusions_override' => is_array($drafts['features'] ?? null) ? $drafts['features'] : ($occ['inclusions_override'] ?? []),
-                'features'            => $occ['features'] ?? [],
-                'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
-            ];
-            $enabled = ($occ['platform_status'] ?? 'active') === 'active';
+        $tierData = [
+            'label'               => $ov['label']         ?? ($occ['label']         ?? ''),
+            'price'               => array_key_exists('price', $ov) ? $ov['price'] : ($occ['price'] ?? null),
+            'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
+            'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
+            'inclusions_override' => is_array($drafts['features'] ?? null) ? $drafts['features'] : ($occ['inclusions_override'] ?? []),
+            'features'            => $occ['features'] ?? [],
+            'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
+        ];
+        $enabled = ($occ['platform_status'] ?? 'active') === 'active';
 
-            $slot = self::upsertOccupant($slot, $tierData, $enabled);
-        }
-
-        $slot['pricing'] = $hasPricingDraft
-            ? self::sanitizeTierPricingUsageDraft($drafts['pricing'])
-            : $existingPricing;
-
-        return self::commitTierLifecycle($slot);
+        return self::commitTierLifecycle(self::upsertOccupant($slot, $tierData, $enabled));
     }
 }
