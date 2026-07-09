@@ -7,7 +7,7 @@
 // state arrives at render time through ShellBinding, assembled by
 // ServiceTierStep from usePackageStation's evaluateModule results.
 
-import type { InclusionItem, TierPricingUsage, TierPricingUsageItem, PricingBoardItem } from '@/api/types/admin';
+import type { InclusionItem, TierPricingUsage, TierPricingUsageItem, PricingBoardItem, TierPricingPreview } from '@/api/types/admin';
 import {
   tierOverviewModule,
   tierFeaturesModule,
@@ -185,6 +185,26 @@ export interface TierPricingShellData {
   pricingMode: TierPricingUsage['pricing_mode'];
   usage:       TierPricingUsageItem[];
   boardItems:  PricingBoardItem[];
+  // Phase F — backend-derived preview (PricingPreview::derive via
+  // getPackageStation). Display-only: this binding never recomputes it, only
+  // formats the returned total/status into a label. Undefined until the
+  // station has loaded once (pre-Phase-F fallback shapes also omit it).
+  preview?:    TierPricingPreview;
+}
+
+// Phase F — maps the backend's derived status/total to a display string.
+// Formatting only: the truth table itself (what counts as ready/incomplete/
+// board_disabled/no_items, what the total is) is decided entirely server-side
+// by PricingPreview::derive; this function never inspects usage/board rows.
+function formatPricingPreview(preview: TierPricingPreview | undefined): string {
+  if (!preview) return '—';
+  if (preview.status === 'board_disabled') return 'Pricing Board is disabled';
+  if (preview.status === 'no_items') return 'No items configured';
+  if (preview.total === null) {
+    return `Incomplete (${preview.incomplete_count} issue${preview.incomplete_count === 1 ? '' : 's'})`;
+  }
+  const suffix = preview.complete ? '' : ` (${preview.incomplete_count} incomplete)`;
+  return `$${preview.total.toFixed(2)}${suffix}`;
 }
 
 export const tierPricingShell: ShellSchema<TierPricingShellData> = {
@@ -205,6 +225,10 @@ export const tierPricingShell: ShellSchema<TierPricingShellData> = {
     {
       id: 'enabled-count', element: 'text', label: 'Items enabled',
       bind: (d): TextValue => ({ value: `${d.usage.filter((u) => u.enabled).length} of ${d.boardItems.length}` }),
+    },
+    {
+      id: 'preview', element: 'text', label: 'Calculated Preview (admin only)',
+      bind: (d): TextValue => ({ value: formatPricingPreview(d.preview) }),
     },
   ],
   footer:  DETAILS_FOOTER,

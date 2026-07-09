@@ -922,6 +922,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       pricingMode: detail.pricing?.pricing_mode ?? 'manual',
       usage:       detail.pricing?.usage ?? [],
       boardItems:  pkg.pricingBoard.items,
+      preview:     detail.pricing_preview,
     },
     state:    view.modules.pricing,
     hasDraft: view.drafts.pricing !== null,

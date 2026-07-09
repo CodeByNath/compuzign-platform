@@ -418,6 +418,23 @@ export interface TierPricingUsage {
   usage: TierPricingUsageItem[];
 }
 
+// Phase F — backend-owned, admin-only calculation preview (PackageSchema's
+// sibling PricingPreview::derive, exposed via getPackageStation only). Frontend
+// renders this verbatim; it never recomputes total/status/issues itself.
+export interface TierPricingPreviewIssue {
+  inclusion_id: string;
+  reason: string;
+}
+
+export interface TierPricingPreview {
+  total: number | null;
+  complete: boolean;
+  incomplete_count: number;
+  issues: TierPricingPreviewIssue[];
+  status: 'ready' | 'incomplete' | 'board_disabled' | 'no_items';
+  pricing_mode: TierPricingMode;
+}
+
 export interface SurfaceTierDetail {
   label: string;
   price: number | null;
@@ -437,6 +454,11 @@ export interface SurfaceTierDetail {
   // record. Optional for the same reason as drafts/module_status above (pre-Phase-C
   // responses and locally-constructed fallbacks omit it).
   pricing?: TierPricingUsage;
+  // Phase F additive read exposure: the derived calculation preview for `pricing`
+  // above. Optional for the same reason; also goes stale after a save/settle/revert
+  // action until the next full station load (those responses don't carry it — Phase F
+  // scoped the derive helper to the read model only).
+  pricing_preview?: TierPricingPreview;
 }
 
 // Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response

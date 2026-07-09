@@ -1197,6 +1197,19 @@ class AdminServicesController
         $rawFaqs    = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
 
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $PP = \CompuZign\Platform\Modules\SurfacePackages\Support\PricingPreview::class;
+
+        // Pricing Board Phase C read-model gap: expose pricing_board, reconciled
+        // against the live pool at read time (same never-persist-on-read pattern as
+        // the inclusions_override label refresh below — a save round-trip is what
+        // persists the reconciled shape; GET just reflects current pool state).
+        // Computed BEFORE the tier loop (Phase F) so each tier's preview can be
+        // derived against the same reconciled board.
+        $pricingBoard = $PS::seedAndReconcilePricingBoard(
+            $incPool,
+            $PS::sanitizePricingBoard($station['pricing_board'] ?? [])
+        );
+
         $tiers = [];
         foreach ($PS::ALLOWED_TIERS as $tierId) {
             // P3 additive read exposure: settled detail (unchanged 8 fields) plus the
@@ -1223,20 +1236,17 @@ class AdminServicesController
             // slot key, sibling to current_occupant, was not). No pool reconciliation
             // against usage items here yet (future phase); this is exposure only.
             $detail['pricing'] = $slot['pricing'] ?? ['pricing_mode' => 'manual', 'usage' => []];
+            // Phase F — admin-only calculation preview, derived at read time (no
+            // cache), against the settled pricing record only (not the draft — the
+            // hook derives its own draft-preferred view client-side, same pattern
+            // as everything else on this endpoint; a live preview of an unsaved
+            // draft is a future UI concern, not this phase's).
+            $detail['pricing_preview'] = $PP::derive($pricingBoard, $detail['pricing']);
             $tiers[$tierId] = $detail;
         }
 
         // D2 additive read exposure: the occupant bin (lazy-normalised; [] pre-D2).
         $station = $PS::ensureOccupantBin($station);
-
-        // Pricing Board Phase C read-model gap: expose pricing_board, reconciled
-        // against the live pool at read time (same never-persist-on-read pattern as
-        // the inclusions_override label refresh above — a save round-trip is what
-        // persists the reconciled shape; GET just reflects current pool state).
-        $pricingBoard = $PS::seedAndReconcilePricingBoard(
-            $incPool,
-            $PS::sanitizePricingBoard($station['pricing_board'] ?? [])
-        );
 
         return rest_ensure_response([
             'success'    => true,
