@@ -13,7 +13,7 @@ import { DrawerTabs } from '../DrawerTabs';
 import { EntityDrawer } from '../EntityDrawer';
 import { TIER_ENTITY } from '@/components/admin/schema/entities/tier';
 import { getTierNotes, evaluateModule, pricingBoardModule } from '@/components/admin/utils/moduleNotifications';
-import { PricingBoardEditor } from '../editors/PricingBoardEditor';
+import { PricingBoardEditor, inclusionLabel } from '../editors/PricingBoardEditor';
 import { seedTierPricingUsage } from '../editors/TierPricingEditor';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
@@ -137,7 +137,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Package-level, immediate-write — a local working copy edited then committed
   // in one savePricingBoard call (Cancel discards it), same shape as every other
   // immediate-write package field. Not a draft/settle module: no drafts/module_status.
+  // View → read-only surface first, Edit → PricingBoardEditor — the same
+  // card/view pattern as every other control centre (never opens straight
+  // into the editable form).
   const [pricingBoardOpen, setPricingBoardOpen] = useState(false);
+  const [boardEditing, setBoardEditing] = useState(false);
   const [boardDraft, setBoardDraft] = useState<PricingBoardItem[] | null>(null);
   const [boardEnabledDraft, setBoardEnabledDraft] = useState(false);
   const [boardSaveErr, setBoardSaveErr] = useState<string | null>(null);
@@ -170,21 +174,42 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setSplitOpen(false);
     setConfirmModal(null);
     setPricingBoardOpen(false);
+    setBoardEditing(false);
   };
 
-  // Local working copy seeded from the hook's current pricing_board (already
-  // seeded/reconciled against the live pool server-side, per getPackageStation).
+  // Opens the read-only Pricing Board surface (View). Reads live from
+  // pkg.pricingBoard — no draft yet, nothing to discard until Edit is chosen.
   const openPricingBoard = () => {
     setEditingTierId(null);
     setEditingSection(null);
-    setBoardDraft(pkg.pricingBoard.items.map((item) => ({ ...item })));
-    setBoardEnabledDraft(pkg.pricingBoard.enabled);
+    setBoardEditing(false);
+    setBoardDraft(null);
     setBoardSaveErr(null);
     setPricingBoardOpen(true);
   };
 
   const closePricingBoard = () => {
     setPricingBoardOpen(false);
+    setBoardEditing(false);
+    setBoardDraft(null);
+    setBoardSaveErr(null);
+  };
+
+  // Edit → seeds the local working copy from the hook's current pricing_board
+  // (already seeded/reconciled against the live pool server-side, per
+  // getPackageStation) and swaps in the editor. Stays within the same
+  // Pricing Board surface — does not close it.
+  const openBoardEdit = () => {
+    setBoardDraft(pkg.pricingBoard.items.map((item) => ({ ...item })));
+    setBoardEnabledDraft(pkg.pricingBoard.enabled);
+    setBoardSaveErr(null);
+    setBoardEditing(true);
+  };
+
+  // Cancel discards the local working copy and returns to the read-only
+  // surface (does not close the Pricing Board view).
+  const cancelBoardEdit = () => {
+    setBoardEditing(false);
     setBoardDraft(null);
     setBoardSaveErr(null);
   };
@@ -193,7 +218,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     if (!boardDraft) return;
     const ok = await pkg.savePricingBoard({ enabled: boardEnabledDraft, items: boardDraft });
     if (ok) {
-      closePricingBoard();
+      // Return to the read-only surface — Save does not close the Pricing
+      // Board view, it just leaves edit mode.
+      cancelBoardEdit();
     } else {
       setBoardSaveErr('Failed to save the pricing board. Please try again.');
     }
@@ -494,18 +521,18 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // ── Package Pricing Board view (Phase D) ──────────────────────────────────
-  // A local working copy (boardDraft/boardEnabledDraft), not a draft/settle
-  // module — Save commits the whole board in one savePricingBoard call; Cancel
-  // discards the local copy. Own inline Save/Cancel (not the shell footer,
-  // which stays wired to editingTierId/editingSection only).
-  if (pricingBoardOpen && boardDraft) {
+  // ── Package Pricing Board view (Phase D; read/edit split — presentation fix) ─
+  // Card/view pattern: View always opens the read-only surface first; Edit
+  // swaps in PricingBoardEditor with its own inline Save/Cancel (not the shell
+  // footer, which stays wired to editingTierId/editingSection only). Cancel
+  // and Save both return to the read-only surface — neither closes the view.
+  if (pricingBoardOpen && boardEditing && boardDraft) {
     return (
       <div class="cz-req-detail">
         <div class="cz-shell-section cz-shell-section--no-border">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--cz-space-3)">
             <p class="cz-shell-section__title">Pricing Board</p>
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={closePricingBoard}>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={cancelBoardEdit}>
               ← Back
             </button>
           </div>
@@ -530,11 +557,82 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
           <div class="cz-tf-footer" style="margin-top: var(--cz-space-4)">
             <div class="cz-tf-footer__spacer" />
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={closePricingBoard} disabled={pkg.saving}>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={cancelBoardEdit} disabled={pkg.saving}>
               Cancel
             </button>
             <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSaveBoard} disabled={pkg.saving}>
               {pkg.saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Read-only Pricing Board surface — reads live from pkg.pricingBoard (always
+  // current, including right after a save). Edit is the only way into the
+  // editable form; View never lands here directly in edit mode.
+  if (pricingBoardOpen && !boardEditing) {
+    const board = pkg.pricingBoard;
+    return (
+      <div class="cz-req-detail">
+        <div class="cz-shell-section cz-shell-section--no-border">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--cz-space-3)">
+            <p class="cz-shell-section__title">Pricing Board</p>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={closePricingBoard}>
+              ← Back
+            </button>
+          </div>
+
+          <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3); margin-bottom: var(--cz-space-4)">
+            <label class="cz-tf-label" style="margin: 0">
+              Pricing board is {board.enabled ? 'enabled' : 'disabled'}
+            </label>
+          </div>
+
+          {board.items.length === 0 ? (
+            <p class="cz-tf-hint" style="margin-bottom:var(--cz-space-3)">
+              This service has no inclusions in its pool yet — add features on the Service drawer first.
+            </p>
+          ) : (
+            <div class="cz-tf-form">
+              {board.items.map((item) => (
+                <div key={item.inclusion_id} class="cz-ie-faq-item">
+                  <div class="cz-ie-faq-item__header">
+                    <span class="cz-tf-label">{inclusionLabel(svc.inclusions, item.inclusion_id)}</span>
+                    {item.missing && <span class="cz-tf-hint">Missing from pool</span>}
+                  </div>
+                  <div class="drawerModule__fields">
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Enabled</p>
+                      <p class="drawerModule__value">{item.enabled ? 'Yes' : 'No'}</p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Base Price</p>
+                      <p class="drawerModule__value">{item.base_price != null ? `$${item.base_price}` : '—'}</p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Unit</p>
+                      <p class="drawerModule__value">{item.unit || '—'}</p>
+                    </div>
+                    {item.quantity_enabled && (
+                      <div class="drawerModule__field">
+                        <p class="drawerModule__label">Quantity</p>
+                        <p class="drawerModule__value">
+                          default {item.default_quantity ?? '—'} · min {item.min_quantity ?? '—'} · max {item.max_quantity ?? '—'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div class="cz-tf-footer" style="margin-top: var(--cz-space-4)">
+            <div class="cz-tf-footer__spacer" />
+            <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={openBoardEdit}>
+              Edit
             </button>
           </div>
         </div>
