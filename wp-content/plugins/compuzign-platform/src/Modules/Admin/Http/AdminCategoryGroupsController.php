@@ -203,12 +203,17 @@ class AdminCategoryGroupsController
             update_term_meta($termId, CategoryMeta::DESCRIPTION_META, $description);
         }
 
+        // module_status.overview is always 'pending' on creation, regardless of
+        // completeness — matching AdminServicesController::createService and the
+        // (now-fixed) AdminCategoriesController::createCategory exactly. See the
+        // matching comment there for why: settling immediately skips the
+        // 'pending' transition that categoryGroupOverviewModule.resolveStatus
+        // maps to 'pending-full' — the state canPublish requires — leaving a
+        // freshly-created group with only Enable, never Publish.
         CategoryMeta::write($termId, [
             'platform_status' => StationLifecycle::STATUS_DISABLED,
             'module_status'   => [
-                'overview' => CategoryMeta::isOverviewComplete($name, $description)
-                    ? StationLifecycle::MODULE_SETTLED
-                    : StationLifecycle::MODULE_PENDING,
+                'overview' => StationLifecycle::MODULE_PENDING,
             ],
             'station_role' => CategoryMeta::STATION_ROLE_GROUP,
         ]);
