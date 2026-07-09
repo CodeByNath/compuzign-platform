@@ -42,6 +42,21 @@ final class CategoryMeta
     public const DESCRIPTION_META  = 'cz_category_description';
     public const SERVICE_POST_TYPE = 'cz_service';
 
+    /**
+     * station_role distinguishes the two stations sharing this taxonomy
+     * (Category Group audit, Option B): a 'group' term is a grouping/bundling
+     * parent, never assignable to a service; a 'category' term is the existing
+     * flat, service-assignable station. Missing/unrecognised → 'category' (D2-style
+     * lazy default — existing categories keep today's behaviour with zero migration).
+     */
+    public const STATION_ROLE_GROUP    = 'group';
+    public const STATION_ROLE_CATEGORY = 'category';
+
+    public const ALLOWED_STATION_ROLES = [
+        self::STATION_ROLE_GROUP,
+        self::STATION_ROLE_CATEGORY,
+    ];
+
     /** Storable lifecycle statuses — canonical participation, no 'draft' (same as Service). */
     public const ALLOWED_PLATFORM_STATUSES = [
         StationLifecycle::STATUS_ACTIVE,
@@ -68,6 +83,7 @@ final class CategoryMeta
             'module_status'            => [
                 'overview' => StationLifecycle::MODULE_SETTLED,
             ],
+            'station_role'             => self::STATION_ROLE_CATEGORY,
         ];
     }
 
@@ -113,10 +129,16 @@ final class CategoryMeta
                           : $defaults['module_status']['overview'],
         ];
 
+        $rawRole  = sanitize_text_field((string) ($meta['station_role'] ?? ''));
+        $role     = in_array($rawRole, self::ALLOWED_STATION_ROLES, true)
+                    ? $rawRole
+                    : $defaults['station_role'];
+
         $clean = [
             'platform_status'          => $platformStatus,
             'previous_platform_status' => $previousPlatformStatus,
             'module_status'            => $moduleStatus,
+            'station_role'             => $role,
         ];
 
         if (is_array($meta['overview_draft'] ?? null) && $meta['overview_draft'] !== []) {
@@ -134,6 +156,12 @@ final class CategoryMeta
     public static function status(int $termId): string
     {
         return self::read($termId)['platform_status'];
+    }
+
+    /** Station role — 'group' | 'category'. Missing/unrecognised → 'category' (lazy default). */
+    public static function role(int $termId): string
+    {
+        return self::read($termId)['station_role'];
     }
 
     /** Restore context for the engine — null when none captured. */
@@ -239,6 +267,13 @@ final class CategoryMeta
             'previous_platform_status' => $meta['previous_platform_status'],
             'module_status'            => $meta['module_status'],
             'has_draft'                => $draft !== null,
+            'station_role'             => $meta['station_role'],
+            // Category-role projection only: the parent group term id, or null when
+            // ungrouped (WP's own parent=0 convention). Meaningless on a group term
+            // (groups are always parent 0 — no nested groups) so it is not derived there.
+            'group_id'                 => $meta['station_role'] === self::STATION_ROLE_CATEGORY
+                ? ((int) $term->parent > 0 ? (int) $term->parent : null)
+                : null,
         ];
     }
 
@@ -271,5 +306,24 @@ final class CategoryMeta
         ]);
 
         return count($ids);
+    }
+
+    /**
+     * Count of child category terms under a group term (any status) — the
+     * group-side delete guard, term-hierarchy equivalent of
+     * assignedServiceCount(). A non-zero count blocks permanent delete of a
+     * group: detachment (moving each child back to parent 0 or another group)
+     * must be an explicit prior step, same rationale as D6.
+     */
+    public static function assignedCategoryCount(int $groupTermId): int
+    {
+        $children = get_terms([
+            'taxonomy'   => self::TAXONOMY,
+            'parent'     => $groupTermId,
+            'hide_empty' => false,
+            'fields'     => 'ids',
+        ]);
+
+        return is_array($children) ? count($children) : 0;
     }
 }
