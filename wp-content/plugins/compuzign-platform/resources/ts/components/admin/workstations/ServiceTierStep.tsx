@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
-import type { InclusionItem, PricingBoardItem } from '@/api/types/admin';
+import type { InclusionItem, PricingBoardItem, TierPricingUsage } from '@/api/types/admin';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { TRAVEL_PILL } from '@/components/admin/schema/presentation';
@@ -14,6 +14,7 @@ import { EntityDrawer } from '../EntityDrawer';
 import { TIER_ENTITY } from '@/components/admin/schema/entities/tier';
 import { getTierNotes, evaluateModule, pricingBoardModule } from '@/components/admin/utils/moduleNotifications';
 import { PricingBoardEditor } from '../editors/PricingBoardEditor';
+import { seedTierPricingUsage } from '../editors/TierPricingEditor';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
 import { ChildShell } from '@/components/admin/schema/shells/childShell';
@@ -22,11 +23,13 @@ import {
   tierOverviewShell,
   tierFeaturesShell,
   tierFaqsShell,
+  tierPricingShell,
 } from '@/components/admin/schema/shells/bindings/tier';
 import type {
   TierOverviewShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
+  TierPricingShellData,
 } from '@/components/admin/schema/shells/bindings/tier';
 import type { ShellBinding } from '@/components/admin/schema/types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
@@ -87,15 +90,19 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const svc     = pkg.service;
 
   const [editingTierId, setEditingTierId] = useState<string | null>(null);
-  // Single Individual Tier drawer: editingSection === null → tier view (3 module cards);
+  // Single Individual Tier drawer: editingSection === null → tier view (4 module cards);
   // a named value → that section's InlineEditorShell over a transient per-module draft.
-  const [editingSection, setEditingSection] = useState<'tier-overview' | 'tier-inclusions' | 'tier-faqs' | null>(null);
+  const [editingSection, setEditingSection] = useState<'tier-overview' | 'tier-inclusions' | 'tier-faqs' | 'tier-pricing' | null>(null);
   // Per-module transient drafts (§2): seeded from the hook's draft-preferred view on open,
   // saved independently via saveTierX. Only one is active at a time (the open section).
   // The inline "+ Create new" pool affordance lives inside the pool editors (S3a).
   const [overviewDraft, setOverviewDraft] = useState<TierOverviewEditDraft | null>(null);
   const [featuresDraft, setFeaturesDraft] = useState<InclusionItem[] | null>(null);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
+  // Tier Pricing Usage (Phase E) — same per-module transient-draft pattern as
+  // above, but seeded 1:1 with the current Pricing Board (seedTierPricingUsage)
+  // since there is no backend seed for usage yet.
+  const [pricingUsageDraft, setPricingUsageDraft] = useState<TierPricingUsage | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk,  setSaveOk]  = useState(false);
   // Individual Tier drawer tab state is owned by EntityDrawer (S4) — keyed by
@@ -156,6 +163,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setOverviewDraft(null);
     setFeaturesDraft(null);
     setFaqsDraft(null);
+    setPricingUsageDraft(null);
     setSaveErr(null);
     setSaveOk(false);
     setOpenTierPanel(null);
@@ -193,7 +201,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
   // Section edit lifecycle — seed the section's transient draft from the hook's
   // draft-preferred view; Save persists it via the hook, Cancel discards it.
-  const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => {
+  const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs' | 'tier-pricing') => {
     if (!editingTierId) return;
     const view = pkg.tierView(editingTierId);
     if (!view) return;
@@ -209,6 +217,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft([...d.inclusions_override]);
+    } else if (section === 'tier-pricing') {
+      setPricingUsageDraft({
+        pricing_mode: d.pricing?.pricing_mode ?? 'manual',
+        usage:        seedTierPricingUsage(pkg.pricingBoard.items, d.pricing?.usage ?? []),
+      });
     } else {
       setFaqsDraft([...d.faq_refs]);
     }
@@ -245,6 +258,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       } else if (editingSection === 'tier-faqs' && faqsDraft) {
         const r = await pkg.saveTierFaqs(editingTierId, faqsDraft);
         ok = !!r?.success;
+      } else if (editingSection === 'tier-pricing' && pricingUsageDraft) {
+        const r = await pkg.saveTierPricing(editingTierId, pricingUsageDraft);
+        ok = !!r?.success;
       }
       if (!ok) { setSaveErr('Save failed.'); return; }
       setSaveOk(true);
@@ -252,6 +268,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       setOverviewDraft(null);
       setFeaturesDraft(null);
       setFaqsDraft(null);
+      setPricingUsageDraft(null);
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
     }
@@ -261,6 +278,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setOverviewDraft(null);
     setFeaturesDraft(null);
     setFaqsDraft(null);
+    setPricingUsageDraft(null);
     setSaveErr(null);
     setSaveOk(false);
   };
@@ -292,8 +310,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     const ok = await pkg.toggleTierEnabled(editingTierId, !view.detail.enabled);
     if (ok) setSaveOk(true); else setSaveErr('Update failed.');
   };
-  // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
-  const handleRevertModule = async (module: 'overview' | 'features' | 'faqs') => {
+  // Discard one module's pending draft (engine D1) — status re-derives from the occupant
+  // (or, for pricing, from its own settled usage record — see tierModuleDefaultStatus).
+  const handleRevertModule = async (module: 'overview' | 'features' | 'faqs' | 'pricing') => {
     if (!editingTierId) return;
     setSaveErr(null);
     const res = await pkg.revertTierModule(editingTierId, module);
@@ -898,6 +917,21 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     busy: tierBusy,
   };
 
+  const tierPricingBinding: ShellBinding<TierPricingShellData> = {
+    data: {
+      pricingMode: detail.pricing?.pricing_mode ?? 'manual',
+      usage:       detail.pricing?.usage ?? [],
+      boardItems:  pkg.pricingBoard.items,
+    },
+    state:    view.modules.pricing,
+    hasDraft: view.drafts.pricing !== null,
+    handlers: {
+      edit:            () => openSection('tier-pricing'),
+      'discard-draft': () => handleRevertModule('pricing'),
+    },
+    busy: tierBusy,
+  };
+
   // Edit mode — the section's shell in the `edit` viewpoint (InlineEditorShell +
   // the binding's module editor). Save persists via the hook (saveTierX /
   // setPopularTier); Cancel discards the transient draft.
@@ -964,6 +998,27 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
+  if (editingSection === 'tier-pricing' && pricingUsageDraft) {
+    return (
+      <ModeProvider mode="edit">
+        <OverviewShell
+          schema={tierPricingShell}
+          binding={tierPricingBinding}
+          editSession={{
+            draft:    pricingUsageDraft,
+            replace:  (next) => setPricingUsageDraft(next as TierPricingUsage),
+            onSave:   saveSection,
+            onCancel: cancelSection,
+            saving:   pkg.saving,
+            saveErr,
+            isDirty:  false,
+            extras:   { boardItems: pkg.pricingBoard.items, pool: incPool },
+          }}
+        />
+      </ModeProvider>
+    );
+  }
+
   // View mode — the Individual Tier drawer body, assembled from the tier
   // manifest's drawer placements (Schema architecture S4): Details = the
   // tier's own modules; Connections = the parent service. Back-to-overview is
@@ -977,6 +1032,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         overview: tierOverviewBinding,
         features: tierFeaturesBinding,
         faqs:     tierFaqsBinding,
+        pricing:  tierPricingBinding,
         service:  serviceConnectionBinding(serviceItem, svc, serviceBack),
       }}
       openPanel={openTierPanel}
@@ -1011,6 +1067,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
                 <li><strong>Tier Overview:</strong> {view.drafts.overview ? 'Pending changes' : (detail.price !== null || detail.contact) && detail.billing_cycle ? 'Ready' : 'Not configured'}</li>
                 <li><strong>Included Features:</strong> {view.drafts.features ? 'Pending changes' : `${detail.inclusions_override.length} added`}</li>
                 <li><strong>Common Questions:</strong> {view.drafts.faqs ? 'Pending changes' : `${detail.faq_refs.length} added`}</li>
+                <li><strong>Pricing Usage:</strong> {view.drafts.pricing ? 'Pending changes' : `${(detail.pricing?.usage ?? []).filter((u) => u.enabled).length} enabled`}</li>
               </ul>
             </div>
             <div class="cz-publish-confirm__footer">

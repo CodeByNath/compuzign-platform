@@ -7,17 +7,19 @@
 // state arrives at render time through ShellBinding, assembled by
 // ServiceTierStep from usePackageStation's evaluateModule results.
 
-import type { InclusionItem } from '@/api/types/admin';
+import type { InclusionItem, TierPricingUsage, TierPricingUsageItem, PricingBoardItem } from '@/api/types/admin';
 import {
   tierOverviewModule,
   tierFeaturesModule,
   tierFaqsModule,
+  tierPricingModule,
 } from '@/components/admin/utils/moduleNotifications';
 import { TierOverviewEditor } from '../../../editors/TierOverviewEditor';
 import type { TierOverviewEditDraft } from '../../../editors/TierOverviewEditor';
 import { PoolInclusionsEditor } from '../../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../../editors/PoolFaqsEditor';
+import { TierPricingEditor } from '../../../editors/TierPricingEditor';
 import type { ShellActionSchema, ShellSchema } from '../../types';
 import type { ItemCollectionValue, QaCollectionValue, TextValue } from '../../elements/library';
 
@@ -167,6 +169,53 @@ export const tierFaqsShell: ShellSchema<TierFaqsShellData> = {
         onChange={(next) => s.replace(next)}
         pool={(s.extras?.pool ?? []) as FaqPoolItem[]}
         onCreate={s.extras?.onCreate as (question: string, answer: string) => Promise<FaqPoolItem | null>}
+      />
+    ),
+  },
+};
+
+// ── Tier Pricing Usage (first consumer control centre) ────────────────────────
+// Unlike Features/FAQs above, this does not settle into current_occupant (see
+// PackageSchema::settleTierSlot) — it settles into its own `pricing` slot key.
+// Board items arrive read-only via boardItems (never written by this module);
+// the tier owns only enabled/quantity per row plus the pricing_mode toggle.
+// Manual tier price (Tier Overview) remains the default fallback throughout.
+
+export interface TierPricingShellData {
+  pricingMode: TierPricingUsage['pricing_mode'];
+  usage:       TierPricingUsageItem[];
+  boardItems:  PricingBoardItem[];
+}
+
+export const tierPricingShell: ShellSchema<TierPricingShellData> = {
+  archetype: 'overview',
+  dna:       tierPricingModule,
+  header: {
+    title:       'Pricing Usage',
+    subtitle:    'Reference Package Pricing Board items for this tier.',
+    icon:        'package',
+    iconVariant: 'drawerModule__icon--overview',
+    scopeClass:  'drawerOverview tier',
+  },
+  content: [
+    {
+      id: 'mode', element: 'text', label: 'Pricing Mode',
+      bind: (d): TextValue => ({ value: d.pricingMode === 'calculated' ? 'Calculated' : 'Manual' }),
+    },
+    {
+      id: 'enabled-count', element: 'text', label: 'Items enabled',
+      bind: (d): TextValue => ({ value: `${d.usage.filter((u) => u.enabled).length} of ${d.boardItems.length}` }),
+    },
+  ],
+  footer:  DETAILS_FOOTER,
+  actions: DETAILS_ACTIONS,
+  editor: {
+    render: (s) => (
+      <TierPricingEditor
+        draft={s.draft as TierPricingUsage}
+        onChange={(next) => s.replace(next)}
+        boardItems={(s.extras?.boardItems ?? []) as PricingBoardItem[]}
+        pool={(s.extras?.pool ?? []) as InclusionItem[]}
       />
     ),
   },

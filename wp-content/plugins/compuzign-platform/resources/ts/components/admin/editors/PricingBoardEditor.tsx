@@ -17,7 +17,9 @@ interface Props {
   onChange: (next: PricingBoardDraft) => void;
 }
 
-function inclusionLabel(pool: InclusionItem[], inclusionId: string): string {
+// Exported for TierPricingEditor (Phase E) — same pool → label resolution,
+// board items and usage rows both key off inclusion_id.
+export function inclusionLabel(pool: InclusionItem[], inclusionId: string): string {
   return pool.find((i) => i.id === inclusionId)?.label || inclusionId;
 }
 
