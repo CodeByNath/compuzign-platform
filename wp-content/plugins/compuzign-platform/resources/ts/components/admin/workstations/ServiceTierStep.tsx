@@ -771,38 +771,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           );
         })}
 
-        {(() => {
-          const board       = pkg.pricingBoard;
-          const boardState  = evaluateModule(pricingBoardModule, board, { platformStatus: pkgStatus });
-          const pricedCount = board.items.filter((i) => i.base_price !== null).length;
-          return (
-            <ReadBlock
-              title="Pricing Board"
-              subtitle="Base price and quantity rules for this service's inclusions."
-              icon={MODULE_ICONS.package}
-              scopeClass="drawerOverview tier"
-              status={boardState.status}
-              notes={boardState.notes}
-              panelOpen={openSummaryTier === 'pricing-board'}
-              onTogglePanel={() => setOpenSummaryTier((p) => p === 'pricing-board' ? null : 'pricing-board')}
-              actions={[{ id: 'view', label: 'View', onSelect: openPricingBoard }]}
-            >
-              <div class="drawerModule__fields">
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Board</p>
-                  <p class="drawerModule__value">
-                    {board.enabled ? 'Enabled' : 'Disabled'} · {board.items.length} {board.items.length === 1 ? 'item' : 'items'}
-                  </p>
-                </div>
-                <div class="drawerModule__field">
-                  <p class="drawerModule__label">Priced</p>
-                  <p class="drawerModule__value">{pricedCount} of {board.items.length} priced</p>
-                </div>
-              </div>
-            </ReadBlock>
-          );
-        })()}
-
         <div class="cz-shell-section cz-shell-section--no-border">
           <p class="cz-shell-section__title">Pricing Summary</p>
           <div class="cz-sp-tier-table-wrap">
@@ -855,6 +823,45 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               schema={serviceOverviewShell}
               binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
             />
+            {/* Pricing Board (declaration control centre) — package-owned, but
+                presented here rather than Details: it is not a tier module or
+                descriptive content, it is an operational control centre this
+                package is connected to, same role as the Service context card
+                above. The Details|Connections tab contract is platform-wide and
+                locked (AdminWorkstationDrawerPrinciples-v1 §Drawer Tab Contract) —
+                no third tab is available, so Connections is the correct-by-role
+                placement, not a workaround. */}
+            {(() => {
+              const board       = pkg.pricingBoard;
+              const boardState  = evaluateModule(pricingBoardModule, board, { platformStatus: pkgStatus });
+              const pricedCount = board.items.filter((i) => i.base_price !== null).length;
+              return (
+                <ReadBlock
+                  title="Pricing Board"
+                  subtitle="Base price and quantity rules for this service's inclusions."
+                  icon={MODULE_ICONS.package}
+                  scopeClass="drawerOverview tier"
+                  status={boardState.status}
+                  notes={boardState.notes}
+                  panelOpen={openSummaryTier === 'pricing-board'}
+                  onTogglePanel={() => setOpenSummaryTier((p) => p === 'pricing-board' ? null : 'pricing-board')}
+                  actions={[{ id: 'view', label: 'View', onSelect: openPricingBoard }]}
+                >
+                  <div class="drawerModule__fields">
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Board</p>
+                      <p class="drawerModule__value">
+                        {board.enabled ? 'Enabled' : 'Disabled'} · {board.items.length} {board.items.length === 1 ? 'item' : 'items'}
+                      </p>
+                    </div>
+                    <div class="drawerModule__field">
+                      <p class="drawerModule__label">Priced</p>
+                      <p class="drawerModule__value">{pricedCount} of {board.items.length} priced</p>
+                    </div>
+                  </div>
+                </ReadBlock>
+              );
+            })()}
           </ModeProvider>
         )}
       </div>
