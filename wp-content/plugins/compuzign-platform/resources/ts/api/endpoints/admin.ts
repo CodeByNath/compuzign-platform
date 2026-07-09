@@ -36,6 +36,11 @@ import type {
   CategoryMutationResponse,
   CategoryOverviewDraft,
   CategoryOverviewSaveResponse,
+  CategoryGroupDeleteResponse,
+  CategoryGroupListResponse,
+  CategoryGroupMutationResponse,
+  CategoryGroupOverviewDraft,
+  CategoryGroupOverviewSaveResponse,
   InclusionItem,
   RequestEntry,
   ServiceFaqsPayload,
@@ -161,6 +166,78 @@ export function restoreCategory(categoryId: number): Promise<CategoryMutationRes
 // text carries { message, assigned_count }).
 export function permanentDeleteCategory(categoryId: number): Promise<CategoryDeleteResponse> {
   return apiClient.delete<CategoryDeleteResponse>(`admin/categories/${categoryId}`);
+}
+
+// Group assignment (Category Group audit, Phase B/C) — structural, not draft
+// content: moves this category under a group term, or ungroups it when
+// groupId is null. Returns the same CategoryMutationResponse shape as every
+// other category mutation.
+export function updateCategoryGroup(
+  categoryId: number,
+  groupId:    number | null,
+): Promise<CategoryMutationResponse> {
+  return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/group`, {
+    group_id: groupId,
+  });
+}
+
+// ── Category Group station (Category Group audit, Option B, Phase C) ─────────
+// The /admin/category-groups family — same route grammar as Category, one
+// level up. Action naming mirrors the Category fetchers above exactly.
+
+export function fetchAdminCategoryGroups(platformStatus?: 'archived' | 'trashed'): Promise<CategoryGroupListResponse> {
+  const path = platformStatus
+    ? `admin/category-groups?platform_status=${platformStatus}`
+    : 'admin/category-groups';
+  return apiClient.get<CategoryGroupListResponse>(path);
+}
+
+// Station create (D3-style): born disabled; overview settles immediately when
+// the payload is complete.
+export function createCategoryGroup(payload: {
+  name:         string;
+  description?: string;
+}): Promise<CategoryGroupMutationResponse> {
+  return apiClient.post<CategoryGroupMutationResponse>('admin/category-groups', payload);
+}
+
+// Save the overview draft — canonical term untouched, overview marked pending.
+export function saveCategoryGroupOverview(
+  groupId: number,
+  payload: CategoryGroupOverviewDraft,
+): Promise<CategoryGroupOverviewSaveResponse> {
+  return apiClient.put<CategoryGroupOverviewSaveResponse>(`admin/category-groups/${groupId}/overview`, payload);
+}
+
+// Commit the draft to the term (name + description), clear it, re-derive status.
+export function settleCategoryGroupOverview(groupId: number): Promise<CategoryGroupMutationResponse> {
+  return apiClient.post<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/overview/settle`, {});
+}
+
+// Discard the draft; module_status re-derives from the settled state.
+export function revertCategoryGroupOverview(groupId: number): Promise<CategoryGroupMutationResponse> {
+  return apiClient.post<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/overview/revert`, {});
+}
+
+// Engine transition — the only status write for category groups.
+export function updateCategoryGroupStatus(
+  groupId:        number,
+  platformStatus: 'active' | 'disabled' | 'archived' | 'trashed',
+): Promise<CategoryGroupMutationResponse> {
+  return apiClient.patch<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/status`, {
+    platform_status: platformStatus,
+  });
+}
+
+// Server-driven restore — resolves previous_platform_status, lands disabled.
+export function restoreCategoryGroup(groupId: number): Promise<CategoryGroupMutationResponse> {
+  return apiClient.post<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/restore`, {});
+}
+
+// Trashed-only. A guard failure (non-empty group) is an HTTP 409 (apiClient
+// throws; the error text carries { message, assigned_count }).
+export function permanentDeleteCategoryGroup(groupId: number): Promise<CategoryGroupDeleteResponse> {
+  return apiClient.delete<CategoryGroupDeleteResponse>(`admin/category-groups/${groupId}`);
 }
 
 // Temporary — Phase 0 migration readiness audit. Remove after migration is validated.

@@ -355,6 +355,50 @@ export const categoryServicesModule: ModuleDefinition<{ total: number; active: n
     total === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'disabled'),
 };
 
+// ── Category Group modules (Category Group audit, Option B) ──────────────────
+// Same two-module shape as Category, one level up: an owned overview module and
+// a relation-summary gateway — here counting child categories instead of
+// assigned services. Byte-for-byte the same resolution rules as their Category
+// counterparts (station_role is a storage/relation concern; it does not change
+// how a station's own modules resolve).
+
+export interface CategoryGroupOverviewLike {
+  name:        string;
+  description: string;
+  slug:        string;
+}
+
+export const categoryGroupOverviewModule: ModuleDefinition<CategoryGroupOverviewLike> = {
+  key:                'category-group-overview',
+  emptyPrompt:        'Edit and name this category group.',
+  isEmpty:            (g) => !g.name.trim(),
+  includeDraftInTail: true,
+  // Completeness = name only; description is OPTIONAL (matches Category — never
+  // re-add a "Description missing" gate).
+  problems: (g) => {
+    const out: ModuleNote[] = [];
+    if (!g.name.trim()) out.push({ id: 'category-group-overview.name.missing', message: 'Name missing', type: 'error' });
+    return out;
+  },
+  resolveStatus: (g, ctx) => {
+    if (ctx.moduleTransition === 'not-configured') return 'pending-dim';
+    if (!g.name.trim())                            return 'pending-dim';
+    if (ctx.moduleTransition === 'pending')        return 'pending-full';
+    return ctx.platformStatus === 'active' ? 'active' : 'disabled';
+  },
+};
+
+// Category Group Categories — the relation-summary gateway, one level up from
+// categoryServicesModule: counts child category terms, not services.
+export const categoryGroupCategoriesModule: ModuleDefinition<{ total: number; active: number; disabled: number }> = {
+  key:         'category-group-categories',
+  emptyPrompt: 'Add categories to this group from the Categories workstation.',
+  isEmpty:     ({ total }) => total === 0,
+  problems:    () => [],
+  resolveStatus: ({ total }, ctx) =>
+    total === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'disabled'),
+};
+
 // ── Backward-compatible generators ────────────────────────────────────────────
 // Existing call sites keep their signatures; each now delegates to the shared
 // engine, so module-notification behaviour has a single source of truth.

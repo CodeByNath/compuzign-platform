@@ -4,13 +4,15 @@ import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import {
   restoreService, trashService, permanentDeleteService,
   fetchAdminCategories, restoreCategory, updateCategoryStatus, permanentDeleteCategory,
+  fetchAdminCategoryGroups, restoreCategoryGroup, updateCategoryGroupStatus, permanentDeleteCategoryGroup,
 } from '@/api/endpoints/admin';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import { Workstation } from '../shell/Workstation';
 import { EntityTable } from '../EntityTable';
 import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 import { CATEGORY_ENTITY } from '@/components/admin/schema/entities/category';
-import type { CategoryStationItem, StationSummary } from '@/api/types/admin';
+import { CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/categoryGroup';
+import type { CategoryGroupStationItem, CategoryStationItem, StationSummary } from '@/api/types/admin';
 
 interface Props {
   refreshKey: number;
@@ -26,6 +28,11 @@ interface Props {
 // S6: the Category station joins as a second pane (D8 — no hidden category-archived/
 // category-trash routes; the Bin is the sole travel surface). Its rows render
 // through CATEGORY_ENTITY.placements.travel.bin; delete surfaces the D6 409 guard.
+//
+// Category Group audit (Option B): the Category Group station joins as a third
+// pane, same shape as Category one level up — rows render through
+// CATEGORY_GROUP_ENTITY.placements.travel.bin; delete surfaces the group-side
+// assigned-category-count guard.
 type BinFilter = 'all' | 'archived' | 'trashed';
 
 export function BinWorkstation({ refreshKey }: Props) {
@@ -37,13 +44,19 @@ export function BinWorkstation({ refreshKey }: Props) {
   const catArchived = useApi(() => fetchAdminCategories('archived'));
   const catTrashed  = useApi(() => fetchAdminCategories('trashed'));
 
+  // Category Group bin streams — same two-scope shape, one level up.
+  const groupArchived = useApi(() => fetchAdminCategoryGroups('archived'));
+  const groupTrashed  = useApi(() => fetchAdminCategoryGroups('trashed'));
+
   const [filter,    setFilter]    = useState<BinFilter>('all');
   const [selected,  setSelected]  = useState<Set<number>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkBusy,    setBulkBusy]    = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [groupError, setGroupError] = useState<string | null>(null);
 
-  const loading = archived.loading || trashed.loading || catArchived.loading || catTrashed.loading;
+  const loading = archived.loading || trashed.loading || catArchived.loading || catTrashed.loading
+    || groupArchived.loading || groupTrashed.loading;
   const error   = archived.error || trashed.error;
 
   const refetchAll = useCallback(() => {
@@ -51,7 +64,9 @@ export function BinWorkstation({ refreshKey }: Props) {
     trashed.refetch();
     catArchived.refetch();
     catTrashed.refetch();
-  }, [archived.refetch, trashed.refetch, catArchived.refetch, catTrashed.refetch]);
+    groupArchived.refetch();
+    groupTrashed.refetch();
+  }, [archived.refetch, trashed.refetch, catArchived.refetch, catTrashed.refetch, groupArchived.refetch, groupTrashed.refetch]);
 
   useEffect(() => {
     if (refreshKey > 0) refetchAll();
@@ -66,6 +81,11 @@ export function BinWorkstation({ refreshKey }: Props) {
     const all = [...(catArchived.data?.categories ?? []), ...(catTrashed.data?.categories ?? [])];
     return filter === 'all' ? all : all.filter((c) => c.platform_status === filter);
   }, [catArchived.data, catTrashed.data, filter]);
+
+  const groupRows = useMemo<CategoryGroupStationItem[]>(() => {
+    const all = [...(groupArchived.data?.category_groups ?? []), ...(groupTrashed.data?.category_groups ?? [])];
+    return filter === 'all' ? all : all.filter((g) => g.platform_status === filter);
+  }, [groupArchived.data, groupTrashed.data, filter]);
 
   // Drop selections that are no longer visible (filter change / refetch).
   useEffect(() => {
@@ -129,6 +149,23 @@ export function BinWorkstation({ refreshKey }: Props) {
     }
   }, [refetchAll]);
 
+  // Category Group delete: the group-side guard returns HTTP 409, same parsing
+  // contract as handleCategoryDelete — one level up (assigned_count = child
+  // categories, not services).
+  const handleGroupDelete = useCallback(async (row: CategoryGroupStationItem) => {
+    setGroupError(null);
+    try {
+      await permanentDeleteCategoryGroup(row.id);
+      refetchAll();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      const m   = msg.match(/assigned_count"?\s*:\s*(\d+)/);
+      setGroupError(m
+        ? `Cannot delete “${row.name}”: ${m[1]} categor${m[1] === '1' ? 'y' : 'ies'} still assigned. Move them out first.`
+        : `“${row.name}” could not be deleted.`);
+    }
+  }, [refetchAll]);
+
   if (loading) return <AsyncLoading label="Loading bin…" />;
 
   if (error) return <AsyncError error={error} onRetry={refetchAll} />;
@@ -136,7 +173,8 @@ export function BinWorkstation({ refreshKey }: Props) {
   const archivedCount = archived.data?.stations?.length ?? 0;
   const trashedCount  = trashed.data?.stations?.length ?? 0;
   const catCount      = (catArchived.data?.categories?.length ?? 0) + (catTrashed.data?.categories?.length ?? 0);
-  const total = archivedCount + trashedCount + catCount;
+  const groupCount    = (groupArchived.data?.category_groups?.length ?? 0) + (groupTrashed.data?.category_groups?.length ?? 0);
+  const total = archivedCount + trashedCount + catCount + groupCount;
 
   return (
     <Workstation>
@@ -144,7 +182,7 @@ export function BinWorkstation({ refreshKey }: Props) {
         <div>
           <h2 class="cz-ws-title">Bin</h2>
           <p class="cz-ws-subtitle">
-            {archivedCount} archived · {trashedCount} trashed{catCount > 0 ? ` · ${catCount} categor${catCount !== 1 ? 'ies' : 'y'}` : ''} — restore an item, or remove it.
+            {archivedCount} archived · {trashedCount} trashed{catCount > 0 ? ` · ${catCount} categor${catCount !== 1 ? 'ies' : 'y'}` : ''}{groupCount > 0 ? ` · ${groupCount} categor${groupCount !== 1 ? 'y groups' : 'y group'}` : ''} — restore an item, or remove it.
             Permanent delete cannot be undone.
           </p>
         </div>
@@ -246,6 +284,23 @@ export function BinWorkstation({ refreshKey }: Props) {
                     restore: async (c) => { await restoreCategory(c.id);              refetchAll(); },
                     trash:   async (c) => { await updateCategoryStatus(c.id, 'trashed'); refetchAll(); },
                     delete:  handleCategoryDelete,
+                  }}
+                />
+              </>
+            )}
+
+            {groupRows.length > 0 && (
+              <>
+                <p class="cz-shell-section__title" style="margin-top:var(--cz-space-5)">Category Groups</p>
+                {groupError && <div class="cz-admin-error-msg" style="margin-bottom:var(--cz-space-3)">{groupError}</div>}
+                <EntityTable
+                  schema={CATEGORY_GROUP_ENTITY.placements.travel!.bin!}
+                  rows={groupRows}
+                  rowKey={(g) => g.id}
+                  handlers={{
+                    restore: async (g) => { await restoreCategoryGroup(g.id);              refetchAll(); },
+                    trash:   async (g) => { await updateCategoryGroupStatus(g.id, 'trashed'); refetchAll(); },
+                    delete:  handleGroupDelete,
                   }}
                 />
               </>

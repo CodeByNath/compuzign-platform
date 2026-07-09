@@ -21,6 +21,7 @@ import type { NavIconId } from './icons';
 import { OverviewWorkstation } from '../workstations/OverviewWorkstation';
 import { ServiceCatalogWorkstation } from '../workstations/ServiceCatalogWorkstation';
 import { CategoryCatalogWorkstation } from '../workstations/CategoryCatalogWorkstation';
+import { CategoryGroupCatalogWorkstation } from '../workstations/CategoryGroupCatalogWorkstation';
 import { BundlesWorkstation } from '../workstations/BundlesWorkstation';
 import { FeaturedWorkstation } from '../workstations/FeaturedWorkstation';
 import { RequestsWorkstation } from '../workstations/RequestsWorkstation';
@@ -68,6 +69,8 @@ export const WORKSTATIONS: WorkstationSchema[] = [
     surface: { kind: 'entity-table', entity: 'service', scope: 'trashed' } },
   { id: 'category-catalog', label: 'Categories',        group: 'catalog',    iconId: 'category',
     surface: { kind: 'component', component: () => CategoryCatalogWorkstation } },
+  { id: 'category-group-catalog', label: 'Category Groups', group: 'catalog', iconId: 'category',
+    surface: { kind: 'component', component: () => CategoryGroupCatalogWorkstation } },
   { id: 'bundles',          label: 'Bundles',           group: 'catalog',    hiddenFromNav: true,
     surface: { kind: 'component', component: () => BundlesWorkstation } },
   { id: 'featured',         label: 'Featured Controls', group: 'catalog',    iconId: 'featured',

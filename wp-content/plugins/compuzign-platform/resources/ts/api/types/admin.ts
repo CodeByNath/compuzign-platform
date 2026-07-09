@@ -160,6 +160,7 @@ export type WorkstationId =
   | 'service-archived'
   | 'service-trash'
   | 'category-catalog'
+  | 'category-group-catalog'
   | 'bundles'
   | 'featured'
   | 'requests'
@@ -695,7 +696,9 @@ export interface CategoryOverviewDraft {
 // The /admin/categories list-route projection: draft-preferred overview fields
 // (name/description show the draft when one exists) + the lifecycle envelope.
 // Slug is settled-only (immutable, D5). assigned_count is the D6 delete-guard
-// predicate: services assigned to the term in any status.
+// predicate: services assigned to the term in any status. group_id (Category
+// Group audit, Phase A/B) is the parent group term id, or null when ungrouped —
+// structural (term hierarchy), not part of the overview draft.
 export interface CategoryStationItem {
   id:                       number;
   name:                     string;
@@ -706,6 +709,7 @@ export interface CategoryStationItem {
   module_status:            { overview: string };
   has_draft:                boolean;
   assigned_count:           number;
+  group_id:                 number | null;
 }
 
 export interface CategoryListResponse {
@@ -730,6 +734,59 @@ export interface CategoryOverviewSaveResponse {
 // the error text carries the JSON body { message, assigned_count } for the
 // surface's inline-confirm error path to parse.
 export interface CategoryDeleteResponse {
+  success: boolean;
+  deleted: number;
+}
+
+// ── Category Group station (Category Group audit, Option B, Phase C) ─────────
+// Same station shape as Category, one level up: overview (name/description) +
+// a categories gateway (child-category counts) in place of a services gateway.
+// Response keys mirror what AdminCategoryGroupsController actually returns
+// ('category_groups' / 'group') — distinct from the Category equivalents
+// ('categories' / 'category') so the two stations' fetchers never collide.
+
+export interface CategoryGroupOverviewDraft {
+  name:        string;
+  description: string;
+}
+
+// The /admin/category-groups list-route projection. assigned_count here is the
+// group-side delete guard: count of child category terms (any status), not
+// services — see CategoryMeta::assignedCategoryCount().
+export interface CategoryGroupStationItem {
+  id:                       number;
+  name:                     string;
+  slug:                     string;
+  description:              string;
+  platform_status:          'active' | 'disabled' | 'archived' | 'trashed';
+  previous_platform_status: 'active' | 'disabled' | '';
+  module_status:            { overview: string };
+  has_draft:                boolean;
+  assigned_count:           number;
+}
+
+export interface CategoryGroupListResponse {
+  category_groups: CategoryGroupStationItem[];
+}
+
+// Shared by create / settle / revert / status / restore — each returns the full
+// refreshed projection.
+export interface CategoryGroupMutationResponse {
+  success:  boolean;
+  message?: string;
+  group:    CategoryGroupStationItem;
+}
+
+export interface CategoryGroupOverviewSaveResponse {
+  success:       boolean;
+  draft:         CategoryGroupOverviewDraft;
+  module_status: { overview: string };
+}
+
+// A D6-style guard failure (non-empty group) is an HTTP 409 — apiClient throws,
+// and the error text carries the JSON body { message, assigned_count }, same
+// parsing contract as CategoryDeleteResponse.
+export interface CategoryGroupDeleteResponse {
   success: boolean;
   deleted: number;
 }
