@@ -11,13 +11,6 @@ use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
 class PricingBuilder
 {
-    private const ORDERED_CATEGORIES = [
-        'Managed IT Services',
-        'Cloud Solutions',
-        'Cybersecurity',
-        'Support & Consulting',
-    ];
-
     private const TIERS = [
         ['id' => 'basic',      'title' => 'Basic'],
         ['id' => 'standard',   'title' => 'Standard'],
@@ -72,30 +65,21 @@ class PricingBuilder
         // The frontend surfaces exactly the categories that EXIST in the database,
         // gated by the D1 lifecycle (active only) and by containing at least one
         // active published service. A category deleted or binned in admin therefore
-        // disappears from the builder. The legacy ORDERED_CATEGORIES list is used
-        // ONLY to order the curated four ahead of admin-created categories — never to
-        // resurrect a missing term or force an empty category onto the nav (that was
-        // the old bug: the curated names were emitted from a hardcoded list, so a
-        // deleted legacy category kept showing).
+        // disappears from the builder. No curated name list is consulted — every
+        // term is admin-created and treated identically.
+        //
+        // Ordering: no canonical category ordering field exists yet (term meta has
+        // no sort position — see CategoryMeta). Fallback order is name ASC, stable
+        // until a real ordering mechanism is introduced.
         $terms = get_terms([
             'taxonomy'   => 'cz_service_category',
             'hide_empty' => false,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
         ]);
         if (!is_array($terms)) {
             $terms = [];
         }
-
-        // Curated ordering: ORDERED_CATEGORIES slug → priority; all other terms sort
-        // after, alphabetically by name.
-        $orderPriority = [];
-        foreach (self::ORDERED_CATEGORIES as $index => $curatedName) {
-            $orderPriority[sanitize_title($curatedName)] = $index;
-        }
-        usort($terms, function ($a, $b) use ($orderPriority) {
-            $pa = $orderPriority[$a->slug] ?? PHP_INT_MAX;
-            $pb = $orderPriority[$b->slug] ?? PHP_INT_MAX;
-            return ($pa <=> $pb) ?: strcasecmp($a->name, $b->name);
-        });
 
         foreach ($terms as $term) {
             if (!$term instanceof \WP_Term) {
