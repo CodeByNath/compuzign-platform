@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category } from '@/api/types/cost-builder';
-import type { CategoryStationItem, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
+import type { CategoryGroupStationItem, CategoryStationItem, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
+import { useApi } from '@/hooks/useApi';
+import { fetchAdminCategoryGroups, updateCategoryGroup } from '@/api/endpoints/admin';
 import { useCategoryStation } from '@/hooks/useCategoryStation';
 import type { CategoryServiceCounts } from '@/hooks/useCategoryStation';
 import type { CategoryOverviewDraft } from '@/api/types/admin';
@@ -132,6 +134,20 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
   const [exitDialog,      setExitDialog]      = useState<'unsaved' | null>(null);
   const [splitOpen,       setSplitOpen]       = useState(false);
 
+  // ── Group membership (Category Group audit, Phase D2) ───────────────────────
+  // Structural, not overview draft content: a separate PATCH endpoint, its own
+  // step-owned current/original pair (mirrors catDesc/catDescOriginal on the
+  // Service overview editor), saved alongside the overview Save action but
+  // never folded into `draft`/CategoryOverviewDraft.
+  const groupsApi = useApi(() => fetchAdminCategoryGroups());
+  const [groupId,         setGroupId]         = useState<number | null>(station.category.group_id);
+  const [groupIdOriginal, setGroupIdOriginal] = useState<number | null>(station.category.group_id);
+  const groupName = useMemo(() => {
+    if (groupId == null) return 'Ungrouped';
+    const found = groupsApi.data?.category_groups.find((g) => g.id === groupId);
+    return found ? decodeHtml(found.name) : 'Ungrouped';
+  }, [groupId, groupsApi.data]);
+
   useEffect(() => {
     if (!saveOk) return;
     const t = setTimeout(() => setSaveOk(false), 3000);
@@ -139,24 +155,26 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
   }, [saveOk]);
 
   const isDirty = editing && draft != null && original != null &&
-    (draft.name !== original.name || draft.description !== original.description);
+    (draft.name !== original.name || draft.description !== original.description || groupId !== groupIdOriginal);
 
   const openOverviewEditor = useCallback(() => {
     const seed: CategoryOverviewDraft = { name: station.category.name, description: station.category.description };
     setOriginal(seed);
     setDraft(seed);
+    setGroupIdOriginal(groupId);
     setEditing(true);
     setOpenPanel(null);
     setSaveErr(null);
-  }, [station.category.name, station.category.description]);
+  }, [station.category.name, station.category.description, groupId]);
 
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
     setDraft(null);
     setOriginal(null);
+    setGroupId(groupIdOriginal);
     setSaveErr(null);
     setSaving(false);
-  }, []);
+  }, [groupIdOriginal]);
 
   const handleSaveOverview = useCallback(async () => {
     if (!draft) return;
@@ -164,6 +182,12 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null);
     try {
       await saveOverview(draft);
+      // Group membership: a separate, structural call — only fired when
+      // changed, never folded into the overview draft (D2 scope).
+      if (groupId !== groupIdOriginal) {
+        await updateCategoryGroup(station.category.id, groupId);
+        setGroupIdOriginal(groupId);
+      }
       setEditing(false);
       setDraft(null);
       setOriginal(null);
@@ -173,7 +197,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     } finally {
       setSaving(false);
     }
-  }, [draft, saveOverview]);
+  }, [draft, saveOverview, groupId, groupIdOriginal, station.category.id]);
 
   const handleConfirmDiscard = useCallback(async () => {
     setDiscardConfirm(false);
@@ -317,7 +341,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
 
   // ── Shell bindings ──────────────────────────────────────────────────────────
   const overviewBinding: ShellBinding<CategoryOverviewShellData> = {
-    data:  { name: decodeHtml(station.category.name), slug: station.category.slug, description: station.category.description },
+    data:  { name: decodeHtml(station.category.name), slug: station.category.slug, description: station.category.description, groupName },
     state: modules.overview,
     hasDraft,
     handlers: {
@@ -425,6 +449,11 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
               saving,
               saveErr,
               isDirty,
+              extras: {
+                groups:        groupsApi.data?.category_groups ?? [],
+                groupId,
+                onGroupChange: setGroupId,
+              },
             }}
           />
         </ModeProvider>

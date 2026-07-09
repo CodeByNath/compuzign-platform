@@ -10,7 +10,7 @@
 // Services collection surface (v1.2) resolves it through the category
 // manifest's `shells` record under the `service` key.
 
-import type { CategoryOverviewDraft } from '@/api/types/admin';
+import type { CategoryGroupStationItem, CategoryOverviewDraft } from '@/api/types/admin';
 import {
   categoryOverviewModule,
   categoryServicesModule,
@@ -41,6 +41,11 @@ export interface CategoryOverviewShellData {
   name:        string;
   slug:        string;
   description: string;
+  // Group membership display (Category Group audit, Phase D2) — structural,
+  // not part of the overview draft. Optional: consumers that don't track group
+  // membership (e.g. the pre-creation New-state binding, the Category Group
+  // collection's own cards) simply omit it and the field reads "Ungrouped".
+  groupName?: string;
 }
 
 export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
@@ -63,6 +68,10 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.slug }),
     },
     {
+      id: 'group', element: 'text', label: 'Group',
+      bind: (d): TextValue => ({ value: d.groupName ?? 'Ungrouped' }),
+    },
+    {
       id: 'description', element: 'rich-text', label: 'Description',
       bind: (d): RichTextValue => ({
         value: d.description,
@@ -79,6 +88,9 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
       <CategoryOverviewEditor
         draft={s.draft as CategoryOverviewDraft}
         onChange={(patch) => s.patch?.(patch)}
+        groups={(s.extras?.groups ?? []) as CategoryGroupStationItem[]}
+        groupId={(s.extras?.groupId ?? null) as number | null}
+        onGroupChange={s.extras?.onGroupChange as (id: number | null) => void}
       />
     ),
   },
