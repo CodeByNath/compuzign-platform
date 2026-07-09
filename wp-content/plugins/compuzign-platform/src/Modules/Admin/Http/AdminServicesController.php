@@ -1217,11 +1217,26 @@ class AdminServicesController
             if (is_array($detail['drafts']['features'] ?? null)) {
                 $detail['drafts']['features'] = PoolReferences::refreshInclusionLabels($incPool, $detail['drafts']['features']);
             }
+            // Pricing Board Phase C read-model gap: expose the settled Tier Pricing
+            // Usage record (drafts.pricing/module_status.pricing were already exposed
+            // for free above — they're whole-map copies — but the settled `pricing`
+            // slot key, sibling to current_occupant, was not). No pool reconciliation
+            // against usage items here yet (future phase); this is exposure only.
+            $detail['pricing'] = $slot['pricing'] ?? ['pricing_mode' => 'manual', 'usage' => []];
             $tiers[$tierId] = $detail;
         }
 
         // D2 additive read exposure: the occupant bin (lazy-normalised; [] pre-D2).
         $station = $PS::ensureOccupantBin($station);
+
+        // Pricing Board Phase C read-model gap: expose pricing_board, reconciled
+        // against the live pool at read time (same never-persist-on-read pattern as
+        // the inclusions_override label refresh above — a save round-trip is what
+        // persists the reconciled shape; GET just reflects current pool state).
+        $pricingBoard = $PS::seedAndReconcilePricingBoard(
+            $incPool,
+            $PS::sanitizePricingBoard($station['pricing_board'] ?? [])
+        );
 
         return rest_ensure_response([
             'success'    => true,
@@ -1233,6 +1248,7 @@ class AdminServicesController
                 'popular_label'   => $station['popular_label'] ?? '',
                 'sort_position'   => (int) ($station['sort_position'] ?? 0),
                 'bundle'          => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
+                'pricing_board'   => $pricingBoard,
                 'occupant_bin'    => $station['occupant_bin'],
             ],
             'service' => [

@@ -55,6 +55,7 @@ import type {
   TierSavePayload,
   CreateInclusionPoolItemResponse,
   CreateFaqPoolItemResponse,
+  PricingBoard,
 } from '../types/admin';
 
 export function fetchAdminCatalog(platformStatus?: 'archived' | 'trashed'): Promise<AdminCatalogResponse> {
@@ -504,6 +505,20 @@ export function setServicePackageStationPopular(
   return apiClient.post(
     `admin/services/${serviceId}/package-station/popular`,
     { tier_id: tierId, label },
+  );
+}
+
+// Pricing Board Phase C — package-level, immediate-write, no draft/settle.
+// Mirrors setServicePackageStationPopular's pattern. The backend sanitizes and
+// seeds/reconciles against the live inclusion pool before persisting, so the
+// returned board reflects the current pool even if the submitted board didn't.
+export function saveServicePackageStationPricingBoard(
+  serviceId: number,
+  board:     PricingBoard,
+): Promise<{ success: boolean; pricing_board: PricingBoard }> {
+  return apiClient.post(
+    `admin/services/${serviceId}/package-station/pricing-board`,
+    board,
   );
 }
 
