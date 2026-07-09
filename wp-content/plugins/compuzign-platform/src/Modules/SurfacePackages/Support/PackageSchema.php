@@ -351,10 +351,15 @@ class PackageSchema
     // Stale rows are flagged, never dropped, per the audited truth table.
 
     /**
+     * Public entry point (Phase B route handler calls this directly — the live
+     * `cz_service_package_station` pathway manipulates package-level fields via
+     * controller-owned reads/writes, not the registerPostMeta sanitize_callback
+     * pipeline below, which only governs the separate `cz_surface_package` CPT).
+     *
      * @param  mixed $board
      * @return array{enabled: bool, items: array<int, array<string, mixed>>}
      */
-    private static function sanitizePricingBoard(mixed $board): array
+    public static function sanitizePricingBoard(mixed $board): array
     {
         if (!is_array($board)) {
             $board = [];
@@ -497,11 +502,13 @@ class PackageSchema
     }
 
     /**
-     * Sanitise a tier pricing module draft body.
+     * Public entry point — Phase B's savePackageStationTierModule branch calls
+     * this directly for module === 'pricing', same as the controller inlines
+     * its own sanitizing for overview/features/faqs draft bodies.
      *
      * @return array{pricing_mode: string, usage: array<int, array<string, mixed>>}
      */
-    private static function sanitizeTierPricingUsageDraft(mixed $draft): array
+    public static function sanitizeTierPricingUsageDraft(mixed $draft): array
     {
         if (!is_array($draft)) {
             $draft = [];

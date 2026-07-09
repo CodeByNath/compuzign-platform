@@ -291,7 +291,9 @@ class AdminServicesController
         // ── Per-module tier revert (engine D1) ────────────────────────────────
         // Discard one module's pending draft; module_status re-derives from the
         // settled occupant. Counterpart of the promotion module revert route.
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs)/revert', [
+        // Pricing Board Phase B: 'pricing' added here (promotion's equivalent
+        // regex is untouched — separate consumer, separate phase).
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs|pricing)/revert', [
             'methods'             => 'POST',
             'callback'            => [$this, 'revertPackageStationTierModule'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -318,6 +320,17 @@ class AdminServicesController
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/popular', [
             'methods'             => 'POST',
             'callback'            => [$this, 'setPackageStationPopular'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
+        // Pricing Board Phase B: package-level, immediate-write, no draft/settle —
+        // same shape as the popular_tier route above. Declaration control centre;
+        // Tier Pricing Usage (the tiers/{tier}/modules/pricing route) is the first
+        // consumer and never writes here.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/pricing-board', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'setPackageStationPricingBoard'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
@@ -1440,6 +1453,12 @@ class AdminServicesController
                     if ($id !== '' && $lb !== '') { $draftValue[] = ['id' => $id, 'label' => $lb]; }
                 }
             }
+        } elseif ($module === 'pricing') {
+            // Tier Pricing Usage (first consumer control centre). Unlike the
+            // content modules above, this draft does NOT settle into
+            // current_occupant (see PackageSchema::settleTierSlot) — it is
+            // independent of Cost Builder-visible tier content.
+            $draftValue = $PS::sanitizeTierPricingUsageDraft($body);
         } else { // faqs
             $draftValue = [];
             if (is_array($body['faq_refs'] ?? null)) {
@@ -1462,6 +1481,7 @@ class AdminServicesController
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
+            'pricing'       => $slot['pricing'] ?? null,
         ]);
     }
 
@@ -1712,13 +1732,16 @@ class AdminServicesController
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
+            'pricing'       => $slot['pricing'] ?? null,
         ]);
     }
 
     /**
      * Phase 2 — P3: settle a tier.
-     * Commits the draft-preferred state of every module into current_occupant,
-     * clears drafts, marks all modules settled, and re-derives station status.
+     * Commits the draft-preferred state of every content module into
+     * current_occupant, clears drafts, marks all modules settled, and
+     * re-derives station status. pricing (Tier Pricing Usage) settles
+     * alongside into its own `pricing` slot key — see settleTierSlot.
      */
     public function settlePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -1747,6 +1770,7 @@ class AdminServicesController
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
+            'pricing'       => $slot['pricing'] ?? null,
         ]);
     }
 
@@ -1788,6 +1812,48 @@ class AdminServicesController
             'success'       => true,
             'popular_tier'  => $station['popular_tier'],
             'popular_label' => $station['popular_label'],
+        ]);
+    }
+
+    /**
+     * Pricing Board Phase B — package-level, immediate-write, no draft/settle.
+     * Declaration control centre: base price/unit/quantity rules per service
+     * inclusion. The inbound body is sanitised, then seeded/reconciled against
+     * the live inclusion pool (seedAndReconcilePricingBoard adds a scaffold row
+     * for any pool inclusion missing from the submitted board, and flags —
+     * never drops — rows whose inclusion_id no longer resolves) before persisting,
+     * so a save always reflects the current pool without a separate read-time step.
+     */
+    public function setPackageStationPricingBoard(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) { $body = []; }
+
+        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+
+        $board = $PS::sanitizePricingBoard($body);
+        $board = $PS::seedAndReconcilePricingBoard($incPool, $board);
+
+        $station['pricing_board'] = $board;
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        return rest_ensure_response([
+            'success'       => true,
+            'pricing_board' => $board,
         ]);
     }
 
