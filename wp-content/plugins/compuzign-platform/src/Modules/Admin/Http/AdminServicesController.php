@@ -456,6 +456,12 @@ class AdminServicesController
             if (!StationLifecycle::isLive($categoryStatus)) {
                 continue;
             }
+            // Category Group audit (Option B): keep group-role terms out of the
+            // Service Catalog's category tab bar/picker — same filter as
+            // AdminCategoriesController::listCategories().
+            if (CategoryMeta::role((int) $t->term_id) !== CategoryMeta::STATION_ROLE_CATEGORY) {
+                continue;
+            }
             $categories[] = [
                 'id'              => (int) $t->term_id,
                 'name'            => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),

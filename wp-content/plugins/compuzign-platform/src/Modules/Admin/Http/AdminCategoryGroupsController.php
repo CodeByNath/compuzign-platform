@@ -6,18 +6,24 @@ use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 
 /**
- * AdminCategoriesController — the Category station's REST family (S6 Phase B).
+ * AdminCategoryGroupsController — the Category Group station's REST family
+ * (Category Group audit, Option B, Phase B).
  *
- * Mirrors the Service station's route grammar under compuzign/v1. All term-meta
- * access goes through CategoryMeta (the sole reader/writer of cz_category_meta);
- * every status write is a StationLifecycle-computed transition.
+ * Category Group is a second station sharing the existing `cz_service_category`
+ * taxonomy and `cz_category_meta` envelope with Category — distinguished only by
+ * `station_role`. Route grammar, lifecycle handling, and draft/settle/revert
+ * mechanics mirror AdminCategoriesController exactly; the two differences are:
+ *   - the list/create/response paths deal in `station_role === 'group'` terms only
+ *   - the delete guard counts child category terms (CategoryMeta::assignedCategoryCount),
+ *     not assigned services
  *
- * The inline convenience routes (/admin/service-categories) are untouched and
- * keep producing immediately-usable categories (D3: no meta = lazy active).
- * Station-created categories follow the station convention instead: born
- * 'disabled', activated by Publish.
+ * Two-tier enforcement (locked): a group term is always created with no parent
+ * (wp_insert_term below never accepts one), so a group can never itself have a
+ * parent. Category's own group assignment (AdminCategoriesController::updateGroup)
+ * separately validates its target has station_role 'group' — between the two,
+ * nesting beyond group→category is structurally unreachable.
  */
-class AdminCategoriesController
+class AdminCategoryGroupsController
 {
     public function register(): void
     {
@@ -27,9 +33,9 @@ class AdminCategoriesController
     public function registerRoutes(): void
     {
         // ── Station list (admin only) ─────────────────────────────────────────
-        register_rest_route('compuzign/v1', '/admin/categories', [
+        register_rest_route('compuzign/v1', '/admin/category-groups', [
             'methods'             => 'GET',
-            'callback'            => [$this, 'listCategories'],
+            'callback'            => [$this, 'listCategoryGroups'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
                 'platform_status' => [
@@ -40,36 +46,21 @@ class AdminCategoriesController
             ],
         ]);
 
-        // ── Station create (D3: born disabled) ────────────────────────────────
-        register_rest_route('compuzign/v1', '/admin/categories', [
+        // ── Station create (D3-style: born disabled) ──────────────────────────
+        register_rest_route('compuzign/v1', '/admin/category-groups', [
             'methods'             => 'POST',
-            'callback'            => [$this, 'createCategory'],
+            'callback'            => [$this, 'createCategoryGroup'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
                 'name'        => ['required' => true,  'type' => 'string',
                                   'sanitize_callback' => 'sanitize_text_field'],
                 'description' => ['required' => false, 'type' => 'string',
                                   'sanitize_callback' => 'sanitize_textarea_field'],
-                'group_id'    => ['required' => false, 'type' => 'integer'],
-            ],
-        ]);
-
-        // ── Group assignment (structural, not draft content — Category Group
-        // audit Phase B): moves this category under a group term, or ungroups it
-        // when group_id is null/0. Validated against station_role, not folded
-        // into the overview draft envelope.
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)/group', [
-            'methods'             => 'PATCH',
-            'callback'            => [$this, 'updateGroup'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'       => ['required' => true, 'type' => 'integer'],
-                'group_id' => ['required' => false, 'type' => ['integer', 'null']],
             ],
         ]);
 
         // ── Overview draft save ───────────────────────────────────────────────
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)/overview', [
+        register_rest_route('compuzign/v1', '/admin/category-groups/(?P<id>\d+)/overview', [
             'methods'             => 'PUT',
             'callback'            => [$this, 'saveOverview'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -83,7 +74,7 @@ class AdminCategoriesController
         ]);
 
         // ── Overview settle (commit draft → term) ─────────────────────────────
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)/overview/settle', [
+        register_rest_route('compuzign/v1', '/admin/category-groups/(?P<id>\d+)/overview/settle', [
             'methods'             => 'POST',
             'callback'            => [$this, 'settleOverview'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -93,7 +84,7 @@ class AdminCategoriesController
         ]);
 
         // ── Overview revert (discard draft) ───────────────────────────────────
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)/overview/revert', [
+        register_rest_route('compuzign/v1', '/admin/category-groups/(?P<id>\d+)/overview/revert', [
             'methods'             => 'POST',
             'callback'            => [$this, 'revertOverview'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -103,7 +94,7 @@ class AdminCategoriesController
         ]);
 
         // ── Platform status (engine transition) ───────────────────────────────
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)/status', [
+        register_rest_route('compuzign/v1', '/admin/category-groups/(?P<id>\d+)/status', [
             'methods'             => 'PATCH',
             'callback'            => [$this, 'updateStatus'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -118,19 +109,19 @@ class AdminCategoriesController
         ]);
 
         // ── Restore (server-driven — resolves previous_platform_status) ───────
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)/restore', [
+        register_rest_route('compuzign/v1', '/admin/category-groups/(?P<id>\d+)/restore', [
             'methods'             => 'POST',
-            'callback'            => [$this, 'restoreCategory'],
+            'callback'            => [$this, 'restoreCategoryGroup'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
                 'id' => ['required' => true, 'type' => 'integer'],
             ],
         ]);
 
-        // ── Permanent delete (trashed only + D6 guard) ────────────────────────
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)', [
+        // ── Permanent delete (trashed only + child-category guard) ────────────
+        register_rest_route('compuzign/v1', '/admin/category-groups/(?P<id>\d+)', [
             'methods'             => 'DELETE',
-            'callback'            => [$this, 'permanentDeleteCategory'],
+            'callback'            => [$this, 'permanentDeleteCategoryGroup'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
                 'id' => ['required' => true, 'type' => 'integer'],
@@ -141,13 +132,11 @@ class AdminCategoriesController
     // ── Handlers ──────────────────────────────────────────────────────────────
 
     /**
-     * Station projections for every category term.
-     *
-     * Default (no platform_status param): excludes archived and trashed.
-     * With platform_status=archived|trashed: returns only that bin — same
-     * param contract as /admin/services.
+     * Station projections for every group term — the inverse of Category's own
+     * list (station_role === 'group' only). Same default/bin scoping contract as
+     * /admin/categories and /admin/services.
      */
-    public function listCategories(\WP_REST_Request $request): \WP_REST_Response
+    public function listCategoryGroups(\WP_REST_Request $request): \WP_REST_Response
     {
         $filterStatus = $request->get_param('platform_status'); // 'archived', 'trashed', or null.
 
@@ -158,17 +147,14 @@ class AdminCategoriesController
             'order'      => 'ASC',
         ]);
 
-        $categories = [];
+        $groups = [];
 
         foreach (is_array($terms) ? $terms : [] as $term) {
             if (!$term instanceof \WP_Term) {
                 continue;
             }
 
-            // Category Group audit (Option B): the Category station's own list
-            // stays a flat list of category-role terms only — group-role terms
-            // belong exclusively to /admin/category-groups.
-            if (CategoryMeta::role((int) $term->term_id) !== CategoryMeta::STATION_ROLE_CATEGORY) {
+            if (CategoryMeta::role((int) $term->term_id) !== CategoryMeta::STATION_ROLE_GROUP) {
                 continue;
             }
 
@@ -182,41 +168,31 @@ class AdminCategoriesController
                 continue;
             }
 
-            $projection['assigned_count'] = CategoryMeta::assignedServiceCount((int) $term->term_id);
+            // Child-category count — the group mirror of Category's assigned_count
+            // (which counts services). Guard predicate for permanent delete.
+            $projection['assigned_count'] = CategoryMeta::assignedCategoryCount((int) $term->term_id);
 
-            $categories[] = $projection;
+            $groups[] = $projection;
         }
 
-        return rest_ensure_response(['categories' => $categories]);
+        return rest_ensure_response(['category_groups' => $groups]);
     }
 
     /**
-     * Station create (D3): term + meta, born 'disabled'; overview settles
-     * immediately when the payload is complete, otherwise starts 'pending'.
-     * Duplicates fail — the inline flow's return-existing convenience is a
-     * service-edit affordance, not station behaviour.
+     * Station create: term + meta, born 'disabled', station_role 'group'.
+     * Two-tier enforcement: wp_insert_term is never given a parent here — a group
+     * term can never itself have a parent.
      */
-    public function createCategory(\WP_REST_Request $request): \WP_REST_Response
+    public function createCategoryGroup(\WP_REST_Request $request): \WP_REST_Response
     {
         $name        = (string) $request->get_param('name');
         $description = (string) ($request->get_param('description') ?? '');
-        $groupParam  = $request->get_param('group_id');
 
         if ($name === '') {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category name is required.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group name is required.'], 422);
         }
 
-        $groupId = null;
-        if ($groupParam !== null && (int) $groupParam > 0) {
-            $groupError = $this->validateGroupId((int) $groupParam);
-            if ($groupError !== null) {
-                return $groupError;
-            }
-            $groupId = (int) $groupParam;
-        }
-
-        $insertArgs = $groupId !== null ? ['parent' => $groupId] : [];
-        $result     = wp_insert_term($name, CategoryMeta::TAXONOMY, $insertArgs);
+        $result = wp_insert_term($name, CategoryMeta::TAXONOMY);
         if (is_wp_error($result)) {
             return new \WP_REST_Response(['success' => false, 'message' => $result->get_error_message()], 422);
         }
@@ -234,67 +210,23 @@ class AdminCategoriesController
                     ? StationLifecycle::MODULE_SETTLED
                     : StationLifecycle::MODULE_PENDING,
             ],
+            'station_role' => CategoryMeta::STATION_ROLE_GROUP,
         ]);
 
         $term = get_term($termId, CategoryMeta::TAXONOMY);
 
         return rest_ensure_response([
-            'success'  => true,
-            'category' => $this->categoryResponse($term),
+            'success' => true,
+            'group'   => $this->groupResponse($term),
         ]);
     }
 
-    /**
-     * Group assignment (structural, not draft content): moves this category
-     * under a group term (station_role 'group'), or ungroups it when group_id
-     * is null/0. Two-tier enforcement lives in validateGroupId() below — the
-     * target must itself have station_role 'group', and this endpoint refuses
-     * to act on a term that is itself a group (a group can never gain a parent).
-     */
-    public function updateGroup(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $term = $this->findTerm((int) $request->get_param('id'));
-        if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
-        }
-
-        $termId = (int) $term->term_id;
-
-        if (CategoryMeta::role($termId) !== CategoryMeta::STATION_ROLE_CATEGORY) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Only categories can be assigned to a group.'], 422);
-        }
-
-        $groupParam = $request->get_param('group_id');
-        $groupId    = null;
-
-        if ($groupParam !== null && (int) $groupParam > 0) {
-            if ((int) $groupParam === $termId) {
-                return new \WP_REST_Response(['success' => false, 'message' => 'A category cannot be its own group.'], 422);
-            }
-            $groupError = $this->validateGroupId((int) $groupParam);
-            if ($groupError !== null) {
-                return $groupError;
-            }
-            $groupId = (int) $groupParam;
-        }
-
-        $updated = wp_update_term($termId, CategoryMeta::TAXONOMY, ['parent' => $groupId ?? 0]);
-        if (is_wp_error($updated)) {
-            return new \WP_REST_Response(['success' => false, 'message' => $updated->get_error_message()], 422);
-        }
-
-        return rest_ensure_response([
-            'success'  => true,
-            'category' => $this->categoryResponse(get_term($termId, CategoryMeta::TAXONOMY)),
-        ]);
-    }
-
-    /** Save the overview draft (name, description) — canonical term untouched, overview marked pending. */
+    /** Save the overview draft (name, description) — identical mechanics to Category. */
     public function saveOverview(\WP_REST_Request $request): \WP_REST_Response
     {
-        $term = $this->findTerm((int) $request->get_param('id'));
+        $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
         }
 
         $meta = CategoryMeta::saveOverviewDraft(
@@ -310,23 +242,18 @@ class AdminCategoriesController
         ]);
     }
 
-    /**
-     * Commit the draft to the term (name via wp_update_term, description via
-     * the CompuZign term meta), clear the draft, and re-derive module status.
-     * With no draft pending this degrades to a pure re-derivation.
-     */
+    /** Commit the draft to the term; clear the draft; re-derive module status. */
     public function settleOverview(\WP_REST_Request $request): \WP_REST_Response
     {
-        $term = $this->findTerm((int) $request->get_param('id'));
+        $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
         }
 
         $termId = (int) $term->term_id;
         $draft  = CategoryMeta::overviewDraft($termId);
 
         if ($draft !== null) {
-            // Slug is immutable (D5): name updates never regenerate it.
             if ($draft['name'] !== '') {
                 $updated = wp_update_term($termId, CategoryMeta::TAXONOMY, ['name' => $draft['name']]);
                 if (is_wp_error($updated)) {
@@ -339,36 +266,33 @@ class AdminCategoriesController
         CategoryMeta::clearOverviewDraft($termId);
 
         return rest_ensure_response([
-            'success'  => true,
-            'category' => $this->categoryResponse(get_term($termId, CategoryMeta::TAXONOMY)),
+            'success' => true,
+            'group'   => $this->groupResponse(get_term($termId, CategoryMeta::TAXONOMY)),
         ]);
     }
 
     /** Discard the draft; module_status re-derives from the settled state. */
     public function revertOverview(\WP_REST_Request $request): \WP_REST_Response
     {
-        $term = $this->findTerm((int) $request->get_param('id'));
+        $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
         }
 
         CategoryMeta::clearOverviewDraft((int) $term->term_id);
 
         return rest_ensure_response([
-            'success'  => true,
-            'category' => $this->categoryResponse($term),
+            'success' => true,
+            'group'   => $this->groupResponse($term),
         ]);
     }
 
-    /**
-     * Engine transition via StationLifecycle::applyStatus — previous_platform_status
-     * is captured on bin entry and preserved on bin→bin moves (capturePrevious rule).
-     */
+    /** Engine transition via StationLifecycle::applyStatus — identical to Category. */
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
     {
-        $term = $this->findTerm((int) $request->get_param('id'));
+        $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
         }
 
         $target = sanitize_text_field((string) $request->get_param('platform_status'));
@@ -386,61 +310,61 @@ class AdminCategoriesController
         CategoryMeta::applyStatusChange($termId, $change);
 
         return rest_ensure_response([
-            'success'  => true,
-            'category' => $this->categoryResponse($term),
+            'success' => true,
+            'group'   => $this->groupResponse($term),
         ]);
     }
 
     /** Restore from archived/trashed — always lands 'disabled', never straight to active. */
-    public function restoreCategory(\WP_REST_Request $request): \WP_REST_Response
+    public function restoreCategoryGroup(\WP_REST_Request $request): \WP_REST_Response
     {
-        $term = $this->findTerm((int) $request->get_param('id'));
+        $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
         }
 
         $termId = (int) $term->term_id;
 
         $change = StationLifecycle::restore(CategoryMeta::status($termId));
         if ($change === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category is not in a restorable state.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group is not in a restorable state.'], 422);
         }
         CategoryMeta::applyStatusChange($termId, $change);
 
         return rest_ensure_response([
-            'success'  => true,
-            'category' => $this->categoryResponse($term),
+            'success' => true,
+            'group'   => $this->groupResponse($term),
         ]);
     }
 
     /**
-     * Permanent delete: legal only from trashed (StationLifecycle::canDelete)
-     * AND with zero assigned services (D6 — wp_delete_term would silently sever
-     * the relationships, so detachment must happen first, service-side).
+     * Permanent delete: legal only from trashed (StationLifecycle::canDelete) AND
+     * with zero child category terms (assignedCategoryCount guard — the group
+     * mirror of Category's D6 assigned-service guard). Detachment (re-parenting
+     * each child) must be an explicit prior step, same rationale.
      */
-    public function permanentDeleteCategory(\WP_REST_Request $request): \WP_REST_Response
+    public function permanentDeleteCategoryGroup(\WP_REST_Request $request): \WP_REST_Response
     {
-        $term = $this->findTerm((int) $request->get_param('id'));
+        $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
         }
 
         $termId = (int) $term->term_id;
 
         if (!StationLifecycle::canDelete(CategoryMeta::status($termId))) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed categories can be permanently deleted.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed category groups can be permanently deleted.'], 422);
         }
 
-        $assignedCount = CategoryMeta::assignedServiceCount($termId);
+        $assignedCount = CategoryMeta::assignedCategoryCount($termId);
         if ($assignedCount > 0) {
             return new \WP_REST_Response([
                 'success'        => false,
-                'message'        => 'This category still has services assigned to it. Unassign them before deleting.',
+                'message'        => 'This group still has categories assigned to it. Move them out before deleting.',
                 'assigned_count' => $assignedCount,
             ], 409);
         }
 
-        // Removes the term row and all its term meta (cz_category_meta included).
         $deleted = wp_delete_term($termId, CategoryMeta::TAXONOMY);
         if (is_wp_error($deleted)) {
             return new \WP_REST_Response(['success' => false, 'message' => $deleted->get_error_message()], 422);
@@ -458,43 +382,26 @@ class AdminCategoriesController
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private function findTerm(int $termId): ?\WP_Term
+    /** Resolves a term by id, scoped to station_role 'group' only (404s a category id). */
+    private function findGroupTerm(int $termId): ?\WP_Term
     {
         $term = get_term($termId, CategoryMeta::TAXONOMY);
-
-        return $term instanceof \WP_Term ? $term : null;
-    }
-
-    /**
-     * Validates a candidate group_id: must resolve to an existing term with
-     * station_role 'group'. Returns an error response to short-circuit the
-     * caller, or null when valid. Shared by createCategory() and updateGroup()
-     * so the two-tier rule (a category may only be parented to a real group
-     * term) has one enforcement point.
-     */
-    private function validateGroupId(int $groupId): ?\WP_REST_Response
-    {
-        $groupTerm = get_term($groupId, CategoryMeta::TAXONOMY);
-        if (!$groupTerm instanceof \WP_Term) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 422);
+        if (!$term instanceof \WP_Term) {
+            return null;
         }
 
-        if (CategoryMeta::role($groupId) !== CategoryMeta::STATION_ROLE_GROUP) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'group_id must reference a Category Group.'], 422);
-        }
-
-        return null;
+        return CategoryMeta::role($termId) === CategoryMeta::STATION_ROLE_GROUP ? $term : null;
     }
 
-    /** Full response projection: draft-preferred fields + lifecycle envelope + guard count. */
-    private function categoryResponse(?\WP_Term $term): ?array
+    /** Full response projection: draft-preferred fields + lifecycle envelope + child-category guard count. */
+    private function groupResponse(?\WP_Term $term): ?array
     {
         if (!$term instanceof \WP_Term) {
             return null;
         }
 
         $projection                   = CategoryMeta::projection($term);
-        $projection['assigned_count'] = CategoryMeta::assignedServiceCount((int) $term->term_id);
+        $projection['assigned_count'] = CategoryMeta::assignedCategoryCount((int) $term->term_id);
 
         return $projection;
     }

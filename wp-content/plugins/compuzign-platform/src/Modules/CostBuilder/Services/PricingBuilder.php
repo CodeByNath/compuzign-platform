@@ -93,6 +93,14 @@ class PricingBuilder
                 continue;
             }
 
+            // Category Group audit (Option B): group-role terms never surface as a
+            // flat public category. Defense-in-depth — group terms carry no direct
+            // service assignments by construction, so this cannot change today's
+            // payload, but it must be explicit against future enumeration changes.
+            if (CategoryMeta::role((int) $term->term_id) !== CategoryMeta::STATION_ROLE_CATEGORY) {
+                continue;
+            }
+
             $posts    = $this->repository->findByCategory((int) $term->term_id);
             $payloads = [];
             foreach ($posts as $post) {
