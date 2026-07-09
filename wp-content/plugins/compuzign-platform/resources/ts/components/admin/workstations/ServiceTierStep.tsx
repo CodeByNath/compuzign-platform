@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
-import type { InclusionItem } from '@/api/types/admin';
+import type { InclusionItem, PricingBoardItem } from '@/api/types/admin';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { TRAVEL_PILL } from '@/components/admin/schema/presentation';
@@ -12,7 +12,8 @@ import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
 import { EntityDrawer } from '../EntityDrawer';
 import { TIER_ENTITY } from '@/components/admin/schema/entities/tier';
-import { getTierNotes } from '@/components/admin/utils/moduleNotifications';
+import { getTierNotes, evaluateModule, pricingBoardModule } from '@/components/admin/utils/moduleNotifications';
+import { PricingBoardEditor } from '../editors/PricingBoardEditor';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
 import { ChildShell } from '@/components/admin/schema/shells/childShell';
@@ -125,6 +126,15 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Bin-card delete confirm (pending only — busy comes from pkg.saving).
   const binDeleteConfirm = useInlineConfirm<string>();
 
+  // ── Package Pricing Board (declaration control centre, Phase D) ────────────
+  // Package-level, immediate-write — a local working copy edited then committed
+  // in one savePricingBoard call (Cancel discards it), same shape as every other
+  // immediate-write package field. Not a draft/settle module: no drafts/module_status.
+  const [pricingBoardOpen, setPricingBoardOpen] = useState(false);
+  const [boardDraft, setBoardDraft] = useState<PricingBoardItem[] | null>(null);
+  const [boardEnabledDraft, setBoardEnabledDraft] = useState(false);
+  const [boardSaveErr, setBoardSaveErr] = useState<string | null>(null);
+
   useEffect(() => {
     if (!saveOk) return;
     const t = setTimeout(() => setSaveOk(false), 2500);
@@ -151,6 +161,34 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setOpenTierPanel(null);
     setSplitOpen(false);
     setConfirmModal(null);
+    setPricingBoardOpen(false);
+  };
+
+  // Local working copy seeded from the hook's current pricing_board (already
+  // seeded/reconciled against the live pool server-side, per getPackageStation).
+  const openPricingBoard = () => {
+    setEditingTierId(null);
+    setEditingSection(null);
+    setBoardDraft(pkg.pricingBoard.items.map((item) => ({ ...item })));
+    setBoardEnabledDraft(pkg.pricingBoard.enabled);
+    setBoardSaveErr(null);
+    setPricingBoardOpen(true);
+  };
+
+  const closePricingBoard = () => {
+    setPricingBoardOpen(false);
+    setBoardDraft(null);
+    setBoardSaveErr(null);
+  };
+
+  const handleSaveBoard = async () => {
+    if (!boardDraft) return;
+    const ok = await pkg.savePricingBoard({ enabled: boardEnabledDraft, items: boardDraft });
+    if (ok) {
+      closePricingBoard();
+    } else {
+      setBoardSaveErr('Failed to save the pricing board. Please try again.');
+    }
   };
 
   // Section edit lifecycle — seed the section's transient draft from the hook's
@@ -437,6 +475,54 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
+  // ── Package Pricing Board view (Phase D) ──────────────────────────────────
+  // A local working copy (boardDraft/boardEnabledDraft), not a draft/settle
+  // module — Save commits the whole board in one savePricingBoard call; Cancel
+  // discards the local copy. Own inline Save/Cancel (not the shell footer,
+  // which stays wired to editingTierId/editingSection only).
+  if (pricingBoardOpen && boardDraft) {
+    return (
+      <div class="cz-req-detail">
+        <div class="cz-shell-section cz-shell-section--no-border">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--cz-space-3)">
+            <p class="cz-shell-section__title">Pricing Board</p>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={closePricingBoard}>
+              ← Back
+            </button>
+          </div>
+
+          <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3); margin-bottom: var(--cz-space-4)">
+            <input
+              type="checkbox"
+              id="pricing-board-enabled"
+              checked={boardEnabledDraft}
+              onChange={(e) => setBoardEnabledDraft((e.target as HTMLInputElement).checked)}
+            />
+            <label class="cz-tf-label" for="pricing-board-enabled" style="margin: 0">Pricing board enabled</label>
+          </div>
+
+          <PricingBoardEditor
+            draft={{ items: boardDraft }}
+            pool={svc.inclusions}
+            onChange={(next) => setBoardDraft(next.items)}
+          />
+
+          {boardSaveErr && <p class="cz-admin-error-msg">{boardSaveErr}</p>}
+
+          <div class="cz-tf-footer" style="margin-top: var(--cz-space-4)">
+            <div class="cz-tf-footer__spacer" />
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={closePricingBoard} disabled={pkg.saving}>
+              Cancel
+            </button>
+            <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleSaveBoard} disabled={pkg.saving}>
+              {pkg.saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Tier overview view — polished 4-tier summary cards + Pricing Summary ─────
   // Bound to draft-preferred tier views from usePackageStation (station.tiers is the
   // same SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
@@ -665,6 +751,38 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             </ReadBlock>
           );
         })}
+
+        {(() => {
+          const board       = pkg.pricingBoard;
+          const boardState  = evaluateModule(pricingBoardModule, board, { platformStatus: pkgStatus });
+          const pricedCount = board.items.filter((i) => i.base_price !== null).length;
+          return (
+            <ReadBlock
+              title="Pricing Board"
+              subtitle="Base price and quantity rules for this service's inclusions."
+              icon={MODULE_ICONS.package}
+              scopeClass="drawerOverview tier"
+              status={boardState.status}
+              notes={boardState.notes}
+              panelOpen={openSummaryTier === 'pricing-board'}
+              onTogglePanel={() => setOpenSummaryTier((p) => p === 'pricing-board' ? null : 'pricing-board')}
+              actions={[{ id: 'view', label: 'View', onSelect: openPricingBoard }]}
+            >
+              <div class="drawerModule__fields">
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Board</p>
+                  <p class="drawerModule__value">
+                    {board.enabled ? 'Enabled' : 'Disabled'} · {board.items.length} {board.items.length === 1 ? 'item' : 'items'}
+                  </p>
+                </div>
+                <div class="drawerModule__field">
+                  <p class="drawerModule__label">Priced</p>
+                  <p class="drawerModule__value">{pricedCount} of {board.items.length} priced</p>
+                </div>
+              </div>
+            </ReadBlock>
+          );
+        })()}
 
         <div class="cz-shell-section cz-shell-section--no-border">
           <p class="cz-shell-section__title">Pricing Summary</p>
