@@ -203,12 +203,19 @@ class AdminServicesController
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
 
-        // Package Station Manager (Phase B) — read-only, operational-facts-only
-        // read model (PackageManagerSchema::buildReadModel). No save/settle/
-        // revert routes yet; Phase D adds those.
+        // Package Station Manager — operational-facts-only read model.
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/manager', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getPackageStationManager'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
+        // Atomic configuration commit. This is not a lifecycle transition:
+        // only explicitly submitted decisions are upserted and settled.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/manager', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'savePackageStationManager'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
@@ -1291,6 +1298,68 @@ class AdminServicesController
         // trusts, not a re-derivation.
         $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
 
+        $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
+
+        return rest_ensure_response([
+            'success' => true,
+            'manager' => $readModel,
+        ]);
+    }
+
+    /**
+     * Commit complete group configuration plus explicit Manager item
+     * decisions. Omitted persisted decisions survive; omitted provisional
+     * source items never enter storage and remain not-configured.
+     */
+    public function savePackageStationManager(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $post      = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body) || !isset($body['groups'], $body['item_decisions'])) {
+            return rest_ensure_response([
+                'success' => false,
+                'message' => 'Groups and item_decisions are required.',
+            ]);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+        $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+        $faqPool = is_array($rawFaqs) ? $rawFaqs : [];
+
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+        $rawManager = is_array($station['package_manager'] ?? null)
+            ? $station['package_manager']
+            : $PMS::defaultManager();
+
+        try {
+            $manager = $PMS::commitConfiguration(
+                $rawManager,
+                $body['groups'],
+                $body['item_decisions'],
+                $incPool,
+                $faqPool
+            );
+        } catch (\InvalidArgumentException $e) {
+            return rest_ensure_response(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        // One postmeta write is the atomic storage boundary. Do not derive or
+        // alter platform_status: the Manager owns no lifecycle.
+        $station['package_manager'] = $manager;
+        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+
+        $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
         $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
 
         return rest_ensure_response([

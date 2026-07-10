@@ -19,12 +19,11 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  * from PackageSchema at all.
  *
 
- * Scope (Phase A only): storage shape, deterministic provisional identity,
- * pure in-memory reconciliation against the Service inclusion/FAQ pools, the
- * pure read-model builder, and consumer (tier) projections. No REST routes,
- * no save/settle/revert mutation helpers — those are Phase D, wired only
- * once a route exists to reach them. Nothing here performs I/O; callers own
- * fetching postmeta/pools and pass plain arrays in.
+ * Scope: storage shape, deterministic provisional identity, pure in-memory
+ * reconciliation against the Service inclusion/FAQ pools, atomic explicit-
+ * decision commits, the pure read-model builder, and consumer projections.
+ * Nothing here performs I/O; callers own fetching postmeta/pools and pass
+ * plain arrays in. There is no Manager-wide lifecycle or draft/revert flow.
  *
  * Presentation boundary (locked, corrected post-Phase-A-audit): this class
  * emits OPERATIONAL FACTS ONLY — module_transition, disabled, missing,
@@ -79,6 +78,16 @@ final class PackageManagerSchema
     public static function defaultManager(): array
     {
         return ['groups' => [], 'items' => []];
+    }
+
+    /**
+     * Whether the stored Manager contains any Manager-owned configuration.
+     * Reconciled source rows are deliberately not considered: they are
+     * provisional read-model material and do not exist in $storedManager.
+     */
+    public static function hasConfiguration(array $storedManager): bool
+    {
+        return !empty($storedManager['groups']) || !empty($storedManager['items']);
     }
 
     /**
@@ -227,6 +236,131 @@ final class PackageManagerSchema
         }
 
         return $out === [] ? null : $out;
+    }
+
+    // ── Atomic configuration commit ────────────────────────────────────────
+
+    /**
+     * Replace the complete ordered group configuration and upsert only the
+     * item decisions explicitly submitted by the administrator. Omitted
+     * persisted decisions are preserved; provisional source items remain
+     * absent from storage and therefore not-configured in the next read.
+     *
+     * A submitted identity must either resolve in the current source pools or
+     * already exist as a persisted (possibly stale) decision. This prevents a
+     * client from manufacturing source children while still allowing a stale
+     * persisted decision to be reorganised or disabled.
+     *
+     * @throws \InvalidArgumentException for malformed/unknown identities
+     */
+    public static function commitConfiguration(
+        array $storedManager,
+        mixed $submittedGroups,
+        mixed $submittedDecisions,
+        array $inclusionPool,
+        array $faqPool
+    ): array {
+        if (!is_array($submittedGroups) || !is_array($submittedDecisions)) {
+            throw new \InvalidArgumentException('Groups and item decisions must be arrays.');
+        }
+
+        $groups   = self::sanitizeGroups($submittedGroups);
+        $groupIds = array_column($groups, 'group_id');
+        $stored   = self::sanitize($storedManager);
+
+        $persistedById = [];
+        foreach ($stored['items'] as $item) {
+            $persistedById[$item['item_id']] = $item;
+        }
+
+        $liveIds = [];
+        foreach ([['inclusion', $inclusionPool], ['faq', $faqPool]] as [$sourceType, $pool]) {
+            foreach ($pool as $source) {
+                if (!is_array($source)) {
+                    continue;
+                }
+                $sourceId = sanitize_text_field((string) ($source['id'] ?? ''));
+                if ($sourceId !== '') {
+                    $liveIds[self::deriveItemId($sourceType, $sourceId)] = true;
+                }
+            }
+        }
+
+        foreach ($submittedDecisions as $decision) {
+            if (!is_array($decision)) {
+                throw new \InvalidArgumentException('Each item decision must be an object.');
+            }
+
+            $sourceType = sanitize_text_field((string) ($decision['source_type'] ?? ''));
+            $sourceId   = sanitize_text_field((string) ($decision['source_id'] ?? ''));
+            if (!in_array($sourceType, self::ALLOWED_SOURCE_TYPES, true) || $sourceId === '') {
+                throw new \InvalidArgumentException('Each item decision requires a valid source identity.');
+            }
+
+            $itemId = self::deriveItemId($sourceType, $sourceId);
+            $claimedId = sanitize_text_field((string) ($decision['item_id'] ?? ''));
+            if ($claimedId !== '' && $claimedId !== $itemId) {
+                throw new \InvalidArgumentException('Item identity does not match its source identity.');
+            }
+            if (!isset($liveIds[$itemId]) && !isset($persistedById[$itemId])) {
+                throw new \InvalidArgumentException('Item decision does not reference a current or persisted source.');
+            }
+
+            $existing = $persistedById[$itemId] ?? [
+                'item_id'           => $itemId,
+                'source_type'       => $sourceType,
+                'source_id'         => $sourceId,
+                'group_id'          => null,
+                'sort_order'        => 0,
+                'disabled'          => false,
+                'decorated_label'   => null,
+                'draft'             => null,
+                'module_transition' => 'not-configured',
+            ];
+
+            $groupId = array_key_exists('group_id', $decision)
+                ? sanitize_text_field((string) ($decision['group_id'] ?? ''))
+                : (string) ($existing['group_id'] ?? '');
+            if ($groupId === '' || !in_array($groupId, $groupIds, true)) {
+                $groupId = null;
+            }
+
+            $decoratedLabel = $existing['decorated_label'] ?? null;
+            if (array_key_exists('decorated_label', $decision)) {
+                $label = $decision['decorated_label'];
+                $decoratedLabel = ($label === null || $label === '')
+                    ? null
+                    : sanitize_text_field((string) $label);
+            }
+
+            $persistedById[$itemId] = [
+                'item_id'           => $itemId,
+                'source_type'       => $sourceType,
+                'source_id'         => $sourceId,
+                'group_id'          => $groupId,
+                'sort_order'        => array_key_exists('sort_order', $decision)
+                    ? (int) $decision['sort_order']
+                    : (int) ($existing['sort_order'] ?? 0),
+                'disabled'          => array_key_exists('disabled', $decision)
+                    ? (bool) $decision['disabled']
+                    : (bool) ($existing['disabled'] ?? false),
+                'decorated_label'   => $decoratedLabel,
+                'draft'             => null,
+                'module_transition' => 'settled',
+            ];
+        }
+
+        // A complete group submission may remove a group. Normalize every
+        // preserved decision against the new group set without deleting it.
+        $items = [];
+        foreach ($persistedById as $item) {
+            if ($item['group_id'] !== null && !in_array($item['group_id'], $groupIds, true)) {
+                $item['group_id'] = null;
+            }
+            $items[] = $item;
+        }
+
+        return self::sanitize(['groups' => $groups, 'items' => $items]);
     }
 
     // ── Deterministic provisional identity ──────────────────────────────────
@@ -392,7 +526,7 @@ final class PackageManagerSchema
      * @param  array<int, mixed> $inclusionPool cz_service_inclusions items
      * @param  array<int, mixed> $faqPool       cz_service_faqs items
      * @param  string $platformStatus service/package platform_status ('active'|'disabled')
-     * @return array{service_id: int, platform_status: string, groups: array, items: array, projections: array}
+     * @return array{service_id: int, platform_status: string, has_configuration: bool, groups: array, items: array, projections: array}
      */
     public static function buildReadModel(
         int $serviceId,
@@ -423,11 +557,12 @@ final class PackageManagerSchema
         }
 
         return [
-            'service_id'      => $serviceId,
-            'platform_status' => $platformStatus,
-            'groups'          => $groups,
-            'items'           => $outItems,
-            'projections'     => self::buildConsumerProjections($outItems, $platformStatus),
+            'service_id'        => $serviceId,
+            'platform_status'   => $platformStatus,
+            'has_configuration' => self::hasConfiguration($storedManager),
+            'groups'            => $groups,
+            'items'             => $outItems,
+            'projections'       => self::buildConsumerProjections($outItems, $platformStatus),
         ];
     }
 
