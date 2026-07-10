@@ -15,6 +15,8 @@ import type {
   ServicePackageStationResponse,
   ServiceTierSaveResponse,
   PackageManagerResponse,
+  PackageManagerSavePayload,
+  PackageManagerSaveResponse,
   TierLifecycleResponse,
   TierArchiveResponse,
   BinRestoreResponse,
@@ -380,10 +382,20 @@ export function fetchServicePackageStation(serviceId: number): Promise<ServicePa
   return apiClient.get<ServicePackageStationResponse>(`admin/services/${serviceId}/package-station`);
 }
 
-// Package Station Manager (Phase B) — read-only. No save/settle/revert
-// endpoints yet.
+// Package relation provider — operational read model plus atomic explicit-
+// decision commit. There is no Manager lifecycle, settle, or revert route.
 export function fetchPackageStationManager(serviceId: number): Promise<PackageManagerResponse> {
   return apiClient.get<PackageManagerResponse>(`admin/services/${serviceId}/package-station/manager`);
+}
+
+export function savePackageStationManager(
+  serviceId: number,
+  payload: PackageManagerSavePayload,
+): Promise<PackageManagerSaveResponse> {
+  return apiClient.post<PackageManagerSaveResponse>(
+    `admin/services/${serviceId}/package-station/manager`,
+    payload,
+  );
 }
 
 export function saveServicePackageStationTier(

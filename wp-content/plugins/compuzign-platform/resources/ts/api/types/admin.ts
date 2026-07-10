@@ -170,6 +170,25 @@ export interface PackageManagerResponse {
   manager: PackageManagerReadModel;
 }
 
+export interface PackageManagerItemDecision {
+  item_id:          string;
+  source_type:      PackageManagerSourceType;
+  source_id:        string;
+  group_id?:        string | null;
+  sort_order?:      number;
+  disabled?:        boolean;
+  decorated_label?: string | null;
+}
+
+export interface PackageManagerSavePayload {
+  groups:         PackageManagerGroup[];
+  item_decisions: PackageManagerItemDecision[];
+}
+
+export type PackageManagerSaveResponse =
+  | { success: true; manager: PackageManagerReadModel }
+  | { success: false; message: string };
+
 // Phase 2 — P5 Step 2: immediate canonical pool creation. Service owns the pool;
 // the caller attaches the returned id to a tier's module draft in a separate save.
 export interface CreateInclusionPoolItemResponse {
