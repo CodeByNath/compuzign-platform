@@ -77,6 +77,25 @@ check(packageRelationProvider.manager.sections.length === 2, 'Package declares e
 check(packageRelationProvider.manager.sections[0].id === 'groups', 'Package declares Groups structure');
 check(packageRelationProvider.manager.sections[1].id === 'relationships', 'Package declares one Relationships section');
 check(packageRelationProvider.manager.sections[1].capabilities.includes('availability'), 'availability stays a capability');
+const managerSummary = packageRelationProvider.manager.summary!.project(readModel, {
+  stationType: 'package', stationId: 42, context: {},
+});
+check(managerSummary.status.status === 'pending-dim', 'provisional relationship keeps summary Pending');
+check(managerSummary.metrics.map((metric) => metric.id).join(',') === 'features,questions,groups,configured,available,missing', 'summary exposes the six required counts');
+const groupProjection = packageRelationProvider.manager.sections[0].project(readModel, {
+  stationType: 'package', stationId: 42, context: {},
+});
+check(groupProjection.role === 'structure' && groupProjection.rows[0].relationshipCount === 1, 'Groups projects relationship counts');
+const relationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
+  stationType: 'package', stationId: 42, context: {},
+});
+check(relationshipProjection.role === 'relations', 'Relationships uses one relation projection');
+if (relationshipProjection.role === 'relations') {
+  check(relationshipProjection.filters.map((filter) => filter.label).join(',') === 'All,Features,Common Questions,Attention', 'Features and questions are filters');
+  check(relationshipProjection.rows[0].availability === 'Available', 'availability uses the settled active consumer gate');
+  check(relationshipProjection.rows[1].availability === 'Not available', 'provisional enabled row is not falsely available');
+  check(relationshipProjection.rows[1].stateDetail === 'Provisional', 'provisional semantics remain visible');
+}
 check(
   relationProvidersFor({ stationType: 'service', stationId: 42, context: {} }).length === 0,
   'registry does not leak Package into another station scope',

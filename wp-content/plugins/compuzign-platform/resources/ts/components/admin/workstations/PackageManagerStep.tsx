@@ -1,7 +1,7 @@
 import { usePackageManager } from '@/hooks/usePackageManager';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import { ModuleNotificationPanel } from '@/components/admin/ui/ModuleNotificationPanel';
-import { statusDotClass, STATUS_PILL_MAP } from '@/components/admin/utils/moduleStatus';
+import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
 import {
   evaluateModule,
   packageManagerItemModule,
@@ -15,20 +15,17 @@ import type { PackageManagerItem } from '@/api/types/admin';
 // Service-owned features/common questions, NOT a station drawer. Never
 // render an item as a full module/station card (ReadBlock) — that recreates
 // a drawer-of-cards inside a transit step, which is exactly the anti-pattern
-// this refactor removes. Rows use the same compact table + statusDotClass
-// pattern already established for the Package Pricing Summary table
+// this refactor removes. Rows use the same compact table pattern already
+// established for the Package Pricing Summary table
 // (ServiceTierStep.tsx's cz-sp-tier-table) — no new CSS system, no new
-// status/notification engine.
+// status/notification engine. The temporary transit view also uses the
+// canonical pill so Package Manager never falls back to status dots.
 //
 // "State" (existing evaluateModule/packageManagerItemModule resolution —
 // Active/Pending/Disabled, unchanged) and "Availability" (a separate,
 // stricter, consumer-eligibility fact — settled + active parent + enabled +
 // resolving) are deliberately different columns. Availability is never
 // inferred from disabled === false alone.
-
-function itemStateLabel(status: string): string {
-  return STATUS_PILL_MAP[status]?.label ?? status;
-}
 
 // Mirrors PackageManagerSchema.php's buildConsumerProjections gate exactly —
 // what would actually be usable by a tier right now. Deliberately separate
@@ -97,8 +94,10 @@ function RowsTable({ firstColumnLabel, items, platformStatus }: RowsTableProps) 
                 <td class="cz-sp-tier-table__center cz-sp-tier-table__muted">{item.sort_order}</td>
                 <td>
                   <div class="cz-sp-tier-table__name-inner">
-                    <span class={`cz-admin-status-dot ${statusDotClass(status)}`} />
-                    <span>{itemStateLabel(status)}</span>
+                    <ModuleStatusPill
+                      status={status}
+                      notes={evaluateModule(packageManagerItemModule, item, { platformStatus }).notes}
+                    />
                   </div>
                 </td>
                 <td class={notAvailable ? 'cz-sp-tier-table__muted' : undefined}>
@@ -178,8 +177,7 @@ export function PackageManagerStep({ ctx }: { ctx: StepContext }) {
       <div class="cz-shell-section cz-shell-section--no-border">
         <p class="cz-shell-section__title">Package Manager</p>
         <div class="cz-sp-tier-table__name-inner">
-          <span class={`cz-admin-status-dot ${statusDotClass(summary.status)}`} />
-          <span>{itemStateLabel(summary.status)}</span>
+          <ModuleStatusPill status={summary.status} notes={summary.notes} />
         </div>
         <p class="cz-sp-tier-table__muted">
           {featureCount} feature{featureCount === 1 ? '' : 's'} · {questionCount} common question{questionCount === 1 ? '' : 's'} · {availableCount} available

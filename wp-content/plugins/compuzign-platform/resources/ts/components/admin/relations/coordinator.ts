@@ -1,4 +1,5 @@
 import type {
+  ManagerContribution,
   ProviderValidationIssue,
   ProviderValidationResult,
   StationManagerScope,
@@ -13,7 +14,7 @@ export interface ManagerProviderAdapter {
   key: string;
   label: string;
   access: 'read-only' | 'writable';
-  manager: { sections: readonly { id: string; validationPaths: readonly string[] }[] };
+  manager: ManagerContribution<any, any, any>;
   load(scope: StationManagerScope, signal?: AbortSignal): Promise<unknown>;
   createDraft?: (readModel: unknown, scope: StationManagerScope) => unknown;
   isDirty?: (draft: unknown, original: unknown, readModel: unknown) => boolean;

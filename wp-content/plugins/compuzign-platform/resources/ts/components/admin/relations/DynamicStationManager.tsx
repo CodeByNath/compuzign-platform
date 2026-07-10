@@ -1,65 +1,43 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import type { ExitGuard, StepContext } from '../ActionShell';
+import { ModuleStatusPill } from '../ui/ModuleStatusPill';
+import { MODULE_ICONS } from '../schema/icons';
 import { relationProvidersFor } from './registry';
 import type { StationManagerScope } from './types';
 import {
-  createManagerCoordinatorState,
-  managerFooterState,
-  managerIsDirty,
-  resetManagerDrafts,
-  seedProviderReadModel,
+  createManagerCoordinatorState, managerFooterState, managerIsDirty,
+  resetManagerDrafts, seedProviderReadModel,
 } from './coordinator';
 import type { ManagerCoordinatorState, ManagerProviderAdapter } from './coordinator';
 
-type ManagerShellContext = Pick<
-  StepContext,
-  'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'setFooter'
->;
+type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'setFooter'>;
 
-export function DynamicStationManager({
-  scope,
-  shell,
-}: {
-  scope: StationManagerScope;
-  shell: ManagerShellContext;
-}) {
-  const registered = useMemo(
-    () => relationProvidersFor(scope),
-    [scope.stationType, scope.stationId],
-  );
+export function DynamicStationManager({ scope, shell }: { scope: StationManagerScope; shell: ManagerShellContext }) {
+  const registered = useMemo(() => relationProvidersFor(scope), [scope.stationType, scope.stationId]);
   const providers = registered as unknown as readonly ManagerProviderAdapter[];
-  const [state, setState] = useState<ManagerCoordinatorState>(
-    () => createManagerCoordinatorState(providers),
-  );
+  const [state, setState] = useState<ManagerCoordinatorState>(() => createManagerCoordinatorState(providers));
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  const [filterBySection, setFilterBySection] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const controller = new AbortController();
-    let next = createManagerCoordinatorState(providers);
-    for (const provider of providers) next.loadStateByProvider[provider.key] = 'loading';
-    setState(next);
-
+    const initial = createManagerCoordinatorState(providers);
+    for (const provider of providers) initial.loadStateByProvider[provider.key] = 'loading';
+    setState(initial);
     providers.forEach(async (provider) => {
       try {
         const readModel = await provider.load(scope, controller.signal);
         if (controller.signal.aborted) return;
         setState((current) => {
           const seeded = seedProviderReadModel(current, provider, scope, readModel);
-          return {
-            ...seeded,
-            loadStateByProvider: { ...seeded.loadStateByProvider, [provider.key]: 'loaded' },
-            loadErrorsByProvider: { ...seeded.loadErrorsByProvider, [provider.key]: null },
-          };
+          return { ...seeded, loadStateByProvider: { ...seeded.loadStateByProvider, [provider.key]: 'loaded' } };
         });
       } catch (error) {
         if (controller.signal.aborted) return;
-        setState((current) => ({
-          ...current,
+        setState((current) => ({ ...current,
           loadStateByProvider: { ...current.loadStateByProvider, [provider.key]: 'error' },
-          loadErrorsByProvider: {
-            ...current.loadErrorsByProvider,
-            [provider.key]: error instanceof Error ? error.message : `Could not load ${provider.label}.`,
-          },
+          loadErrorsByProvider: { ...current.loadErrorsByProvider,
+            [provider.key]: error instanceof Error ? error.message : `Could not load ${provider.label}.` },
         }));
       }
     });
@@ -68,106 +46,114 @@ export function DynamicStationManager({
 
   const dirty = managerIsDirty(state, providers);
   const footerState = managerFooterState(state, dirty);
-
   const exitGuard = useCallback<ExitGuard>(() => {
     if (!dirty) return true;
     setShowExitConfirmation(true);
     return false;
   }, [dirty]);
+  useEffect(() => { shell.setExitGuard(exitGuard); return () => shell.setExitGuard(null); }, [exitGuard, shell.setExitGuard]);
+  useEffect(() => { shell.setFooter(null); return () => shell.setFooter(null); }, [shell.setFooter, footerState.saveDisabled]);
 
-  useEffect(() => {
-    shell.setExitGuard(exitGuard);
-    return () => shell.setExitGuard(null);
-  }, [exitGuard, shell.setExitGuard]);
-
-  // ActionShell owns this one session footer. Phase 3A deliberately exposes no
-  // misleading Save/Cancel buttons while provider controls are not rendered.
-  useEffect(() => {
-    shell.setFooter(null);
-    return () => shell.setFooter(null);
-  }, [shell.setFooter, footerState.saveDisabled]);
-
-  const keepEditing = () => {
-    setShowExitConfirmation(false);
-    shell.cancelPendingExit();
-  };
-  const discardAndContinue = () => {
-    setState((current) => resetManagerDrafts(current, providers));
-    setShowExitConfirmation(false);
-    shell.confirmPendingExit();
-  };
-
-  const errors = providers.flatMap((provider) => {
-    const error = state.loadErrorsByProvider[provider.key];
-    return error ? [{ key: provider.key, message: error }] : [];
-  });
-  const loading = providers.some((provider) => state.loadStateByProvider[provider.key] === 'loading');
   const active = providers.find((provider) => provider.key === state.activeProviderKey) ?? providers[0];
-  const validationCount = Object.values(state.validationByProvider)
-    .reduce((count, issues) => count + issues.length, 0);
+  const readModel = active ? state.readModelByProvider[active.key] : undefined;
+  const loadState = active ? state.loadStateByProvider[active.key] : 'idle';
+  const loadError = active ? state.loadErrorsByProvider[active.key] : null;
+  const summary = active?.manager.summary && readModel !== undefined
+    ? active.manager.summary.project(readModel, scope) : null;
 
   return (
     <section class="cz-manager-workspace" aria-labelledby="dynamic-station-manager-title">
       <header class="cz-manager-workspace__header">
         <div>
-          <h3 id="dynamic-station-manager-title">Manager</h3>
-          <p class="cz-sp-tier-table__muted">Coordinate structure and relationships for this station.</p>
+          <h3 id="dynamic-station-manager-title">{active?.manager.summary?.label ?? 'Manager'}</h3>
+          <p>{active?.manager.summary?.subtitle}</p>
         </div>
-        <span class="cz-module-status-pill cz-module-status-pill--draft">
-          {loading ? 'Loading' : errors.length ? 'Unavailable' : 'Ready'}
-        </span>
+        <div class="cz-manager-workspace__status">
+          <ModuleStatusPill status={loadState === 'loading' ? 'loading' : summary?.status.status ?? 'pending-dim'} notes={summary?.status.notes ?? []} />
+        </div>
       </header>
 
-      <div class="cz-manager-workspace__dashboard" aria-label="Manager summary">
-        <span>{providers.length} {providers.length === 1 ? 'provider' : 'providers'}</span>
-        <span>{providers.filter((provider) => provider.access === 'writable').length} writable</span>
-        <span>{validationCount} validation issues</span>
-      </div>
+      {summary && (
+        <p class="cz-manager-workspace__summary" aria-label="Package Manager summary">
+          {summary.metrics.map((metric, index) => (
+            <span key={metric.id}>{index > 0 && <span aria-hidden="true"> · </span>}{metric.value} {metric.label}</span>
+          ))}
+        </p>
+      )}
 
-      <nav class="cz-manager-workspace__providers" aria-label="Manager providers">
-        {providers.map((provider) => (
-          <span
-            key={provider.key}
-            class={provider.key === active?.key ? 'is-active' : undefined}
-          >
-            {provider.label}
-          </span>
-        ))}
-      </nav>
+      {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}
+      {loadError && <div class="cz-admin-error-msg" role="alert">{loadError}</div>}
 
-      <div class="cz-manager-workspace__sections">
-        {loading && <p>Loading provider workspace…</p>}
-        {errors.length > 0 && (
-          <div class="cz-admin-error-msg" role="alert">
-            {errors.map((error) => <p key={error.key}>{error.message}</p>)}
-          </div>
-        )}
-        {!loading && errors.length === 0 && active && (
-          <>
-            <h4>{active.label}</h4>
-            <p class="cz-sp-tier-table__muted">
-              {active.manager.sections.map((section) => section.id).join(' · ')} sections are registered.
-              Controls arrive in the next Manager phase.
-            </p>
-          </>
-        )}
-      </div>
+      {readModel !== undefined && active?.manager.sections.map((section) => {
+        const projection = section.project(readModel, scope);
+        if (projection.role === 'structure') {
+          return (
+            <section class="cz-manager-section" key={section.id} aria-labelledby={`manager-${section.id}`}>
+              <h4 id={`manager-${section.id}`}>{section.label}</h4>
+              {projection.rows.length === 0 ? (
+                <div class="cz-manager-empty">
+                  <span class="cz-manager-empty__icon">{MODULE_ICONS.package}</span>
+                  <strong>{section.emptyState.title}</strong>
+                  {section.emptyState.description && <p>{section.emptyState.description}</p>}
+                </div>
+              ) : (
+                <div class="cz-manager-groups" role="list">
+                  <div class="cz-manager-groups__heading"><span>Group</span><span>Order</span><span>Relationships</span></div>
+                  {projection.rows.map((row) => (
+                    <div class="cz-manager-groups__row" role="listitem" key={row.id}>
+                      <strong>{row.label}</strong><span>{row.order}</span><span>{row.relationshipCount}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        }
+
+        const activeFilter = filterBySection[section.id] ?? 'all';
+        const rows = projection.rows.filter((row) => row.filterIds.includes(activeFilter));
+        return (
+          <section class="cz-manager-section" key={section.id} aria-labelledby={`manager-${section.id}`}>
+            <h4 id={`manager-${section.id}`}>{section.label}</h4>
+            <div class="cz-manager-filters" role="group" aria-label="Relationship filters">
+              {projection.filters.map((filter) => (
+                <button type="button" key={filter.id} class={activeFilter === filter.id ? 'is-active' : undefined}
+                  aria-pressed={activeFilter === filter.id}
+                  onClick={() => setFilterBySection((current) => ({ ...current, [section.id]: filter.id }))}>
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            {rows.length === 0 ? <div class="cz-manager-empty"><strong>{section.emptyState.title}</strong></div> : (
+              <div class="cz-sp-tier-table-wrap">
+                <table class="cz-sp-tier-table cz-manager-relationships">
+                  <thead><tr><th>Source</th><th>Group</th><th>Order</th><th>State</th><th>Availability</th><th>Source health</th></tr></thead>
+                  <tbody>{rows.map((row) => (
+                    <tr key={row.id}>
+                      <td class="cz-sp-tier-table__name">{row.sourceLabel}</td>
+                      <td class="cz-sp-tier-table__muted">{row.groupLabel}</td>
+                      <td>{row.order}</td>
+                      <td><ModuleStatusPill status={row.state.status} notes={row.state.notes} /><small>{row.stateDetail}</small></td>
+                      <td>{row.availability}</td>
+                      <td class={row.sourceHealth === 'Missing' ? 'cz-manager-text--attention' : 'cz-sp-tier-table__muted'}>{row.sourceHealth}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        );
+      })}
 
       {showExitConfirmation && (
-        <div class="cz-publish-confirm-overlay">
-          <div class="cz-publish-confirm" role="dialog" aria-modal="true" aria-labelledby="manager-exit-title">
-            <div class="cz-publish-confirm__header">
-              <h3 class="cz-publish-confirm__title" id="manager-exit-title">Unsaved Manager changes</h3>
-            </div>
-            <div class="cz-publish-confirm__body">
-              <p class="cz-publish-confirm__lead">Discard changes across all Manager providers and continue?</p>
-            </div>
-            <div class="cz-publish-confirm__footer">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={discardAndContinue}>Discard</button>
-              <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={keepEditing}>Keep editing</button>
-            </div>
+        <div class="cz-publish-confirm-overlay"><div class="cz-publish-confirm" role="dialog" aria-modal="true">
+          <div class="cz-publish-confirm__header"><h3 class="cz-publish-confirm__title">Unsaved Manager changes</h3></div>
+          <div class="cz-publish-confirm__body"><p class="cz-publish-confirm__lead">Discard changes across all Manager providers and continue?</p></div>
+          <div class="cz-publish-confirm__footer">
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setState((current) => resetManagerDrafts(current, providers)); setShowExitConfirmation(false); shell.confirmPendingExit(); }}>Discard</button>
+            <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => { setShowExitConfirmation(false); shell.cancelPendingExit(); }}>Keep editing</button>
           </div>
-        </div>
+        </div></div>
       )}
     </section>
   );

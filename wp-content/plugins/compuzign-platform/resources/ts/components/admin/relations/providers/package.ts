@@ -11,6 +11,7 @@ import type {
 import {
   evaluateModule,
   packageManagerItemModule,
+  packageManagerSummaryModule,
 } from '@/components/admin/utils/moduleNotifications';
 import type {
   ProviderValidationIssue,
@@ -128,6 +129,19 @@ function packageItemLabel(item: PackageManagerItem): string {
     : '(missing source)';
 }
 
+function packageItemAvailable(item: PackageManagerItem, platformStatus: string): boolean {
+  return item.module_transition === 'settled'
+    && platformStatus === 'active'
+    && !item.disabled
+    && !item.missing;
+}
+
+function packageAvailability(item: PackageManagerItem, platformStatus: string) {
+  if (item.missing) return 'Missing source' as const;
+  if (item.disabled) return 'Disabled' as const;
+  return packageItemAvailable(item, platformStatus) ? 'Available' as const : 'Not available' as const;
+}
+
 export const packageRelationProvider: WritableRelationProvider<
   PackageRelationScope,
   PackageManagerReadModel,
@@ -145,10 +159,17 @@ export const packageRelationProvider: WritableRelationProvider<
   manager: {
     summary: {
       label: 'Package Manager',
+      subtitle: 'Manage how Service-owned features and common questions participate in this package.',
       project: (readModel) => ({
-        groups: readModel.groups.length,
-        relationships: readModel.items.length,
-        configured: readModel.has_configuration,
+        status: evaluateModule(packageManagerSummaryModule, readModel.items, { platformStatus: readModel.platform_status }),
+        metrics: [
+          { id: 'features', label: readModel.items.filter((item) => item.source_type === 'inclusion').length === 1 ? 'feature' : 'features', value: readModel.items.filter((item) => item.source_type === 'inclusion').length },
+          { id: 'questions', label: readModel.items.filter((item) => item.source_type === 'faq').length === 1 ? 'common question' : 'common questions', value: readModel.items.filter((item) => item.source_type === 'faq').length },
+          { id: 'groups', label: readModel.groups.length === 1 ? 'group' : 'groups', value: readModel.groups.length },
+          { id: 'configured', label: 'configured', value: readModel.items.filter((item) => item.module_transition !== 'not-configured').length },
+          { id: 'available', label: 'available', value: readModel.items.filter((item) => packageItemAvailable(item, readModel.platform_status)).length },
+          { id: 'missing', label: 'missing source', value: readModel.items.filter((item) => item.missing).length },
+        ],
       }),
     },
     sections: [
@@ -156,6 +177,13 @@ export const packageRelationProvider: WritableRelationProvider<
         id: 'groups', label: 'Groups', role: 'structure', capabilities: ['grouping', 'ordering'],
         emptyState: { title: 'No groups yet', description: 'Create groups to organize package relationships.' },
         validationPaths: ['groups'],
+        project: (readModel) => ({
+          role: 'structure',
+          rows: [...readModel.groups].sort((a, b) => a.sort_order - b.sort_order).map((group) => ({
+            id: group.group_id, label: group.label, order: group.sort_order,
+            relationshipCount: readModel.items.filter((item) => item.group_id === group.group_id).length,
+          })),
+        }),
       },
       {
         id: 'relationships', label: 'Package Relationships', role: 'relations',
@@ -164,6 +192,31 @@ export const packageRelationProvider: WritableRelationProvider<
         identity: (row) => ({ itemId: row.item_id, sourceType: row.source_type, sourceId: row.source_id }),
         emptyState: { title: 'No relationships yet' },
         validationPaths: ['items'],
+        project: (readModel) => {
+          const groups = new Map(readModel.groups.map((group) => [group.group_id, group.label]));
+          return {
+            role: 'relations',
+            filters: [
+              { id: 'all', label: 'All' }, { id: 'features', label: 'Features' },
+              { id: 'questions', label: 'Common Questions' }, { id: 'attention', label: 'Attention' },
+            ],
+            rows: [...readModel.items].sort((a, b) => a.sort_order - b.sort_order).map((item) => {
+              const state = evaluateModule(packageManagerItemModule, item, { platformStatus: readModel.platform_status });
+              const availability = packageAvailability(item, readModel.platform_status);
+              return {
+                id: item.item_id,
+                filterIds: ['all', item.source_type === 'inclusion' ? 'features' : 'questions', ...(availability !== 'Available' || state.status !== 'active' ? ['attention'] : [])],
+                sourceLabel: packageItemLabel(item),
+                groupLabel: item.group_id ? groups.get(item.group_id) ?? 'Unknown group' : 'Ungrouped',
+                order: item.sort_order,
+                state,
+                stateDetail: item.missing ? 'Missing source' : item.disabled ? 'Disabled' : item.module_transition === 'not-configured' ? 'Provisional' : item.module_transition === 'pending' ? 'Pending changes' : 'Configured',
+                availability,
+                sourceHealth: item.missing ? 'Missing' as const : 'Connected' as const,
+              };
+            }),
+          };
+        },
       },
     ],
   },

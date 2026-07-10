@@ -478,7 +478,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // ── Package Manager entry point (Phase B) ─────────────────────────────────
+  // ── Temporary Package Manager entry point (Phase 3B) ──────────────────────
+  // Removal checkpoint: after Phase 3C/3D deliver working Manager controls,
+  // shared Save/Cancel, and dirty guarding, remove this Connections action and
+  // retire PackageManagerStep transit opening. The Manager tab then becomes the
+  // sole permanent entry point; do not leave both systems after parity.
   // The Connections-tab action opens PackageManagerStep as its own ActionShell
   // transit step, mirroring handleOpenTierConfig
   // (ServiceViewStep.tsx) one level deeper. Not an EntityDrawer, not a
