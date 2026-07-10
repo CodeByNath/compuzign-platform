@@ -113,6 +113,62 @@ export interface ServiceTierSaveResponse {
   new_faqs_added:       number;
 }
 
+// ── Package Station Manager (Phase B) ───────────────────────────────────────
+// Operational facts only — no presentation status/notes here by design (see
+// PackageManagerSchema.php's Phase A audit correction). Presentation status
+// is computed client-side via packageManagerItemModule/
+// packageManagerSummaryModule (moduleNotifications.ts), from these same facts.
+
+export type PackageManagerSourceType = 'inclusion' | 'faq';
+export type PackageManagerModuleTransition = 'not-configured' | 'pending' | 'settled';
+
+export interface PackageManagerGroup {
+  group_id:   string;
+  label:      string;
+  sort_order: number;
+}
+
+export interface PackageManagerItem {
+  item_id:            string;
+  source_type:        PackageManagerSourceType;
+  source_id:           string;
+  // Live-resolved source content, shape per source_type; null when missing.
+  resolved:            { label: string } | { question: string; answer: string } | null;
+  decorated_label:     string | null;
+  group_id:            string | null;
+  sort_order:          number;
+  disabled:            boolean;
+  missing:             boolean;
+  module_transition:   PackageManagerModuleTransition;
+}
+
+export interface PackageManagerProjectionInclusion {
+  id:    string;
+  label: string;
+}
+
+export interface PackageManagerProjectionFaq {
+  id:       string;
+  question: string;
+  answer:   string;
+}
+
+export interface PackageManagerReadModel {
+  service_id:      number;
+  platform_status: string;
+  groups:          PackageManagerGroup[];
+  items:           PackageManagerItem[];
+  projections: {
+    inclusions: PackageManagerProjectionInclusion[];
+    faqs:       PackageManagerProjectionFaq[];
+  };
+}
+
+export interface PackageManagerResponse {
+  success: boolean;
+  manager: PackageManagerReadModel;
+}
+
 // Phase 2 — P5 Step 2: immediate canonical pool creation. Service owns the pool;
 // the caller attaches the returned id to a tier's module draft in a separate save.
 export interface CreateInclusionPoolItemResponse {

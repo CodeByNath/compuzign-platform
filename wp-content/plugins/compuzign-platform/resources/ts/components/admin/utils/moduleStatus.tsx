@@ -2,7 +2,7 @@
 // Used by the Catalog lifecycle (ServiceViewStep) and the shared drawer modules.
 
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
-import type { OverviewDraftData, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
+import type { OverviewDraftData, StationSummary, SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
 import {
   PILL_META,
   PRESENTATION_PILL,
@@ -107,6 +107,58 @@ export function resolveTierStatus(tier: TierLike | undefined, opts: TierStatusOp
   if (!tier.enabled) return 'disabled';
   if (!hasPrice || !hasCycle) return 'pending-dim';
   return opts.pkgStatus === 'active' ? 'active' : 'pending-full';
+}
+
+// ── Package Station Manager resolvers (Phase B) ────────────────────────────────
+// Backend (PackageManagerSchema.php) emits operational facts only —
+// module_transition, disabled, missing, platform_status. These two resolvers
+// are the ONLY place the presentation truth table is computed (a prior PHP
+// draft duplicated it and was removed — see the Phase A audit). Mirrors
+// resolveTierStatus's ordering exactly: transition (completeness proxy) is
+// checked before disabled, so an item can never read Disabled before it has
+// ever been saved — disabled is explicit-only.
+
+export function resolvePackageManagerItemStatus(item: PackageManagerItem, platformStatus: string): string {
+  if (item.module_transition === 'not-configured') {
+    return 'pending-dim';
+  }
+  if (item.disabled) {
+    return 'disabled';
+  }
+  if (item.module_transition === 'pending') {
+    return 'pending-full';
+  }
+  return platformStatus === 'active' ? 'active' : 'pending-full';
+}
+
+// Presentation-only aggregate — owns no transition/lifecycle of its own,
+// stores no status. Evaluates every item independently using THAT ITEM's own
+// module_transition (never a shared one), then folds:
+//   no items                              → pending-dim
+//   every evaluated status is disabled    → disabled
+//   otherwise, excluding disabled results:
+//     any pending-full                    → pending-full
+//     otherwise any pending-dim           → pending-dim
+//     otherwise                           → active
+export function resolvePackageManagerSummary(items: PackageManagerItem[], platformStatus: string): string {
+  if (items.length === 0) {
+    return 'pending-dim';
+  }
+
+  const statuses = items.map((item) => resolvePackageManagerItemStatus(item, platformStatus));
+
+  if (statuses.every((s) => s === 'disabled')) {
+    return 'disabled';
+  }
+
+  const required = statuses.filter((s) => s !== 'disabled');
+  if (required.includes('pending-full')) {
+    return 'pending-full';
+  }
+  if (required.includes('pending-dim')) {
+    return 'pending-dim';
+  }
+  return 'active';
 }
 
 // ── Promotion summary resolver (engine E1) ────────────────────────────────────

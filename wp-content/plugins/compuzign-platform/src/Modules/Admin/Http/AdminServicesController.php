@@ -203,6 +203,16 @@ class AdminServicesController
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
 
+        // Package Station Manager (Phase B) — read-only, operational-facts-only
+        // read model (PackageManagerSchema::buildReadModel). No save/settle/
+        // revert routes yet; Phase D adds those.
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/manager', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getPackageStationManager'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
+        ]);
+
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)', [
             'methods'             => 'POST',
             'callback'            => [$this, 'savePackageStationTier'],
@@ -592,6 +602,10 @@ class AdminServicesController
             'valid_until'        => null,
             'display_contexts'   => ['cost-builder'],
             'migration_source_id' => null,
+            // Package Station Manager (Phase B) — package-level decoration over
+            // Service-owned children. Storage/lifecycle owned by
+            // PackageManagerSchema; this is only the newborn-station default.
+            'package_manager'    => \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::defaultManager(),
         ]);
 
         // Promotion Station — born empty; Promotion Instances created in Phase 4.
@@ -1234,6 +1248,54 @@ class AdminServicesController
                     fn($i) => is_array($i) && !empty($i['question'])
                 )),
             ],
+        ]);
+    }
+
+    /**
+     * Package Station Manager read endpoint (Phase B). Pure read: sanitizes
+     * whatever `station.package_manager` currently holds (or in-memory
+     * defaults it for a station that predates the key — never persisted here,
+     * per the no-write-on-read contract), reconciles against the live
+     * inclusion/FAQ pools, and returns PackageManagerSchema::buildReadModel's
+     * operational-facts-only shape. No presentation status, no notes, no
+     * writes of any kind.
+     */
+    public function getPackageStationManager(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $post      = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || empty($station)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
+        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+        $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+        $faqPool = is_array($rawFaqs) ? $rawFaqs : [];
+
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+
+        // In-memory default for a station that predates package_manager — never
+        // written back here; sanitize() always returns a fully-shaped array
+        // regardless of what (if anything) was actually stored.
+        $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
+        $manager    = $PMS::sanitize($rawManager);
+
+        // Stored platform_status is the parent operational fact (per the
+        // accepted Phase B plan) — same field Cost Builder visibility already
+        // trusts, not a re-derivation.
+        $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
+
+        $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
+
+        return rest_ensure_response([
+            'success' => true,
+            'manager' => $readModel,
         ]);
     }
 

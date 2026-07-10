@@ -14,6 +14,7 @@ import type {
   MigrationPhase4Result,
   ServicePackageStationResponse,
   ServiceTierSaveResponse,
+  PackageManagerResponse,
   TierLifecycleResponse,
   TierArchiveResponse,
   BinRestoreResponse,
@@ -377,6 +378,12 @@ export function permanentDeleteServicePromotion(
 // Phase 2 — Service Station-owned Package Station tier management.
 export function fetchServicePackageStation(serviceId: number): Promise<ServicePackageStationResponse> {
   return apiClient.get<ServicePackageStationResponse>(`admin/services/${serviceId}/package-station`);
+}
+
+// Package Station Manager (Phase B) — read-only. No save/settle/revert
+// endpoints yet.
+export function fetchPackageStationManager(serviceId: number): Promise<PackageManagerResponse> {
+  return apiClient.get<PackageManagerResponse>(`admin/services/${serviceId}/package-station/manager`);
 }
 
 export function saveServicePackageStationTier(

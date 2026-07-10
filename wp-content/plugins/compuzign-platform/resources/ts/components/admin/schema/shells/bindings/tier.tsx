@@ -12,6 +12,7 @@ import {
   tierOverviewModule,
   tierFeaturesModule,
   tierFaqsModule,
+  packageManagerSummaryModule,
 } from '@/components/admin/utils/moduleNotifications';
 import { TierOverviewEditor } from '../../../editors/TierOverviewEditor';
 import type { TierOverviewEditDraft } from '../../../editors/TierOverviewEditor';
@@ -19,7 +20,7 @@ import { PoolInclusionsEditor } from '../../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../../editors/PoolFaqsEditor';
 import type { ShellActionSchema, ShellSchema } from '../../types';
-import type { ItemCollectionValue, QaCollectionValue, TextValue } from '../../elements/library';
+import type { ItemCollectionValue, MetricsValue, QaCollectionValue, TextValue } from '../../elements/library';
 
 // The tier/promotion owning-workspace footer: Discard pending changes (only
 // while a module draft exists) then Edit — the same Action Group shape as the
@@ -169,5 +170,37 @@ export const tierFaqsShell: ShellSchema<TierFaqsShellData> = {
         onCreate={s.extras?.onCreate as (question: string, answer: string) => Promise<FaqPoolItem | null>}
       />
     ),
+  },
+};
+
+// ── Package Manager Summary (Phase B) ─────────────────────────────────────────
+// Entry-point card only, placed in the Package transit drawer's Connections
+// tab alongside the parent Service connection card. Read-only from this
+// placement — View opens PackageManagerStep as its own ActionShell transit
+// step (ServiceTierStep's handleOpenPackageManager), never inline here.
+// Mirrors servicePackageSummaryShell's exact shape (bindings/service.tsx).
+
+export interface PackageManagerSummaryShellData {
+  headline: string;
+  copy:     string;
+}
+
+export const packageManagerSummaryShell: ShellSchema<PackageManagerSummaryShellData> = {
+  archetype: 'overview',
+  dna:       packageManagerSummaryModule,
+  header: {
+    title:    'Package Manager',
+    subtitle: "Grouping, ordering, and availability for this package's children.",
+    icon:     'package',
+  },
+  content: [
+    {
+      id: 'summary', element: 'metrics',
+      bind: (d): MetricsValue => ({ headline: d.headline, copy: d.copy }),
+    },
+  ],
+  footer:  { actions: ['view'] },
+  actions: {
+    view: { id: 'view', label: 'View', intent: 'secondary' },
   },
 };

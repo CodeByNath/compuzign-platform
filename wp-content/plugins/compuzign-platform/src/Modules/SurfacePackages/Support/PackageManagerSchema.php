@@ -3,14 +3,22 @@
 namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 
 /**
- * PackageManagerSchema — Package Station Manager, Phase A.
+ * PackageManagerSchema — Package Station Manager, Phase A/B.
  *
  * Sibling to PackageSchema.php (not folded into it — same reasoning that
  * kept PricingPreview.php separate: a structurally distinct concern gets its
- * own file rather than growing PackageSchema.php further). Stored under the
- * same cz_package postmeta record, one new top-level key (`package_manager`),
- * delegated from PackageSchema::sanitize()/defaultPackage().
+ * own file rather than growing PackageSchema.php further).
  *
+ * Storage location (corrected in Phase B — see the Phase A audit): this is
+ * NOT stored under cz_package (that meta belongs to the legacy
+ * cz_surface_package post type, which ServiceTierStep/getPackageStation do
+ * not read). It is a top-level `package_manager` key on the Service post's
+ * `cz_service_package_station` meta — the live Package Station used
+ * everywhere else (tiers, popular_tier, bundle). Delegated from
+ * AdminServicesController's station-default array and read/write paths, not
+ * from PackageSchema at all.
+ *
+
  * Scope (Phase A only): storage shape, deterministic provisional identity,
  * pure in-memory reconciliation against the Service inclusion/FAQ pools, the
  * pure read-model builder, and consumer (tier) projections. No REST routes,

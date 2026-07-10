@@ -21,15 +21,21 @@ import {
   tierOverviewShell,
   tierFeaturesShell,
   tierFaqsShell,
+  packageManagerSummaryShell,
 } from '@/components/admin/schema/shells/bindings/tier';
 import type {
   TierOverviewShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
+  PackageManagerSummaryShellData,
 } from '@/components/admin/schema/shells/bindings/tier';
 import type { ShellBinding } from '@/components/admin/schema/types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import { serviceConnectionBinding, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
+import type { ActionConfig } from '../ActionShell';
+import { PackageManagerStep } from './PackageManagerStep';
+import { usePackageManager } from '@/hooks/usePackageManager';
+import { evaluateModule, packageManagerSummaryModule } from '@/components/admin/utils/moduleNotifications';
 
 // Tier module icons come from the shared registry (schema/icons.tsx, S1b) —
 // the same glyphs the Service Overview / Features / FAQs cards use.
@@ -79,9 +85,16 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Return-to-Service navigation (the same handler wired to the drawer's Back), used by
   // the service-overview connection shell's View action.
   const serviceBack = ctx.stepData.serviceBack as (() => void) | undefined;
+  // Re-exposed for the Package Manager entry card's View action (Phase B) —
+  // same cross-drawer drill mechanism handleOpenTierConfig already uses one
+  // level up (ServiceViewStep), applied one level deeper here.
+  const doOpen = ctx.stepData.openAction as (config: ActionConfig) => void;
 
   // Single client-side owner of the package station (package module + all tiers).
   const pkg     = usePackageStation(serviceId, onRefresh);
+  // Package Manager (Phase B, read-only) — separate hook, separate fetch;
+  // ServiceTierStep owns no Manager editor/draft state, only this summary read.
+  const mgr = usePackageManager(serviceId);
   const station = pkg.station;
   const svc     = pkg.service;
 
@@ -437,6 +450,50 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
+  // ── Package Manager entry point (Phase B) ─────────────────────────────────
+  // Connections-tab summary/link card only — View opens PackageManagerStep as
+  // its own ActionShell transit step, mirroring handleOpenTierConfig
+  // (ServiceViewStep.tsx) one level deeper. Not an EntityDrawer, not a
+  // top-level workstation, not rendered inline here. Back returns to this
+  // same Package transit drawer via packageReturn, replaying the same config
+  // that opened it (parity with handleOpenTierConfig's serviceReturn).
+  const handleOpenPackageManager = () => {
+    const packageReturn = () => {
+      const freshTierBack: { current: (() => void) | null } = { current: null };
+      doOpen({
+        id:             `service-tiers-${serviceId}`,
+        mode:           'drawer',
+        title:          'Package',
+        onBack:         () => (freshTierBack.current ?? serviceBack ?? (() => {}))(),
+        hideStepHeader: true,
+        initialStepData: { serviceId, service: serviceItem, openAction: doOpen, onRefresh, serviceBack, tierBack: freshTierBack },
+        steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
+      });
+    };
+    ctx.close();
+    doOpen({
+      id:             `package-manager-${serviceId}`,
+      mode:           'drawer',
+      title:          'Package Manager',
+      onBack:         packageReturn,
+      hideStepHeader: true,
+      initialStepData: { serviceId, openAction: doOpen },
+      steps: [{ id: 'package-manager', title: 'Package Manager', component: PackageManagerStep }],
+    });
+  };
+
+  const packageManagerSummaryBinding: ShellBinding<PackageManagerSummaryShellData> = {
+    data: {
+      headline: mgr.readModel ? `${mgr.readModel.items.length} item${mgr.readModel.items.length === 1 ? '' : 's'}` : '',
+      copy:     "Grouping, ordering, and availability for this package's children.",
+    },
+    state: mgr.readModel
+      ? evaluateModule(packageManagerSummaryModule, mgr.readModel.items, { platformStatus: mgr.readModel.platform_status })
+      : { status: 'loading', notes: [] },
+    hasDraft: false,
+    handlers: { view: handleOpenPackageManager },
+  };
+
   // ── Tier overview view — polished 4-tier summary cards + Pricing Summary ─────
   // Bound to draft-preferred tier views from usePackageStation (station.tiers is the
   // same SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
@@ -717,6 +774,10 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             <OverviewShell
               schema={serviceOverviewShell}
               binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
+            />
+            <OverviewShell
+              schema={packageManagerSummaryShell}
+              binding={packageManagerSummaryBinding}
             />
           </ModeProvider>
         )}
