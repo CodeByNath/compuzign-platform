@@ -80,6 +80,11 @@ class PackageSchema
             'valid_from'         => self::sanitizeDatetime($data['valid_from'] ?? null),
             'valid_until'        => self::sanitizeDatetime($data['valid_until'] ?? null),
             'migration_complete' => (bool) ($data['migration_complete'] ?? false),
+            // Package Station Manager (Phase A) — package-level decoration/
+            // grouping/ordering/availability over Service-owned children.
+            // Minimal delegation only; storage/lifecycle owned entirely by
+            // PackageManagerSchema, never folded into this class.
+            'package_manager'    => PackageManagerSchema::sanitize($data['package_manager'] ?? []),
         ];
     }
 
@@ -112,6 +117,7 @@ class PackageSchema
             'valid_from'         => null,
             'valid_until'        => null,
             'migration_complete' => false,
+            'package_manager'    => PackageManagerSchema::defaultManager(),
         ];
     }
 
