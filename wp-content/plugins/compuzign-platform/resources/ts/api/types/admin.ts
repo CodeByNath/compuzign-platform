@@ -154,10 +154,11 @@ export interface PackageManagerProjectionFaq {
 }
 
 export interface PackageManagerReadModel {
-  service_id:      number;
-  platform_status: string;
-  groups:          PackageManagerGroup[];
-  items:           PackageManagerItem[];
+  service_id:        number;
+  platform_status:   string;
+  has_configuration: boolean;
+  groups:            PackageManagerGroup[];
+  items:             PackageManagerItem[];
   projections: {
     inclusions: PackageManagerProjectionInclusion[];
     faqs:       PackageManagerProjectionFaq[];
