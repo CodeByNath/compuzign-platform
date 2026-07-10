@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { ExitGuard, StepContext } from '../ActionShell';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
+import { ReadBlock } from '../ReadBlock';
 import { relationProvidersFor } from './registry';
 import type {
   ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
@@ -112,12 +113,10 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const readModel = active ? state.readModelByProvider[active.key] : undefined;
   const loadState = active ? state.loadStateByProvider[active.key] : 'idle';
   const loadError = active ? state.loadErrorsByProvider[active.key] : null;
-  const summary = active?.manager.summary && readModel !== undefined
-    ? active.manager.summary.project(readModel, scope, state.draftByProvider[active.key]) : null;
   const subjects = active && readModel !== undefined
     ? active.manager.subjects?.(readModel, scope) ?? [] : [];
-  const destinationActions = active && readModel !== undefined
-    ? active.manager.destinationActions?.(readModel, scope) ?? [] : [];
+  const subjectSummaries = active && readModel !== undefined
+    ? active.manager.subjectSummaries?.(readModel, scope) ?? [] : [];
 
   const selectScope = (next: StationManagerScope) => {
     if (scopeKey(next) === currentScopeKey) return;
@@ -128,12 +127,12 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     });
   };
 
-  const runDestination = (action: ManagerDestinationId) => {
+  const runDestination = (action: ManagerDestinationId, subject = scope.kind === 'subject-connections' ? scope.subject : undefined) => {
     if (!active) return;
     const continuation: ManagerContinuation = {
       stationContext: scope.stationContext,
-      scopeKind: scope.kind,
-      subject: scope.kind === 'subject-connections' ? scope.subject : undefined,
+      scopeKind: subject ? 'subject-connections' : scope.kind,
+      subject,
       activeProviderKey: active.key,
       activeRelationshipKey: focusedRelationshipKey ?? scope.activeRelationshipKey ?? connection.relationshipKey,
       selectedSectionKey,
@@ -157,7 +156,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     : [];
 
   return (
-    <section class="cz-manager-workspace" aria-labelledby="dynamic-station-manager-title">
+    <section class="cz-manager-workspace" aria-label={`${active?.label ?? 'Connection'} Manager`}>
       {shouldShowProviderNavigation(providers) && (
         <nav class="cz-manager-provider-nav" aria-label="Relation providers">
           {providers.map((provider) => {
@@ -200,29 +199,35 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
           })}
         </div>
       )}
-      {destinationActions.length > 0 && (
-        <div class="cz-manager-destination-actions">
-          {destinationActions.map((action) => <button type="button" key={action.id}
-            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-            onClick={() => runDestination(action.id)}>{action.label}</button>)}
-        </div>
-      )}
-      <header class="cz-manager-workspace__header">
-        <div>
-          <h3 id="dynamic-station-manager-title">{active?.manager.summary?.label ?? 'Manager'}</h3>
-          <p>{active?.manager.summary?.subtitle}</p>
-        </div>
-        <div class="cz-manager-workspace__status">
-          <ModuleStatusPill status={loadState === 'loading' ? 'loading' : summary?.status.status ?? 'pending-dim'} notes={summary?.status.notes ?? []} />
-        </div>
-      </header>
-
-      {summary && (
-        <p class="cz-manager-workspace__summary" aria-label="Package Manager summary">
-          {summary.metrics.map((metric, index) => (
-            <span key={metric.id}>{index > 0 && <span aria-hidden="true"> · </span>}{metric.value} {metric.label}</span>
+      {subjectSummaries.length > 0 && (
+        <div class={`cz-manager-summary-grid${scope.kind === 'subject-connections' ? ' is-subject' : ''}`}>
+          {subjectSummaries.map((subjectSummary) => (
+            <ReadBlock
+              key={`${subjectSummary.ref.type}:${subjectSummary.ref.id}`}
+              title={subjectSummary.title}
+              subtitle={subjectSummary.subtitle}
+              icon={MODULE_ICONS.package}
+              scopeClass="drawerOverview tier cz-manager-summary-card"
+              status={subjectSummary.status.status}
+              notes={[...subjectSummary.status.notes]}
+              actions={[
+                { id: 'view', label: 'View', onSelect: () => runDestination('open-current', subjectSummary.ref) },
+                { id: 'edit', label: 'Edit', onSelect: () => runDestination('edit-current', subjectSummary.ref) },
+              ]}
+            >
+              <div class="drawerModule__fields">
+                {subjectSummary.fields.map((field) => (
+                  <div class="drawerModule__field" key={field.id}>
+                    <p class="drawerModule__label">{field.label}</p>
+                    <p class="drawerModule__value">{field.values.map((value, index) => (
+                      <span key={`${field.id}:${index}`}>{index > 0 && <br />}{value}</span>
+                    ))}</p>
+                  </div>
+                ))}
+              </div>
+            </ReadBlock>
           ))}
-        </p>
+        </div>
       )}
 
       {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}

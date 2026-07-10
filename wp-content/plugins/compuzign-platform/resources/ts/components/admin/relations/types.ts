@@ -84,6 +84,19 @@ export interface ManagerSummaryContribution<ReadModel = unknown> {
   };
 }
 
+export interface ManagerSubjectSummary {
+  ref: ManagerEntityRef;
+  label: string;
+  title: string;
+  subtitle?: string;
+  status: ModuleState;
+  fields: readonly {
+    id: string;
+    label: string;
+    values: readonly string[];
+  }[];
+}
+
 export interface ManagerEmptyStateDefinition {
   title: string;
   description?: string;
@@ -137,6 +150,7 @@ export interface ManagerContribution<ReadModel = unknown, Row = unknown, Identit
     ref: ManagerEntityRef;
     label: string;
   }[];
+  subjectSummaries?: (readModel: ReadModel, scope: StationManagerScope) => readonly ManagerSubjectSummary[];
   destinationActions?: (readModel: ReadModel, scope: StationManagerScope) => readonly {
     id: 'view-all' | 'open-current' | 'edit-current';
     label: string;

@@ -12,9 +12,10 @@ import type {
 } from '@/api/types/admin';
 import {
   evaluateModule,
+  getTierNotes,
   packageManagerItemModule,
-  packageManagerSummaryModule,
 } from '@/components/admin/utils/moduleNotifications';
+import { resolveTierStatus } from '@/components/admin/utils/moduleStatus';
 import type {
   ProviderValidationIssue,
   StationManagerScope,
@@ -26,7 +27,13 @@ export type PackageRelationScope = StationManagerScope & {
 };
 
 export interface PackageRelationReadModel extends PackageManagerReadModel {
-  tierSubjects: readonly { id: string; label: string }[];
+  tierSubjects: readonly {
+    id: string;
+    label: string;
+    detail: SurfaceTierDetail;
+    status: string;
+    notes: ReturnType<typeof getTierNotes>;
+  }[];
 }
 
 export interface PackageRelationIdentity {
@@ -266,37 +273,36 @@ export const packageRelationProvider: WritableRelationProvider<
   },
   manager: {
     order: 100,
-    summary: {
-      label: 'Package Manager',
-      subtitle: 'Manage how Service-owned features and common questions participate in this package.',
-      project: (readModel, _scope, candidate) => {
-        const draft = candidate as PackageRelationDraft | undefined;
-        return ({
-        status: evaluateModule(packageManagerSummaryModule, readModel.items, { platformStatus: readModel.platform_status }),
-        metrics: [
-          { id: 'features', label: readModel.items.filter((item) => item.source_type === 'inclusion').length === 1 ? 'feature' : 'features', value: readModel.items.filter((item) => item.source_type === 'inclusion').length },
-          { id: 'questions', label: readModel.items.filter((item) => item.source_type === 'faq').length === 1 ? 'common question' : 'common questions', value: readModel.items.filter((item) => item.source_type === 'faq').length },
-          { id: 'groups', label: (draft?.groups ?? readModel.groups).length === 1 ? 'group' : 'groups', value: (draft?.groups ?? readModel.groups).length },
-          { id: 'configured', label: 'configured', value: readModel.items.filter((item) => item.module_transition !== 'not-configured').length },
-          { id: 'available', label: 'available', value: readModel.items.filter((item) => packageItemAvailable(item, readModel.platform_status)).length },
-          { id: 'missing', label: 'missing source', value: readModel.items.filter((item) => item.missing).length },
-        ],
-        });
-      },
-    },
     subjects: (readModel) => readModel.tierSubjects.map((tier) => ({
       ref: { type: 'tier', id: tier.id },
       label: tier.label,
     })),
-    destinationActions: (_readModel, scope) => [
-      { id: 'view-all', label: 'View all' },
-      ...(scope.kind === 'subject-connections'
-        ? [
-          { id: 'open-current' as const, label: 'Open current' },
-          { id: 'edit-current' as const, label: 'Edit current' },
-        ]
-        : []),
-    ],
+    subjectSummaries: (readModel, scope) => readModel.tierSubjects
+      .filter((tier) => scope.kind === 'connection-graph' || String(scope.subject.id) === tier.id)
+      .map((tier) => ({
+        ref: { type: 'tier', id: tier.id },
+        label: tier.label,
+        title: `Package ${tier.label}`,
+        subtitle: 'Pricing and inclusions for this tier.',
+        status: { status: tier.status, notes: tier.notes },
+        fields: [
+          {
+            id: 'pricing',
+            label: 'Pricing',
+            values: tier.detail.contact && tier.detail.price === null
+              ? ['Contact', tier.detail.billing_cycle ?? 'Not available']
+              : [tier.detail.price != null ? `$${tier.detail.price.toFixed(2)}` : 'Not configured', tier.detail.billing_cycle ?? 'Not available'],
+          },
+          {
+            id: 'includes',
+            label: 'Includes',
+            values: [
+              `${tier.detail.inclusions_override.length} ${tier.detail.inclusions_override.length === 1 ? 'feature' : 'features'}`,
+              `${tier.detail.faq_refs.length} ${tier.detail.faq_refs.length === 1 ? 'common question' : 'common questions'}`,
+            ],
+          },
+        ],
+      })),
     sections: [
       {
         id: 'groups', label: 'Groups', role: 'structure', capabilities: ['grouping', 'ordering'],
@@ -382,10 +388,31 @@ export const packageRelationProvider: WritableRelationProvider<
     if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
     if (!response.success || !stationResponse.success) throw new Error('Could not load the Package relation provider.');
 
-    const tierSubjects = Object.entries(stationResponse.station.tiers).map(([id, tier]) => ({
-      id,
-      label: tier.label?.trim() || id.replace(/(^|[-_])\w/g, (part) => part.replace(/[-_]/, ' ').toUpperCase()),
-    }));
+    const tierSubjects = Object.entries(stationResponse.station.tiers).map(([id, tier]) => {
+      const overview = tier.drafts?.overview;
+      const detail: SurfaceTierDetail = {
+        ...tier,
+        label: overview?.label ?? tier.label,
+        price: overview?.price ?? tier.price,
+        contact: overview?.contact ?? tier.contact,
+        billing_cycle: overview?.billing_cycle ?? tier.billing_cycle,
+        inclusions_override: tier.drafts?.features ?? tier.inclusions_override,
+        faq_refs: tier.drafts?.faqs ?? tier.faq_refs,
+      };
+      const tierLike = {
+        enabled: detail.enabled,
+        price: detail.price,
+        billing_cycle: detail.billing_cycle,
+        contact: detail.contact,
+      };
+      return {
+        id,
+        label: detail.label?.trim() || id.replace(/(^|[-_])\w/g, (part) => part.replace(/[-_]/, ' ').toUpperCase()),
+        detail,
+        status: resolveTierStatus(tierLike, { pkgStatus: stationResponse.station.platform_status }),
+        notes: getTierNotes(tierLike, { platformStatus: stationResponse.station.platform_status }),
+      };
+    });
     if (scope.kind === 'connection-graph') return { ...response.manager, tierSubjects };
 
     const tier = stationResponse.station.tiers[String(scope.subject?.id)] as SurfaceTierDetail | undefined;

@@ -48,7 +48,17 @@ const readModel: PackageRelationReadModel = {
     inclusions: [{ id: 'feature', label: 'Feature' }],
     faqs: [],
   },
-  tierSubjects: [{ id: 'essential', label: 'Essential' }],
+  tierSubjects: [{
+    id: 'essential',
+    label: 'Essential',
+    detail: {
+      label: 'Essential', price: 10, contact: false, billing_cycle: 'monthly',
+      inclusions_override: [{ id: 'feature', label: 'Feature' }], features: [],
+      faq_refs: ['question'], enabled: true,
+    },
+    status: 'active',
+    notes: [],
+  }],
 };
 
 const scope = {
@@ -108,16 +118,17 @@ check(!packageRelationProvider.validate(invalid, readModel, {
 const providers = relationProvidersFor(scope);
 check(providers.length === 1 && providers[0].key === 'package', 'registry discovers Package by scope');
 check(providersExposeManager(providers), 'Package writable capabilities expose Manager');
-check(packageRelationProvider.manager.summary?.label === 'Package Manager', 'Package declares one summary');
+check(packageRelationProvider.manager.summary === undefined, 'Package does not declare a duplicated static Manager summary');
 check(packageRelationProvider.manager.sections.length === 2, 'Package declares exactly two sections');
 check(packageRelationProvider.manager.sections[0].id === 'groups', 'Package declares Groups structure');
 check(packageRelationProvider.manager.sections[1].id === 'relationships', 'Package declares one Relationships section');
 check(packageRelationProvider.manager.sections[1].capabilities.includes('availability'), 'availability stays a capability');
-const managerSummary = packageRelationProvider.manager.summary!.project(readModel, {
+const managerSummaries = packageRelationProvider.manager.subjectSummaries?.(readModel, {
   ...scope,
-});
-check(managerSummary.status.status === 'pending-dim', 'provisional relationship keeps summary Pending');
-check(managerSummary.metrics.map((metric) => metric.id).join(',') === 'features,questions,groups,configured,available,missing', 'summary exposes the six required counts');
+}) ?? [];
+check(managerSummaries.length === 1 && managerSummaries[0].title === 'Package Essential', 'All projects every canonical Tier summary');
+check(managerSummaries[0].fields.map((field) => field.id).join(',') === 'pricing,includes', 'Tier summary exposes canonical pricing and inclusion fields');
+check(packageRelationProvider.manager.destinationActions === undefined, 'Package does not declare a separate View all action');
 const groupProjection = packageRelationProvider.manager.sections[0].project(readModel, {
   ...scope,
 });

@@ -421,7 +421,12 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     );
   };
 
-  const pkgSummaryOnView = isActive && !station.loading.creating ? handleOpenTierConfig : undefined;
+  // Package discovery now enters the Service-owned Manager overview directly.
+  // The former Package list drawer remains only as the canonical Tier destination
+  // shell used when a specific Manager card opens or edits a Tier.
+  const pkgSummaryOnView = isActive && !station.loading.creating && showManager
+    ? () => selectServiceTab('manager')
+    : undefined;
 
   const handleOpenPromoConfig = () => {
     const serviceReturn = () => doOpen({

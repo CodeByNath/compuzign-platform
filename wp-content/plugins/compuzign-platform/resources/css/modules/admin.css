@@ -4359,6 +4359,19 @@ button.cz-module-status-pill {
   color: var(--admin-text-muted);
 }
 
+.cz-manager-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--cz-space-4);
+}
+.cz-manager-summary-grid.is-subject { grid-template-columns: minmax(280px, 560px); }
+.cz-manager-summary-card { margin-bottom: 0; min-width: 0; }
+.cz-manager-summary-card .drawerModule__field {
+  grid-template-columns: 1fr;
+  gap: var(--cz-space-1);
+  max-width: none;
+}
+
 .cz-manager-section { border-top: 1px solid var(--admin-border-blue); padding-top: var(--cz-space-5); }
 .cz-manager-section h4 { margin: 0 0 var(--cz-space-4); font-size: var(--admin-fs-s-sub); }
 .cz-manager-section__actions { display: flex; justify-content: flex-end; margin-bottom: var(--cz-space-3); }
