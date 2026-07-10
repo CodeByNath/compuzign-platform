@@ -1,10 +1,11 @@
-import type { PackageManagerReadModel } from '../resources/ts/api/types/admin';
+import type { PackageRelationReadModel } from '../resources/ts/components/admin/relations/providers/package';
 import {
   createPackageRelationDraft,
   createPackageRelationGroup,
   deletePackageRelationGroup,
   movePackageRelationGroup,
   packageRelationProvider,
+  projectPackageReadModelForTier,
   renamePackageRelationGroup,
   updatePackageRelationDecision,
 } from '../resources/ts/components/admin/relations/providers/package';
@@ -25,7 +26,7 @@ function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Package provider contract: ${message}`);
 }
 
-const readModel: PackageManagerReadModel = {
+const readModel: PackageRelationReadModel = {
   service_id: 42,
   platform_status: 'active',
   has_configuration: true,
@@ -47,6 +48,12 @@ const readModel: PackageManagerReadModel = {
     inclusions: [{ id: 'feature', label: 'Feature' }],
     faqs: [],
   },
+  tierSubjects: [{ id: 'essential', label: 'Essential' }],
+};
+
+const scope = {
+  kind: 'connection-graph' as const,
+  stationContext: { type: 'service' as const, id: 42 },
 };
 
 const original = createPackageRelationDraft(readModel);
@@ -70,21 +77,21 @@ check(deletedGroup.groups.length === 1 && deletedGroup.groups[0].sort_order === 
 check(readModel.items[1].group_id === null, 'group operations leave source relationships unchanged');
 const invalidGroupLabel = renamePackageRelationGroup(withNewGroup, 'tmp_group_1', '   ');
 const invalidGroupResult = packageRelationProvider.validate(invalidGroupLabel, readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 });
 check(!invalidGroupResult.valid && invalidGroupResult.issues.some((issue) => (
   issue.sectionId === 'groups' && issue.rowIdentity === 'tmp_group_1' && issue.path.endsWith('.label')
 )), 'empty group labels route to the exact Groups control');
 const invalidOrder = { ...withNewGroup, groups: withNewGroup.groups.map((group) => ({ ...group, sort_order: 0 })) };
 check(!packageRelationProvider.validate(invalidOrder, readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 }).valid, 'non-deterministic group order fails validation');
 
 const edited = updatePackageRelationDecision(original, 'mgr_question', { disabled: true });
 check(edited.explicitDecisionIds.includes('mgr_question'), 'editing marks a provisional row explicit');
 check(packageRelationProvider.isDirty(edited, original, readModel), 'explicit edit is dirty');
 check(packageRelationProvider.validate(edited, readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 }).valid, 'valid explicit decisions pass provider validation');
 
 const invalid = {
@@ -95,10 +102,10 @@ const invalid = {
   },
 };
 check(!packageRelationProvider.validate(invalid, readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 }).valid, 'unknown groups fail provider validation');
 
-const providers = relationProvidersFor({ stationType: 'package', stationId: 42, context: {} });
+const providers = relationProvidersFor(scope);
 check(providers.length === 1 && providers[0].key === 'package', 'registry discovers Package by scope');
 check(providersExposeManager(providers), 'Package writable capabilities expose Manager');
 check(packageRelationProvider.manager.summary?.label === 'Package Manager', 'Package declares one summary');
@@ -107,16 +114,16 @@ check(packageRelationProvider.manager.sections[0].id === 'groups', 'Package decl
 check(packageRelationProvider.manager.sections[1].id === 'relationships', 'Package declares one Relationships section');
 check(packageRelationProvider.manager.sections[1].capabilities.includes('availability'), 'availability stays a capability');
 const managerSummary = packageRelationProvider.manager.summary!.project(readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 });
 check(managerSummary.status.status === 'pending-dim', 'provisional relationship keeps summary Pending');
 check(managerSummary.metrics.map((metric) => metric.id).join(',') === 'features,questions,groups,configured,available,missing', 'summary exposes the six required counts');
 const groupProjection = packageRelationProvider.manager.sections[0].project(readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 });
 check(groupProjection.role === 'structure' && groupProjection.rows[0].relationshipCount === 1, 'Groups projects relationship counts');
 const relationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 });
 check(relationshipProjection.role === 'relations', 'Relationships uses one relation projection');
 if (relationshipProjection.role === 'relations') {
@@ -126,24 +133,23 @@ if (relationshipProjection.role === 'relations') {
   check(relationshipProjection.rows[1].stateDetail === 'Provisional', 'provisional semantics remain visible');
 }
 const draftGroupProjection = packageRelationProvider.manager.sections[0].project(readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 }, groupedQuestion);
 check(draftGroupProjection.role === 'structure' && draftGroupProjection.rows[0].order === 1, 'Groups displays human-facing 1-based order');
 const draftRelationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 }, groupedQuestion);
 check(draftRelationshipProjection.role === 'relations' && draftRelationshipProjection.rows[1].groupLabel === 'Optional', 'Relationships immediately projects working group assignments');
 const deletedRelationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
-  stationType: 'package', stationId: 42, context: {},
+  ...scope,
 }, deletedGroup);
 check(deletedRelationshipProjection.role === 'relations' && deletedRelationshipProjection.rows[1].groupLabel === 'Ungrouped', 'deleted group projects affected rows as Ungrouped');
 check(
-  relationProvidersFor({ stationType: 'service', stationId: 42, context: {} }).length === 0,
-  'registry does not leak Package into another station scope',
+  relationProvidersFor({ kind: 'subject-connections', stationContext: scope.stationContext, subject: { type: 'promotion', id: 'promo' } }).length === 0,
+  'registry does not leak Package into an unsupported subject scope',
 );
 
-const scope = { stationType: 'package' as const, stationId: 42, context: {} };
-const adapter = packageRelationProvider as unknown as ManagerProviderAdapter;
+const adapter = providers[0] as ManagerProviderAdapter;
 let coordinator = createManagerCoordinatorState([adapter]);
 check(!managerIsDirty(coordinator, [adapter]), 'unloaded writable providers are clean');
 coordinator = seedProviderReadModel(coordinator, adapter, scope, readModel);
@@ -166,12 +172,32 @@ coordinator = resetManagerDrafts(coordinator, [adapter]);
 check(!managerIsDirty(coordinator, [adapter]), 'discard resets every writable draft to its original');
 
 const readOnly: ManagerProviderAdapter = {
-  key: 'audit', label: 'Audit', access: 'read-only', manager: { sections: [] },
+  key: 'audit', label: 'Audit', access: 'read-only', capabilities: { fields: [] }, manager: { order: 200, sections: [] },
   load: async () => ({}),
   isDirty: () => true,
 };
 let readOnlyState = createManagerCoordinatorState([readOnly]);
 readOnlyState = seedProviderReadModel(readOnlyState, readOnly, scope, { changed: true });
 check(!managerIsDirty(readOnlyState, [readOnly]), 'read-only providers cannot contribute dirty state');
+
+const inheritedTier = {
+  label: 'Essential', price: 10, contact: false, billing_cycle: 'monthly',
+  inclusions_override: [], features: [], faq_refs: ['question'], enabled: true,
+};
+const inheritedProjection = await projectPackageReadModelForTier(readModel, inheritedTier, readModel.tierSubjects);
+check(inheritedProjection.items.map((item) => item.item_id).join(',') === 'mgr_feature,mgr_question', 'Tier projection retains canonical Package item ids');
+check(inheritedProjection.items.some((item) => item.source_type === 'inclusion'), 'empty inclusion override inherits the available Package projection');
+check(inheritedProjection.items.some((item) => item.source_type === 'faq'), 'Tier FAQ participation filters by canonical source id');
+check(inheritedProjection.groups.length === 1 && inheritedProjection.groups[0].group_id === 'core', 'Tier projection retains only groups containing visible relationships');
+
+const missingTier = {
+  ...inheritedTier,
+  inclusions_override: [{ id: 'removed-feature', label: 'Removed feature', missing: true }],
+  faq_refs: ['removed-question'],
+};
+const missingProjection = await projectPackageReadModelForTier(readModel, missingTier, readModel.tierSubjects);
+check(missingProjection.items.length === 2 && missingProjection.items.every((item) => item.missing), 'missing selected Tier sources remain visible and unhealthy');
+check(missingProjection.items.every((item) => item.item_id.startsWith('mgr_')), 'missing sources use the canonical deterministic Package identity format');
+check(missingProjection.groups.length === 0, 'unrelated empty groups are hidden in Tier scope');
 
 console.log('Package relation provider contract checks passed.');

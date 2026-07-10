@@ -1,5 +1,6 @@
 import {
   fetchPackageStationManager,
+  fetchServicePackageStation,
   savePackageStationManager,
 } from '@/api/endpoints/admin';
 import type {
@@ -7,6 +8,7 @@ import type {
   PackageManagerItem,
   PackageManagerItemDecision,
   PackageManagerReadModel,
+  SurfaceTierDetail,
 } from '@/api/types/admin';
 import {
   evaluateModule,
@@ -19,9 +21,12 @@ import type {
   WritableRelationProvider,
 } from '../types';
 
-export interface PackageRelationScope extends StationManagerScope {
-  stationType: 'package';
-  stationId: number;
+export type PackageRelationScope = StationManagerScope & {
+  stationContext: { type: 'service'; id: number };
+};
+
+export interface PackageRelationReadModel extends PackageManagerReadModel {
+  tierSubjects: readonly { id: string; label: string }[];
 }
 
 export interface PackageRelationIdentity {
@@ -178,21 +183,89 @@ function packageAvailability(item: PackageManagerItem, platformStatus: string) {
   return packageItemAvailable(item, platformStatus) ? 'Available' as const : 'Not available' as const;
 }
 
+async function canonicalPackageItemId(sourceType: PackageManagerItem['source_type'], sourceId: string): Promise<string> {
+  const bytes = new TextEncoder().encode(`${sourceType}:${sourceId}`);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hex = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
+  return `mgr_${hex.slice(0, 16)}`;
+}
+
+export async function projectPackageReadModelForTier(
+  readModel: PackageManagerReadModel,
+  tier: SurfaceTierDetail,
+  tierSubjects: PackageRelationReadModel['tierSubjects'],
+): Promise<PackageRelationReadModel> {
+  const tierInclusions = tier.drafts?.features ?? tier.inclusions_override;
+  const tierFaqRefs = tier.drafts?.faqs ?? tier.faq_refs;
+  const inheritedInclusionIds = readModel.projections.inclusions.map((item) => item.id);
+  const inclusionIds = new Set(
+    tierInclusions.length > 0 ? tierInclusions.map((item) => item.id) : inheritedInclusionIds,
+  );
+  const faqIds = new Set(tierFaqRefs);
+  const items = readModel.items.filter((item) => (
+    item.source_type === 'inclusion' ? inclusionIds.has(item.source_id) : faqIds.has(item.source_id)
+  ));
+  const existingKeys = new Set(items.map((item) => `${item.source_type}:${item.source_id}`));
+  for (const inclusion of tierInclusions) {
+    if (!inclusionIds.has(inclusion.id) || existingKeys.has(`inclusion:${inclusion.id}`)) continue;
+    items.push({
+      item_id: await canonicalPackageItemId('inclusion', inclusion.id),
+      source_type: 'inclusion', source_id: inclusion.id, resolved: { label: inclusion.label },
+      decorated_label: null, group_id: null, sort_order: items.length,
+      disabled: false, missing: true, module_transition: 'not-configured',
+    });
+  }
+  for (const faqId of faqIds) {
+    if (existingKeys.has(`faq:${faqId}`)) continue;
+    items.push({
+      item_id: await canonicalPackageItemId('faq', faqId),
+      source_type: 'faq', source_id: faqId, resolved: null,
+      decorated_label: null, group_id: null, sort_order: items.length,
+      disabled: false, missing: true, module_transition: 'not-configured',
+    });
+  }
+  const visibleGroupIds = new Set(items.map((item) => item.group_id).filter((id): id is string => id !== null));
+  return {
+    ...readModel,
+    groups: readModel.groups.filter((group) => visibleGroupIds.has(group.group_id)),
+    items,
+    projections: {
+      inclusions: readModel.projections.inclusions.filter((item) => inclusionIds.has(item.id)),
+      faqs: readModel.projections.faqs.filter((item) => faqIds.has(item.id)),
+    },
+    tierSubjects,
+  };
+}
+
 export const packageRelationProvider: WritableRelationProvider<
   PackageRelationScope,
-  PackageManagerReadModel,
+  PackageRelationReadModel,
   PackageManagerItem,
   PackageRelationIdentity,
   PackageRelationDraft
 > = {
   key: 'package',
   label: 'Package',
-  stationType: 'package',
+  stationType: 'service',
   access: 'writable',
   capabilities: {
     fields: ['grouping', 'ordering', 'availability', 'decorated-label'],
   },
+  profile: (scope) => {
+    const applicable = scope.stationContext.type === 'service'
+      && typeof scope.stationContext.id === 'number'
+      && (scope.kind === 'connection-graph' || scope.subject?.type === 'tier');
+    const writable = applicable && scope.kind === 'connection-graph';
+    return {
+      applicable,
+      access: writable ? 'writable' : 'read-only',
+      capabilities: {
+        fields: writable ? ['grouping', 'ordering', 'availability', 'decorated-label'] : [],
+      },
+    };
+  },
   manager: {
+    order: 100,
     summary: {
       label: 'Package Manager',
       subtitle: 'Manage how Service-owned features and common questions participate in this package.',
@@ -211,6 +284,19 @@ export const packageRelationProvider: WritableRelationProvider<
         });
       },
     },
+    subjects: (readModel) => readModel.tierSubjects.map((tier) => ({
+      ref: { type: 'tier', id: tier.id },
+      label: tier.label,
+    })),
+    destinationActions: (_readModel, scope) => [
+      { id: 'view-all', label: 'View all' },
+      ...(scope.kind === 'subject-connections'
+        ? [
+          { id: 'open-current' as const, label: 'Open current' },
+          { id: 'edit-current' as const, label: 'Edit current' },
+        ]
+        : []),
+    ],
     sections: [
       {
         id: 'groups', label: 'Groups', role: 'structure', capabilities: ['grouping', 'ordering'],
@@ -278,18 +364,33 @@ export const packageRelationProvider: WritableRelationProvider<
   },
 
   appliesTo: (scope): scope is PackageRelationScope => (
-    scope.stationType === 'package'
-    && typeof scope.stationId === 'number'
-    && Number.isInteger(scope.stationId)
-    && scope.stationId > 0
+    scope.stationContext.type === 'service'
+    && typeof scope.stationContext.id === 'number'
+    && Number.isInteger(scope.stationContext.id)
+    && scope.stationContext.id > 0
+    && (scope.kind === 'connection-graph'
+      || (scope.kind === 'subject-connections' && scope.subject?.type === 'tier'))
   ),
 
   async load(scope, signal) {
     if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
-    const response = await fetchPackageStationManager(scope.stationId);
+    const serviceId = scope.stationContext.id;
+    const [response, stationResponse] = await Promise.all([
+      fetchPackageStationManager(serviceId),
+      fetchServicePackageStation(serviceId),
+    ]);
     if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
-    if (!response.success) throw new Error('Could not load the Package relation provider.');
-    return response.manager;
+    if (!response.success || !stationResponse.success) throw new Error('Could not load the Package relation provider.');
+
+    const tierSubjects = Object.entries(stationResponse.station.tiers).map(([id, tier]) => ({
+      id,
+      label: tier.label?.trim() || id.replace(/(^|[-_])\w/g, (part) => part.replace(/[-_]/, ' ').toUpperCase()),
+    }));
+    if (scope.kind === 'connection-graph') return { ...response.manager, tierSubjects };
+
+    const tier = stationResponse.station.tiers[String(scope.subject?.id)] as SurfaceTierDetail | undefined;
+    if (!tier) throw new Error('The selected Tier is not connected to this Package station.');
+    return projectPackageReadModelForTier(response.manager, tier, tierSubjects);
   },
 
   rows: (readModel) => readModel.items,
@@ -379,13 +480,13 @@ export const packageRelationProvider: WritableRelationProvider<
       : { valid: true, issues: [] };
   },
 
-  async save(scope, draft) {
+  async save(scope, draft, _original, readModel) {
     const itemDecisions = draft.explicitDecisionIds.map((id) => draft.itemsById[id]);
-    const response = await savePackageStationManager(scope.stationId, {
+    const response = await savePackageStationManager(scope.stationContext.id, {
       groups: cloneGroups(draft.groups),
       item_decisions: itemDecisions,
     });
     if (!response.success) throw new Error(response.message || 'Could not save Package Manager.');
-    return response.manager;
+    return { ...response.manager, tierSubjects: readModel.tierSubjects };
   },
 };

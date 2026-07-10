@@ -12,6 +12,7 @@
 import type { ComponentChildren } from 'preact';
 import type { ModuleDefinition, ModuleState } from '@/components/admin/utils/moduleNotifications';
 import type { IconId } from './icons';
+import type { StationConnectionDescriptor } from '../relations/types';
 
 // ── Modes — the viewpoint layer (§7) ─────────────────────────────────────────
 // Viewpoints only. Surfaces (drawer, page) are environments provided by
@@ -43,6 +44,7 @@ export interface ShellBinding<T = unknown> {
   hasDraft: boolean;
   handlers: Record<string, () => void | Promise<void>>;  // keyed by action id
   busy?: string | null;               // action id in flight
+  connection?: StationConnectionDescriptor; // stable graph identity for Connections/Manager parity
 }
 
 // ── Schema Groups (§4) ────────────────────────────────────────────────────────

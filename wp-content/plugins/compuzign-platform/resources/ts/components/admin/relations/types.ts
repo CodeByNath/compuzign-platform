@@ -2,10 +2,41 @@ import type { ActionConfig } from '../ActionShell';
 import type { EntitySchema } from '../schema/types';
 import type { ModuleNote, ModuleState } from '../utils/moduleNotifications';
 
-export interface StationManagerScope {
-  stationType: EntitySchema['id'];
-  stationId: string | number;
-  context: Record<string, unknown>;
+export interface ManagerEntityRef {
+  type: EntitySchema['id'];
+  id: string | number;
+}
+
+export type StationManagerScope =
+  | {
+    kind: 'connection-graph';
+    stationContext: ManagerEntityRef;
+    activeProviderKey?: string;
+    activeRelationshipKey?: string;
+  }
+  | {
+    kind: 'subject-connections';
+    stationContext: ManagerEntityRef;
+    subject: ManagerEntityRef;
+    activeProviderKey?: string;
+    activeRelationshipKey?: string;
+  };
+
+export interface StationConnectionDescriptor {
+  providerKey: string;
+  relationshipKey: string;
+  stationContext: ManagerEntityRef;
+  destinationRef?: ManagerEntityRef;
+}
+
+export interface ManagerContinuation {
+  stationContext: ManagerEntityRef;
+  scopeKind: StationManagerScope['kind'];
+  subject?: ManagerEntityRef;
+  activeProviderKey: string;
+  activeRelationshipKey?: string;
+  selectedSectionKey?: string;
+  originatingTab: 'manager';
 }
 
 export type RelationCapabilityId =
@@ -98,8 +129,27 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
 
 /** Provider presentation metadata only. The platform always owns the frame. */
 export interface ManagerContribution<ReadModel = unknown, Row = unknown, Identity = unknown> {
+  /** Stable registry priority; lower values appear first. Load timing is irrelevant. */
+  order: number;
   summary?: ManagerSummaryContribution<ReadModel>;
   sections: readonly ManagerSectionDefinition<ReadModel, Row, Identity>[];
+  subjects?: (readModel: ReadModel, scope: StationManagerScope) => readonly {
+    ref: ManagerEntityRef;
+    label: string;
+  }[];
+  destinationActions?: (readModel: ReadModel, scope: StationManagerScope) => readonly {
+    id: 'view-all' | 'open-current' | 'edit-current';
+    label: string;
+  }[];
+}
+
+export interface ProviderScopeProfile {
+  applicable: boolean;
+  access: 'read-only' | 'writable';
+  capabilities: {
+    fields: readonly RelationCapabilityId[];
+    customFields?: readonly RelationCustomField[];
+  };
 }
 
 export interface RelationProviderBase<
@@ -112,6 +162,7 @@ export interface RelationProviderBase<
   label: string;
   stationType: EntitySchema['id'];
 
+  profile(scope: StationManagerScope): ProviderScopeProfile;
   appliesTo(scope: StationManagerScope): scope is Scope;
   load(scope: Scope, signal?: AbortSignal): Promise<ReadModel>;
   rows(readModel: ReadModel): Row[];

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { updateServiceCategory } from '@/api/endpoints/admin';
@@ -26,10 +26,17 @@ import type { ShellBinding } from '@/components/admin/schema/types';
 import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 import { ReadBlock } from '../ReadBlock';
 import { EntityDrawer } from '../EntityDrawer';
+import type { DrawerTabId } from '../DrawerTabs';
 import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
 import { ServiceTierStep } from './ServiceTierStep';
 import { ServicePromotionStep } from './ServicePromotionStep';
+import {
+  DynamicStationManager, providersExposeManager, relationProvidersFor,
+} from '@/components/admin/relations';
+import type {
+  ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
+} from '@/components/admin/relations';
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
 
 // ── CommercialBlock ───────────────────────────────────────────────────────────
@@ -102,7 +109,44 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const allCategories = ctx.stepData.allCategories as Category[] ?? [];
   const onRefresh    = ctx.stepData.onRefresh    as (() => void) | undefined;
 
-  const [tab, setTab] = useState<'details' | 'connections'>('details');
+  const returnContinuation = ctx.stepData.managerContinuation as ManagerContinuation | undefined;
+  const [tab, setTab] = useState<DrawerTabId>(returnContinuation ? 'manager' : 'details');
+  const packageConnection = useMemo<StationConnectionDescriptor>(() => ({
+    providerKey: 'package',
+    relationshipKey: `service:${service.id}:package`,
+    stationContext: { type: 'service', id: service.id },
+    destinationRef: { type: 'tier', id: 'all' },
+  }), [service.id]);
+  const managerScope = useMemo<StationManagerScope>(() => returnContinuation?.scopeKind === 'subject-connections'
+    && returnContinuation.subject
+    ? {
+      kind: 'subject-connections', stationContext: returnContinuation.stationContext,
+      subject: returnContinuation.subject,
+      activeProviderKey: returnContinuation.activeProviderKey,
+      activeRelationshipKey: returnContinuation.activeRelationshipKey,
+    }
+    : {
+      kind: 'connection-graph', stationContext: { type: 'service', id: service.id },
+      activeProviderKey: returnContinuation?.activeProviderKey,
+      activeRelationshipKey: returnContinuation?.activeRelationshipKey ?? packageConnection.relationshipKey,
+    }, [service.id, returnContinuation, packageConnection]);
+  const managerAvailabilityScope = useMemo<StationManagerScope>(() => ({
+    kind: 'connection-graph', stationContext: { type: 'service', id: service.id },
+  }), [service.id]);
+  const managerProviders = useMemo(
+    () => relationProvidersFor(managerAvailabilityScope),
+    [managerAvailabilityScope],
+  );
+  const showManager = providersExposeManager(managerProviders);
+
+  const selectServiceTab = (next: DrawerTabId) => {
+    ctx.requestExit({ kind: 'tab', target: next }, () => setTab(next));
+  };
+
+  useEffect(() => {
+    ctx.setPanelMode(tab === 'manager' ? 'manager-wide' : 'standard');
+  }, [ctx.setPanelMode, tab]);
+  useEffect(() => () => ctx.setPanelMode('standard'), [ctx.setPanelMode]);
 
   const station = useServiceStation(service, packages, onRefresh);
   const {
@@ -331,12 +375,16 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     }
   }, [faqsDraft, saveFaqs]);
 
-  const handleOpenTierConfig = () => {
+  const handleOpenTierConfig = (
+    managerContinuation?: ManagerContinuation,
+    initialTierId?: string,
+    initialTierSection?: 'tier-overview',
+  ) => {
     const serviceReturn = () => doOpen({
       id:       `service-view-${service.id}`,
       mode:     'drawer',
       title:    'Service',
-      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
+      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh, managerContinuation },
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
 
@@ -353,9 +401,24 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       title:          'Package',
       onBack:         () => (tierBack.current ?? serviceReturn)(),
       hideStepHeader: true,
-      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: serviceReturn, tierBack },
+      initialStepData: {
+        serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: serviceReturn,
+        tierBack, initialTierId, initialTierSection,
+      },
       steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
     });
+  };
+
+  const handleManagerDestination = (
+    action: 'view-all' | 'open-current' | 'edit-current',
+    continuation: ManagerContinuation,
+  ) => {
+    const tierId = continuation.subject?.type === 'tier' ? String(continuation.subject.id) : undefined;
+    handleOpenTierConfig(
+      continuation,
+      action === 'open-current' || action === 'edit-current' ? tierId : undefined,
+      action === 'edit-current' ? 'tier-overview' : undefined,
+    );
   };
 
   const pkgSummaryOnView = isActive && !station.loading.creating ? handleOpenTierConfig : undefined;
@@ -414,6 +477,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     ctx.setCloseGuard(null);
     ctx.close();
   }, [ctx]);
+  const continuePendingExit = useCallback(() => {
+    ctx.setCloseGuard(null);
+    ctx.confirmPendingExit();
+  }, [ctx]);
 
   // ── New-service exit prompt handlers ──────────────────────────────────────
 
@@ -432,19 +499,19 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       await saveOverview(draft);
       setExitDialog(null);
       setNewSvcFields({ title: false, category: false, description: false });
-      closeWithoutGuard();
+      continuePendingExit();
     } finally {
       setExitSaving(false);
     }
-  }, [newSvcFields, stationOverviewDraft, saveOverview, closeWithoutGuard]);
+  }, [newSvcFields, stationOverviewDraft, saveOverview, continuePendingExit]);
 
   const handleNewSvcTrash = useCallback(async () => {
     setExitDialog(null);
     setNewSvcFields({ title: false, category: false, description: false });
     const result = await trashStation();
     // Bypass the close guard — trashing is terminal and must not re-open the exit dialog.
-    if (result) closeWithoutGuard();
-  }, [trashStation, closeWithoutGuard]);
+    if (result) continuePendingExit();
+  }, [trashStation, continuePendingExit]);
 
   // Save whichever module is currently open and return the new module_status.
   // Throws on API failure so callers can surface the error.
@@ -475,14 +542,14 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         setExitDialog('pending');
       } else {
         setExitDialog(null);
-        closeWithoutGuard();
+        continuePendingExit();
       }
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : 'Failed to save changes.');
     } finally {
       setExitSaving(false);
     }
-  }, [saveCurrentModule, isActive, closeWithoutGuard]);
+  }, [saveCurrentModule, isActive, continuePendingExit]);
 
   // "Discard and close" from the unsaved-changes exit dialog.
   // Discards the draft immediately and closes — does not check pending modules.
@@ -494,8 +561,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null);
     setSaving(false);
     setExitDialog(null);
-    closeWithoutGuard();
-  }, [closeWithoutGuard]);
+    continuePendingExit();
+  }, [continuePendingExit]);
 
   // "Settle Changes" from the pending-modules exit dialog.
   const handleExitSettle = useCallback(async () => {
@@ -503,11 +570,11 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     try {
       await handleSettleModules();
       setExitDialog(null);
-      closeWithoutGuard();
+      continuePendingExit();
     } finally {
       setExitSaving(false);
     }
-  }, [handleSettleModules, closeWithoutGuard]);
+  }, [handleSettleModules, continuePendingExit]);
 
   // ── Close guard registration ──────────────────────────────────────────────
   // Registered once; reads current state via ref to avoid stale closures.
@@ -573,6 +640,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   useEffect(() => {
     const { setFooter, close } = ctx;
+    // Manager owns the shared footer while its workspace is mounted. The
+    // previous Details/Connections effect cleanup has already cleared theirs.
+    if (tab === 'manager') return;
     const isLiveState = platformStatus === 'active' || platformStatus === 'disabled';
 
     // Enable/Disable is only meaningful once a service has been published at least once.
@@ -732,6 +802,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       : { status: 'loading', notes: [] },
     hasDraft: false,
     handlers: pkgSummaryOnView ? { view: pkgSummaryOnView } : {},
+    connection: packageConnection,
   };
 
   return (
@@ -744,7 +815,17 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     <EntityDrawer
       entity={SERVICE_ENTITY}
       tab={tab}
-      onSelectTab={setTab}
+      onSelectTab={selectServiceTab}
+      showManager={showManager}
+      managerContent={showManager ? (
+        <DynamicStationManager
+          scope={managerScope}
+          shell={ctx}
+          connection={packageConnection}
+          continuation={returnContinuation}
+          onDestination={handleManagerDestination}
+        />
+      ) : null}
       bindings={{
         overview:   overviewShellBinding,
         inclusions: inclusionsShellBinding,
@@ -964,7 +1045,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             <button
               type="button"
               class="cz-admin-btn cz-admin-btn--secondary"
-              onClick={() => { setExitDialog(null); closeWithoutGuard(); }}
+              onClick={() => { setExitDialog(null); continuePendingExit(); }}
               disabled={exitSaving}
             >
               Close without settling
@@ -1116,4 +1197,3 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     </>
   );
 }
-

@@ -9,6 +9,7 @@ export type ExitIntent =
   | { kind: 'close' }
   | { kind: 'back' }
   | { kind: 'cancel' }
+  | { kind: 'manager-scope'; target: string }
   | { kind: 'destination'; target: string };
 export type ExitGuard = (intent: ExitIntent) => boolean;
 
@@ -73,13 +74,25 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
   }, []);
 
   const requestExit = useCallback((intent: ExitIntent, continuation: () => void) => {
+    const usesCloseGuard = intent.kind !== 'tab' && intent.kind !== 'manager-scope';
     const allowed = exitGuardRef.current
       ? exitGuardRef.current(intent)
-      : closeGuardRef.current
+      : usesCloseGuard && closeGuardRef.current
         ? closeGuardRef.current()
         : true;
     if (!allowed) {
-      pendingExitRef.current = continuation;
+      // A Manager guard may release a pending continuation later. Re-run the
+      // compatibility guard at that boundary so the host drawer's canonical
+      // pending-state protection is not bypassed by Manager discard.
+      pendingExitRef.current = () => {
+        if (usesCloseGuard && closeGuardRef.current && !closeGuardRef.current()) {
+          // The Manager guard has been resolved, but the host drawer now owns
+          // the pending decision. Keep the exact destination for its dialog.
+          pendingExitRef.current = continuation;
+          return;
+        }
+        continuation();
+      };
       return;
     }
     pendingExitRef.current = null;

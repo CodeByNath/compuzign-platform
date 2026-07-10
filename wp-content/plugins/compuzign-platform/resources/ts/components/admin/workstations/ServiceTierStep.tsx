@@ -10,7 +10,7 @@ import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
-import type { DrawerTabId } from '../DrawerTabs';
+import type { DrawerBaseTabId } from '../DrawerTabs';
 import { EntityDrawer } from '../EntityDrawer';
 import { TIER_ENTITY } from '@/components/admin/schema/entities/tier';
 import { getTierNotes } from '@/components/admin/utils/moduleNotifications';
@@ -31,15 +31,6 @@ import type {
 import type { ShellBinding } from '@/components/admin/schema/types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import { serviceConnectionBinding, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
-import type { ActionConfig } from '../ActionShell';
-import { PackageManagerStep } from './PackageManagerStep';
-import { usePackageManager } from '@/hooks/usePackageManager';
-import {
-  DynamicStationManager,
-  providersExposeManager,
-  relationProvidersFor,
-} from '@/components/admin/relations';
-import type { StationManagerScope } from '@/components/admin/relations';
 
 // Tier module icons come from the shared registry (schema/icons.tsx, S1b) —
 // the same glyphs the Service Overview / Features / FAQs cards use.
@@ -89,20 +80,14 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Return-to-Service navigation (the same handler wired to the drawer's Back), used by
   // the service-overview connection shell's View action.
   const serviceBack = ctx.stepData.serviceBack as (() => void) | undefined;
-  // Re-exposed for the direct Package Manager action (Phase B) —
-  // same cross-drawer drill mechanism handleOpenTierConfig already uses one
-  // level up (ServiceViewStep), applied one level deeper here.
-  const doOpen = ctx.stepData.openAction as (config: ActionConfig) => void;
-
   // Single client-side owner of the package station (package module + all tiers).
   const pkg     = usePackageStation(serviceId, onRefresh);
-  // Package Manager (Phase B, read-only) — separate hook, separate fetch;
-  // ServiceTierStep owns no Manager editor/draft state, only this summary read.
-  const mgr = usePackageManager(serviceId);
   const station = pkg.station;
   const svc     = pkg.service;
 
-  const [editingTierId, setEditingTierId] = useState<string | null>(null);
+  const initialTierId = ctx.stepData.initialTierId as string | undefined;
+  const initialTierSection = ctx.stepData.initialTierSection as 'tier-overview' | undefined;
+  const [editingTierId, setEditingTierId] = useState<string | null>(initialTierId ?? null);
   // Single Individual Tier drawer: editingSection === null → tier view (3 module cards);
   // a named value → that section's InlineEditorShell over a transient per-module draft.
   const [editingSection, setEditingSection] = useState<'tier-overview' | 'tier-inclusions' | 'tier-faqs' | null>(null);
@@ -122,31 +107,15 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Single-open accordion for the tier-overview summary cards' notification panels (keyed by tierId).
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   // Package overview view: Details (tier cards + pricing) | Connections (parent service).
-  const [overviewTab, setOverviewTab] = useState<DrawerTabId>('details');
-  const managerScope = useMemo<StationManagerScope>(() => ({
-    stationType: 'package',
-    stationId: serviceId,
-    context: { serviceId },
-  }), [serviceId]);
-  const managerProviders = useMemo(
-    () => relationProvidersFor(managerScope),
-    [managerScope],
-  );
-  const showManager = providersExposeManager(managerProviders);
+  const [overviewTab, setOverviewTab] = useState<DrawerBaseTabId>('details');
 
-  const selectOverviewTab = (nextTab: DrawerTabId) => {
+  const selectOverviewTab = (nextTab: DrawerBaseTabId) => {
     ctx.requestExit(
       { kind: 'tab', target: nextTab },
       () => setOverviewTab(nextTab),
     );
   };
 
-  // ActionShell owns panel width. This step requests the wider mode only while
-  // its terminal Manager tab is active and restores standard width on exit.
-  useEffect(() => {
-    ctx.setPanelMode(!editingTierId && overviewTab === 'manager' ? 'manager-wide' : 'standard');
-  }, [ctx.setPanelMode, editingTierId, overviewTab]);
-  useEffect(() => () => ctx.setPanelMode('standard'), [ctx.setPanelMode]);
   // ── Occupant travel chrome (engine D4) ─────────────────────────────────────
   // Overview Details filter: current (4 shells) | bin (displaced occupants).
   const [listView, setListView] = useState<'current' | 'bin'>('current');
@@ -219,6 +188,12 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null);
     setSaveOk(false);
   };
+  const openedInitialSection = useRef(false);
+  useEffect(() => {
+    if (openedInitialSection.current || !initialTierId || !initialTierSection || !pkg.detailLoaded) return;
+    openedInitialSection.current = true;
+    openSection(initialTierSection);
+  }, [initialTierId, initialTierSection, pkg.detailLoaded]);
 
   // Per-module Save — persist-through the hook (draft + patch-in-place), then return to
   // tier view. popular is committed station-level, separate from the overview draft.
@@ -478,42 +453,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // ── Temporary Package Manager entry point (Phase 3B) ──────────────────────
-  // Removal checkpoint: after Phase 3C/3D deliver working Manager controls,
-  // shared Save/Cancel, and dirty guarding, remove this Connections action and
-  // retire PackageManagerStep transit opening. The Manager tab then becomes the
-  // sole permanent entry point; do not leave both systems after parity.
-  // The Connections-tab action opens PackageManagerStep as its own ActionShell
-  // transit step, mirroring handleOpenTierConfig
-  // (ServiceViewStep.tsx) one level deeper. Not an EntityDrawer, not a
-  // top-level workstation, not rendered inline here. Back returns to this
-  // same Package transit drawer via packageReturn, replaying the same config
-  // that opened it (parity with handleOpenTierConfig's serviceReturn).
-  const handleOpenPackageManager = () => {
-    const packageReturn = () => {
-      const freshTierBack: { current: (() => void) | null } = { current: null };
-      doOpen({
-        id:             `service-tiers-${serviceId}`,
-        mode:           'drawer',
-        title:          'Package',
-        onBack:         () => (freshTierBack.current ?? serviceBack ?? (() => {}))(),
-        hideStepHeader: true,
-        initialStepData: { serviceId, service: serviceItem, openAction: doOpen, onRefresh, serviceBack, tierBack: freshTierBack },
-        steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
-      });
-    };
-    ctx.close();
-    doOpen({
-      id:             `package-manager-${serviceId}`,
-      mode:           'drawer',
-      title:          'Package Manager',
-      onBack:         packageReturn,
-      hideStepHeader: true,
-      initialStepData: { serviceId, openAction: doOpen },
-      steps: [{ id: 'package-manager', title: 'Package Manager', component: PackageManagerStep }],
-    });
-  };
-
   // ── Tier overview view — polished 4-tier summary cards + Pricing Summary ─────
   // Bound to draft-preferred tier views from usePackageStation (station.tiers is the
   // same SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
@@ -526,7 +465,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         <DrawerTabs
           active={overviewTab}
           onSelect={selectOverviewTab}
-          showManager={showManager}
         />
 
         {overviewTab === 'details' && (
@@ -794,35 +732,14 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         )}
 
         {overviewTab === 'connections' && (
-          <>
-            <ModeProvider mode="connections">
-              <OverviewShell
-                schema={serviceOverviewShell}
-                binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
-              />
-            </ModeProvider>
-            <div class="cz-shell-section cz-shell-section--no-border">
-              <p class="cz-shell-section__title">Package Manager</p>
-              <p class="cz-sp-tier-table__muted">
-                Manage grouping, ordering, decoration, and package availability.
-              </p>
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary"
-                onClick={handleOpenPackageManager}
-                disabled={!mgr.readModel}
-              >
-                {mgr.readModel
-                  ? (mgr.readModel.has_configuration ? 'Manage Package' : 'Set up Package Manager')
-                  : (mgr.error ? 'Package Manager unavailable' : 'Loading…')}
-              </button>
-            </div>
-          </>
+          <ModeProvider mode="connections">
+            <OverviewShell
+              schema={serviceOverviewShell}
+              binding={serviceConnectionBinding(serviceItem, svc, serviceBack)}
+            />
+          </ModeProvider>
         )}
 
-        {overviewTab === 'manager' && showManager && (
-          <DynamicStationManager scope={managerScope} shell={ctx} />
-        )}
       </div>
     );
   }
