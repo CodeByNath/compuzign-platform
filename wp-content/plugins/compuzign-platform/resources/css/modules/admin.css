@@ -1387,6 +1387,12 @@
   position: relative;
 }
 
+/* Manager remains inside ActionShell; the station step may explicitly request
+   its wider working surface. Leaving that surface restores the standard mode. */
+.cz-action-shell--drawer .cz-action-shell__panel--manager-wide {
+  width: min(960px, 96vw);
+}
+
 @keyframes cz-drawer-in {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }

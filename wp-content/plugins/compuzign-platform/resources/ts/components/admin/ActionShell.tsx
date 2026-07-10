@@ -3,6 +3,13 @@ import { useState, useCallback, useRef } from 'preact/hooks';
 
 export type ActionMode = 'modal' | 'drawer';
 export type ActionProgress = 'idle' | 'loading' | 'success' | 'error';
+export type ActionShellPanelMode = 'standard' | 'manager-wide';
+export type ExitIntent =
+  | { kind: 'tab'; target: 'details' | 'connections' | 'manager' }
+  | { kind: 'close' }
+  | { kind: 'back' }
+  | { kind: 'cancel' };
+export type ExitGuard = (intent: ExitIntent) => boolean;
 
 export interface StepContext {
   stepData: Record<string, unknown>;
@@ -12,9 +19,16 @@ export interface StepContext {
   setProgress: (p: ActionProgress, message?: string) => void;
   setTitle: (title: string) => void;
   setFooter: (content: ComponentChildren) => void;
+  setPanelMode: (mode: ActionShellPanelMode) => void;
   goNext: () => void;
   goBack: () => void;
   close: () => void;
+  setExitGuard: (guard: ExitGuard | null) => void;
+  requestExit: (intent: ExitIntent, continuation: () => void) => void;
+  confirmPendingExit: () => void;
+  cancelPendingExit: () => void;
+  // Compatibility API for existing drawers. It participates in the same
+  // guarded Back/Close path until those steps migrate to setExitGuard.
   setCloseGuard: (guard: (() => boolean) | null) => void;
 }
 
@@ -45,11 +59,40 @@ interface Props {
 // Drawer Principle v1 — outer drawer container (header, body, footer, step management)
 export function ActionShell({ config, onClose, onComplete }: Props) {
   const closeGuardRef = useRef<(() => boolean) | null>(null);
+  const exitGuardRef = useRef<ExitGuard | null>(null);
+  const pendingExitRef = useRef<(() => void) | null>(null);
 
   const setCloseGuard = useCallback(
     (guard: (() => boolean) | null) => { closeGuardRef.current = guard; },
     [],
   );
+  const setExitGuard = useCallback((guard: ExitGuard | null) => {
+    exitGuardRef.current = guard;
+    if (guard === null) pendingExitRef.current = null;
+  }, []);
+
+  const requestExit = useCallback((intent: ExitIntent, continuation: () => void) => {
+    const allowed = exitGuardRef.current
+      ? exitGuardRef.current(intent)
+      : closeGuardRef.current
+        ? closeGuardRef.current()
+        : true;
+    if (!allowed) {
+      pendingExitRef.current = continuation;
+      return;
+    }
+    pendingExitRef.current = null;
+    continuation();
+  }, []);
+
+  const confirmPendingExit = useCallback(() => {
+    const continuation = pendingExitRef.current;
+    pendingExitRef.current = null;
+    continuation?.();
+  }, []);
+  const cancelPendingExit = useCallback(() => {
+    pendingExitRef.current = null;
+  }, []);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [stepData, setStepDataMap] = useState<Record<string, unknown>>(config.initialStepData ?? {});
@@ -57,6 +100,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
   const [message, setMessage] = useState('');
   const [title, setTitleState] = useState(config.title);
   const [footerContent, setFooterContent] = useState<ComponentChildren>(null);
+  const [panelMode, setPanelMode] = useState<ActionShellPanelMode>('standard');
 
   const setStepData = useCallback((key: string, value: unknown) => {
     setStepDataMap((prev) => ({ ...prev, [key]: value }));
@@ -72,6 +116,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
 
   const goNext = useCallback(() => {
     if (currentStep < config.steps.length - 1) {
+      setPanelMode('standard');
       setCurrentStep((s) => s + 1);
       setProgress('idle');
     } else {
@@ -82,18 +127,24 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
 
   const goBack = useCallback(() => {
     if (currentStep > 0) {
+      setPanelMode('standard');
       setCurrentStep((s) => s - 1);
       setProgress('idle');
     }
   }, [currentStep, setProgress]);
 
-  const handleClose = useCallback(() => {
-    if (closeGuardRef.current && !closeGuardRef.current()) return;
+  const performClose = useCallback(() => {
     if (config.confirmClose && progress === 'loading') {
       if (!window.confirm('An operation is in progress. Close anyway?')) return;
     }
     onClose();
   }, [config.confirmClose, progress, onClose]);
+  const handleClose = useCallback(() => {
+    requestExit({ kind: 'close' }, performClose);
+  }, [performClose, requestExit]);
+  const handleBack = useCallback(() => {
+    if (config.onBack) requestExit({ kind: 'back' }, config.onBack);
+  }, [config.onBack, requestExit]);
 
   const handleBackdropClick = (e: MouseEvent) => {
     if (config.mode === 'modal' && e.target === e.currentTarget) handleClose();
@@ -109,9 +160,14 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
     setProgress,
     setTitle,
     setFooter,
+    setPanelMode,
     goNext,
     goBack,
     close: handleClose,
+    setExitGuard,
+    requestExit,
+    confirmPendingExit,
+    cancelPendingExit,
     setCloseGuard,
   };
 
@@ -122,7 +178,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
       class={`cz-action-shell cz-action-shell--${config.mode}`}
       onClick={handleBackdropClick}
     >
-      <div class="cz-action-shell__panel">
+      <div class={`cz-action-shell__panel cz-action-shell__panel--${panelMode}`}>
         <div class="cz-action-shell__header">
           {/* Drawer Header & Navigation Contract — single left control: Back when a
               previous drawer exists (config.onBack), otherwise Close. Never both. */}
@@ -131,7 +187,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
               <button
                 type="button"
                 class="cz-action-shell__back"
-                onClick={config.onBack}
+                onClick={handleBack}
                 aria-label="Back"
               >
                 <svg

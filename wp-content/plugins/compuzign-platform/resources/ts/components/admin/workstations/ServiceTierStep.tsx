@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
@@ -10,6 +10,7 @@ import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
+import type { DrawerTabId } from '../DrawerTabs';
 import { EntityDrawer } from '../EntityDrawer';
 import { TIER_ENTITY } from '@/components/admin/schema/entities/tier';
 import { getTierNotes } from '@/components/admin/utils/moduleNotifications';
@@ -33,6 +34,12 @@ import { serviceConnectionBinding, TIER_KEYS, TIER_LABELS } from './serviceDrawe
 import type { ActionConfig } from '../ActionShell';
 import { PackageManagerStep } from './PackageManagerStep';
 import { usePackageManager } from '@/hooks/usePackageManager';
+import {
+  DynamicStationManager,
+  providersExposeManager,
+  relationProvidersFor,
+} from '@/components/admin/relations';
+import type { StationManagerScope } from '@/components/admin/relations';
 
 // Tier module icons come from the shared registry (schema/icons.tsx, S1b) —
 // the same glyphs the Service Overview / Features / FAQs cards use.
@@ -115,7 +122,31 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Single-open accordion for the tier-overview summary cards' notification panels (keyed by tierId).
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   // Package overview view: Details (tier cards + pricing) | Connections (parent service).
-  const [overviewTab, setOverviewTab] = useState<'details' | 'connections'>('details');
+  const [overviewTab, setOverviewTab] = useState<DrawerTabId>('details');
+  const managerScope = useMemo<StationManagerScope>(() => ({
+    stationType: 'package',
+    stationId: serviceId,
+    context: { serviceId },
+  }), [serviceId]);
+  const managerProviders = useMemo(
+    () => relationProvidersFor(managerScope),
+    [managerScope],
+  );
+  const showManager = providersExposeManager(managerProviders);
+
+  const selectOverviewTab = (nextTab: DrawerTabId) => {
+    ctx.requestExit(
+      { kind: 'tab', target: nextTab },
+      () => setOverviewTab(nextTab),
+    );
+  };
+
+  // ActionShell owns panel width. This step requests the wider mode only while
+  // its terminal Manager tab is active and restores standard width on exit.
+  useEffect(() => {
+    ctx.setPanelMode(!editingTierId && overviewTab === 'manager' ? 'manager-wide' : 'standard');
+  }, [ctx.setPanelMode, editingTierId, overviewTab]);
+  useEffect(() => () => ctx.setPanelMode('standard'), [ctx.setPanelMode]);
   // ── Occupant travel chrome (engine D4) ─────────────────────────────────────
   // Overview Details filter: current (4 shells) | bin (displaced occupants).
   const [listView, setListView] = useState<'current' | 'bin'>('current');
@@ -488,7 +519,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       <div class="cz-req-detail">
         {/* Drawer Tab Contract — Details = this package's tier modules;
             Connections = the parent service. */}
-        <DrawerTabs active={overviewTab} onSelect={setOverviewTab} />
+        <DrawerTabs
+          active={overviewTab}
+          onSelect={selectOverviewTab}
+          showManager={showManager}
+        />
 
         {overviewTab === 'details' && (
         <>
@@ -779,6 +814,10 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
               </button>
             </div>
           </>
+        )}
+
+        {overviewTab === 'manager' && showManager && (
+          <DynamicStationManager scope={managerScope} />
         )}
       </div>
     );
