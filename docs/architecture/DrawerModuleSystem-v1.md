@@ -59,6 +59,28 @@ Body-specific content classes (chip pools, lists, grids) may use whatever naming
 
 This rule covers CSS only. For the full build checklist (notifications, status, view/edit, state ownership, lifecycle actions), see ServiceDrawerModuleArchitecture-v1 → *Extension Guidelines & Commercial Migration Template*.
 
+### Dynamic Station Manager is not a drawer module
+
+The optional terminal `Manager` tab is a station-level working workspace, not
+a future module and not a third `EntitySchema` shell placement. It must not be
+wrapped in `.drawerModule`, `ReadBlock`, an overview card or an extra Edit
+state. Relation providers contribute dense rows and capability controls to one
+shared workspace; they do not create nested tabs, cards or Manager modules.
+
+`Details | Connections` remain the fixed mandatory base tabs. Manager appears
+last only when at least one applicable registered provider exposes a writable
+management capability. Read-only providers do not create it, but may contribute
+health and routing rows after it exists.
+
+Manager styling may define body-specific dashboard, filter, row and control
+classes. It must reuse the existing status/notification and Save/Cancel systems
+without creating another outer module shell system.
+
+Drawer geometry remains outside this CSS module system: Details and Connections
+use standard ActionShell width; Manager may request only the explicit wider
+ActionShell panel mode, which restores automatically when Manager is left. Do
+not use body selectors or CSS `:has()` to take ownership of panel width.
+
 ---
 
 ## Rule 4 — Create Service Drawer Uses the Same System

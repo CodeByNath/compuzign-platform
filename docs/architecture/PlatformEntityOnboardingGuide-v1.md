@@ -197,8 +197,17 @@ locked), ServiceDrawerModuleArchitecture-v1 §8 (footer decision table),
 - [ ] View step: station hook → assemble one `ShellBinding` per module →
       `EntityDrawer entity={<ENTITY>}` renders `placements.drawer`.
       **Zero hand-written `.drawerModule` JSX** — this is the budget grep.
-- [ ] Drawer placement declares exactly two groups, `details` and
-      `connections` (Drawer Tab Contract; fixed, not extensible).
+- [ ] Drawer shell placement declares exactly two groups, `details` and
+      `connections`. These mandatory base groups remain fixed in
+      `EntitySchema.placements.drawer`; Manager is never added as a shell
+      placement.
+- [ ] If the station has applicable relation providers, resolve them through
+      the typed relation-provider registry. Show the optional terminal Manager
+      tab only when at least one provider is writable and declares a management
+      capability. Read-only providers never create the tab by themselves.
+- [ ] Manager is supplied as a station-level workspace outside `EntitySchema`:
+      no Manager entity, lifecycle, shell, module, overview card, extra Edit
+      step, nested `EntityDrawer`, or nested provider tabs/modules.
 - [ ] Edit overlay: step-owned `editingSection`, working draft + original
       snapshot, `InlineEditorShell` around the binding's `editor.render`.
 - [ ] Footer via `setFooter`: copy the split-button/Publish/Cancel grammar
@@ -224,6 +233,36 @@ Precedent: the Package Summary gateway; the Category services flow (S6 D4).
       a reduced drawer.
 - [ ] Refresh propagation flows both ways (editing the target refreshes the
       origin's counts/summaries on return).
+
+## 11a. Dynamic Station Manager providers
+
+- [ ] Source entities retain canonical data ownership. A provider must not
+      expose destination content or lifecycle fields as generic Manager
+      controls.
+- [ ] Each provider declares stable identity, station scope, loader, row
+      projection, health/status evaluation, destination opener and truthful
+      capabilities.
+- [ ] Read-only providers omit draft/save behavior. Writable providers own
+      draft creation, dirty detection, validation, persistence and projection/
+      availability rules.
+- [ ] Provider storage remains provider-owned. Do not create a generic
+      cross-provider Manager envelope and do not claim cross-provider atomic
+      Save. The coordinator reports provider-level success/failure.
+- [ ] Manager owns one composite in-memory editing session keyed by provider,
+      one visible Save/Cancel surface and no persistent business truth.
+- [ ] Manager → Details, Manager → Connections, Close, Back and Cancel all use
+      the unified guarded-exit path. Never hide a dirty draft by changing tabs.
+- [ ] Details/Connections use standard ActionShell width. Manager may request
+      the explicit wider ActionShell panel mode; leaving Manager restores the
+      standard mode. Do not infer width from body markup or CSS `:has()`.
+- [ ] Package onboarding reuses `PackageManagerSchema`, GET/POST, explicit
+      decisions, deterministic identity, provisional/missing reconciliation and
+      projections through its provider adapter. Keep the current Connections
+      entry until Manager parity is complete.
+- [ ] Promotion initially registers read-only identity, health and destination
+      routing only. Never map Promotion priority, `is_featured`, schedule,
+      headline, campaign fields, pricing, module drafts or lifecycle into
+      generic Manager capabilities.
 
 ## 12. Collection placement (repeated cards)
 

@@ -26,7 +26,8 @@ Companion documents:
 | **Station** | life / DNA | lifecycle, state, ownership, references, relationships, actions, notifications, behaviour, data contracts |
 | **Shell Schema** | shell / cells | reusable presentation shells that receive Station DNA |
 | **Mode** | viewpoint / relativity | how a shell is viewed (Details, Connections, Edit, Summary, Table, Card) |
-| **Group** | placement / orbit | how shells line up together (tabs, commercial group, parent/child, workstation groups) |
+| **Group** | placement / orbit | how shells line up together (Details/Connections, commercial group, parent/child, workstation groups) |
+| **Relation Provider** | relationship capability | loads and validates one relationship type, owns its persistence/projection rules, and contributes rows to the optional Manager workspace |
 | **Workstation** | galaxy | the full environment where stations, shells, modes and groups come together |
 
 The organism is never recreated. The Station lives on the backend and in the
@@ -63,7 +64,8 @@ asset:
 | Station DNA | all business truth and behaviour | `StationLifecycle.php`; `ModuleDefinition<T>` + `evaluateModule` (`utils/moduleNotifications.ts`); station hooks + `stationPrimitives.ts`; REST module endpoints — **all unchanged** |
 | Shell Schemas | receive DNA, organise it into Schema Groups, present it | evolves `ReadBlock.tsx` (read shell) and `InlineEditorShell.tsx` (edit shell) |
 | Modes | decide how a shell is viewed and how much of it renders | replaces the hand-rolled `mode='details'\|'connection'` prop branching |
-| Groups | decide where shells appear, in which mode | the Drawer Tab Contract's fixed tabs; `WORKSTATIONS` registry grouping |
+| Groups | decide where shells appear, in which mode | the Drawer Tab Contract's fixed base tabs; `WORKSTATIONS` registry grouping |
+| Relation providers | declare relationship identity, health, routing and truthful management capabilities | typed provider registry composed from provider-owned loaders/endpoints and existing `ActionConfig` destinations |
 | Workstations | compose the environment | `WORKSTATIONS: WorkstationDef[]` + the AdminShellSystem-v2 four zones |
 
 Schemas are **TypeScript modules, not JSON** — type-checked descriptors with
@@ -340,9 +342,133 @@ Placement groups in v1:
 - **Workstation groups** — `command` / `catalog` / `operations` navigation
   grouping (`GroupSchema`), and each workstation's surface.
 
-The Drawer Tab Contract is encoded here: the drawer placement schema has
-exactly two groups, `details` and `connections`, with canonical keys —
-fixed, not extensible.
+The Drawer Tab Contract is encoded here: entity shell placement has exactly
+two groups, `details` and `connections`, with canonical keys. These are the
+fixed, mandatory shell-placement groups. Optional terminal `Manager` is not a
+third placement group: it is a station-level workspace supplied by registered
+relation providers outside `EntitySchema`.
+
+### Dynamic Station Manager provider layer
+
+The optional Manager workspace sits alongside, not inside, the shell-placement
+layer. A typed registry discovers providers for the current station scope. A
+provider declares stable relation identity, loading, row projection,
+health/status evaluation, destination routing and only the management
+capabilities it truthfully owns.
+
+Providers may be read-only or writable, may use heterogeneous identities, may
+omit groups and may omit save entirely. Manager appears only when at least one
+applicable provider is writable and declares a management capability. Applicable
+read-only providers may then contribute health and routing rows.
+
+Writable providers own draft creation, dirty comparison, validation and save.
+They keep their own backend storage and projection/availability rules. Manager
+coordinates `draftByProvider` / `originalByProvider`, one visible Save and
+provider-specific results; it owns no generic persistence envelope and makes no
+claim of cross-provider atomicity.
+
+Manager is a workspace role, not a `ShellMode`, `ShellSchema`, `EntitySchema` or
+`EntityDrawer`. It renders no module cards or overview card, creates no nested
+provider tabs/modules, and never participates in `StationLifecycle`.
+
+The registry contract is TypeScript, not JSON, matching the existing entity and
+workstation registries. The locked minimum shape is:
+
+```ts
+interface StationManagerScope {
+  stationType: EntitySchema['id'];
+  stationId: string | number;
+  context: Record<string, unknown>;
+}
+
+type RelationCapabilityId =
+  | 'grouping' | 'ordering' | 'visibility' | 'availability'
+  | 'decorated-label' | 'priority';
+
+interface RelationProviderBase<
+  Scope extends StationManagerScope,
+  ReadModel,
+  Row,
+  Identity,
+> {
+  key: string;
+  label: string;
+  stationType: EntitySchema['id'];
+  appliesTo(scope: StationManagerScope): scope is Scope;
+  load(scope: Scope, signal?: AbortSignal): Promise<ReadModel>;
+  rows(readModel: ReadModel): Row[];
+  identity(row: Row): Identity;
+  identityKey(identity: Identity): string;
+  display(row: Row, readModel: ReadModel): {
+    label: string;
+    description?: string;
+  };
+  health(row: Row, readModel: ReadModel, scope: Scope): {
+    state: ModuleState;
+    destinationAvailable: boolean;
+    notes: ModuleNote[];
+  };
+  destination(
+    row: Row,
+    readModel: ReadModel,
+    scope: Scope,
+    context: RelationNavigationContext,
+  ): ActionConfig | null;
+}
+
+interface ReadOnlyRelationProvider<
+  Scope extends StationManagerScope,
+  ReadModel,
+  Row,
+  Identity,
+>
+  extends RelationProviderBase<Scope, ReadModel, Row, Identity> {
+  access: 'read-only';
+  capabilities: { fields: [] };
+}
+
+interface WritableRelationProvider<
+  Scope extends StationManagerScope,
+  ReadModel,
+  Row,
+  Identity,
+  Draft,
+>
+  extends RelationProviderBase<Scope, ReadModel, Row, Identity> {
+  access: 'writable';
+  capabilities: {
+    fields: RelationCapabilityId[];
+    customFields?: RelationCustomField[];
+  };
+  createDraft(readModel: ReadModel, scope: Scope): Draft;
+  isDirty(draft: Draft, original: Draft, readModel: ReadModel): boolean;
+  validate(
+    draft: Draft,
+    readModel: ReadModel,
+    scope: Scope,
+  ): ProviderValidationResult;
+  save(
+    scope: Scope,
+    draft: Draft,
+    original: Draft,
+    readModel: ReadModel,
+  ): Promise<ReadModel>;
+  renderCustomControls?: (
+    context: ProviderControlContext<Row, Draft>,
+  ) => ComponentChildren;
+}
+
+type StationRelationProvider =
+  | ReadOnlyRelationProvider<any, any, any, any>
+  | WritableRelationProvider<any, any, any, any, any>;
+```
+
+The coordinator keeps `readModelByProvider`, `originalByProvider` and
+`draftByProvider`. It validates every dirty provider before starting writes.
+One visible Save invokes provider-owned saves and records results separately:
+successful providers advance their originals and become clean; failed providers
+keep their drafts and remain dirty for retry. Successful writes are not rolled
+back and the UI must never present a partial result as total success.
 
 ### Collection placement (v1.2)
 
@@ -453,6 +579,7 @@ without a matching manifest entry is a review-blocking finding.
 | `ModeContext` | active `ShellMode` | the `mode='details'\|'connection'` prop branching |
 | `EntityTable` (inside `AsyncSection`) | `TableSchema` | 7+ bespoke `<table>` literals; the 3× copied travel table; tier/promotion bin panes |
 | `EntityDrawer` + `DrawerTabs` | `EntitySchema.placements.drawer` | per-step tab state; hand-assembled drawer bodies |
+| Dynamic Station Manager workspace | registered relation providers + station scope | bespoke per-relation management surfaces and duplicated relationship coordinators |
 
 Unchanged by design: `evaluateModule` + `ModuleDefinition`,
 `ModuleStatusPill` behaviour (pill = lifecycle only; button-when-notes),
@@ -468,11 +595,28 @@ schema cannot express a violation:
 - The drawer header (static workspace title, one left control, reserved-empty
   right slot) is implemented inside the drawer renderer; no configuration
   surface exists.
-- `DrawerTabs` is fixed `Details | Connections` with canonical keys
-  `'details'` / `'connections'`.
+- `DrawerTabs` keeps fixed mandatory `Details | Connections` base tabs with
+  canonical keys `'details'` / `'connections'`; capability-gated `Manager` is
+  optional and always terminal.
+- Manager is supplied outside `EntitySchema.placements.drawer`; no schema knob
+  can place a Manager shell or give Manager lifecycle participation.
 - `schema/presentation.ts` is the single status→label/class chokepoint
   (S1a). Only Active / Pending / Disabled exist there; Archived / Trashed
   labels are exported separately for travel-surface renderers only.
+
+### Manager workspace invariants
+
+- Details and Connections use the standard ActionShell width. Manager may
+  request only an explicit ActionShell-owned wider panel mode; standard width
+  restores on tab change or close.
+- Manager tab switching, Close, Back and Cancel share one guarded-exit path.
+  Dirty provider drafts are never silently hidden.
+- Package is the first writable provider and keeps its schema, GET/POST,
+  explicit decisions, deterministic/provisional/missing behavior and consumer
+  projections provider-owned.
+- Promotion initially contributes read-only identity, health and destination
+  routing. Its content, lifecycle, priority, `is_featured`, schedule, campaign
+  fields, pricing and module drafts stay Promotion-owned.
 
 ## 12. Migration phases
 
@@ -538,3 +682,4 @@ v1.1 correction findings:
 | 2026-07-06 | **S3b — TableSchema realisation** | §9's ColumnDef/RowActionDef/TableSchema implemented with presentation-config fields the real tables demanded: `className`/`cellClassName` per column (layout classes; `width` stays reserved for explicit widths), `busyLabel` + `icon` per row action (in-flight text; icon-only destructive buttons), `actionsLabel` on TableSchema (actions column header). Selection stayed OUT of the schema — it is surface state, passed to EntityTable as a prop. TRAVEL_PILL now carries the dedicated travel classes (`--archived`/`--trashed`) — previously the travel tables hardcoded them while the chokepoint pointed at `--inactive` (two definitions for one mapping); archived pills on the tier/promotion bin cards change red → muted as a result. **Recorded deferral:** the tier/promotion bin *panes* stay card-based — the tier pane's restore-conflict flows (swap / retarget select / discard-and-retry, engine D3) are not expressible in the locked RowActionDef, and the promotion bin rows share one card list with the live filter (splitting a single filter view across card and table paradigms was rejected). Table-ising them needs either a RowActionDef amendment (custom actions cell) or the S6 gap-report path. |
 | 2026-07-07 | **v1.2 — Collection placement (the "detail-list" ruling)** | Resolves the third repeated-card presentation shape before S6. Ruling: **not a mode** — a `detail-list` mode would own zero renderers (a pure alias of `summary`) and would need cardinality awareness, which is DNA delivery; the exact ambiguity class finding 13 eliminated. The card is the existing `summary` (or `card`) viewpoint; the repetition belongs to the placement layer; the cardinality belongs to the surface (N `ShellBinding`s from the station hooks). Contract additions, both additive: `ShellSlot.footer?: string[]` (placement re-selection from the shell's declared Action Group, select-only — generalises the renderer-encoded connections View-only override into a declared knob) and `EntitySchema.placements.collections?: Record<string, ShellSlot>` (named collection surfaces). §8 gains the Collection placement rules: one shell/one binding/one mode always; no new renderer (surfaces map existing shells inside `ModeProvider`; shared helper only at a second migrated consumer per Governance); footer follows placement; the summary-gateway transit pattern (metrics shell + `view` footer in the Connections tab — Package Summary precedent) is the entry point. First consumer: Category's services collection (S6). Recorded future consumers: the tier package-overview and promotion list card surfaces (S4 deferrals). No new mode, archetype, element, or renderer component. Runtime realisation lands with S6. |
 | 2026-07-07 | **S5 — Workstation registry realisation** | §8's `GroupSchema` and `WorkstationSchema` implemented in `schema/workstations.ts`; `WorkstationRouter` is registry dispatch and `Sidebar` consumes the registry + ordered `WORKSTATION_GROUPS` — adding a workstation is one registry entry. Realisation decisions: **(1)** the value-level registry (`WORKSTATIONS`, `WORKSTATION_LABELS`) moved out of `api/types/admin.ts` into the schema registry, so one file owns the inventory; the type-level contract (`WorkstationId`, `WorkstationDef`) stays put and `WorkstationSchema extends WorkstationDef` as specified (the dead decorative `icon` glyph string on `WorkstationDef` was dropped — it had no renderer). **(2)** The icon registry (`schema/icons.tsx`) gains a nav-glyph section (`NavIconId` / `NAV_ICONS`, retiring the Sidebar `NavIcon` switch) separate from `MODULE_ICONS`, because the two frames carry different CSS classes; `iconId` types to the nav section and is optional — hidden and child entries carry none. **(3)** `hiddenFromNav` joins `WorkstationSchema`: the Sidebar's hard-coded `HIDDEN_FROM_NAV` set becomes registry metadata (bundles, health, and the two travel routes surfaced via Bin). **(4)** The `entity-table` surface kind is realised by one generic `EntityTableWorkstation` for the two real consumers — `service-archived` / `service-trash` — resolving the TableSchema through `ENTITIES[entity].placements.travel[scope]` and deleting the two bespoke workstation files; data flow and transition handlers stay renderer-side per the DNA boundary (the registry declares intent only), and the router keys the surface per `entity:scope` because `useApi` fetchers are fixed at mount. `scope: 'current'` stays declared but has no consumer (the catalog keeps its bespoke component surface). **(5)** All remaining workstations adopted the four zones (Overview, Bundles, Featured, Requests, Health + the generic travel surface) with pixel parity — header-right Refresh buttons remain inside the Header zone as part of the `cz-ws-header` layout; AdminShellSystem-v2's adoption table is now fully ✓. Requests registers as `{ kind: 'component' }` per §8. Manifest `actions` remain declared-but-unconsumed (S6 path, unchanged from S4). |
+| 2026-07-11 | **Dynamic Station Manager workspace amendment** | The Drawer Tab Contract becomes fixed mandatory `Details | Connections` base tabs plus capability-gated terminal `Manager`. Manager is a station-level workspace outside modes, shells, `EntitySchema.placements.drawer`, EntityDrawer and lifecycle. A typed relation-provider registry owns discovery; source entities retain canonical data and providers retain persistence, validation and projection rules. Manager coordinates provider-keyed transient drafts and one visible Save/Cancel surface without generic storage or cross-provider atomicity. Package is the first writable provider; Promotion initially supplies read-only identity, health and routing. ActionShell-owned width and unified guarded navigation are locked for the infrastructure phase. |

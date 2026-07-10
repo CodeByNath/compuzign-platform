@@ -1,12 +1,13 @@
-# Pricing Board Station Manager — Phase 0 Architecture Contract (v1)
+# Dynamic Station Manager — Package Provider Contract (v1)
 
-Planning-only contract. No code, no schema, no UI in this phase. Defines the
-reusable **Station Manager** pattern first, then Pricing Board as its first
-implementation. This doc replaces all earlier "Board Manager" / "Control
-Centre" language for this feature — that terminology is retired.
+Architecture contract for the Package relation provider and the reusable
+**Dynamic Station Manager** workspace. The accepted platform placement is the
+optional terminal Manager tab in a station drawer. This doc replaces the prior
+separate-workstation placement and all earlier "Board Manager" /
+"Control Centre" language.
 
 Companion documents:
-- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — drawer state machine and tab contract (Details | Connections), unchanged by this doc.
+- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — canonical drawer contract: fixed `Details | Connections` base tabs plus capability-gated terminal `Manager`.
 - [StationLifecycleEngine-v1.md](StationLifecycleEngine-v1.md) — station lifecycle vocabulary; Station Managers are explicitly outside this engine (see §1).
 - [ServiceDrawerModuleArchitecture-v1.md](ServiceDrawerModuleArchitecture-v1.md) — the drawer module template a Station Manager does *not* use for its outer shell.
 
@@ -14,89 +15,105 @@ Companion documents:
 
 ## 1. Station Manager Contract
 
-**What a Station Manager is.** A Station Manager is a top-level, hidden
-workstation surface that coordinates a reusable structure shared *between*
-stations: a source station supplies raw data, and one or more consumer
-stations use a derived, organized version of that data. A Station Manager
-has no lifecycle of its own — `draft` / `active` / `disabled` / `archived` /
-`trashed` do not apply to it. It manages structure; it is not a station.
+**What Dynamic Station Manager is.** Manager is the optional terminal
+station-level drawer workspace that coordinates how registered relationships
+participate in the currently open station. It has no lifecycle of its own —
+`draft` / `active` / `disabled` / `archived` / `trashed` do not apply to it.
+It manages relationship structure; it is not a station or entity.
 
-**How it differs from a station drawer.** A drawer edits and presents *one*
-station's own record — its lifecycle, its modules, its fields. A Station
-Manager coordinates a structure that spans stations. It is never entered via
-the sidebar/drawer stack, has no Details/Connections tabs, and is never
-subject to `StationLifecycle` transitions.
+**How it differs from station Details.** Details presents station-owned
+modules, fields and inline editors. Manager coordinates provider-owned
+relationship decisions. It opens directly as a working workspace with no
+overview card and no extra Edit step.
 
-**How it differs from an inline editor.** An inline editor is scoped to and
-owned by the drawer that renders it, editing fields that belong to that
-station's own record. A Station Manager owns a structure that does not
-belong to any single station's record — it is the coordinating layer between
-a source and its consumers. It is never embedded inside a drawer.
+**How it differs from Connections.** Connections presents connected entities
+and opens their existing destinations. Manager renders declared relationship-
+management capabilities. Destination editors remain authoritative and are
+opened from Manager rows when needed.
 
-**How it uses Connections.** A station drawer's Connections tab is the only
-entry point into a Station Manager. Connections shows a read-only
-summary/link card — it never surfaces the manager's editor inline, and the
-drawer never acts as the manager's controller. Selecting the link opens the
-Station Manager as its own top-level surface, scoped to that station.
+**Placement boundary.** Manager is not a top-level workstation, separate
+drawer, `EntitySchema`, `EntityDrawer`, shell placement, module or nested
+provider tab system. `Details | Connections` remain mandatory and first;
+Manager appears last only when at least one applicable provider declares a
+writable management capability. Read-only providers do not create it, but may
+contribute health and routing rows once it exists.
 
 **How it links source station data to consumer station usage.** The source
 station supplies a raw pool. The Station Manager organizes, declares, and
-derives a managed structure from that pool (groups, order, commercial rules,
-etc.) and exposes a read model. Consumer stations store only their own usage
+derives the Package provider's managed structure from that pool (groups,
+order, availability and decoration) and exposes a read model. Consumer stations store only their own usage
 choices against that read model — never a copy of the manager's structure.
 
-## 2. Pricing Board Station Manager
+**Ownership boundary.** Source entities own canonical data. Each relation
+provider owns persistence, validation and projection/availability rules for
+its relationship decisions. Manager coordinates one composite in-memory
+session and one visible Save/Cancel surface; it owns no generic cross-provider
+database envelope and never claims cross-provider atomicity.
 
-First implementation of the Station Manager pattern.
+## 2. Package relation provider
 
-- **Source station:** Service / Package station — source data is service
-  inclusions (`cz_service_inclusions`).
-- **Managed structure:** a grouped commercial pricing board — groups and
-  ordered items, commercial declarations (price, unit), quantity rules.
-- **Consumers:** Tier Pricing Usage first. Future consumers: Bundle,
-  Promotion, Subscription, Custom Plan, and other B2B station-to-station
-  managers.
-- **Scope:** one Pricing Board Station Manager per package station. Package
+First writable provider of the Dynamic Station Manager pattern.
+
+- **Source station:** Service / Package station — canonical source data is
+  Service inclusions and FAQs.
+- **Managed relationship concerns:** grouping, ordering, explicit package
+  availability and Package-owned decorated labels.
+- **Consumers:** Tier and future relation consumers read provider-owned
+  projections; consumers never copy Manager structure into their own storage.
+- **Scope:** one Package relation-provider configuration per package station. Package
   and service are the same scope key today (the package station is postmeta
   on the Service post) — so this is a 1:1, service-scoped manager, not a
   global/shared board across services.
 
-## 3. Drawer boundary
+## 3. Drawer and migration boundary
 
-- `ServiceTierStep.tsx` must not own manager state — no `useState` board
-  draft, no board editor imported inline.
-- The package drawer's Connections tab may only show a read-only
-  summary/link card into the Pricing Board Station Manager, scoped to that
-  service. It shows that this station feeds a useful structure into another
-  station — it does not reproduce that structure.
-- No board editor inside the package drawer. Not as a full surface, not as a
-  "quick edit" shortcut.
-- No local `useState` manager surface anywhere inside `ServiceTierStep` — all
-  board state lives inside the Station Manager surface, never in the drawer
-  tree.
+- `ServiceTierStep.tsx` must not own Manager provider draft state or import the
+  Manager workspace editor inline.
+- Until Manager-tab parity is complete, the current direct Package Manager
+  action in Connections remains the temporary entry and its transit destination
+  remains intact. They retire only after the in-drawer workspace reaches
+  functional parity.
+- The final Manager workspace is part of the station drawer but remains outside
+  Package `EntitySchema` placements and outside `ServiceTierStep` state.
+- No local Manager workspace state lives inside `ServiceTierStep`; the shared
+  Manager coordinator owns the provider-keyed editing session.
 
-## 4. Manager surface boundary
+## 4. Manager workspace boundary
 
-- Station Managers render through the existing top-level
-  workstation/router pattern (`WorkstationRouter` / `AdminShell`), never
-  through `DrawerTabs` / `EntityDrawer` as their outer shell.
-- Hidden from sidebar navigation in v1 (`hiddenFromNav: true`) — reachable
-  only from the originating station's Connections tab.
-- Scoped at open time by the originating station (e.g. `serviceId`). The
-  manager has no ambient "current service" context of its own; it must be
-  handed scope explicitly.
-- Owns the full read → manage → edit flow for its structure internally
-  (read model, edit affordances, ordering). It may use drawer-style editors
-  or shells internally for individual group/item edits, but the manager
-  shell itself is not a drawer and is not entity-lifecycle-bound.
+- Manager receives explicit station scope (for Package, `serviceId`) and
+  discovers applicable providers from the typed relation-provider registry.
+- It renders a compact dashboard, provider filters/sections, dense relation
+  rows, capability-driven controls, health/notifications and destination links.
+  It renders no module cards, overview card, extra Edit state, nested provider
+  tabs or provider-created modules.
+- It coordinates `draftByProvider` and `originalByProvider`. All dirty Manager
+  exits — Details, Connections, Close, Back and Cancel — share one guard.
+  Dirty drafts are never silently hidden.
+- Details and Connections keep standard width. Manager may request the explicit
+  wider ActionShell panel mode; width returns automatically when Manager is
+  left. `ActionShell` owns width.
+- A visible Save validates all dirty providers before writing, then calls each
+  provider's own save contract. Provider successes remain committed and provider
+  failures remain dirty; cross-provider atomicity is never implied.
 
-## 5. Storage contract
+### Provider adoption
 
-- Manager-shaped storage: `groups[]` (`group_id`, `label`, `sort_order`) +
-  `items[]` (`inclusion_id`, `inclusion_label`, `group_id`, `sort_order`,
-  `base_price`, `unit`, quantity rules, `enabled`, `missing`) — never a flat
-  rows list.
-- Items are derived 1:1 from the source station's pool (inclusions) and
+- Package is the first writable provider. `PackageManagerSchema`, GET,
+  `has_configuration`, POST explicit decisions, deterministic identity,
+  provisional reconciliation, missing-source preservation and consumer
+  projections remain Package-owned and are adapted rather than generalized.
+- Promotion initially contributes read-only identity, health and destination
+  routing. Promotion priority, `is_featured`, schedule, headline, campaign
+  fields, pricing, module drafts and lifecycle remain Promotion-owned. Future
+  writable Promotion decorations require separately approved provider-owned
+  storage and must not reuse those entity fields.
+
+## 5. Package provider storage contract
+
+- Package-provider storage remains `PackageManagerSchema`: `groups[]` plus
+  explicit `items[]` decisions keyed by deterministic source identity. It is
+  not generic Manager or cross-provider storage.
+- Items are derived 1:1 from the source station's inclusion/FAQ pools and
   cannot be manually added or deleted. An unwanted item is disabled, never
   removed — the pool, not the board, owns item existence.
 - Groups are a pure admin-created organizational layer with no external
@@ -106,38 +123,33 @@ First implementation of the Station Manager pattern.
 - Stale references (a pool item that no longer resolves) are preserved and
   flagged `missing: true`, never dropped — the same never-drop-only-flag
   discipline used elsewhere on the platform for pool references.
+- The GET read model, `has_configuration`, atomic POST of explicit decisions,
+  provisional reconciliation, missing-source preservation and projection rules
+  stay Package-provider-owned.
 
-## 6. Consumer contract
+## 6. Consumer projection contract
 
-- Tier Pricing Usage stores only usage choices: `pricing_mode` +
-  `usage[{ inclusion_id, enabled, quantity }]` — no `group_id`, no
-  `sort_order`, no `base_price`, no `unit`.
-- Grouping, order, base price, and unit stay owned exclusively by the
-  Pricing Board Station Manager.
+- Consumers store only their own usage choices; they do not store Package
+  provider grouping, order, availability decisions or decoration.
 - Consumers read the manager's read model at render time and overlay their
   own usage choices row-by-row — grouping and order are borrowed for
   display, never copied into consumer storage.
-- The same contract applies to every future consumer (Bundle, Promotion,
-  Subscription, Custom Plan): usage-only storage, structure always read live
-  from the manager.
+- Future consumers borrow Package provider structure live and keep only their
+  own consumer-specific usage choices; they do not copy provider structure.
 
-## 7. Pricing rules
+## 7. Pricing boundary
 
-- Empty manual tier price → displays "Contact us".
-- Numeric manual tier price → displays the manual price as-is.
-- Calculated price is an admin-only preview, derived at read time. It is
-  never written into `tier.price`.
-- An incomplete calculation yields `total: null` / `status: incomplete` — it
-  is never coerced to `0`.
-- Cost Builder and public pricing remain untouched by this feature until a
-  separately-approved future phase explicitly authorizes calculated pricing
-  publicly.
+- Package relation management owns no price, unit, quantity, Tier internals or
+  Cost Builder logic.
+- Pricing and public output remain owned by their existing entity/provider
+  paths. A future provider may expose a pricing-related relationship
+  decoration only through a separately approved, provider-owned capability;
+  it cannot become generic Manager data.
 
 ## Naming discipline
 
-"Station Manager" is the architectural name only. Code identifiers stay
-literal and technical — e.g. workstation id `pricing-board-manager`, file
-`PricingBoardManagerWorkstation.tsx`, meta key `pricing_board`. Do not embed
-"Station Manager" verbatim into identifiers, matching the platform's
-existing discipline of keeping code names literal while architecture docs
-carry the conceptual name (see [[feedback-control-centre-no-direct-wiring]]).
+"Dynamic Station Manager" is the architectural workspace name. Provider code
+identifiers stay literal and technical — e.g. `packageRelationProvider`,
+`promotionRelationProvider`, `PackageManagerSchema` and the existing
+`package_manager` storage key. Do not model Manager as a workstation ID,
+EntitySchema ID, lifecycle record or generic database key.

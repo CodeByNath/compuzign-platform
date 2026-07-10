@@ -2,7 +2,7 @@
 
 **Scope — two layers, different reach:**
 
-- **Drawer Header & Navigation Contract**, **Drawer Tab Contract**, and **Presentation Status Contract** (below) are **platform-wide**. They are the locked contract for **every admin drawer** — Service, Package, Promotion, and any future drawer. These sections are the canonical owner of drawer header titles, the single left control, the reserved right slot, the fixed `Details | Connections` tab model, and the operational-vs-presentation state distinction with its pill vocabulary.
+- **Drawer Header & Navigation Contract**, **Drawer Tab Contract**, **Dynamic Station Manager Contract**, and **Presentation Status Contract** (below) are **platform-wide**. They are the locked contract for **every admin drawer** — Service, Package, Promotion, and any future drawer. These sections are the canonical owner of drawer header titles, the single left control, the reserved right slot, the fixed `Details | Connections` base tabs, the optional terminal `Manager` workspace, and the operational-vs-presentation state distinction with its pill vocabulary.
 - **Module state machine / lifecycle** (New / Locked / View / Edit, status model) — reference implementation is **Service Catalog only**. It does not yet cover Transit Hub, Packages, Promotions, Requests, or CRM as built surfaces, though those drawers must adopt the platform-wide contract above.
 
 For the drawer module CSS system, class reference, and legacy audit: [DrawerModuleSystem-v1.md](DrawerModuleSystem-v1.md)
@@ -16,7 +16,7 @@ For the completed Service modules' full implemented behavioural architecture (no
 A drawer consists of:
 
 - **Header** — a static workspace label, a single left navigation control, and a reserved right slot. Governed by the *Drawer Header & Navigation Contract* below.
-- **Tabs** — a fixed two-tab `Details | Connections` model. Governed by the *Drawer Tab Contract* below.
+- **Tabs** — fixed base tabs `Details | Connections`, followed only when capability-gated by the terminal `Manager` workspace. Governed by the *Drawer Tab Contract* below.
 - **Body** — contains the drawer modules.
 - **Footer** — primary and secondary actions.
 
@@ -75,9 +75,9 @@ An inline editor names the *module* it is editing (not the workspace and not a t
 
 > **Platform-wide and locked.** Applies to every non-editor drawer. Inline editors have no tabs.
 
-### Fixed two tabs: `Details | Connections`
+### Fixed base tabs: `Details | Connections`
 
-Every non-editor drawer uses exactly two tabs, in this fixed order:
+Every non-editor drawer uses these two mandatory base tabs, in this fixed order:
 
 - **Details** — always the **current workspace's own** modules (what I am editing).
 - **Connections** — always the **related entities** (what this is connected to).
@@ -90,11 +90,100 @@ This replaces the earlier per-drawer `Service / Commercial`, `Packages / Promoti
 | Package / Tier | Tier modules (Tier Overview, Features, Questions) | Service context, Promotions, … |
 | Promotion | Promotion modules | Service / Package context |
 
+### Optional terminal tab: `Manager`
+
+`Manager` is an optional third station-level workspace tab. When present, the
+canonical order is permanently:
+
+`Details | Connections | Manager`
+
+It appears only when at least one registered relation provider for the current
+station exposes a **writable management capability**. Read-only providers do
+not create the tab by themselves. Once a writable provider makes Manager
+available, read-only providers may contribute relationship-health and
+destination-routing rows to the same workspace.
+
+Manager is a workspace role, not an entity viewpoint. It has no `EntitySchema`,
+no `EntityDrawer`, no shell placement and no lifecycle. It is never an
+`EntityDrawer` inside another `EntityDrawer`, and providers do not create nested
+Manager tabs or Manager modules.
+
 ### Order never changes; only the active tab changes
 
-The tab order is **permanently** `Details | Connections`. Drawers must **not** reorder tabs by entry point. When a drawer is opened from a connection (a promotion, a package, another related entity), the order stays the same and **Connections is simply made the active tab**. Any "selected tab moves to the front" logic is removed.
+The base tab order is **permanently** `Details | Connections`; optional Manager
+is always terminal. Drawers must **not** reorder tabs by entry point. When a
+drawer is opened from a connection (a promotion, a package, another related
+entity), the order stays the same and **Connections is simply made the active
+tab**. Any "selected tab moves to the front" logic is removed.
 
-This gives a predictable drawer everywhere: the left tab is always "what I'm editing" and the right tab is always "what it's connected to." `Details` always represents the workspace named in the header.
+This gives a predictable drawer everywhere: the first tab is always what the
+station owns, the second is always what it is connected to, and optional
+Manager is always last. `Details` always represents the workspace named in the
+header.
+
+---
+
+## Dynamic Station Manager Contract
+
+The Dynamic Station Manager is the optional station-level workspace for
+managing how registered relationships participate in the current station. It
+opens directly as a working surface: no overview card, no extra Edit step and
+no module-card lifecycle around the workspace.
+
+### Ownership
+
+- The source entity owns canonical data.
+- Each relation provider owns its relationship persistence, validation and
+  projection/availability rules.
+- Dynamic Station Manager discovers providers, renders their declared
+  capabilities and coordinates one composite in-memory editing session.
+- Manager owns no generic cross-provider storage envelope and never claims a
+  cross-provider atomic save. A visible Save may coordinate provider saves,
+  but success and failure remain provider-specific.
+
+Provider capabilities may include grouping, ordering, visibility,
+availability, decorated labels, priority or provider-specific fields only when
+the provider truthfully owns those relationship concerns. Manager must never
+take ownership of source content, destination internals, entity lifecycle or
+pricing/Cost Builder logic.
+
+### Workspace presentation
+
+Manager uses a dashboard/workspace layout with dense relationship rows,
+capability-driven controls, health/notification summaries and direct links to
+the existing destination drawers. It has no overview card, nested provider
+tabs, nested provider modules or provider-created presentation system.
+
+### Width
+
+Details and Connections use the standard drawer width. Manager may request an
+explicit wider ActionShell panel mode. Width remains owned by `ActionShell`,
+not body markup or CSS `:has()` discovery, and returns automatically to the
+standard mode when Manager is left or the drawer closes.
+
+### Guarded navigation
+
+Manager → Details, Manager → Connections, drawer Close, Back and Manager Cancel
+must all use one guarded-exit contract. Dirty provider drafts are never silently
+hidden in memory. The user must Save, keep editing or explicitly discard before
+the requested navigation continues.
+
+Infrastructure debt (recorded for the Manager infrastructure phase):
+`ActionShell` currently invokes `config.onBack` directly, bypassing its close
+guard. Back must be routed through the unified guarded-exit path before a dirty
+Manager workspace ships.
+
+### First providers
+
+- **Package** is the first writable provider. `PackageManagerSchema`, its GET,
+  `has_configuration`, atomic POST, deterministic identities, provisional
+  reconciliation, missing-source preservation, explicit decisions and consumer
+  projections remain Package-provider-owned. The current direct Connections
+  entry remains until Manager-tab parity is complete.
+- **Promotion** initially participates only as a read-only provider of stable
+  identity, health and destination routing. Promotion priority,
+  `is_featured`, schedule, headline, campaign fields, pricing, module drafts and
+  lifecycle remain Promotion-owned and must not become generic Manager controls.
 
 ---
 

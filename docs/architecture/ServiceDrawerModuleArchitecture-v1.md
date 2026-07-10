@@ -15,6 +15,11 @@ Companion documents — each owns exactly one concern; this document cross-refer
 
 Scope note: the three Service modules above are documented in full here. The Commercial surfaces (tiers via ServiceTierStep, promotions via ServicePromotionStep) were migrated onto this architecture during the lifecycle engine migration (Stages C–D) and follow the Section 16 template; their travel behaviour is specified in StationLifecycleEngine-v1.
 
+The optional Dynamic Station Manager is a station-level working workspace, not
+a drawer module. `Details | Connections` remain the mandatory base tabs;
+capability-gated `Manager`, when present, is terminal and follows the contract
+owned by AdminWorkstationDrawerPrinciples-v1.
+
 ---
 
 ## 1. Module Structure
@@ -78,14 +83,15 @@ ActionShell                              drawer shell — header · tabs · body
 │         each module: ModuleNotificationPanel renders below header when its panel is open
 │
 └─ ServiceViewStep                       View + Edit states (post-creation)
-    ├─ Service tab
+    ├─ Details tab
     │   ├─ ServiceOverviewViewCard   → ModuleStatusPill + ModuleNotificationPanel
     │   │     └─ (Edit) InlineEditorShell → ServiceOverviewEditor
     │   ├─ ServiceInclusionsViewCard → ModuleStatusPill + ModuleNotificationPanel
     │   │     └─ (Edit) InlineEditorShell → ServiceInclusionsEditor
     │   └─ ServiceFaqsViewCard       → ModuleStatusPill + ModuleNotificationPanel
     │         └─ (Edit) InlineEditorShell → ServiceFaqsEditor
-    ├─ Commercial tab                (Package Summary, Promotions — migrated; see StationLifecycleEngine-v1)
+    ├─ Connections tab               (Package Summary, Promotions — migrated; see StationLifecycleEngine-v1)
+    ├─ Manager tab (optional)         direct relation-management workspace; no module cards/Edit step
     └─ Footer (via setFooter):
           split button [ Disable | Enable | Move to Trash ] · chevron → { Archive, Move to Trash }
           Publish · Cancel
@@ -109,6 +115,20 @@ Reusable drawer components and their contracts. These are module-agnostic — Co
 | `ServiceOverviewEditor` / `ServiceInclusionsEditor` / `ServiceFaqsEditor` | Edit-mode form for the module's working draft | Controlled via `draft` + `onChange`. Overview additionally: `categories`, `catDescription`, `onCatDescriptionChange`, `onCategoryCreated`. |
 
 `ModuleNote` shape and semantics are defined in *Notification System*.
+
+### Dynamic Station Manager workspace
+
+Manager does not use the Service module card structure above. It has no
+overview card, `EntitySchema`, `EntityDrawer`, shell placement, lifecycle or
+extra Edit transition. It renders a compact dashboard and dense provider rows
+with capability-driven controls, health/notification summaries and links to the
+existing destination drawers. Providers do not create nested tabs or modules.
+
+The source entity owns canonical data. Each relation provider owns its
+relationship persistence, validation and projection rules. Manager owns only
+the composite in-memory session (`draftByProvider` / `originalByProvider`) and
+coordinates one visible Save/Cancel surface. It owns no generic persistence
+envelope and does not promise cross-provider atomic saves.
 
 ---
 
@@ -209,6 +229,27 @@ Ownership of every piece of drawer state. Commercial modules inherit this divisi
 | **Close guards** | Registered once via `setCloseGuard`, reading `exitStateRef` (avoids stale closures) | Blocks close on: dirty editor → `unsaved`; new-never-published + draft → `new-service-draft`; active + pending modules → `pending`. Terminal actions (Archive / Move to Trash) bypass via `closeWithoutGuard()`. |
 | **Footer state** | Footer JSX pushed via `setFooter` inside an effect | Recomputed when its reactive inputs change (`tab`, `platformStatus`, `splitOpen`, `loading.status`, `canPublish`, status). The footer is derived, not independently stateful. |
 | **Notification ownership** | Per-module note arrays (see *Notification System*) | View step: `moduleNotifications.ts` generators via `useServiceStation`. Create step: local arrays gated by local state. The shared pill/panel hold no note state. |
+| **Manager session** | Provider read models plus `draftByProvider`, `originalByProvider`, validation and provider save results | Transient station-drawer state only. Provider endpoints remain the persistence boundary; read-only providers have no draft/save state. |
+
+### Manager navigation and width
+
+Manager tab switching, drawer Close, Back and Cancel must share one guarded-
+exit contract. A dirty provider draft is never silently hidden by moving to
+Details or Connections. The existing `ActionShell` Back path invokes
+`config.onBack` directly and bypasses the close guard; this is recorded
+infrastructure debt that must be resolved before the Manager workspace ships.
+
+Details and Connections use standard drawer width. Manager may request an
+explicit wider ActionShell panel mode. `ActionShell` remains the width owner and
+must restore standard width automatically when Manager is left or the drawer
+closes.
+
+Package is the first writable provider and keeps its existing schema, GET/POST,
+identity/reconciliation/decision/projection rules. Its current Connections
+entry remains until Manager parity. Promotion initially contributes read-only
+identity, health and routing only; its content, lifecycle, priority,
+`is_featured`, schedule, campaign fields, pricing and drafts remain
+Promotion-owned.
 
 ---
 
