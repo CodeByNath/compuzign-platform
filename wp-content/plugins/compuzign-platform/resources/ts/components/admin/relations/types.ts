@@ -1,4 +1,3 @@
-import type { ComponentChildren } from 'preact';
 import type { ActionConfig } from '../ActionShell';
 import type { EntitySchema } from '../schema/types';
 import type { ModuleNote, ModuleState } from '../utils/moduleNotifications';
@@ -37,16 +36,40 @@ export interface RelationHealth {
 export interface ProviderValidationIssue {
   path: string;
   message: string;
+  sectionId?: string;
+  rowIdentity?: string;
 }
 
 export type ProviderValidationResult =
   | { valid: true; issues: [] }
   | { valid: false; issues: ProviderValidationIssue[] };
 
-export interface ProviderControlContext<Row, Draft> {
-  row: Row;
-  draft: Draft;
-  replaceDraft: (draft: Draft) => void;
+export interface ManagerSummaryContribution<ReadModel = unknown> {
+  label: string;
+  project(readModel: ReadModel): Readonly<Record<string, string | number | boolean | null>>;
+}
+
+export interface ManagerEmptyStateDefinition {
+  title: string;
+  description?: string;
+}
+
+export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Identity = unknown> {
+  /** Stable within the provider; the coordinator exposes `${providerKey}:${id}`. */
+  id: string;
+  label: string;
+  role: 'structure' | 'relations';
+  capabilities: readonly RelationCapabilityId[];
+  rows?: (readModel: ReadModel) => readonly Row[];
+  identity?: (row: Row) => Identity;
+  emptyState: ManagerEmptyStateDefinition;
+  validationPaths: readonly string[];
+}
+
+/** Provider presentation metadata only. The platform always owns the frame. */
+export interface ManagerContribution<ReadModel = unknown, Row = unknown, Identity = unknown> {
+  summary?: ManagerSummaryContribution<ReadModel>;
+  sections: readonly ManagerSectionDefinition<ReadModel, Row, Identity>[];
 }
 
 export interface RelationProviderBase<
@@ -75,6 +98,7 @@ export interface RelationProviderBase<
     scope: Scope,
     context: RelationNavigationContext,
   ): ActionConfig | null;
+  manager: ManagerContribution<ReadModel, Row, Identity>;
 }
 
 export interface ReadOnlyRelationProvider<
@@ -110,7 +134,6 @@ export interface WritableRelationProvider<
     original: Draft,
     readModel: ReadModel,
   ): Promise<ReadModel>;
-  renderCustomControls?: (context: ProviderControlContext<Row, Draft>) => ComponentChildren;
 }
 
 export type StationRelationProvider<

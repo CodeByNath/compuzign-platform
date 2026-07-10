@@ -8,7 +8,8 @@ export type ExitIntent =
   | { kind: 'tab'; target: 'details' | 'connections' | 'manager' }
   | { kind: 'close' }
   | { kind: 'back' }
-  | { kind: 'cancel' };
+  | { kind: 'cancel' }
+  | { kind: 'destination'; target: string };
 export type ExitGuard = (intent: ExitIntent) => boolean;
 
 export interface StepContext {

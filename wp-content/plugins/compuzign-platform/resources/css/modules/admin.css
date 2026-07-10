@@ -4301,3 +4301,47 @@ button.cz-module-status-pill {
     flex-basis: 100%;
   }
 }
+/* Dynamic Station Manager — platform-owned frame; provider contributions fill
+   only the named summary/section regions in later phases. */
+.cz-manager-workspace {
+  display: grid;
+  gap: var(--cz-space-5);
+  padding: var(--cz-space-6);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-card);
+}
+
+.cz-manager-workspace__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cz-space-4);
+}
+
+.cz-manager-workspace__header h3,
+.cz-manager-workspace__sections h4 { margin: 0 0 var(--cz-space-2); }
+
+.cz-manager-workspace__dashboard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cz-space-3);
+  color: var(--admin-text-muted);
+}
+
+.cz-manager-workspace__dashboard span + span::before { content: '\00b7'; margin-right: var(--cz-space-3); }
+
+.cz-manager-workspace__providers {
+  display: flex;
+  gap: var(--cz-space-2);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.cz-manager-workspace__providers span { padding: var(--cz-space-3) var(--cz-space-4); color: var(--admin-text-muted); }
+.cz-manager-workspace__providers .is-active { color: var(--admin-text); border-bottom: 2px solid var(--admin-accent); }
+
+.cz-manager-workspace__sections {
+  min-height: 220px;
+  padding: var(--cz-space-5);
+  border: 1px dashed var(--admin-border);
+  border-radius: var(--admin-radius-card);
+}

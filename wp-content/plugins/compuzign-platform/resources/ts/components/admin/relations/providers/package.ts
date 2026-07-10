@@ -142,6 +142,31 @@ export const packageRelationProvider: WritableRelationProvider<
   capabilities: {
     fields: ['grouping', 'ordering', 'availability', 'decorated-label'],
   },
+  manager: {
+    summary: {
+      label: 'Package Manager',
+      project: (readModel) => ({
+        groups: readModel.groups.length,
+        relationships: readModel.items.length,
+        configured: readModel.has_configuration,
+      }),
+    },
+    sections: [
+      {
+        id: 'groups', label: 'Groups', role: 'structure', capabilities: ['grouping', 'ordering'],
+        emptyState: { title: 'No groups yet', description: 'Create groups to organize package relationships.' },
+        validationPaths: ['groups'],
+      },
+      {
+        id: 'relationships', label: 'Package Relationships', role: 'relations',
+        capabilities: ['grouping', 'ordering', 'availability', 'decorated-label'],
+        rows: (readModel) => readModel.items,
+        identity: (row) => ({ itemId: row.item_id, sourceType: row.source_type, sourceId: row.source_id }),
+        emptyState: { title: 'No relationships yet' },
+        validationPaths: ['items'],
+      },
+    ],
+  },
 
   appliesTo: (scope): scope is PackageRelationScope => (
     scope.stationType === 'package'
@@ -219,7 +244,7 @@ export const packageRelationProvider: WritableRelationProvider<
       const decision = draft.itemsById[itemId];
       const source = sourceById.get(itemId);
       if (!decision || !source) {
-        issues.push({ path: `items.${itemId}`, message: 'Decision no longer matches a Manager source row.' });
+        issues.push({ path: `items.${itemId}`, rowIdentity: itemId, message: 'Decision no longer matches a Manager source row.' });
         continue;
       }
       if (
@@ -227,13 +252,13 @@ export const packageRelationProvider: WritableRelationProvider<
         || decision.source_type !== source.source_type
         || decision.source_id !== source.source_id
       ) {
-        issues.push({ path: `items.${itemId}`, message: 'Decision identity does not match its source.' });
+        issues.push({ path: `items.${itemId}`, rowIdentity: itemId, message: 'Decision identity does not match its source.' });
       }
       if (decision.group_id !== null && !groupIds.has(decision.group_id)) {
-        issues.push({ path: `items.${itemId}.group_id`, message: 'Decision references an unknown group.' });
+        issues.push({ path: `items.${itemId}.group_id`, rowIdentity: itemId, message: 'Decision references an unknown group.' });
       }
       if (!Number.isInteger(decision.sort_order)) {
-        issues.push({ path: `items.${itemId}.sort_order`, message: 'Item order must be an integer.' });
+        issues.push({ path: `items.${itemId}.sort_order`, rowIdentity: itemId, message: 'Item order must be an integer.' });
       }
     }
 

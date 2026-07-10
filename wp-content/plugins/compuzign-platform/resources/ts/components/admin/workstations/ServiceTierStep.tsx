@@ -817,7 +817,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         )}
 
         {overviewTab === 'manager' && showManager && (
-          <DynamicStationManager scope={managerScope} />
+          <DynamicStationManager scope={managerScope} shell={ctx} />
         )}
       </div>
     );

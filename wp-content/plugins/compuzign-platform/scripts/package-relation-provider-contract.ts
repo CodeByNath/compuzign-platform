@@ -8,6 +8,14 @@ import {
   providersExposeManager,
   relationProvidersFor,
 } from '../resources/ts/components/admin/relations/registry';
+import {
+  collectManagerValidation,
+  createManagerCoordinatorState,
+  managerIsDirty,
+  resetManagerDrafts,
+  seedProviderReadModel,
+} from '../resources/ts/components/admin/relations/coordinator';
+import type { ManagerProviderAdapter } from '../resources/ts/components/admin/relations/coordinator';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Package provider contract: ${message}`);
@@ -64,9 +72,46 @@ check(!packageRelationProvider.validate(invalid, readModel, {
 const providers = relationProvidersFor({ stationType: 'package', stationId: 42, context: {} });
 check(providers.length === 1 && providers[0].key === 'package', 'registry discovers Package by scope');
 check(providersExposeManager(providers), 'Package writable capabilities expose Manager');
+check(packageRelationProvider.manager.summary?.label === 'Package Manager', 'Package declares one summary');
+check(packageRelationProvider.manager.sections.length === 2, 'Package declares exactly two sections');
+check(packageRelationProvider.manager.sections[0].id === 'groups', 'Package declares Groups structure');
+check(packageRelationProvider.manager.sections[1].id === 'relationships', 'Package declares one Relationships section');
+check(packageRelationProvider.manager.sections[1].capabilities.includes('availability'), 'availability stays a capability');
 check(
   relationProvidersFor({ stationType: 'service', stationId: 42, context: {} }).length === 0,
   'registry does not leak Package into another station scope',
 );
+
+const scope = { stationType: 'package' as const, stationId: 42, context: {} };
+const adapter = packageRelationProvider as unknown as ManagerProviderAdapter;
+let coordinator = createManagerCoordinatorState([adapter]);
+check(!managerIsDirty(coordinator, [adapter]), 'unloaded writable providers are clean');
+coordinator = seedProviderReadModel(coordinator, adapter, scope, readModel);
+check(!managerIsDirty(coordinator, [adapter]), 'seeded writable draft is clean');
+coordinator = {
+  ...coordinator,
+  draftByProvider: { ...coordinator.draftByProvider, package: edited },
+};
+check(managerIsDirty(coordinator, [adapter]), 'aggregate dirty delegates to provider.isDirty');
+coordinator = collectManagerValidation(coordinator, [adapter], scope);
+check(coordinator.validationByProvider.package.length === 0, 'valid draft has no routed issues');
+coordinator = {
+  ...coordinator,
+  draftByProvider: { ...coordinator.draftByProvider, package: invalid },
+};
+coordinator = collectManagerValidation(coordinator, [adapter], scope);
+check(coordinator.validationByProvider.package[0].sectionId === 'relationships', 'item validation routes to Relationships');
+check(coordinator.validationByProvider.package[0].rowIdentity === 'mgr_question', 'validation retains row identity');
+coordinator = resetManagerDrafts(coordinator, [adapter]);
+check(!managerIsDirty(coordinator, [adapter]), 'discard resets every writable draft to its original');
+
+const readOnly: ManagerProviderAdapter = {
+  key: 'audit', label: 'Audit', access: 'read-only', manager: { sections: [] },
+  load: async () => ({}),
+  isDirty: () => true,
+};
+let readOnlyState = createManagerCoordinatorState([readOnly]);
+readOnlyState = seedProviderReadModel(readOnlyState, readOnly, scope, { changed: true });
+check(!managerIsDirty(readOnlyState, [readOnly]), 'read-only providers cannot contribute dirty state');
 
 console.log('Package relation provider contract checks passed.');
