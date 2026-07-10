@@ -1,7 +1,11 @@
 import type { PackageManagerReadModel } from '../resources/ts/api/types/admin';
 import {
   createPackageRelationDraft,
+  createPackageRelationGroup,
+  deletePackageRelationGroup,
+  movePackageRelationGroup,
   packageRelationProvider,
+  renamePackageRelationGroup,
   updatePackageRelationDecision,
 } from '../resources/ts/components/admin/relations/providers/package';
 import {
@@ -51,6 +55,31 @@ check(original.explicitDecisionIds[0] === 'mgr_feature', 'settled decision remai
 check(!original.explicitDecisionIds.includes('mgr_question'), 'provisional row remains implicit');
 check(!packageRelationProvider.isDirty(original, original, readModel), 'fresh draft is clean');
 
+const withNewGroup = createPackageRelationGroup(original, 'tmp_group_1');
+check(readModel.groups.length === 1, 'group creation does not mutate the GET read model');
+check(withNewGroup.groups[1].label === 'New group' && withNewGroup.groups[1].sort_order === 1, 'new group appends with a stable supplied identity');
+check(packageRelationProvider.isDirty(withNewGroup, original, readModel), 'group creation marks the provider dirty');
+const renamedGroup = renamePackageRelationGroup(withNewGroup, 'tmp_group_1', '  Optional  ');
+check(renamedGroup.groups[1].label === 'Optional', 'rename trims the draft label');
+const reorderedGroups = movePackageRelationGroup(renamedGroup, 'tmp_group_1', -1);
+check(reorderedGroups.groups[0].group_id === 'tmp_group_1' && reorderedGroups.groups[0].sort_order === 0, 'move normalizes deterministic order');
+const groupedQuestion = updatePackageRelationDecision(reorderedGroups, 'mgr_question', { group_id: 'tmp_group_1' });
+const deletedGroup = deletePackageRelationGroup(groupedQuestion, 'tmp_group_1');
+check(deletedGroup.itemsById.mgr_question.group_id === null, 'delete reassigns relationships to Ungrouped');
+check(deletedGroup.groups.length === 1 && deletedGroup.groups[0].sort_order === 0, 'delete normalizes remaining order');
+check(readModel.items[1].group_id === null, 'group operations leave source relationships unchanged');
+const invalidGroupLabel = renamePackageRelationGroup(withNewGroup, 'tmp_group_1', '   ');
+const invalidGroupResult = packageRelationProvider.validate(invalidGroupLabel, readModel, {
+  stationType: 'package', stationId: 42, context: {},
+});
+check(!invalidGroupResult.valid && invalidGroupResult.issues.some((issue) => (
+  issue.sectionId === 'groups' && issue.rowIdentity === 'tmp_group_1' && issue.path.endsWith('.label')
+)), 'empty group labels route to the exact Groups control');
+const invalidOrder = { ...withNewGroup, groups: withNewGroup.groups.map((group) => ({ ...group, sort_order: 0 })) };
+check(!packageRelationProvider.validate(invalidOrder, readModel, {
+  stationType: 'package', stationId: 42, context: {},
+}).valid, 'non-deterministic group order fails validation');
+
 const edited = updatePackageRelationDecision(original, 'mgr_question', { disabled: true });
 check(edited.explicitDecisionIds.includes('mgr_question'), 'editing marks a provisional row explicit');
 check(packageRelationProvider.isDirty(edited, original, readModel), 'explicit edit is dirty');
@@ -96,6 +125,18 @@ if (relationshipProjection.role === 'relations') {
   check(relationshipProjection.rows[1].availability === 'Not available', 'provisional enabled row is not falsely available');
   check(relationshipProjection.rows[1].stateDetail === 'Provisional', 'provisional semantics remain visible');
 }
+const draftGroupProjection = packageRelationProvider.manager.sections[0].project(readModel, {
+  stationType: 'package', stationId: 42, context: {},
+}, groupedQuestion);
+check(draftGroupProjection.role === 'structure' && draftGroupProjection.rows[0].order === 1, 'Groups displays human-facing 1-based order');
+const draftRelationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
+  stationType: 'package', stationId: 42, context: {},
+}, groupedQuestion);
+check(draftRelationshipProjection.role === 'relations' && draftRelationshipProjection.rows[1].groupLabel === 'Optional', 'Relationships immediately projects working group assignments');
+const deletedRelationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
+  stationType: 'package', stationId: 42, context: {},
+}, deletedGroup);
+check(deletedRelationshipProjection.role === 'relations' && deletedRelationshipProjection.rows[1].groupLabel === 'Ungrouped', 'deleted group projects affected rows as Ungrouped');
 check(
   relationProvidersFor({ stationType: 'service', stationId: 42, context: {} }).length === 0,
   'registry does not leak Package into another station scope',

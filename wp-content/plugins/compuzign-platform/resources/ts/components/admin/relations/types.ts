@@ -47,7 +47,7 @@ export type ProviderValidationResult =
 export interface ManagerSummaryContribution<ReadModel = unknown> {
   label: string;
   subtitle: string;
-  project(readModel: ReadModel, scope: StationManagerScope): {
+  project(readModel: ReadModel, scope: StationManagerScope, draft?: unknown): {
     status: ModuleState;
     metrics: readonly { id: string; label: string; value: number }[];
   };
@@ -68,7 +68,7 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
   identity?: (row: Row) => Identity;
   emptyState: ManagerEmptyStateDefinition;
   validationPaths: readonly string[];
-  project(readModel: ReadModel, scope: StationManagerScope):
+  project(readModel: ReadModel, scope: StationManagerScope, draft?: unknown):
     | {
       role: 'structure';
       rows: readonly { id: string; label: string; order: number; relationshipCount: number }[];
@@ -88,6 +88,12 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
         sourceHealth: 'Connected' | 'Missing';
       }[];
     };
+  structureControls?: {
+    create(draft: unknown, groupId: string): unknown;
+    rename(draft: unknown, groupId: string, label: string): unknown;
+    move(draft: unknown, groupId: string, direction: -1 | 1): unknown;
+    delete(draft: unknown, groupId: string): unknown;
+  };
 }
 
 /** Provider presentation metadata only. The platform always owns the frame. */

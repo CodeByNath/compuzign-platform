@@ -106,6 +106,42 @@ export function updatePackageRelationDecision(
   };
 }
 
+function normalizePackageGroups(groups: PackageManagerGroup[]): PackageManagerGroup[] {
+  return [...groups]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((group, index) => ({ ...group, sort_order: index }));
+}
+
+export function createPackageRelationGroup(draft: PackageRelationDraft, groupId: string): PackageRelationDraft {
+  if (draft.groups.some((group) => group.group_id === groupId)) return draft;
+  const groups = normalizePackageGroups(draft.groups);
+  return { ...draft, groups: [...groups, { group_id: groupId, label: 'New group', sort_order: groups.length }] };
+}
+
+export function renamePackageRelationGroup(draft: PackageRelationDraft, groupId: string, label: string): PackageRelationDraft {
+  const trimmed = label.trim();
+  return { ...draft, groups: draft.groups.map((group) => (
+    group.group_id === groupId ? { ...group, label: trimmed } : group
+  )) };
+}
+
+export function movePackageRelationGroup(draft: PackageRelationDraft, groupId: string, direction: -1 | 1): PackageRelationDraft {
+  const groups = normalizePackageGroups(draft.groups);
+  const from = groups.findIndex((group) => group.group_id === groupId);
+  const to = from + direction;
+  if (from < 0 || to < 0 || to >= groups.length) return draft;
+  [groups[from], groups[to]] = [groups[to], groups[from]];
+  return { ...draft, groups: groups.map((group, index) => ({ ...group, sort_order: index })) };
+}
+
+export function deletePackageRelationGroup(draft: PackageRelationDraft, groupId: string): PackageRelationDraft {
+  let next = { ...draft, groups: normalizePackageGroups(draft.groups.filter((group) => group.group_id !== groupId)) };
+  for (const item of Object.values(draft.itemsById)) {
+    if (item.group_id === groupId) next = updatePackageRelationDecision(next, item.item_id, { group_id: null });
+  }
+  return next;
+}
+
 function comparableDraft(draft: PackageRelationDraft): unknown {
   return {
     groups: draft.groups.map((group) => ({
@@ -160,30 +196,47 @@ export const packageRelationProvider: WritableRelationProvider<
     summary: {
       label: 'Package Manager',
       subtitle: 'Manage how Service-owned features and common questions participate in this package.',
-      project: (readModel) => ({
+      project: (readModel, _scope, candidate) => {
+        const draft = candidate as PackageRelationDraft | undefined;
+        return ({
         status: evaluateModule(packageManagerSummaryModule, readModel.items, { platformStatus: readModel.platform_status }),
         metrics: [
           { id: 'features', label: readModel.items.filter((item) => item.source_type === 'inclusion').length === 1 ? 'feature' : 'features', value: readModel.items.filter((item) => item.source_type === 'inclusion').length },
           { id: 'questions', label: readModel.items.filter((item) => item.source_type === 'faq').length === 1 ? 'common question' : 'common questions', value: readModel.items.filter((item) => item.source_type === 'faq').length },
-          { id: 'groups', label: readModel.groups.length === 1 ? 'group' : 'groups', value: readModel.groups.length },
+          { id: 'groups', label: (draft?.groups ?? readModel.groups).length === 1 ? 'group' : 'groups', value: (draft?.groups ?? readModel.groups).length },
           { id: 'configured', label: 'configured', value: readModel.items.filter((item) => item.module_transition !== 'not-configured').length },
           { id: 'available', label: 'available', value: readModel.items.filter((item) => packageItemAvailable(item, readModel.platform_status)).length },
           { id: 'missing', label: 'missing source', value: readModel.items.filter((item) => item.missing).length },
         ],
-      }),
+        });
+      },
     },
     sections: [
       {
         id: 'groups', label: 'Groups', role: 'structure', capabilities: ['grouping', 'ordering'],
         emptyState: { title: 'No groups yet', description: 'Create groups to organize package relationships.' },
         validationPaths: ['groups'],
-        project: (readModel) => ({
-          role: 'structure',
-          rows: [...readModel.groups].sort((a, b) => a.sort_order - b.sort_order).map((group) => ({
-            id: group.group_id, label: group.label, order: group.sort_order,
-            relationshipCount: readModel.items.filter((item) => item.group_id === group.group_id).length,
-          })),
-        }),
+        project: (readModel, _scope, candidate) => {
+          const draft = candidate as PackageRelationDraft | undefined;
+          const groups = draft?.groups ?? readModel.groups;
+          return {
+            role: 'structure',
+            rows: normalizePackageGroups(groups).map((group, index) => ({
+              id: group.group_id, label: group.label, order: index + 1,
+              relationshipCount: readModel.items.filter((item) => (
+                (draft?.itemsById[item.item_id]
+                  ? draft.itemsById[item.item_id].group_id
+                  : item.group_id) === group.group_id
+              )).length,
+            })),
+          };
+        },
+        structureControls: {
+          create: (draft, groupId) => createPackageRelationGroup(draft as PackageRelationDraft, groupId),
+          rename: (draft, groupId, label) => renamePackageRelationGroup(draft as PackageRelationDraft, groupId, label),
+          move: (draft, groupId, direction) => movePackageRelationGroup(draft as PackageRelationDraft, groupId, direction),
+          delete: (draft, groupId) => deletePackageRelationGroup(draft as PackageRelationDraft, groupId),
+        },
       },
       {
         id: 'relationships', label: 'Package Relationships', role: 'relations',
@@ -192,15 +245,18 @@ export const packageRelationProvider: WritableRelationProvider<
         identity: (row) => ({ itemId: row.item_id, sourceType: row.source_type, sourceId: row.source_id }),
         emptyState: { title: 'No relationships yet' },
         validationPaths: ['items'],
-        project: (readModel) => {
-          const groups = new Map(readModel.groups.map((group) => [group.group_id, group.label]));
+        project: (readModel, _scope, candidate) => {
+          const draft = candidate as PackageRelationDraft | undefined;
+          const groups = new Map((draft?.groups ?? readModel.groups).map((group) => [group.group_id, group.label]));
           return {
             role: 'relations',
             filters: [
               { id: 'all', label: 'All' }, { id: 'features', label: 'Features' },
               { id: 'questions', label: 'Common Questions' }, { id: 'attention', label: 'Attention' },
             ],
-            rows: [...readModel.items].sort((a, b) => a.sort_order - b.sort_order).map((item) => {
+            rows: [...readModel.items].sort((a, b) => a.sort_order - b.sort_order).map((source) => {
+              const decision = draft?.itemsById[source.item_id];
+              const item = decision ? { ...source, ...decision } : source;
               const state = evaluateModule(packageManagerItemModule, item, { platformStatus: readModel.platform_status });
               const availability = packageAvailability(item, readModel.platform_status);
               return {
@@ -276,19 +332,22 @@ export const packageRelationProvider: WritableRelationProvider<
     const issues: ProviderValidationIssue[] = [];
     const groupIds = new Set<string>();
 
-    draft.groups.forEach((group, index) => {
+    const orderedGroups = [...draft.groups].sort((a, b) => a.sort_order - b.sort_order);
+    orderedGroups.forEach((group, index) => {
       if (!group.group_id.trim()) {
-        issues.push({ path: `groups.${index}.group_id`, message: 'Group identity is required.' });
+        issues.push({ path: `groups.${index}.group_id`, sectionId: 'groups', rowIdentity: group.group_id, message: 'Group identity is required.' });
       } else if (groupIds.has(group.group_id)) {
-        issues.push({ path: `groups.${index}.group_id`, message: 'Group identities must be unique.' });
+        issues.push({ path: `groups.${index}.group_id`, sectionId: 'groups', rowIdentity: group.group_id, message: 'Group identities must be unique.' });
       } else {
         groupIds.add(group.group_id);
       }
       if (!group.label.trim()) {
-        issues.push({ path: `groups.${index}.label`, message: 'Group label is required.' });
+        issues.push({ path: `groups.${index}.label`, sectionId: 'groups', rowIdentity: group.group_id, message: 'Group label is required.' });
       }
       if (!Number.isInteger(group.sort_order)) {
-        issues.push({ path: `groups.${index}.sort_order`, message: 'Group order must be an integer.' });
+        issues.push({ path: `groups.${index}.sort_order`, sectionId: 'groups', rowIdentity: group.group_id, message: 'Group order must be an integer.' });
+      } else if (group.sort_order !== index) {
+        issues.push({ path: `groups.${index}.sort_order`, sectionId: 'groups', rowIdentity: group.group_id, message: 'Group order must be contiguous and deterministic.' });
       }
     });
 
