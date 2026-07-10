@@ -485,7 +485,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const packageManagerSummaryBinding: ShellBinding<PackageManagerSummaryShellData> = {
     data: {
       headline: mgr.readModel ? `${mgr.readModel.items.length} item${mgr.readModel.items.length === 1 ? '' : 's'}` : '',
-      copy:     "Grouping, ordering, and availability for this package's children.",
+      copy:     "Grouping, ordering, and availability for this package's features and common questions.",
     },
     state: mgr.readModel
       ? evaluateModule(packageManagerSummaryModule, mgr.readModel.items, { platformStatus: mgr.readModel.platform_status })

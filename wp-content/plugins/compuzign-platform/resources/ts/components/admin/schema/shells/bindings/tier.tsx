@@ -190,7 +190,7 @@ export const packageManagerSummaryShell: ShellSchema<PackageManagerSummaryShellD
   dna:       packageManagerSummaryModule,
   header: {
     title:    'Package Manager',
-    subtitle: "Grouping, ordering, and availability for this package's children.",
+    subtitle: "Grouping, ordering, and availability for this package's features and common questions.",
     icon:     'package',
   },
   content: [

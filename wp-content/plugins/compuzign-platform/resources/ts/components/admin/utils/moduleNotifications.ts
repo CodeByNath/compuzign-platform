@@ -197,7 +197,7 @@ export const packageManagerItemModule: ModuleDefinition<PackageManagerItem> = {
 
 export const packageManagerSummaryModule: ModuleDefinition<PackageManagerItem[]> = {
   key:         'package-manager-summary',
-  emptyPrompt: 'No package children to organise yet.',
+  emptyPrompt: 'No features or common questions to organise yet.',
   isEmpty:     (items) => items.length === 0,
   problems:    () => [],
   resolveStatus: (items, ctx) => resolvePackageManagerSummary(items, ctx.platformStatus),
