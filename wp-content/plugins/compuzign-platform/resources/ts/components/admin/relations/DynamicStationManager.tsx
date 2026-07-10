@@ -18,7 +18,11 @@ export function DynamicStationManager({ scope, shell }: { scope: StationManagerS
   const [state, setState] = useState<ManagerCoordinatorState>(() => createManagerCoordinatorState(providers));
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [filterBySection, setFilterBySection] = useState<Record<string, string>>({});
-  const [editingGroup, setEditingGroup] = useState<{ id: string; label: string } | null>(null);
+  const [editingGroup, setEditingGroup] = useState<{
+    id: string;
+    label: string;
+    originalDraft: unknown;
+  } | null>(null);
   const [deleteGroup, setDeleteGroup] = useState<{ id: string; label: string; count: number } | null>(null);
   const temporaryGroupSequence = useRef(0);
 
@@ -116,11 +120,16 @@ export function DynamicStationManager({ scope, shell }: { scope: StationManagerS
             temporaryGroupSequence.current += 1;
             const id = `tmp_group_${Date.now()}_${temporaryGroupSequence.current}`;
             replaceActiveDraft(controls.create(draft, id));
-            setEditingGroup({ id, label: 'New group' });
+            setEditingGroup({ id, label: 'New group', originalDraft: draft });
           };
-          const commitRename = () => {
+          const finishGroupEdit = () => {
             if (!editingGroup || !controls || draft === undefined) return;
             replaceActiveDraft(controls.rename(draft, editingGroup.id, editingGroup.label));
+            setEditingGroup(null);
+          };
+          const cancelGroupEdit = () => {
+            if (!editingGroup) return;
+            replaceActiveDraft(editingGroup.originalDraft);
             setEditingGroup(null);
           };
           return (
@@ -131,11 +140,11 @@ export function DynamicStationManager({ scope, shell }: { scope: StationManagerS
                   <span class="cz-manager-empty__icon">{MODULE_ICONS.package}</span>
                   <strong>{section.emptyState.title}</strong>
                   {section.emptyState.description && <p>{section.emptyState.description}</p>}
-                  {controls && <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup}>Create Group</button>}
+                  {controls && <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup} disabled={editingGroup !== null}>Create Group</button>}
                 </div>
               ) : (
                 <div>
-                  <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup}>Create Group</button></div>
+                  <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup} disabled={editingGroup !== null}>Create Group</button></div>
                   <div class="cz-manager-groups" role="list">
                   <div class="cz-manager-groups__heading"><span>Group</span><span>Order</span><span>Relationships</span><span>Actions</span></div>
                   {projection.rows.map((row) => (
@@ -144,11 +153,10 @@ export function DynamicStationManager({ scope, shell }: { scope: StationManagerS
                         {editingGroup?.id === row.id ? (
                           <input class="cz-tf-input" value={editingGroup.label} autoFocus
                             aria-label={`Rename ${row.label}`}
-                            onInput={(event) => setEditingGroup({ id: row.id, label: event.currentTarget.value })}
-                            onBlur={commitRename}
+                            onInput={(event) => setEditingGroup({ ...editingGroup, label: event.currentTarget.value })}
                             onKeyDown={(event) => {
-                              if (event.key === 'Enter') { event.preventDefault(); commitRename(); }
-                              if (event.key === 'Escape') setEditingGroup(null);
+                              if (event.key === 'Enter') { event.preventDefault(); finishGroupEdit(); }
+                              if (event.key === 'Escape') { event.preventDefault(); cancelGroupEdit(); }
                             }} />
                         ) : <strong>{row.label || 'Unnamed group'}</strong>}
                         {groupIssues.filter((issue) => issue.rowIdentity === row.id).map((issue) => (
@@ -157,13 +165,20 @@ export function DynamicStationManager({ scope, shell }: { scope: StationManagerS
                       </div>
                       <span>{row.order}</span><span>{row.relationshipCount}</span>
                       <div class="cz-manager-group-actions">
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setEditingGroup({ id: row.id, label: row.label })}>Rename</button>
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Move ${row.label} up`} disabled={row.order === 1} onClick={() => controls && replaceActiveDraft(controls.move(draft, row.id, -1))}>↑</button>
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Move ${row.label} down`} disabled={row.order === projection.rows.length} onClick={() => controls && replaceActiveDraft(controls.move(draft, row.id, 1))}>↓</button>
-                        <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" onClick={() => {
-                          if (row.relationshipCount > 0) setDeleteGroup({ id: row.id, label: row.label, count: row.relationshipCount });
-                          else if (controls) replaceActiveDraft(controls.delete(draft, row.id));
-                        }}>Delete</button>
+                        {editingGroup?.id === row.id ? (
+                          <>
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" title="Move group up" aria-label={`Move ${row.label} up`} disabled={row.order === 1} onClick={() => controls && replaceActiveDraft(controls.move(draft, row.id, -1))}>↑</button>
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" title="Move group down" aria-label={`Move ${row.label} down`} disabled={row.order === projection.rows.length} onClick={() => controls && replaceActiveDraft(controls.move(draft, row.id, 1))}>↓</button>
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => {
+                              if (row.relationshipCount > 0) setDeleteGroup({ id: row.id, label: row.label, count: row.relationshipCount });
+                              else if (controls) { replaceActiveDraft(controls.delete(draft, row.id)); setEditingGroup(null); }
+                            }}>Delete group</button>
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={cancelGroupEdit}>Cancel</button>
+                            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={finishGroupEdit}>Done</button>
+                          </>
+                        ) : (
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={editingGroup !== null} onClick={() => setEditingGroup({ id: row.id, label: row.label, originalDraft: draft })}>Edit</button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -234,6 +249,7 @@ export function DynamicStationManager({ scope, shell }: { scope: StationManagerS
               const section = active.manager.sections.find((candidate) => candidate.id === 'groups');
               const draft = state.draftByProvider[active.key];
               if (section?.structureControls && draft !== undefined) replaceActiveDraft(section.structureControls.delete(draft, deleteGroup.id));
+              setEditingGroup(null);
               setDeleteGroup(null);
             }}>Delete group</button>
           </div>
