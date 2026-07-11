@@ -27,6 +27,7 @@ export function relationProvidersFor(scope: StationManagerScope): ManagerProvide
           createDraft: (readModel: unknown, candidate: StationManagerScope) => provider.createDraft(readModel as never, candidate as never),
           isDirty: (draft: unknown, original: unknown, readModel: unknown) => provider.isDirty(draft as never, original as never, readModel as never),
           validate: (draft: unknown, readModel: unknown, candidate: StationManagerScope) => provider.validate(draft as never, readModel as never, candidate as never),
+          save: (candidate: StationManagerScope, draft: unknown, original: unknown, readModel: unknown) => provider.save(candidate as never, draft as never, original as never, readModel as never),
         } : {}),
       } satisfies ManagerProviderAdapter;
     })

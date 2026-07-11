@@ -119,6 +119,7 @@ check(!packageRelationProvider.validate(invalid, readModel, {
 const providers = relationProvidersFor(scope);
 check(providers.length === 1 && providers[0].key === 'package', 'registry discovers Package by scope');
 check(providersExposeManager(providers), 'Package writable capabilities expose Manager');
+check(typeof providers[0].save === 'function', 'writable registry adapter exposes Package persistence');
 check(packageRelationProvider.manager.summary === undefined, 'Package does not declare a duplicated static Manager summary');
 check(packageRelationProvider.manager.sections.length === 3, 'Package declares Rate Sheets plus the existing two sections');
 check(packageRelationProvider.manager.sections[0].id === 'rate-sheets', 'Rate Sheets is directly above Groups');

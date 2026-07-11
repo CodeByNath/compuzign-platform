@@ -66,6 +66,8 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const [rateSheetSaving, setRateSheetSaving] = useState(false);
   const [rateSheetError, setRateSheetError] = useState<string | null>(null);
   const [newRateGroupLabel, setNewRateGroupLabel] = useState('');
+  const [creatingRateGroup, setCreatingRateGroup] = useState(false);
+  const [rateGroupTargetIndex, setRateGroupTargetIndex] = useState<number | null>(null);
   const temporaryGroupSequence = useRef(0);
 
   useEffect(() => {
@@ -171,6 +173,8 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
       setState((current) => seedProviderReadModel(current, active, scope, nextModel));
       setEditingRateSheet(null);
       setNewRateGroupLabel('');
+      setCreatingRateGroup(false);
+      setRateGroupTargetIndex(null);
     } catch (error) {
       setRateSheetError(error instanceof Error ? error.message : 'Could not save Rate Sheet.');
     } finally {
@@ -249,6 +253,8 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
           const beginEdit = () => {
             setRateSheetError(null);
             setNewRateGroupLabel('');
+            setCreatingRateGroup(false);
+            setRateGroupTargetIndex(null);
             setEditingRateSheet({
               title: projection.title,
               groups: projection.groups.map((group) => ({ ...group })),
@@ -279,11 +285,17 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
           const createRateGroup = () => {
             const label = newRateGroupLabel.trim();
             if (!label) return;
+            const groupId = `rate_group_${Date.now()}_${editingRateSheet?.groups.length ?? 0}`;
             setEditingRateSheet((current) => current ? ({
               ...current,
-              groups: [...current.groups, { id: `rate_group_${Date.now()}_${current.groups.length}`, label }],
+              groups: [...current.groups, { id: groupId, label }],
+              items: current.items.map((item, index) => index === rateGroupTargetIndex
+                ? { ...item, groupId }
+                : item),
             }) : current);
             setNewRateGroupLabel('');
+            setCreatingRateGroup(false);
+            setRateGroupTargetIndex(null);
           };
           return (
             <section class="cz-manager-section cz-manager-rate-sheet" key={section.id} aria-labelledby={`manager-${section.id}`}>
@@ -292,37 +304,49 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               {editingRateSheet ? (
                 <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
                   onSave={() => saveRateSheet(section)}
-                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); }}
+                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); }}
                   saving={rateSheetSaving} saveErr={rateSheetError} isDirty>
                   <div class="cz-rate-sheet-editor">
                     <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={editingRateSheet.title}
                       onInput={(event) => setEditingRateSheet({ ...editingRateSheet, title: event.currentTarget.value })} /></label>
-                    {editingRateSheet.items.map((item, index) => (
-                      <div class="cz-rate-sheet-editor__item" key={item.id}>
-                        <label class="cz-tf-field"><span>Option</span><select class="cz-tf-select" value={item.optionId}
-                          onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, optionId: event.currentTarget.value } : row) })}>
-                          <option value="">Select option…</option>{projection.options.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}
-                        </select></label>
-                        <label class="cz-tf-field"><span>Unit Price</span><input class="cz-tf-input" type="number" min="0" step="0.01" value={item.unitPrice}
-                          onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: Number(event.currentTarget.value) } : row) })} /></label>
-                        <label class="cz-tf-field"><span>Per</span><select class="cz-tf-select" value={item.per}
-                          onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, per: event.currentTarget.value } : row) })}>
-                          {projection.units.map((unit) => <option value={unit} key={unit}>{unit}</option>)}
-                        </select></label>
-                        <label class="cz-tf-field"><span>Quantity</span><input class="cz-tf-input" type="number" min="1" step="1" value={item.quantity}
-                          onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Number(event.currentTarget.value) } : row) })} /></label>
-                        <label class="cz-tf-field"><span>Group</span><select class="cz-tf-select" value={item.groupId ?? ''}
-                          onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, groupId: event.currentTarget.value || null } : row) })}>
-                          <option value="">Ungrouped</option>{editingRateSheet.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}
-                        </select></label>
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.filter((_, rowIndex) => rowIndex !== index) })}>Remove</button>
-                      </div>
-                    ))}
-                    <div class="cz-rate-sheet-editor__actions">
+                    <div class="cz-rate-sheet-editor__toolbar">
                       <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={addItem} disabled={projection.options.length === 0}>Add Item</button>
-                      <input class="cz-tf-input" value={newRateGroupLabel} placeholder="New group name" aria-label="New Rate Sheet group name" onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)} />
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={createRateGroup} disabled={!newRateGroupLabel.trim()}>Create Group</button>
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setCreatingRateGroup(true); setRateGroupTargetIndex(null); }}>Create Group</button>
                     </div>
+                    {creatingRateGroup && <div class="cz-rate-sheet-editor__group-create">
+                      <label class="cz-tf-field"><span>Group name</span><input class="cz-tf-input" value={newRateGroupLabel} autoFocus
+                        onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)}
+                        onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); createRateGroup(); } }} /></label>
+                      <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createRateGroup} disabled={!newRateGroupLabel.trim()}>Add Group</button>
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); }}>Cancel</button>
+                    </div>}
+                    <div class="cz-rate-sheet-editor__grid-wrap"><table class="cz-rate-sheet-editor__grid">
+                      <thead><tr><th>Option</th><th>Unit Price</th><th>Per</th><th>Qty</th><th>Group</th><th><span class="screen-reader-text">Actions</span></th></tr></thead>
+                      <tbody>{editingRateSheet.items.map((item, index) => (
+                        <tr key={item.id}>
+                          <td><select class="cz-tf-select" aria-label={`Option row ${index + 1}`} value={item.optionId}
+                            onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, optionId: event.currentTarget.value } : row) })}>
+                            <option value="">Select option…</option>{projection.options.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}
+                          </select></td>
+                          <td><input class="cz-tf-input" aria-label={`Unit Price row ${index + 1}`} type="number" min="0" step="0.01" value={item.unitPrice}
+                            onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: Number(event.currentTarget.value) } : row) })} /></td>
+                          <td><select class="cz-tf-select" aria-label={`Per row ${index + 1}`} value={item.per}
+                            onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, per: event.currentTarget.value } : row) })}>
+                            {projection.units.map((unit) => <option value={unit} key={unit}>{unit}</option>)}
+                          </select></td>
+                          <td><input class="cz-tf-input" aria-label={`Quantity row ${index + 1}`} type="number" min="1" step="1" value={item.quantity}
+                            onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Number(event.currentTarget.value) } : row) })} /></td>
+                          <td><select class="cz-tf-select" aria-label={`Group row ${index + 1}`} value={item.groupId ?? ''}
+                            onChange={(event) => {
+                              if (event.currentTarget.value === '__add_new__') { setCreatingRateGroup(true); setRateGroupTargetIndex(index); return; }
+                              setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, groupId: event.currentTarget.value || null } : row) });
+                            }}>
+                            <option value="">Ungrouped</option>{editingRateSheet.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}<option value="__add_new__">+ Add New</option>
+                          </select></td>
+                          <td><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.filter((_, rowIndex) => rowIndex !== index) })}>Remove</button></td>
+                        </tr>
+                      ))}</tbody>
+                    </table></div>
                   </div>
                 </InlineEditorShell>
               ) : !projection.configured ? (
