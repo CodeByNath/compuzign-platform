@@ -310,10 +310,9 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
                     <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={editingRateSheet.title}
                       onInput={(event) => setEditingRateSheet({ ...editingRateSheet, title: event.currentTarget.value })} /></label>
                     <div class="cz-rate-sheet-editor__toolbar">
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={addItem} disabled={projection.options.length === 0}>Add Item</button>
                       <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setCreatingRateGroup(true); setRateGroupTargetIndex(null); }}>Create Group</button>
                     </div>
-                    {creatingRateGroup && <div class="cz-rate-sheet-editor__group-create">
+                    {creatingRateGroup && rateGroupTargetIndex === null && <div class="cz-rate-sheet-editor__group-create">
                       <label class="cz-tf-field"><span>Group name</span><input class="cz-tf-input" value={newRateGroupLabel} autoFocus
                         onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)}
                         onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); createRateGroup(); } }} /></label>
@@ -336,17 +335,26 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
                           </select></td>
                           <td><input class="cz-tf-input" aria-label={`Quantity row ${index + 1}`} type="number" min="1" step="1" value={item.quantity}
                             onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Number(event.currentTarget.value) } : row) })} /></td>
-                          <td><select class="cz-tf-select" aria-label={`Group row ${index + 1}`} value={item.groupId ?? ''}
+                          <td>{creatingRateGroup && rateGroupTargetIndex === index ? <div class="cz-rate-sheet-editor__inline-group">
+                            <input class="cz-tf-input" value={newRateGroupLabel} autoFocus placeholder="New group name" aria-label={`New group name row ${index + 1}`}
+                              onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)}
+                              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); createRateGroup(); } if (event.key === 'Escape') { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); } }} />
+                            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={createRateGroup} disabled={!newRateGroupLabel.trim()}>Add</button>
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); }}>Cancel</button>
+                          </div> : <select class="cz-tf-select" aria-label={`Group row ${index + 1}`} value={item.groupId ?? ''}
                             onChange={(event) => {
-                              if (event.currentTarget.value === '__add_new__') { setCreatingRateGroup(true); setRateGroupTargetIndex(index); return; }
+                              if (event.currentTarget.value === '__add_new__') { setNewRateGroupLabel(''); setCreatingRateGroup(true); setRateGroupTargetIndex(index); return; }
                               setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, groupId: event.currentTarget.value || null } : row) });
                             }}>
                             <option value="">Ungrouped</option>{editingRateSheet.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}<option value="__add_new__">+ Add New</option>
-                          </select></td>
+                          </select>}</td>
                           <td><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.filter((_, rowIndex) => rowIndex !== index) })}>Remove</button></td>
                         </tr>
                       ))}</tbody>
                     </table></div>
+                    <div class="cz-rate-sheet-editor__bottom-actions">
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={addItem} disabled={projection.options.length === 0}>Add Item</button>
+                    </div>
                   </div>
                 </InlineEditorShell>
               ) : !projection.configured ? (
