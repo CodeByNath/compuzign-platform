@@ -252,7 +252,7 @@ export const packageRelationProvider: WritableRelationProvider<
   PackageRelationDraft
 > = {
   key: 'package',
-  label: 'Package',
+  label: 'Packages',
   stationType: 'service',
   access: 'writable',
   capabilities: {

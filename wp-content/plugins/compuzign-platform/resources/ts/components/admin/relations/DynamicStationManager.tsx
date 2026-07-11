@@ -10,7 +10,7 @@ import type {
 import {
   collectManagerValidation, createManagerCoordinatorState, managerFooterState, managerIsDirty,
   orderManagerProviders, providerCompositionIndicator, resetManagerDrafts,
-  seedProviderReadModel, selectManagerProvider, shouldShowProviderNavigation,
+  seedProviderReadModel, selectManagerProvider,
 } from './coordinator';
 import type { ManagerCoordinatorState, ManagerProviderAdapter } from './coordinator';
 
@@ -32,7 +32,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   continuation?: ManagerContinuation;
   onDestination: (action: ManagerDestinationId, continuation: ManagerContinuation) => void;
 }) {
-  const [scope, setScope] = useState(initialScope);
+  const [scope] = useState(initialScope);
   const currentScopeKey = scopeKey(scope);
   const registered = useMemo(() => relationProvidersFor(scope), [currentScopeKey]);
   const providers = useMemo(
@@ -113,26 +113,16 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const readModel = active ? state.readModelByProvider[active.key] : undefined;
   const loadState = active ? state.loadStateByProvider[active.key] : 'idle';
   const loadError = active ? state.loadErrorsByProvider[active.key] : null;
-  const subjects = active && readModel !== undefined
-    ? active.manager.subjects?.(readModel, scope) ?? [] : [];
   const subjectSummaries = active && readModel !== undefined
     ? active.manager.subjectSummaries?.(readModel, scope) ?? [] : [];
 
-  const selectScope = (next: StationManagerScope) => {
-    if (scopeKey(next) === currentScopeKey) return;
-    shell.requestExit({ kind: 'manager-scope', target: scopeKey(next) }, () => {
-      setSelectedSectionKey(undefined);
-      setFocusedRelationshipKey(undefined);
-      setScope(next);
-    });
-  };
-
-  const runDestination = (action: ManagerDestinationId, subject = scope.kind === 'subject-connections' ? scope.subject : undefined) => {
+  const runDestination = (action: ManagerDestinationId, destination?: ManagerContinuation['destination']) => {
     if (!active) return;
     const continuation: ManagerContinuation = {
       stationContext: scope.stationContext,
-      scopeKind: subject ? 'subject-connections' : scope.kind,
-      subject,
+      scopeKind: scope.kind,
+      subject: scope.kind === 'subject-connections' ? scope.subject : undefined,
+      destination,
       activeProviderKey: active.key,
       activeRelationshipKey: focusedRelationshipKey ?? scope.activeRelationshipKey ?? connection.relationshipKey,
       selectedSectionKey,
@@ -157,7 +147,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
 
   return (
     <section class="cz-manager-workspace" aria-label={`${active?.label ?? 'Connection'} Manager`}>
-      {shouldShowProviderNavigation(providers) && (
+      {providers.length > 0 && (
         <nav class="cz-manager-provider-nav" aria-label="Relation providers">
           {providers.map((provider) => {
             const indicator = providerCompositionIndicator(state, provider);
@@ -181,24 +171,6 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
           })}
         </nav>
       )}
-      {active && readModel !== undefined && subjects.length > 0 && (
-        <div class="cz-manager-subject-nav" role="group" aria-label={`${active.label} subject`}>
-          <button type="button" class={scope.kind === 'connection-graph' ? 'is-active' : undefined}
-            aria-pressed={scope.kind === 'connection-graph'}
-            onClick={() => selectScope({ kind: 'connection-graph', stationContext: scope.stationContext, activeProviderKey: active.key })}>
-            All
-          </button>
-          {subjects.map((subject) => {
-            const selected = scope.kind === 'subject-connections'
-              && scope.subject?.type === subject.ref.type && scope.subject.id === subject.ref.id;
-            return <button type="button" key={`${subject.ref.type}:${subject.ref.id}`} class={selected ? 'is-active' : undefined}
-              aria-pressed={selected}
-              onClick={() => selectScope({ kind: 'subject-connections', stationContext: scope.stationContext, subject: subject.ref, activeProviderKey: active.key })}>
-              {subject.label}
-            </button>;
-          })}
-        </div>
-      )}
       {subjectSummaries.length > 0 && (
         <div class={`cz-manager-summary-grid${scope.kind === 'subject-connections' ? ' is-subject' : ''}`}>
           {subjectSummaries.map((subjectSummary) => (
@@ -211,7 +183,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               status={subjectSummary.status.status}
               notes={[...subjectSummary.status.notes]}
               actions={[
-                { id: 'view', label: 'View', onSelect: () => runDestination('open-current', subjectSummary.ref) },
+                { id: 'overview', label: 'Overview', onSelect: () => runDestination('open-current', subjectSummary.ref) },
                 { id: 'edit', label: 'Edit', onSelect: () => runDestination('edit-current', subjectSummary.ref) },
               ]}
             >

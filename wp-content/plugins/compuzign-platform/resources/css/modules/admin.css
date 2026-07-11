@@ -4326,27 +4326,6 @@ button.cz-module-status-pill {
 .cz-manager-provider-nav button.is-active { border-bottom-color: var(--admin-accent); color: var(--admin-text); font-weight: var(--admin-fw-strong); }
 .cz-manager-provider-nav small { color: var(--admin-text-faint); }
 
-.cz-manager-subject-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cz-space-2);
-  align-items: center;
-}
-.cz-manager-subject-nav button {
-  border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius-pill);
-  padding: var(--cz-space-1) var(--cz-space-3);
-  background: var(--admin-surface);
-  color: var(--admin-text-muted);
-  font: inherit;
-  cursor: pointer;
-}
-.cz-manager-subject-nav button.is-active {
-  border-color: var(--admin-accent);
-  background: var(--admin-accent-a12);
-  color: var(--admin-text);
-  font-weight: var(--admin-fw-strong);
-}
 .cz-manager-destination-actions {
   display: flex;
   flex-wrap: wrap;

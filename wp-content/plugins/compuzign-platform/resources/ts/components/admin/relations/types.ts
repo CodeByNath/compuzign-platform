@@ -33,6 +33,8 @@ export interface ManagerContinuation {
   stationContext: ManagerEntityRef;
   scopeKind: StationManagerScope['kind'];
   subject?: ManagerEntityRef;
+  /** Destination identity; separate from the Manager scope restored on Back. */
+  destination?: ManagerEntityRef;
   activeProviderKey: string;
   activeRelationshipKey?: string;
   selectedSectionKey?: string;

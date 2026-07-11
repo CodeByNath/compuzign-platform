@@ -413,7 +413,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     action: 'view-all' | 'open-current' | 'edit-current',
     continuation: ManagerContinuation,
   ) => {
-    const tierId = continuation.subject?.type === 'tier' ? String(continuation.subject.id) : undefined;
+    const tierDestination = continuation.destination ?? continuation.subject;
+    const tierId = tierDestination?.type === 'tier' ? String(tierDestination.id) : undefined;
     handleOpenTierConfig(
       continuation,
       action === 'open-current' || action === 'edit-current' ? tierId : undefined,
@@ -421,12 +422,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     );
   };
 
-  // Package discovery now enters the Service-owned Manager overview directly.
-  // The former Package list drawer remains only as the canonical Tier destination
-  // shell used when a specific Manager card opens or edits a Tier.
-  const pkgSummaryOnView = isActive && !station.loading.creating && showManager
-    ? () => selectServiceTab('manager')
-    : undefined;
+  const pkgSummaryOnView = isActive && !station.loading.creating ? handleOpenTierConfig : undefined;
 
   const handleOpenPromoConfig = () => {
     const serviceReturn = () => doOpen({
