@@ -3,11 +3,13 @@ import {
   fetchServicePackageStation,
   savePackageStationManager,
 } from '@/api/endpoints/admin';
+import { PACKAGE_RATE_SHEET_UNITS } from '@/api/types/admin';
 import type {
   PackageManagerGroup,
   PackageManagerItem,
   PackageManagerItemDecision,
   PackageManagerReadModel,
+  PackageRateSheet,
   SurfaceTierDetail,
 } from '@/api/types/admin';
 import {
@@ -51,6 +53,7 @@ export interface PackageRelationDraftItem extends PackageManagerItemDecision {
 
 export interface PackageRelationDraft {
   groups: PackageManagerGroup[];
+  rateSheet: PackageRateSheet | null;
   itemsById: Record<string, PackageRelationDraftItem>;
   // Only these rows are sent to the explicit-decision POST. Reconciled source
   // rows stay provisional until a control deliberately marks them explicit.
@@ -88,6 +91,11 @@ export function createPackageRelationDraft(readModel: PackageManagerReadModel): 
 
   return {
     groups: cloneGroups(readModel.groups),
+    rateSheet: readModel.rate_sheet ? {
+      title: readModel.rate_sheet.title,
+      groups: cloneGroups(readModel.rate_sheet.groups),
+      items: readModel.rate_sheet.items.map((item) => ({ ...item })),
+    } : null,
     itemsById,
     explicitDecisionIds: explicitDecisionIds.sort(),
   };
@@ -162,6 +170,33 @@ function comparableDraft(draft: PackageRelationDraft): unknown {
       sort_order: group.sort_order,
     })),
     decisions: [...draft.explicitDecisionIds].sort().map((id) => draft.itemsById[id]),
+    rate_sheet: draft.rateSheet,
+  };
+}
+
+function replacePackageRateSheet(
+  draft: PackageRelationDraft,
+  input: {
+    title: string;
+    groups: readonly { id: string; label: string }[];
+    items: readonly { id: string; optionId: string; unitPrice: number; per: string; quantity: number; groupId: string | null }[];
+  },
+): PackageRelationDraft {
+  return {
+    ...draft,
+    rateSheet: {
+      title: input.title,
+      groups: input.groups.map((group, index) => ({ group_id: group.id, label: group.label, sort_order: index })),
+      items: input.items.map((item, index) => ({
+        item_id: item.id,
+        source_item_id: item.optionId,
+        unit_price: item.unitPrice,
+        per: item.per as PackageRateSheet['items'][number]['per'],
+        quantity: item.quantity,
+        group_id: item.groupId,
+        sort_order: index,
+      })),
+    },
   };
 }
 
@@ -302,8 +337,44 @@ export const packageRelationProvider: WritableRelationProvider<
             ],
           },
         ],
-      })),
+    })),
     sections: [
+      {
+        id: 'rate-sheets', label: 'Rate Sheets', role: 'rate-sheet', capabilities: [],
+        emptyState: {
+          title: 'Rate Sheet',
+          description: 'Create a rate sheet to define service options, pricing, units, and inclusion groups for this Service.',
+        },
+        validationPaths: ['rateSheet'],
+        project: (readModel, _scope, candidate) => {
+          const draft = candidate as PackageRelationDraft | undefined;
+          const rateSheet = draft?.rateSheet ?? readModel.rate_sheet;
+          const groups = rateSheet?.groups ?? [];
+          const groupLabels = new Map(groups.map((group) => [group.group_id, group.label]));
+          const optionLabels = new Map(readModel.items.map((item) => [item.item_id, packageItemLabel(item)]));
+          return {
+            role: 'rate-sheet',
+            configured: rateSheet !== null,
+            title: rateSheet?.title ?? '',
+            groups: groups.map((group) => ({ id: group.group_id, label: group.label })),
+            options: readModel.items.map((item) => ({ id: item.item_id, label: packageItemLabel(item) })),
+            units: PACKAGE_RATE_SHEET_UNITS,
+            items: (rateSheet?.items ?? []).map((item) => ({
+              id: item.item_id,
+              optionId: item.source_item_id,
+              optionLabel: optionLabels.get(item.source_item_id) ?? '(missing source)',
+              unitPrice: item.unit_price,
+              per: item.per,
+              quantity: item.quantity,
+              groupId: item.group_id,
+              groupLabel: item.group_id ? groupLabels.get(item.group_id) ?? 'Unknown group' : 'Ungrouped',
+            })),
+          };
+        },
+        rateSheetControls: {
+          replace: (draft, rateSheet) => replacePackageRateSheet(draft as PackageRelationDraft, rateSheet),
+        },
+      },
       {
         id: 'groups', label: 'Groups', role: 'structure', capabilities: ['grouping', 'ordering'],
         emptyState: { title: 'No groups yet', description: 'Create groups to organize package relationships.' },
@@ -502,6 +573,44 @@ export const packageRelationProvider: WritableRelationProvider<
       }
     }
 
+    if (draft.rateSheet) {
+      if (!draft.rateSheet.title.trim()) {
+        issues.push({ path: 'rateSheet.title', sectionId: 'rate-sheets', message: 'Rate Sheet title is required.' });
+      }
+      const rateGroupIds = new Set<string>();
+      draft.rateSheet.groups.forEach((group, index) => {
+        if (!group.group_id.trim() || rateGroupIds.has(group.group_id)) {
+          issues.push({ path: `rateSheet.groups.${index}.group_id`, sectionId: 'rate-sheets', rowIdentity: group.group_id, message: 'Rate Sheet group identity must be unique.' });
+        }
+        rateGroupIds.add(group.group_id);
+        if (!group.label.trim()) {
+          issues.push({ path: `rateSheet.groups.${index}.label`, sectionId: 'rate-sheets', rowIdentity: group.group_id, message: 'Rate Sheet group label is required.' });
+        }
+      });
+      const rateItemIds = new Set<string>();
+      draft.rateSheet.items.forEach((item, index) => {
+        if (!item.item_id.trim() || rateItemIds.has(item.item_id)) {
+          issues.push({ path: `rateSheet.items.${index}.item_id`, sectionId: 'rate-sheets', rowIdentity: item.item_id, message: 'Rate Sheet item identity must be unique.' });
+        }
+        rateItemIds.add(item.item_id);
+        if (!sourceById.has(item.source_item_id)) {
+          issues.push({ path: `rateSheet.items.${index}.source_item_id`, sectionId: 'rate-sheets', rowIdentity: item.item_id, message: 'Select an available Package relationship.' });
+        }
+        if (!Number.isFinite(item.unit_price) || item.unit_price < 0) {
+          issues.push({ path: `rateSheet.items.${index}.unit_price`, sectionId: 'rate-sheets', rowIdentity: item.item_id, message: 'Unit Price must be zero or greater.' });
+        }
+        if (!PACKAGE_RATE_SHEET_UNITS.includes(item.per)) {
+          issues.push({ path: `rateSheet.items.${index}.per`, sectionId: 'rate-sheets', rowIdentity: item.item_id, message: 'Select a valid Rate Sheet unit.' });
+        }
+        if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+          issues.push({ path: `rateSheet.items.${index}.quantity`, sectionId: 'rate-sheets', rowIdentity: item.item_id, message: 'Quantity must be a whole number of at least 1.' });
+        }
+        if (item.group_id !== null && !rateGroupIds.has(item.group_id)) {
+          issues.push({ path: `rateSheet.items.${index}.group_id`, sectionId: 'rate-sheets', rowIdentity: item.item_id, message: 'Select a valid Rate Sheet group.' });
+        }
+      });
+    }
+
     return issues.length > 0
       ? { valid: false, issues }
       : { valid: true, issues: [] };
@@ -512,6 +621,7 @@ export const packageRelationProvider: WritableRelationProvider<
     const response = await savePackageStationManager(scope.stationContext.id, {
       groups: cloneGroups(draft.groups),
       item_decisions: itemDecisions,
+      rate_sheet: draft.rateSheet,
     });
     if (!response.success) throw new Error(response.message || 'Could not save Package Manager.');
     return { ...response.manager, tierSubjects: readModel.tierSubjects };

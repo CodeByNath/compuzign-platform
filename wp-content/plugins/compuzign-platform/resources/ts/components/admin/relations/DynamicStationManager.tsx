@@ -3,6 +3,7 @@ import type { ExitGuard, StepContext } from '../ActionShell';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
 import { ReadBlock } from '../ReadBlock';
+import { InlineEditorShell } from '../InlineEditorShell';
 import { relationProvidersFor } from './registry';
 import type {
   ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
@@ -17,6 +18,12 @@ import type { ManagerCoordinatorState, ManagerProviderAdapter } from './coordina
 type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
 
 type ManagerDestinationId = 'view-all' | 'open-current' | 'edit-current';
+
+interface RateSheetEditorValue {
+  title: string;
+  groups: { id: string; label: string }[];
+  items: { id: string; optionId: string; unitPrice: number; per: string; quantity: number; groupId: string | null }[];
+}
 
 function scopeKey(scope: StationManagerScope): string {
   const station = `${scope.stationContext.type}:${scope.stationContext.id}`;
@@ -55,6 +62,10 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const [deleteGroup, setDeleteGroup] = useState<{ id: string; label: string; count: number } | null>(null);
   const [selectedSectionKey, setSelectedSectionKey] = useState<string | undefined>(continuation?.selectedSectionKey);
   const [focusedRelationshipKey, setFocusedRelationshipKey] = useState<string | undefined>(initialScope.activeRelationshipKey);
+  const [editingRateSheet, setEditingRateSheet] = useState<RateSheetEditorValue | null>(null);
+  const [rateSheetSaving, setRateSheetSaving] = useState(false);
+  const [rateSheetError, setRateSheetError] = useState<string | null>(null);
+  const [newRateGroupLabel, setNewRateGroupLabel] = useState('');
   const temporaryGroupSequence = useRef(0);
 
   useEffect(() => {
@@ -141,6 +152,32 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     }, providers, scope));
   };
 
+  const saveRateSheet = async (section: ManagerProviderAdapter['manager']['sections'][number]) => {
+    if (!active || !editingRateSheet || !section.rateSheetControls || !active.save) return;
+    const draft = state.draftByProvider[active.key];
+    const original = state.originalDraftByProvider[active.key];
+    const model = state.readModelByProvider[active.key];
+    const nextDraft = section.rateSheetControls.replace(draft, editingRateSheet);
+    const validation = active.validate?.(nextDraft, model, scope);
+    const rateIssues = validation?.issues.filter((issue) => issue.sectionId === section.id) ?? [];
+    if (rateIssues.length > 0) {
+      setRateSheetError(rateIssues[0].message);
+      return;
+    }
+    setRateSheetSaving(true);
+    setRateSheetError(null);
+    try {
+      const nextModel = await active.save(scope, nextDraft, original, model);
+      setState((current) => seedProviderReadModel(current, active, scope, nextModel));
+      setEditingRateSheet(null);
+      setNewRateGroupLabel('');
+    } catch (error) {
+      setRateSheetError(error instanceof Error ? error.message : 'Could not save Rate Sheet.');
+    } finally {
+      setRateSheetSaving(false);
+    }
+  };
+
   const groupIssues = active
     ? state.validationByProvider[active.key]?.filter((issue) => issue.sectionId === 'groups') ?? []
     : [];
@@ -208,6 +245,105 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
       {readModel !== undefined && active?.manager.sections.map((section) => {
         const draft = state.draftByProvider[active.key];
         const projection = section.project(readModel, scope, draft);
+        if (projection.role === 'rate-sheet') {
+          const beginEdit = () => {
+            setRateSheetError(null);
+            setNewRateGroupLabel('');
+            setEditingRateSheet({
+              title: projection.title,
+              groups: projection.groups.map((group) => ({ ...group })),
+              items: projection.items.length > 0 ? projection.items.map((item) => ({
+                id: item.id, optionId: item.optionId, unitPrice: item.unitPrice,
+                per: item.per, quantity: item.quantity, groupId: item.groupId,
+              })) : [{
+                id: `rate_item_${Date.now()}_0`,
+                optionId: projection.options[0]?.id ?? '',
+                unitPrice: 0,
+                per: projection.units[0] ?? '',
+                quantity: 1,
+                groupId: null,
+              }],
+            });
+          };
+          const addItem = () => setEditingRateSheet((current) => current ? ({
+            ...current,
+            items: [...current.items, {
+              id: `rate_item_${Date.now()}_${current.items.length}`,
+              optionId: projection.options[0]?.id ?? '',
+              unitPrice: 0,
+              per: projection.units[0] ?? '',
+              quantity: 1,
+              groupId: current.groups[0]?.id ?? null,
+            }],
+          }) : current);
+          const createRateGroup = () => {
+            const label = newRateGroupLabel.trim();
+            if (!label) return;
+            setEditingRateSheet((current) => current ? ({
+              ...current,
+              groups: [...current.groups, { id: `rate_group_${Date.now()}_${current.groups.length}`, label }],
+            }) : current);
+            setNewRateGroupLabel('');
+          };
+          return (
+            <section class="cz-manager-section cz-manager-rate-sheet" key={section.id} aria-labelledby={`manager-${section.id}`}>
+              <h4 id={`manager-${section.id}`}>{section.label}</h4>
+              <p class="cz-manager-section__description">Manage the pricing catalogue for this Service. Rate sheets define the available options, units, and base prices that Packages and Tiers can include.</p>
+              {editingRateSheet ? (
+                <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
+                  onSave={() => saveRateSheet(section)}
+                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); }}
+                  saving={rateSheetSaving} saveErr={rateSheetError} isDirty>
+                  <div class="cz-rate-sheet-editor">
+                    <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={editingRateSheet.title}
+                      onInput={(event) => setEditingRateSheet({ ...editingRateSheet, title: event.currentTarget.value })} /></label>
+                    {editingRateSheet.items.map((item, index) => (
+                      <div class="cz-rate-sheet-editor__item" key={item.id}>
+                        <label class="cz-tf-field"><span>Option</span><select class="cz-tf-select" value={item.optionId}
+                          onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, optionId: event.currentTarget.value } : row) })}>
+                          <option value="">Select option…</option>{projection.options.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}
+                        </select></label>
+                        <label class="cz-tf-field"><span>Unit Price</span><input class="cz-tf-input" type="number" min="0" step="0.01" value={item.unitPrice}
+                          onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: Number(event.currentTarget.value) } : row) })} /></label>
+                        <label class="cz-tf-field"><span>Per</span><select class="cz-tf-select" value={item.per}
+                          onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, per: event.currentTarget.value } : row) })}>
+                          {projection.units.map((unit) => <option value={unit} key={unit}>{unit}</option>)}
+                        </select></label>
+                        <label class="cz-tf-field"><span>Quantity</span><input class="cz-tf-input" type="number" min="1" step="1" value={item.quantity}
+                          onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Number(event.currentTarget.value) } : row) })} /></label>
+                        <label class="cz-tf-field"><span>Group</span><select class="cz-tf-select" value={item.groupId ?? ''}
+                          onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, groupId: event.currentTarget.value || null } : row) })}>
+                          <option value="">Ungrouped</option>{editingRateSheet.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}
+                        </select></label>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.filter((_, rowIndex) => rowIndex !== index) })}>Remove</button>
+                      </div>
+                    ))}
+                    <div class="cz-rate-sheet-editor__actions">
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={addItem} disabled={projection.options.length === 0}>Add Item</button>
+                      <input class="cz-tf-input" value={newRateGroupLabel} placeholder="New group name" aria-label="New Rate Sheet group name" onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)} />
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={createRateGroup} disabled={!newRateGroupLabel.trim()}>Create Group</button>
+                    </div>
+                  </div>
+                </InlineEditorShell>
+              ) : !projection.configured ? (
+                <div class="cz-manager-empty">
+                  <span class="cz-manager-empty__icon">{MODULE_ICONS.package}</span>
+                  <strong>{section.emptyState.title}</strong>
+                  <span class="cz-manager-empty__status">Not configured</span>
+                  <p>{section.emptyState.description}</p>
+                  <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={beginEdit}>Create Rate Sheet</button>
+                </div>
+              ) : (
+                <div class="cz-manager-rate-sheet__catalogue">
+                  <div class="cz-manager-section__actions"><strong>{projection.title}</strong><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Edit Rate Sheet</button></div>
+                  <div class="cz-sp-tier-table-wrap"><table class="cz-sp-tier-table"><thead><tr><th>Option</th><th>Unit Price</th><th>Per</th><th>Quantity</th><th>Group</th></tr></thead>
+                    <tbody>{projection.items.map((item) => <tr key={item.id}><td class="cz-sp-tier-table__name">{item.optionLabel}</td><td>${item.unitPrice.toFixed(2)}</td><td>{item.per}</td><td>{item.quantity}</td><td>{item.groupLabel}</td></tr>)}</tbody>
+                  </table></div>
+                </div>
+              )}
+            </section>
+          );
+        }
         if (projection.role === 'structure') {
           const controls = active.access === 'writable' ? section.structureControls : undefined;
           const createGroup = () => {

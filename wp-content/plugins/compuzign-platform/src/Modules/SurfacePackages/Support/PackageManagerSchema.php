@@ -57,7 +57,7 @@ final class PackageManagerSchema
      * (Option A from the accepted Phase A audit: no write-on-read).
      *
      * @param  mixed $data
-     * @return array{groups: array<int, array>, items: array<int, array>}
+     * @return array{groups: array<int, array>, items: array<int, array>, rate_sheet: array|null}
      */
     public static function sanitize(mixed $data): array
     {
@@ -71,13 +71,14 @@ final class PackageManagerSchema
         return [
             'groups' => $groups,
             'items'  => self::sanitizeItems($data['items'] ?? [], $groupIds),
+            'rate_sheet' => self::sanitizeRateSheet($data['rate_sheet'] ?? null),
         ];
     }
 
-    /** @return array{groups: array, items: array} */
+    /** @return array{groups: array, items: array, rate_sheet: null} */
     public static function defaultManager(): array
     {
-        return ['groups' => [], 'items' => []];
+        return ['groups' => [], 'items' => [], 'rate_sheet' => null];
     }
 
     /**
@@ -87,7 +88,60 @@ final class PackageManagerSchema
      */
     public static function hasConfiguration(array $storedManager): bool
     {
-        return !empty($storedManager['groups']) || !empty($storedManager['items']);
+        return !empty($storedManager['groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']);
+    }
+
+    /**
+     * Rate Sheet groups are catalogue-owned and deliberately separate from
+     * relationship Groups. Option identity points at a canonical reconciled
+     * Package Manager item; the Rate Sheet never copies source labels.
+     */
+    private static function sanitizeRateSheet(mixed $rateSheet): ?array
+    {
+        if (!is_array($rateSheet)) {
+            return null;
+        }
+
+        $title = sanitize_text_field((string) ($rateSheet['title'] ?? ''));
+        $groups = self::sanitizeGroups($rateSheet['groups'] ?? []);
+        $groupIds = array_column($groups, 'group_id');
+        $items = [];
+        $seen = [];
+        $allowedUnits = ['Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item'];
+
+        foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $itemId = sanitize_text_field((string) ($item['item_id'] ?? ''));
+            $sourceItemId = sanitize_text_field((string) ($item['source_item_id'] ?? ''));
+            if ($itemId === '' || $sourceItemId === '' || isset($seen[$itemId])) {
+                continue;
+            }
+            $seen[$itemId] = true;
+            $unit = sanitize_text_field((string) ($item['per'] ?? ''));
+            if (!in_array($unit, $allowedUnits, true)) {
+                $unit = '';
+            }
+            $groupId = sanitize_text_field((string) ($item['group_id'] ?? ''));
+            if ($groupId === '' || !in_array($groupId, $groupIds, true)) {
+                $groupId = null;
+            }
+            $items[] = [
+                'item_id'       => $itemId,
+                'source_item_id'=> $sourceItemId,
+                'unit_price'    => max(0, (float) ($item['unit_price'] ?? 0)),
+                'per'           => $unit,
+                'quantity'      => max(1, (int) ($item['quantity'] ?? 1)),
+                'group_id'      => $groupId,
+                'sort_order'    => (int) ($item['sort_order'] ?? 0),
+            ];
+        }
+
+        if ($title === '' && $groups === [] && $items === []) {
+            return null;
+        }
+        return ['title' => $title, 'groups' => $groups, 'items' => $items];
     }
 
     /**
@@ -258,7 +312,8 @@ final class PackageManagerSchema
         mixed $submittedGroups,
         mixed $submittedDecisions,
         array $inclusionPool,
-        array $faqPool
+        array $faqPool,
+        mixed $submittedRateSheet = null
     ): array {
         if (!is_array($submittedGroups) || !is_array($submittedDecisions)) {
             throw new \InvalidArgumentException('Groups and item decisions must be arrays.');
@@ -360,7 +415,19 @@ final class PackageManagerSchema
             $items[] = $item;
         }
 
-        return self::sanitize(['groups' => $groups, 'items' => $items]);
+        $rateSheet = self::sanitizeRateSheet($submittedRateSheet);
+        foreach ($rateSheet['items'] ?? [] as $rateItem) {
+            $sourceItemId = $rateItem['source_item_id'];
+            if (!isset($liveIds[$sourceItemId]) && !isset($persistedById[$sourceItemId])) {
+                throw new \InvalidArgumentException('Rate Sheet item does not reference a current or persisted Package relationship.');
+            }
+        }
+
+        return self::sanitize([
+            'groups' => $groups,
+            'items' => $items,
+            'rate_sheet' => $rateSheet,
+        ]);
     }
 
     // ── Deterministic provisional identity ──────────────────────────────────
@@ -562,6 +629,7 @@ final class PackageManagerSchema
             'has_configuration' => self::hasConfiguration($storedManager),
             'groups'            => $groups,
             'items'             => $outItems,
+            'rate_sheet'        => $storedManager['rate_sheet'] ?? null,
             'projections'       => self::buildConsumerProjections($outItems, $platformStatus),
         ];
     }

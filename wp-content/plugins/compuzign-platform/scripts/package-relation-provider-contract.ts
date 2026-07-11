@@ -44,6 +44,7 @@ const readModel: PackageRelationReadModel = {
       module_transition: 'not-configured',
     },
   ],
+  rate_sheet: null,
   projections: {
     inclusions: [{ id: 'feature', label: 'Feature' }],
     faqs: [],
@@ -119,21 +120,34 @@ const providers = relationProvidersFor(scope);
 check(providers.length === 1 && providers[0].key === 'package', 'registry discovers Package by scope');
 check(providersExposeManager(providers), 'Package writable capabilities expose Manager');
 check(packageRelationProvider.manager.summary === undefined, 'Package does not declare a duplicated static Manager summary');
-check(packageRelationProvider.manager.sections.length === 2, 'Package declares exactly two sections');
-check(packageRelationProvider.manager.sections[0].id === 'groups', 'Package declares Groups structure');
-check(packageRelationProvider.manager.sections[1].id === 'relationships', 'Package declares one Relationships section');
-check(packageRelationProvider.manager.sections[1].capabilities.includes('availability'), 'availability stays a capability');
+check(packageRelationProvider.manager.sections.length === 3, 'Package declares Rate Sheets plus the existing two sections');
+check(packageRelationProvider.manager.sections[0].id === 'rate-sheets', 'Rate Sheets is directly above Groups');
+check(packageRelationProvider.manager.sections[1].id === 'groups', 'Package keeps Groups structure');
+check(packageRelationProvider.manager.sections[2].id === 'relationships', 'Package keeps one Relationships section');
+check(packageRelationProvider.manager.sections[2].capabilities.includes('availability'), 'availability stays a capability');
 const managerSummaries = packageRelationProvider.manager.subjectSummaries?.(readModel, {
   ...scope,
 }) ?? [];
 check(managerSummaries.length === 1 && managerSummaries[0].title === 'Package Essential', 'All projects every canonical Tier summary');
 check(managerSummaries[0].fields.map((field) => field.id).join(',') === 'pricing,includes', 'Tier summary exposes canonical pricing and inclusion fields');
 check(packageRelationProvider.manager.destinationActions === undefined, 'Package does not declare a separate View all action');
-const groupProjection = packageRelationProvider.manager.sections[0].project(readModel, {
+const rateSheetSection = packageRelationProvider.manager.sections[0];
+const emptyRateSheetProjection = rateSheetSection.project(readModel, { ...scope });
+check(emptyRateSheetProjection.role === 'rate-sheet' && !emptyRateSheetProjection.configured, 'Rate Sheet begins not configured');
+const rateSheetDraft = rateSheetSection.rateSheetControls!.replace(original, {
+  title: 'Infrastructure',
+  groups: [{ id: 'compute', label: 'Compute' }],
+  items: [{ id: 'rate-1', optionId: 'mgr_feature', unitPrice: 36, per: 'Per VM', quantity: 2, groupId: 'compute' }],
+}) as typeof original;
+check(packageRelationProvider.isDirty(rateSheetDraft, original, readModel), 'Rate Sheet edits participate in Package provider dirty state');
+check(packageRelationProvider.validate(rateSheetDraft, readModel, { ...scope }).valid, 'valid Rate Sheet passes provider validation');
+const invalidRateSheet = { ...rateSheetDraft, rateSheet: { ...rateSheetDraft.rateSheet!, items: [{ ...rateSheetDraft.rateSheet!.items[0], source_item_id: 'unknown' }] } };
+check(!packageRelationProvider.validate(invalidRateSheet, readModel, { ...scope }).valid, 'Rate Sheet options must use stable Package relationship identities');
+const groupProjection = packageRelationProvider.manager.sections[1].project(readModel, {
   ...scope,
 });
 check(groupProjection.role === 'structure' && groupProjection.rows[0].relationshipCount === 1, 'Groups projects relationship counts');
-const relationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
+const relationshipProjection = packageRelationProvider.manager.sections[2].project(readModel, {
   ...scope,
 });
 check(relationshipProjection.role === 'relations', 'Relationships uses one relation projection');
@@ -143,15 +157,15 @@ if (relationshipProjection.role === 'relations') {
   check(relationshipProjection.rows[1].availability === 'Not available', 'provisional enabled row is not falsely available');
   check(relationshipProjection.rows[1].stateDetail === 'Provisional', 'provisional semantics remain visible');
 }
-const draftGroupProjection = packageRelationProvider.manager.sections[0].project(readModel, {
+const draftGroupProjection = packageRelationProvider.manager.sections[1].project(readModel, {
   ...scope,
 }, groupedQuestion);
 check(draftGroupProjection.role === 'structure' && draftGroupProjection.rows[0].order === 1, 'Groups displays human-facing 1-based order');
-const draftRelationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
+const draftRelationshipProjection = packageRelationProvider.manager.sections[2].project(readModel, {
   ...scope,
 }, groupedQuestion);
 check(draftRelationshipProjection.role === 'relations' && draftRelationshipProjection.rows[1].groupLabel === 'Optional', 'Relationships immediately projects working group assignments');
-const deletedRelationshipProjection = packageRelationProvider.manager.sections[1].project(readModel, {
+const deletedRelationshipProjection = packageRelationProvider.manager.sections[2].project(readModel, {
   ...scope,
 }, deletedGroup);
 check(deletedRelationshipProjection.role === 'relations' && deletedRelationshipProjection.rows[1].groupLabel === 'Ungrouped', 'deleted group projects affected rows as Ungrouped');

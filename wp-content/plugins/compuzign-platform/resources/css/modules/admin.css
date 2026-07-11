@@ -4353,7 +4353,23 @@ button.cz-module-status-pill {
 
 .cz-manager-section { border-top: 1px solid var(--admin-border-blue); padding-top: var(--cz-space-5); }
 .cz-manager-section h4 { margin: 0 0 var(--cz-space-4); font-size: var(--admin-fs-s-sub); }
+.cz-manager-section__description { margin: calc(-1 * var(--cz-space-3)) 0 var(--cz-space-4); color: var(--admin-text-muted); }
 .cz-manager-section__actions { display: flex; justify-content: flex-end; margin-bottom: var(--cz-space-3); }
+
+.cz-manager-empty__status { color: var(--admin-text-faint); }
+.cz-manager-rate-sheet__catalogue .cz-manager-section__actions { align-items: center; justify-content: space-between; }
+.cz-rate-sheet-editor { display: grid; gap: var(--cz-space-4); }
+.cz-rate-sheet-editor__item {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(120px, 1fr) minmax(130px, 1fr) minmax(90px, .75fr) minmax(150px, 1fr) auto;
+  gap: var(--cz-space-3);
+  align-items: end;
+  padding: var(--cz-space-4);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: var(--cz-radius-sm);
+}
+.cz-rate-sheet-editor__actions { display: flex; flex-wrap: wrap; gap: var(--cz-space-2); align-items: center; }
+.cz-rate-sheet-editor__actions .cz-tf-input { width: min(280px, 100%); }
 
 .cz-manager-empty {
   display: flex;
@@ -4392,4 +4408,5 @@ button.cz-module-status-pill {
   .cz-manager-workspace__header { flex-direction: column; }
   .cz-manager-workspace__status { margin-left: 0; }
   .cz-manager-filters { display: flex; overflow-x: auto; }
+  .cz-rate-sheet-editor__item { grid-template-columns: 1fr; }
 }

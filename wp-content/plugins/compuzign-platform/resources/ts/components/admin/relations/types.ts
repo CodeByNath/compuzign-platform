@@ -108,7 +108,7 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
   /** Stable within the provider; the coordinator exposes `${providerKey}:${id}`. */
   id: string;
   label: string;
-  role: 'structure' | 'relations';
+  role: 'rate-sheet' | 'structure' | 'relations';
   capabilities: readonly RelationCapabilityId[];
   rows?: (readModel: ReadModel) => readonly Row[];
   identity?: (row: Row) => Identity;
@@ -133,12 +133,44 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
         availability: 'Available' | 'Not available' | 'Disabled' | 'Missing source';
         sourceHealth: 'Connected' | 'Missing';
       }[];
+    }
+    | {
+      role: 'rate-sheet';
+      configured: boolean;
+      title: string;
+      groups: readonly { id: string; label: string }[];
+      options: readonly { id: string; label: string }[];
+      units: readonly string[];
+      items: readonly {
+        id: string;
+        optionId: string;
+        optionLabel: string;
+        unitPrice: number;
+        per: string;
+        quantity: number;
+        groupId: string | null;
+        groupLabel: string;
+      }[];
     };
   structureControls?: {
     create(draft: unknown, groupId: string): unknown;
     rename(draft: unknown, groupId: string, label: string): unknown;
     move(draft: unknown, groupId: string, direction: -1 | 1): unknown;
     delete(draft: unknown, groupId: string): unknown;
+  };
+  rateSheetControls?: {
+    replace(draft: unknown, rateSheet: {
+      title: string;
+      groups: readonly { id: string; label: string }[];
+      items: readonly {
+        id: string;
+        optionId: string;
+        unitPrice: number;
+        per: string;
+        quantity: number;
+        groupId: string | null;
+      }[];
+    }): unknown;
   };
 }
 

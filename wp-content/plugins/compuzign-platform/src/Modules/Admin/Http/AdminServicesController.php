@@ -1320,10 +1320,10 @@ class AdminServicesController
         }
 
         $body = $request->get_json_params();
-        if (!is_array($body) || !isset($body['groups'], $body['item_decisions'])) {
+        if (!is_array($body) || !isset($body['groups'], $body['item_decisions']) || !array_key_exists('rate_sheet', $body)) {
             return rest_ensure_response([
                 'success' => false,
-                'message' => 'Groups and item_decisions are required.',
+                'message' => 'Groups, item_decisions, and rate_sheet are required.',
             ]);
         }
 
@@ -1348,7 +1348,8 @@ class AdminServicesController
                 $body['groups'],
                 $body['item_decisions'],
                 $incPool,
-                $faqPool
+                $faqPool,
+                $body['rate_sheet']
             );
         } catch (\InvalidArgumentException $e) {
             return rest_ensure_response(['success' => false, 'message' => $e->getMessage()]);

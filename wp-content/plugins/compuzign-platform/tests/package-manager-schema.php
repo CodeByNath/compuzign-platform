@@ -152,4 +152,47 @@ assertSameValue([], $returnedModel['projections']['faqs'], 'disabled FAQ decisio
 $inactiveModel = PMS::buildReadModel(10, $ungrouped, $expandedPool, $faqPool, 'disabled');
 assertSameValue([], $inactiveModel['projections']['inclusions'], 'inactive parent gates consumer projections');
 
+// Rate Sheets are Package Manager-owned catalogue data. They reference the
+// same stable relationship item identity, own separate groups, and never
+// write into Tier pricing.
+$withRateSheet = PMS::commitConfiguration(
+    $ungrouped,
+    [],
+    [],
+    $expandedPool,
+    $faqPool,
+    [
+        'title' => 'Infrastructure',
+        'groups' => [['group_id' => 'compute', 'label' => 'Compute', 'sort_order' => 0]],
+        'items' => [[
+            'item_id' => 'rate-1',
+            'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+            'unit_price' => 36,
+            'per' => 'Per VM',
+            'quantity' => 2,
+            'group_id' => 'compute',
+            'sort_order' => 0,
+        ]],
+    ]
+);
+$rateModel = PMS::buildReadModel(10, $withRateSheet, $expandedPool, $faqPool, 'active');
+assertSameValue('Infrastructure', $rateModel['rate_sheet']['title'], 'Rate Sheet is returned in the Manager read model');
+assertSameValue('compute', $rateModel['rate_sheet']['items'][0]['group_id'], 'Rate Sheet groups are persisted independently');
+assertSameValue('Per VM', $rateModel['rate_sheet']['items'][0]['per'], 'controlled Rate Sheet unit is preserved');
+assertSameValue(true, $rateModel['has_configuration'], 'Rate Sheet alone contributes Manager configuration');
+
+$rejectedUnknownOption = false;
+try {
+    PMS::commitConfiguration($ungrouped, [], [], $expandedPool, $faqPool, [
+        'title' => 'Invalid', 'groups' => [], 'items' => [[
+            'item_id' => 'rate-invalid', 'source_item_id' => 'unknown',
+            'unit_price' => 1, 'per' => 'Per item', 'quantity' => 1,
+            'group_id' => null, 'sort_order' => 0,
+        ]],
+    ]);
+} catch (InvalidArgumentException) {
+    $rejectedUnknownOption = true;
+}
+assertSameValue(true, $rejectedUnknownOption, 'Rate Sheet rejects fabricated Package relationship identities');
+
 fwrite(STDOUT, "PackageManagerSchema contract tests passed.\n");

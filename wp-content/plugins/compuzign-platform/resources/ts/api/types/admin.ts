@@ -153,12 +153,34 @@ export interface PackageManagerProjectionFaq {
   answer:   string;
 }
 
+export const PACKAGE_RATE_SHEET_UNITS = [
+  'Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item',
+] as const;
+export type PackageRateSheetUnit = typeof PACKAGE_RATE_SHEET_UNITS[number];
+
+export interface PackageRateSheetItem {
+  item_id: string;
+  source_item_id: string;
+  unit_price: number;
+  per: PackageRateSheetUnit;
+  quantity: number;
+  group_id: string | null;
+  sort_order: number;
+}
+
+export interface PackageRateSheet {
+  title: string;
+  groups: PackageManagerGroup[];
+  items: PackageRateSheetItem[];
+}
+
 export interface PackageManagerReadModel {
   service_id:        number;
   platform_status:   string;
   has_configuration: boolean;
   groups:            PackageManagerGroup[];
   items:             PackageManagerItem[];
+  rate_sheet:        PackageRateSheet | null;
   projections: {
     inclusions: PackageManagerProjectionInclusion[];
     faqs:       PackageManagerProjectionFaq[];
@@ -183,6 +205,7 @@ export interface PackageManagerItemDecision {
 export interface PackageManagerSavePayload {
   groups:         PackageManagerGroup[];
   item_decisions: PackageManagerItemDecision[];
+  rate_sheet:     PackageRateSheet | null;
 }
 
 export type PackageManagerSaveResponse =

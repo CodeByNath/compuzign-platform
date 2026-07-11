@@ -20,6 +20,7 @@ export interface ManagerProviderAdapter {
   createDraft?: (readModel: unknown, scope: StationManagerScope) => unknown;
   isDirty?: (draft: unknown, original: unknown, readModel: unknown) => boolean;
   validate?: (draft: unknown, readModel: unknown, scope: StationManagerScope) => ProviderValidationResult;
+  save?: (scope: StationManagerScope, draft: unknown, original: unknown, readModel: unknown) => Promise<unknown>;
 }
 
 export interface RoutedValidationIssue extends ProviderValidationIssue {
