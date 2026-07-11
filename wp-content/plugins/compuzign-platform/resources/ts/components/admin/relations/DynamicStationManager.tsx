@@ -9,7 +9,7 @@ import type {
   ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
 } from './types';
 import {
-  collectManagerValidation, createManagerCoordinatorState, managerFooterState, managerIsDirty,
+  applyProviderSaveResults, collectManagerValidation, createManagerCoordinatorState, managerFooterState, managerIsDirty,
   orderManagerProviders, providerCompositionIndicator, resetManagerDrafts,
   seedProviderReadModel, selectManagerProvider,
 } from './coordinator';
@@ -65,6 +65,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const [editingRateSheet, setEditingRateSheet] = useState<RateSheetEditorValue | null>(null);
   const [rateSheetSaving, setRateSheetSaving] = useState(false);
   const [rateSheetError, setRateSheetError] = useState<string | null>(null);
+  const [managerNotice, setManagerNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
   const [newRateGroupLabel, setNewRateGroupLabel] = useState('');
   const [creatingRateGroup, setCreatingRateGroup] = useState(false);
   const [rateGroupTargetIndex, setRateGroupTargetIndex] = useState<number | null>(null);
@@ -98,7 +99,8 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     return () => controller.abort();
   }, [providers, scope]);
 
-  const dirty = managerIsDirty(state, providers);
+  const providerDirty = managerIsDirty(state, providers);
+  const dirty = providerDirty || editingRateSheet !== null || editingGroup !== null;
   const footerState = managerFooterState(state, dirty);
   const exitGuard = useCallback<ExitGuard>(() => {
     if (!dirty) return true;
@@ -110,17 +112,18 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     return () => shell.setExitGuard(null);
   }, [dirty, exitGuard, shell.setExitGuard]);
   useEffect(() => {
-    shell.setFooter(dirty ? (
+    shell.setFooter(providerDirty ? (
       <div class="cz-action-shell__footer">
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => {
           shell.requestExit({ kind: 'cancel' }, () => {
             setState((current) => resetManagerDrafts(current, providers));
           });
         }}>Cancel</button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={footerState.saveDisabled} onClick={saveManager}>Save changes</button>
       </div>
     ) : null);
     return () => shell.setFooter(null);
-  }, [shell.setFooter, shell.requestExit, providers, dirty, footerState.saveDisabled]);
+  }, [shell.setFooter, shell.requestExit, providers, providerDirty, footerState.saveDisabled, state, scope]);
 
   const active = providers.find((provider) => provider.key === state.activeProviderKey) ?? providers[0];
   const readModel = active ? state.readModelByProvider[active.key] : undefined;
@@ -154,8 +157,38 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     }, providers, scope));
   };
 
+  async function saveManager() {
+    const validated = collectManagerValidation(state, providers, scope);
+    setState(validated);
+    const invalidProviders = providers.filter((provider) => (validated.validationByProvider[provider.key]?.length ?? 0) > 0);
+    if (invalidProviders.length > 0) {
+      setManagerNotice({ kind: 'error', message: `Resolve validation issues in ${invalidProviders.map((provider) => provider.label).join(', ')}.` });
+      return;
+    }
+    const dirtyProviders = providers.filter((provider) => provider.access === 'writable' && provider.save && provider.isDirty
+      && provider.isDirty(validated.draftByProvider[provider.key], validated.originalDraftByProvider[provider.key], validated.readModelByProvider[provider.key]));
+    setManagerNotice(null);
+    setState((current) => ({ ...current, saveStateByProvider: {
+      ...current.saveStateByProvider,
+      ...Object.fromEntries(dirtyProviders.map((provider) => [provider.key, 'saving'])),
+    } }));
+    const results = await Promise.all(dirtyProviders.map(async (provider) => {
+      try {
+        const readModel = await provider.save!(scope, validated.draftByProvider[provider.key], validated.originalDraftByProvider[provider.key], validated.readModelByProvider[provider.key]);
+        return { providerKey: provider.key, status: 'saved' as const, readModel };
+      } catch (error) {
+        return { providerKey: provider.key, status: 'failed' as const, error: error instanceof Error ? error.message : `Could not save ${provider.label}.` };
+      }
+    }));
+    setState((current) => applyProviderSaveResults(current, providers, scope, results));
+    const failed = results.filter((result) => result.status === 'failed');
+    setManagerNotice(failed.length > 0
+      ? { kind: 'error', message: `${results.length - failed.length} provider(s) saved; ${failed.length} failed. Unsaved changes were preserved.` }
+      : { kind: 'success', message: 'Manager changes saved.' });
+  }
+
   const saveRateSheet = async (section: ManagerProviderAdapter['manager']['sections'][number]) => {
-    if (!active || !editingRateSheet || !section.rateSheetControls || !active.save) return;
+    if (!active || !editingRateSheet || !section.rateSheetControls) return;
     const draft = state.draftByProvider[active.key];
     const original = state.originalDraftByProvider[active.key];
     const model = state.readModelByProvider[active.key];
@@ -166,20 +199,11 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
       setRateSheetError(rateIssues[0].message);
       return;
     }
-    setRateSheetSaving(true);
-    setRateSheetError(null);
-    try {
-      const nextModel = await active.save(scope, nextDraft, original, model);
-      setState((current) => seedProviderReadModel(current, active, scope, nextModel));
-      setEditingRateSheet(null);
-      setNewRateGroupLabel('');
-      setCreatingRateGroup(false);
-      setRateGroupTargetIndex(null);
-    } catch (error) {
-      setRateSheetError(error instanceof Error ? error.message : 'Could not save Rate Sheet.');
-    } finally {
-      setRateSheetSaving(false);
-    }
+    replaceActiveDraft(nextDraft);
+    setEditingRateSheet(null);
+    setNewRateGroupLabel('');
+    setCreatingRateGroup(false);
+    setRateGroupTargetIndex(null);
   };
 
   const groupIssues = active
@@ -245,6 +269,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
 
       {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}
       {loadError && <div class="cz-admin-error-msg" role="alert">{loadError}</div>}
+      {managerNotice && <div class={managerNotice.kind === 'error' ? 'cz-admin-error-msg' : 'cz-admin-success-msg'} role="status">{managerNotice.message}</div>}
 
       {readModel !== undefined && active?.manager.sections.map((section) => {
         const draft = state.draftByProvider[active.key];

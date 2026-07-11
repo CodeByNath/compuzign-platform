@@ -29,14 +29,10 @@ import { EntityDrawer } from '../EntityDrawer';
 import type { DrawerTabId } from '../DrawerTabs';
 import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
-import { ServiceTierStep } from './ServiceTierStep';
 import { ServicePromotionStep } from './ServicePromotionStep';
-import {
-  DynamicStationManager, providersExposeManager, relationProvidersFor,
-} from '@/components/admin/relations';
-import type {
-  ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
-} from '@/components/admin/relations';
+import { providersExposeManager, relationProvidersFor } from '@/components/admin/relations';
+import { buildServiceManagerConfig } from '@/components/admin/relations/ServiceRelationshipManagerStep';
+import type { StationConnectionDescriptor, StationManagerScope } from '@/components/admin/relations';
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
 
 // ── CommercialBlock ───────────────────────────────────────────────────────────
@@ -109,27 +105,13 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const allCategories = ctx.stepData.allCategories as Category[] ?? [];
   const onRefresh    = ctx.stepData.onRefresh    as (() => void) | undefined;
 
-  const returnContinuation = ctx.stepData.managerContinuation as ManagerContinuation | undefined;
-  const [tab, setTab] = useState<DrawerTabId>(returnContinuation ? 'manager' : 'details');
+  const [tab, setTab] = useState<DrawerTabId>('details');
   const packageConnection = useMemo<StationConnectionDescriptor>(() => ({
     providerKey: 'package',
     relationshipKey: `service:${service.id}:package`,
     stationContext: { type: 'service', id: service.id },
     destinationRef: { type: 'tier', id: 'all' },
   }), [service.id]);
-  const managerScope = useMemo<StationManagerScope>(() => returnContinuation?.scopeKind === 'subject-connections'
-    && returnContinuation.subject
-    ? {
-      kind: 'subject-connections', stationContext: returnContinuation.stationContext,
-      subject: returnContinuation.subject,
-      activeProviderKey: returnContinuation.activeProviderKey,
-      activeRelationshipKey: returnContinuation.activeRelationshipKey,
-    }
-    : {
-      kind: 'connection-graph', stationContext: { type: 'service', id: service.id },
-      activeProviderKey: returnContinuation?.activeProviderKey,
-      activeRelationshipKey: returnContinuation?.activeRelationshipKey ?? packageConnection.relationshipKey,
-    }, [service.id, returnContinuation, packageConnection]);
   const managerAvailabilityScope = useMemo<StationManagerScope>(() => ({
     kind: 'connection-graph', stationContext: { type: 'service', id: service.id },
   }), [service.id]);
@@ -143,10 +125,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     ctx.requestExit({ kind: 'tab', target: next }, () => setTab(next));
   };
 
-  useEffect(() => {
-    ctx.setPanelMode(tab === 'manager' ? 'manager-wide' : 'standard');
-  }, [ctx.setPanelMode, tab]);
-  useEffect(() => () => ctx.setPanelMode('standard'), [ctx.setPanelMode]);
 
   const station = useServiceStation(service, packages, onRefresh);
   const {
@@ -375,58 +353,20 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     }
   }, [faqsDraft, saveFaqs]);
 
-  const handleOpenTierConfig = (
-    managerContinuation?: ManagerContinuation,
-    initialTierId?: string,
-    initialTierSection?: 'tier-overview',
-  ) => {
-    const serviceReturn = () => doOpen({
-      id:       `service-view-${service.id}`,
-      mode:     'drawer',
-      title:    'Service',
-      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh, managerContinuation },
-      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
-    });
-
-    // All tier management routes exclusively through the Service Station-owned Package
-    // Station (cz_service_package_station). The legacy cz_surface_package drawer path
-    // has been retired. The single header Back is context-aware: while a tier is open,
-    // ServiceTierStep sets tierBack.current to return to the package overview; at the
-    // overview it falls through to the parent Service drawer.
-    const tierBack: { current: (() => void) | null } = { current: null };
-    ctx.close();
-    doOpen({
-      id:             `service-tiers-${service.id}`,
-      mode:           'drawer',
-      title:          'Package',
-      onBack:         () => (tierBack.current ?? serviceReturn)(),
-      hideStepHeader: true,
-      initialStepData: {
-        serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: serviceReturn,
-        // Manager card destinations return directly to Manager. The mutable
-        // tierBack bridge is retained only for non-Manager canonical routes.
-        tierBack: managerContinuation ? undefined : tierBack,
-        initialTierId, initialTierSection,
-      },
-      steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
-    });
-  };
-
-  const handleManagerDestination = (
-    action: 'view-all' | 'open-current' | 'edit-current',
-    continuation: ManagerContinuation,
-  ) => {
-    const tierDestination = continuation.destination ?? continuation.subject;
-    const tierId = tierDestination?.type === 'tier' ? String(tierDestination.id) : undefined;
-    handleOpenTierConfig(
-      continuation,
-      action === 'open-current' || action === 'edit-current' ? tierId : undefined,
-      action === 'edit-current' ? 'tier-overview' : undefined,
-    );
-  };
-
   const pkgSummaryOnView = isActive && !station.loading.creating && showManager
-    ? () => selectServiceTab('manager')
+    ? () => {
+      const returnToService = () => doOpen({
+        id: `service-view-${service.id}`,
+        mode: 'drawer',
+        title: 'Service',
+        initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
+        steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+      });
+      ctx.close();
+      doOpen(buildServiceManagerConfig({
+        service, packages, allCategories, openAction: doOpen, onRefresh, returnToService,
+      }, packageConnection));
+    }
     : undefined;
 
   const handleOpenPromoConfig = () => {
@@ -646,9 +586,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
 
   useEffect(() => {
     const { setFooter, close } = ctx;
-    // Manager owns the shared footer while its workspace is mounted. The
-    // previous Details/Connections effect cleanup has already cleared theirs.
-    if (tab === 'manager') return;
     const isLiveState = platformStatus === 'active' || platformStatus === 'disabled';
 
     // Enable/Disable is only meaningful once a service has been published at least once.
@@ -822,16 +759,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       entity={SERVICE_ENTITY}
       tab={tab}
       onSelectTab={selectServiceTab}
-      showManager={showManager}
-      managerContent={showManager ? (
-        <DynamicStationManager
-          scope={managerScope}
-          shell={ctx}
-          connection={packageConnection}
-          continuation={returnContinuation}
-          onDestination={handleManagerDestination}
-        />
-      ) : null}
       bindings={{
         overview:   overviewShellBinding,
         inclusions: inclusionsShellBinding,

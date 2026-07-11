@@ -1011,6 +1011,15 @@
   font-size: var(--admin-fs-label);
 }
 
+.cz-admin-success-msg {
+  margin: var(--admin-space-3) 0;
+  padding: var(--admin-space-3);
+  border: 1px solid var(--admin-success-a20);
+  border-radius: var(--admin-radius);
+  background: var(--admin-success-a08);
+  color: var(--admin-success);
+}
+
 .cz-admin-ok-msg {
   background: var(--admin-success-a08);
   border: 1px solid var(--admin-success-a20);

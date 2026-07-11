@@ -1,7 +1,8 @@
 // EntityDrawer — manifest-driven drawer body assembly (Schema architecture S4).
 //
 // Consumes `EntitySchema.placements.drawer` and assembles the drawer body:
-// the Drawer Tab Contract bar (DrawerTabs — fixed Details | Connections,
+// the Drawer Tab Contract bar (DrawerTabs — fixed Details | Connections;
+// Manager lives in its central station-level ActionShell workspace),
 // renderer-encoded, never configurable) and, per tab, the placement group's
 // ShellSlots rendered through the two archetype renderers in each slot's
 // viewpoint. Replaces the per-step tab state and hand-assembled drawer
@@ -35,10 +36,6 @@ export interface EntityDrawerProps<T extends DrawerTabId = DrawerBaseTabId> {
   // active tab); omit and the drawer owns it — reset by remounting via `key`.
   tab?:         T;
   onSelectTab?: (tab: T) => void;
-  showManager?: boolean;
-  // Manager is station-level infrastructure and deliberately lives outside
-  // EntitySchema placements and shell assembly.
-  managerContent?: ComponentChildren;
   // Single-open notification-panel accordion, keyed by module key.
   openPanel?:     string | null;
   onTogglePanel?: (module: string) => void;
@@ -75,7 +72,7 @@ function PlacedShell({ entity, slot, binding, panelOpen, onTogglePanel }: {
 }
 
 export function EntityDrawer<T extends DrawerTabId = DrawerBaseTabId>({
-  entity, bindings, tab, onSelectTab, showManager = false, managerContent,
+  entity, bindings, tab, onSelectTab,
   openPanel, onTogglePanel, trailing, children,
 }: EntityDrawerProps<T>) {
   const [internalTab, setInternalTab] = useState<DrawerTabId>('details');
@@ -85,12 +82,11 @@ export function EntityDrawer<T extends DrawerTabId = DrawerBaseTabId>({
     else setInternalTab(nextTab);
   };
 
-  const baseTab = activeTab === 'manager' ? null : activeTab;
-  const slots = baseTab ? entity.placements.drawer?.[baseTab] ?? [] : [];
+  const slots = entity.placements.drawer?.[activeTab] ?? [];
 
   return (
     <div class="cz-req-detail">
-      <DrawerTabs active={activeTab} onSelect={selectTab} showManager={showManager} />
+      <DrawerTabs active={activeTab} onSelect={selectTab} />
 
       {slots.map((slot) => (
         <PlacedShell
@@ -103,8 +99,7 @@ export function EntityDrawer<T extends DrawerTabId = DrawerBaseTabId>({
         />
       ))}
 
-      {baseTab && trailing?.[baseTab]}
-      {activeTab === 'manager' && showManager && managerContent}
+      {trailing?.[activeTab]}
       {children}
     </div>
   );

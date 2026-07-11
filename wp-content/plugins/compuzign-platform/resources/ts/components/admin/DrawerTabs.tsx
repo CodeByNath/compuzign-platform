@@ -1,7 +1,7 @@
 // Drawer Tab Contract renderer (Schema architecture S1c).
 //
-// Canonical tab bar: Details | Connections, plus the optional terminal Manager
-// tab when a registered writable relation provider makes it available.
+// Canonical entity drawer tab bar: Details | Connections. Station Manager is a
+// separate central ActionShell workspace, never an entity-drawer tab.
 // Drawer Tab Contract (AdminWorkstationDrawerPrinciples-v1) encoded in a
 // renderer, deliberately NOT configurable. Details = the station's own
 // modules; Connections = related stations. Canonical keys 'details' /
@@ -9,12 +9,11 @@
 // vocabulary.
 
 export type DrawerBaseTabId = 'details' | 'connections';
-export type DrawerTabId = DrawerBaseTabId | 'manager';
+export type DrawerTabId = DrawerBaseTabId;
 
-export function DrawerTabs<T extends DrawerTabId>({ active, onSelect, showManager = false }: {
+export function DrawerTabs<T extends DrawerTabId>({ active, onSelect }: {
   active:   T;
   onSelect: (tab: T) => void;
-  showManager?: boolean;
 }) {
   return (
     <div class="cz-sv-tabs">
@@ -32,15 +31,6 @@ export function DrawerTabs<T extends DrawerTabId>({ active, onSelect, showManage
       >
         Connections
       </button>
-      {showManager && (
-        <button
-          type="button"
-          class={`cz-sv-tab${active === 'manager' ? ' cz-sv-tab--active' : ''}`}
-          onClick={() => onSelect('manager' as T)}
-        >
-          Manager
-        </button>
-      )}
     </div>
   );
 }

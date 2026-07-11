@@ -5,11 +5,10 @@ export type ActionMode = 'modal' | 'drawer';
 export type ActionProgress = 'idle' | 'loading' | 'success' | 'error';
 export type ActionShellPanelMode = 'standard' | 'manager-wide';
 export type ExitIntent =
-  | { kind: 'tab'; target: 'details' | 'connections' | 'manager' }
+  | { kind: 'tab'; target: 'details' | 'connections' }
   | { kind: 'close' }
   | { kind: 'back' }
   | { kind: 'cancel' }
-  | { kind: 'manager-scope'; target: string }
   | { kind: 'destination'; target: string };
 export type ExitGuard = (intent: ExitIntent) => boolean;
 
@@ -74,7 +73,7 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
   }, []);
 
   const requestExit = useCallback((intent: ExitIntent, continuation: () => void) => {
-    const usesCloseGuard = intent.kind !== 'tab' && intent.kind !== 'manager-scope';
+    const usesCloseGuard = intent.kind !== 'tab';
     const allowed = exitGuardRef.current
       ? exitGuardRef.current(intent)
       : usesCloseGuard && closeGuardRef.current
