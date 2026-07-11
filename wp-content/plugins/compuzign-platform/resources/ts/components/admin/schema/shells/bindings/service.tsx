@@ -198,7 +198,7 @@ export const servicePackageSummaryShell: ShellSchema<ServicePackageSummaryShellD
   ],
   footer:  { actions: ['view'] },
   actions: {
-    view: { id: 'view', label: 'View', intent: 'secondary' },
+    view: { id: 'view', label: 'View & Manage', intent: 'secondary' },
   },
 };
 

@@ -403,7 +403,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       hideStepHeader: true,
       initialStepData: {
         serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: serviceReturn,
-        tierBack, initialTierId, initialTierSection,
+        // Manager card destinations return directly to Manager. The mutable
+        // tierBack bridge is retained only for non-Manager canonical routes.
+        tierBack: managerContinuation ? undefined : tierBack,
+        initialTierId, initialTierSection,
       },
       steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
     });
@@ -422,7 +425,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     );
   };
 
-  const pkgSummaryOnView = isActive && !station.loading.creating ? handleOpenTierConfig : undefined;
+  const pkgSummaryOnView = isActive && !station.loading.creating && showManager
+    ? () => selectServiceTab('manager')
+    : undefined;
 
   const handleOpenPromoConfig = () => {
     const serviceReturn = () => doOpen({
