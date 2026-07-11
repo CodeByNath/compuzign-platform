@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
-import type { InclusionItem } from '@/api/types/admin';
+import type { InclusionItem, TierRateSheetSelection, TierResolvedRateSheetSelection } from '@/api/types/admin';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { statusDotClass } from '@/components/admin/utils/moduleStatus';
 import { TRAVEL_PILL } from '@/components/admin/schema/presentation';
@@ -95,7 +95,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // saved independently via saveTierX. Only one is active at a time (the open section).
   // The inline "+ Create new" pool affordance lives inside the pool editors (S3a).
   const [overviewDraft, setOverviewDraft] = useState<TierOverviewEditDraft | null>(null);
-  const [featuresDraft, setFeaturesDraft] = useState<InclusionItem[] | null>(null);
+  const [featuresDraft, setFeaturesDraft] = useState<TierRateSheetSelection[] | null>(null);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk,  setSaveOk]  = useState(false);
@@ -173,6 +173,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     if (section === 'tier-overview') {
       setOverviewDraft({
         label:         d.label,
+        ideal_for:     d.ideal_for,
         price:         d.price,
         contact:       d.contact,
         billing_cycle: d.billing_cycle ?? 'monthly',
@@ -180,7 +181,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         popular_label: pkg.popularTier === editingTierId ? pkg.popularLabel : '',
       });
     } else if (section === 'tier-inclusions') {
-      setFeaturesDraft([...d.inclusions_override]);
+      setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));
     } else {
       setFaqsDraft([...d.faq_refs]);
     }
@@ -205,8 +206,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
       if (editingSection === 'tier-overview' && overviewDraft) {
         const r = await pkg.saveTierOverview(editingTierId, {
           label:         overviewDraft.label,
-          price:         overviewDraft.price,
-          contact:       overviewDraft.contact,
+          ideal_for:     overviewDraft.ideal_for,
+          price:         null,
+          contact:       false,
           billing_cycle: overviewDraft.billing_cycle,
         });
         ok = !!r?.success;
@@ -754,6 +756,21 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const view = pkg.tierView(editingTierId);
   if (!view) return null;
   const detail    = view.detail;
+  const relationshipLabels = new Map(svc.package_relationships.map((item) => [item.item_id,
+    item.decorated_label ?? (item.resolved && 'label' in item.resolved ? item.resolved.label : item.resolved && 'question' in item.resolved ? item.resolved.question : '(missing source)')]));
+  const rateSheetCatalogue: TierResolvedRateSheetSelection[] = (svc.rate_sheet?.items ?? []).map((item) => ({
+    item_id: item.item_id,
+    quantity: 1,
+    resolved: relationshipLabels.has(item.source_item_id),
+    label: relationshipLabels.get(item.source_item_id) ?? '(unresolved Rate Sheet item)',
+    unit_price: item.unit_price,
+    per: item.per,
+    group_id: item.group_id,
+    line_total: item.unit_price,
+  }));
+  for (const selected of detail.rate_sheet_selections) {
+    if (!rateSheetCatalogue.some((item) => item.item_id === selected.item_id)) rateSheetCatalogue.push(selected);
+  }
   const isPopular = pkg.popularTier === editingTierId;
   // Only the discard action busies out during a station write; Edit stays
   // available, matching the pre-S3a cards.
@@ -762,6 +779,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const tierOverviewBinding: ShellBinding<TierOverviewShellData> = {
     data: {
       label:        detail.label,
+      idealFor:     detail.ideal_for,
       tierName:     TIER_LABELS[editingTierId],
       contact:      detail.contact,
       price:        detail.price,
@@ -832,13 +850,13 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           binding={tierFeaturesBinding}
           editSession={{
             draft:    featuresDraft,
-            replace:  (next) => setFeaturesDraft(next as InclusionItem[]),
+            replace:  (next) => setFeaturesDraft(next as TierRateSheetSelection[]),
             onSave:   saveSection,
             onCancel: cancelSection,
             saving:   pkg.saving,
             saveErr,
             isDirty:  false,
-            extras:   { pool: incPool, onCreate: (label: string) => pkg.createInclusion(label) },
+            extras:   { pool: incPool, onCreate: (label: string) => pkg.createInclusion(label), rateSheetCatalogue },
           }}
         />
       </ModeProvider>

@@ -1205,6 +1205,9 @@ class AdminServicesController
         $rawFaqs    = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
 
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+        $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
+        $managerModel = $PMS::buildReadModel($serviceId, $PMS::sanitize($rawManager), $incPool, is_array($rawFaqs) ? $rawFaqs : [], (string) ($station['platform_status'] ?? 'disabled'));
         $tiers = [];
         foreach ($PS::ALLOWED_TIERS as $tierId) {
             // P3 additive read exposure: settled detail (unchanged 8 fields) plus the
@@ -1223,7 +1226,25 @@ class AdminServicesController
                 is_array($detail['inclusions_override'] ?? null) ? $detail['inclusions_override'] : []
             );
             if (is_array($detail['drafts']['features'] ?? null)) {
-                $detail['drafts']['features'] = PoolReferences::refreshInclusionLabels($incPool, $detail['drafts']['features']);
+                $detail['drafts']['features'] = $PS::sanitizeTierRateSheetSelections($detail['drafts']['features']);
+            }
+            $effectiveSelections = is_array($detail['drafts']['features'] ?? null)
+                ? $detail['drafts']['features']
+                : ($detail['rate_sheet_items'] ?? []);
+            $rateProjection = $PMS::projectTierRateSheet(
+                $serviceId, $rawManager, $effectiveSelections, $incPool,
+                is_array($rawFaqs) ? $rawFaqs : [], (string) ($station['platform_status'] ?? 'disabled')
+            );
+            $detail['rate_sheet_selections'] = $rateProjection['selections'];
+            $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections);
+            $detail['price'] = $rateProjection['price'];
+            $detail['contact'] = false;
+            $detail['inclusions_override'] = array_map(
+                fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'missing' => !$row['resolved']],
+                $rateProjection['selections']
+            );
+            if (is_array($detail['drafts']['overview'] ?? null)) {
+                $detail['drafts']['overview']['price'] = $rateProjection['price'];
             }
             $tiers[$tierId] = $detail;
         }
@@ -1254,6 +1275,8 @@ class AdminServicesController
                     is_array($rawFaqs) ? $rawFaqs : [],
                     fn($i) => is_array($i) && !empty($i['question'])
                 )),
+                'rate_sheet' => $managerModel['rate_sheet'],
+                'package_relationships' => $managerModel['items'],
             ],
         ]);
     }
@@ -1558,20 +1581,13 @@ class AdminServicesController
             }
             $draftValue = [
                 'label'         => sanitize_text_field((string) ($body['label'] ?? '')),
-                'price'         => $price,
+                'ideal_for'     => sanitize_textarea_field((string) ($body['ideal_for'] ?? '')),
+                'price'         => null,
                 'contact'       => $contact,
                 'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
             ];
         } elseif ($module === 'features') {
-            $draftValue = [];
-            if (is_array($body['inclusions_override'] ?? null)) {
-                foreach ($body['inclusions_override'] as $inc) {
-                    if (!is_array($inc)) { continue; }
-                    $id = sanitize_text_field((string) ($inc['id'] ?? ''));
-                    $lb = sanitize_text_field((string) ($inc['label'] ?? ''));
-                    if ($id !== '' && $lb !== '') { $draftValue[] = ['id' => $id, 'label' => $lb]; }
-                }
-            }
+            $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs
             $draftValue = [];
             if (is_array($body['faq_refs'] ?? null)) {

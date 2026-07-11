@@ -86,9 +86,20 @@ class PackageRepository
             // Phase 2: extract flat tier interface from occupant model for PricingBuilder.
             // Phase 1 flat format passes through unchanged; null slots (empty shells) are omitted.
             $flatTiers = [];
+            $rawInc = get_post_meta($serviceId, 'cz_service_inclusions', true) ?: [];
+            $incPool = is_array($rawInc['inclusions'] ?? null) ? $rawInc['inclusions'] : [];
+            $faqPool = get_post_meta($serviceId, 'cz_service_faqs', true) ?: [];
+            $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+            $manager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
             foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
                 $extracted = PackageSchema::extractTierForCostBuilder($station['tiers'][$tierId] ?? []);
                 if ($extracted !== null) {
+                    $projection = $PMS::projectTierRateSheet($serviceId, $manager, $extracted['rate_sheet_items'] ?? [], $incPool, is_array($faqPool) ? $faqPool : [], (string) ($station['platform_status'] ?? 'disabled'));
+                    $extracted['price'] = $projection['price'];
+                    $extracted['inclusions_override'] = array_map(
+                        fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
+                        array_values(array_filter($projection['selections'], fn(array $row): bool => $row['resolved']))
+                    );
                     $flatTiers[$tierId] = $extracted;
                 }
             }

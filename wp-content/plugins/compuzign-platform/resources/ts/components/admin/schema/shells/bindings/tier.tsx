@@ -7,7 +7,7 @@
 // state arrives at render time through ShellBinding, assembled by
 // ServiceTierStep from usePackageStation's evaluateModule results.
 
-import type { InclusionItem } from '@/api/types/admin';
+import type { InclusionItem, TierRateSheetSelection, TierResolvedRateSheetSelection } from '@/api/types/admin';
 import {
   tierOverviewModule,
   tierFeaturesModule,
@@ -38,6 +38,7 @@ const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 
 export interface TierOverviewShellData {
   label:        string;
+  idealFor:     string;
   tierName:     string;          // canonical tier name (Basic/Standard/…) — label fallback
   contact:      boolean;
   price:        number | null;
@@ -64,8 +65,12 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     {
       id: 'price', element: 'text', label: 'Price',
       bind: (d): TextValue => ({
-        value: d.contact ? 'Contact Us' : d.price != null ? `$${d.price}` : '—',
+        value: d.price != null ? `$${d.price}` : 'Not configured',
       }),
+    },
+    {
+      id: 'ideal-for', element: 'text', label: 'Ideal For',
+      bind: (d): TextValue => ({ value: d.idealFor || '—' }),
     },
     {
       id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
@@ -119,10 +124,11 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   editor: {
     render: (s) => (
       <PoolInclusionsEditor
-        draft={s.draft as InclusionItem[]}
+        draft={s.draft as InclusionItem[] | TierRateSheetSelection[]}
         onChange={(next) => s.replace(next)}
         pool={(s.extras?.pool ?? []) as InclusionItem[]}
         onCreate={s.extras?.onCreate as (label: string) => Promise<InclusionItem | null>}
+        rateSheetCatalogue={s.extras?.rateSheetCatalogue as TierResolvedRateSheetSelection[] | undefined}
       />
     ),
   },

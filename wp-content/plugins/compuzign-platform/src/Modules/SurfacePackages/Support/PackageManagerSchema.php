@@ -634,6 +634,57 @@ final class PackageManagerSchema
         ];
     }
 
+    /** Resolve Tier-owned Rate Sheet references without copying catalogue data. */
+    public static function projectTierRateSheet(
+        int $serviceId,
+        array $storedManager,
+        mixed $selections,
+        array $inclusionPool,
+        array $faqPool,
+        string $platformStatus
+    ): array {
+        $manager = self::sanitize($storedManager);
+        $model = self::buildReadModel($serviceId, $manager, $inclusionPool, $faqPool, $platformStatus);
+        $rateItems = [];
+        foreach ($manager['rate_sheet']['items'] ?? [] as $item) {
+            $rateItems[$item['item_id']] = $item;
+        }
+        $sources = [];
+        foreach ($model['items'] as $item) {
+            $sources[$item['item_id']] = $item;
+        }
+        $rows = [];
+        $total = 0.0;
+        foreach (is_array($selections) ? $selections : [] as $selection) {
+            if (!is_array($selection)) { continue; }
+            $itemId = sanitize_text_field((string) ($selection['item_id'] ?? ''));
+            if ($itemId === '') { continue; }
+            $quantity = max(1, (int) ($selection['quantity'] ?? 1));
+            $rateItem = $rateItems[$itemId] ?? null;
+            $source = $rateItem ? ($sources[$rateItem['source_item_id']] ?? null) : null;
+            $resolved = $rateItem !== null && $source !== null && empty($source['missing']);
+            $label = '(unresolved Rate Sheet item)';
+            if ($resolved) {
+                $label = $source['decorated_label']
+                    ?: (($source['source_type'] === 'faq')
+                        ? (string) ($source['resolved']['question'] ?? '')
+                        : (string) ($source['resolved']['label'] ?? ''));
+            }
+            $unitPrice = $resolved ? (float) $rateItem['unit_price'] : null;
+            $lineTotal = $unitPrice !== null ? $unitPrice * $quantity : null;
+            if ($lineTotal !== null) { $total += $lineTotal; }
+            $rows[] = [
+                'item_id' => $itemId, 'quantity' => $quantity, 'resolved' => $resolved,
+                'label' => $label, 'unit_price' => $unitPrice,
+                'per' => $resolved ? $rateItem['per'] : null,
+                'group_id' => $resolved ? $rateItem['group_id'] : null,
+                'line_total' => $lineTotal,
+            ];
+        }
+        $valid = array_values(array_filter($rows, fn(array $row): bool => $row['resolved']));
+        return ['selections' => $rows, 'price' => $valid === [] ? null : $total, 'valid_count' => count($valid)];
+    }
+
     // ── Consumer projections ─────────────────────────────────────────────────
 
     /**

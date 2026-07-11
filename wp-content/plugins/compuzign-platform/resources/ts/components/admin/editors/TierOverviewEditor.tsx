@@ -19,23 +19,10 @@ interface Props {
 export function TierOverviewEditor({ draft, onChange }: Props) {
   return (
     <div class="cz-tf-form">
-      {/* Contact toggle */}
-      <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-        <input type="checkbox" id="tier-contact" checked={draft.contact}
-          onChange={(e) => onChange({ contact: (e.target as HTMLInputElement).checked, price: null })} />
-        <label class="cz-tf-label" for="tier-contact" style="margin: 0">Contact Us (no fixed price)</label>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Price</label>
+        <input type="text" class="cz-tf-input" value={draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'} readOnly />
       </div>
-      {!draft.contact && (
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Price</label>
-          <input type="number" class="cz-tf-input" min="0" step="0.01"
-            value={draft.price ?? ''}
-            onInput={(e) => {
-              const v = (e.target as HTMLInputElement).value;
-              onChange({ price: v === '' ? null : parseFloat(v) });
-            }} />
-        </div>
-      )}
       <div class="cz-tf-field">
         <label class="cz-tf-label">Billing Cycle</label>
         <select class="cz-tf-select" value={draft.billing_cycle}
@@ -49,6 +36,11 @@ export function TierOverviewEditor({ draft, onChange }: Props) {
         <label class="cz-tf-label">Display Label (optional)</label>
         <input type="text" class="cz-tf-input" value={draft.label}
           onInput={(e) => onChange({ label: (e.target as HTMLInputElement).value })} />
+      </div>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Ideal For</label>
+        <textarea class="cz-tf-input" rows={3} value={draft.ideal_for}
+          onInput={(e) => onChange({ ideal_for: (e.target as HTMLTextAreaElement).value })} />
       </div>
       <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
         <input type="checkbox" id="tier-popular" checked={draft.popular}

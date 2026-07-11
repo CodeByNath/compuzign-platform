@@ -195,4 +195,18 @@ try {
 }
 assertSameValue(true, $rejectedUnknownOption, 'Rate Sheet rejects fabricated Package relationship identities');
 
+$tierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
+    ['item_id' => 'rate-1', 'quantity' => 2],
+], $expandedPool, $faqPool, 'active');
+assertSameValue(72.0, $tierProjection['price'], 'Tier price is Rate Sheet unit price multiplied by Tier quantity');
+assertSameValue(2, $tierProjection['selections'][0]['quantity'], 'Tier projection retains only the consuming quantity');
+assertSameValue('Decorated A', $tierProjection['selections'][0]['label'], 'Tier projection resolves the current Package relationship display label');
+$emptyTierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [], $expandedPool, $faqPool, 'active');
+assertSameValue(null, $emptyTierProjection['price'], 'Tier with no Rate Sheet selections has no legacy price fallback');
+$unresolvedTierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
+    ['item_id' => 'removed-rate-item', 'quantity' => 3],
+], $expandedPool, $faqPool, 'active');
+assertSameValue(false, $unresolvedTierProjection['selections'][0]['resolved'], 'removed Rate Sheet references remain visible as unresolved');
+assertSameValue(null, $unresolvedTierProjection['price'], 'unresolved references do not fabricate a Tier price');
+
 fwrite(STDOUT, "PackageManagerSchema contract tests passed.\n");

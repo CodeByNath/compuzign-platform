@@ -70,6 +70,8 @@ export interface BinnedOccupant {
   contact?:             boolean;
   billing_cycle?:       string | null;
   inclusions_override?: InclusionItem[];
+  rate_sheet_items?: TierRateSheetSelection[];
+  ideal_for?: string;
   features?:            string[];
   faq_refs?:            string[];
 }
@@ -103,6 +105,8 @@ export interface ServicePackageStationResponse {
     title:      string;
     inclusions: InclusionItem[];
     faqs:       FaqItem[];
+    rate_sheet: PackageRateSheet | null;
+    package_relationships: PackageManagerItem[];
   };
 }
 
@@ -473,10 +477,13 @@ export interface FaqItem {
 
 export interface SurfaceTierDetail {
   label: string;
+  ideal_for: string;
   price: number | null;
   contact: boolean;
   billing_cycle: string | null;
   inclusions_override: InclusionItem[];
+  rate_sheet_items: TierRateSheetSelection[];
+  rate_sheet_selections: TierResolvedRateSheetSelection[];
   features: string[];
   faq_refs: string[];
   enabled: boolean;
@@ -493,14 +500,29 @@ export interface SurfaceTierDetail {
 // and `faqs` hold references into the service pool (anchor/consumer model).
 export interface TierOverviewDraft {
   label: string;
+  ideal_for: string;
   price: number | null;
   contact: boolean;
   billing_cycle: string;
 }
 
+export interface TierRateSheetSelection {
+  item_id: string;
+  quantity: number;
+}
+
+export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
+  resolved: boolean;
+  label: string;
+  unit_price: number | null;
+  per: PackageRateSheetUnit | null;
+  group_id: string | null;
+  line_total: number | null;
+}
+
 export interface TierDrafts {
   overview: TierOverviewDraft | null;
-  features: InclusionItem[] | null;
+  features: TierRateSheetSelection[] | null;
   faqs:     string[] | null;
 }
 
@@ -508,7 +530,7 @@ export type TierModuleKey = 'overview' | 'features' | 'faqs';
 
 export type TierModuleSavePayload =
   | TierOverviewDraft
-  | { inclusions_override: InclusionItem[] }
+  | { rate_sheet_items: TierRateSheetSelection[] }
   | { faq_refs: string[] };
 
 // Response of the per-module save and settle endpoints. `tier` is the settled

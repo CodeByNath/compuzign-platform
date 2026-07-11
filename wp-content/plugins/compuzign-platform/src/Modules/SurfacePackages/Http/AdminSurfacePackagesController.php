@@ -157,7 +157,9 @@ class AdminSurfacePackagesController
 
             $tierSummary = [];
             foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-                $tierSummary[$tierId] = PackageSchema::summariseTierSlot($tierSource[$tierId] ?? []);
+                $tierSummary[$tierId] = $station && !empty($serviceRefs)
+                    ? $this->summariseStationTier($serviceRefs[0], $station, $tierId)
+                    : PackageSchema::summariseTierSlot($tierSource[$tierId] ?? []);
             }
 
             $rawPkgStatus    = $station ? ($station['platform_status'] ?? '') : ($pkg['platform_status'] ?? '');
@@ -862,7 +864,7 @@ class AdminSurfacePackagesController
 
         $tierSummary = [];
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-            $tierSummary[$tierId] = PackageSchema::summariseTierSlot($station['tiers'][$tierId] ?? []);
+            $tierSummary[$tierId] = $this->summariseStationTier($serviceId, $station, $tierId);
         }
 
         // Prefer the stored, derived station status (what the tier drawer renders);
@@ -891,6 +893,22 @@ class AdminSurfacePackagesController
             'valid_from'         => $station['valid_from'] ?? null,
             'valid_until'        => $station['valid_until'] ?? null,
         ];
+    }
+
+    private function summariseStationTier(int $serviceId, array $station, string $tierId): array
+    {
+        $summary = PackageSchema::summariseTierSlot($station['tiers'][$tierId] ?? []);
+        $detail = PackageSchema::normaliseTierSlot($station['tiers'][$tierId] ?? []);
+        $rawInc = get_post_meta($serviceId, 'cz_service_inclusions', true) ?: [];
+        $incPool = is_array($rawInc['inclusions'] ?? null) ? $rawInc['inclusions'] : [];
+        $faqPool = get_post_meta($serviceId, 'cz_service_faqs', true) ?: [];
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+        $manager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
+        $projection = $PMS::projectTierRateSheet($serviceId, $manager, $detail['rate_sheet_items'] ?? [], $incPool, is_array($faqPool) ? $faqPool : [], (string) ($station['platform_status'] ?? 'disabled'));
+        $summary['price'] = $projection['price'];
+        $summary['inclusion_count'] = $projection['valid_count'];
+        $summary['configured'] = $projection['price'] !== null;
+        return $summary;
     }
 
     /**

@@ -291,11 +291,7 @@ class PricingBuilder
             // Unconfigured tier slots (saveTier was never called) are also suppressed.
             // billing_cycle is always written by saveTier and null on default slots,
             // making it the primary configured indicator — same logic as summariseTiers().
-            $isConfigured = !empty($pkgTier['billing_cycle'])
-                || (array_key_exists('price', $pkgTier) && $pkgTier['price'] !== null)
-                || !empty($pkgTier['contact'])
-                || !empty($pkgTier['inclusions_override'])
-                || !empty($pkgTier['faq_refs']);
+            $isConfigured = array_key_exists('price', $pkgTier) && $pkgTier['price'] !== null;
 
             if (!$isConfigured) {
                 unset($payload['pricing']['tiers'][$tierId]);

@@ -242,6 +242,21 @@ class PackageSchema
         return sanitize_text_field((string) $label);
     }
 
+    public static function sanitizeTierRateSheetSelections(mixed $items): array
+    {
+        if (!is_array($items)) { return []; }
+        $out = [];
+        $seen = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) { continue; }
+            $id = sanitize_text_field((string) ($item['item_id'] ?? ''));
+            if ($id === '' || isset($seen[$id])) { continue; }
+            $seen[$id] = true;
+            $out[] = ['item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1))];
+        }
+        return $out;
+    }
+
     /**
      * FAQ IDs selected from the canonical cz_service_faqs pool.
      * Empty = all canonical FAQs apply (current PricingBuilder behaviour).
@@ -1027,10 +1042,12 @@ class PackageSchema
             }
             return [
                 'label'               => $occ['label'] ?? '',
+                'ideal_for'           => $occ['ideal_for'] ?? '',
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
                 'contact'             => (bool) ($occ['contact'] ?? false),
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
@@ -1043,10 +1060,12 @@ class PackageSchema
         }
         return [
             'label'               => $tier['label'] ?? '',
+            'ideal_for'           => $tier['ideal_for'] ?? '',
             'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
             'contact'             => (bool) ($tier['contact'] ?? false),
             'billing_cycle'       => $tier['billing_cycle'] ?? null,
             'inclusions_override' => $tier['inclusions_override'] ?? [],
+            'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($tier['rate_sheet_items'] ?? []),
             'features'            => $tier['features'] ?? [],
             'faq_refs'            => $tier['faq_refs'] ?? [],
             'enabled'             => isset($tier['enabled']) ? (bool) $tier['enabled'] : true,
@@ -1088,10 +1107,12 @@ class PackageSchema
             }
             return [
                 'label'               => $occ['label'] ?? '',
+                'ideal_for'           => $occ['ideal_for'] ?? '',
                 'price'               => $occ['price'] ?? null,
                 'contact'             => $occ['contact'] ?? false,
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
@@ -1127,10 +1148,12 @@ class PackageSchema
                 'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
                 'platform_status'     => $enabled ? 'active' : 'disabled',
                 'label'               => $data['label'] ?? '',
+                'ideal_for'           => $data['ideal_for'] ?? '',
                 'price'               => $data['price'] ?? null,
                 'contact'             => $data['contact'] ?? false,
                 'billing_cycle'       => $data['billing_cycle'] ?? null,
                 'inclusions_override' => $data['inclusions_override'] ?? [],
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($data['rate_sheet_items'] ?? []),
                 'features'            => $data['features'] ?? [],
                 'faq_refs'            => $data['faq_refs'] ?? [],
             ],
@@ -1166,8 +1189,8 @@ class PackageSchema
     private static function emptyTierDetail(): array
     {
         return [
-            'label' => '', 'price' => null, 'contact' => false,
-            'billing_cycle' => null, 'inclusions_override' => [],
+            'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
+            'billing_cycle' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false,
         ];
     }
@@ -1593,10 +1616,12 @@ class PackageSchema
 
         $tierData = [
             'label'               => $ov['label']         ?? ($occ['label']         ?? ''),
-            'price'               => array_key_exists('price', $ov) ? $ov['price'] : ($occ['price'] ?? null),
+            'ideal_for'           => $ov['ideal_for']     ?? ($occ['ideal_for']     ?? ''),
+            'price'               => null,
             'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
             'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
-            'inclusions_override' => is_array($drafts['features'] ?? null) ? $drafts['features'] : ($occ['inclusions_override'] ?? []),
+            'inclusions_override' => [],
+            'rate_sheet_items'    => is_array($drafts['features'] ?? null) ? self::sanitizeTierRateSheetSelections($drafts['features']) : self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
             'features'            => $occ['features'] ?? [],
             'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
         ];

@@ -27,6 +27,7 @@ import type {
   OccupantBinEntry,
   TierModuleKey,
   InclusionItem,
+  TierRateSheetSelection,
   FaqItem,
 } from '@/api/types/admin';
 import { resolveTierStatus } from '@/components/admin/utils/moduleStatus';
@@ -73,6 +74,9 @@ type NormDetail = Omit<ServicePackageStationResponse, 'station'> & { station: No
 function normTier(t: SurfaceTierDetail): PackageStationTier {
   return {
     ...t,
+    ideal_for: t.ideal_for ?? '',
+    rate_sheet_items: t.rate_sheet_items ?? [],
+    rate_sheet_selections: t.rate_sheet_selections ?? [],
     drafts:        t.drafts        ?? { ...EMPTY_DRAFTS },
     module_status: t.module_status ?? { ...NOT_CONFIGURED },
   };
@@ -92,10 +96,11 @@ function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
   return {
     ...slot,
     label:               ov ? ov.label         : slot.label,
+    ideal_for:           ov ? ov.ideal_for     : slot.ideal_for,
     price:               ov ? ov.price         : slot.price,
     contact:             ov ? ov.contact       : slot.contact,
     billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
-    inclusions_override: slot.drafts.features ?? slot.inclusions_override,
+    rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
   };
 }
@@ -128,7 +133,7 @@ export interface PackageStation {
   tierView:       (tierId: string) => PackageStationTierView | null;
   // Per-module persist-through saves (draft) — patch the source in place.
   saveTierOverview: (tierId: string, draft: TierOverviewDraft) => Promise<TierLifecycleResponse | null>;
-  saveTierFeatures: (tierId: string, refs: InclusionItem[])    => Promise<TierLifecycleResponse | null>;
+  saveTierFeatures: (tierId: string, refs: TierRateSheetSelection[]) => Promise<TierLifecycleResponse | null>;
   saveTierFaqs:     (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
   // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
   revertTierModule: (tierId: string, module: TierModuleKey) => Promise<TierLifecycleResponse | null>;
@@ -178,6 +183,30 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     if (!slot) return null;
 
     const dp = draftPreferredDetail(slot);
+    const rateSheet = detail?.service.rate_sheet;
+    const sourceById = new Map((detail?.service.package_relationships ?? []).map((item) => [item.item_id, item]));
+    const rateById = new Map((rateSheet?.items ?? []).map((item) => [item.item_id, item]));
+    const resolvedSelections = dp.rate_sheet_items.map((selection) => {
+      const rateItem = rateById.get(selection.item_id);
+      const source = rateItem ? sourceById.get(rateItem.source_item_id) : undefined;
+      const resolved = !!rateItem && !!source && !source.missing;
+      const label = resolved && source
+        ? source.decorated_label ?? (source.resolved && 'label' in source.resolved ? source.resolved.label : source.resolved && 'question' in source.resolved ? source.resolved.question : '(missing source)')
+        : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
+      return {
+        ...selection, resolved, label,
+        unit_price: resolved && rateItem ? rateItem.unit_price : null,
+        per: resolved && rateItem ? rateItem.per : null,
+        group_id: resolved && rateItem ? rateItem.group_id : null,
+        line_total: resolved && rateItem ? rateItem.unit_price * selection.quantity : null,
+      };
+    });
+    dp.rate_sheet_selections = resolvedSelections;
+    dp.price = resolvedSelections.some((item) => item.resolved)
+      ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
+      : null;
+    dp.contact = false;
+    dp.inclusions_override = resolvedSelections.map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
     const tierLike: TierLike = {
       enabled:       dp.enabled,
       price:         dp.price,
@@ -195,7 +224,7 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
         overview: evaluateModule(tierOverviewModule, tierLike, { platformStatus }),
         features: evaluateModule(
           tierFeaturesModule,
-          { count: dp.inclusions_override.length },
+          { count: dp.rate_sheet_items.length },
           { platformStatus, parentReady: overviewComplete, parentLabel: 'Tier Overview' },
         ),
         faqs: evaluateModule(
@@ -228,10 +257,10 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, onRefresh, patchModule]);
 
-  const saveTierFeatures = useCallback(async (tierId: string, refs: InclusionItem[]) => {
+  const saveTierFeatures = useCallback(async (tierId: string, refs: TierRateSheetSelection[]) => {
     setSaving(true);
     try {
-      const res = await saveServicePackageStationTierModule(serviceId, tierId, 'features', { inclusions_override: refs });
+      const res = await saveServicePackageStationTierModule(serviceId, tierId, 'features', { rate_sheet_items: refs });
       if (res.success) { patchModule(tierId, 'features', res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }

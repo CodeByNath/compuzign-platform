@@ -237,7 +237,7 @@ export async function projectPackageReadModelForTier(
   tier: SurfaceTierDetail,
   tierSubjects: PackageRelationReadModel['tierSubjects'],
 ): Promise<PackageRelationReadModel> {
-  const tierInclusions = tier.drafts?.features ?? tier.inclusions_override;
+  const tierInclusions = tier.inclusions_override;
   const tierFaqRefs = tier.drafts?.faqs ?? tier.faq_refs;
   const inheritedInclusionIds = readModel.projections.inclusions.map((item) => item.id);
   const inclusionIds = new Set(
@@ -467,7 +467,7 @@ export const packageRelationProvider: WritableRelationProvider<
         price: overview?.price ?? tier.price,
         contact: overview?.contact ?? tier.contact,
         billing_cycle: overview?.billing_cycle ?? tier.billing_cycle,
-        inclusions_override: tier.drafts?.features ?? tier.inclusions_override,
+        inclusions_override: tier.inclusions_override,
         faq_refs: tier.drafts?.faqs ?? tier.faq_refs,
       };
       const tierLike = {
