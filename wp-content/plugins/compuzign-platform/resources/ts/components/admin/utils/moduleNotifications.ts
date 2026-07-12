@@ -304,35 +304,6 @@ export const promotionOverviewModule: ModuleDefinition<PromotionOverviewLike | u
   },
 };
 
-export const promotionFeaturesModule: ModuleDefinition<{ count: number }> = {
-  key:            'promotion-features',
-  requiresParent: true,
-  emptyPrompt:    'Edit and add included features.',
-  isEmpty:        ({ count }) => count === 0,
-  problems:       () => [],
-  resolveStatus:  ({ count }, ctx) => {
-    if (count === 0) return 'pending-dim';
-    // Follow the instance's travel state so a disabled promotion reads Disabled
-    // across all its modules, not just the overview (same fix as the overview
-    // resolver — the module pill agrees with the drawer's Enable footer action).
-    if (ctx.platformStatus === 'disabled') return 'disabled';
-    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
-  },
-};
-
-export const promotionFaqsModule: ModuleDefinition<{ count: number }> = {
-  key:            'promotion-faqs',
-  requiresParent: true,
-  emptyPrompt:    'Edit and add questions.',
-  isEmpty:        ({ count }) => count === 0,
-  problems:       () => [],
-  resolveStatus:  ({ count }, ctx) => {
-    if (count === 0) return 'pending-dim';
-    if (ctx.platformStatus === 'disabled') return 'disabled';
-    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
-  },
-};
-
 // ── Category modules (S6) ─────────────────────────────────────────────────────
 // Category Overview — the category's single owned module. Data is the
 // draft-preferred projection (name + description; slug is immutable, D5, and
