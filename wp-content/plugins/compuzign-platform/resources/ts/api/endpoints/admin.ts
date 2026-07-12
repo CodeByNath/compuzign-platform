@@ -243,9 +243,11 @@ export function permanentDeleteCategoryGroup(groupId: number): Promise<CategoryG
 
 
 
-// Phase 4 — service-level Promotion Station management.
+// Promotions — child collection of the independent Package Station. The
+// serviceId in these URLs is navigation context only; storage is always the
+// single cz_package_station authority.
 export function fetchServicePromotionStation(serviceId: number): Promise<ServicePromotionStationResponse> {
-  return apiClient.get<ServicePromotionStationResponse>(`admin/services/${serviceId}/promotion-station`);
+  return apiClient.get<ServicePromotionStationResponse>(`admin/services/${serviceId}/package-station/promotions`);
 }
 
 export function createServicePromotion(
@@ -253,7 +255,7 @@ export function createServicePromotion(
   payload:   PromotionTierPayload,
 ): Promise<ServicePromotionSaveResponse> {
   return apiClient.post<ServicePromotionSaveResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions`,
+    `admin/services/${serviceId}/package-station/promotions`,
     payload,
   );
 }
@@ -263,7 +265,7 @@ export function archiveServicePromotion(
   promoId:   string,
 ): Promise<{ success: boolean; promo_id: string; status: string }> {
   return apiClient.post(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/archive`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/archive`,
   );
 }
 
@@ -278,7 +280,7 @@ export function saveServicePromotionModule(
   payload:   PromotionOverviewDraft | { inclusions: InclusionItem[] } | { faq_refs: string[] },
 ): Promise<PromotionLifecycleResponse> {
   return apiClient.post<PromotionLifecycleResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/modules/${module}`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/modules/${module}`,
     payload,
   );
 }
@@ -290,7 +292,7 @@ export function settleServicePromotion(
   promoId:   string,
 ): Promise<PromotionLifecycleResponse> {
   return apiClient.post<PromotionLifecycleResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/settle`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/settle`,
     {},
   );
 }
@@ -303,7 +305,7 @@ export function revertServicePromotionModule(
   module:    PromotionModuleKey,
 ): Promise<PromotionLifecycleResponse> {
   return apiClient.post<PromotionLifecycleResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/modules/${module}/revert`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/modules/${module}/revert`,
     {},
   );
 }
@@ -315,7 +317,7 @@ export function publishServicePromotion(
   promoId:   string,
 ): Promise<PromotionTransitionResponse> {
   return apiClient.post<PromotionTransitionResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/publish`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/publish`,
   );
 }
 
@@ -324,7 +326,7 @@ export function toggleServicePromotion(
   promoId:   string,
 ): Promise<PromotionTransitionResponse> {
   return apiClient.post<PromotionTransitionResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/toggle`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/toggle`,
   );
 }
 
@@ -333,7 +335,7 @@ export function trashServicePromotion(
   promoId:   string,
 ): Promise<PromotionTransitionResponse> {
   return apiClient.post<PromotionTransitionResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/trash`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/trash`,
   );
 }
 
@@ -342,7 +344,7 @@ export function restoreServicePromotion(
   promoId:   string,
 ): Promise<PromotionTransitionResponse> {
   return apiClient.post<PromotionTransitionResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}/restore`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}/restore`,
   );
 }
 
@@ -353,7 +355,7 @@ export function permanentDeleteServicePromotion(
   promoId:   string,
 ): Promise<PromotionDeleteResponse> {
   return apiClient.delete<PromotionDeleteResponse>(
-    `admin/services/${serviceId}/promotion-station/promotions/${promoId}`,
+    `admin/services/${serviceId}/package-station/promotions/${promoId}`,
   );
 }
 

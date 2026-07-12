@@ -17,8 +17,7 @@ class AdminServicesController
     private const META_FAQS         = 'cz_service_faqs';
     private const DRAFT_OVERVIEW    = 'cz_service_overview_draft';
     private const DRAFT_INCLUSIONS  = 'cz_service_inclusions_draft';
-    private const DRAFT_FAQS            = 'cz_service_faqs_draft';
-    private const META_PROMOTION_STATION = 'cz_service_promotion_station';
+    private const DRAFT_FAQS        = 'cz_service_faqs_draft';
 
     private ?PackageRepository $packageRepository = null;
 
@@ -365,22 +364,24 @@ class AdminServicesController
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
 
-        // ── Promotion Station management (Phase 4 — service-owned paths) ──────
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station', [
+        // ── Promotions (child collection of the independent Package Station) ──
+        // {id} is navigation context only — it never owns or selects storage.
+        // Every read/write goes through PackageRepository (cz_package_station).
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getPromotionStation'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions', [
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions', [
             'methods'             => 'POST',
             'callback'            => [$this, 'createServicePromotion'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/archive', [
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/archive', [
             'methods'             => 'POST',
             'callback'            => [$this, 'archiveServicePromotion'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -398,7 +399,7 @@ class AdminServicesController
         // Per-module draft save / settle / revert — the travelling-instance
         // counterparts of the tier module routes. Travel status is never written
         // here; the transition endpoints (C3) own status.
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)', [
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)', [
             'methods'             => 'POST',
             'callback'            => [$this, 'savePromotionModule'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -409,7 +410,7 @@ class AdminServicesController
             ],
         ]);
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/settle', [
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/settle', [
             'methods'             => 'POST',
             'callback'            => [$this, 'settlePromotion'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -419,7 +420,7 @@ class AdminServicesController
             ],
         ]);
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)/revert', [
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)/revert', [
             'methods'             => 'POST',
             'callback'            => [$this, 'revertPromotionModule'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -435,7 +436,7 @@ class AdminServicesController
         // through the engine on its existing route; the reactivate legacy alias
         // was retired at E2.
         foreach (['publish', 'toggle', 'trash', 'restore'] as $transition) {
-            register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)/' . $transition, [
+            register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/' . $transition, [
                 'methods'             => 'POST',
                 'callback'            => [$this, $transition . 'Promotion'],
                 'permission_callback' => [$this, 'requireAdmin'],
@@ -446,7 +447,7 @@ class AdminServicesController
             ]);
         }
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/promotion-station/promotions/(?P<promo>[a-z0-9_]+)', [
+        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)', [
             'methods'             => 'DELETE',
             'callback'            => [$this, 'permanentDeletePromotion'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -1990,7 +1991,9 @@ class AdminServicesController
         ]);
     }
 
-    // ── Promotion Station management (Phase 4 — service-owned paths) ──────────
+    // ── Promotions (child collection of the independent Package Station) ──────
+    // {id} in these handlers is navigation context only — storage is always the
+    // single Package Station authority (PackageRepository / cz_package_station).
 
     public function getPromotionStation(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -2001,7 +2004,7 @@ class AdminServicesController
         }
 
         $PS  = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $raw = $this->readPromotionStation($serviceId);
+        $raw = $this->packages()->loadPromotions();
         $instances = $PS::normalisePromotionInstances($raw);
 
         // C1 — lifecycle envelopes are ensured on the RAW instances (normalise
@@ -2013,9 +2016,10 @@ class AdminServicesController
             }
         }
 
-        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
-        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
-        $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
+        // Pools come from the Package Manager's source relationships, never from
+        // the navigation-context service's own postmeta.
+        $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
+        [$incPool, $faqPool] = $this->packages()->sourcePools($station);
 
         foreach ($instances as &$inst) {
             // B2 — pool refs resolve at read time: id authoritative, labels refreshed
@@ -2076,9 +2080,9 @@ class AdminServicesController
         $promoId  = $PS::generatePromotionTierId();
         $instance = $PS::buildPromotionInstance($promoId, $body);
 
-        $current   = $this->readPromotionStation($serviceId);
+        $current   = $this->packages()->loadPromotions();
         $current[] = $instance;
-        $this->writePromotionStationDirect($serviceId, $current);
+        $this->packages()->savePromotions($current);
 
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'promotion_tier' => $instance]);
     }
@@ -2128,7 +2132,7 @@ class AdminServicesController
         }
 
         $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $current = $this->readPromotionStation($serviceId);
+        $current = $this->packages()->loadPromotions();
         $index   = $this->findPromotionIndex($current, $promoId);
         if ($index === null) {
             return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
@@ -2140,7 +2144,7 @@ class AdminServicesController
         }
 
         array_splice($current, $index, 1);
-        $this->writePromotionStationDirect($serviceId, $current);
+        $this->packages()->savePromotions($current);
 
         return rest_ensure_response(['success' => true, 'promo_id' => $promoId, 'deleted' => true]);
     }
@@ -2162,7 +2166,7 @@ class AdminServicesController
         }
 
         $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $current = $this->readPromotionStation($serviceId);
+        $current = $this->packages()->loadPromotions();
         $index   = $this->findPromotionIndex($current, $promoId);
         if ($index === null) {
             return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
@@ -2196,7 +2200,7 @@ class AdminServicesController
         $instance['lifecycle']['previous_status']    = $change['previous_status'];
 
         $current[$index] = $instance;
-        $this->writePromotionStationDirect($serviceId, $current);
+        $this->packages()->savePromotions($current);
 
         $response = [
             'success'         => true,
@@ -2235,7 +2239,7 @@ class AdminServicesController
         }
 
         $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $current = $this->readPromotionStation($serviceId);
+        $current = $this->packages()->loadPromotions();
         $index   = $this->findPromotionIndex($current, $promoId);
         if ($index === null) {
             return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
@@ -2247,7 +2251,7 @@ class AdminServicesController
         }
 
         $current[$index] = $updated;
-        $this->writePromotionStationDirect($serviceId, $current);
+        $this->packages()->savePromotions($current);
 
         return rest_ensure_response($this->promotionLifecycleResponse($serviceId, $updated, $module));
     }
@@ -2268,7 +2272,7 @@ class AdminServicesController
         }
 
         $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $current = $this->readPromotionStation($serviceId);
+        $current = $this->packages()->loadPromotions();
         $index   = $this->findPromotionIndex($current, $promoId);
         if ($index === null) {
             return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
@@ -2277,7 +2281,7 @@ class AdminServicesController
         $settled = $PS::settlePromotionInstance($current[$index]);
         if ($settled !== $current[$index]) {
             $current[$index] = $settled;
-            $this->writePromotionStationDirect($serviceId, $current);
+            $this->packages()->savePromotions($current);
         }
 
         return rest_ensure_response($this->promotionLifecycleResponse($serviceId, $settled));
@@ -2299,7 +2303,7 @@ class AdminServicesController
         }
 
         $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $current = $this->readPromotionStation($serviceId);
+        $current = $this->packages()->loadPromotions();
         $index   = $this->findPromotionIndex($current, $promoId);
         if ($index === null) {
             return rest_ensure_response(['success' => false, 'message' => 'Promotion not found.']);
@@ -2311,7 +2315,7 @@ class AdminServicesController
         }
 
         $current[$index] = $updated;
-        $this->writePromotionStationDirect($serviceId, $current);
+        $this->packages()->savePromotions($current);
 
         return rest_ensure_response($this->promotionLifecycleResponse($serviceId, $updated, $module));
     }
@@ -2340,8 +2344,9 @@ class AdminServicesController
         $PS      = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $ensured = $PS::ensurePromotionLifecycle($instance);
 
-        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
-        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
+        // Pool refs resolve against the Package Manager source pools.
+        $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
+        [$incPool] = $this->packages()->sourcePools($station);
 
         // Pending feature drafts hold pool refs too — same read-time refresh as
         // the settled fields (parity with the tier drafts.features path).
@@ -2369,51 +2374,6 @@ class AdminServicesController
             $response['module'] = $module;
         }
         return $response;
-    }
-
-    /**
-     * Reads current promotion instances, bridging to the legacy cz_package post when
-     * this service's promotion station has not been Phase 4-migrated yet, so
-     * create/save/archive/reactivate never stamp migrated=>true over an empty
-     * station while promotions still exist only on the source package.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function readPromotionStation(int $serviceId): array
-    {
-        $promoStation = get_post_meta($serviceId, self::META_PROMOTION_STATION, true);
-        if (is_array($promoStation) && !empty($promoStation['migrated'])) {
-            return $promoStation['instances'] ?? [];
-        }
-        return \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normalisePromotionInstances(
-            $this->legacyPromotionInstances($serviceId)
-        );
-    }
-
-    /**
-     * Legacy bridge — remove when Phase 4 promotion migration is confirmed complete.
-     * Follows the Package Station's migration_source_id to the source cz_package
-     * post and reads its promotion_tiers.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function legacyPromotionInstances(int $serviceId): array
-    {
-        $station  = $this->packages()->loadStation();
-        $sourceId = is_array($station) ? (int) ($station['migration_source_id'] ?? 0) : 0;
-        if ($sourceId <= 0) {
-            return [];
-        }
-        $pkg = get_post_meta($sourceId, 'cz_package', true);
-        return is_array($pkg) ? ($pkg['promotion_tiers'] ?? []) : [];
-    }
-
-    private function writePromotionStationDirect(int $serviceId, array $instances): void
-    {
-        update_post_meta($serviceId, self::META_PROMOTION_STATION, [
-            'instances' => array_values($instances),
-            'migrated'  => true,
-        ]);
     }
 
     // ── Service inclusion/FAQ pool helpers (used by tier save) ────────────────
@@ -2615,7 +2575,7 @@ class AdminServicesController
         }
 
         $station   = $this->packages()->loadStation() ?? [];
-        $instances = $this->readPromotionStation($serviceId);
+        $instances = $this->packages()->loadPromotions();
 
         $refs = $module === 'inclusions'
             ? PoolReferences::collectInclusionRefs($station, $instances)

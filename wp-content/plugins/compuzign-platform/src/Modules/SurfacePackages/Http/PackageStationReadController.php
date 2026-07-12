@@ -68,14 +68,8 @@ class PackageStationReadController
             $tiers[$tierId] = $summary;
         }
 
-        // Promotion Station is still Service-hosted (outside this migration).
-        $promotionTiers = [];
-        if ($hostId > 0) {
-            $promoStation = get_post_meta($hostId, 'cz_service_promotion_station', true);
-            if (is_array($promoStation) && !empty($promoStation['migrated'])) {
-                $promotionTiers = is_array($promoStation['instances'] ?? null) ? $promoStation['instances'] : [];
-            }
-        }
+        // Promotions are a child collection of the station itself.
+        $promotionTiers = $this->repository->loadPromotions();
 
         $services = [];
         foreach ($serviceRefs as $serviceId) {

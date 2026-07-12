@@ -8,8 +8,8 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 /**
  * Single authority for Package Station storage.
  *
- * The station (package_manager, rate sheet, tiers, occupant bin, status)
- * lives in one WP option — COMPUZIGN option `cz_package_station` — fully
+ * The station (package_manager, rate sheet, tiers, promotions, occupant bin,
+ * status) lives in one WP option — COMPUZIGN option `cz_package_station` — fully
  * independent of any cz_service post. Deleting or disconnecting a Service
  * can no longer destroy commercial data; missing sources degrade to the
  * source_missing operational state at read time.
@@ -24,8 +24,9 @@ class PackageRepository
 {
     public const OPTION_KEY = 'cz_package_station';
 
-    private const LEGACY_STATION_META = 'cz_service_package_station';
-    private const SERVICE_POST_TYPE   = 'cz_service';
+    private const LEGACY_STATION_META   = 'cz_service_package_station';
+    private const LEGACY_PROMOTION_META = 'cz_service_promotion_station';
+    private const SERVICE_POST_TYPE     = 'cz_service';
 
     /** Request-scope cache: false = not loaded, null = no station exists. */
     private array|null|false $stationCache = false;
@@ -44,13 +45,79 @@ class PackageRepository
 
         $station = get_option(self::OPTION_KEY, null);
         if (is_array($station) && !empty($station)) {
-            return $this->stationCache = $station;
+            return $this->stationCache = $this->ensurePromotions($station);
         }
 
         // One-time cutover migration from the legacy Service-hosted meta.
         $station = $this->migrateFromLegacyServiceMeta();
+        if ($station !== null) {
+            $station = $this->ensurePromotions($station);
+        }
 
         return $this->stationCache = $station;
+    }
+
+    // ── Promotions (child collection of the independent station) ──────────────
+
+    /**
+     * Raw promotion instances stored on the station. The station is the only
+     * authority — no Service postmeta is read.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function loadPromotions(): array
+    {
+        $station = $this->loadStation();
+        return is_array($station['promotions'] ?? null) ? $station['promotions'] : [];
+    }
+
+    /** Persist the promotion collection atomically inside the station. */
+    public function savePromotions(array $instances): void
+    {
+        $station = $this->loadStation() ?? $this->defaultStation();
+        $station['promotions'] = array_values($instances);
+        $this->saveStation($station);
+    }
+
+    /**
+     * Cutover bridge — promotions used to live on Service postmeta
+     * (cz_service_promotion_station). The first load after cutover copies the
+     * richest migrated Service-hosted collection into the station, once. The
+     * legacy meta is left in place untouched (read-only safety net); nothing
+     * reads it after this runs.
+     */
+    private function ensurePromotions(array $station): array
+    {
+        if (array_key_exists('promotions', $station)) {
+            return $station;
+        }
+
+        $serviceIds = get_posts([
+            'post_type'              => self::SERVICE_POST_TYPE,
+            'post_status'            => 'any',
+            'numberposts'            => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        ]);
+
+        $best = [];
+        foreach (is_array($serviceIds) ? $serviceIds : [] as $serviceId) {
+            $promoStation = get_post_meta((int) $serviceId, self::LEGACY_PROMOTION_META, true);
+            if (!is_array($promoStation) || empty($promoStation['migrated'])) {
+                continue;
+            }
+            $instances = is_array($promoStation['instances'] ?? null) ? $promoStation['instances'] : [];
+            if (count($instances) > count($best)) {
+                $best = $instances;
+            }
+        }
+
+        $station['promotions'] = array_values($best);
+        update_option(self::OPTION_KEY, $station, false);
+
+        return $station;
     }
 
     /** Persist the station atomically to its independent anchor. */
@@ -71,6 +138,7 @@ class PackageRepository
             'sort_position'           => 0,
             'bundle'                  => ['title' => '', 'description' => '', 'price' => null],
             'occupant_bin'            => [],
+            'promotions'              => [],
             'package_manager'         => PackageManagerSchema::defaultManager(),
             'legacy_host_service_id'  => 0,
         ];
@@ -281,15 +349,11 @@ class PackageRepository
         }
         $station['tiers'] = $flatTiers;
 
-        // Promotion Station is still Service-hosted (out of this migration's
-        // scope) — read instances from the legacy host until it moves.
-        $station['promotion_tiers'] = [];
-        if ($hostId > 0) {
-            $promoStation = get_post_meta($hostId, 'cz_service_promotion_station', true);
-            if (is_array($promoStation) && !empty($promoStation['migrated'])) {
-                $station['promotion_tiers'] = $promoStation['instances'] ?? [];
-            }
-        }
+        // Promotions live on the station itself — Cost Builder reads them
+        // straight from the Package Station, never from Service postmeta.
+        $station['promotion_tiers'] = is_array($station['promotions'] ?? null)
+            ? $station['promotions']
+            : [];
 
         $map = [];
         foreach ($coveredServiceIds as $coveredServiceId) {

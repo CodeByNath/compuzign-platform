@@ -114,7 +114,7 @@ final class PoolReferences
      * including their lifecycle drafts (additive, absent pre-C1).
      *
      * @param array<string, mixed> $packageStation     cz_service_package_station
-     * @param array<int, mixed>    $promotionInstances cz_service_promotion_station instances
+     * @param array<int, mixed>    $promotionInstances Package Station promotion instances
      * @return array<string, string[]> pool id → holder labels (e.g. 'tier:premium', 'promo:promo_ab12:draft')
      */
     public static function collectInclusionRefs(array $packageStation, array $promotionInstances): array
@@ -179,7 +179,7 @@ final class PoolReferences
      * Same holder span and label scheme as collectInclusionRefs.
      *
      * @param array<string, mixed> $packageStation     cz_service_package_station
-     * @param array<int, mixed>    $promotionInstances cz_service_promotion_station instances
+     * @param array<int, mixed>    $promotionInstances Package Station promotion instances
      * @return array<string, string[]> pool id → holder labels
      */
     public static function collectFaqRefs(array $packageStation, array $promotionInstances): array

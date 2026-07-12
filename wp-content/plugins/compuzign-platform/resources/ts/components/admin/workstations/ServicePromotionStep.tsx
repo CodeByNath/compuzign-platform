@@ -41,7 +41,8 @@ import type { ShellBinding } from '@/components/admin/schema/types';
 import { serviceConnectionBinding, TIER_LABELS } from './serviceDrawerShared';
 
 // ── ServicePromotionStep ──────────────────────────────────────────────────────
-// Service Station-owned promotion management (cz_service_promotion_station),
+// Promotion management on the independent Package Station (cz_package_station
+// promotions collection; the service here is navigation context only),
 // cut over to the station lifecycle (engine C5): module edits persist as drafts
 // (per-module save), the footer Publish settles/activates, and travel state
 // moves exclusively through the engine transitions (publish / enable-disable /

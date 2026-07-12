@@ -378,9 +378,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
     });
 
-    // All promotion management routes exclusively through the Service Station-owned
-    // Promotion Station (cz_service_promotion_station). The legacy cz_surface_package
-    // promotion drawer path has been retired. The single header Back is context-aware:
+    // All promotion management routes exclusively through the independent
+    // Package Station (cz_package_station promotions collection). The legacy
+    // Service-owned and cz_surface_package promotion paths have been retired. The single header Back is context-aware:
     // while a promotion's detail view is open, ServicePromotionStep sets promoBack.current
     // to return to the promotion list; at the list it falls through to the parent Service
     // drawer (mirrors handleOpenTierConfig's tierBack).
