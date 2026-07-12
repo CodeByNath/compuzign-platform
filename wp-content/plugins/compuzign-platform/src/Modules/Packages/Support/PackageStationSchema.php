@@ -260,68 +260,6 @@ final class PackageStationSchema
         }
         return $issues;
     }
-
-    /**
-     * Pure, idempotent migration plan. Legacy Service ownership becomes source
-     * provenance only; it does not become ownership of the active Package.
-     *
-     * @return array{source_fingerprint:string,rate_sheet:?array,tiers:array,parity:array}
-     */
-    public static function planLegacyMigration(int $legacyServiceId, array $legacyRateSheet, array $legacyTiers): array
-    {
-        $rawItems = [];
-        foreach ($legacyRateSheet['items'] ?? [] as $item) {
-            if (!is_array($item)) { continue; }
-            $sourceType = self::text($item['source_type'] ?? 'inclusion');
-            $sourceId = self::text($item['source_id'] ?? $item['source_item_id'] ?? '');
-            $source = $sourceId === '' ? null : [
-                'provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => $legacyServiceId,
-                'item_type' => $sourceType, 'item_id' => $sourceId,
-            ];
-            $rawItems[] = [
-                'item_id' => self::text($item['item_id'] ?? ''), 'source' => $source,
-                'group_id' => $item['group_id'] ?? null, 'unit' => $item['unit'] ?? $item['per'] ?? '',
-                'unit_price' => $item['unit_price'] ?? 0,
-                'suggested_quantity' => $item['suggested_quantity'] ?? $item['quantity'] ?? 1,
-                'available' => $item['available'] ?? true, 'options' => $item['options'] ?? [],
-            ];
-        }
-        $rateSheet = self::sanitizeRateSheet([
-            'title' => $legacyRateSheet['title'] ?? '', 'groups' => $legacyRateSheet['groups'] ?? [], 'items' => $rawItems,
-        ]);
-        $tiers = [];
-        $parity = [];
-        foreach (self::FIXED_TIERS as $tierId) {
-            $legacy = is_array($legacyTiers[$tierId] ?? null) ? $legacyTiers[$tierId] : [];
-            $selections = self::sanitizeTierSelections($legacy['selections'] ?? $legacy['rate_sheet_items'] ?? []);
-            $tiers[$tierId] = ['selections' => $selections, 'enabled' => $legacy['enabled'] ?? true, 'contact' => $legacy['contact'] ?? false];
-            $derived = self::deriveTierTotal($rateSheet['items'] ?? [], $selections);
-            $legacyPrice = isset($legacy['price']) && $legacy['price'] !== '' ? (float) $legacy['price'] : null;
-            $parity[$tierId] = [
-                'derived' => $derived['total'], 'legacy' => $legacyPrice,
-                'matches' => $legacyPrice === null || $derived['total'] === null
-                    ? null
-                    : abs($derived['total'] - $legacyPrice) < 0.00001,
-                'unresolved' => $derived['unresolved'],
-            ];
-        }
-        return [
-            'source_fingerprint' => self::legacyFingerprint($legacyServiceId, $legacyRateSheet, $legacyTiers),
-            'rate_sheet' => $rateSheet, 'tiers' => $tiers, 'parity' => $parity,
-        ];
-    }
-
-    public static function legacyFingerprint(int $legacyServiceId, array $legacyRateSheet, array $legacyTiers): string
-    {
-        $canonical = self::canonicalize(['legacy_service_id' => $legacyServiceId, 'rate_sheet' => $legacyRateSheet, 'tiers' => $legacyTiers]);
-        return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    public static function migrationHasDelta(string $plannedFingerprint, int $legacyServiceId, array $legacyRateSheet, array $legacyTiers): bool
-    {
-        return !hash_equals($plannedFingerprint, self::legacyFingerprint($legacyServiceId, $legacyRateSheet, $legacyTiers));
-    }
-
     /**
      * Derive a Tier catalogue total while retaining unresolved selections.
      *
@@ -532,15 +470,6 @@ final class PackageStationSchema
             'projection' => $active ? ['tiers' => $tiers, 'popular_tier' => isset($tiers[$station['popular_tier'] ?? '']) ? $station['popular_tier'] : null] : null,
         ];
     }
-
-    private static function canonicalize(mixed $value): mixed
-    {
-        if (!is_array($value)) { return $value; }
-        if (!array_is_list($value)) { ksort($value); }
-        foreach ($value as $key => $item) { $value[$key] = self::canonicalize($item); }
-        return $value;
-    }
-
     private static function text(mixed $value): string
     {
         return trim(strip_tags((string) $value));

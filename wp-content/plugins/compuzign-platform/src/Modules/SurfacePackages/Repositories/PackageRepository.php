@@ -2,43 +2,90 @@
 
 namespace CompuZign\Platform\Modules\SurfacePackages\Repositories;
 
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 
 /**
- * Reads cz_surface_package posts and their cz_package meta.
+ * Single authority for Package Station storage.
  *
- * The primary method — findAllActiveIndexedByServiceId() — performs a single
- * bulk load of all published packages, filters by platform_status=active and
- * validity window, and builds an in-memory map keyed by covered service ID.
- * PricingBuilder holds this map for the duration of one buildResponse() call
- * and performs O(1) lookups per service during compilation.
+ * The station (package_manager, rate sheet, tiers, occupant bin, status)
+ * lives in one WP option — COMPUZIGN option `cz_package_station` — fully
+ * independent of any cz_service post. Deleting or disconnecting a Service
+ * can no longer destroy commercial data; missing sources degrade to the
+ * source_missing operational state at read time.
  *
- * Priority: when multiple active packages cover the same service ID, the package
- * with the highest post ID (most recently published) takes precedence.
+ * Cutover compatibility (temporary, in loadStation()): when the option is
+ * absent, the station is migrated once from the legacy Service-hosted
+ * cz_service_package_station post meta. The originating service ID is kept
+ * as legacy_host_service_id so stored item IDs (unprefixed for the old host,
+ * `service:{id}:` for other sources) remain stable.
  */
 class PackageRepository
 {
-    private const POST_TYPE          = 'cz_surface_package';
-    private const META_KEY           = 'cz_package';
-    private const PACKAGE_STATION_KEY = 'cz_service_package_station';
+    public const OPTION_KEY = 'cz_package_station';
+
+    private const LEGACY_STATION_META = 'cz_service_package_station';
+    private const SERVICE_POST_TYPE   = 'cz_service';
+
+    /** Request-scope cache: false = not loaded, null = no station exists. */
+    private array|null|false $stationCache = false;
+
+    // ── Storage authority ─────────────────────────────────────────────────────
 
     /**
-     * Load all active packages indexed by service ID.
-     *
-     * Phase 1+: reads from cz_service_package_station meta (new canonical location).
-     * Bridge: services not yet backfilled fall back to cz_surface_package posts.
-     *         Remove the bridge when POST /admin/migrate/phase-one is confirmed complete.
-     *
-     * promotion_tiers are bridged from the original cz_surface_package post (migration_source_id)
-     * until Phase 4 moves them to the Promotion Station.
-     *
-     * @return array<int, array<string, mixed>>  service_id => station/package meta array
+     * Load the station from its independent anchor. Returns null when no
+     * station exists anywhere (fresh install, nothing to migrate).
      */
-    public function findAllActiveIndexedByServiceId(): array
+    public function loadStation(): ?array
+    {
+        if ($this->stationCache !== false) {
+            return $this->stationCache;
+        }
+
+        $station = get_option(self::OPTION_KEY, null);
+        if (is_array($station) && !empty($station)) {
+            return $this->stationCache = $station;
+        }
+
+        // One-time cutover migration from the legacy Service-hosted meta.
+        $station = $this->migrateFromLegacyServiceMeta();
+
+        return $this->stationCache = $station;
+    }
+
+    /** Persist the station atomically to its independent anchor. */
+    public function saveStation(array $station): void
+    {
+        $this->stationCache = $station;
+        update_option(self::OPTION_KEY, $station, false);
+    }
+
+    /** Fresh station shell for first-time configuration. */
+    public function defaultStation(): array
+    {
+        return [
+            'platform_status'         => 'disabled',
+            'tiers'                   => [],
+            'popular_tier'            => null,
+            'popular_label'           => '',
+            'sort_position'           => 0,
+            'bundle'                  => ['title' => '', 'description' => '', 'price' => null],
+            'occupant_bin'            => [],
+            'package_manager'         => PackageManagerSchema::defaultManager(),
+            'legacy_host_service_id'  => 0,
+        ];
+    }
+
+    /**
+     * Cutover bridge — copies the richest legacy Service-hosted station into
+     * the option, once. The legacy meta is left in place untouched (read-only
+     * safety net); nothing reads it after this migration runs.
+     */
+    private function migrateFromLegacyServiceMeta(): ?array
     {
         $serviceIds = get_posts([
-            'post_type'              => 'cz_service',
-            'post_status'            => 'publish',
+            'post_type'              => self::SERVICE_POST_TYPE,
+            'post_status'            => 'any',
             'numberposts'            => -1,
             'fields'                 => 'ids',
             'no_found_rows'          => true,
@@ -46,360 +93,235 @@ class PackageRepository
             'update_post_term_cache' => false,
         ]);
 
-        if (empty($serviceIds)) {
+        $bestId      = 0;
+        $bestScore   = -1;
+        $bestStation = null;
+
+        foreach (is_array($serviceIds) ? $serviceIds : [] as $serviceId) {
+            $station = get_post_meta((int) $serviceId, self::LEGACY_STATION_META, true);
+            if (!is_array($station) || empty($station)) {
+                continue;
+            }
+            $manager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : [];
+            $score = count(is_array($manager['sources'] ?? null) ? $manager['sources'] : [])
+                + count(is_array($manager['items'] ?? null) ? $manager['items'] : [])
+                + count(is_array($station['tiers'] ?? null) ? $station['tiers'] : [])
+                + (!empty($manager['rate_sheet']) ? 1000 : 0);
+            if ($score > $bestScore) {
+                $bestScore   = $score;
+                $bestId      = (int) $serviceId;
+                $bestStation = $station;
+            }
+        }
+
+        if ($bestStation === null) {
+            return null;
+        }
+
+        $bestStation['legacy_host_service_id'] = $bestId;
+        update_option(self::OPTION_KEY, $bestStation, false);
+
+        return $bestStation;
+    }
+
+    // ── Supply resolution (single canonical implementation) ──────────────────
+
+    /**
+     * Resolve Service-provider supply into namespaced item pools.
+     * Item IDs stay unprefixed for the legacy host service and prefixed
+     * `service:{id}:` for every other source — the ID scheme stored rate
+     * sheets and tier selections were written against.
+     *
+     * @return array{0: array, 1: array} [$inclusions, $faqs]
+     */
+    public function sourcePools(array $station, ?array $sources = null): array
+    {
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+        $sources = $sources ?? $manager['sources'];
+        $hostId  = (int) ($station['legacy_host_service_id'] ?? 0);
+
+        // Legacy tolerance: a station configured before explicit source
+        // relationships supplies from its migrated host service.
+        if ($sources === [] && $hostId > 0) {
+            $sources = [['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => $hostId]];
+        }
+
+        $inclusions = [];
+        $faqs       = [];
+
+        foreach ($sources as $source) {
+            if (($source['provider_key'] ?? '') !== 'service' || ($source['entity_type'] ?? '') !== 'service') {
+                continue;
+            }
+            $sourceServiceId = (int) ($source['entity_id'] ?? 0);
+            $post = $sourceServiceId > 0 ? get_post($sourceServiceId) : null;
+            if (!$post instanceof \WP_Post || $post->post_type !== self::SERVICE_POST_TYPE) {
+                continue; // deleted source → its items degrade to source_missing downstream
+            }
+            $prefix = $sourceServiceId === $hostId ? '' : 'service:' . $sourceServiceId . ':';
+            $serviceMeta = get_post_meta($sourceServiceId, 'cz_service_meta', true);
+            $sourceAvailable = is_array($serviceMeta) && ($serviceMeta['platform_status'] ?? 'disabled') === 'active';
+            $rawInc = get_post_meta($sourceServiceId, 'cz_service_inclusions', true) ?: [];
+            foreach ((isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [] as $item) {
+                if (!is_array($item) || empty($item['id'])) {
+                    continue;
+                }
+                $inclusions[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
+            }
+            $rawFaqs = get_post_meta($sourceServiceId, 'cz_service_faqs', true) ?: [];
+            foreach (is_array($rawFaqs) ? $rawFaqs : [] as $item) {
+                if (!is_array($item) || empty($item['id'])) {
+                    continue;
+                }
+                $faqs[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
+            }
+        }
+
+        return [$inclusions, $faqs];
+    }
+
+    /**
+     * Service IDs covered by the station: every existing, published source
+     * service in the manager's relationships (the single indexing path).
+     *
+     * @return int[]
+     */
+    public function coveredServiceIds(array $station): array
+    {
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+
+        $sources = $manager['sources'];
+        $hostId  = (int) ($station['legacy_host_service_id'] ?? 0);
+        if ($sources === [] && $hostId > 0) {
+            // Same legacy tolerance as sourcePools(): pre-relationship stations
+            // cover their migrated host service.
+            $sources = [['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => $hostId]];
+        }
+
+        $covered = [];
+        foreach ($sources as $source) {
+            if (($source['provider_key'] ?? '') !== 'service' || ($source['entity_type'] ?? '') !== 'service') {
+                continue;
+            }
+            $serviceId = (int) ($source['entity_id'] ?? 0);
+            $post = $serviceId > 0 ? get_post($serviceId) : null;
+            if ($post instanceof \WP_Post && $post->post_type === self::SERVICE_POST_TYPE && $post->post_status === 'publish') {
+                $covered[$serviceId] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($covered));
+    }
+
+    // ── Cost Builder projection (single read path) ────────────────────────────
+
+    /**
+     * Load the active station indexed by covered service ID. This is the only
+     * mechanism by which packages reach the Cost Builder (and therefore the
+     * Quote Builder). Empty map = no active package → legacy XLSX pricing.
+     *
+     * @return array<int, array<string, mixed>>  service_id => station array
+     */
+    public function findAllActiveIndexedByServiceId(): array
+    {
+        $station = $this->loadStation();
+        if ($station === null) {
             return [];
         }
 
-        // valid_from/valid_until are stored UTC (PackageSchema::sanitizeDatetime
-        // normalises via gmdate), so the window compares against UTC now — E2 fix
-        // for the site-local comparison flagged at C6.
-        $now          = current_time('mysql', true);
-        $map          = [];
-        $unmigratedIds = [];
+        // Visible iff active; empty status keeps legacy tolerance. Fail-closed.
+        $pkgStatus = $station['platform_status'] ?? '';
+        if ($pkgStatus !== '' && $pkgStatus !== 'active') {
+            return [];
+        }
 
-        // Phase 1+: read Package Station from service meta.
-        foreach ($serviceIds as $serviceId) {
-            $serviceId = (int) $serviceId;
-            $ownerServiceId = (int) get_post_meta($serviceId, 'cz_package_manager_owner_service_id', true);
-            if ($ownerServiceId > 0 && $ownerServiceId !== $serviceId) {
-                continue; // source/navigation context; commercial station is loaded from its owner
-            }
-            $station   = get_post_meta($serviceId, self::PACKAGE_STATION_KEY, true);
+        // valid_from/valid_until are stored UTC.
+        $now = current_time('mysql', true);
+        if (!empty($station['valid_from']) && $station['valid_from'] > $now) {
+            return [];
+        }
+        if (!empty($station['valid_until']) && $station['valid_until'] < $now) {
+            return [];
+        }
 
-            if (!is_array($station) || empty($station)) {
-                $unmigratedIds[] = $serviceId;
-                continue;
-            }
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+        [$incPool, $faqPool] = $this->sourcePools($station);
+        $coveredServiceIds   = $this->coveredServiceIds($station);
+        $hostId              = (int) ($station['legacy_host_service_id'] ?? 0);
 
-            // Visible iff active. Empty status keeps the legacy tolerance (records
-            // predating platform_status read as active); any other value — known
-            // or not — is hidden. Fail-closed (E2): previously a status outside
-            // ALLOWED_PLATFORM_STATUSES slipped through as visible.
-            $pkgStatus = $station['platform_status'] ?? '';
-            if ($pkgStatus !== '' && $pkgStatus !== 'active') {
-                continue;
+        // Flat tier interface for PricingBuilder; null slots (empty shells) omitted.
+        $flatTiers = [];
+        foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+            $extracted = PackageSchema::extractTierForCostBuilder($station['tiers'][$tierId] ?? []);
+            if ($extracted !== null) {
+                $projection = PackageManagerSchema::projectTierRateSheet(
+                    $hostId,
+                    $manager,
+                    $extracted['rate_sheet_items'] ?? [],
+                    $incPool,
+                    $faqPool,
+                    (string) ($station['platform_status'] ?? 'disabled')
+                );
+                $extracted['price'] = $projection['price'];
+                $extracted['inclusions_override'] = array_map(
+                    fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
+                    array_values(array_filter(
+                        $projection['selections'],
+                        fn(array $row): bool => $row['resolved'] && ($row['source_type'] ?? null) === 'inclusion'
+                    ))
+                );
+                $flatTiers[$tierId] = $extracted;
             }
+        }
+        $station['tiers'] = $flatTiers;
 
-            if (!empty($station['valid_from']) && $station['valid_from'] > $now) {
-                continue;
-            }
-            if (!empty($station['valid_until']) && $station['valid_until'] < $now) {
-                continue;
-            }
-
-            // Phase 2: extract flat tier interface from occupant model for PricingBuilder.
-            // Phase 1 flat format passes through unchanged; null slots (empty shells) are omitted.
-            $flatTiers = [];
-            $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
-            $manager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
-            $manager = $PMS::sanitize($manager);
-            [$incPool, $faqPool, $coveredServiceIds] = $this->resolvePackageSourcePools($serviceId, $manager['sources']);
-            foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-                $extracted = PackageSchema::extractTierForCostBuilder($station['tiers'][$tierId] ?? []);
-                if ($extracted !== null) {
-                    $projection = $PMS::projectTierRateSheet($serviceId, $manager, $extracted['rate_sheet_items'] ?? [], $incPool, $faqPool, (string) ($station['platform_status'] ?? 'disabled'));
-                    $extracted['price'] = $projection['price'];
-                    $extracted['inclusions_override'] = array_map(
-                        fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
-                        array_values(array_filter($projection['selections'], fn(array $row): bool => $row['resolved'] && ($row['source_type'] ?? null) === 'inclusion'))
-                    );
-                    $flatTiers[$tierId] = $extracted;
-                }
-            }
-            $station['tiers'] = $flatTiers;
-
-            // Phase 4: read promotion instances from cz_service_promotion_station.
-            // Falls back to cz_surface_package bridge if Phase 4 migration has not run yet.
-            $promoStation = get_post_meta($serviceId, 'cz_service_promotion_station', true);
+        // Promotion Station is still Service-hosted (out of this migration's
+        // scope) — read instances from the legacy host until it moves.
+        $station['promotion_tiers'] = [];
+        if ($hostId > 0) {
+            $promoStation = get_post_meta($hostId, 'cz_service_promotion_station', true);
             if (is_array($promoStation) && !empty($promoStation['migrated'])) {
                 $station['promotion_tiers'] = $promoStation['instances'] ?? [];
-            } else {
-                // Phase 1 bridge — remove when Phase 4 migration is confirmed complete.
-                $sourceId = (int) ($station['migration_source_id'] ?? 0);
-                if ($sourceId > 0) {
-                    $pkg = get_post_meta($sourceId, self::META_KEY, true);
-                    $station['promotion_tiers'] = is_array($pkg) ? ($pkg['promotion_tiers'] ?? []) : [];
-                } else {
-                    $station['promotion_tiers'] = [];
-                }
-            }
-
-            foreach ($coveredServiceIds as $coveredServiceId) {
-                $map[$coveredServiceId] = $station;
             }
         }
 
-        // Bridge: legacy path for services not yet backfilled. Remove when backfill is complete.
-        if (!empty($unmigratedIds)) {
-            foreach ($this->findLegacyActiveForServices($unmigratedIds, $now) as $serviceId => $pkg) {
-                $map[$serviceId] = $pkg;
-            }
+        $map = [];
+        foreach ($coveredServiceIds as $coveredServiceId) {
+            $map[$coveredServiceId] = $station;
         }
 
         return $map;
     }
 
-    /** Resolve Package Manager supply without changing downstream package shape. */
-    private function resolvePackageSourcePools(int $hostServiceId, array $sources): array
-    {
-        if ($sources === []) {
-            $sources = [['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => $hostServiceId]];
-        }
-        $inclusions = [];
-        $faqs = [];
-        $covered = [];
-        foreach ($sources as $source) {
-            if (($source['provider_key'] ?? '') !== 'service' || ($source['entity_type'] ?? '') !== 'service') { continue; }
-            $serviceId = (int) ($source['entity_id'] ?? 0);
-            if ($serviceId < 1) { continue; }
-            $covered[$serviceId] = true;
-            $prefix = $serviceId === $hostServiceId ? '' : 'service:' . $serviceId . ':';
-            $rawInc = get_post_meta($serviceId, 'cz_service_inclusions', true) ?: [];
-            foreach (is_array($rawInc['inclusions'] ?? null) ? $rawInc['inclusions'] : [] as $item) {
-                if (is_array($item) && !empty($item['id'])) { $inclusions[] = [...$item, 'id' => $prefix . (string) $item['id']]; }
-            }
-            foreach (is_array(get_post_meta($serviceId, 'cz_service_faqs', true)) ? get_post_meta($serviceId, 'cz_service_faqs', true) : [] as $item) {
-                if (is_array($item) && !empty($item['id'])) { $faqs[] = [...$item, 'id' => $prefix . (string) $item['id']]; }
-            }
-        }
-        return [$inclusions, $faqs, array_map('intval', array_keys($covered))];
-    }
-
     /**
-     * Legacy bridge — reads active packages from cz_surface_package posts for un-migrated services.
-     * Remove when POST /admin/migrate/phase-one backfill is confirmed complete.
-     *
-     * @param  int[]  $serviceIds
-     * @return array<int, array<string, mixed>>
-     */
-    private function findLegacyActiveForServices(array $serviceIds, string $now): array
-    {
-        if (empty($serviceIds) || !post_type_exists(self::POST_TYPE)) {
-            return [];
-        }
-
-        $pkgIds = get_posts([
-            'post_type'              => self::POST_TYPE,
-            'post_status'            => 'publish',
-            'numberposts'            => -1,
-            'fields'                 => 'ids',
-            'orderby'                => 'ID',
-            'order'                  => 'DESC',
-            'no_found_rows'          => true,
-            'update_post_meta_cache' => false,
-            'update_post_term_cache' => false,
-        ]);
-
-        $serviceIdSet = array_flip($serviceIds);
-        $result       = [];
-
-        foreach ($pkgIds as $pkgId) {
-            $pkg = get_post_meta((int) $pkgId, self::META_KEY, true);
-            if (!is_array($pkg) || empty($pkg['service_refs'])) {
-                continue;
-            }
-
-            // Same fail-closed visibility rule as the station path (E2).
-            $pkgStatus = $pkg['platform_status'] ?? '';
-            if ($pkgStatus !== '' && $pkgStatus !== 'active') {
-                continue;
-            }
-            if (!empty($pkg['valid_from']) && $pkg['valid_from'] > $now) {
-                continue;
-            }
-            if (!empty($pkg['valid_until']) && $pkg['valid_until'] < $now) {
-                continue;
-            }
-
-            foreach ($pkg['service_refs'] as $serviceId) {
-                $serviceId = (int) $serviceId;
-                if ($serviceId > 0 && isset($serviceIdSet[$serviceId]) && !isset($result[$serviceId])) {
-                    $result[$serviceId] = $pkg;
-                }
-            }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Return all packages for admin listing.
-     * All normal (non-hard-deleted) packages have post_status = 'publish' after the
-     * platform_status migration; 'draft' is kept here during the transition window
-     * so old disabled-via-draft packages remain visible in the admin until migrated.
-     *
-     * @return \WP_Post[]
-     */
-    public function findAll(): array
-    {
-        return get_posts([
-            'post_type'              => self::POST_TYPE,
-            'post_status'            => ['publish', 'draft'],
-            'numberposts'            => -1,
-            'orderby'                => 'ID',
-            'order'                  => 'ASC',
-            'no_found_rows'          => true,
-            'update_post_term_cache' => false,
-        ]) ?: [];
-    }
-
-    /**
-     * Return all published packages regardless of validity window or platform_status.
-     * Used by health checks to inspect package integrity.
-     *
-     * @return \WP_Post[]
-     */
-    public function findAllActive(): array
-    {
-        $posts = get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'publish',
-            'numberposts'    => -1,
-            'no_found_rows'  => true,
-            'update_post_term_cache' => false,
-        ]) ?: [];
-
-        return array_values(array_filter($posts, function (\WP_Post $post): bool {
-            $pkg    = get_post_meta($post->ID, self::META_KEY, true);
-            $status = is_array($pkg) ? ($pkg['platform_status'] ?? '') : '';
-            // Legacy records without platform_status treated as active when
-            // post_status=publish; any other value is hidden (fail-closed, E2).
-            return $status === '' || $status === 'active';
-        }));
-    }
-
-    /**
-     * @deprecated Use findAllActive() for new code. Kept for backward compat during transition.
-     * @return \WP_Post[]
-     */
-    public function findAllPublished(): array
-    {
-        return $this->findAllActive();
-    }
-
-    /**
-     * Return the set of service IDs whose Package Station is disabled, keyed by service ID
-     * for O(1) lookup. Used by PricingBuilder to suppress legacy XLSX pricing fallback for
-     * services that have an intentionally disabled commercial configuration.
-     *
-     * Phase 1+: reads from cz_service_package_station meta.
-     * Bridge: services not yet backfilled fall back to cz_surface_package posts.
-     *         Remove the bridge when backfill is confirmed complete.
+     * Service IDs whose package coverage is intentionally disabled, keyed by
+     * service ID for O(1) lookup. PricingBuilder uses this to suppress the
+     * legacy XLSX pricing fallback for those services.
      *
      * @return array<int, true>  service_id => true
      */
     public function findDisabledPackageServiceIds(): array
     {
-        $serviceIds = get_posts([
-            'post_type'              => 'cz_service',
-            'post_status'            => 'publish',
-            'numberposts'            => -1,
-            'fields'                 => 'ids',
-            'no_found_rows'          => true,
-            'update_post_meta_cache' => false,
-            'update_post_term_cache' => false,
-        ]) ?: [];
-
-        $set           = [];
-        $unmigratedIds = [];
-
-        foreach ($serviceIds as $serviceId) {
-            $serviceId = (int) $serviceId;
-            $station   = get_post_meta($serviceId, self::PACKAGE_STATION_KEY, true);
-
-            if (!is_array($station) || empty($station)) {
-                $unmigratedIds[] = $serviceId;
-                continue;
-            }
-
-            if (($station['platform_status'] ?? '') === 'disabled') {
-                $set[$serviceId] = true;
-            }
-        }
-
-        // Bridge: legacy disabled packages for un-migrated services. Remove when backfill is complete.
-        if (!empty($unmigratedIds)) {
-            foreach ($this->findLegacyDisabledForServices($unmigratedIds) as $serviceId) {
-                $set[$serviceId] = true;
-            }
-        }
-
-        return $set;
-    }
-
-    /**
-     * Legacy bridge — reads disabled packages from cz_surface_package posts for un-migrated services.
-     * Remove when POST /admin/migrate/phase-one backfill is confirmed complete.
-     *
-     * @param  int[]   $serviceIds
-     * @return int[]
-     */
-    private function findLegacyDisabledForServices(array $serviceIds): array
-    {
-        if (empty($serviceIds) || !post_type_exists(self::POST_TYPE)) {
+        $station = $this->loadStation();
+        if ($station === null) {
             return [];
         }
 
-        $pkgIds = get_posts([
-            'post_type'              => self::POST_TYPE,
-            'post_status'            => ['publish', 'draft'],
-            'numberposts'            => -1,
-            'fields'                 => 'ids',
-            'no_found_rows'          => true,
-            'update_post_meta_cache' => false,
-            'update_post_term_cache' => false,
-        ]) ?: [];
-
-        $serviceIdSet = array_flip($serviceIds);
-        $result       = [];
-
-        foreach ($pkgIds as $pkgId) {
-            $pkg        = get_post_meta((int) $pkgId, self::META_KEY, true);
-            $postStatus = get_post_field('post_status', (int) $pkgId);
-            if (!is_array($pkg)) {
-                continue;
-            }
-
-            $status    = $pkg['platform_status'] ?? '';
-            $isDisabled = $status === 'disabled' || $postStatus === 'draft';
-            if (!$isDisabled) {
-                continue;
-            }
-
-            foreach ($pkg['service_refs'] ?? [] as $serviceId) {
-                $serviceId = (int) $serviceId;
-                if ($serviceId > 0 && isset($serviceIdSet[$serviceId])) {
-                    $result[] = $serviceId;
-                }
-            }
+        if (($station['platform_status'] ?? '') !== 'disabled') {
+            return [];
         }
 
-        return $result;
-    }
+        $set = [];
+        foreach ($this->coveredServiceIds($station) as $serviceId) {
+            $set[$serviceId] = true;
+        }
 
-    /**
-     * @deprecated Use findDisabledPackageServiceIds(). Kept for backward compat.
-     * @return array<int, true>
-     */
-    public function findDraftedServiceIds(): array
-    {
-        return $this->findDisabledPackageServiceIds();
-    }
-
-    /**
-     * Return all published packages that reference a given service ID.
-     * Convenience method for admin inspection (not used in compilation path).
-     *
-     * @return \WP_Post[]
-     */
-    public function findPublishedForService(int $serviceId): array
-    {
-        $all = $this->findAllPublished();
-
-        return array_values(array_filter($all, function (\WP_Post $post) use ($serviceId) {
-            $pkg  = get_post_meta($post->ID, self::META_KEY, true);
-            $refs = is_array($pkg) ? ($pkg['service_refs'] ?? []) : [];
-            return in_array($serviceId, array_map('intval', $refs), true);
-        }));
+        return $set;
     }
 }

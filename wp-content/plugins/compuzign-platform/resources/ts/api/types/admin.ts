@@ -5,16 +5,6 @@ export interface AdminOverview {
   platform_version: string | null;
 }
 
-// Temporary — Phase 4 promotion migration result. Remove after migration is validated.
-export interface MigrationPhase4Result {
-  success: boolean;
-  results: {
-    migrated:         number;
-    already_migrated: number;
-    born_empty:       number;
-    errors:           Array<{ service_id: number; message: string }>;
-  };
-}
 
 // Phase 4 — service-level Promotion Station responses.
 export interface ServicePromotionStationResponse {
@@ -35,26 +25,6 @@ export interface ServicePromotionSaveResponse {
   promotion_tier: PromotionTier;
 }
 
-// Temporary — Phase 1+3 migration run result. Remove after migration is validated.
-export interface MigrationRunResult {
-  success: boolean;
-  results: {
-    migrated:         number;
-    already_migrated: number;
-    born_empty:       number;
-    errors:           Array<{ service_id: number; message: string }>;
-  };
-}
-
-// Temporary — Phase 2 migration run result. Remove after migration is validated.
-export interface MigrationPhase2Result {
-  success: boolean;
-  results: {
-    migrated:         number;
-    already_migrated: number;
-    errors:           Array<{ service_id: number; message: string }>;
-  };
-}
 
 // Phase 2 — Service Station-owned Package Station tier management.
 // Engine D2 — a displaced tier occupant travelling through the bin. The shell
@@ -241,32 +211,6 @@ export interface CreateFaqPoolItemResponse {
   faq:      FaqItem;
 }
 
-// Temporary — Phase 0 migration readiness audit. Remove after migration is validated.
-export interface MigrationAudit {
-  counts: {
-    services:   number;
-    packages:   number;
-    promotions: number;
-  };
-  promotions_by_status: Record<string, number>;
-  services_without_package: {
-    count: number;
-    ids:   number[];
-  };
-  packages_empty_refs: {
-    count: number;
-    ids:   number[];
-  };
-  packages_broken_refs: {
-    count: number;
-    items: Array<{ package_id: number; missing_service: number }>;
-  };
-  multi_service_packages: {
-    count:  number;
-    result: 'CLEAR' | 'BLOCKED';
-    items:  Array<{ package_id: number; service_ids: number[] }>;
-  };
-}
 
 export type WorkstationId =
   | 'overview'

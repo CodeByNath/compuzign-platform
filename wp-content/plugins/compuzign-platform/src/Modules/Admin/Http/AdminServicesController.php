@@ -6,6 +6,7 @@ use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Admin\Support\PoolReferences;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
 class AdminServicesController
 {
@@ -17,9 +18,15 @@ class AdminServicesController
     private const DRAFT_OVERVIEW    = 'cz_service_overview_draft';
     private const DRAFT_INCLUSIONS  = 'cz_service_inclusions_draft';
     private const DRAFT_FAQS            = 'cz_service_faqs_draft';
-    private const META_PACKAGE_STATION  = 'cz_service_package_station';
-    private const META_PACKAGE_OWNER    = 'cz_package_manager_owner_service_id';
     private const META_PROMOTION_STATION = 'cz_service_promotion_station';
+
+    private ?PackageRepository $packageRepository = null;
+
+    /** Single Package Station authority (independent option storage). */
+    private function packages(): PackageRepository
+    {
+        return $this->packageRepository ??= new PackageRepository();
+    }
 
     public function register(): void
     {
@@ -1034,37 +1041,10 @@ class AdminServicesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed services can be permanently deleted.'], 422);
         }
 
-        // Scrub this service ID from any surface package service_refs before hard-deleting.
-        $pkgPosts = get_posts([
-            'post_type'              => 'cz_surface_package',
-            'post_status'            => ['publish', 'draft'],
-            'numberposts'            => -1,
-            'fields'                 => 'ids',
-            'no_found_rows'          => true,
-            'update_post_term_cache' => false,
-        ]);
-
-        foreach ($pkgPosts as $pkgId) {
-            $pkg = get_post_meta((int) $pkgId, 'cz_package', true);
-            if (!is_array($pkg) || empty($pkg['service_refs'])) {
-                continue;
-            }
-            $filtered = array_values(array_filter(
-                $pkg['service_refs'],
-                fn($ref) => (int) $ref !== $id
-            ));
-            if (count($filtered) !== count($pkg['service_refs'])) {
-                if (empty($filtered)) {
-                    // Package now references no services — destroy the empty shell.
-                    wp_delete_post((int) $pkgId, true);
-                } else {
-                    $pkg['service_refs'] = $filtered;
-                    update_post_meta((int) $pkgId, 'cz_package', $pkg);
-                }
-            }
-        }
-
         // Hard delete — removes the wp_posts row and all wp_postmeta rows automatically.
+        // The Package Station lives in its own option storage, so deleting a
+        // service can no longer destroy commercial data; any manager items
+        // sourced from this service degrade to source_missing at read time.
         wp_delete_post($id, true);
 
         return rest_ensure_response(['success' => true, 'deleted' => $id]);
@@ -1166,13 +1146,13 @@ class AdminServicesController
 
     public function getPackageStation(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1181,7 +1161,7 @@ class AdminServicesController
         $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
         $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
         $sanitizedManager = $PMS::sanitize($rawManager);
-        [$incPool, $faqPool] = $this->resolvePackageSourcePools($serviceId, $sanitizedManager['sources']);
+        [$incPool, $faqPool] = $this->packages()->sourcePools($station, $sanitizedManager['sources']);
         $managerModel = $PMS::buildReadModel($serviceId, $sanitizedManager, $incPool, $faqPool, (string) ($station['platform_status'] ?? 'disabled'));
         $tiers = [];
         foreach ($PS::ALLOWED_TIERS as $tierId) {
@@ -1271,13 +1251,13 @@ class AdminServicesController
      */
     public function getPackageStationManager(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1289,7 +1269,7 @@ class AdminServicesController
         // regardless of what (if anything) was actually stored.
         $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
         $manager    = $PMS::sanitize($rawManager);
-        [$incPool, $faqPool] = $this->resolvePackageSourcePools($serviceId, $manager['sources']);
+        [$incPool, $faqPool] = $this->packages()->sourcePools($station, $manager['sources']);
 
         // Stored platform_status is the parent operational fact (per the
         // accepted Phase B plan) — same field Cost Builder visibility already
@@ -1311,7 +1291,7 @@ class AdminServicesController
      */
     public function savePackageStationManager(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
@@ -1325,17 +1305,15 @@ class AdminServicesController
             ]);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
-        }
+        // First-time configuration bootstraps the independent station anchor.
+        $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
 
         $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
         $rawManager = is_array($station['package_manager'] ?? null)
             ? $station['package_manager']
             : $PMS::defaultManager();
         $submittedSources = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($body['sources']);
-        [$incPool, $faqPool] = $this->resolvePackageSourcePools($serviceId, $submittedSources);
+        [$incPool, $faqPool] = $this->packages()->sourcePools($station, $submittedSources);
 
         try {
             $manager = $PMS::commitConfiguration(
@@ -1354,13 +1332,7 @@ class AdminServicesController
         // One postmeta write is the atomic storage boundary. Do not derive or
         // alter platform_status: the Manager owns no lifecycle.
         $station['package_manager'] = $manager;
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
-        foreach ($manager['sources'] as $source) {
-            if (($source['provider_key'] ?? '') === 'service' && ($source['entity_type'] ?? '') === 'service') {
-                $sourceServiceId = (int) ($source['entity_id'] ?? 0);
-                if ($sourceServiceId > 0) { update_post_meta($sourceServiceId, self::META_PACKAGE_OWNER, $serviceId); }
-            }
-        }
+        $this->packages()->saveStation($station);
 
         $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
         $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
@@ -1371,73 +1343,9 @@ class AdminServicesController
         ]);
     }
 
-    /** Resolve Service-provider supply into namespaced Package item pools. */
-    private function resolvePackageSourcePools(int $hostServiceId, array $sources): array
-    {
-        if ($sources === []) {
-            $sources = [[
-                'provider_key' => 'service', 'entity_type' => 'service',
-                'entity_id' => $hostServiceId,
-            ]];
-        }
-        $inclusions = [];
-        $faqs = [];
-        foreach ($sources as $source) {
-            if (($source['provider_key'] ?? '') !== 'service' || ($source['entity_type'] ?? '') !== 'service') { continue; }
-            $sourceServiceId = (int) ($source['entity_id'] ?? 0);
-            $post = $sourceServiceId > 0 ? get_post($sourceServiceId) : null;
-            if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) { continue; }
-            $prefix = $sourceServiceId === $hostServiceId ? '' : 'service:' . $sourceServiceId . ':';
-            $serviceMeta = get_post_meta($sourceServiceId, self::META_KEY, true);
-            $sourceAvailable = is_array($serviceMeta) && ($serviceMeta['platform_status'] ?? 'disabled') === 'active';
-            $rawInc = get_post_meta($sourceServiceId, self::META_INCLUSIONS, true) ?: [];
-            foreach ((isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [] as $item) {
-                if (!is_array($item) || empty($item['id'])) { continue; }
-                $inclusions[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
-            }
-            $rawFaqs = get_post_meta($sourceServiceId, self::META_FAQS, true) ?: [];
-            foreach (is_array($rawFaqs) ? $rawFaqs : [] as $item) {
-                if (!is_array($item) || empty($item['id'])) { continue; }
-                $faqs[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
-            }
-        }
-        return [$inclusions, $faqs];
-    }
-
-    private function resolvePackageOwnerServiceId(int $contextServiceId): int
-    {
-        $ownerId = (int) get_post_meta($contextServiceId, self::META_PACKAGE_OWNER, true);
-        if ($ownerId > 0) {
-            $owner = get_post($ownerId);
-            if ($owner instanceof \WP_Post && $owner->post_type === self::POST_TYPE) { return $ownerId; }
-        }
-
-        // New Services own no commercial station. Resolve the established
-        // Package Manager station by its stored commercial configuration.
-        $candidates = get_posts([
-            'post_type' => self::POST_TYPE, 'post_status' => 'any',
-            'numberposts' => -1, 'fields' => 'ids', 'no_found_rows' => true,
-        ]);
-        $bestId = 0;
-        $bestScore = 0;
-        foreach (is_array($candidates) ? $candidates : [] as $candidateId) {
-            $station = get_post_meta((int) $candidateId, self::META_PACKAGE_STATION, true);
-            if (!is_array($station) || !is_array($station['package_manager'] ?? null)) { continue; }
-            $manager = $station['package_manager'];
-            $score = count(is_array($manager['sources'] ?? null) ? $manager['sources'] : [])
-                + count(is_array($manager['items'] ?? null) ? $manager['items'] : [])
-                + (!empty($manager['rate_sheet']) ? 1000 : 0);
-            if ($score > $bestScore || ($score === $bestScore && $score > 0 && ((int) $candidateId < $bestId || $bestId === 0))) {
-                $bestScore = $score;
-                $bestId = (int) $candidateId;
-            }
-        }
-        return $bestId > 0 ? $bestId : $contextServiceId;
-    }
-
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
         $post = get_post($serviceId);
@@ -1450,14 +1358,17 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
 
-        // Add new inclusions/FAQs to service canonical pools.
-        $addedInclusions = $this->addItemsToInclusionPool($serviceId, $body['new_inclusions'] ?? []);
-        $addedFaqRefs    = $this->addItemsToFaqPool($serviceId, $body['new_faqs'] ?? []);
+        // Add new inclusions/FAQs to the canonical pools of the service whose
+        // items resolve unprefixed (the station's legacy host), so the stored
+        // item IDs keep matching the source-pool namespace scheme.
+        $poolServiceId   = (int) ($station['legacy_host_service_id'] ?? 0) ?: $serviceId;
+        $addedInclusions = $this->addItemsToInclusionPool($poolServiceId, $body['new_inclusions'] ?? []);
+        $addedFaqRefs    = $this->addItemsToFaqPool($poolServiceId, $body['new_faqs'] ?? []);
 
         $existingDetail = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot(
             $station['tiers'][$tierId] ?? []
@@ -1532,7 +1443,7 @@ class AdminServicesController
         }
 
         $station['platform_status'] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::deriveStationStatus($station);
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+        $this->packages()->saveStation($station);
 
         $tiers = [];
         foreach (\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS as $tid) {
@@ -1549,7 +1460,7 @@ class AdminServicesController
 
     public function setPackageStationTierEnabled(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
         $post = get_post($serviceId);
@@ -1560,7 +1471,7 @@ class AdminServicesController
         $body    = $request->get_json_params();
         $enabled = isset($body['enabled']) ? (bool) $body['enabled'] : true;
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1579,7 +1490,7 @@ class AdminServicesController
         }
 
         $station['platform_status'] = $PS::deriveStationStatus($station);
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+        $this->packages()->saveStation($station);
 
         return rest_ensure_response(['success' => true, 'tier_id' => $tierId, 'enabled' => $enabled]);
     }
@@ -1592,7 +1503,7 @@ class AdminServicesController
      */
     public function savePackageStationTierModule(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $module    = sanitize_key((string) $request->get_param('module'));
 
@@ -1606,7 +1517,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1644,7 +1555,7 @@ class AdminServicesController
         $slot['drafts'][$module]        = $draftValue;
         $slot['module_status'][$module] = 'pending';
         $station['tiers'][$tierId]      = $slot;
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+        $this->packages()->saveStation($station);
 
         return rest_ensure_response([
             'success'       => true,
@@ -1665,7 +1576,7 @@ class AdminServicesController
      */
     public function archivePackageStationTierOccupant(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1674,7 +1585,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1700,7 +1611,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+        $this->packages()->saveStation($result['station']);
 
         $slot = $result['station']['tiers'][$tierId];
         return rest_ensure_response([
@@ -1725,7 +1636,7 @@ class AdminServicesController
      */
     public function restorePackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $binId     = sanitize_key((string) $request->get_param('bin'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1734,7 +1645,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1769,7 +1680,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+        $this->packages()->saveStation($result['station']);
 
         $tierId = $result['tier_id'];
         $slot   = $result['station']['tiers'][$tierId];
@@ -1789,7 +1700,7 @@ class AdminServicesController
     /** Engine D3 — trash a bin entry (archived → trashed, engine-validated). */
     public function trashPackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $binId     = sanitize_key((string) $request->get_param('bin'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1798,7 +1709,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1813,7 +1724,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+        $this->packages()->saveStation($result['station']);
 
         return rest_ensure_response([
             'success'      => true,
@@ -1829,7 +1740,7 @@ class AdminServicesController
      */
     public function deletePackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $binId     = sanitize_key((string) $request->get_param('bin'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1838,7 +1749,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1853,7 +1764,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $result['station']);
+        $this->packages()->saveStation($result['station']);
 
         return rest_ensure_response([
             'success'      => true,
@@ -1870,7 +1781,7 @@ class AdminServicesController
      */
     public function revertPackageStationTierModule(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $module    = sanitize_key((string) $request->get_param('module'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
@@ -1883,7 +1794,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Unknown tier.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1894,7 +1805,7 @@ class AdminServicesController
         }
 
         $station['tiers'][$tierId] = $slot;
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+        $this->packages()->saveStation($station);
 
         return rest_ensure_response([
             'success'       => true,
@@ -1913,7 +1824,7 @@ class AdminServicesController
      */
     public function settlePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1922,7 +1833,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1930,7 +1841,7 @@ class AdminServicesController
         $slot = $PS::settleTierSlot($station['tiers'][$tierId] ?? []);
         $station['tiers'][$tierId]  = $slot;
         $station['platform_status'] = $PS::deriveStationStatus($station);
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+        $this->packages()->saveStation($station);
 
         return rest_ensure_response([
             'success'       => true,
@@ -1949,7 +1860,7 @@ class AdminServicesController
      */
     public function setPackageStationPopular(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
+        $serviceId = (int) $request->get_param('id');
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
         $post = get_post($serviceId);
@@ -1957,7 +1868,7 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station = $this->packages()->loadStation();
         if (!is_array($station) || empty($station)) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
@@ -1974,7 +1885,7 @@ class AdminServicesController
             $station['popular_label'] = '';
         }
 
-        update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+        $this->packages()->saveStation($station);
 
         return rest_ensure_response([
             'success'       => true,
@@ -2462,10 +2373,9 @@ class AdminServicesController
 
     /**
      * Reads current promotion instances, bridging to the legacy cz_package post when
-     * this service's promotion station has not been Phase 4-migrated yet. Mirrors the
-     * fallback already used by AdminSurfacePackagesController::loadPromotionInstancesForPackage()
-     * and PackageRepository, so create/save/archive/reactivate never stamp migrated=>true
-     * over an empty station while promotions still exist only on the source package.
+     * this service's promotion station has not been Phase 4-migrated yet, so
+     * create/save/archive/reactivate never stamp migrated=>true over an empty
+     * station while promotions still exist only on the source package.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -2481,16 +2391,15 @@ class AdminServicesController
     }
 
     /**
-     * Legacy bridge — remove when Phase 4 migration is confirmed complete for all services.
-     * Follows this service's package station migration_source_id to the source cz_package
-     * post and reads its promotion_tiers, same source AdminSurfacePackagesController and
-     * PackageRepository already read for the Connections summary and Cost Builder.
+     * Legacy bridge — remove when Phase 4 promotion migration is confirmed complete.
+     * Follows the Package Station's migration_source_id to the source cz_package
+     * post and reads its promotion_tiers.
      *
      * @return array<int, array<string, mixed>>
      */
     private function legacyPromotionInstances(int $serviceId): array
     {
-        $station  = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
+        $station  = $this->packages()->loadStation();
         $sourceId = is_array($station) ? (int) ($station['migration_source_id'] ?? 0) : 0;
         if ($sourceId <= 0) {
             return [];
@@ -2705,8 +2614,7 @@ class AdminServicesController
             return [];
         }
 
-        $station   = get_post_meta($serviceId, self::META_PACKAGE_STATION, true);
-        $station   = is_array($station) ? $station : [];
+        $station   = $this->packages()->loadStation() ?? [];
         $instances = $this->readPromotionStation($serviceId);
 
         $refs = $module === 'inclusions'

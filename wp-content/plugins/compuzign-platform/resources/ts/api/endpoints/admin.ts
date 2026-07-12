@@ -8,10 +8,6 @@ import type {
   AdminRequestsResponse,
   CreateServicePayload,
   CreateServiceResponse,
-  MigrationAudit,
-  MigrationRunResult,
-  MigrationPhase2Result,
-  MigrationPhase4Result,
   ServicePackageStationResponse,
   ServiceTierSaveResponse,
   PackageManagerResponse,
@@ -243,25 +239,9 @@ export function permanentDeleteCategoryGroup(groupId: number): Promise<CategoryG
   return apiClient.delete<CategoryGroupDeleteResponse>(`admin/category-groups/${groupId}`);
 }
 
-// Temporary — Phase 0 migration readiness audit. Remove after migration is validated.
-export function fetchMigrationAudit(): Promise<MigrationAudit> {
-  return apiClient.get<MigrationAudit>('admin/migration-audit');
-}
 
-// Temporary — Phase 1+3 backfill. Remove after migration is validated.
-export function runPhaseOneMigration(): Promise<MigrationRunResult> {
-  return apiClient.post<MigrationRunResult>('admin/migrate/phase-one');
-}
 
-// Temporary — Phase 2 tier occupant migration. Remove after migration is validated.
-export function runPhaseTwoMigration(): Promise<MigrationPhase2Result> {
-  return apiClient.post<MigrationPhase2Result>('admin/migrate/phase-two');
-}
 
-// Temporary — Phase 4 promotion migration. Remove after migration is validated.
-export function runPhaseFourMigration(): Promise<MigrationPhase4Result> {
-  return apiClient.post<MigrationPhase4Result>('admin/migrate/phase-four');
-}
 
 // Phase 4 — service-level Promotion Station management.
 export function fetchServicePromotionStation(serviceId: number): Promise<ServicePromotionStationResponse> {
