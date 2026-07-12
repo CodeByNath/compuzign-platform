@@ -1,4 +1,3 @@
-import type { ActionConfig } from '../ActionShell';
 import type { EntitySchema } from '../schema/types';
 import type { ModuleNote, ModuleState } from '../utils/moduleNotifications';
 
@@ -26,15 +25,12 @@ export interface StationConnectionDescriptor {
   providerKey: string;
   relationshipKey: string;
   stationContext: ManagerEntityRef;
-  destinationRef?: ManagerEntityRef;
 }
 
 export interface ManagerContinuation {
   stationContext: ManagerEntityRef;
   scopeKind: StationManagerScope['kind'];
   subject?: ManagerEntityRef;
-  /** Destination identity; separate from the Manager scope restored on Back. */
-  destination?: ManagerEntityRef;
   activeProviderKey: string;
   activeRelationshipKey?: string;
   selectedSectionKey?: string;
@@ -56,13 +52,8 @@ export interface RelationCustomField {
   options?: ReadonlyArray<{ value: string; label: string }>;
 }
 
-export interface RelationNavigationContext {
-  openAction: (config: ActionConfig) => void;
-}
-
 export interface RelationHealth {
   state: ModuleState;
-  destinationAvailable: boolean;
   notes: ModuleNote[];
 }
 
@@ -84,19 +75,6 @@ export interface ManagerSummaryContribution<ReadModel = unknown> {
     status: ModuleState;
     metrics: readonly { id: string; label: string; value: number }[];
   };
-}
-
-export interface ManagerSubjectSummary {
-  ref: ManagerEntityRef;
-  label: string;
-  title: string;
-  subtitle?: string;
-  status: ModuleState;
-  fields: readonly {
-    id: string;
-    label: string;
-    values: readonly string[];
-  }[];
 }
 
 export interface ManagerEmptyStateDefinition {
@@ -198,15 +176,6 @@ export interface ManagerContribution<ReadModel = unknown, Row = unknown, Identit
   order: number;
   summary?: ManagerSummaryContribution<ReadModel>;
   sections: readonly ManagerSectionDefinition<ReadModel, Row, Identity>[];
-  subjects?: (readModel: ReadModel, scope: StationManagerScope) => readonly {
-    ref: ManagerEntityRef;
-    label: string;
-  }[];
-  subjectSummaries?: (readModel: ReadModel, scope: StationManagerScope) => readonly ManagerSubjectSummary[];
-  destinationActions?: (readModel: ReadModel, scope: StationManagerScope) => readonly {
-    id: 'view-all' | 'open-current' | 'edit-current';
-    label: string;
-  }[];
 }
 
 export interface ProviderScopeProfile {
@@ -239,12 +208,6 @@ export interface RelationProviderBase<
     description?: string;
   };
   health(row: Row, readModel: ReadModel, scope: Scope): RelationHealth;
-  destination(
-    row: Row,
-    readModel: ReadModel,
-    scope: Scope,
-    context: RelationNavigationContext,
-  ): ActionConfig | null;
   manager: ManagerContribution<ReadModel, Row, Identity>;
 }
 

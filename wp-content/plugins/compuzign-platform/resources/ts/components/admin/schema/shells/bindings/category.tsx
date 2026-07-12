@@ -11,13 +11,10 @@
 // manifest's `shells` record under the `service` key.
 
 import type { CategoryGroupStationItem, CategoryOverviewDraft } from '@/api/types/admin';
-import {
-  categoryOverviewModule,
-  categoryServicesModule,
-} from '@/components/admin/utils/moduleNotifications';
+import { categoryOverviewModule } from '@/components/admin/utils/moduleNotifications';
 import { CategoryOverviewEditor } from '../../../editors/CategoryOverviewEditor';
 import type { ShellActionSchema, ShellSchema } from '../../types';
-import type { MetricsValue, RichTextValue, TextValue } from '../../elements/library';
+import type { RichTextValue, TextValue } from '../../elements/library';
 
 // The canonical owning-workspace footer pair, exactly as the service/tier/
 // promotion bindings declare it.
@@ -103,28 +100,3 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
 // promotion-list / package-overview pattern — a Details | Connections list
 // drawer). Read-only in v1: assignment stays on the service side (the service
 // is the anchor; the category emphasises the relationship).
-
-export interface CategoryServicesShellData {
-  headline: string;   // e.g. '3 services'
-  copy:     string;   // e.g. '2 active · 1 inactive'
-}
-
-export const categoryServicesShell: ShellSchema<CategoryServicesShellData> = {
-  archetype: 'overview',
-  dna:       categoryServicesModule,
-  header: {
-    title:    'Services',
-    subtitle: 'Services assigned to this category.',
-    icon:     'category',
-  },
-  content: [
-    {
-      id: 'summary', element: 'metrics',
-      bind: (d): MetricsValue => ({ headline: d.headline, copy: d.copy }),
-    },
-  ],
-  footer:  { actions: ['view'] },
-  actions: {
-    view: { id: 'view', label: 'View', intent: 'secondary' },
-  },
-};

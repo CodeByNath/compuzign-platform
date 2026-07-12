@@ -42,7 +42,6 @@ export const SERVICE_ENTITY: EntitySchema = {
     overview:   serviceOverviewShell,
     inclusions: serviceInclusionsShell,
     faqs:       serviceFaqsShell,
-    package:    servicePackageSummaryShell,
   },
 
   // Entity travel actions (StationLifecycle transitions). Declarations only —
@@ -67,9 +66,7 @@ export const SERVICE_ENTITY: EntitySchema = {
         { module: 'inclusions', mode: 'details' },
         { module: 'faqs',       mode: 'details' },
       ],
-      connections: [
-        { module: 'package', mode: 'summary' },
-      ],
+      connections: [],
     },
     table: serviceCatalogTable,
     travel: {

@@ -304,35 +304,6 @@ export const promotionOverviewModule: ModuleDefinition<PromotionOverviewLike | u
   },
 };
 
-export const promotionFeaturesModule: ModuleDefinition<{ count: number }> = {
-  key:            'promotion-features',
-  requiresParent: true,
-  emptyPrompt:    'Edit and add included features.',
-  isEmpty:        ({ count }) => count === 0,
-  problems:       () => [],
-  resolveStatus:  ({ count }, ctx) => {
-    if (count === 0) return 'pending-dim';
-    // Follow the instance's travel state so a disabled promotion reads Disabled
-    // across all its modules, not just the overview (same fix as the overview
-    // resolver — the module pill agrees with the drawer's Enable footer action).
-    if (ctx.platformStatus === 'disabled') return 'disabled';
-    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
-  },
-};
-
-export const promotionFaqsModule: ModuleDefinition<{ count: number }> = {
-  key:            'promotion-faqs',
-  requiresParent: true,
-  emptyPrompt:    'Edit and add questions.',
-  isEmpty:        ({ count }) => count === 0,
-  problems:       () => [],
-  resolveStatus:  ({ count }, ctx) => {
-    if (count === 0) return 'pending-dim';
-    if (ctx.platformStatus === 'disabled') return 'disabled';
-    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
-  },
-};
-
 // ── Category modules (S6) ─────────────────────────────────────────────────────
 // Category Overview — the category's single owned module. Data is the
 // draft-preferred projection (name + description; slug is immutable, D5, and
@@ -371,14 +342,6 @@ export const categoryOverviewModule: ModuleDefinition<CategoryOverviewLike> = {
 // Category Services — the relation-summary gateway (D4). Pure synchronous
 // projection of assigned-service counts; no own lifecycle (Boundary Test), so
 // status follows the category's platform status. Precedent: tierFeaturesModule.
-export const categoryServicesModule: ModuleDefinition<{ total: number; active: number; disabled: number }> = {
-  key:         'category-services',
-  emptyPrompt: 'Assign services to this category from the Service Catalog.',
-  isEmpty:     ({ total }) => total === 0,
-  problems:    () => [],
-  resolveStatus: ({ total }, ctx) =>
-    total === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'disabled'),
-};
 
 // ── Category Group modules (Category Group audit, Option B) ──────────────────
 // Same two-module shape as Category, one level up: an owned overview module and
@@ -415,14 +378,6 @@ export const categoryGroupOverviewModule: ModuleDefinition<CategoryGroupOverview
 
 // Category Group Categories — the relation-summary gateway, one level up from
 // categoryServicesModule: counts child category terms, not services.
-export const categoryGroupCategoriesModule: ModuleDefinition<{ total: number; active: number; disabled: number }> = {
-  key:         'category-group-categories',
-  emptyPrompt: 'Add categories to this group from the Categories workstation.',
-  isEmpty:     ({ total }) => total === 0,
-  problems:    () => [],
-  resolveStatus: ({ total }, ctx) =>
-    total === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'disabled'),
-};
 
 // ── Backward-compatible generators ────────────────────────────────────────────
 // Existing call sites keep their signatures; each now delegates to the shared

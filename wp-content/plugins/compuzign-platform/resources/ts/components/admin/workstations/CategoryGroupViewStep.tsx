@@ -9,7 +9,6 @@ import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
 import { categoryGroupOverviewShell } from '@/components/admin/schema/shells/bindings/categoryGroup';
 import type {
   CategoryGroupOverviewShellData,
-  CategoryGroupCategoriesShellData,
 } from '@/components/admin/schema/shells/bindings/categoryGroup';
 import { categoryOverviewShell } from '@/components/admin/schema/shells/bindings/category';
 import type { CategoryOverviewShellData } from '@/components/admin/schema/shells/bindings/category';
@@ -56,19 +55,6 @@ export function buildCategoryGroupViewConfig(
 // The dedicated Categories collection surface: a Details | Connections list
 // drawer reached from the Connections-tab Categories gateway's View. Back
 // returns to the Category Group drawer on its Connections tab, where the
-// gateway lives — same mechanics as buildServicesCollectionConfig.
-function buildCategoriesCollectionConfig(group: CategoryGroupStationItem, deps: CategoryGroupDrawerDeps): ActionConfig {
-  return {
-    id:             `category-group-categories-${group.id}`,
-    mode:           'drawer',
-    title:          'Category Group',
-    hideStepHeader: true,
-    onBack:         () => deps.openAction(buildCategoryGroupViewConfig(group, deps, 'connections')),
-    initialStepData: { group, deps },
-    steps: [{ id: 'categories', title: 'Categories', component: CategoryGroupCategoriesStep }],
-  };
-}
-
 // Group-scoped child categories, read fresh from the workstation ref.
 function categoriesFor(group: CategoryGroupStationItem, deps: CategoryGroupDrawerDeps): CategoryStationItem[] {
   return deps.getCatalogData().categories.filter((c) => c.group_id === group.id);
@@ -77,14 +63,6 @@ function categoriesFor(group: CategoryGroupStationItem, deps: CategoryGroupDrawe
 // Presentation Status Contract mapping for the summary cards (Active / Pending /
 // Disabled only) — mirrors CategoryViewStep's summaryCardStatus, applied to a
 // CategoryStationItem instead of a StationSummary.
-function categorySummaryCardStatus(c: CategoryStationItem): string {
-  if (c.platform_status === 'active') return 'active';
-  if (c.platform_status === 'disabled') {
-    return c.module_status?.overview !== 'settled' ? 'pending-dim' : 'disabled';
-  }
-  return 'pending-dim';
-}
-
 // ── CategoryGroupViewStep ──────────────────────────────────────────────────────
 // Manifest-assembly drawer (pattern: CategoryViewStep, one owned module). Details
 // tab = the owned Category Group Overview; Connections tab = the Assigned
@@ -309,9 +287,6 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
   }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, isNewNeverPublished, hasBeenPublished, ctx.setFooter, ctx.close]);
 
   // ── Gateway → collection transit ────────────────────────────────────────────
-  const openCategoriesCollection = useCallback(() => {
-    deps.openAction(buildCategoriesCollectionConfig(group, deps));
-  }, [group, deps]);
 
   // ── Shell bindings ──────────────────────────────────────────────────────────
   const overviewBinding: ShellBinding<CategoryGroupOverviewShellData> = {
@@ -324,18 +299,6 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
     },
   };
 
-  const total = categoryCounts.total;
-  const categoriesBinding: ShellBinding<CategoryGroupCategoriesShellData> = {
-    data: {
-      headline: `${total} categor${total !== 1 ? 'ies' : 'y'}`,
-      copy:     total === 0
-        ? 'No categories assigned yet.'
-        : `${categoryCounts.active} active · ${categoryCounts.disabled} inactive`,
-    },
-    state: modules.categories,
-    hasDraft: false,
-    handlers: { view: openCategoriesCollection },
-  };
 
   return (
     <>
@@ -343,7 +306,7 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
         entity={CATEGORY_GROUP_ENTITY}
         tab={tab}
         onSelectTab={setTab}
-        bindings={{ overview: overviewBinding, categories: categoriesBinding }}
+        bindings={{ overview: overviewBinding }}
         openPanel={openPanel}
         onTogglePanel={(m) => setOpenPanel((p) => (p === m ? null : m))}
       >
@@ -428,99 +391,5 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
         </ModeProvider>
       )}
     </>
-  );
-}
-
-// ── CategoryGroupCategoriesStep ────────────────────────────────────────────────
-// The dedicated Categories collection surface (Collection placement, on the
-// promotion-list / package-overview pattern): a Details | Connections list
-// drawer. Details = the shared categoryOverviewShell repeated once per child
-// category in the summary viewpoint (repetition owned by the placement; the
-// surface owns the N bindings); Connections = the parent Category Group
-// context. Each card's View opens the real Category station drawer. No new
-// mode, archetype, renderer, or tabless drawer.
-
-export function CategoryGroupCategoriesStep({ ctx }: { ctx: StepContext }) {
-  const group = ctx.stepData.group as CategoryGroupStationItem;
-  const deps  = ctx.stepData.deps  as CategoryGroupDrawerDeps;
-
-  const [listTab, setListTab] = useState<'details' | 'connections'>('details');
-
-  const slot  = CATEGORY_GROUP_ENTITY.placements.collections!.categories;   // { module: 'category', mode: 'summary', footer: ['view'] }
-  const shell = CATEGORY_GROUP_ENTITY.shells[slot.module] as ShellSchema<CategoryOverviewShellData>;   // categoryOverviewShell under 'category'
-
-  const categories = useMemo(() => categoriesFor(group, deps), [group.id]);
-
-  // Close footer (Back — the header control — returns to the Category Group drawer).
-  useEffect(() => {
-    const { setFooter, close } = ctx;
-    setFooter(
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>Close</button>
-      </div>
-    );
-    return () => setFooter(null);
-  }, [ctx.setFooter, ctx.close]);
-
-  // Each card's View opens the real Category drawer via the existing
-  // buildCategoryViewConfig (read-only reuse — CategoryViewStep.tsx is
-  // untouched), passing deps.categoryDrawerDeps unchanged. Back returns to this
-  // collection surface (remount reads fresh categories).
-  const openCategoryDrawer = useCallback((c: CategoryStationItem) => {
-    deps.openAction({
-      ...buildCategoryViewConfig(c, deps.categoryDrawerDeps),
-      onBack: () => deps.openAction(buildCategoriesCollectionConfig(group, deps)),
-    });
-  }, [group, deps]);
-
-  // Parent-group context for the Connections tab — categoryGroupOverviewShell in
-  // the connections viewpoint (View returns to the Category Group drawer),
-  // mirroring categoryContextBinding on CategoryServicesStep.
-  const groupContextBinding: ShellBinding<CategoryGroupOverviewShellData> = {
-    data:     { name: decodeHtml(group.name), slug: group.slug, description: decodeHtml(group.description) },
-    state:    { status: group.platform_status === 'active' ? 'active' : 'disabled', notes: [] },
-    hasDraft: false,
-    handlers: { view: () => deps.openAction(buildCategoryGroupViewConfig(group, deps)) },
-  };
-
-  return (
-    <div class="cz-req-detail">
-      {/* Drawer Tab Contract — Details = the category cards; Connections = the
-          parent category group (matching the Category Services collection level). */}
-      <DrawerTabs active={listTab} onSelect={setListTab} />
-
-      {listTab === 'details' && (
-        categories.length === 0 ? (
-          <div class="cz-admin-empty">
-            <p>No categories are assigned to this group. Assign categories from the Categories workstation.</p>
-          </div>
-        ) : (
-          categories.map((c) => {
-            const binding: ShellBinding<CategoryOverviewShellData> = {
-              data: {
-                name:        decodeHtml(c.name),
-                slug:        c.slug,
-                description: decodeHtml(c.description),
-              },
-              state:    { status: categorySummaryCardStatus(c), notes: [] },
-              hasDraft: false,
-              handlers: { view: () => openCategoryDrawer(c) },
-            };
-            return (
-              <ModeProvider key={c.id} mode={slot.mode}>
-                <OverviewShell schema={shell} binding={binding} footer={slot.footer} />
-              </ModeProvider>
-            );
-          })
-        )
-      )}
-
-      {listTab === 'connections' && (
-        <ModeProvider mode="connections">
-          <OverviewShell schema={categoryGroupOverviewShell} binding={groupContextBinding} />
-        </ModeProvider>
-      )}
-    </div>
   );
 }

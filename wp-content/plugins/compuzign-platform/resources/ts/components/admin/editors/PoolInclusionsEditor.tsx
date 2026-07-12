@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import type { InclusionItem, TierRateSheetSelection, TierResolvedRateSheetSelection } from '@/api/types/admin';
 
 // Pool-referencing Included Features editor (extracted from ServiceTierStep /
-// ServicePromotionStep in S3a — the two steps carried byte-identical copies).
+// the shared station editors.
 // The draft is an ordered list of canonical pool items; "+ Create new" is an
 // immediate canonical pool creation (separate request from the module draft
 // save) whose result is appended into the open draft, exactly as if it had

@@ -8,11 +8,7 @@
 // presentation assets.
 
 import type { CategoryGroupStationItem } from '@/api/types/admin';
-import {
-  categoryGroupOverviewShell,
-  categoryGroupCategoriesShell,
-} from '../shells/bindings/categoryGroup';
-import { categoryOverviewShell } from '../shells/bindings/category';
+import { categoryGroupOverviewShell } from '../shells/bindings/categoryGroup';
 import {
   categoryGroupCatalogTable,
   categoryGroupArchivedTable,
@@ -41,8 +37,6 @@ export const CATEGORY_GROUP_ENTITY: EntitySchema = {
   // registering serviceOverviewShell under `service`.
   shells: {
     overview:   categoryGroupOverviewShell,
-    categories: categoryGroupCategoriesShell,
-    category:   categoryOverviewShell,
   },
 
   // Entity travel actions (StationLifecycle transitions). Declarations only —
@@ -66,17 +60,12 @@ export const CATEGORY_GROUP_ENTITY: EntitySchema = {
       details: [
         { module: 'overview', mode: 'details' },
       ],
-      connections: [
-        { module: 'categories', mode: 'summary' },
-      ],
+      connections: [],
     },
     // Collection placement — the shared categoryOverviewShell repeated once per
     // child category in the summary viewpoint, each card re-selecting the
     // `view` footer that opens the real Category drawer. The surface owns the
     // N bindings (same v1.2 mechanics as CATEGORY_ENTITY.placements.collections.services).
-    collections: {
-      categories: { module: 'category', mode: 'summary', footer: ['view'] },
-    },
     table: categoryGroupCatalogTable,
     // Bin is the consumed schema (the Bin workstation's Category Group pane);
     // archived/trashed are declared for travel-preset completeness — no hidden

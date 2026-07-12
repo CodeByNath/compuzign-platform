@@ -1,11 +1,6 @@
 import type { PromotionOverviewDraft, BasedOnTier } from '@/api/types/admin';
 
-// Promotion Overview module editor (extracted from ServicePromotionStep in
-// S3a — the promotion shells became bindings of the archetype shells and the
-// editor is now referenced by the promotion binding's editor schema). Used
-// both for New Promotion (create) and for editing an existing promotion's
-// overview fields (persisted as a module draft). Travel status is
-// engine-owned and deliberately not part of the draft.
+// The single Promotion Overview editor, hosted directly by Package Manager.
 
 const BASED_ON_TIERS = [
   { id: 'basic', label: 'Basic' },
@@ -56,9 +51,8 @@ export function PromotionOverviewEditor({ draft, onChange, saveOk }: Props) {
       </div>
 
       <div class="cz-tf-field">
-        <label class="cz-tf-label">Price</label>
-        <input type="number" class="cz-tf-input" min="0" step="0.01" value={draft.price ?? ''}
-          onInput={(e) => { const v = (e.target as HTMLInputElement).value; onChange({ price: v === '' ? null : parseFloat(v) }); }} />
+        <label class="cz-tf-label">Derived price</label>
+        <input type="text" class="cz-tf-input" value={draft.price == null ? 'Not configured' : `$${draft.price.toFixed(2)}`} readOnly />
       </div>
 
       <div class="cz-tf-field">

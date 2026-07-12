@@ -8,7 +8,7 @@ import {
   updateCategoryStatus,
 } from '@/api/endpoints/admin';
 import type { CategoryOverviewDraft, CategoryStationItem } from '@/api/types/admin';
-import { categoryOverviewModule, categoryServicesModule, evaluateModule } from '@/components/admin/utils/moduleNotifications';
+import { categoryOverviewModule, evaluateModule } from '@/components/admin/utils/moduleNotifications';
 import type { ModuleState, NoteContext } from '@/components/admin/utils/moduleNotifications';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -42,7 +42,6 @@ export interface CategoryStation {
   // The station modules shape shared with useServiceStation / usePromotionStation.
   modules: {
     overview: ModuleState;
-    services: ModuleState;
   };
   canPublish: boolean;
 
@@ -104,7 +103,6 @@ export function useCategoryStation(
 
   // The services gateway has no lifecycle of its own (pure projection, D4):
   // no moduleTransition, no draft — only the category's platform status.
-  const servicesState = evaluateModule(categoryServicesModule, counts, { platformStatus });
 
   // Description is optional — publishing gates on the name only.
   const canPublish = !!station.name.trim();
@@ -232,7 +230,6 @@ export function useCategoryStation(
     serviceCounts: counts,
     modules: {
       overview: overviewState,
-      services: servicesState,
     },
     canPublish,
     loading: { status: statusSaving, deleting },

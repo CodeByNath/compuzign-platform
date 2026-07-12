@@ -37,7 +37,7 @@ import { serviceConnectionBinding, TIER_KEYS, TIER_LABELS } from './serviceDrawe
 
 // Travel-state pill for occupant-bin cards — bin surfaces name Archived/Trashed
 // as data labels (schema/presentation.ts TRAVEL_PILL, travel surfaces only),
-// matching ServicePromotionStep's bin rows.
+// matching the shared lifecycle bin presentation.
 function binPill(status: string) {
   const pill = TRAVEL_PILL[status as keyof typeof TRAVEL_PILL] ?? TRAVEL_PILL.archived;
   return (
@@ -120,7 +120,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Overview Details filter: current (4 shells) | bin (displaced occupants).
   const [listView, setListView] = useState<'current' | 'bin'>('current');
   // Footer split-button dropdown + confirm modals (Publish settle; archive with
-  // pending drafts), mirroring ServicePromotionStep's lifecycle chrome.
+  // pending drafts), using the shared lifecycle chrome.
   const [splitOpen,    setSplitOpen]    = useState(false);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
   // Per-bin-card conflict prompt, keyed by the D3 error codes: target_occupied
@@ -142,7 +142,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   }, [saveOk]);
 
   // Close split dropdown when clicking outside (only active while open) —
-  // mirrors ServicePromotionStep / ServiceViewStep's splitOpen dismissal.
+  // mirrors the Service drawer's splitOpen dismissal.
   useEffect(() => {
     if (!splitOpen) return;
     const handle = () => setSplitOpen(false);

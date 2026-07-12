@@ -189,8 +189,7 @@ export function createActivePackageReadOnlyProvider(loadPackage: ActivePackageRe
     }),
     health: (row, readModel): RelationHealth => {
       const state = healthState(row, readModel.lifecycle_status);
-      return { state, destinationAvailable: false, notes: state.notes };
+      return { state, notes: state.notes };
     },
-    destination: () => null,
   };
 }

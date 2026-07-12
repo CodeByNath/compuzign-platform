@@ -1,18 +1,13 @@
-import { fetchServicePromotionStation } from '@/api/endpoints/admin';
 import type { PromotionTier } from '@/api/types/admin';
-import { resolvePromotionSummary } from '@/components/admin/utils/moduleStatus';
 import type {
   ReadOnlyRelationProvider,
   StationManagerScope,
 } from '../types';
 
 // ── Promotion relation provider ───────────────────────────────────────────────
-// Promotions are a child collection of the independent Package Station, so they
-// join the Manager as a managed commercial relationship next to Packages. The
-// provider is read-only presentation: it contributes the Promotion Transit Card
-// (a subject summary in the shared grid) whose destination opens the existing
-// Promotion list/drawer runtime (ServicePromotionStep) — the Manager never edits
-// promotion content or lifecycle inline.
+// Promotions are a first-class Package Manager workspace beside Packages. This
+// adapter owns tab discovery only;
+// PromotionManagerWorkspace owns the single UI runtime and lifecycle actions.
 
 export type PromotionRelationScope = StationManagerScope & {
   kind: 'connection-graph';
@@ -59,12 +54,9 @@ export const promotionRelationProvider: ReadOnlyRelationProvider<
     && scope.stationContext.id > 0
   ),
 
-  async load(scope, signal) {
+  async load(_scope, signal) {
     if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
-    const response = await fetchServicePromotionStation(scope.stationContext.id);
-    if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
-    if (!response.success) throw new Error('Could not load the Promotion relation provider.');
-    return { promotions: response.promotions };
+    return { promotions: [] };
   },
 
   rows: (readModel) => readModel.promotions,
@@ -82,49 +74,13 @@ export const promotionRelationProvider: ReadOnlyRelationProvider<
     const status = promotionRowStatus(row.status);
     return {
       state: { status, notes: [] },
-      destinationAvailable: true,
       notes: [],
     };
   },
 
-  // Individual promotions open through the Transit Card's list destination;
-  // the Manager itself never deep-links a single instance.
-  destination: () => null,
 
   manager: {
     order: 200,
-    // The Promotion Transit Card — one summary card for the whole collection,
-    // preserving the Commercial-tab card's vocabulary (count + lifecycle pill
-    // from resolvePromotionSummary; binned instances neither colour the pill
-    // nor count as configured).
-    subjectSummaries: (readModel) => {
-      const summary = resolvePromotionSummary(readModel.promotions);
-      const binned = readModel.promotions.length - summary.currentCount;
-      return [{
-        ref: { type: 'promotion', id: 'all' },
-        label: 'Promotions',
-        title: 'Promotion Configuration',
-        subtitle: 'Campaign offers built on the Package Station tiers.',
-        status: { status: summary.status, notes: [] },
-        fields: [
-          {
-            id: 'current',
-            label: 'Current',
-            values: [`${summary.currentCount} promotion${summary.currentCount === 1 ? '' : 's'} configured`],
-          },
-          {
-            id: 'bin',
-            label: 'Bin',
-            values: [binned > 0
-              ? `${binned} archived or trashed`
-              : 'No archived or trashed promotions'],
-          },
-        ],
-      }];
-    },
-    // Single destination — View enters the existing Promotion list; create,
-    // edit, lifecycle, and bin actions all live inside that runtime.
-    destinationActions: () => [{ id: 'open-current', label: 'View' }],
     sections: [],
   },
 };

@@ -7,19 +7,16 @@ import { InlineEditorShell } from '../InlineEditorShell';
 import { fetchAdminCatalog } from '@/api/endpoints/admin';
 import type { AdminCatalogResponse } from '@/api/types/admin';
 import { relationProvidersFor } from './registry';
-import type {
-  ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
-} from './types';
+import type { ManagerContinuation, StationManagerScope } from './types';
 import {
   applyProviderSaveResults, collectManagerValidation, createManagerCoordinatorState, managerFooterState, managerIsDirty,
   orderManagerProviders, providerCompositionIndicator, resetManagerDrafts,
   seedProviderReadModel, selectManagerProvider,
 } from './coordinator';
 import type { ManagerCoordinatorState, ManagerProviderAdapter } from './coordinator';
+import { PromotionManagerWorkspace } from './PromotionManagerWorkspace';
 
 type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
-
-type ManagerDestinationId = 'view-all' | 'open-current' | 'edit-current';
 
 interface RateSheetEditorValue {
   title: string;
@@ -34,12 +31,10 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, connection, continuation, onDestination }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
-  connection: StationConnectionDescriptor;
   continuation?: ManagerContinuation;
-  onDestination: (action: ManagerDestinationId, continuation: ManagerContinuation) => void;
 }) {
   const [scope] = useState(initialScope);
   const currentScopeKey = scopeKey(scope);
@@ -138,30 +133,6 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const readModel = active ? state.readModelByProvider[active.key] : undefined;
   const loadState = active ? state.loadStateByProvider[active.key] : 'idle';
   const loadError = active ? state.loadErrorsByProvider[active.key] : null;
-  const subjectSummaries = active && readModel !== undefined
-    ? active.manager.subjectSummaries?.(readModel, scope) ?? [] : [];
-  // Provider-declared destination actions for the summary (transit) cards;
-  // providers without a declaration keep the default Overview/Edit pair.
-  const summaryActions = active && readModel !== undefined
-    ? active.manager.destinationActions?.(readModel, scope) ?? null : null;
-
-  const runDestination = (action: ManagerDestinationId, destination?: ManagerContinuation['destination']) => {
-    if (!active) return;
-    const continuation: ManagerContinuation = {
-      stationContext: scope.stationContext,
-      scopeKind: scope.kind,
-      subject: scope.kind === 'subject-connections' ? scope.subject : undefined,
-      destination,
-      activeProviderKey: active.key,
-      activeRelationshipKey: focusedRelationshipKey ?? scope.activeRelationshipKey ?? connection.relationshipKey,
-      selectedSectionKey,
-      originatingTab: 'manager',
-    };
-    shell.requestExit({ kind: 'destination', target: `${active.key}:${action}` }, () => {
-      onDestination(action, continuation);
-    });
-  };
-
   const replaceActiveDraft = (nextDraft: unknown) => {
     if (!active) return;
     setState((current) => collectManagerValidation({
@@ -259,41 +230,8 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
           })}
         </nav>
       )}
-      {subjectSummaries.length > 0 && (
-        <div class={`cz-manager-summary-grid${scope.kind === 'subject-connections' ? ' is-subject' : ''}`}>
-          {subjectSummaries.map((subjectSummary) => (
-            <ReadBlock
-              key={`${subjectSummary.ref.type}:${subjectSummary.ref.id}`}
-              title={subjectSummary.title}
-              subtitle={subjectSummary.subtitle}
-              icon={MODULE_ICONS.package}
-              scopeClass="drawerOverview tier cz-manager-summary-card"
-              status={subjectSummary.status.status}
-              notes={[...subjectSummary.status.notes]}
-              actions={summaryActions
-                ? summaryActions.map((action) => ({
-                  id: action.id,
-                  label: action.label,
-                  onSelect: () => runDestination(action.id, subjectSummary.ref),
-                }))
-                : [
-                  { id: 'overview', label: 'Overview', onSelect: () => runDestination('open-current', subjectSummary.ref) },
-                  { id: 'edit', label: 'Edit', onSelect: () => runDestination('edit-current', subjectSummary.ref) },
-                ]}
-            >
-              <div class="drawerModule__fields">
-                {subjectSummary.fields.map((field) => (
-                  <div class="drawerModule__field" key={field.id}>
-                    <p class="drawerModule__label">{field.label}</p>
-                    <p class="drawerModule__value">{field.values.map((value, index) => (
-                      <span key={`${field.id}:${index}`}>{index > 0 && <br />}{value}</span>
-                    ))}</p>
-                  </div>
-                ))}
-              </div>
-            </ReadBlock>
-          ))}
-        </div>
+      {active?.key === 'promotion' && scope.stationContext.type === 'service' && (
+        <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} />
       )}
 
       {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}

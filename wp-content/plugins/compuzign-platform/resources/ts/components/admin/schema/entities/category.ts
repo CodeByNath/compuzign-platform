@@ -8,11 +8,7 @@
 // presentation assets.
 
 import type { CategoryStationItem } from '@/api/types/admin';
-import {
-  categoryOverviewShell,
-  categoryServicesShell,
-} from '../shells/bindings/category';
-import { serviceOverviewShell } from '../shells/bindings/service';
+import { categoryOverviewShell } from '../shells/bindings/category';
 import {
   categoryCatalogTable,
   categoryArchivedTable,
@@ -40,8 +36,6 @@ export const CATEGORY_ENTITY: EntitySchema = {
   // copy (S4 related-stations rule).
   shells: {
     overview: categoryOverviewShell,
-    services: categoryServicesShell,
-    service:  serviceOverviewShell,
   },
 
   // Entity travel actions (StationLifecycle transitions). Declarations only —
@@ -65,17 +59,12 @@ export const CATEGORY_ENTITY: EntitySchema = {
       details: [
         { module: 'overview', mode: 'details' },
       ],
-      connections: [
-        { module: 'services', mode: 'summary' },
-      ],
+      connections: [],
     },
     // v1.2 Collection placement — first realisation: the shared
     // serviceOverviewShell repeated once per assigned service in the summary
     // viewpoint, each card re-selecting the `view` footer that opens the real
     // Service drawer. The surface owns the N bindings.
-    collections: {
-      services: { module: 'service', mode: 'summary', footer: ['view'] },
-    },
     table: categoryCatalogTable,
     // D8: `bin` is the consumed schema (the Bin workstation's Category pane);
     // archived/trashed are declared for travel-preset completeness — no

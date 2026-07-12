@@ -14,13 +14,10 @@
 // no new card, no new content elements added to it.
 
 import type { CategoryGroupOverviewDraft } from '@/api/types/admin';
-import {
-  categoryGroupOverviewModule,
-  categoryGroupCategoriesModule,
-} from '@/components/admin/utils/moduleNotifications';
+import { categoryGroupOverviewModule } from '@/components/admin/utils/moduleNotifications';
 import { CategoryGroupOverviewEditor } from '../../../editors/CategoryGroupOverviewEditor';
 import type { ShellActionSchema, ShellSchema } from '../../types';
-import type { MetricsValue, RichTextValue, TextValue } from '../../elements/library';
+import type { RichTextValue, TextValue } from '../../elements/library';
 
 // The canonical owning-workspace footer pair, exactly as the service/tier/
 // promotion/category bindings declare it.
@@ -89,35 +86,9 @@ export const categoryGroupOverviewShell: ShellSchema<CategoryGroupOverviewShellD
 };
 
 // ── Categories (relation summary gateway, D4 precedent) ───────────────────────
-// The group's child categories at a glance — the categoryServicesShell pattern,
 // one level up: a metrics element + a `view` footer. Placed in the Connections
 // tab; its View transits to the Category Group Categories collection surface,
 // which repeats the existing categoryOverviewShell once per child category.
 // Read-only in v1: group assignment stays on the category side (Category
 // chooses its group, the same relational-ecosystem precedent as Service
 // choosing its Category).
-
-export interface CategoryGroupCategoriesShellData {
-  headline: string;   // e.g. '4 categories'
-  copy:     string;   // e.g. '3 active · 1 inactive'
-}
-
-export const categoryGroupCategoriesShell: ShellSchema<CategoryGroupCategoriesShellData> = {
-  archetype: 'overview',
-  dna:       categoryGroupCategoriesModule,
-  header: {
-    title:    'Categories',
-    subtitle: 'Categories in this group.',
-    icon:     'category',
-  },
-  content: [
-    {
-      id: 'summary', element: 'metrics',
-      bind: (d): MetricsValue => ({ headline: d.headline, copy: d.copy }),
-    },
-  ],
-  footer:  { actions: ['view'] },
-  actions: {
-    view: { id: 'view', label: 'View', intent: 'secondary' },
-  },
-};

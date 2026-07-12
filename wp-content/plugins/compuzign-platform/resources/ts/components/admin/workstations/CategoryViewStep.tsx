@@ -12,7 +12,6 @@ import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
 import { categoryOverviewShell } from '@/components/admin/schema/shells/bindings/category';
 import type {
   CategoryOverviewShellData,
-  CategoryServicesShellData,
 } from '@/components/admin/schema/shells/bindings/category';
 import type { ServiceOverviewShellData } from '@/components/admin/schema/shells/bindings/service';
 import type { ShellBinding, ShellSchema } from '@/components/admin/schema/types';
@@ -58,18 +57,6 @@ export function buildCategoryViewConfig(
 // package-overview level): a Details | Connections list drawer reached from the
 // Connections-tab Services gateway's View. Back returns to the Category drawer
 // on its Connections tab, where the gateway lives.
-function buildServicesCollectionConfig(category: CategoryStationItem, deps: CategoryDrawerDeps): ActionConfig {
-  return {
-    id:             `category-services-${category.id}`,
-    mode:           'drawer',
-    title:          'Category',
-    hideStepHeader: true,
-    onBack:         () => deps.openAction(buildCategoryViewConfig(category, deps, 'connections')),
-    initialStepData: { category, deps },
-    steps: [{ id: 'services', title: 'Services', component: CategoryServicesStep }],
-  };
-}
-
 // Category-scoped assigned services, read fresh from the workstation ref.
 function assignedFor(category: CategoryStationItem, deps: CategoryDrawerDeps): StationSummary[] {
   return deps.getCatalogData().stations.filter((s) => s.categories.some((c) => c.id === category.id));
@@ -78,14 +65,6 @@ function assignedFor(category: CategoryStationItem, deps: CategoryDrawerDeps): S
 // Presentation Status Contract mapping for the summary cards (Active / Pending /
 // Disabled only). Mirrors the catalog's stationStatusLabel derivation: a
 // never-published (disabled + overview unsettled) service reads Pending.
-function summaryCardStatus(s: StationSummary): string {
-  if (s.platform_status === 'active') return 'active';
-  if (s.platform_status === 'disabled') {
-    return s.module_status?.overview !== 'settled' ? 'pending-dim' : 'disabled';
-  }
-  return 'pending-dim';
-}
-
 // ── CategoryViewStep ──────────────────────────────────────────────────────────
 // Manifest-assembly drawer (pattern: ServiceViewStep, one owned module). Details
 // tab = the owned Category Overview; Connections tab = the Assigned Services
@@ -335,9 +314,6 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
   // ── Gateway → collection transit ────────────────────────────────────────────
   // The Services gateway's View opens the dedicated Category Services collection
   // surface (Pattern B — the promotion-list / package-overview level).
-  const openServicesCollection = useCallback(() => {
-    deps.openAction(buildServicesCollectionConfig(category, deps));
-  }, [category, deps]);
 
   // ── Shell bindings ──────────────────────────────────────────────────────────
   const overviewBinding: ShellBinding<CategoryOverviewShellData> = {
@@ -350,18 +326,6 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     },
   };
 
-  const total = serviceCounts.total;
-  const servicesBinding: ShellBinding<CategoryServicesShellData> = {
-    data: {
-      headline: `${total} service${total !== 1 ? 's' : ''}`,
-      copy:     total === 0
-        ? 'No services assigned yet.'
-        : `${serviceCounts.active} active · ${serviceCounts.disabled} inactive`,
-    },
-    state: modules.services,
-    hasDraft: false,
-    handlers: { view: openServicesCollection },
-  };
 
   return (
     <>
@@ -369,7 +333,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
         entity={CATEGORY_ENTITY}
         tab={tab}
         onSelectTab={setTab}
-        bindings={{ overview: overviewBinding, services: servicesBinding }}
+        bindings={{ overview: overviewBinding }}
         openPanel={openPanel}
         onTogglePanel={(m) => setOpenPanel((p) => (p === m ? null : m))}
       >
@@ -459,109 +423,5 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
         </ModeProvider>
       )}
     </>
-  );
-}
-
-// ── CategoryServicesStep ──────────────────────────────────────────────────────
-// The dedicated Category Services collection surface (v1.2 Collection placement,
-// realised on the promotion-list / package-overview pattern): a Details |
-// Connections list drawer. Details = the shared serviceOverviewShell repeated
-// once per assigned service in the summary viewpoint (repetition owned by the
-// placement; the surface owns the N bindings); Connections = the parent Category
-// context. Each card's View opens the real Service drawer. No new mode,
-// archetype, renderer, or tabless drawer.
-
-export function CategoryServicesStep({ ctx }: { ctx: StepContext }) {
-  const category = ctx.stepData.category as CategoryStationItem;
-  const deps     = ctx.stepData.deps     as CategoryDrawerDeps;
-
-  const [listTab, setListTab] = useState<'details' | 'connections'>('details');
-
-  const slot  = CATEGORY_ENTITY.placements.collections!.services;   // { module: 'service', mode: 'summary', footer: ['view'] }
-  const shell = CATEGORY_ENTITY.shells[slot.module] as ShellSchema<ServiceOverviewShellData>;   // serviceOverviewShell under 'service'
-
-  const stations = useMemo(() => assignedFor(category, deps), [category.id]);
-
-  // Close footer (Back — the header control — returns to the Category drawer).
-  useEffect(() => {
-    const { setFooter, close } = ctx;
-    setFooter(
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>Close</button>
-      </div>
-    );
-    return () => setFooter(null);
-  }, [ctx.setFooter, ctx.close]);
-
-  // Each card's View opens the real Service drawer (existing cross-station
-  // transit — same initialStepData the catalog assembles). Back returns to this
-  // collection surface (remount reads fresh counts).
-  const openServiceDrawer = useCallback((s: StationSummary) => {
-    const d = deps.getCatalogData();
-    deps.openAction({
-      id:    `service-view-${s.id}`,
-      mode:  'drawer',
-      title: 'Service',
-      onBack: () => deps.openAction(buildServicesCollectionConfig(category, deps)),
-      initialStepData: {
-        service:       buildServiceItemForStationHandoff(s),
-        packages:      d.packages,
-        openAction:    deps.openAction,
-        allCategories: d.categories,
-        onRefresh:     deps.onRefresh,
-      },
-      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
-    });
-  }, [category, deps]);
-
-  // Parent-category context for the Connections tab — categoryOverviewShell in
-  // the connections viewpoint (View returns to the Category drawer), mirroring
-  // serviceConnectionBinding on the promotion / tier list surfaces.
-  const categoryContextBinding: ShellBinding<CategoryOverviewShellData> = {
-    data:     { name: decodeHtml(category.name), slug: category.slug, description: category.description },
-    state:    { status: category.platform_status === 'active' ? 'active' : 'disabled', notes: [] },
-    hasDraft: false,
-    handlers: { view: () => deps.openAction(buildCategoryViewConfig(category, deps)) },
-  };
-
-  return (
-    <div class="cz-req-detail">
-      {/* Drawer Tab Contract — Details = the service cards; Connections = the
-          parent category (matching the promotion-list / package-overview level). */}
-      <DrawerTabs active={listTab} onSelect={setListTab} />
-
-      {listTab === 'details' && (
-        stations.length === 0 ? (
-          <div class="cz-admin-empty">
-            <p>No services are assigned to this category. Assign services from the Service Catalog.</p>
-          </div>
-        ) : (
-          stations.map((s) => {
-            const binding: ShellBinding<ServiceOverviewShellData> = {
-              data: {
-                title:    decodeHtml(s.title),
-                category: decodeHtml(s.categories[0]?.name ?? 'Uncategorised'),
-                content:  '',
-              },
-              state:    { status: summaryCardStatus(s), notes: [] },
-              hasDraft: false,
-              handlers: { view: () => openServiceDrawer(s) },
-            };
-            return (
-              <ModeProvider key={s.id} mode={slot.mode}>
-                <OverviewShell schema={shell} binding={binding} footer={slot.footer} />
-              </ModeProvider>
-            );
-          })
-        )
-      )}
-
-      {listTab === 'connections' && (
-        <ModeProvider mode="connections">
-          <OverviewShell schema={categoryOverviewShell} binding={categoryContextBinding} />
-        </ModeProvider>
-      )}
-    </div>
   );
 }

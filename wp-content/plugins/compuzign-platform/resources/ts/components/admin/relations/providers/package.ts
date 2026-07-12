@@ -405,36 +405,6 @@ export const packageRelationProvider: WritableRelationProvider<
   },
   manager: {
     order: 100,
-    subjects: (readModel) => readModel.tierSubjects.map((tier) => ({
-      ref: { type: 'tier', id: tier.id },
-      label: tier.label,
-    })),
-    subjectSummaries: (readModel, scope) => readModel.tierSubjects
-      .filter((tier) => scope.kind === 'connection-graph' || String(scope.subject.id) === tier.id)
-      .map((tier) => ({
-        ref: { type: 'tier', id: tier.id },
-        label: tier.label,
-        title: `Package ${tier.label}`,
-        subtitle: 'Pricing and inclusions for this tier.',
-        status: { status: tier.status, notes: tier.notes },
-        fields: [
-          {
-            id: 'pricing',
-            label: 'Pricing',
-            values: tier.detail.contact && tier.detail.price === null
-              ? ['Contact', tier.detail.billing_cycle ?? 'Not available']
-              : [tier.detail.price != null ? `$${tier.detail.price.toFixed(2)}` : 'Not configured', tier.detail.billing_cycle ?? 'Not available'],
-          },
-          {
-            id: 'includes',
-            label: 'Includes',
-            values: [
-              `${tier.detail.inclusions_override.length} ${tier.detail.inclusions_override.length === 1 ? 'feature' : 'features'}`,
-              `${tier.detail.faq_refs.length} ${tier.detail.faq_refs.length === 1 ? 'common question' : 'common questions'}`,
-            ],
-          },
-        ],
-    })),
     sections: [
       {
         id: 'rate-sheets', label: 'Rate Sheets', role: 'rate-sheet', capabilities: [],
@@ -614,14 +584,12 @@ export const packageRelationProvider: WritableRelationProvider<
     });
     return {
       state,
-      destinationAvailable: !row.missing,
       notes: state.notes,
     };
   },
 
   // Package rows reference Service-owned source children; no individual
   // destination drawer exists yet. Manager controls never edit source content.
-  destination: () => null,
 
   createDraft: (readModel) => createPackageRelationDraft(readModel),
 

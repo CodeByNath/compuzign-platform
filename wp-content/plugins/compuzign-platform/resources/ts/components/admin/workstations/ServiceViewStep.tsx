@@ -28,8 +28,7 @@ import { EntityDrawer } from '../EntityDrawer';
 import type { DrawerTabId } from '../DrawerTabs';
 import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
-import { providersExposeManager, relationProvidersFor } from '@/components/admin/relations';
-import { buildServiceManagerConfig } from '@/components/admin/relations/ServiceRelationshipManagerStep';
+import { DynamicStationManager, providersExposeManager, relationProvidersFor } from '@/components/admin/relations';
 import type { StationConnectionDescriptor, StationManagerScope } from '@/components/admin/relations';
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
 
@@ -73,7 +72,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     providerKey: 'package',
     relationshipKey: `service:${service.id}:package`,
     stationContext: { type: 'service', id: service.id },
-    destinationRef: { type: 'tier', id: 'all' },
   }), [service.id]);
   const managerAvailabilityScope = useMemo<StationManagerScope>(() => ({
     kind: 'connection-graph', stationContext: { type: 'service', id: service.id },
@@ -314,22 +312,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       setSaving(false);
     }
   }, [faqsDraft, saveFaqs]);
-
-  const pkgSummaryOnView = isActive && !station.loading.creating && showManager
-    ? () => {
-      const returnToService = () => doOpen({
-        id: `service-view-${service.id}`,
-        mode: 'drawer',
-        title: 'Service',
-        initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
-        steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
-      });
-      ctx.close();
-      doOpen(buildServiceManagerConfig({
-        service, packages, allCategories, openAction: doOpen, onRefresh, returnToService,
-      }, packageConnection));
-    }
-    : undefined;
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
@@ -670,18 +652,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     },
   };
 
-  // Package Summary — the package station's primary module, placed in the
-  // Connections tab in the `summary` viewpoint (Commercial group, S3a).
-  const packageSummaryShellBinding: ShellBinding<ServicePackageSummaryShellData> = {
-    data:  { headline: pkgSummaryCount, copy: pkgSummaryDesc },
-    state: detailLoaded
-      ? { status: pkgSummaryStatus, notes: packageNotes }
-      : { status: 'loading', notes: [] },
-    hasDraft: false,
-    handlers: pkgSummaryOnView ? { view: pkgSummaryOnView } : {},
-    connection: packageConnection,
-  };
-
   return (
     <>
     {/* ── Drawer body — assembled from the service manifest's drawer
@@ -697,15 +667,13 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
         overview:   overviewShellBinding,
         inclusions: inclusionsShellBinding,
         faqs:       faqsShellBinding,
-        package:    packageSummaryShellBinding,
       }}
       openPanel={openPanel}
       onTogglePanel={(m) => setOpenPanel((p) => (p === m ? null : m))}
       trailing={{
         connections: (
           <>
-            {/* Promotions are managed inside the Package Manager (Promotion
-                Transit Card) — the Service drawer no longer carries an entry. */}
+            {showManager && <DynamicStationManager scope={managerAvailabilityScope} shell={ctx} />}
             {relatedPkg && (
               <div class="cz-shell-section cz-shell-section--no-border">
                 <p class="cz-shell-section__title">Pricing Summary</p>
