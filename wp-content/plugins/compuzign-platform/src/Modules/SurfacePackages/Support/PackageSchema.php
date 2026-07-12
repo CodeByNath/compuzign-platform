@@ -1228,7 +1228,12 @@ class PackageSchema
      */
     public static function ensureTierLifecycle(array $slot): array
     {
-        $configured = self::isOccupantFormat($slot) && !empty($slot['current_occupant']);
+        // Phase 1 flat tiers are settled occupants awaiting envelope migration,
+        // not empty shells. Basic commonly remains in this shape longer because
+        // it was populated first and has not travelled through an occupant write.
+        $configured = self::isOccupantFormat($slot)
+            ? !empty($slot['current_occupant'])
+            : !empty(array_diff_key($slot, ['drafts' => true, 'module_status' => true]));
         $default    = $configured ? 'settled' : 'not-configured';
 
         $drafts = (isset($slot['drafts']) && is_array($slot['drafts'])) ? $slot['drafts'] : [];
@@ -1598,7 +1603,9 @@ class PackageSchema
     public static function settleTierSlot(array $slot): array
     {
         $slot   = self::ensureTierLifecycle($slot);
-        $occ    = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? null) : null;
+        $occ    = self::isOccupantFormat($slot)
+            ? ($slot['current_occupant'] ?? null)
+            : (!empty(array_diff_key($slot, ['drafts' => true, 'module_status' => true])) ? $slot : null);
         $drafts = $slot['drafts'];
 
         // Defence-in-depth (carried-forward guard): nothing to settle — no current
@@ -1625,7 +1632,9 @@ class PackageSchema
             'features'            => $occ['features'] ?? [],
             'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
         ];
-        $enabled = ($occ['platform_status'] ?? 'active') === 'active';
+        $enabled = self::isOccupantFormat($slot)
+            ? (($occ['platform_status'] ?? 'active') === 'active')
+            : (($occ['enabled'] ?? true) !== false);
 
         return self::commitTierLifecycle(self::upsertOccupant($slot, $tierData, $enabled));
     }

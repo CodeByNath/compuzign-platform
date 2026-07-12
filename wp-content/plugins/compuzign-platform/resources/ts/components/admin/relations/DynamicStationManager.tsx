@@ -24,7 +24,7 @@ type ManagerDestinationId = 'view-all' | 'open-current' | 'edit-current';
 interface RateSheetEditorValue {
   title: string;
   groups: { id: string; label: string }[];
-  items: { id: string; optionId: string; unitPrice: number; per: string; quantity: number; groupId: string | null }[];
+  items: { id: string; optionId: string; unitPrice: number; per: string; quantity: number; groupId: string | null; sourceAvailable?: boolean }[];
 }
 
 function scopeKey(scope: StationManagerScope): string {
@@ -305,6 +305,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               items: projection.items.map((item) => ({
                 id: item.id, optionId: item.optionId, unitPrice: item.unitPrice,
                 per: item.per, quantity: item.quantity, groupId: item.groupId,
+                sourceAvailable: item.sourceAvailable,
               })),
             });
           };
@@ -356,7 +357,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
                               setEditingRateSheet({
                                 title: nextProjection.title,
                                 groups: nextProjection.groups.map((group) => ({ ...group })),
-                                items: nextProjection.items.map((item) => ({ id: item.id, optionId: item.optionId, unitPrice: item.unitPrice, per: item.per, quantity: item.quantity, groupId: item.groupId })),
+                                items: nextProjection.items.map((item) => ({ id: item.id, optionId: item.optionId, unitPrice: item.unitPrice, per: item.per, quantity: item.quantity, groupId: item.groupId, sourceAvailable: item.sourceAvailable })),
                               });
                             }
                             setSourcePreviewDraft(nextDraft);
@@ -377,14 +378,14 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
                       <thead><tr><th>Supplied content</th><th>Unit Price</th><th>Per</th><th>Qty</th><th>Commercial Group</th></tr></thead>
                       <tbody>{editingRateSheet.items.map((item, index) => (
                         <tr key={item.id}>
-                          <td class="cz-sp-tier-table__name">{projection.options.find((option) => option.id === item.optionId)?.label ?? '(unresolved supplied content)'}</td>
-                          <td><input class="cz-tf-input" aria-label={`Unit Price row ${index + 1}`} type="number" min="0" step="0.01" value={item.unitPrice}
+                          <td class="cz-sp-tier-table__name">{projection.options.find((option) => option.id === item.optionId)?.label ?? '(unresolved supplied content)'}{item.sourceAvailable === false ? ' — Unavailable' : ''}</td>
+                          <td><input class="cz-tf-input" disabled={item.sourceAvailable === false} aria-label={`Unit Price row ${index + 1}`} type="number" min="0" step="0.01" value={item.unitPrice}
                             onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: Number(event.currentTarget.value) } : row) })} /></td>
-                          <td><select class="cz-tf-select" aria-label={`Per row ${index + 1}`} value={item.per}
+                          <td><select class="cz-tf-select" disabled={item.sourceAvailable === false} aria-label={`Per row ${index + 1}`} value={item.per}
                             onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, per: event.currentTarget.value } : row) })}>
                             {projection.units.map((unit) => <option value={unit} key={unit}>{unit}</option>)}
                           </select></td>
-                          <td><input class="cz-tf-input" aria-label={`Quantity row ${index + 1}`} type="number" min="1" step="1" value={item.quantity}
+                          <td><input class="cz-tf-input" disabled={item.sourceAvailable === false} aria-label={`Quantity row ${index + 1}`} type="number" min="1" step="1" value={item.quantity}
                             onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Number(event.currentTarget.value) } : row) })} /></td>
                           <td>{creatingRateGroup && rateGroupTargetIndex === index ? <div class="cz-rate-sheet-editor__inline-group">
                             <input class="cz-tf-input" value={newRateGroupLabel} autoFocus placeholder="New group name" aria-label={`New group name row ${index + 1}`}
@@ -392,7 +393,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
                               onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); createRateGroup(); } if (event.key === 'Escape') { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); } }} />
                             <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={createRateGroup} disabled={!newRateGroupLabel.trim()}>Add</button>
                             <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); }}>Cancel</button>
-                          </div> : <select class="cz-tf-select" aria-label={`Group row ${index + 1}`} value={item.groupId ?? ''}
+                          </div> : <select class="cz-tf-select" disabled={item.sourceAvailable === false} aria-label={`Group row ${index + 1}`} value={item.groupId ?? ''}
                             onChange={(event) => {
                               if (event.currentTarget.value === '__add_new__') { setNewRateGroupLabel(''); setCreatingRateGroup(true); setRateGroupTargetIndex(index); return; }
                               setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, groupId: event.currentTarget.value || null } : row) });

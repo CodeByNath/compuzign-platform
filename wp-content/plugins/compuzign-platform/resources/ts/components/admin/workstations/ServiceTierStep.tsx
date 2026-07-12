@@ -846,20 +846,22 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   }
 
   if (editingSection === 'tier-inclusions' && featuresDraft) {
+    const activeIds = new Set(rateSheetCatalogue.filter((item) => item.resolved).map((item) => item.item_id));
+    const suspended = featuresDraft.filter((item) => !activeIds.has(item.item_id));
     return (
       <ModeProvider mode="edit">
         <ChildShell
           schema={tierFeaturesShell}
           binding={tierFeaturesBinding}
           editSession={{
-            draft:    featuresDraft,
-            replace:  (next) => setFeaturesDraft(next as TierRateSheetSelection[]),
+            draft:    featuresDraft.filter((item) => activeIds.has(item.item_id)),
+            replace:  (next) => setFeaturesDraft([...(next as TierRateSheetSelection[]), ...suspended]),
             onSave:   saveSection,
             onCancel: cancelSection,
             saving:   pkg.saving,
             saveErr,
             isDirty:  false,
-            extras:   { pool: [], onCreate: async () => null, rateSheetCatalogue },
+            extras:   { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved) },
           }}
         />
       </ModeProvider>

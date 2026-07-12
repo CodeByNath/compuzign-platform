@@ -1935,6 +1935,7 @@ class AdminServicesController
         return rest_ensure_response([
             'success'       => true,
             'tier_id'       => $tierId,
+            'platform_status' => $station['platform_status'],
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],

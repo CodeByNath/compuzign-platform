@@ -150,6 +150,7 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
         quantity: number;
         groupId: string | null;
         groupLabel: string;
+        sourceAvailable: boolean;
       }[];
     };
   structureControls?: {

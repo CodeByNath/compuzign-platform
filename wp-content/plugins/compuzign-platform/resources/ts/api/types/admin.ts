@@ -143,6 +143,7 @@ export interface PackageManagerItem {
   sort_order:          number;
   disabled:            boolean;
   missing:             boolean;
+  available?:          boolean;
   module_transition:   PackageManagerModuleTransition;
 }
 
@@ -551,6 +552,7 @@ export type TierModuleSavePayload =
 export interface TierLifecycleResponse {
   success:       boolean;
   tier_id:       string;
+  platform_status?: string;
   module?:       TierModuleKey;
   tier:          SurfaceTierDetail;
   drafts:        TierDrafts;

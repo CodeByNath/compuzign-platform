@@ -300,6 +300,7 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
           ...prev,
           station: {
             ...prev.station,
+            platform_status: res.platform_status ?? prev.station.platform_status,
             tiers: {
               ...prev.station.tiers,
               [tierId]: { ...res.tier, drafts: res.drafts, module_status: res.module_status },
