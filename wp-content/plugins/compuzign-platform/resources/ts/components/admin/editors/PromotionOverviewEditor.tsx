@@ -1,91 +1,20 @@
-import type { PromotionOverviewDraft, BasedOnTier } from '@/api/types/admin';
+import type { BasedOnTier, PromotionOverviewDraft } from '@/api/types/admin';
+import { TIER_KEYS, TIER_LABELS } from '../workstations/serviceDrawerShared';
 
-// The single Promotion Overview editor, opened directly from Station Manager.
-
-const BASED_ON_TIERS = [
-  { id: 'basic', label: 'Basic' },
-  { id: 'standard', label: 'Standard' },
-  { id: 'premium', label: 'Premium' },
-  { id: 'enterprise', label: 'Enterprise' },
-  { id: 'ultimate', label: 'Ultimate' },
-];
-
-interface Props {
-  draft:    PromotionOverviewDraft;
+export function PromotionOverviewEditor({ draft, onChange }: {
+  draft: PromotionOverviewDraft;
   onChange: (patch: Partial<PromotionOverviewDraft>) => void;
-  saveOk?:  boolean;
-}
-
-export function PromotionOverviewEditor({ draft, onChange, saveOk }: Props) {
-  return (
-    <div class="cz-tf-form">
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Name</label>
-        <input type="text" class="cz-tf-input" value={draft.name}
-          onInput={(e) => onChange({ name: (e.target as HTMLInputElement).value })} />
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Based on tier</label>
-        <select class="cz-tf-select" value={draft.based_on ?? ''}
-          onChange={(e) => {
-            const v = (e.target as HTMLSelectElement).value;
-            onChange({ based_on: (v as BasedOnTier) || null });
-          }}>
-          <option value="">None</option>
-          {BASED_ON_TIERS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-        </select>
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Headline</label>
-        <input type="text" class="cz-tf-input" value={draft.headline}
-          onInput={(e) => onChange({ headline: (e.target as HTMLInputElement).value })} />
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Description</label>
-        <textarea class="cz-tf-textarea" value={draft.description}
-          onInput={(e) => onChange({ description: (e.target as HTMLTextAreaElement).value })} />
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Derived price</label>
-        <input type="text" class="cz-tf-input" value={draft.price == null ? 'Not configured' : `$${draft.price.toFixed(2)}`} readOnly />
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Billing label</label>
-        <input type="text" class="cz-tf-input" value={draft.billing_label}
-          onInput={(e) => onChange({ billing_label: (e.target as HTMLInputElement).value })} />
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Badge</label>
-        <input type="text" class="cz-tf-input" value={draft.badge}
-          onInput={(e) => onChange({ badge: (e.target as HTMLInputElement).value })} />
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Campaign label</label>
-        <input type="text" class="cz-tf-input" value={draft.campaign_label}
-          onInput={(e) => onChange({ campaign_label: (e.target as HTMLInputElement).value })} />
-      </div>
-
-      <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-        <input type="checkbox" id="promo-overview-featured" checked={draft.is_featured}
-          onChange={(e) => onChange({ is_featured: (e.target as HTMLInputElement).checked })} />
-        <label class="cz-tf-label" for="promo-overview-featured" style="margin: 0">Featured</label>
-      </div>
-
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Priority</label>
-        <input type="number" class="cz-tf-input" min="0" value={draft.priority}
-          onInput={(e) => onChange({ priority: parseInt((e.target as HTMLInputElement).value, 10) || 0 })} />
-      </div>
-
-      {saveOk && <p class="cz-admin-ok-msg" style="margin-top: var(--cz-space-3)">Saved.</p>}
-    </div>
-  );
+}) {
+  return <div class="cz-tf-form">
+    <label class="cz-tf-field"><span class="cz-tf-label">Name</span><input class="cz-tf-input" value={draft.name} onInput={(event) => onChange({ name: event.currentTarget.value })} /></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Based on Tier</span><select class="cz-tf-select" value={draft.based_on ?? ''} onChange={(event) => onChange({ based_on: (event.currentTarget.value || null) as BasedOnTier | null })}><option value="">Select Tier</option>{TIER_KEYS.map((tier) => <option value={tier} key={tier}>{TIER_LABELS[tier]}</option>)}</select></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Headline</span><input class="cz-tf-input" value={draft.headline} onInput={(event) => onChange({ headline: event.currentTarget.value })} /></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Description</span><textarea class="cz-tf-textarea" value={draft.description} onInput={(event) => onChange({ description: event.currentTarget.value })} /></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Derived Price</span><input class="cz-tf-input" readOnly value={draft.price == null ? 'Not configured' : `$${draft.price.toFixed(2)}`} /></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Billing Label</span><input class="cz-tf-input" value={draft.billing_label} onInput={(event) => onChange({ billing_label: event.currentTarget.value })} /></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Badge</span><input class="cz-tf-input" value={draft.badge} onInput={(event) => onChange({ badge: event.currentTarget.value })} /></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Campaign Label</span><input class="cz-tf-input" value={draft.campaign_label} onInput={(event) => onChange({ campaign_label: event.currentTarget.value })} /></label>
+    <label class="cz-tf-field"><span class="cz-tf-label">Priority</span><input type="number" min="0" class="cz-tf-input" value={draft.priority} onInput={(event) => onChange({ priority: Number.parseInt(event.currentTarget.value, 10) || 0 })} /></label>
+    <label class="cz-tf-field" style="flex-direction:row;align-items:center;gap:var(--cz-space-3)"><input type="checkbox" checked={draft.is_featured} onChange={(event) => onChange({ is_featured: event.currentTarget.checked })} /><span class="cz-tf-label" style="margin:0">Featured</span></label>
+  </div>;
 }

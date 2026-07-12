@@ -35,13 +35,13 @@ export function StationManagerStep({ ctx }: { ctx: StepContext }) {
   }), [deps.service.id, deps.initialProvider]);
   useEffect(() => { ctx.setPanelMode('manager-wide'); return () => ctx.setPanelMode('standard'); }, [ctx.setPanelMode]);
 
-  const openPromotion = (promotionId?: string) => {
+  const openPromotion = (promotionId?: string, edit = false) => {
     const returnToManager = () => deps.openAction(buildStationManagerConfig({ ...deps, initialProvider: 'promotion' }));
     ctx.close();
     deps.openAction({
       id: `promotion-overview-${promotionId ?? 'new'}`,
       mode: 'drawer', title: 'Promotion', onBack: returnToManager,
-      initialStepData: { serviceId: deps.service.id, promotionId },
+      initialStepData: { serviceId: deps.service.id, promotionId, edit },
       steps: [{ id: 'overview', title: 'Promotion Overview', component: PromotionOverviewDrawerStep }],
     });
   };

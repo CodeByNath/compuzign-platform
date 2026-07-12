@@ -36,7 +36,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
-  onOpenPromotion?: (promotionId?: string) => void;
+  onOpenPromotion?: (promotionId?: string, edit?: boolean) => void;
   onOpenPackage?: (tierId: string, edit?: boolean) => void;
 }) {
   const [scope] = useState(initialScope);
