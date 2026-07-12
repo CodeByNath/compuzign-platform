@@ -595,30 +595,6 @@ class AdminServicesController
         ];
         update_post_meta($id, self::DRAFT_OVERVIEW, $overviewDraft);
 
-        // Package Station — born with five named tier shells, all empty.
-        // NOTE: platform_status here is a legacy Cost Builder visibility field copied from
-        // cz_package during migration. It is NOT the lifecycle status of the Package Station
-        // shell itself. The Package Station is structural and permanent — it has no lifecycle.
-        update_post_meta($id, self::META_PACKAGE_STATION, [
-            'platform_status'    => 'disabled',
-            'tiers'              => ['basic' => [], 'standard' => [], 'premium' => [], 'enterprise' => [], 'ultimate' => []],
-            'popular_tier'       => null,
-            'popular_label'      => '',
-            'sort_position'      => 0,
-            'bundle'             => ['title' => '', 'description' => '', 'price' => null],
-            'valid_from'         => null,
-            'valid_until'        => null,
-            'display_contexts'   => ['cost-builder'],
-            'migration_source_id' => null,
-            // Package Station Manager (Phase B) — package-level decoration over
-            // Service-owned children. Storage/lifecycle owned by
-            // PackageManagerSchema; this is only the newborn-station default.
-            'package_manager'    => \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::defaultManager(),
-        ]);
-
-        // Promotion Station — born empty; Promotion Instances created in Phase 4.
-        update_post_meta($id, self::META_PROMOTION_STATION, []);
-
         $post = get_post($id);
         $meta = get_post_meta($id, self::META_KEY, true) ?: [];
 
@@ -1431,9 +1407,32 @@ class AdminServicesController
     private function resolvePackageOwnerServiceId(int $contextServiceId): int
     {
         $ownerId = (int) get_post_meta($contextServiceId, self::META_PACKAGE_OWNER, true);
-        if ($ownerId < 1) { return $contextServiceId; }
-        $owner = get_post($ownerId);
-        return $owner instanceof \WP_Post && $owner->post_type === self::POST_TYPE ? $ownerId : $contextServiceId;
+        if ($ownerId > 0) {
+            $owner = get_post($ownerId);
+            if ($owner instanceof \WP_Post && $owner->post_type === self::POST_TYPE) { return $ownerId; }
+        }
+
+        // New Services own no commercial station. Resolve the established
+        // Package Manager station by its stored commercial configuration.
+        $candidates = get_posts([
+            'post_type' => self::POST_TYPE, 'post_status' => 'any',
+            'numberposts' => -1, 'fields' => 'ids', 'no_found_rows' => true,
+        ]);
+        $bestId = 0;
+        $bestScore = 0;
+        foreach (is_array($candidates) ? $candidates : [] as $candidateId) {
+            $station = get_post_meta((int) $candidateId, self::META_PACKAGE_STATION, true);
+            if (!is_array($station) || !is_array($station['package_manager'] ?? null)) { continue; }
+            $manager = $station['package_manager'];
+            $score = count(is_array($manager['sources'] ?? null) ? $manager['sources'] : [])
+                + count(is_array($manager['items'] ?? null) ? $manager['items'] : [])
+                + (!empty($manager['rate_sheet']) ? 1000 : 0);
+            if ($score > $bestScore || ($score === $bestScore && $score > 0 && ((int) $candidateId < $bestId || $bestId === 0))) {
+                $bestScore = $score;
+                $bestId = (int) $candidateId;
+            }
+        }
+        return $bestId > 0 ? $bestId : $contextServiceId;
     }
 
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
