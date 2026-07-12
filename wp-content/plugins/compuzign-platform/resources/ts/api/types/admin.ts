@@ -522,6 +522,8 @@ export interface TierRateSheetSelection {
 }
 
 export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
+  source_type?: PackageManagerSourceType | null;
+  source_id?: string | null;
   resolved: boolean;
   label: string;
   unit_price: number | null;

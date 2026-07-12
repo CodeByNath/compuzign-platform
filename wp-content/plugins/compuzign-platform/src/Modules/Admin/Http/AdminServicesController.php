@@ -1200,14 +1200,12 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
 
-        $rawInc     = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
-        $incPool    = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
-        $rawFaqs    = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
-
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
         $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
-        $managerModel = $PMS::buildReadModel($serviceId, $PMS::sanitize($rawManager), $incPool, is_array($rawFaqs) ? $rawFaqs : [], (string) ($station['platform_status'] ?? 'disabled'));
+        $sanitizedManager = $PMS::sanitize($rawManager);
+        [$incPool, $faqPool] = $this->resolvePackageSourcePools($serviceId, $sanitizedManager['sources']);
+        $managerModel = $PMS::buildReadModel($serviceId, $sanitizedManager, $incPool, $faqPool, (string) ($station['platform_status'] ?? 'disabled'));
         $tiers = [];
         foreach ($PS::ALLOWED_TIERS as $tierId) {
             // P3 additive read exposure: settled detail (unchanged 8 fields) plus the
@@ -1233,7 +1231,7 @@ class AdminServicesController
                 : ($detail['rate_sheet_items'] ?? []);
             $rateProjection = $PMS::projectTierRateSheet(
                 $serviceId, $rawManager, $effectiveSelections, $incPool,
-                is_array($rawFaqs) ? $rawFaqs : [], (string) ($station['platform_status'] ?? 'disabled')
+                $faqPool, (string) ($station['platform_status'] ?? 'disabled')
             );
             $detail['rate_sheet_selections'] = $rateProjection['selections'];
             $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections);
@@ -1241,8 +1239,12 @@ class AdminServicesController
             $detail['contact'] = false;
             $detail['inclusions_override'] = array_map(
                 fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'missing' => !$row['resolved']],
-                $rateProjection['selections']
+                array_values(array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'inclusion'))
             );
+            $detail['faq_refs'] = array_values(array_map(
+                fn(array $row): string => (string) $row['source_id'],
+                array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'faq' && !empty($row['resolved']))
+            ));
             if (is_array($detail['drafts']['overview'] ?? null)) {
                 $detail['drafts']['overview']['price'] = $rateProjection['price'];
             }
@@ -1272,7 +1274,7 @@ class AdminServicesController
                     fn($i) => is_array($i) && !empty($i['id']) && !empty($i['label'])
                 )),
                 'faqs'       => array_values(array_filter(
-                    is_array($rawFaqs) ? $rawFaqs : [],
+                    $faqPool,
                     fn($i) => is_array($i) && !empty($i['question'])
                 )),
                 'rate_sheet' => $managerModel['rate_sheet'],
@@ -2124,7 +2126,7 @@ class AdminServicesController
                     fn($i) => is_array($i) && !empty($i['id']) && !empty($i['label'])
                 )),
                 'faqs' => array_values(array_filter(
-                    is_array($rawFaqs) ? $rawFaqs : [],
+                    $faqPool,
                     fn($i) => is_array($i) && !empty($i['question'])
                 )),
             ],

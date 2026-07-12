@@ -764,6 +764,8 @@ final class PackageManagerSchema
             $lineTotal = $available && $unitPrice !== null ? $unitPrice * $quantity : null;
             $rows[] = [
                 'item_id' => $itemId, 'quantity' => $quantity, 'resolved' => $resolved,
+                'source_type' => $source['source_type'] ?? null,
+                'source_id' => $source['source_id'] ?? null,
                 'available' => $available,
                 'operational_state' => $source['operational_state'] ?? 'source_missing',
                 'health_reasons' => $source['health_reasons'] ?? ['rate_sheet_item_unresolved'],

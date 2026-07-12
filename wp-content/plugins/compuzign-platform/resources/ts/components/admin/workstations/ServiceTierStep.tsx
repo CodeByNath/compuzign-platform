@@ -758,8 +758,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const detail    = view.detail;
   const relationshipLabels = new Map(svc.package_relationships.map((item) => [item.item_id,
     item.decorated_label ?? (item.resolved && 'label' in item.resolved ? item.resolved.label : item.resolved && 'question' in item.resolved ? item.resolved.question : '(missing source)')]));
+  const relationshipsById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
   const rateSheetCatalogue: TierResolvedRateSheetSelection[] = (svc.rate_sheet?.items ?? []).map((item) => ({
     item_id: item.item_id,
+    source_type: relationshipsById.get(item.source_item_id)?.source_type ?? null,
+    source_id: relationshipsById.get(item.source_item_id)?.source_id ?? null,
     quantity: 1,
     resolved: relationshipLabels.has(item.source_item_id),
     label: relationshipLabels.get(item.source_item_id) ?? '(unresolved Rate Sheet item)',
@@ -812,7 +815,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     state:    view.modules.faqs,
     hasDraft: view.drafts.faqs !== null,
     handlers: {
-      edit:            () => openSection('tier-faqs'),
+      edit:            () => openSection('tier-inclusions'),
       'discard-draft': () => handleRevertModule('faqs'),
     },
     busy: tierBusy,
@@ -856,7 +859,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             saving:   pkg.saving,
             saveErr,
             isDirty:  false,
-            extras:   { pool: incPool, onCreate: (label: string) => pkg.createInclusion(label), rateSheetCatalogue },
+            extras:   { pool: [], onCreate: async () => null, rateSheetCatalogue },
           }}
         />
       </ModeProvider>

@@ -564,7 +564,6 @@ export const packageRelationProvider: WritableRelationProvider<
     ]);
     if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
     if (!response.success || !stationResponse.success) throw new Error('Could not load the Package relation provider.');
-
     const tierSubjects = Object.entries(stationResponse.station.tiers).map(([id, tier]) => {
       const overview = tier.drafts?.overview;
       const detail: SurfaceTierDetail = {
@@ -576,12 +575,7 @@ export const packageRelationProvider: WritableRelationProvider<
         inclusions_override: tier.inclusions_override,
         faq_refs: tier.drafts?.faqs ?? tier.faq_refs,
       };
-      const tierLike = {
-        enabled: detail.enabled,
-        price: detail.price,
-        billing_cycle: detail.billing_cycle,
-        contact: detail.contact,
-      };
+      const tierLike = { enabled: detail.enabled, price: detail.price, billing_cycle: detail.billing_cycle, contact: detail.contact };
       return {
         id,
         label: detail.label?.trim() || id.replace(/(^|[-_])\w/g, (part) => part.replace(/[-_]/, ' ').toUpperCase()),
@@ -591,7 +585,6 @@ export const packageRelationProvider: WritableRelationProvider<
       };
     });
     if (scope.kind === 'connection-graph') return { ...response.manager, tierSubjects };
-
     const tier = stationResponse.station.tiers[String(scope.subject?.id)] as SurfaceTierDetail | undefined;
     if (!tier) throw new Error('The selected Tier is not connected to this Package station.');
     return projectPackageReadModelForTier(response.manager, tier, tierSubjects);

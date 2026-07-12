@@ -195,6 +195,8 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
         : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
       return {
         ...selection, resolved, label,
+        source_type: source?.source_type ?? null,
+        source_id: source?.source_id ?? null,
         unit_price: resolved && rateItem ? rateItem.unit_price : null,
         per: resolved && rateItem ? rateItem.per : null,
         group_id: resolved && rateItem ? rateItem.group_id : null,
@@ -206,7 +208,12 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
       ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
       : null;
     dp.contact = false;
-    dp.inclusions_override = resolvedSelections.map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
+    dp.inclusions_override = resolvedSelections
+      .filter((item) => item.source_type === 'inclusion')
+      .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
+    dp.faq_refs = resolvedSelections
+      .filter((item) => item.source_type === 'faq' && item.resolved && item.source_id)
+      .map((item) => item.source_id as string);
     const tierLike: TierLike = {
       enabled:       dp.enabled,
       price:         dp.price,
