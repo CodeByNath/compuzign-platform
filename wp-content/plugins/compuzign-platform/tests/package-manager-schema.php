@@ -73,19 +73,6 @@ $commercialModel = PMS::buildReadModel(
 );
 assertSameValue('settled', $commercialModel['items'][0]['module_transition'], 'Rate Sheet participation is the commercial relationship decision');
 assertSameValue(true, $commercialModel['items'][0]['available'], 'Rate Sheet supplied content is immediately available to Tier pricing');
-$suspendedManager = $multiSource;
-$suspendedManager['items'] = [[
-    'source_type' => 'inclusion', 'source_id' => 'inc-a', 'group_id' => null,
-    'sort_order' => 0, 'disabled' => true, 'decorated_label' => null,
-    'module_transition' => 'pending',
-]];
-$suspendedModel = PMS::buildReadModel(
-    10, PMS::sanitize($suspendedManager),
-    array_map(fn(array $item): array => [...$item, '_source_available' => true], $secondServicePool),
-    $faqPool, 'active'
-);
-assertSameValue('pending', itemBySource($suspendedModel, 'inclusion', 'inc-a')['module_transition'], 'Rate Sheet participation cannot reactivate a suspended source');
-assertSameValue(false, itemBySource($suspendedModel, 'inclusion', 'inc-a')['available'], 'suspended source stays out of active Tier pricing after it returns');
 
 $multiSourceSavedAgain = PMS::commitConfiguration(
     $multiSource,

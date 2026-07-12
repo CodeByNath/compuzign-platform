@@ -634,7 +634,7 @@ final class PackageManagerSchema
             // Commercial configuration is the relationship decision. A source
             // used by the Rate Sheet must not require a second, legacy Manager
             // item-settle action before Tiers and pricing can consume it.
-            if (isset($rateSheetSourceIds[$item['item_id']]) && empty($item['disabled'])) {
+            if (isset($rateSheetSourceIds[$item['item_id']])) {
                 $item['module_transition'] = 'settled';
             }
             $matchingSources = self::countSourceMatches($item['source_type'], $item['source_id'], $inclusionPool, $faqPool);

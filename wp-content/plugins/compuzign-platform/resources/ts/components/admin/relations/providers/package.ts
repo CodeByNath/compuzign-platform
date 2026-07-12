@@ -449,7 +449,6 @@ export const packageRelationProvider: WritableRelationProvider<
           const groups = rateSheet?.groups ?? [];
           const groupLabels = new Map(groups.map((group) => [group.group_id, group.label]));
           const availableItems = [...readModel.items, ...(draft?.previewItems ?? [])];
-          const sourceItems = new Map(availableItems.map((item) => [item.item_id, item]));
           const optionLabels = new Map(availableItems.map((item) => [item.item_id, packageItemLabel(item)]));
           return {
             role: 'rate-sheet',
@@ -470,8 +469,6 @@ export const packageRelationProvider: WritableRelationProvider<
               quantity: item.quantity,
               groupId: item.group_id,
               groupLabel: item.group_id ? groupLabels.get(item.group_id) ?? 'Unknown group' : 'Ungrouped',
-              sourceAvailable: sourceItems.get(item.source_item_id)?.available !== false
-                && !sourceItems.get(item.source_item_id)?.missing,
             })),
           };
         },
