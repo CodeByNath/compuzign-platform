@@ -2,6 +2,7 @@ import {
   fetchPackageStationManager,
   fetchAdminServiceDetail,
   fetchServicePackageStation,
+  fetchServicePromotionStation,
   savePackageStationManager,
 } from '@/api/endpoints/admin';
 import { PACKAGE_RATE_SHEET_UNITS } from '@/api/types/admin';
@@ -13,6 +14,7 @@ import type {
   PackageRateSheet,
   PackageSourceRelationship,
   SurfaceTierDetail,
+  PromotionTier,
 } from '@/api/types/admin';
 import {
   evaluateModule,
@@ -37,6 +39,11 @@ export interface PackageRelationReadModel extends PackageManagerReadModel {
     detail: SurfaceTierDetail;
     status: string;
     notes: ReturnType<typeof getTierNotes>;
+  }[];
+  promotionSubjects: readonly {
+    id: string;
+    detail: PromotionTier;
+    status: string;
   }[];
 }
 
@@ -373,6 +380,7 @@ export async function projectPackageReadModelForTier(
       faqs: readModel.projections.faqs.filter((item) => faqIds.has(item.id)),
     },
     tierSubjects,
+    promotionSubjects: [],
   };
 }
 
@@ -405,11 +413,11 @@ export const packageRelationProvider: WritableRelationProvider<
   },
   manager: {
     order: 100,
-    subjects: (readModel) => readModel.tierSubjects.map((tier) => ({
+    subjects: (readModel) => [...readModel.tierSubjects.map((tier) => ({
       ref: { type: 'tier', id: tier.id },
       label: tier.label,
-    })),
-    subjectSummaries: (readModel, scope) => readModel.tierSubjects
+    })), ...readModel.promotionSubjects.map((promotion) => ({ ref: { type: 'promotion', id: promotion.id }, label: promotion.detail.name || 'Promotion' }))],
+    subjectSummaries: (readModel, scope) => [...readModel.tierSubjects
       .filter((tier) => scope.kind === 'connection-graph' || String(scope.subject.id) === tier.id)
       .map((tier) => ({
         ref: { type: 'tier', id: tier.id },
@@ -434,7 +442,23 @@ export const packageRelationProvider: WritableRelationProvider<
             ],
           },
         ],
-    })),
+    })), ...(scope.kind === 'connection-graph' ? readModel.promotionSubjects
+      .filter((promotion) => promotion.detail.status !== 'archived' && promotion.detail.status !== 'trashed')
+      .map((promotion) => ({
+        ref: { type: 'promotion', id: promotion.id },
+        label: promotion.detail.name || 'Promotion',
+        title: promotion.detail.name || 'Promotion',
+        subtitle: 'Promotion pricing projected from its selected Package tier.',
+        status: { status: promotion.status, notes: [] },
+        fields: [
+          { id: 'tier', label: 'Tier', values: [promotion.detail.based_on ?? 'Not selected'] },
+          { id: 'pricing', label: 'Pricing', values: [promotion.detail.price == null ? 'Not configured' : `$${promotion.detail.price.toFixed(2)}`] },
+        ],
+      })) : []), ...(scope.kind === 'connection-graph' ? [{
+        ref: { type: 'promotion', id: 'new' }, label: 'New Promotion', title: 'New Promotion',
+        subtitle: 'Create a promotion in Package Manager.', status: { status: 'not-configured', notes: [] },
+        fields: [{ id: 'overview', label: 'Promotion Overview', values: ['Select a tier and configure promotion metadata.'] }],
+      }] : [])],
     sections: [
       {
         id: 'rate-sheets', label: 'Rate Sheets', role: 'rate-sheet', capabilities: [],
@@ -561,12 +585,13 @@ export const packageRelationProvider: WritableRelationProvider<
   async load(scope, signal) {
     if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
     const serviceId = scope.stationContext.id;
-    const [response, stationResponse] = await Promise.all([
+    const [response, stationResponse, promotionResponse] = await Promise.all([
       fetchPackageStationManager(serviceId),
       fetchServicePackageStation(serviceId),
+      fetchServicePromotionStation(serviceId),
     ]);
     if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError');
-    if (!response.success || !stationResponse.success) throw new Error('Could not load the Package relation provider.');
+    if (!response.success || !stationResponse.success || !promotionResponse.success) throw new Error('Could not load the Package relation provider.');
     const tierSubjects = Object.entries(stationResponse.station.tiers).map(([id, tier]) => {
       const overview = tier.drafts?.overview;
       const detail: SurfaceTierDetail = {
@@ -587,10 +612,11 @@ export const packageRelationProvider: WritableRelationProvider<
         notes: getTierNotes(tierLike, { platformStatus: stationResponse.station.platform_status }),
       };
     });
-    if (scope.kind === 'connection-graph') return { ...response.manager, tierSubjects };
+    const promotionSubjects = promotionResponse.promotions.map((detail) => ({ id: detail.id, detail, status: detail.status === 'draft' ? 'pending-full' : detail.status }));
+    if (scope.kind === 'connection-graph') return { ...response.manager, tierSubjects, promotionSubjects };
     const tier = stationResponse.station.tiers[String(scope.subject?.id)] as SurfaceTierDetail | undefined;
     if (!tier) throw new Error('The selected Tier is not connected to this Package station.');
-    return projectPackageReadModelForTier(response.manager, tier, tierSubjects);
+    return { ...await projectPackageReadModelForTier(response.manager, tier, tierSubjects), promotionSubjects };
   },
 
   rows: (readModel) => readModel.items,
@@ -727,6 +753,6 @@ export const packageRelationProvider: WritableRelationProvider<
       rate_sheet: draft.rateSheet,
     });
     if (!response.success) throw new Error(response.message || 'Could not save Package Manager.');
-    return { ...response.manager, tierSubjects: readModel.tierSubjects };
+    return { ...response.manager, tierSubjects: readModel.tierSubjects, promotionSubjects: readModel.promotionSubjects };
   },
 };

@@ -266,8 +266,8 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               key={`${subjectSummary.ref.type}:${subjectSummary.ref.id}`}
               title={subjectSummary.title}
               subtitle={subjectSummary.subtitle}
-              icon={MODULE_ICONS.package}
-              scopeClass="drawerOverview tier cz-manager-summary-card"
+              icon={subjectSummary.ref.type === 'promotion' ? MODULE_ICONS.overview : MODULE_ICONS.package}
+              scopeClass={`drawerOverview ${subjectSummary.ref.type === 'promotion' ? 'promotion' : 'tier'} cz-manager-summary-card`}
               status={subjectSummary.status.status}
               notes={[...subjectSummary.status.notes]}
               actions={summaryActions
