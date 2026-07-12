@@ -64,6 +64,23 @@ assertSameValue(2, count($multiSource['sources']), 'Package persists multiple so
 assertSameValue(4, count($multiSource['rate_sheet']['items']), 'every item exposed by connected Services receives a Rate Sheet row automatically');
 assertSameValue('Per item', $multiSource['rate_sheet']['items'][0]['per'], 'automatic rows begin with safe commercial defaults');
 
+$secondServicePool = [...$incPool, ['id' => 'service:22:inc-a', 'label' => 'Feature A from another Service']];
+$multiSourceSavedAgain = PMS::commitConfiguration(
+    $multiSource,
+    [],
+    [],
+    $secondServicePool,
+    $faqPool,
+    $multiSource['rate_sheet'],
+    $multiSource['sources']
+);
+assertSameValue($multiSource['sources'], $multiSourceSavedAgain['sources'], 'sequential save preserves both source relationships without emitting an implicit duplicate');
+assertSameValue(
+    array_column($multiSource['rate_sheet']['items'], 'source_item_id'),
+    array_column($multiSourceSavedAgain['rate_sheet']['items'], 'source_item_id'),
+    'sequential save preserves stable namespaced Rate Sheet source references'
+);
+
 $unavailablePool = [['id' => 'inc-a', 'label' => 'Feature A', '_source_available' => false]];
 $unavailableModel = PMS::buildReadModel(10, $empty, $unavailablePool, [], 'active');
 assertSameValue('connected_unavailable', itemBySource($unavailableModel, 'inclusion', 'inc-a')['operational_state'], 'source-provider availability fails closed independently of the Package host');

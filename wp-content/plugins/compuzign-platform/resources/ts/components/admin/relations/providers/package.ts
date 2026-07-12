@@ -1,5 +1,6 @@
 import {
   fetchPackageStationManager,
+  fetchAdminServiceDetail,
   fetchServicePackageStation,
   savePackageStationManager,
 } from '@/api/endpoints/admin';
@@ -60,6 +61,7 @@ export interface PackageRelationDraft {
   // Only these rows are sent to the explicit-decision POST. Reconciled source
   // rows stay provisional until a control deliberately marks them explicit.
   explicitDecisionIds: string[];
+  previewItems: PackageManagerItem[];
 }
 
 function cloneGroups(groups: PackageManagerGroup[]): PackageManagerGroup[] {
@@ -101,6 +103,7 @@ export function createPackageRelationDraft(readModel: PackageManagerReadModel): 
     } : null,
     itemsById,
     explicitDecisionIds: explicitDecisionIds.sort(),
+    previewItems: [],
   };
 }
 
@@ -235,6 +238,63 @@ export function connectPackageServiceSources(
     });
   }
   return { ...draft, sources };
+}
+
+async function canonicalRateSheetItemId(sourceItemId: string): Promise<string> {
+  const bytes = new TextEncoder().encode(sourceItemId);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hex = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
+  return `rate_${hex.slice(0, 16)}`;
+}
+
+export async function resolvePackageServiceSources(
+  draft: PackageRelationDraft,
+  serviceIds: readonly number[],
+  hostServiceId: number,
+): Promise<PackageRelationDraft> {
+  // An empty source list is the legacy representation of the host Service.
+  // Promote it into the first explicit draft so existing host rows continue
+  // to resolve when another Service is connected.
+  const idsToResolve = draft.sources.length === 0
+    ? Array.from(new Set([hostServiceId, ...serviceIds]))
+    : Array.from(new Set(serviceIds));
+  const connected = connectPackageServiceSources(draft, idsToResolve);
+  const details = await Promise.all(idsToResolve.map((serviceId) => fetchAdminServiceDetail(serviceId)));
+  const existingPreview = new Map(connected.previewItems.map((item) => [item.item_id, item]));
+  const previewItems = [...connected.previewItems];
+  for (const detail of details) {
+    const prefix = detail.id === hostServiceId ? '' : `service:${detail.id}:`;
+    const candidates = [
+      ...detail.inclusions.map((item) => ({ type: 'inclusion' as const, id: `${prefix}${item.id}`, resolved: { label: item.label } })),
+      ...detail.faqs.map((item) => ({ type: 'faq' as const, id: `${prefix}${item.id}`, resolved: { question: item.question, answer: item.answer } })),
+    ];
+    for (const candidate of candidates) {
+      const itemId = await canonicalPackageItemId(candidate.type, candidate.id);
+      if (connected.itemsById[itemId] || existingPreview.has(itemId)) continue;
+      const item: PackageManagerItem = {
+        item_id: itemId, source_type: candidate.type, source_id: candidate.id,
+        resolved: candidate.resolved, decorated_label: null, group_id: null,
+        sort_order: connected.itemsById ? Object.keys(connected.itemsById).length + previewItems.length : previewItems.length,
+        disabled: false, missing: false, module_transition: 'not-configured',
+      };
+      existingPreview.set(itemId, item);
+      previewItems.push(item);
+    }
+  }
+  const rateSheet = connected.rateSheet;
+  if (rateSheet === null) return { ...connected, previewItems };
+  const configured = new Set(rateSheet.items.map((item) => item.source_item_id));
+  const additions = [];
+  for (const item of previewItems) {
+    if (configured.has(item.item_id)) continue;
+    configured.add(item.item_id);
+    additions.push({
+      item_id: await canonicalRateSheetItemId(item.item_id), source_item_id: item.item_id,
+      unit_price: 0, per: 'Per item' as const, quantity: 1, group_id: null,
+      sort_order: rateSheet.items.length + additions.length,
+    });
+  }
+  return { ...connected, previewItems, rateSheet: { ...rateSheet, items: [...rateSheet.items, ...additions] } };
 }
 
 function packageItemLabel(item: PackageManagerItem): string {
@@ -388,13 +448,14 @@ export const packageRelationProvider: WritableRelationProvider<
           const rateSheet = draft?.rateSheet ?? readModel.rate_sheet;
           const groups = rateSheet?.groups ?? [];
           const groupLabels = new Map(groups.map((group) => [group.group_id, group.label]));
-          const optionLabels = new Map(readModel.items.map((item) => [item.item_id, packageItemLabel(item)]));
+          const availableItems = [...readModel.items, ...(draft?.previewItems ?? [])];
+          const optionLabels = new Map(availableItems.map((item) => [item.item_id, packageItemLabel(item)]));
           return {
             role: 'rate-sheet',
             configured: rateSheet !== null,
             title: rateSheet?.title ?? '',
             groups: groups.map((group) => ({ id: group.group_id, label: group.label })),
-            options: readModel.items.map((item) => ({
+            options: availableItems.map((item) => ({
               id: item.item_id, label: packageItemLabel(item),
               sourceType: item.source_type, sourceId: item.source_id,
             })),
@@ -413,7 +474,7 @@ export const packageRelationProvider: WritableRelationProvider<
         },
         rateSheetControls: {
           sourcePicker: { enabled: true },
-          connectSources: (draft, entityIds) => connectPackageServiceSources(draft as PackageRelationDraft, entityIds),
+          connectSources: (draft, entityIds, hostEntityId) => resolvePackageServiceSources(draft as PackageRelationDraft, entityIds, hostEntityId),
           replace: (draft, rateSheet) => replacePackageRateSheet(draft as PackageRelationDraft, rateSheet),
           onboard: (draft, optionIds, rateSheet) => onboardPackageRateSheetOptions(
             draft as PackageRelationDraft, optionIds, rateSheet,
@@ -595,7 +656,7 @@ export const packageRelationProvider: WritableRelationProvider<
       }
     });
 
-    const sourceById = new Map(readModel.items.map((item) => [item.item_id, item]));
+    const sourceById = new Map([...readModel.items, ...draft.previewItems].map((item) => [item.item_id, item]));
     for (const itemId of draft.explicitDecisionIds) {
       const decision = draft.itemsById[itemId];
       const source = sourceById.get(itemId);

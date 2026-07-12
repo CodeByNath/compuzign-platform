@@ -77,6 +77,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<number[]>([]);
   const [pendingOnboardIds, setPendingOnboardIds] = useState<string[]>([]);
+  const [sourcePreviewDraft, setSourcePreviewDraft] = useState<unknown | null>(null);
   const temporaryGroupSequence = useRef(0);
 
   useEffect(() => {
@@ -191,19 +192,16 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     setState((current) => applyProviderSaveResults(current, providers, scope, results));
     const failed = results.filter((result) => result.status === 'failed');
     setManagerNotice(failed.length > 0
-      ? { kind: 'error', message: `${results.length - failed.length} provider(s) saved; ${failed.length} failed. Unsaved changes were preserved.` }
+      ? { kind: 'error', message: `${results.length - failed.length} provider(s) saved; ${failed.length} failed: ${failed.map((result) => result.status === 'failed' ? result.error : '').filter(Boolean).join(' | ')} Unsaved changes were preserved.` }
       : { kind: 'success', message: 'Manager changes saved.' });
   }
 
   const saveRateSheet = async (section: ManagerProviderAdapter['manager']['sections'][number]) => {
     if (!active || !editingRateSheet || !section.rateSheetControls) return;
-    const draft = state.draftByProvider[active.key];
+    const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
     const original = state.originalDraftByProvider[active.key];
     const model = state.readModelByProvider[active.key];
-    const connectedDraft = pendingOnboardIds.length > 0 && section.rateSheetControls.connectSources
-      ? section.rateSheetControls.connectSources(draft, pendingOnboardIds.map(Number))
-      : draft;
-    const nextDraft = section.rateSheetControls.replace(connectedDraft, editingRateSheet);
+    const nextDraft = section.rateSheetControls.replace(draft, editingRateSheet);
     const validation = active.validate?.(nextDraft, model, scope);
     const rateIssues = validation?.issues.filter((issue) => issue.sectionId === section.id) ?? [];
     if (rateIssues.length > 0) {
@@ -216,6 +214,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     setCreatingRateGroup(false);
     setRateGroupTargetIndex(null);
     setPendingOnboardIds([]);
+    setSourcePreviewDraft(null);
     setSourcePickerOpen(false);
   };
 
@@ -292,7 +291,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
       {managerNotice && <div class={managerNotice.kind === 'error' ? 'cz-admin-error-msg' : 'cz-admin-success-msg'} role="status">{managerNotice.message}</div>}
 
       {readModel !== undefined && active?.manager.sections.map((section) => {
-        const draft = state.draftByProvider[active.key];
+        const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
         const projection = section.project(readModel, scope, draft);
         if (projection.role === 'rate-sheet') {
           const beginEdit = () => {
@@ -331,7 +330,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               {editingRateSheet ? (
                 <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
                   onSave={() => saveRateSheet(section)}
-                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); setPendingOnboardIds([]); setSourcePickerOpen(false); setSelectedSourceIds([]); }}
+                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); setPendingOnboardIds([]); setSourcePreviewDraft(null); setSourcePickerOpen(false); setSelectedSourceIds([]); }}
                   saving={rateSheetSaving} saveErr={rateSheetError} isDirty>
                   <div class="cz-rate-sheet-editor">
                     <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={editingRateSheet.title}
@@ -346,9 +345,25 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
                       {sourceLoading && <p class="cz-sp-tier-table__muted">Loading Services…</p>}
                       {sourceError && <div class="cz-admin-error-msg" role="alert">{sourceError}</div>}
                       {sourceCatalog && <div>{sourceCatalog.stations.map((service) => <label class="cz-manager-source-picker__candidate" key={service.id}><input type="checkbox" checked={selectedSourceIds.includes(service.id)} onChange={(event) => setSelectedSourceIds((current) => event.currentTarget.checked ? [...current, service.id] : current.filter((id) => id !== service.id))} /> {service.title}</label>)}
-                        <div><button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={selectedSourceIds.length === 0} onClick={() => {
-                          setPendingOnboardIds((current) => Array.from(new Set([...current, ...selectedSourceIds.map(String)])));
-                          setSourcePickerOpen(false); setSelectedSourceIds([]);
+                        <div><button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={selectedSourceIds.length === 0 || sourceLoading} onClick={async () => {
+                          if (!section.rateSheetControls?.connectSources || !active || !editingRateSheet) return;
+                          setSourceLoading(true); setSourceError(null);
+                          try {
+                            const baseDraft = section.rateSheetControls.replace(draft, editingRateSheet);
+                            const nextDraft = await section.rateSheetControls.connectSources(baseDraft, selectedSourceIds, Number(scope.stationContext.id));
+                            const nextProjection = section.project(readModel, scope, nextDraft);
+                            if (nextProjection.role === 'rate-sheet') {
+                              setEditingRateSheet({
+                                title: nextProjection.title,
+                                groups: nextProjection.groups.map((group) => ({ ...group })),
+                                items: nextProjection.items.map((item) => ({ id: item.id, optionId: item.optionId, unitPrice: item.unitPrice, per: item.per, quantity: item.quantity, groupId: item.groupId })),
+                              });
+                            }
+                            setSourcePreviewDraft(nextDraft);
+                            setSourcePickerOpen(false); setSelectedSourceIds([]);
+                          } catch (error) {
+                            setSourceError(error instanceof Error ? error.message : 'Could not resolve selected Services.');
+                          } finally { setSourceLoading(false); }
                         }}>Add Selected Services</button></div></div>}
                     </div>}
                     {creatingRateGroup && rateGroupTargetIndex === null && <div class="cz-rate-sheet-editor__group-create">
