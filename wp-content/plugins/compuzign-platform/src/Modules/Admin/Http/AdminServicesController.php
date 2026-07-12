@@ -18,6 +18,7 @@ class AdminServicesController
     private const DRAFT_INCLUSIONS  = 'cz_service_inclusions_draft';
     private const DRAFT_FAQS            = 'cz_service_faqs_draft';
     private const META_PACKAGE_STATION  = 'cz_service_package_station';
+    private const META_PACKAGE_OWNER    = 'cz_package_manager_owner_service_id';
     private const META_PROMOTION_STATION = 'cz_service_promotion_station';
 
     public function register(): void
@@ -1189,7 +1190,7 @@ class AdminServicesController
 
     public function getPackageStation(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
@@ -1294,7 +1295,7 @@ class AdminServicesController
      */
     public function getPackageStationManager(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
@@ -1334,7 +1335,7 @@ class AdminServicesController
      */
     public function savePackageStationManager(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
@@ -1378,6 +1379,12 @@ class AdminServicesController
         // alter platform_status: the Manager owns no lifecycle.
         $station['package_manager'] = $manager;
         update_post_meta($serviceId, self::META_PACKAGE_STATION, $station);
+        foreach ($manager['sources'] as $source) {
+            if (($source['provider_key'] ?? '') === 'service' && ($source['entity_type'] ?? '') === 'service') {
+                $sourceServiceId = (int) ($source['entity_id'] ?? 0);
+                if ($sourceServiceId > 0) { update_post_meta($sourceServiceId, self::META_PACKAGE_OWNER, $serviceId); }
+            }
+        }
 
         $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
         $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
@@ -1421,9 +1428,17 @@ class AdminServicesController
         return [$inclusions, $faqs];
     }
 
+    private function resolvePackageOwnerServiceId(int $contextServiceId): int
+    {
+        $ownerId = (int) get_post_meta($contextServiceId, self::META_PACKAGE_OWNER, true);
+        if ($ownerId < 1) { return $contextServiceId; }
+        $owner = get_post($ownerId);
+        return $owner instanceof \WP_Post && $owner->post_type === self::POST_TYPE ? $ownerId : $contextServiceId;
+    }
+
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
         $post = get_post($serviceId);
@@ -1535,7 +1550,7 @@ class AdminServicesController
 
     public function setPackageStationTierEnabled(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
         $post = get_post($serviceId);
@@ -1578,7 +1593,7 @@ class AdminServicesController
      */
     public function savePackageStationTierModule(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $module    = sanitize_key((string) $request->get_param('module'));
 
@@ -1651,7 +1666,7 @@ class AdminServicesController
      */
     public function archivePackageStationTierOccupant(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1711,7 +1726,7 @@ class AdminServicesController
      */
     public function restorePackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $binId     = sanitize_key((string) $request->get_param('bin'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1775,7 +1790,7 @@ class AdminServicesController
     /** Engine D3 — trash a bin entry (archived → trashed, engine-validated). */
     public function trashPackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $binId     = sanitize_key((string) $request->get_param('bin'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1815,7 +1830,7 @@ class AdminServicesController
      */
     public function deletePackageStationBinEntry(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $binId     = sanitize_key((string) $request->get_param('bin'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1856,7 +1871,7 @@ class AdminServicesController
      */
     public function revertPackageStationTierModule(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $module    = sanitize_key((string) $request->get_param('module'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
@@ -1899,7 +1914,7 @@ class AdminServicesController
      */
     public function settlePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
@@ -1934,7 +1949,7 @@ class AdminServicesController
      */
     public function setPackageStationPopular(\WP_REST_Request $request): \WP_REST_Response
     {
-        $serviceId = (int) $request->get_param('id');
+        $serviceId = $this->resolvePackageOwnerServiceId((int) $request->get_param('id'));
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
         $post = get_post($serviceId);

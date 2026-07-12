@@ -60,6 +60,10 @@ class PackageRepository
         // Phase 1+: read Package Station from service meta.
         foreach ($serviceIds as $serviceId) {
             $serviceId = (int) $serviceId;
+            $ownerServiceId = (int) get_post_meta($serviceId, 'cz_package_manager_owner_service_id', true);
+            if ($ownerServiceId > 0 && $ownerServiceId !== $serviceId) {
+                continue; // source/navigation context; commercial station is loaded from its owner
+            }
             $station   = get_post_meta($serviceId, self::PACKAGE_STATION_KEY, true);
 
             if (!is_array($station) || empty($station)) {
@@ -86,19 +90,18 @@ class PackageRepository
             // Phase 2: extract flat tier interface from occupant model for PricingBuilder.
             // Phase 1 flat format passes through unchanged; null slots (empty shells) are omitted.
             $flatTiers = [];
-            $rawInc = get_post_meta($serviceId, 'cz_service_inclusions', true) ?: [];
-            $incPool = is_array($rawInc['inclusions'] ?? null) ? $rawInc['inclusions'] : [];
-            $faqPool = get_post_meta($serviceId, 'cz_service_faqs', true) ?: [];
             $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
             $manager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
+            $manager = $PMS::sanitize($manager);
+            [$incPool, $faqPool, $coveredServiceIds] = $this->resolvePackageSourcePools($serviceId, $manager['sources']);
             foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
                 $extracted = PackageSchema::extractTierForCostBuilder($station['tiers'][$tierId] ?? []);
                 if ($extracted !== null) {
-                    $projection = $PMS::projectTierRateSheet($serviceId, $manager, $extracted['rate_sheet_items'] ?? [], $incPool, is_array($faqPool) ? $faqPool : [], (string) ($station['platform_status'] ?? 'disabled'));
+                    $projection = $PMS::projectTierRateSheet($serviceId, $manager, $extracted['rate_sheet_items'] ?? [], $incPool, $faqPool, (string) ($station['platform_status'] ?? 'disabled'));
                     $extracted['price'] = $projection['price'];
                     $extracted['inclusions_override'] = array_map(
                         fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
-                        array_values(array_filter($projection['selections'], fn(array $row): bool => $row['resolved']))
+                        array_values(array_filter($projection['selections'], fn(array $row): bool => $row['resolved'] && ($row['source_type'] ?? null) === 'inclusion'))
                     );
                     $flatTiers[$tierId] = $extracted;
                 }
@@ -121,7 +124,9 @@ class PackageRepository
                 }
             }
 
-            $map[$serviceId] = $station;
+            foreach ($coveredServiceIds as $coveredServiceId) {
+                $map[$coveredServiceId] = $station;
+            }
         }
 
         // Bridge: legacy path for services not yet backfilled. Remove when backfill is complete.
@@ -132,6 +137,32 @@ class PackageRepository
         }
 
         return $map;
+    }
+
+    /** Resolve Package Manager supply without changing downstream package shape. */
+    private function resolvePackageSourcePools(int $hostServiceId, array $sources): array
+    {
+        if ($sources === []) {
+            $sources = [['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => $hostServiceId]];
+        }
+        $inclusions = [];
+        $faqs = [];
+        $covered = [];
+        foreach ($sources as $source) {
+            if (($source['provider_key'] ?? '') !== 'service' || ($source['entity_type'] ?? '') !== 'service') { continue; }
+            $serviceId = (int) ($source['entity_id'] ?? 0);
+            if ($serviceId < 1) { continue; }
+            $covered[$serviceId] = true;
+            $prefix = $serviceId === $hostServiceId ? '' : 'service:' . $serviceId . ':';
+            $rawInc = get_post_meta($serviceId, 'cz_service_inclusions', true) ?: [];
+            foreach (is_array($rawInc['inclusions'] ?? null) ? $rawInc['inclusions'] : [] as $item) {
+                if (is_array($item) && !empty($item['id'])) { $inclusions[] = [...$item, 'id' => $prefix . (string) $item['id']]; }
+            }
+            foreach (is_array(get_post_meta($serviceId, 'cz_service_faqs', true)) ? get_post_meta($serviceId, 'cz_service_faqs', true) : [] as $item) {
+                if (is_array($item) && !empty($item['id'])) { $faqs[] = [...$item, 'id' => $prefix . (string) $item['id']]; }
+            }
+        }
+        return [$inclusions, $faqs, array_map('intval', array_keys($covered))];
     }
 
     /**
