@@ -4404,6 +4404,28 @@ button.cz-module-status-pill {
 .cz-manager-empty p { margin: 0; }
 .cz-manager-empty__icon { display: flex; color: var(--admin-accent); }
 
+.cz-manager-subtabs {
+  display: flex;
+  gap: var(--cz-space-6);
+  margin-bottom: var(--cz-space-5);
+  border-bottom: 1px solid var(--admin-border-blue);
+}
+.cz-manager-subtabs button {
+  margin-bottom: -1px;
+  padding: var(--cz-space-3) 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--admin-text-muted);
+  font: inherit;
+  font-weight: var(--admin-fw-strong);
+  cursor: pointer;
+}
+.cz-manager-subtabs button.is-active {
+  border-bottom-color: var(--admin-accent);
+  color: var(--admin-accent-text);
+}
+
 .cz-manager-groups { border: 1px solid var(--admin-border-blue); border-radius: var(--cz-radius-sm); overflow: hidden; }
 .cz-manager-groups__heading,
 .cz-manager-groups__row { display: grid; grid-template-columns: minmax(160px, 1fr) 64px 112px minmax(280px, auto); gap: var(--cz-space-4); align-items: center; padding: var(--admin-space-cell-v) var(--admin-space-cell-h); }

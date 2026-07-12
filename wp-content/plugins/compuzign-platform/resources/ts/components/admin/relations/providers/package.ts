@@ -481,7 +481,7 @@ export const packageRelationProvider: WritableRelationProvider<
         },
       },
       {
-        id: 'relationships', label: 'Package Relationships', role: 'relations',
+        id: 'relationships', label: 'Relationships', role: 'relations',
         capabilities: ['grouping', 'ordering', 'availability', 'decorated-label'],
         rows: (readModel) => readModel.items,
         identity: (row) => ({ itemId: row.item_id, sourceType: row.source_type, sourceId: row.source_id }),

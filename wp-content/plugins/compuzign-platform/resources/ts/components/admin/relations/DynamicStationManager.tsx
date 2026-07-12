@@ -16,6 +16,8 @@ import {
 import type { ManagerCoordinatorState, ManagerProviderAdapter } from './coordinator';
 import { PromotionManagerWorkspace } from './PromotionManagerWorkspace';
 import { PackageManagerTierCards } from './PackageManagerTierCards';
+import { ManagerSubTabs } from './ManagerSubTabs';
+import type { ManagerSubTab } from './ManagerSubTabs';
 
 type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
 
@@ -76,6 +78,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [selectedSourceIds, setSelectedSourceIds] = useState<number[]>([]);
   const [pendingOnboardIds, setPendingOnboardIds] = useState<string[]>([]);
   const [sourcePreviewDraft, setSourcePreviewDraft] = useState<unknown | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<ManagerSubTab>('details');
   const temporaryGroupSequence = useRef(0);
 
   useEffect(() => {
@@ -224,7 +227,10 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                 key={provider.key}
                 class={state.activeProviderKey === provider.key ? 'is-active' : undefined}
                 aria-current={state.activeProviderKey === provider.key ? 'page' : undefined}
-                onClick={() => setState((current) => selectManagerProvider(current, provider.key, providers))}
+                onClick={() => {
+                  setState((current) => selectManagerProvider(current, provider.key, providers));
+                  setActiveSubTab('details');
+                }}
               >
                 <span>{provider.label}</span>
                 {indicatorLabel && <small>{indicatorLabel}</small>}
@@ -233,11 +239,17 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           })}
         </nav>
       )}
-      {active?.key === 'promotion' && scope.stationContext.type === 'service' && (
+      {(active?.key === 'package' || active?.key === 'promotion') && (
+        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} />
+      )}
+      {activeSubTab === 'details' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
         <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} onOpen={onOpenPromotion ?? (() => {})} />
       )}
-      {active?.key === 'package' && scope.stationContext.type === 'service' && (
+      {activeSubTab === 'details' && active?.key === 'package' && scope.stationContext.type === 'service' && (
         <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
+      )}
+      {active?.key === 'promotion' && activeSubTab !== 'details' && (
+        <div class="cz-manager-empty"><strong>No {activeSubTab === 'connections' ? 'connections' : 'settings'} configured.</strong></div>
       )}
 
       {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}
@@ -245,6 +257,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       {managerNotice && <div class={managerNotice.kind === 'error' ? 'cz-admin-error-msg' : 'cz-admin-success-msg'} role="status">{managerNotice.message}</div>}
 
       {readModel !== undefined && active?.manager.sections.map((section) => {
+        const sectionTab: ManagerSubTab = section.id === 'rate-sheets' ? 'settings' : 'connections';
+        if (activeSubTab !== sectionTab) return null;
         const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
         const projection = section.project(readModel, scope, draft);
         if (projection.role === 'rate-sheet') {
