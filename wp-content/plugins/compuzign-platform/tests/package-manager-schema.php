@@ -12,6 +12,7 @@ if (!function_exists('sanitize_text_field')) {
 }
 
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageManagerSchema.php';
+require_once __DIR__ . '/../src/Modules/Packages/Support/PackageStationSchema.php';
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema as PMS;
 
@@ -45,6 +46,7 @@ $empty = PMS::defaultManager();
 $provisional = PMS::buildReadModel(10, $empty, $incPool, $faqPool, 'active');
 assertSameValue(false, $provisional['has_configuration'], 'provisional-only Manager is not configured');
 assertSameValue('not-configured', itemBySource($provisional, 'inclusion', 'inc-a')['module_transition'], 'provisional item is not configured');
+assertSameValue('connected_unavailable', itemBySource($provisional, 'inclusion', 'inc-a')['operational_state'], 'unsettled connection resolves but is unavailable');
 
 // A persisted group is Manager-owned configuration even without item rows.
 $groupManager = ['groups' => [['group_id' => 'core', 'label' => 'Core', 'sort_order' => 0]], 'items' => []];
@@ -140,6 +142,7 @@ $returnedModel = PMS::buildReadModel(10, $ungrouped, $expandedPool, $faqPool, 'a
 $returnedA = itemBySource($returnedModel, 'inclusion', 'inc-a');
 assertSameValue(false, $returnedA['missing'], 'returning source resolves again');
 assertSameValue('Decorated A', $returnedA['decorated_label'], 'returning source recovers persisted Manager decision');
+assertSameValue('connected_available', $returnedA['operational_state'], 'returning settled source becomes available');
 
 // Consumer projection gate: only settled, resolving, enabled decisions under
 // an active parent are exposed. Provisional, disabled, and missing are out.
@@ -151,6 +154,11 @@ assertSameValue(
 assertSameValue([], $returnedModel['projections']['faqs'], 'disabled FAQ decision is unavailable');
 $inactiveModel = PMS::buildReadModel(10, $ungrouped, $expandedPool, $faqPool, 'disabled');
 assertSameValue([], $inactiveModel['projections']['inclusions'], 'inactive parent gates consumer projections');
+$inactiveA = itemBySource($inactiveModel, 'inclusion', 'inc-a');
+assertSameValue(true, $inactiveA['connection_resolved'], 'inactive service does not break its connection');
+assertSameValue(false, $inactiveA['available'], 'inactive service switches supply off');
+assertSameValue('connected_unavailable', $inactiveA['operational_state'], 'inactive service is unavailable rather than missing');
+assertSameValue($returnedA['item_id'], $inactiveA['item_id'], 'availability transition preserves relationship identity');
 
 // Rate Sheets are Package Manager-owned catalogue data. They reference the
 // same stable relationship item identity, own separate groups, and never
@@ -199,6 +207,7 @@ $tierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
     ['item_id' => 'rate-1', 'quantity' => 2],
 ], $expandedPool, $faqPool, 'active');
 assertSameValue(72.0, $tierProjection['price'], 'Tier price is Rate Sheet unit price multiplied by Tier quantity');
+assertSameValue(true, $tierProjection['pricing']['complete'], 'authoritative pricing completes for available supply');
 assertSameValue(2, $tierProjection['selections'][0]['quantity'], 'Tier projection retains only the consuming quantity');
 assertSameValue('Decorated A', $tierProjection['selections'][0]['label'], 'Tier projection resolves the current Package relationship display label');
 $emptyTierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [], $expandedPool, $faqPool, 'active');
@@ -208,5 +217,37 @@ $unresolvedTierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
 ], $expandedPool, $faqPool, 'active');
 assertSameValue(false, $unresolvedTierProjection['selections'][0]['resolved'], 'removed Rate Sheet references remain visible as unresolved');
 assertSameValue(null, $unresolvedTierProjection['price'], 'unresolved references do not fabricate a Tier price');
+
+// Reversible lifecycle: commercial configuration and identities survive while
+// only operational availability and authoritative pricing completeness change.
+$disabledProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
+    ['item_id' => 'rate-1', 'quantity' => 2],
+], $expandedPool, $faqPool, 'disabled');
+assertSameValue(true, $disabledProjection['selections'][0]['resolved'], 'disabled supply remains resolved');
+assertSameValue(false, $disabledProjection['selections'][0]['available'], 'disabled supply is unavailable');
+assertSameValue('connected_unavailable', $disabledProjection['selections'][0]['operational_state'], 'disabled supply has explicit operational state');
+assertSameValue(null, $disabledProjection['price'], 'disabled supply fails pricing closed');
+assertSameValue('unavailable_item', $disabledProjection['pricing']['unresolved'][0]['code'], 'disabled supply reaches authoritative pricing as unavailable');
+$reactivatedProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
+    ['item_id' => 'rate-1', 'quantity' => 2],
+], $expandedPool, $faqPool, 'active');
+assertSameValue($tierProjection['selections'][0]['item_id'], $reactivatedProjection['selections'][0]['item_id'], 'reactivation preserves Rate Sheet identity');
+assertSameValue(72.0, $reactivatedProjection['price'], 'reactivation resumes pricing');
+
+$removedProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
+    ['item_id' => 'rate-1', 'quantity' => 2],
+], $withoutA, $faqPool, 'active');
+assertSameValue(false, $removedProjection['selections'][0]['resolved'], 'removed source is genuinely unresolved');
+assertSameValue('source_missing', $removedProjection['selections'][0]['operational_state'], 'removed source is distinguished from switched-off supply');
+assertSameValue(null, $removedProjection['price'], 'removed source fails pricing closed');
+assertSameValue(72.0, $reactivatedProjection['price'], 'restored source resumes the unchanged commercial configuration');
+
+$ambiguousPool = [...$expandedPool, ['id' => 'inc-a', 'label' => 'Duplicate A']];
+$ambiguousModel = PMS::buildReadModel(10, $withRateSheet, $ambiguousPool, $faqPool, 'active');
+$ambiguousA = itemBySource($ambiguousModel, 'inclusion', 'inc-a');
+assertSameValue('ambiguous', $ambiguousA['operational_state'], 'duplicate source identity fails closed as ambiguous');
+assertSameValue(false, $ambiguousA['available'], 'ambiguous source is unavailable');
+assertSameValue(null, $ambiguousA['resolved'], 'ambiguous source does not select first-match content');
+assertSameValue($returnedA['item_id'], $ambiguousA['item_id'], 'ambiguity does not rewrite relationship identity');
 
 fwrite(STDOUT, "PackageManagerSchema contract tests passed.\n");

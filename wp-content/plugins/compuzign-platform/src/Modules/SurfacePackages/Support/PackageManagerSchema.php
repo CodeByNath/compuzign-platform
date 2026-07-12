@@ -46,6 +46,7 @@ final class PackageManagerSchema
 {
     public const ALLOWED_SOURCE_TYPES       = ['inclusion', 'faq'];
     public const ALLOWED_MODULE_TRANSITIONS = ['not-configured', 'pending', 'settled'];
+    public const OPERATIONAL_STATES         = ['connected_available', 'connected_unavailable', 'source_missing', 'ambiguous'];
 
     // ── Storage sanitizers ──────────────────────────────────────────────────
 
@@ -607,7 +608,11 @@ final class PackageManagerSchema
 
         $outItems = [];
         foreach ($items as $item) {
-            $resolved = self::resolveSourceContent($item['source_type'], $item['source_id'], $inclusionPool, $faqPool);
+            $matchingSources = self::countSourceMatches($item['source_type'], $item['source_id'], $inclusionPool, $faqPool);
+            $resolved = $matchingSources === 1
+                ? self::resolveSourceContent($item['source_type'], $item['source_id'], $inclusionPool, $faqPool)
+                : null;
+            $operational = self::deriveOperationalState($item, $matchingSources, $platformStatus);
 
             $outItems[] = [
                 'item_id'           => $item['item_id'],
@@ -619,6 +624,10 @@ final class PackageManagerSchema
                 'sort_order'        => $item['sort_order'],
                 'disabled'          => $item['disabled'],
                 'missing'           => $item['missing'],
+                'connection_resolved'=> $operational['resolved'],
+                'available'         => $operational['available'],
+                'operational_state' => $operational['operational_state'],
+                'health_reasons'    => $operational['health_reasons'],
                 'module_transition' => $item['module_transition'],
             ];
         }
@@ -631,6 +640,55 @@ final class PackageManagerSchema
             'items'             => $outItems,
             'rate_sheet'        => $storedManager['rate_sheet'] ?? null,
             'projections'       => self::buildConsumerProjections($outItems, $platformStatus),
+        ];
+    }
+
+    private static function countSourceMatches(
+        string $sourceType,
+        string $sourceId,
+        array $inclusionPool,
+        array $faqPool
+    ): int {
+        $pool = $sourceType === 'inclusion' ? $inclusionPool : ($sourceType === 'faq' ? $faqPool : []);
+        $count = 0;
+        foreach ($pool as $entry) {
+            if (is_array($entry) && (string) ($entry['id'] ?? '') === $sourceId) {
+                $count++;
+            }
+        }
+        return $count;
+    }
+
+    /** Derive operational health without changing or persisting relationship data. */
+    private static function deriveOperationalState(array $item, int $matchingSources, string $platformStatus): array
+    {
+        if ($matchingSources > 1) {
+            return [
+                'resolved' => false,
+                'available' => false,
+                'operational_state' => 'ambiguous',
+                'health_reasons' => ['multiple_source_matches'],
+            ];
+        }
+        if ($matchingSources === 0) {
+            return [
+                'resolved' => false,
+                'available' => false,
+                'operational_state' => 'source_missing',
+                'health_reasons' => ['source_missing'],
+            ];
+        }
+
+        $reasons = [];
+        if ($platformStatus !== 'active') { $reasons[] = 'service_unavailable'; }
+        if (($item['module_transition'] ?? null) !== 'settled') { $reasons[] = 'relationship_unsettled'; }
+        if (!empty($item['disabled'])) { $reasons[] = 'relationship_disabled'; }
+
+        return [
+            'resolved' => true,
+            'available' => $reasons === [],
+            'operational_state' => $reasons === [] ? 'connected_available' : 'connected_unavailable',
+            'health_reasons' => $reasons,
         ];
     }
 
@@ -654,7 +712,6 @@ final class PackageManagerSchema
             $sources[$item['item_id']] = $item;
         }
         $rows = [];
-        $total = 0.0;
         foreach (is_array($selections) ? $selections : [] as $selection) {
             if (!is_array($selection)) { continue; }
             $itemId = sanitize_text_field((string) ($selection['item_id'] ?? ''));
@@ -662,7 +719,8 @@ final class PackageManagerSchema
             $quantity = max(1, (int) ($selection['quantity'] ?? 1));
             $rateItem = $rateItems[$itemId] ?? null;
             $source = $rateItem ? ($sources[$rateItem['source_item_id']] ?? null) : null;
-            $resolved = $rateItem !== null && $source !== null && empty($source['missing']);
+            $resolved = $rateItem !== null && $source !== null && !empty($source['connection_resolved']);
+            $available = $resolved && !empty($source['available']);
             $label = '(unresolved Rate Sheet item)';
             if ($resolved) {
                 $label = $source['decorated_label']
@@ -670,19 +728,46 @@ final class PackageManagerSchema
                         ? (string) ($source['resolved']['question'] ?? '')
                         : (string) ($source['resolved']['label'] ?? ''));
             }
-            $unitPrice = $resolved ? (float) $rateItem['unit_price'] : null;
-            $lineTotal = $unitPrice !== null ? $unitPrice * $quantity : null;
-            if ($lineTotal !== null) { $total += $lineTotal; }
+            $unitPrice = $rateItem !== null ? (float) $rateItem['unit_price'] : null;
+            $lineTotal = $available && $unitPrice !== null ? $unitPrice * $quantity : null;
             $rows[] = [
                 'item_id' => $itemId, 'quantity' => $quantity, 'resolved' => $resolved,
+                'available' => $available,
+                'operational_state' => $source['operational_state'] ?? 'source_missing',
+                'health_reasons' => $source['health_reasons'] ?? ['rate_sheet_item_unresolved'],
                 'label' => $label, 'unit_price' => $unitPrice,
-                'per' => $resolved ? $rateItem['per'] : null,
-                'group_id' => $resolved ? $rateItem['group_id'] : null,
+                'per' => $rateItem['per'] ?? null,
+                'group_id' => $rateItem['group_id'] ?? null,
                 'line_total' => $lineTotal,
             ];
         }
-        $valid = array_values(array_filter($rows, fn(array $row): bool => $row['resolved']));
-        return ['selections' => $rows, 'price' => $valid === [] ? null : $total, 'valid_count' => count($valid)];
+        $pricingItems = [];
+        foreach ($manager['rate_sheet']['items'] ?? [] as $rateItem) {
+            $source = $sources[$rateItem['source_item_id']] ?? null;
+            if ($source === null || empty($source['connection_resolved'])) { continue; }
+            $pricingItems[] = [
+                'item_id' => $rateItem['item_id'],
+                'unit_price' => (float) $rateItem['unit_price'],
+                'available' => !empty($source['available']),
+                'options' => [],
+            ];
+        }
+        $pricingSelections = array_map(
+            fn(array $row): array => ['item_id' => $row['item_id'], 'quantity' => $row['quantity'], 'option_selections' => []],
+            $rows
+        );
+        $pricing = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::evaluateTierPricing(
+            $pricingItems,
+            $pricingSelections,
+            false
+        );
+        $availableRows = array_values(array_filter($rows, fn(array $row): bool => $row['available']));
+        return [
+            'selections' => $rows,
+            'price' => $rows === [] ? null : $pricing['total'],
+            'valid_count' => count($availableRows),
+            'pricing' => $pricing,
+        ];
     }
 
     // ── Consumer projections ─────────────────────────────────────────────────
