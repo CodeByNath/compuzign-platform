@@ -29,7 +29,6 @@ export function PromotionManagerWorkspace({ serviceId, onRefresh, onOpen }: {
   return (
     <section class="cz-manager-promotions" aria-label="Promotions">
       <div class="cz-manager-section__actions">
-        <div><h3>Promotions</h3><p>Promotion packages managed by Station Manager.</p></div>
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => onOpen(undefined, true)}>New Promotion</button>
       </div>
       <div style="display:flex;gap:var(--cz-space-2);margin-bottom:var(--cz-space-3)">

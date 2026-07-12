@@ -12,7 +12,6 @@ export function PackageManagerTierCards({ serviceId, onOpen }: { serviceId: numb
 
   return (
     <section class="cz-manager-packages" aria-label="Packages">
-      <div class="cz-manager-section__actions"><div><h3>Packages</h3><p>Tier packages managed by Station Manager.</p></div></div>
       <div class="cz-manager-summary-grid">
         {TIER_KEYS.map((tierId) => {
           const view = pkg.tierView(tierId);
