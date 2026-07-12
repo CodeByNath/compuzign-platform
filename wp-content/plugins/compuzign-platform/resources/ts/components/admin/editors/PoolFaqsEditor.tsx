@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 
 // Pool-referencing Common Questions editor (extracted from ServiceTierStep /
-// the shared station editors.
+// ServicePromotionStep in S3a — the two steps carried byte-identical copies).
 // The draft is an ordered list of canonical pool ids; "+ Create new" is an
 // immediate canonical pool creation whose result is appended into the open
 // draft. The add-form state lives here; the draft and the create action stay

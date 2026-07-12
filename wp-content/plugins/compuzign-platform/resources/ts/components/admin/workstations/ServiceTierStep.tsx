@@ -31,16 +31,13 @@ import type {
 import type { ShellBinding } from '@/components/admin/schema/types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import { serviceConnectionBinding, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
-import { usePromotionStation } from '@/hooks/usePromotionStation';
-import type { PromotionOverviewDraft, PromotionTier, PromotionTierPayload } from '@/api/types/admin';
-import { PromotionOverviewEditor } from '../editors/PromotionOverviewEditor';
 
 // Tier module icons come from the shared registry (schema/icons.tsx, S1b) —
 // the same glyphs the Service Overview / Features / FAQs cards use.
 
 // Travel-state pill for occupant-bin cards — bin surfaces name Archived/Trashed
 // as data labels (schema/presentation.ts TRAVEL_PILL, travel surfaces only),
-// matching the shared Package Manager bin presentation.
+// matching ServicePromotionStep's bin rows.
 function binPill(status: string) {
   const pill = TRAVEL_PILL[status as keyof typeof TRAVEL_PILL] ?? TRAVEL_PILL.archived;
   return (
@@ -65,21 +62,6 @@ function slotOccupied(slot: { label: string; price: number | null; contact: bool
   );
 }
 
-function promotionOverview(p?: PromotionTier): PromotionOverviewDraft {
-  return p ? {
-    name: p.name, slug: p.slug, based_on: p.based_on, headline: p.headline,
-    description: p.description, price: p.price, billing_label: p.billing_label,
-    badge: p.badge, campaign_label: p.campaign_label, priority: p.priority,
-    is_featured: p.is_featured,
-  } : { name: '', slug: '', based_on: null, headline: '', description: '', price: null,
-    billing_label: '', badge: '', campaign_label: '', priority: 0, is_featured: false };
-}
-
-function promotionPayload(draft: PromotionOverviewDraft): PromotionTierPayload {
-  return { ...draft, status: 'draft', features: [], inclusions: [], exclusions: [],
-    faq_refs: [], starts_at: null, ends_at: null, metadata: {} };
-}
-
 // ── ServiceTierStep ───────────────────────────────────────────────────────────
 // Phase 2 (L5): Service Station-owned tier configuration drawer.
 // P5 Step 1: consumes usePackageStation (single source, draft-preferred derive,
@@ -100,7 +82,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const serviceBack = ctx.stepData.serviceBack as (() => void) | undefined;
   // Single client-side owner of the package station (package module + all tiers).
   const pkg     = usePackageStation(serviceId, onRefresh);
-  const promo   = usePromotionStation(serviceId, onRefresh);
   const station = pkg.station;
   const svc     = pkg.service;
 
@@ -138,12 +119,8 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // ── Occupant travel chrome (engine D4) ─────────────────────────────────────
   // Overview Details filter: current (4 shells) | bin (displaced occupants).
   const [listView, setListView] = useState<'current' | 'bin'>('current');
-  const [editingPromotionId, setEditingPromotionId] = useState<string | null>(null);
-  const [promotionDraft, setPromotionDraft] = useState<PromotionOverviewDraft | null>(null);
-  const [creatingPromotion, setCreatingPromotion] = useState(false);
-  const promotionDeleteConfirm = useInlineConfirm<string>();
   // Footer split-button dropdown + confirm modals (Publish settle; archive with
-  // pending drafts), using the shared lifecycle chrome.
+  // pending drafts), mirroring ServicePromotionStep's lifecycle chrome.
   const [splitOpen,    setSplitOpen]    = useState(false);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
   // Per-bin-card conflict prompt, keyed by the D3 error codes: target_occupied
@@ -165,7 +142,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   }, [saveOk]);
 
   // Close split dropdown when clicking outside (only active while open) —
-  // mirrors the Service drawer's splitOpen dismissal.
+  // mirrors ServicePromotionStep / ServiceViewStep's splitOpen dismissal.
   useEffect(() => {
     if (!splitOpen) return;
     const handle = () => setSplitOpen(false);
@@ -481,35 +458,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // ── Tier overview view — polished 4-tier summary cards + Pricing Summary ─────
   // Bound to draft-preferred tier views from usePackageStation (station.tiers is the
   // same SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
-  if (promotionDraft) {
-    const selectedTier = promotionDraft.based_on ? pkg.tierView(promotionDraft.based_on) : null;
-    const derivedPrice = selectedTier?.detail.price ?? null;
-    const derivedDraft = { ...promotionDraft, price: derivedPrice };
-    const savePromotion = async () => {
-      if (!derivedDraft.name.trim()) { setSaveErr('Promotion name is required.'); return; }
-      setSaveErr(null);
-      const response = creatingPromotion
-        ? await promo.createPromotion(promotionPayload(derivedDraft))
-        : editingPromotionId ? await promo.savePromotionOverview(editingPromotionId, derivedDraft) : null;
-      if (!response?.success) { setSaveErr('Save failed.'); return; }
-      setCreatingPromotion(false); setEditingPromotionId(null); setPromotionDraft(null); setSaveOk(true);
-    };
-    return (
-      <div class="cz-req-detail">
-        <div class="cz-shell-section cz-shell-section--no-border">
-          <p class="cz-shell-section__title">Promotion Overview</p>
-          <PromotionOverviewEditor draft={derivedDraft} onChange={(patch) => setPromotionDraft((current) => current ? { ...current, ...patch } : current)} />
-          <p class="cz-tf-help">Pricing is projected from the selected Package Manager Tier and Rate Sheet: {derivedPrice == null ? '—' : `$${derivedPrice.toFixed(2)}`}.</p>
-          {saveErr && <p class="cz-admin-error-msg">{saveErr}</p>}
-          <div class="drawerModule__footer">
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setPromotionDraft(null); setCreatingPromotion(false); setEditingPromotionId(null); setSaveErr(null); }}>Cancel</button>
-            <button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={promo.saving} onClick={savePromotion}>{promo.saving ? '…' : 'Save'}</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (!editingTierId) {
     const pkgStatus = station.platform_status ?? 'disabled';
     return (
@@ -524,21 +472,21 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         {overviewTab === 'details' && (
         <>
         {/* Current | Bin filter — only shown once something is binned (engine D4). */}
-        {(pkg.occupantBin.length > 0 || promo.promotions.some((p) => p.status === 'archived' || p.status === 'trashed') || listView === 'bin') && (
+        {(pkg.occupantBin.length > 0 || listView === 'bin') && (
           <div style="display:flex; gap: var(--cz-space-2); margin-bottom: var(--cz-space-3)">
             <button
               type="button"
               class={`cz-admin-btn cz-admin-btn--sm ${listView === 'current' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
               onClick={() => { setListView('current'); setBinPrompt(null); binDeleteConfirm.cancel(); }}
             >
-              Current ({TIER_KEYS.length + promo.promotions.filter((p) => p.status !== 'archived' && p.status !== 'trashed').length})
+              Current ({TIER_KEYS.length})
             </button>
             <button
               type="button"
               class={`cz-admin-btn cz-admin-btn--sm ${listView === 'bin' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
               onClick={() => setListView('bin')}
             >
-              Bin ({pkg.occupantBin.length + promo.promotions.filter((p) => p.status === 'archived' || p.status === 'trashed').length})
+              Bin ({pkg.occupantBin.length})
             </button>
           </div>
         )}
@@ -546,30 +494,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
         {/* ── Bin view: displaced occupants with Restore / Trash / Delete ──── */}
         {listView === 'bin' && (
           <>
-            {pkg.occupantBin.length === 0 && !promo.promotions.some((p) => p.status === 'archived' || p.status === 'trashed') && (
+            {pkg.occupantBin.length === 0 && (
               <div class="cz-admin-empty">
                 <p>The bin is empty.</p>
               </div>
             )}
-            {promo.promotions.filter((p) => p.status === 'archived' || p.status === 'trashed').map((p) => (
-              <ReadBlock
-                key={p.id}
-                title={p.name || 'Promotion'}
-                subtitle={`Promotion · ${p.based_on ? `Based on ${TIER_LABELS[p.based_on]}` : 'No tier selected'}`}
-                icon={MODULE_ICONS.overview}
-                scopeClass="drawerOverview promotion"
-                status={p.status}
-                actions={p.status === 'trashed' ? [
-                  { id: 'restore', label: 'Restore', onSelect: () => void promo.restorePromotion(p.id) },
-                  { id: 'delete', label: promotionDeleteConfirm.pendingId === p.id ? 'Confirm permanent delete' : 'Delete permanently', onSelect: () => promotionDeleteConfirm.pendingId === p.id ? void promo.deletePromotion(p.id).then(() => promotionDeleteConfirm.cancel()) : promotionDeleteConfirm.request(p.id) },
-                ] : [
-                  { id: 'restore', label: 'Restore', onSelect: () => void promo.restorePromotion(p.id) },
-                  { id: 'trash', label: 'Move to Trash', onSelect: () => void promo.trashPromotion(p.id) },
-                ]}
-              >
-                <div class="drawerModule__fields"><div class="drawerModule__field"><p class="drawerModule__label">Pricing</p><p class="drawerModule__value">Derived from {p.based_on ? TIER_LABELS[p.based_on] : 'a Package tier'}</p></div></div>
-              </ReadBlock>
-            ))}
             {pkg.occupantBin.map((entry) => {
               const occ        = entry.occupant;
               const originKey  = entry.origin_tier;
@@ -757,29 +686,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             </ReadBlock>
           );
         })}
-
-        {promo.promotions.filter((p) => p.status !== 'archived' && p.status !== 'trashed').map((p) => {
-          const view = promo.promotionView(p.id);
-          const detail = view?.detail ?? p;
-          const projected = detail.based_on ? pkg.tierView(detail.based_on)?.detail.price ?? null : null;
-          return (
-            <ReadBlock key={p.id} title={detail.name || 'Promotion'} subtitle="Promotion pricing projected from its selected tier." icon={MODULE_ICONS.overview} scopeClass="drawerOverview promotion" status={view?.modules.overview.status ?? p.status}
-              notes={view?.modules.overview.notes ?? []}
-              actions={[
-                { id: 'view', label: 'View', onSelect: () => { setEditingPromotionId(p.id); setPromotionDraft(promotionOverview(detail)); } },
-                p.status === 'draft'
-                  ? { id: 'publish', label: 'Publish', onSelect: () => void promo.publishPromotion(p.id) }
-                  : { id: 'toggle', label: p.status === 'active' ? 'Disable' : 'Enable', onSelect: () => void promo.togglePromotion(p.id) },
-                { id: 'archive', label: 'Archive', onSelect: () => void promo.archivePromotion(p.id) },
-              ]}>
-              <div class="drawerModule__fields"><div class="drawerModule__field"><p class="drawerModule__label">Pricing</p><p class="drawerModule__value">{projected == null ? '—' : `$${projected.toFixed(2)}`} · {detail.billing_label || 'Tier billing cycle'}</p></div><div class="drawerModule__field"><p class="drawerModule__label">Tier</p><p class="drawerModule__value">{detail.based_on ? TIER_LABELS[detail.based_on] : 'Not selected'}</p></div></div>
-            </ReadBlock>
-          );
-        })}
-
-        <ReadBlock title="New Promotion" subtitle="Create a promotion in Package Manager." icon={MODULE_ICONS.overview} scopeClass="drawerOverview promotion" status="not-configured" actions={[{ id: 'view', label: 'View', onSelect: () => { setCreatingPromotion(true); setEditingPromotionId(null); setPromotionDraft(promotionOverview()); } }]}>
-          <div class="drawerModule__fields"><div class="drawerModule__field"><p class="drawerModule__value">Select a Package tier and configure Promotion Overview.</p></div></div>
-        </ReadBlock>
 
         <div class="cz-shell-section cz-shell-section--no-border">
           <p class="cz-shell-section__title">Pricing Summary</p>

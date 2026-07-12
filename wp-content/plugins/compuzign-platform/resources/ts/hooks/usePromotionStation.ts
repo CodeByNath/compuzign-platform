@@ -31,6 +31,8 @@ import type {
 import {
   evaluateModule,
   promotionOverviewModule,
+  promotionFeaturesModule,
+  promotionFaqsModule,
 } from '@/components/admin/utils/moduleNotifications';
 import type { ModuleState } from '@/components/admin/utils/moduleNotifications';
 import { patchInstanceModuleDraft } from './stationPrimitives';
@@ -109,6 +111,8 @@ export interface PromotionView {
   // Per-module lifecycle: full evaluateModule result (5-state status + notes).
   modules: {
     overview: ModuleState;
+    features: ModuleState;
+    faqs:     ModuleState;
   };
 }
 
@@ -185,6 +189,8 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
     const dp = draftPreferredDetail(p);
     // The travelling instance is the station-like unit: ctx.platformStatus
     // carries the INSTANCE's travel status, not the service's.
+    const overviewComplete = !!dp.name.trim();
+
     return {
       detail:       dp,
       status:       p.status,
@@ -195,6 +201,16 @@ export function usePromotionStation(serviceId: number, onRefresh?: () => void): 
           promotionOverviewModule,
           { name: dp.name, price: dp.price, billing_label: dp.billing_label },
           { platformStatus: p.status, moduleTransition: p.module_status.overview, hasDraft: p.drafts.overview !== null },
+        ),
+        features: evaluateModule(
+          promotionFeaturesModule,
+          { count: dp.inclusions.length },
+          { platformStatus: p.status, moduleTransition: p.module_status.features, parentReady: overviewComplete, parentLabel: 'Promotion Overview' },
+        ),
+        faqs: evaluateModule(
+          promotionFaqsModule,
+          { count: dp.faq_refs.length },
+          { platformStatus: p.status, moduleTransition: p.module_status.faqs, parentReady: overviewComplete, parentLabel: 'Promotion Overview' },
         ),
       },
     };

@@ -2,11 +2,13 @@ import type { StationManagerScope } from './types';
 import { providerHasManagementCapability } from './types';
 import type { ManagerProviderAdapter } from './coordinator';
 import { packageRelationProvider } from './providers/package';
+import { promotionRelationProvider } from './providers/promotion';
 
 // Compile-time provider registry, matching the existing ENTITIES and
 // WORKSTATIONS registration model.
 export const STATION_RELATION_PROVIDERS = [
   packageRelationProvider,
+  promotionRelationProvider,
 ] as const;
 
 export type RegisteredStationRelationProvider = typeof STATION_RELATION_PROVIDERS[number];

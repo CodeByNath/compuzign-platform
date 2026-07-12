@@ -1,7 +1,10 @@
 import type { PromotionOverviewDraft, BasedOnTier } from '@/api/types/admin';
 
-// Promotion Overview editor used by Package Manager for both new and existing
-// promotions. Overview fields persist as a module draft; travel status is
+// Promotion Overview module editor (extracted from ServicePromotionStep in
+// S3a — the promotion shells became bindings of the archetype shells and the
+// editor is now referenced by the promotion binding's editor schema). Used
+// both for New Promotion (create) and for editing an existing promotion's
+// overview fields (persisted as a module draft). Travel status is
 // engine-owned and deliberately not part of the draft.
 
 const BASED_ON_TIERS = [

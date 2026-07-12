@@ -25,6 +25,7 @@ class PackageRepository
     public const OPTION_KEY = 'cz_package_station';
 
     private const LEGACY_STATION_META   = 'cz_service_package_station';
+    private const LEGACY_PROMOTION_META = 'cz_service_promotion_station';
     private const SERVICE_POST_TYPE     = 'cz_service';
 
     /** Request-scope cache: false = not loaded, null = no station exists. */
@@ -78,14 +79,42 @@ class PackageRepository
         $this->saveStation($station);
     }
 
-    /** Ensure the Package Station owns an explicit Promotion collection. */
+    /**
+     * Cutover bridge — promotions used to live on Service postmeta
+     * (cz_service_promotion_station). The first load after cutover copies the
+     * richest migrated Service-hosted collection into the station, once. The
+     * legacy meta is left in place untouched (read-only safety net); nothing
+     * reads it after this runs.
+     */
     private function ensurePromotions(array $station): array
     {
         if (array_key_exists('promotions', $station)) {
             return $station;
         }
 
-        $station['promotions'] = [];
+        $serviceIds = get_posts([
+            'post_type'              => self::SERVICE_POST_TYPE,
+            'post_status'            => 'any',
+            'numberposts'            => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        ]);
+
+        $best = [];
+        foreach (is_array($serviceIds) ? $serviceIds : [] as $serviceId) {
+            $promoStation = get_post_meta((int) $serviceId, self::LEGACY_PROMOTION_META, true);
+            if (!is_array($promoStation) || empty($promoStation['migrated'])) {
+                continue;
+            }
+            $instances = is_array($promoStation['instances'] ?? null) ? $promoStation['instances'] : [];
+            if (count($instances) > count($best)) {
+                $best = $instances;
+            }
+        }
+
+        $station['promotions'] = array_values($best);
         update_option(self::OPTION_KEY, $station, false);
 
         return $station;
