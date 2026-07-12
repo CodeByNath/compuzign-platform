@@ -901,6 +901,9 @@ class AdminServicesController
         };
 
         update_post_meta($id, self::META_KEY, $meta);
+        if ($change['status'] !== 'active') {
+            $this->suspendPackageSource($id);
+        }
 
         return rest_ensure_response([
             'success'       => true,
@@ -1063,6 +1066,8 @@ class AdminServicesController
                 }
             }
         }
+
+        $this->suspendPackageSource($id);
 
         // Hard delete — removes the wp_posts row and all wp_postmeta rows automatically.
         wp_delete_post($id, true);
@@ -1433,6 +1438,37 @@ class AdminServicesController
             }
         }
         return $bestId > 0 ? $bestId : $contextServiceId;
+    }
+
+    /** Move one Service's supplied content out of active commercial use. */
+    private function suspendPackageSource(int $sourceServiceId): void
+    {
+        $ownerId = $this->resolvePackageOwnerServiceId($sourceServiceId);
+        $station = get_post_meta($ownerId, self::META_PACKAGE_STATION, true);
+        if (!is_array($station) || !is_array($station['package_manager'] ?? null)) { return; }
+
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+        $manager = $PMS::sanitize($station['package_manager']);
+        [$inclusionPool, $faqPool] = $this->resolvePackageSourcePools($ownerId, $manager['sources']);
+        $model = $PMS::buildReadModel($ownerId, $manager, $inclusionPool, $faqPool, (string) ($station['platform_status'] ?? 'disabled'));
+        $prefix = $sourceServiceId === $ownerId ? '' : 'service:' . $sourceServiceId . ':';
+        $itemsById = [];
+        foreach ($manager['items'] as $item) { $itemsById[$item['item_id']] = $item; }
+        foreach ($model['items'] as $item) {
+            $belongs = $prefix === ''
+                ? !str_starts_with((string) $item['source_id'], 'service:')
+                : str_starts_with((string) $item['source_id'], $prefix);
+            if (!$belongs) { continue; }
+            $itemsById[$item['item_id']] = [
+                'item_id' => $item['item_id'], 'source_type' => $item['source_type'], 'source_id' => $item['source_id'],
+                'group_id' => $item['group_id'], 'sort_order' => $item['sort_order'],
+                'disabled' => true, 'decorated_label' => $item['decorated_label'],
+                'draft' => null, 'module_transition' => 'pending',
+            ];
+        }
+        $manager['items'] = array_values($itemsById);
+        $station['package_manager'] = $PMS::sanitize($manager);
+        update_post_meta($ownerId, self::META_PACKAGE_STATION, $station);
     }
 
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response

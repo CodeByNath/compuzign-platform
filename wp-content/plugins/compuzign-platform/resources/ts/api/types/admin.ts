@@ -143,6 +143,7 @@ export interface PackageManagerItem {
   sort_order:          number;
   disabled:            boolean;
   missing:             boolean;
+  available?:          boolean;
   module_transition:   PackageManagerModuleTransition;
 }
 
