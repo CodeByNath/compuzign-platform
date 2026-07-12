@@ -63,8 +63,17 @@ $multiSource = PMS::commitConfiguration(
 assertSameValue(2, count($multiSource['sources']), 'Package persists multiple source Services as supply relationships');
 assertSameValue(4, count($multiSource['rate_sheet']['items']), 'every item exposed by connected Services receives a Rate Sheet row automatically');
 assertSameValue('Per item', $multiSource['rate_sheet']['items'][0]['per'], 'automatic rows begin with safe commercial defaults');
-
 $secondServicePool = [...$incPool, ['id' => 'service:22:inc-a', 'label' => 'Feature A from another Service']];
+$commercialModel = PMS::buildReadModel(
+    10,
+    $multiSource,
+    array_map(fn(array $item): array => [...$item, '_source_available' => true], $secondServicePool),
+    array_map(fn(array $item): array => [...$item, '_source_available' => true], $faqPool),
+    'active'
+);
+assertSameValue('settled', $commercialModel['items'][0]['module_transition'], 'Rate Sheet participation is the commercial relationship decision');
+assertSameValue(true, $commercialModel['items'][0]['available'], 'Rate Sheet supplied content is immediately available to Tier pricing');
+
 $multiSourceSavedAgain = PMS::commitConfiguration(
     $multiSource,
     [],

@@ -624,9 +624,19 @@ final class PackageManagerSchema
     ): array {
         $groups = $storedManager['groups'] ?? [];
         $items  = self::reconcileItems($storedManager['items'] ?? [], $inclusionPool, $faqPool);
+        $rateSheetSourceIds = array_fill_keys(array_values(array_filter(array_map(
+            fn(array $item): string => (string) ($item['source_item_id'] ?? ''),
+            is_array($storedManager['rate_sheet']['items'] ?? null) ? $storedManager['rate_sheet']['items'] : []
+        ))), true);
 
         $outItems = [];
         foreach ($items as $item) {
+            // Commercial configuration is the relationship decision. A source
+            // used by the Rate Sheet must not require a second, legacy Manager
+            // item-settle action before Tiers and pricing can consume it.
+            if (isset($rateSheetSourceIds[$item['item_id']])) {
+                $item['module_transition'] = 'settled';
+            }
             $matchingSources = self::countSourceMatches($item['source_type'], $item['source_id'], $inclusionPool, $faqPool);
             $resolved = $matchingSources === 1
                 ? self::resolveSourceContent($item['source_type'], $item['source_id'], $inclusionPool, $faqPool)
