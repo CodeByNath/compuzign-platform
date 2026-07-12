@@ -72,7 +72,7 @@ export function StationManagerStep({ ctx }: { ctx: StepContext }) {
             onComplete={() => setOverlay(null)}
           />
         </div>,
-        document.body,
+        document.querySelector('.cz-admin-root') ?? document.body,
       )}
     </>
   );
