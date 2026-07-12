@@ -182,6 +182,7 @@ export interface PackageManagerReadModel {
   service_id:        number;
   platform_status:   string;
   has_configuration: boolean;
+  sources:           PackageSourceRelationship[];
   groups:            PackageManagerGroup[];
   items:             PackageManagerItem[];
   rate_sheet:        PackageRateSheet | null;
@@ -189,6 +190,14 @@ export interface PackageManagerReadModel {
     inclusions: PackageManagerProjectionInclusion[];
     faqs:       PackageManagerProjectionFaq[];
   };
+}
+
+export interface PackageSourceRelationship {
+  relationship_id: string;
+  provider_key: string;
+  entity_type: string;
+  entity_id: string | number;
+  sort_order: number;
 }
 
 export interface PackageManagerResponse {
@@ -207,6 +216,7 @@ export interface PackageManagerItemDecision {
 }
 
 export interface PackageManagerSavePayload {
+  sources:        PackageSourceRelationship[];
   groups:         PackageManagerGroup[];
   item_decisions: PackageManagerItemDecision[];
   rate_sheet:     PackageRateSheet | null;

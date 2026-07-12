@@ -13,6 +13,16 @@ function check_active_package(bool $condition, string $message): void
 
 $station = Schema::defaultStation();
 check_active_package(array_keys($station['tiers']) === Schema::FIXED_TIERS, 'fixed Tier occupants remain the Phase 1 baseline');
+check_active_package($station['manager']['sources'] === [], 'Package begins with a provider-neutral source relationship pool');
+
+$sources = Schema::sanitizeSourceRelationships([
+    ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 42],
+    ['provider_key' => 'product', 'entity_type' => 'product', 'entity_id' => 'sku-7'],
+    ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 42],
+]);
+check_active_package(count($sources) === 2, 'source relationships deduplicate by provider-qualified source identity');
+check_active_package($sources[0]['relationship_id'] === Schema::sanitizeSourceRelationships([$sources[0]])[0]['relationship_id'], 'source relationship identity is deterministic');
+check_active_package($sources[1]['provider_key'] === 'product', 'Package source relationships are not Service-specific');
 
 $source = Schema::sanitizeSourceRef([
     'provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 42,

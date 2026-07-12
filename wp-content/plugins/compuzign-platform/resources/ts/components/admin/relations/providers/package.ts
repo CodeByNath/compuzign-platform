@@ -10,6 +10,7 @@ import type {
   PackageManagerItemDecision,
   PackageManagerReadModel,
   PackageRateSheet,
+  PackageSourceRelationship,
   SurfaceTierDetail,
 } from '@/api/types/admin';
 import {
@@ -52,6 +53,7 @@ export interface PackageRelationDraftItem extends PackageManagerItemDecision {
 }
 
 export interface PackageRelationDraft {
+  sources: PackageSourceRelationship[];
   groups: PackageManagerGroup[];
   rateSheet: PackageRateSheet | null;
   itemsById: Record<string, PackageRelationDraftItem>;
@@ -68,6 +70,7 @@ function cloneGroups(groups: PackageManagerGroup[]): PackageManagerGroup[] {
 
 function itemDecision(item: PackageManagerItem): PackageRelationDraftItem {
   return {
+    sources: readModel.sources.map((source) => ({ ...source })),
     item_id:          item.item_id,
     source_type:      item.source_type,
     source_id:        item.source_id,
@@ -169,6 +172,7 @@ function comparableDraft(draft: PackageRelationDraft): unknown {
       label: group.label,
       sort_order: group.sort_order,
     })),
+    sources: draft.sources,
     decisions: [...draft.explicitDecisionIds].sort().map((id) => draft.itemsById[id]),
     rate_sheet: draft.rateSheet,
   };
@@ -212,6 +216,25 @@ export function onboardPackageRateSheetOptions(
     ...draft,
     explicitDecisionIds: Array.from(new Set([...draft.explicitDecisionIds, ...accepted])).sort(),
   }, rateSheet);
+}
+
+export function connectPackageServiceSources(
+  draft: PackageRelationDraft,
+  serviceIds: readonly number[],
+): PackageRelationDraft {
+  const existing = new Set(draft.sources.map((source) => `${source.provider_key}:${source.entity_type}:${source.entity_id}`));
+  const sources = [...draft.sources];
+  for (const entityId of serviceIds) {
+    const identity = `service:service:${entityId}`;
+    if (!Number.isInteger(entityId) || entityId < 1 || existing.has(identity)) continue;
+    existing.add(identity);
+    sources.push({
+      relationship_id: `source_service_${entityId}`,
+      provider_key: 'service', entity_type: 'service', entity_id: entityId,
+      sort_order: sources.length,
+    });
+  }
+  return { ...draft, sources };
 }
 
 function packageItemLabel(item: PackageManagerItem): string {
@@ -390,6 +413,7 @@ export const packageRelationProvider: WritableRelationProvider<
         },
         rateSheetControls: {
           sourcePicker: { enabled: true },
+          connectSources: (draft, entityIds) => connectPackageServiceSources(draft as PackageRelationDraft, entityIds),
           replace: (draft, rateSheet) => replacePackageRateSheet(draft as PackageRelationDraft, rateSheet),
           onboard: (draft, optionIds, rateSheet) => onboardPackageRateSheetOptions(
             draft as PackageRelationDraft, optionIds, rateSheet,
@@ -640,6 +664,7 @@ export const packageRelationProvider: WritableRelationProvider<
   async save(scope, draft, _original, readModel) {
     const itemDecisions = draft.explicitDecisionIds.map((id) => draft.itemsById[id]);
     const response = await savePackageStationManager(scope.stationContext.id, {
+      sources: draft.sources,
       groups: cloneGroups(draft.groups),
       item_decisions: itemDecisions,
       rate_sheet: draft.rateSheet,

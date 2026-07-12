@@ -7,6 +7,9 @@ separate-workstation placement and all earlier "Board Manager" /
 "Control Centre" language.
 
 Companion documents:
+- [CommercialModel-v1.md](CommercialModel-v1.md) — canonical source, supply,
+  commercial-group and Tier ownership contract. Where this document's legacy
+  Service-scoped item-pool language conflicts, the Commercial Model governs.
 - [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — canonical drawer contract: fixed `Details | Connections` base tabs plus capability-gated terminal `Manager`.
 - [StationLifecycleEngine-v1.md](StationLifecycleEngine-v1.md) — station lifecycle vocabulary; Station Managers are explicitly outside this engine (see §1).
 - [ServiceDrawerModuleArchitecture-v1.md](ServiceDrawerModuleArchitecture-v1.md) — the drawer module template a Station Manager does *not* use for its outer shell.
@@ -54,16 +57,16 @@ database envelope and never claims cross-provider atomicity.
 
 First writable provider of the Dynamic Station Manager pattern.
 
-- **Source station:** Service / Package station — canonical source data is
-  Service inclusions and FAQs.
+- **Initial source provider:** Service — canonical source data is Service
+  inclusions and FAQs. Package source relationships and provenance remain
+  provider-neutral so other registered source entity types can be bundled.
 - **Managed relationship concerns:** grouping, ordering, explicit package
   availability and Package-owned decorated labels.
 - **Consumers:** Tier and future relation consumers read provider-owned
   projections; consumers never copy Manager structure into their own storage.
-- **Scope:** one Package relation-provider configuration per package station. Package
-  and service are the same scope key today (the package station is postmeta
-  on the Service post) — so this is a 1:1, service-scoped manager, not a
-  global/shared board across services.
+- **Scope:** one Package relation-provider configuration per Package. Historical
+  storage may still be keyed through a Service post, but that storage detail
+  does not constrain a Package to one source Service.
 
 ## 3. Drawer and migration boundary
 
@@ -113,9 +116,11 @@ First writable provider of the Dynamic Station Manager pattern.
 - Package-provider storage remains `PackageManagerSchema`: `groups[]` plus
   explicit `items[]` decisions keyed by deterministic source identity. It is
   not generic Manager or cross-provider storage.
-- Items are derived 1:1 from the source station's inclusion/FAQ pools and
-  cannot be manually added or deleted. An unwanted item is disabled, never
-  removed — the pool, not the board, owns item existence.
+- Items are derived 1:1 from all content exposed by the Package's connected
+  source entities and cannot be manually onboarded or deleted. Connecting a
+  Service supplies all of its Inclusions and FAQs. An unwanted commercial row
+  is disabled, never removed — source providers, not the Rate Sheet, own item
+  existence.
 - Groups are a pure admin-created organizational layer with no external
   source of truth. They can be created, deleted, and reordered freely.
   Deleting a non-empty group reassigns its items to the default/ungrouped
@@ -137,10 +142,12 @@ First writable provider of the Dynamic Station Manager pattern.
 - Future consumers borrow Package provider structure live and keep only their
   own consumer-specific usage choices; they do not copy provider structure.
 
-## 7. Pricing boundary
+## 7. Commercial configuration boundary
 
-- Package relation management owns no price, unit, quantity, Tier internals or
-  Cost Builder logic.
+- Package Manager owns Rate Sheet price, unit, suggested quantity, commercial
+  availability, Commercial Group and order. Tiers compose those groups and
+  rows for customer presentation. The pricing evaluator and public projection
+  remain separate pure consumers of that Package-owned configuration.
 - Pricing and public output remain owned by their existing entity/provider
   paths. A future provider may expose a pricing-related relationship
   decoration only through a separately approved, provider-owned capability;

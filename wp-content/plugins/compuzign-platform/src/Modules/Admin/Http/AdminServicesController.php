@@ -1303,11 +1303,6 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
 
-        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
-        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
-        $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
-        $faqPool = is_array($rawFaqs) ? $rawFaqs : [];
-
         $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
 
         // In-memory default for a station that predates package_manager — never
@@ -1315,6 +1310,7 @@ class AdminServicesController
         // regardless of what (if anything) was actually stored.
         $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
         $manager    = $PMS::sanitize($rawManager);
+        [$incPool, $faqPool] = $this->resolvePackageSourcePools($serviceId, $manager['sources']);
 
         // Stored platform_status is the parent operational fact (per the
         // accepted Phase B plan) — same field Cost Builder visibility already
@@ -1343,10 +1339,10 @@ class AdminServicesController
         }
 
         $body = $request->get_json_params();
-        if (!is_array($body) || !isset($body['groups'], $body['item_decisions']) || !array_key_exists('rate_sheet', $body)) {
+        if (!is_array($body) || !isset($body['sources'], $body['groups'], $body['item_decisions']) || !array_key_exists('rate_sheet', $body)) {
             return rest_ensure_response([
                 'success' => false,
-                'message' => 'Groups, item_decisions, and rate_sheet are required.',
+                'message' => 'Sources, groups, item_decisions, and rate_sheet are required.',
             ]);
         }
 
@@ -1355,15 +1351,12 @@ class AdminServicesController
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
         }
 
-        $rawInc  = get_post_meta($serviceId, self::META_INCLUSIONS, true) ?: [];
-        $incPool = (isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [];
-        $rawFaqs = get_post_meta($serviceId, self::META_FAQS, true) ?: [];
-        $faqPool = is_array($rawFaqs) ? $rawFaqs : [];
-
         $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
         $rawManager = is_array($station['package_manager'] ?? null)
             ? $station['package_manager']
             : $PMS::defaultManager();
+        $submittedSources = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($body['sources']);
+        [$incPool, $faqPool] = $this->resolvePackageSourcePools($serviceId, $submittedSources);
 
         try {
             $manager = $PMS::commitConfiguration(
@@ -1372,7 +1365,8 @@ class AdminServicesController
                 $body['item_decisions'],
                 $incPool,
                 $faqPool,
-                $body['rate_sheet']
+                $body['rate_sheet'],
+                $submittedSources
             );
         } catch (\InvalidArgumentException $e) {
             return rest_ensure_response(['success' => false, 'message' => $e->getMessage()]);
@@ -1390,6 +1384,39 @@ class AdminServicesController
             'success' => true,
             'manager' => $readModel,
         ]);
+    }
+
+    /** Resolve Service-provider supply into namespaced Package item pools. */
+    private function resolvePackageSourcePools(int $hostServiceId, array $sources): array
+    {
+        if ($sources === []) {
+            $sources = [[
+                'provider_key' => 'service', 'entity_type' => 'service',
+                'entity_id' => $hostServiceId,
+            ]];
+        }
+        $inclusions = [];
+        $faqs = [];
+        foreach ($sources as $source) {
+            if (($source['provider_key'] ?? '') !== 'service' || ($source['entity_type'] ?? '') !== 'service') { continue; }
+            $sourceServiceId = (int) ($source['entity_id'] ?? 0);
+            $post = $sourceServiceId > 0 ? get_post($sourceServiceId) : null;
+            if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) { continue; }
+            $prefix = $sourceServiceId === $hostServiceId ? '' : 'service:' . $sourceServiceId . ':';
+            $serviceMeta = get_post_meta($sourceServiceId, self::META_KEY, true);
+            $sourceAvailable = is_array($serviceMeta) && ($serviceMeta['platform_status'] ?? 'disabled') === 'active';
+            $rawInc = get_post_meta($sourceServiceId, self::META_INCLUSIONS, true) ?: [];
+            foreach ((isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [] as $item) {
+                if (!is_array($item) || empty($item['id'])) { continue; }
+                $inclusions[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
+            }
+            $rawFaqs = get_post_meta($sourceServiceId, self::META_FAQS, true) ?: [];
+            foreach (is_array($rawFaqs) ? $rawFaqs : [] as $item) {
+                if (!is_array($item) || empty($item['id'])) { continue; }
+                $faqs[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
+            }
+        }
+        return [$inclusions, $faqs];
     }
 
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response

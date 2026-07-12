@@ -48,6 +48,26 @@ assertSameValue(false, $provisional['has_configuration'], 'provisional-only Mana
 assertSameValue('not-configured', itemBySource($provisional, 'inclusion', 'inc-a')['module_transition'], 'provisional item is not configured');
 assertSameValue('connected_unavailable', itemBySource($provisional, 'inclusion', 'inc-a')['operational_state'], 'unsettled connection resolves but is unavailable');
 
+$multiSource = PMS::commitConfiguration(
+    $empty,
+    [],
+    [],
+    [...$incPool, ['id' => 'service:22:inc-a', 'label' => 'Feature A from another Service']],
+    $faqPool,
+    ['title' => 'Commercial catalogue', 'groups' => [], 'items' => []],
+    [
+        ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 10],
+        ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 22],
+    ]
+);
+assertSameValue(2, count($multiSource['sources']), 'Package persists multiple source Services as supply relationships');
+assertSameValue(4, count($multiSource['rate_sheet']['items']), 'every item exposed by connected Services receives a Rate Sheet row automatically');
+assertSameValue('Per item', $multiSource['rate_sheet']['items'][0]['per'], 'automatic rows begin with safe commercial defaults');
+
+$unavailablePool = [['id' => 'inc-a', 'label' => 'Feature A', '_source_available' => false]];
+$unavailableModel = PMS::buildReadModel(10, $empty, $unavailablePool, [], 'active');
+assertSameValue('connected_unavailable', itemBySource($unavailableModel, 'inclusion', 'inc-a')['operational_state'], 'source-provider availability fails closed independently of the Package host');
+
 // A persisted group is Manager-owned configuration even without item rows.
 $groupManager = ['groups' => [['group_id' => 'core', 'label' => 'Core', 'sort_order' => 0]], 'items' => []];
 $groupModel = PMS::buildReadModel(10, $groupManager, $incPool, $faqPool, 'active');

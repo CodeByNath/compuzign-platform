@@ -58,7 +58,7 @@ final class PackageManagerSchema
      * (Option A from the accepted Phase A audit: no write-on-read).
      *
      * @param  mixed $data
-     * @return array{groups: array<int, array>, items: array<int, array>, rate_sheet: array|null}
+     * @return array{sources: array<int, array>, groups: array<int, array>, items: array<int, array>, rate_sheet: array|null}
      */
     public static function sanitize(mixed $data): array
     {
@@ -70,16 +70,17 @@ final class PackageManagerSchema
         $groupIds = array_column($groups, 'group_id');
 
         return [
+            'sources' => \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($data['sources'] ?? []),
             'groups' => $groups,
             'items'  => self::sanitizeItems($data['items'] ?? [], $groupIds),
             'rate_sheet' => self::sanitizeRateSheet($data['rate_sheet'] ?? null),
         ];
     }
 
-    /** @return array{groups: array, items: array, rate_sheet: null} */
+    /** @return array{sources: array, groups: array, items: array, rate_sheet: null} */
     public static function defaultManager(): array
     {
-        return ['groups' => [], 'items' => [], 'rate_sheet' => null];
+        return ['sources' => [], 'groups' => [], 'items' => [], 'rate_sheet' => null];
     }
 
     /**
@@ -89,7 +90,7 @@ final class PackageManagerSchema
      */
     public static function hasConfiguration(array $storedManager): bool
     {
-        return !empty($storedManager['groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']);
+        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']);
     }
 
     /**
@@ -314,10 +315,12 @@ final class PackageManagerSchema
         mixed $submittedDecisions,
         array $inclusionPool,
         array $faqPool,
-        mixed $submittedRateSheet = null
+        mixed $submittedRateSheet = null,
+        mixed $submittedSources = null
     ): array {
-        if (!is_array($submittedGroups) || !is_array($submittedDecisions)) {
-            throw new \InvalidArgumentException('Groups and item decisions must be arrays.');
+        if ($submittedSources === null) { $submittedSources = self::sanitize($storedManager)['sources']; }
+        if (!is_array($submittedSources) || !is_array($submittedGroups) || !is_array($submittedDecisions)) {
+            throw new \InvalidArgumentException('Sources, groups and item decisions must be arrays.');
         }
 
         $groups   = self::sanitizeGroups($submittedGroups);
@@ -417,6 +420,21 @@ final class PackageManagerSchema
         }
 
         $rateSheet = self::sanitizeRateSheet($submittedRateSheet);
+        if ($rateSheet !== null) {
+            $configuredSources = array_column($rateSheet['items'], 'source_item_id');
+            foreach (array_keys($liveIds) as $sourceItemId) {
+                if (in_array($sourceItemId, $configuredSources, true)) { continue; }
+                $rateSheet['items'][] = [
+                    'item_id' => 'rate_' . substr(hash('sha256', $sourceItemId), 0, 16),
+                    'source_item_id' => $sourceItemId,
+                    'unit_price' => 0.0,
+                    'per' => 'Per item',
+                    'quantity' => 1,
+                    'group_id' => null,
+                    'sort_order' => count($rateSheet['items']),
+                ];
+            }
+        }
         foreach ($rateSheet['items'] ?? [] as $rateItem) {
             $sourceItemId = $rateItem['source_item_id'];
             if (!isset($liveIds[$sourceItemId]) && !isset($persistedById[$sourceItemId])) {
@@ -425,6 +443,7 @@ final class PackageManagerSchema
         }
 
         return self::sanitize([
+            'sources' => $submittedSources,
             'groups' => $groups,
             'items' => $items,
             'rate_sheet' => $rateSheet,
@@ -612,7 +631,8 @@ final class PackageManagerSchema
             $resolved = $matchingSources === 1
                 ? self::resolveSourceContent($item['source_type'], $item['source_id'], $inclusionPool, $faqPool)
                 : null;
-            $operational = self::deriveOperationalState($item, $matchingSources, $platformStatus);
+            $sourceAvailable = self::sourceAvailability($item['source_type'], $item['source_id'], $inclusionPool, $faqPool);
+            $operational = self::deriveOperationalState($item, $matchingSources, $platformStatus, $sourceAvailable);
 
             $outItems[] = [
                 'item_id'           => $item['item_id'],
@@ -634,6 +654,7 @@ final class PackageManagerSchema
 
         return [
             'service_id'        => $serviceId,
+            'sources'           => $storedManager['sources'] ?? [],
             'platform_status'   => $platformStatus,
             'has_configuration' => self::hasConfiguration($storedManager),
             'groups'            => $groups,
@@ -659,8 +680,19 @@ final class PackageManagerSchema
         return $count;
     }
 
+    private static function sourceAvailability(string $sourceType, string $sourceId, array $inclusionPool, array $faqPool): ?bool
+    {
+        $pool = $sourceType === 'inclusion' ? $inclusionPool : ($sourceType === 'faq' ? $faqPool : []);
+        foreach ($pool as $entry) {
+            if (is_array($entry) && (string) ($entry['id'] ?? '') === $sourceId) {
+                return array_key_exists('_source_available', $entry) ? (bool) $entry['_source_available'] : null;
+            }
+        }
+        return null;
+    }
+
     /** Derive operational health without changing or persisting relationship data. */
-    private static function deriveOperationalState(array $item, int $matchingSources, string $platformStatus): array
+    private static function deriveOperationalState(array $item, int $matchingSources, string $platformStatus, ?bool $sourceAvailable = null): array
     {
         if ($matchingSources > 1) {
             return [
@@ -680,7 +712,7 @@ final class PackageManagerSchema
         }
 
         $reasons = [];
-        if ($platformStatus !== 'active') { $reasons[] = 'service_unavailable'; }
+        if (($sourceAvailable ?? ($platformStatus === 'active')) === false) { $reasons[] = 'service_unavailable'; }
         if (($item['module_transition'] ?? null) !== 'settled') { $reasons[] = 'relationship_unsettled'; }
         if (!empty($item['disabled'])) { $reasons[] = 'relationship_disabled'; }
 

@@ -26,13 +26,54 @@ final class PackageStationSchema
             'schema_version' => 1,
             'identity' => ['title' => '', 'slug' => ''],
             'lifecycle' => ['status' => 'disabled'],
-            'manager' => ['groups' => [], 'decisions' => []],
+            'manager' => ['sources' => [], 'groups' => [], 'decisions' => []],
             'rate_sheet' => null,
             'tiers' => array_fill_keys(self::FIXED_TIERS, self::emptyTier()),
             'popular_tier' => null,
             'bin' => [],
             'migration' => null,
         ];
+    }
+
+    /**
+     * Package-owned supply identity. Providers resolve presentation and
+     * exposed content; Package persists only the durable generic relationship.
+     *
+     * @return array<int, array{relationship_id:string,provider_key:string,entity_type:string,entity_id:string|int,sort_order:int}>
+     */
+    public static function sanitizeSourceRelationships(mixed $value): array
+    {
+        if (!is_array($value)) { return []; }
+        $out = [];
+        $seen = [];
+        foreach ($value as $source) {
+            if (!is_array($source)) { continue; }
+            $providerKey = self::text($source['provider_key'] ?? '');
+            $entityType = self::text($source['entity_type'] ?? '');
+            $entityId = $source['entity_id'] ?? '';
+            if (is_int($entityId)) {
+                if ($entityId < 1) { continue; }
+            } else {
+                $entityId = self::text($entityId);
+                if ($entityId === '') { continue; }
+            }
+            if ($providerKey === '' || $entityType === '') { continue; }
+            $identity = $providerKey . ':' . $entityType . ':' . (string) $entityId;
+            if (isset($seen[$identity])) { continue; }
+            $seen[$identity] = true;
+            $relationshipId = self::text($source['relationship_id'] ?? '');
+            if ($relationshipId === '') {
+                $relationshipId = 'source_' . substr(hash('sha256', $identity), 0, 16);
+            }
+            $out[] = [
+                'relationship_id' => $relationshipId,
+                'provider_key' => $providerKey,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'sort_order' => count($out),
+            ];
+        }
+        return $out;
     }
 
     /** @return array{selections: array, enabled: bool, contact: bool} */

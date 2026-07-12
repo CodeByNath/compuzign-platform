@@ -163,6 +163,7 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
     sourcePicker?: {
       enabled: true;
     };
+    connectSources?(draft: unknown, entityIds: readonly number[]): unknown;
     replace(draft: unknown, rateSheet: {
       title: string;
       groups: readonly { id: string; label: string }[];
