@@ -200,6 +200,20 @@ function replacePackageRateSheet(
   };
 }
 
+export function onboardPackageRateSheetOptions(
+  draft: PackageRelationDraft,
+  optionIds: readonly string[],
+  rateSheet: Parameters<typeof replacePackageRateSheet>[1],
+): PackageRelationDraft {
+  const accepted = optionIds.filter((id, index) => (
+    Object.prototype.hasOwnProperty.call(draft.itemsById, id) && optionIds.indexOf(id) === index
+  ));
+  return replacePackageRateSheet({
+    ...draft,
+    explicitDecisionIds: Array.from(new Set([...draft.explicitDecisionIds, ...accepted])).sort(),
+  }, rateSheet);
+}
+
 function packageItemLabel(item: PackageManagerItem): string {
   if (item.source_type === 'faq') {
     return item.resolved && 'question' in item.resolved
@@ -357,7 +371,10 @@ export const packageRelationProvider: WritableRelationProvider<
             configured: rateSheet !== null,
             title: rateSheet?.title ?? '',
             groups: groups.map((group) => ({ id: group.group_id, label: group.label })),
-            options: readModel.items.map((item) => ({ id: item.item_id, label: packageItemLabel(item) })),
+            options: readModel.items.map((item) => ({
+              id: item.item_id, label: packageItemLabel(item),
+              sourceType: item.source_type, sourceId: item.source_id,
+            })),
             units: PACKAGE_RATE_SHEET_UNITS,
             items: (rateSheet?.items ?? []).map((item) => ({
               id: item.item_id,
@@ -372,7 +389,11 @@ export const packageRelationProvider: WritableRelationProvider<
           };
         },
         rateSheetControls: {
+          sourcePicker: { enabled: true },
           replace: (draft, rateSheet) => replacePackageRateSheet(draft as PackageRelationDraft, rateSheet),
+          onboard: (draft, optionIds, rateSheet) => onboardPackageRateSheetOptions(
+            draft as PackageRelationDraft, optionIds, rateSheet,
+          ),
         },
       },
       {

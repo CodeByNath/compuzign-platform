@@ -4,6 +4,8 @@ import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
 import { ReadBlock } from '../ReadBlock';
 import { InlineEditorShell } from '../InlineEditorShell';
+import { fetchAdminCatalog, fetchAdminServiceDetail } from '@/api/endpoints/admin';
+import type { AdminCatalogResponse, AdminServiceDetailResponse } from '@/api/types/admin';
 import { relationProvidersFor } from './registry';
 import type {
   ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
@@ -69,6 +71,13 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const [newRateGroupLabel, setNewRateGroupLabel] = useState('');
   const [creatingRateGroup, setCreatingRateGroup] = useState(false);
   const [rateGroupTargetIndex, setRateGroupTargetIndex] = useState<number | null>(null);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
+  const [sourceCatalog, setSourceCatalog] = useState<AdminCatalogResponse | null>(null);
+  const [sourceDetail, setSourceDetail] = useState<AdminServiceDetailResponse | null>(null);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [selectedSourceKeys, setSelectedSourceKeys] = useState<string[]>([]);
+  const [pendingOnboardIds, setPendingOnboardIds] = useState<string[]>([]);
   const temporaryGroupSequence = useRef(0);
 
   useEffect(() => {
@@ -192,7 +201,9 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     const draft = state.draftByProvider[active.key];
     const original = state.originalDraftByProvider[active.key];
     const model = state.readModelByProvider[active.key];
-    const nextDraft = section.rateSheetControls.replace(draft, editingRateSheet);
+    const nextDraft = pendingOnboardIds.length > 0
+      ? section.rateSheetControls.onboard(draft, pendingOnboardIds, editingRateSheet)
+      : section.rateSheetControls.replace(draft, editingRateSheet);
     const validation = active.validate?.(nextDraft, model, scope);
     const rateIssues = validation?.issues.filter((issue) => issue.sectionId === section.id) ?? [];
     if (rateIssues.length > 0) {
@@ -204,6 +215,22 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
     setNewRateGroupLabel('');
     setCreatingRateGroup(false);
     setRateGroupTargetIndex(null);
+    setPendingOnboardIds([]);
+    setSourcePickerOpen(false);
+  };
+
+  const openSourcePicker = async () => {
+    setSourcePickerOpen(true); setSourceError(null); setSourceLoading(true);
+    try { setSourceCatalog(await fetchAdminCatalog()); }
+    catch (error) { setSourceError(error instanceof Error ? error.message : 'Could not load source Services.'); }
+    finally { setSourceLoading(false); }
+  };
+
+  const loadSourceService = async (serviceId: number) => {
+    setSourceDetail(null); setSelectedSourceKeys([]); setSourceError(null); setSourceLoading(true);
+    try { setSourceDetail(await fetchAdminServiceDetail(serviceId)); }
+    catch (error) { setSourceError(error instanceof Error ? error.message : 'Could not load source content.'); }
+    finally { setSourceLoading(false); }
   };
 
   const groupIssues = active
@@ -329,14 +356,43 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               {editingRateSheet ? (
                 <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
                   onSave={() => saveRateSheet(section)}
-                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); }}
+                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); setPendingOnboardIds([]); setSourcePickerOpen(false); setSelectedSourceKeys([]); }}
                   saving={rateSheetSaving} saveErr={rateSheetError} isDirty>
                   <div class="cz-rate-sheet-editor">
                     <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={editingRateSheet.title}
                       onInput={(event) => setEditingRateSheet({ ...editingRateSheet, title: event.currentTarget.value })} /></label>
                     <div class="cz-rate-sheet-editor__toolbar">
                       <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setCreatingRateGroup(true); setRateGroupTargetIndex(null); }}>Create Group</button>
+                      {section.rateSheetControls?.sourcePicker && <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={openSourcePicker}>Add source content</button>}
                     </div>
+                    {sourcePickerOpen && <div class="cz-manager-source-picker">
+                      <div class="cz-manager-section__actions"><strong>Source content</strong><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setSourcePickerOpen(false); setSourceDetail(null); setSelectedSourceKeys([]); }}>Cancel</button></div>
+                      <p>Browse all Services. Until durable provenance is available, only this Package Station's Service can be onboarded.</p>
+                      {sourceLoading && <p class="cz-sp-tier-table__muted">Loading source content…</p>}
+                      {sourceError && <div class="cz-admin-error-msg" role="alert">{sourceError}</div>}
+                      {sourceCatalog && <label class="cz-tf-field"><span>Service</span><select class="cz-tf-select" value={sourceDetail?.id ?? ''} onChange={(event) => { const id = Number(event.currentTarget.value); if (id) void loadSourceService(id); }}>
+                        <option value="">Select Service…</option>{sourceCatalog.stations.map((service) => <option value={service.id} key={service.id}>{service.title}{service.id === scope.stationContext.id ? ' (current)' : ' (browse only)'}</option>)}
+                      </select></label>}
+                      {sourceDetail && (() => {
+                        const candidates = [
+                          ...sourceDetail.inclusions.map((item) => ({ key: `inclusion:${item.id}`, type: 'inclusion' as const, id: item.id, label: item.label })),
+                          ...sourceDetail.faqs.map((item) => ({ key: `faq:${item.id}`, type: 'faq' as const, id: item.id, label: item.question })),
+                        ];
+                        const local = sourceDetail.id === scope.stationContext.id;
+                        return <div><p><strong>{sourceDetail.title}</strong></p>{candidates.map((candidate) => {
+                          const option = projection.options.find((row) => row.sourceType === candidate.type && row.sourceId === candidate.id);
+                          const selectable = local && !!option;
+                          return <label class="cz-manager-source-picker__candidate" key={candidate.key}><input type="checkbox" disabled={!selectable} checked={selectedSourceKeys.includes(candidate.key)} onChange={(event) => setSelectedSourceKeys((current) => event.currentTarget.checked ? [...current, candidate.key] : current.filter((key) => key !== candidate.key))} /> {candidate.label}{!local ? ' — browse only' : !option ? ' — unavailable' : ''}</label>;
+                        })}<div><button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={!local || selectedSourceKeys.length === 0} onClick={() => {
+                          const ids = candidates.filter((candidate) => selectedSourceKeys.includes(candidate.key)).map((candidate) => projection.options.find((row) => row.sourceType === candidate.type && row.sourceId === candidate.id)?.id).filter((id): id is string => !!id);
+                          const existing = new Set(editingRateSheet.items.map((item) => item.optionId));
+                          const additions = ids.filter((id) => !existing.has(id));
+                          setPendingOnboardIds((current) => Array.from(new Set([...current, ...ids])));
+                          setEditingRateSheet({ ...editingRateSheet, items: [...editingRateSheet.items, ...additions.map((id, index) => ({ id: `rate_item_${Date.now()}_${editingRateSheet.items.length + index}`, optionId: id, unitPrice: 0, per: projection.units[0] ?? '', quantity: 1, groupId: editingRateSheet.groups[0]?.id ?? null }))] });
+                          setSourcePickerOpen(false); setSelectedSourceKeys([]);
+                        }}>Add selected</button></div></div>;
+                      })()}
+                    </div>}
                     {creatingRateGroup && rateGroupTargetIndex === null && <div class="cz-rate-sheet-editor__group-create">
                       <label class="cz-tf-field"><span>Group name</span><input class="cz-tf-input" value={newRateGroupLabel} autoFocus
                         onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)}

@@ -4,6 +4,7 @@ import {
   createPackageRelationGroup,
   deletePackageRelationGroup,
   movePackageRelationGroup,
+  onboardPackageRateSheetOptions,
   packageRelationProvider,
   projectPackageReadModelForTier,
   renamePackageRelationGroup,
@@ -142,6 +143,14 @@ const rateSheetDraft = rateSheetSection.rateSheetControls!.replace(original, {
 }) as typeof original;
 check(packageRelationProvider.isDirty(rateSheetDraft, original, readModel), 'Rate Sheet edits participate in Package provider dirty state');
 check(packageRelationProvider.validate(rateSheetDraft, readModel, { ...scope }).valid, 'valid Rate Sheet passes provider validation');
+const onboarded = onboardPackageRateSheetOptions(original, ['mgr_question', 'unknown', 'mgr_question'], {
+  title: 'Infrastructure', groups: [],
+  items: [{ id: 'rate-2', optionId: 'mgr_question', unitPrice: 0, per: 'Per item', quantity: 1, groupId: null }],
+});
+check(onboarded.explicitDecisionIds.includes('mgr_question'), 'safe provisional source becomes an explicit decision with its Rate Sheet row');
+check(!onboarded.explicitDecisionIds.includes('unknown'), 'unknown candidates cannot enter explicit decisions');
+check(onboarded.explicitDecisionIds.filter((id) => id === 'mgr_question').length === 1, 'multi-selection onboarding deduplicates relationship decisions');
+check(original.rateSheet === null && !original.explicitDecisionIds.includes('mgr_question'), 'onboarding leaves the original draft untouched for Cancel');
 const invalidRateSheet = { ...rateSheetDraft, rateSheet: { ...rateSheetDraft.rateSheet!, items: [{ ...rateSheetDraft.rateSheet!.items[0], source_item_id: 'unknown' }] } };
 check(!packageRelationProvider.validate(invalidRateSheet, readModel, { ...scope }).valid, 'Rate Sheet options must use stable Package relationship identities');
 const groupProjection = packageRelationProvider.manager.sections[1].project(readModel, {

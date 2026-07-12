@@ -139,7 +139,7 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
       configured: boolean;
       title: string;
       groups: readonly { id: string; label: string }[];
-      options: readonly { id: string; label: string }[];
+      options: readonly { id: string; label: string; sourceType?: 'inclusion' | 'faq'; sourceId?: string }[];
       units: readonly string[];
       items: readonly {
         id: string;
@@ -159,7 +159,23 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
     delete(draft: unknown, groupId: string): unknown;
   };
   rateSheetControls?: {
+    /** Gate 1: browse broadly, but only provider-approved option ids may onboard. */
+    sourcePicker?: {
+      enabled: true;
+    };
     replace(draft: unknown, rateSheet: {
+      title: string;
+      groups: readonly { id: string; label: string }[];
+      items: readonly {
+        id: string;
+        optionId: string;
+        unitPrice: number;
+        per: string;
+        quantity: number;
+        groupId: string | null;
+      }[];
+    }): unknown;
+    onboard(draft: unknown, optionIds: readonly string[], rateSheet: {
       title: string;
       groups: readonly { id: string; label: string }[];
       items: readonly {

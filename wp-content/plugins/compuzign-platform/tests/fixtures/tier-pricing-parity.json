@@ -1,0 +1,26 @@
+{
+  "rate_sheet_items": [
+    { "item_id": "rate-vm", "unit_price": 36, "available": true, "options": ["ubuntu", "windows"] },
+    { "item_id": "rate-storage", "unit_price": 10, "available": true, "options": [] },
+    { "item_id": "rate-backup", "unit_price": 10, "available": false, "options": [] },
+    { "item_id": "rate-free", "unit_price": 0, "available": true, "options": [] },
+    { "item_id": "rate-unpriced", "unit_price": null, "available": true, "options": [] }
+  ],
+  "cases": [
+    { "name": "valid-single", "contact": false, "selections": [{ "item_id": "rate-vm", "quantity": 4, "option_selections": ["ubuntu"] }], "expected": { "total": 144, "resolved_subtotal": 144, "complete": true, "issues": [] } },
+    { "name": "valid-multiple", "contact": false, "selections": [{ "item_id": "rate-vm", "quantity": 2, "option_selections": ["windows"] }, { "item_id": "rate-storage", "quantity": 3, "option_selections": [] }], "expected": { "total": 102, "resolved_subtotal": 102, "complete": true, "issues": [] } },
+    { "name": "zero-priced", "contact": false, "selections": [{ "item_id": "rate-free", "quantity": 5, "option_selections": [] }], "expected": { "total": 0, "resolved_subtotal": 0, "complete": true, "issues": [] } },
+    { "name": "unresolved-item", "contact": false, "selections": [{ "item_id": "removed-item", "quantity": 1, "option_selections": [] }], "expected": { "total": null, "resolved_subtotal": 0, "complete": false, "issues": [{ "code": "unresolved_item", "item_id": "removed-item", "path": "selections.0.item_id" }] } },
+    { "name": "unavailable-item", "contact": false, "selections": [{ "item_id": "rate-backup", "quantity": 2, "option_selections": [] }], "expected": { "total": null, "resolved_subtotal": 0, "complete": false, "issues": [{ "code": "unavailable_item", "item_id": "rate-backup", "path": "rate_sheet.items.2.available" }] } },
+    { "name": "invalid-option", "contact": false, "selections": [{ "item_id": "rate-vm", "quantity": 1, "option_selections": ["solaris"] }], "expected": { "total": null, "resolved_subtotal": 0, "complete": false, "issues": [{ "code": "invalid_option", "item_id": "rate-vm", "path": "selections.0.option_selections" }] } },
+    { "name": "invalid-quantity", "contact": false, "selections": [{ "item_id": "rate-vm", "quantity": 0, "option_selections": ["ubuntu"] }], "expected": { "total": null, "resolved_subtotal": 0, "complete": false, "issues": [{ "code": "invalid_quantity", "item_id": "rate-vm", "path": "selections.0.quantity" }] } },
+    { "name": "fractional-quantity", "contact": false, "selections": [{ "item_id": "rate-vm", "quantity": 1.5, "option_selections": ["ubuntu"] }], "expected": { "total": null, "resolved_subtotal": 0, "complete": false, "issues": [{ "code": "invalid_quantity", "item_id": "rate-vm", "path": "selections.0.quantity" }] } },
+    { "name": "missing-price", "contact": false, "selections": [{ "item_id": "rate-unpriced", "quantity": 1, "option_selections": [] }], "expected": { "total": null, "resolved_subtotal": 0, "complete": false, "issues": [{ "code": "missing_price", "item_id": "rate-unpriced", "path": "rate_sheet.items.4.unit_price" }] } },
+    { "name": "multiple-failures", "contact": false, "selections": [{ "item_id": "rate-backup", "quantity": 0, "option_selections": [] }, { "item_id": "rate-vm", "quantity": 1, "option_selections": ["solaris"] }, { "item_id": "rate-unpriced", "quantity": 1, "option_selections": [] }], "expected": { "total": null, "resolved_subtotal": 0, "complete": false, "issues": [{ "code": "unavailable_item", "item_id": "rate-backup", "path": "rate_sheet.items.2.available" }, { "code": "invalid_quantity", "item_id": "rate-backup", "path": "selections.0.quantity" }, { "code": "invalid_option", "item_id": "rate-vm", "path": "selections.1.option_selections" }, { "code": "missing_price", "item_id": "rate-unpriced", "path": "rate_sheet.items.4.unit_price" }] } },
+    { "name": "mixed-valid-unresolved", "contact": false, "selections": [{ "item_id": "rate-vm", "quantity": 4, "option_selections": ["ubuntu"] }, { "item_id": "removed-item", "quantity": 1, "option_selections": [] }], "expected": { "total": null, "resolved_subtotal": 144, "complete": false, "issues": [{ "code": "unresolved_item", "item_id": "removed-item", "path": "selections.1.item_id" }] } },
+    { "name": "contact-valid", "contact": true, "selections": [{ "item_id": "rate-vm", "quantity": 4, "option_selections": ["ubuntu"] }], "expected": { "total": null, "resolved_subtotal": 144, "complete": true, "issues": [] } },
+    { "name": "contact-broken", "contact": true, "selections": [{ "item_id": "rate-vm", "quantity": 4, "option_selections": ["ubuntu"] }, { "item_id": "removed-item", "quantity": 1, "option_selections": [] }], "expected": { "total": null, "resolved_subtotal": 144, "complete": false, "issues": [{ "code": "unresolved_item", "item_id": "removed-item", "path": "selections.1.item_id" }] } },
+    { "name": "empty-catalogue", "contact": false, "selections": [], "expected": { "total": 0, "resolved_subtotal": 0, "complete": true, "issues": [] } },
+    { "name": "empty-contact", "contact": true, "selections": [], "expected": { "total": null, "resolved_subtotal": 0, "complete": true, "issues": [] } }
+  ]
+}
