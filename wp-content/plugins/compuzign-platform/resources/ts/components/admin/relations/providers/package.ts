@@ -70,7 +70,6 @@ function cloneGroups(groups: PackageManagerGroup[]): PackageManagerGroup[] {
 
 function itemDecision(item: PackageManagerItem): PackageRelationDraftItem {
   return {
-    sources: readModel.sources.map((source) => ({ ...source })),
     item_id:          item.item_id,
     source_type:      item.source_type,
     source_id:        item.source_id,
@@ -93,6 +92,7 @@ export function createPackageRelationDraft(readModel: PackageManagerReadModel): 
   }
 
   return {
+    sources: readModel.sources.map((source) => ({ ...source })),
     groups: cloneGroups(readModel.groups),
     rateSheet: readModel.rate_sheet ? {
       title: readModel.rate_sheet.title,

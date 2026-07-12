@@ -331,7 +331,7 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               {editingRateSheet ? (
                 <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
                   onSave={() => saveRateSheet(section)}
-                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); setPendingOnboardIds([]); setSourcePickerOpen(false); setSelectedSourceKeys([]); }}
+                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); setPendingOnboardIds([]); setSourcePickerOpen(false); setSelectedSourceIds([]); }}
                   saving={rateSheetSaving} saveErr={rateSheetError} isDirty>
                   <div class="cz-rate-sheet-editor">
                     <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={editingRateSheet.title}
