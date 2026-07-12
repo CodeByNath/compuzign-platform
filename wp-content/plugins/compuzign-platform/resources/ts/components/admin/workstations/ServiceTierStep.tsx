@@ -105,7 +105,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const svc     = pkg.service;
 
   const initialTierId = ctx.stepData.initialTierId as string | undefined;
-  const initialPromotionId = ctx.stepData.initialPromotionId as string | undefined;
   const initialTierSection = ctx.stepData.initialTierSection as 'tier-overview' | undefined;
   const [editingTierId, setEditingTierId] = useState<string | null>(initialTierId ?? null);
   // Single Individual Tier drawer: editingSection === null → tier view (3 module cards);
@@ -143,21 +142,6 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [promotionDraft, setPromotionDraft] = useState<PromotionOverviewDraft | null>(null);
   const [creatingPromotion, setCreatingPromotion] = useState(false);
   const promotionDeleteConfirm = useInlineConfirm<string>();
-  const openedInitialPromotion = useRef(false);
-  useEffect(() => {
-    if (openedInitialPromotion.current || !initialPromotionId || !promo.detailLoaded) return;
-    openedInitialPromotion.current = true;
-    if (initialPromotionId === 'new') {
-      setCreatingPromotion(true);
-      setPromotionDraft(promotionOverview());
-      return;
-    }
-    const view = promo.promotionView(initialPromotionId);
-    if (view) {
-      setEditingPromotionId(initialPromotionId);
-      setPromotionDraft(promotionOverview(view.detail));
-    }
-  }, [initialPromotionId, promo.detailLoaded]);
   // Footer split-button dropdown + confirm modals (Publish settle; archive with
   // pending drafts), using the shared lifecycle chrome.
   const [splitOpen,    setSplitOpen]    = useState(false);

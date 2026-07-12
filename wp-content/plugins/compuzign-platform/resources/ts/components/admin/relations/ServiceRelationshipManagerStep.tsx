@@ -57,7 +57,6 @@ export function ServiceRelationshipManagerStep({ ctx }: { ctx: StepContext }) {
   ) => {
     const destination = nextContinuation.destination ?? nextContinuation.subject;
     const tierId = destination?.type === 'tier' ? String(destination.id) : undefined;
-    const promotionId = destination?.type === 'promotion' ? String(destination.id) : undefined;
     const returnToManager = () => openAction(buildServiceManagerConfig(
       deps, connection, nextContinuation,
     ));
@@ -77,7 +76,6 @@ export function ServiceRelationshipManagerStep({ ctx }: { ctx: StepContext }) {
         serviceBack: returnToManager,
         initialTierId: action === 'open-current' || action === 'edit-current' ? tierId : undefined,
         initialTierSection: action === 'edit-current' ? 'tier-overview' : undefined,
-        initialPromotionId: promotionId,
       },
       steps: [{ id: 'service-tiers', title: 'Tier Configuration', component: ServiceTierStep }],
     });
