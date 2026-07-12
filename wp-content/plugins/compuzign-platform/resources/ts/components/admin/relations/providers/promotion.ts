@@ -5,7 +5,7 @@ import type {
 } from '../types';
 
 // ── Promotion relation provider ───────────────────────────────────────────────
-// Promotions are a first-class Package Manager workspace beside Packages. This
+// Promotions are a first-class Station Manager workspace beside Packages. This
 // adapter owns tab discovery only;
 // PromotionManagerWorkspace owns the single UI runtime and lifecycle actions.
 

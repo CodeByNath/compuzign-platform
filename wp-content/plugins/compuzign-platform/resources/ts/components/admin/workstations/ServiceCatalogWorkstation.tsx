@@ -359,8 +359,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           </ReadBlock>
           {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
 
-          {/* Promotions live inside the Package Manager (Promotion Transit
-              Card) — no Service-level promotion card, even as a locked preview. */}
+          {/* Promotions live inside Station Manager; no Service-level duplicate. */}
 
           <div class="cz-shell-section cz-shell-section--no-border">
             <p class="cz-shell-section__title">Pricing Summary</p>

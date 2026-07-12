@@ -694,7 +694,7 @@ export const packageRelationProvider: WritableRelationProvider<
       item_decisions: itemDecisions,
       rate_sheet: draft.rateSheet,
     });
-    if (!response.success) throw new Error(response.message || 'Could not save Package Manager.');
+    if (!response.success) throw new Error(response.message || 'Could not save Station Manager.');
     return { ...response.manager, tierSubjects: readModel.tierSubjects };
   },
 };

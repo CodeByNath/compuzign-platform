@@ -28,8 +28,9 @@ import { EntityDrawer } from '../EntityDrawer';
 import type { DrawerTabId } from '../DrawerTabs';
 import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
-import { DynamicStationManager, providersExposeManager, relationProvidersFor } from '@/components/admin/relations';
+import { providersExposeManager, relationProvidersFor } from '@/components/admin/relations';
 import type { StationConnectionDescriptor, StationManagerScope } from '@/components/admin/relations';
+import { buildStationManagerConfig } from '@/components/admin/relations/StationManagerStep';
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
 
 // ── Dirty-detection comparators ───────────────────────────────────────────────
@@ -67,20 +68,30 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const allCategories = ctx.stepData.allCategories as Category[] ?? [];
   const onRefresh    = ctx.stepData.onRefresh    as (() => void) | undefined;
 
-  const [tab, setTab] = useState<DrawerTabId>('details');
+  const [tab, setTab] = useState<DrawerTabId>((ctx.stepData.initialTab as DrawerTabId) ?? 'details');
   const packageConnection = useMemo<StationConnectionDescriptor>(() => ({
     providerKey: 'package',
     relationshipKey: `service:${service.id}:package`,
     stationContext: { type: 'service', id: service.id },
   }), [service.id]);
   const managerAvailabilityScope = useMemo<StationManagerScope>(() => ({
-    kind: 'connection-graph', stationContext: { type: 'service', id: service.id },
-  }), [service.id]);
+    kind: 'connection-graph', stationContext: { type: 'service', id: service.id }, activeProviderKey: ctx.stepData.initialManagerProvider as string | undefined,
+  }), [service.id, ctx.stepData.initialManagerProvider]);
   const managerProviders = useMemo(
     () => relationProvidersFor(managerAvailabilityScope),
     [managerAvailabilityScope],
   );
   const showManager = providersExposeManager(managerProviders);
+  const openStationManager = () => {
+    const returnToManager = () => doOpen({
+      id: `service-view-${service.id}`,
+      mode: 'drawer', title: 'Service',
+      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh, initialTab: 'connections' },
+      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+    });
+    ctx.close();
+    doOpen(buildStationManagerConfig({ service, packages, allCategories, openAction: doOpen, onRefresh, returnToService: returnToManager }));
+  };
 
   const selectServiceTab = (next: DrawerTabId) => {
     ctx.requestExit({ kind: 'tab', target: next }, () => setTab(next));
@@ -658,7 +669,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
            placements (Schema architecture S4). Tab state stays controlled
            here because the footer gates on the active tab. The Commercial-
            group tail (Pricing Summary) is bespoke trailing content pending
-           its own DNA/placement; Promotions live in the Package Manager. ── */}
+           its own DNA/placement; Promotions live in Station Manager. ── */}
     <EntityDrawer
       entity={SERVICE_ENTITY}
       tab={tab}
@@ -673,7 +684,7 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       trailing={{
         connections: (
           <>
-            {showManager && <DynamicStationManager scope={managerAvailabilityScope} shell={ctx} />}
+            {showManager && <div class="cz-shell-section cz-shell-section--no-border"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={openStationManager}>Open Station Manager</button></div>}
             {relatedPkg && (
               <div class="cz-shell-section cz-shell-section--no-border">
                 <p class="cz-shell-section__title">Pricing Summary</p>

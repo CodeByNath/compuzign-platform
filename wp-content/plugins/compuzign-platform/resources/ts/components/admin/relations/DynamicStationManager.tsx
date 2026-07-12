@@ -31,10 +31,11 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
+  onOpenPromotion?: (promotionId?: string) => void;
 }) {
   const [scope] = useState(initialScope);
   const currentScopeKey = scopeKey(scope);
@@ -231,7 +232,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         </nav>
       )}
       {active?.key === 'promotion' && scope.stationContext.type === 'service' && (
-        <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} />
+        <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} onOpen={onOpenPromotion ?? (() => {})} />
       )}
 
       {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}

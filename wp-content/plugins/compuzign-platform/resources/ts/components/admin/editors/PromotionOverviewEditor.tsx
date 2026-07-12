@@ -1,6 +1,6 @@
 import type { PromotionOverviewDraft, BasedOnTier } from '@/api/types/admin';
 
-// The single Promotion Overview editor, hosted directly by Package Manager.
+// The single Promotion Overview editor, opened directly from Station Manager.
 
 const BASED_ON_TIERS = [
   { id: 'basic', label: 'Basic' },
