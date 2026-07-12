@@ -143,6 +143,22 @@ const rateSheetDraft = rateSheetSection.rateSheetControls!.replace(original, {
 }) as typeof original;
 check(packageRelationProvider.isDirty(rateSheetDraft, original, readModel), 'Rate Sheet edits participate in Package provider dirty state');
 check(packageRelationProvider.validate(rateSheetDraft, readModel, { ...scope }).valid, 'valid Rate Sheet passes provider validation');
+const draftOnlyRelationship = {
+  ...rateSheetDraft,
+  itemsById: {
+    ...rateSheetDraft.itemsById,
+    mgr_new: {
+      item_id: 'mgr_new', source_type: 'inclusion' as const, source_id: 'new',
+      group_id: null, sort_order: 2, disabled: false, decorated_label: null,
+    },
+  },
+  explicitDecisionIds: [...rateSheetDraft.explicitDecisionIds, 'mgr_new'],
+  rateSheet: {
+    ...rateSheetDraft.rateSheet!,
+    items: [{ ...rateSheetDraft.rateSheet!.items[0], source_item_id: 'mgr_new' }],
+  },
+};
+check(packageRelationProvider.validate(draftOnlyRelationship, readModel, { ...scope }).valid, 'Rate Sheet accepts a relationship from the current working draft');
 const onboarded = onboardPackageRateSheetOptions(original, ['mgr_question', 'unknown', 'mgr_question'], {
   title: 'Infrastructure', groups: [],
   items: [{ id: 'rate-2', optionId: 'mgr_question', unitPrice: 0, per: 'Per item', quantity: 1, groupId: null }],

@@ -109,6 +109,25 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // Package overview view: Details (tier cards + pricing) | Connections (parent service).
   const [overviewTab, setOverviewTab] = useState<DrawerBaseTabId>('details');
 
+  // Section editors own transient, unsaved state. Keep every shell exit on the
+  // canonical guarded-close path; the editor's Cancel control has its own
+  // equivalent confirmation UI.
+  useEffect(() => {
+    const protectNavigation = (event: BeforeUnloadEvent) => {
+      if (editingSection === null) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    ctx.setCloseGuard(editingSection !== null
+      ? () => window.confirm('Discard unsaved Package changes?')
+      : null);
+    window.addEventListener('beforeunload', protectNavigation);
+    return () => {
+      ctx.setCloseGuard(null);
+      window.removeEventListener('beforeunload', protectNavigation);
+    };
+  }, [ctx.setCloseGuard, editingSection]);
+
   const selectOverviewTab = (nextTab: DrawerBaseTabId) => {
     ctx.requestExit(
       { kind: 'tab', target: nextTab },
@@ -838,7 +857,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             onCancel: cancelSection,
             saving:   pkg.saving,
             saveErr,
-            isDirty:  false,
+            isDirty:  true,
           }}
         />
       </ModeProvider>
@@ -860,7 +879,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             onCancel: cancelSection,
             saving:   pkg.saving,
             saveErr,
-            isDirty:  false,
+            isDirty:  true,
             extras:   { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved) },
           }}
         />
@@ -881,7 +900,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             onCancel: cancelSection,
             saving:   pkg.saving,
             saveErr,
-            isDirty:  false,
+            isDirty:  true,
             extras:   { pool: faqPool, onCreate: (question: string, answer: string) => pkg.createFaq(question, answer) },
           }}
         />

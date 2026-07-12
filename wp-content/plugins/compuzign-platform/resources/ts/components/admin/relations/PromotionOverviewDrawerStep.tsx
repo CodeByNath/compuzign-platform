@@ -51,6 +51,21 @@ export function PromotionOverviewDrawerStep({ ctx }: { ctx: StepContext }) {
   const derivedPrice = draft.based_on ? packages.tierView(draft.based_on)?.detail.price ?? null : null;
   const projected = { ...draft, price: derivedPrice };
   const dirty = JSON.stringify(projected) !== JSON.stringify(original);
+  useEffect(() => {
+    const protectNavigation = (event: BeforeUnloadEvent) => {
+      if (!editing || !dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    ctx.setCloseGuard(editing && dirty
+      ? () => window.confirm('Discard unsaved Promotion changes?')
+      : null);
+    window.addEventListener('beforeunload', protectNavigation);
+    return () => {
+      ctx.setCloseGuard(null);
+      window.removeEventListener('beforeunload', protectNavigation);
+    };
+  }, [ctx.setCloseGuard, editing, dirty]);
   const beginEdit = () => {
     const next = overview(current?.detail);
     const price = next.based_on ? packages.tierView(next.based_on)?.detail.price ?? null : null;

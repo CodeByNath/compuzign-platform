@@ -1,4 +1,6 @@
-import { useEffect, useMemo } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import { ActionShell } from '../ActionShell';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary } from '@/api/types/admin';
@@ -29,6 +31,7 @@ export function buildStationManagerConfig(deps: StationManagerDependencies): Act
 
 export function StationManagerStep({ ctx }: { ctx: StepContext }) {
   const deps = ctx.stepData as unknown as StationManagerDependencies;
+  const [overlay, setOverlay] = useState<ActionConfig | null>(null);
   const scope = useMemo<StationManagerScope>(() => ({
     kind: 'connection-graph', stationContext: { type: 'service', id: deps.service.id },
     activeProviderKey: deps.initialProvider,
@@ -36,30 +39,41 @@ export function StationManagerStep({ ctx }: { ctx: StepContext }) {
   useEffect(() => { ctx.setPanelMode('manager-wide'); return () => ctx.setPanelMode('standard'); }, [ctx.setPanelMode]);
 
   const openPromotion = (promotionId?: string, edit = false) => {
-    const returnToManager = () => deps.openAction(buildStationManagerConfig({ ...deps, initialProvider: 'promotion' }));
-    ctx.close();
-    deps.openAction({
+    setOverlay({
       id: `promotion-overview-${promotionId ?? 'new'}`,
-      mode: 'drawer', title: 'Promotion', onBack: returnToManager,
+      mode: 'drawer', title: 'Promotion',
       initialStepData: { serviceId: deps.service.id, promotionId, edit },
       steps: [{ id: 'overview', title: 'Promotion Overview', component: PromotionOverviewDrawerStep }],
     });
   };
 
   const openPackage = (tierId: string, edit = false) => {
-    const returnToManager = () => deps.openAction(buildStationManagerConfig({ ...deps, initialProvider: 'package' }));
-    ctx.close();
-    deps.openAction({
+    setOverlay({
       id: `package-tier-${tierId}`,
-      mode: 'drawer', title: 'Package', onBack: returnToManager, hideStepHeader: true,
+      mode: 'drawer', title: 'Package', hideStepHeader: true,
       initialStepData: {
         serviceId: deps.service.id, service: deps.service, openAction: deps.openAction,
-        onRefresh: deps.onRefresh, serviceBack: returnToManager, initialTierId: tierId,
+        onRefresh: deps.onRefresh, initialTierId: tierId,
         initialTierSection: edit ? 'tier-overview' : undefined,
       },
       steps: [{ id: 'package-tier', title: 'Tier Overview', component: ServiceTierStep }],
     });
   };
 
-  return <DynamicStationManager scope={scope} shell={ctx} onOpenPromotion={openPromotion} onOpenPackage={openPackage} />;
+  return (
+    <>
+      <DynamicStationManager scope={scope} shell={ctx} onOpenPromotion={openPromotion} onOpenPackage={openPackage} />
+      {overlay && createPortal(
+        <div style={{ position: 'relative', zIndex: 'calc(var(--admin-z-overlay) + 1)' }}>
+          <ActionShell
+            key={overlay.id}
+            config={overlay}
+            onClose={() => setOverlay(null)}
+            onComplete={() => setOverlay(null)}
+          />
+        </div>,
+        document.body,
+      )}
+    </>
+  );
 }

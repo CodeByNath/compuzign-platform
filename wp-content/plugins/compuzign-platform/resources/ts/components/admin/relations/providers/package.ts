@@ -620,7 +620,14 @@ export const packageRelationProvider: WritableRelationProvider<
       }
     });
 
-    const sourceById = new Map([...readModel.items, ...draft.previewItems].map((item) => [item.item_id, item]));
+    // Validate against the working relationship draft as well as the last GET.
+    // Newly onboarded/reconciled relationships can already be referenced by a
+    // Rate Sheet before they exist in the persisted read model.
+    const sourceById = new Map([
+      ...Object.values(draft.itemsById).map((item) => [item.item_id, item] as const),
+      ...readModel.items.map((item) => [item.item_id, item] as const),
+      ...draft.previewItems.map((item) => [item.item_id, item] as const),
+    ]);
     for (const itemId of draft.explicitDecisionIds) {
       const decision = draft.itemsById[itemId];
       const source = sourceById.get(itemId);
