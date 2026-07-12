@@ -235,19 +235,18 @@ assertSameValue('compute', $rateModel['rate_sheet']['items'][0]['group_id'], 'Ra
 assertSameValue('Per VM', $rateModel['rate_sheet']['items'][0]['per'], 'controlled Rate Sheet unit is preserved');
 assertSameValue(true, $rateModel['has_configuration'], 'Rate Sheet alone contributes Manager configuration');
 
-$rejectedUnknownOption = false;
-try {
-    PMS::commitConfiguration($ungrouped, [], [], $expandedPool, $faqPool, [
+$cleanedUnknownOption = PMS::commitConfiguration($ungrouped, [], [], $expandedPool, $faqPool, [
         'title' => 'Invalid', 'groups' => [], 'items' => [[
             'item_id' => 'rate-invalid', 'source_item_id' => 'unknown',
             'unit_price' => 1, 'per' => 'Per item', 'quantity' => 1,
             'group_id' => null, 'sort_order' => 0,
         ]],
     ]);
-} catch (InvalidArgumentException) {
-    $rejectedUnknownOption = true;
-}
-assertSameValue(true, $rejectedUnknownOption, 'Rate Sheet rejects fabricated Package relationship identities');
+assertSameValue(
+    false,
+    in_array('unknown', array_column($cleanedUnknownOption['rate_sheet']['items'], 'source_item_id'), true),
+    'Rate Sheet removes unresolved supplied-content rows at the write boundary'
+);
 
 $tierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
     ['item_id' => 'rate-1', 'quantity' => 2],

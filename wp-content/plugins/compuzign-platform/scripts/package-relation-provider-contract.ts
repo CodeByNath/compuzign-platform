@@ -169,6 +169,12 @@ check(onboarded.explicitDecisionIds.filter((id) => id === 'mgr_question').length
 check(original.rateSheet === null && !original.explicitDecisionIds.includes('mgr_question'), 'onboarding leaves the original draft untouched for Cancel');
 const invalidRateSheet = { ...rateSheetDraft, rateSheet: { ...rateSheetDraft.rateSheet!, items: [{ ...rateSheetDraft.rateSheet!.items[0], source_item_id: 'unknown' }] } };
 check(!packageRelationProvider.validate(invalidRateSheet, readModel, { ...scope }).valid, 'Rate Sheet options must use stable Package relationship identities');
+const duplicatePreview = {
+  ...rateSheetDraft,
+  previewItems: [{ ...readModel.items[0], resolved: { label: 'Fresh Feature' } }],
+};
+const deduplicatedProjection = rateSheetSection.project(readModel, { ...scope }, duplicatePreview);
+check(deduplicatedProjection.role === 'rate-sheet' && deduplicatedProjection.options.length === readModel.items.length, 'Rate Sheet options deduplicate persisted and preview relationships by canonical identity');
 const groupProjection = packageRelationProvider.manager.sections[1].project(readModel, {
   ...scope,
 });

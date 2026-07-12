@@ -418,7 +418,14 @@ export const packageRelationProvider: WritableRelationProvider<
           const rateSheet = draft?.rateSheet ?? readModel.rate_sheet;
           const groups = rateSheet?.groups ?? [];
           const groupLabels = new Map(groups.map((group) => [group.group_id, group.label]));
-          const availableItems = [...readModel.items, ...(draft?.previewItems ?? [])];
+          const availableById = new Map<string, PackageManagerItem>();
+          for (const item of [...readModel.items, ...(draft?.previewItems ?? [])]) {
+            // A source can be present in both the persisted read model and the
+            // current connection preview. Canonical relationship identity is
+            // the deduplication boundary; prefer the preview's freshest data.
+            availableById.set(item.item_id, item);
+          }
+          const availableItems = [...availableById.values()];
           const sourceItems = new Map(availableItems.map((item) => [item.item_id, item]));
           const optionLabels = new Map(availableItems.map((item) => [item.item_id, packageItemLabel(item)]));
           return {
@@ -431,7 +438,9 @@ export const packageRelationProvider: WritableRelationProvider<
               sourceType: item.source_type, sourceId: item.source_id,
             })),
             units: PACKAGE_RATE_SHEET_UNITS,
-            items: (rateSheet?.items ?? []).map((item) => ({
+            // Legacy/stale Rate Sheet rows with no Package relationship are
+            // intentionally omitted. The next save persists this cleaned set.
+            items: (rateSheet?.items ?? []).filter((item) => sourceItems.has(item.source_item_id)).map((item) => ({
               id: item.item_id,
               optionId: item.source_item_id,
               optionLabel: optionLabels.get(item.source_item_id) ?? '(missing source)',

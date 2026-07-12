@@ -435,11 +435,19 @@ final class PackageManagerSchema
                 ];
             }
         }
-        foreach ($rateSheet['items'] ?? [] as $rateItem) {
-            $sourceItemId = $rateItem['source_item_id'];
-            if (!isset($liveIds[$sourceItemId]) && !isset($persistedById[$sourceItemId])) {
-                throw new \InvalidArgumentException('Rate Sheet item does not reference a current or persisted Package relationship.');
+        if ($rateSheet !== null) {
+            // Stale supplied-content rows are not useful catalogue entries.
+            // Drop them at the write boundary so legacy unresolved rows are
+            // permanently cleaned instead of blocking every later save.
+            $rateSheet['items'] = array_values(array_filter(
+                $rateSheet['items'],
+                static fn(array $rateItem): bool => isset($liveIds[$rateItem['source_item_id']])
+                    || isset($persistedById[$rateItem['source_item_id']])
+            ));
+            foreach ($rateSheet['items'] as $index => &$rateItem) {
+                $rateItem['sort_order'] = $index;
             }
+            unset($rateItem);
         }
 
         return self::sanitize([

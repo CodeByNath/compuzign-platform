@@ -64,7 +64,7 @@ export function StationManagerStep({ ctx }: { ctx: StepContext }) {
     <>
       <DynamicStationManager scope={scope} shell={ctx} onOpenPromotion={openPromotion} onOpenPackage={openPackage} />
       {overlay && createPortal(
-        <div style={{ position: 'relative', zIndex: 'calc(var(--admin-z-overlay) + 1)' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 'var(--admin-z-action)' }}>
           <ActionShell
             key={overlay.id}
             config={overlay}
