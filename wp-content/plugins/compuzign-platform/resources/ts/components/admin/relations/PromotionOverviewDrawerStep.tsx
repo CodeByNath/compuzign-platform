@@ -4,8 +4,12 @@ import type { PromotionOverviewDraft, PromotionTier, PromotionTierPayload } from
 import { usePromotionStation } from '@/hooks/usePromotionStation';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { PromotionOverviewEditor } from '../editors/PromotionOverviewEditor';
-import { ReadBlock } from '../ReadBlock';
-import { MODULE_ICONS } from '../schema/icons';
+import { EntityDrawer } from '../EntityDrawer';
+import { InlineEditorShell } from '../InlineEditorShell';
+import { PROMOTION_ENTITY } from '../schema/entities/promotion';
+import type { PromotionOverviewShellData } from '../schema/entities/promotion';
+import type { ShellBinding } from '../schema/types';
+import { serviceConnectionBinding } from '../workstations/serviceDrawerShared';
 import { TIER_LABELS } from '../workstations/serviceDrawerShared';
 
 function overview(promotion?: PromotionTier): PromotionOverviewDraft {
@@ -44,9 +48,7 @@ export function PromotionOverviewDrawerStep({ ctx }: { ctx: StepContext }) {
 
   useEffect(() => {
     ctx.setTitle('Promotion');
-    ctx.setFooter(null);
-    return () => ctx.setFooter(null);
-  }, [ctx.setTitle, ctx.setFooter]);
+  }, [ctx.setTitle]);
 
   const derivedPrice = draft.based_on ? packages.tierView(draft.based_on)?.detail.price ?? null : null;
   const projected = { ...draft, price: derivedPrice };
@@ -86,18 +88,47 @@ export function PromotionOverviewDrawerStep({ ctx }: { ctx: StepContext }) {
     if (action === 'toggle') await station.togglePromotion(promotionId);
     if (action === 'archive') await station.archivePromotion(promotionId);
   };
+  useEffect(() => {
+    if (editing || !current) {
+      ctx.setFooter(null);
+      return () => ctx.setFooter(null);
+    }
+    ctx.setFooter(
+      <div class="cz-tf-footer">
+        {current.status === 'draft' ? (
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={station.saving} onClick={() => void transition('publish')}>Publish</button>
+        ) : (
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={station.saving} onClick={() => void transition('toggle')}>{current.status === 'active' ? 'Disable' : 'Enable'}</button>
+        )}
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={station.saving} onClick={() => void transition('archive')}>Archive</button>
+        <div class="cz-tf-footer__spacer" />
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={ctx.close}>Close</button>
+      </div>,
+    );
+    return () => ctx.setFooter(null);
+  }, [ctx.setFooter, ctx.close, editing, current?.status, promotionId, station.saving]);
 
   if (!station.detailLoaded || !packages.detailLoaded) return <p class="cz-sp-tier-table__muted">Loading Promotion…</p>;
-  if (editing) return <div class="cz-req-detail"><PromotionOverviewEditor draft={projected} onChange={(patch) => { const { price: _price, ...owned } = patch; setDraft((value) => ({ ...value, ...owned })); }} />{error && <p class="cz-admin-error-msg">{error}</p>}<div class="drawerModule__footer"><button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => promotionId ? setEditing(false) : ctx.close()}>Cancel</button><button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={station.saving || (!!promotionId && !dirty)} onClick={() => void save()}>{station.saving ? '…' : 'Save'}</button></div></div>;
+  if (editing) return <InlineEditorShell title="Promotion Overview" onSave={save} onCancel={() => promotionId ? setEditing(false) : ctx.close()} saving={station.saving} saveErr={error} isDirty={dirty}><PromotionOverviewEditor draft={projected} onChange={(patch) => { const { price: _price, ...owned } = patch; setDraft((value) => ({ ...value, ...owned })); }} /></InlineEditorShell>;
   if (!current) return <p class="cz-admin-error-msg">Promotion not found.</p>;
 
   const detail = current.detail;
-  const actions = [
-    { id: 'edit', label: 'Edit', onSelect: beginEdit },
-    current.status === 'draft'
-      ? { id: 'publish', label: 'Publish', onSelect: () => void transition('publish') }
-      : { id: 'toggle', label: current.status === 'active' ? 'Disable' : 'Enable', onSelect: () => void transition('toggle') },
-    { id: 'archive', label: 'Archive', onSelect: () => void transition('archive') },
-  ];
-  return <div class="cz-req-detail"><ReadBlock title={detail.name || 'Promotion Overview'} subtitle="Promotion Overview" icon={MODULE_ICONS.overview} scopeClass="drawerOverview promotion" status={current.modules.overview.status} notes={current.modules.overview.notes} actions={actions}><div class="drawerModule__fields"><div class="drawerModule__field"><p class="drawerModule__label">Tier</p><p class="drawerModule__value">{detail.based_on ? TIER_LABELS[detail.based_on] : 'Not selected'}</p></div><div class="drawerModule__field"><p class="drawerModule__label">Pricing</p><p class="drawerModule__value">{derivedPrice == null ? 'Not configured' : `$${derivedPrice.toFixed(2)}`} · {detail.billing_label || 'Tier billing cycle'}</p></div><div class="drawerModule__field"><p class="drawerModule__label">Headline</p><p class="drawerModule__value">{detail.headline || 'Not configured'}</p></div><div class="drawerModule__field"><p class="drawerModule__label">Description</p><p class="drawerModule__value">{detail.description || 'Not configured'}</p></div><div class="drawerModule__field"><p class="drawerModule__label">Campaign</p><p class="drawerModule__value">{detail.campaign_label || 'Not configured'}</p></div><div class="drawerModule__field"><p class="drawerModule__label">Badge</p><p class="drawerModule__value">{detail.badge || 'Not configured'}</p></div></div></ReadBlock></div>;
+  const overviewBinding: ShellBinding<PromotionOverviewShellData> = {
+    data: {
+      name: detail.name,
+      tier: detail.based_on ? TIER_LABELS[detail.based_on] : 'Not selected',
+      pricing: `${derivedPrice == null ? 'Not configured' : `$${derivedPrice.toFixed(2)}`} · ${detail.billing_label || 'Tier billing cycle'}`,
+      headline: detail.headline,
+      description: detail.description,
+      campaign: detail.campaign_label,
+      badge: detail.badge,
+    },
+    state: current.modules.overview,
+    hasDraft: current.drafts.overview !== null,
+    handlers: { edit: beginEdit },
+  };
+  return <EntityDrawer key={promotionId} entity={PROMOTION_ENTITY} bindings={{
+    overview: overviewBinding,
+    service: packages.service ? serviceConnectionBinding(undefined, packages.service) : undefined,
+  }} />;
 }
