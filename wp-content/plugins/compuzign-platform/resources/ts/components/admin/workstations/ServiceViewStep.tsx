@@ -24,51 +24,14 @@ import type {
 } from '@/components/admin/schema/shells/bindings/service';
 import type { ShellBinding } from '@/components/admin/schema/types';
 import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
-import { ReadBlock } from '../ReadBlock';
 import { EntityDrawer } from '../EntityDrawer';
 import type { DrawerTabId } from '../DrawerTabs';
 import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
-import { ServicePromotionStep } from './ServicePromotionStep';
 import { providersExposeManager, relationProvidersFor } from '@/components/admin/relations';
 import { buildServiceManagerConfig } from '@/components/admin/relations/ServiceRelationshipManagerStep';
 import type { StationConnectionDescriptor, StationManagerScope } from '@/components/admin/relations';
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
-
-// ── CommercialBlock ───────────────────────────────────────────────────────────
-// Reusable summary card for the Commercial tab.
-// header  → label + status pill
-// body    → count + description
-// footer  → View action (disabled when onView is undefined)
-
-export interface CommercialBlockProps {
-  label:          string;
-  count:          string;
-  desc:           string;
-  status:         string;
-  onView?:        () => void;
-  descHighlight?: boolean;
-}
-
-export function CommercialBlock({ label, count, desc, status, onView, descHighlight }: CommercialBlockProps) {
-  return (
-    <ReadBlock
-      title={label}
-      status={status}
-      actions={[{ id: 'view', label: 'View', onSelect: onView, disabled: !onView }]}
-    >
-      <div class="drawerModule__empty">
-        <p class="drawerModule__empty-title">{count}</p>
-        <p
-          class="drawerModule__empty-copy"
-          style={descHighlight ? 'color:var(--admin-warning)' : undefined}
-        >
-          {desc}
-        </p>
-      </div>
-    </ReadBlock>
-  );
-}
 
 // ── Dirty-detection comparators ───────────────────────────────────────────────
 // Pure functions — no component state. Each returns true when the working draft
@@ -133,7 +96,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     modules,
     relatedPkg, inclusions, faqs, overviewDraft: stationOverviewDraft, settledOverview,
     pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc,
-    promoStatus, promotionCount,
     inclSummary, faqsSummary,
     toggleActive, archiveStation, trashStation, settleModules, publishService,
     saveOverview, saveInclusions, saveFaqs,
@@ -368,34 +330,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       }, packageConnection));
     }
     : undefined;
-
-  const handleOpenPromoConfig = () => {
-    const serviceReturn = () => doOpen({
-      id:       `service-view-${service.id}`,
-      mode:     'drawer',
-      title:    'Service',
-      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh },
-      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
-    });
-
-    // All promotion management routes exclusively through the independent
-    // Package Station (cz_package_station promotions collection). The legacy
-    // Service-owned and cz_surface_package promotion paths have been retired. The single header Back is context-aware:
-    // while a promotion's detail view is open, ServicePromotionStep sets promoBack.current
-    // to return to the promotion list; at the list it falls through to the parent Service
-    // drawer (mirrors handleOpenTierConfig's tierBack).
-    const promoBack: { current: (() => void) | null } = { current: null };
-    ctx.close();
-    doOpen({
-      id:             `service-promos-${service.id}`,
-      mode:           'drawer',
-      title:          'Promotion',
-      onBack:         () => (promoBack.current ?? serviceReturn)(),
-      hideStepHeader: true,
-      initialStepData: { serviceId: service.id, service, openAction: doOpen, onRefresh, serviceBack: serviceReturn, promoBack },
-      steps: [{ id: 'service-promos', title: 'Promotions', component: ServicePromotionStep }],
-    });
-  };
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
@@ -753,8 +687,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     {/* ── Drawer body — assembled from the service manifest's drawer
            placements (Schema architecture S4). Tab state stays controlled
            here because the footer gates on the active tab. The Commercial-
-           group tail (Promotion Configuration + Pricing Summary) is bespoke
-           trailing content pending its own DNA/placement. ─────────────── */}
+           group tail (Pricing Summary) is bespoke trailing content pending
+           its own DNA/placement; Promotions live in the Package Manager. ── */}
     <EntityDrawer
       entity={SERVICE_ENTITY}
       tab={tab}
@@ -770,17 +704,8 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       trailing={{
         connections: (
           <>
-            <CommercialBlock
-              label="Promotion Configuration"
-              count={relatedPkg
-                ? `${promotionCount} promotion${promotionCount !== 1 ? 's' : ''} configured`
-                : '0 promotions configured'}
-              desc={relatedPkg
-                ? 'Promotions are managed in the Promotions workstation.'
-                : 'Create and manage promotions for this service.'}
-              status={promoStatus}
-              onView={handleOpenPromoConfig}
-            />
+            {/* Promotions are managed inside the Package Manager (Promotion
+                Transit Card) — the Service drawer no longer carries an entry. */}
             {relatedPkg && (
               <div class="cz-shell-section cz-shell-section--no-border">
                 <p class="cz-shell-section__title">Pricing Summary</p>

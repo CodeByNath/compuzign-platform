@@ -140,6 +140,10 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
   const loadError = active ? state.loadErrorsByProvider[active.key] : null;
   const subjectSummaries = active && readModel !== undefined
     ? active.manager.subjectSummaries?.(readModel, scope) ?? [] : [];
+  // Provider-declared destination actions for the summary (transit) cards;
+  // providers without a declaration keep the default Overview/Edit pair.
+  const summaryActions = active && readModel !== undefined
+    ? active.manager.destinationActions?.(readModel, scope) ?? null : null;
 
   const runDestination = (action: ManagerDestinationId, destination?: ManagerContinuation['destination']) => {
     if (!active) return;
@@ -266,10 +270,16 @@ export function DynamicStationManager({ scope: initialScope, shell, connection, 
               scopeClass="drawerOverview tier cz-manager-summary-card"
               status={subjectSummary.status.status}
               notes={[...subjectSummary.status.notes]}
-              actions={[
-                { id: 'overview', label: 'Overview', onSelect: () => runDestination('open-current', subjectSummary.ref) },
-                { id: 'edit', label: 'Edit', onSelect: () => runDestination('edit-current', subjectSummary.ref) },
-              ]}
+              actions={summaryActions
+                ? summaryActions.map((action) => ({
+                  id: action.id,
+                  label: action.label,
+                  onSelect: () => runDestination(action.id, subjectSummary.ref),
+                }))
+                : [
+                  { id: 'overview', label: 'Overview', onSelect: () => runDestination('open-current', subjectSummary.ref) },
+                  { id: 'edit', label: 'Edit', onSelect: () => runDestination('edit-current', subjectSummary.ref) },
+                ]}
             >
               <div class="drawerModule__fields">
                 {subjectSummary.fields.map((field) => (

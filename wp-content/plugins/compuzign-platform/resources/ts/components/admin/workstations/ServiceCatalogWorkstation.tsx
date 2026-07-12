@@ -18,7 +18,7 @@ import type { ServiceCatalogRow } from '@/components/admin/schema/tables/service
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
-import { ServiceViewStep, decodeHtml, CommercialBlock, TIER_KEYS, TIER_LABELS } from './ServiceViewStep';
+import { ServiceViewStep, decodeHtml, TIER_KEYS, TIER_LABELS } from './ServiceViewStep';
 
 interface Props {
   refreshKey: number;
@@ -359,12 +359,8 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           </ReadBlock>
           {/* ── / Commercial Module: Package Summary ─────────────────────────────── */}
 
-          <CommercialBlock
-            label="Promotion Configuration"
-            count="0 promotion configured"
-            desc="No active promotion."
-            status="pending-dim"
-          />
+          {/* Promotions live inside the Package Manager (Promotion Transit
+              Card) — no Service-level promotion card, even as a locked preview. */}
 
           <div class="cz-shell-section cz-shell-section--no-border">
             <p class="cz-shell-section__title">Pricing Summary</p>

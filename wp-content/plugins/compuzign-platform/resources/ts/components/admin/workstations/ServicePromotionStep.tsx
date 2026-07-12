@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
-import type { StepContext } from '../ActionShell';
+import type { ActionConfig, StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type {
   PromotionTier,
@@ -190,11 +190,47 @@ function promotionCardBody(d: { based_on: string | null; headline: string; price
 const LIVE_STATUSES: PromotionStatus[] = ['draft', 'active', 'disabled'];
 const BIN_STATUSES:  PromotionStatus[] = ['archived', 'trashed'];
 
+// ── Drawer entry point ────────────────────────────────────────────────────────
+// The only navigation path into the Promotion runtime: the Package Manager's
+// Promotion Transit Card. The service is navigation context only (Connections
+// tab + pool creation routes); storage lives on the Package Station.
+
+export interface PromotionStationDependencies {
+  serviceId: number;
+  service?: ServiceItem;
+  onRefresh?: () => void;
+  /** Where Back lands from the list level — the Package Manager. */
+  returnToParent: () => void;
+}
+
+export function buildPromotionStationConfig(deps: PromotionStationDependencies): ActionConfig {
+  // Context-aware header Back: inside a promotion's detail view the step points
+  // promoBack.current at the list; at the list it falls through to the parent
+  // Package Manager (mirrors ServiceTierStep's tierBack).
+  const promoBack: { current: (() => void) | null } = { current: null };
+  return {
+    id:             `package-promotions-${deps.serviceId}`,
+    mode:           'drawer',
+    title:          'Promotion',
+    onBack:         () => (promoBack.current ?? deps.returnToParent)(),
+    hideStepHeader: true,
+    initialStepData: {
+      serviceId:   deps.serviceId,
+      service:     deps.service,
+      onRefresh:   deps.onRefresh,
+      serviceBack: deps.returnToParent,
+      promoBack,
+    },
+    steps: [{ id: 'package-promotions', title: 'Promotions', component: ServicePromotionStep }],
+  };
+}
+
 export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
   const serviceId = ctx.stepData.serviceId as number;
   const onRefresh = ctx.stepData.onRefresh as (() => void) | undefined;
-  // Full parent service (richer than the station's service stub) — read-only context for
-  // the Connections tab, and the Back-to-Service navigation, mirroring ServiceTierStep.
+  // Full parent service (richer than the station's service stub) — read-only context
+  // for the Connections tab. serviceBack returns to the parent Package Manager (the
+  // Promotion Transit Card's home), mirroring ServiceTierStep's parent navigation.
   const serviceItem = ctx.stepData.service as ServiceItem | undefined;
   const serviceBack = ctx.stepData.serviceBack as (() => void) | undefined;
 
@@ -352,7 +388,7 @@ export function ServicePromotionStep({ ctx }: { ctx: StepContext }) {
 
   // Context-aware header Back: while a promotion's detail view is open, the drawer's
   // single header Back returns to the promotion list; at the list it falls through to
-  // the Service drawer (handled by handleOpenPromoConfig's onBack delegate). Mirrors
+  // the Package Manager (buildPromotionStationConfig's onBack delegate). Mirrors
   // ServiceTierStep's tierBack wiring exactly.
   const promoBack = ctx.stepData.promoBack as { current: (() => void) | null } | undefined;
   const handleBackToListRef = useRef(handleBackToList);

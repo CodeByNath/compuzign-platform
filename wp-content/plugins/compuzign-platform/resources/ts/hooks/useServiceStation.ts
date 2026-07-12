@@ -21,7 +21,7 @@ import type {
 import type { OverviewDraft } from '@/components/admin/editors/ServiceOverviewEditor';
 import type { InclusionsDraft } from '@/components/admin/editors/ServiceInclusionsEditor';
 import type { FaqsDraft } from '@/components/admin/editors/ServiceFaqsEditor';
-import { resolveOverviewStatus, resolvePackageStatus, resolvePromotionSummary } from '@/components/admin/utils/moduleStatus';
+import { resolveOverviewStatus, resolvePackageStatus } from '@/components/admin/utils/moduleStatus';
 import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/components/admin/utils/moduleNotifications';
 import type { NoteContext, ModuleState } from '@/components/admin/utils/moduleNotifications';
 import { patchModuleDraft } from './stationPrimitives';
@@ -102,8 +102,6 @@ export interface ServiceStation {
   pkgSummaryCount:       string;
   pkgSummaryDesc:        string;
   pkgSummaryDescPending: boolean;
-  promoStatus:           string;
-  promotionCount:        number;
   configuredTierCount:   number;
 
   // ── Publish modal summaries ────────────────────────────────────────────────
@@ -265,12 +263,6 @@ export function useServiceStation(
   const configuredTierCount = relatedPkg
     ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]?.configured && relatedPkg.tiers[t]?.enabled).length
     : 0;
-
-  // Promotions — lifecycle-derived (E1): the pill reflects the instances' own
-  // travel states, not the parent package status; binned instances neither
-  // colour the pill nor count as configured.
-  const { status: promoStatus, currentCount: promotionCount } =
-    resolvePromotionSummary(relatedPkg?.promotion_tiers ?? []);
 
   const pkgSummaryStatus = resolvePackageStatus(relatedPkg);
 
@@ -505,8 +497,6 @@ export function useServiceStation(
     pkgSummaryCount,
     pkgSummaryDesc,
     pkgSummaryDescPending,
-    promoStatus,
-    promotionCount,
     configuredTierCount,
     inclSummary,
     faqsSummary,

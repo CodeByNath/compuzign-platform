@@ -3,6 +3,7 @@ import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary } from '@/api/types/admin';
 import { ServiceTierStep } from '../workstations/ServiceTierStep';
+import { buildPromotionStationConfig } from '../workstations/ServicePromotionStep';
 import { DynamicStationManager } from './DynamicStationManager';
 import type {
   ManagerContinuation, StationConnectionDescriptor, StationManagerScope,
@@ -60,6 +61,19 @@ export function ServiceRelationshipManagerStep({ ctx }: { ctx: StepContext }) {
     const returnToManager = () => openAction(buildServiceManagerConfig(
       deps, connection, nextContinuation,
     ));
+
+    // Promotion Transit Card → the existing Promotion list/drawer runtime.
+    // Back from the list returns to this Manager.
+    if (nextContinuation.activeProviderKey === 'promotion') {
+      ctx.close();
+      openAction(buildPromotionStationConfig({
+        serviceId: service.id,
+        service,
+        onRefresh,
+        returnToParent: returnToManager,
+      }));
+      return;
+    }
 
     ctx.close();
     openAction({
