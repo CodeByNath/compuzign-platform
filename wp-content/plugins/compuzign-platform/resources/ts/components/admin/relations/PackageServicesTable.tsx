@@ -30,9 +30,17 @@ function serviceStatusPill(summary: StationSummary) {
   return <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>;
 }
 
+function serviceStatusKey(summary: StationSummary): 'active' | 'pending' | 'disabled' {
+  if (summary.platform_status === 'active') return 'active';
+  return summary.module_status.overview !== 'settled' ? 'pending' : 'disabled';
+}
+
 export function PackageServicesTable({ sources, categoryGroups, hostServiceId, onAssign, onOpenService }: Props) {
   const [services, setServices] = useState<StationSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [categoryGroupFilter, setCategoryGroupFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +56,16 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
     group.platform_status === 'active' || group.platform_status === 'disabled'
   ));
   const groupLabels = new Map(categoryGroups.map((group) => [group.group_id, group.label]));
+  const categories = [...new Set((services ?? []).flatMap((service) => service.categories.map((category) => category.name)))]
+    .sort((left, right) => left.localeCompare(right));
+  const visibleServices = (services ?? []).filter((summary) => {
+    const assignment = packageServiceCategoryGroup({ sources }, summary.id) ?? null;
+    if (categoryGroupFilter !== 'all'
+      && (categoryGroupFilter === 'unassigned' ? assignment !== null : assignment !== categoryGroupFilter)) return false;
+    if (categoryFilter !== 'all' && !summary.categories.some((category) => category.name === categoryFilter)) return false;
+    if (statusFilter !== 'all' && serviceStatusKey(summary) !== statusFilter) return false;
+    return true;
+  });
 
   return (
     <section class="cz-manager-section cz-manager-section--content-only" aria-label="Services">
@@ -57,13 +75,39 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
         <div class="cz-manager-empty"><strong>No Services in the catalogue yet.</strong></div>
       )}
       {services !== null && services.length > 0 && (
-        <div class="cz-sp-tier-table-wrap cz-manager-services-table-wrap">
+        <>
+        <div class="cz-manager-select-filters cz-manager-services-filters" role="group" aria-label="Service filters">
+          <label class="cz-tf-field"><span>Category Group</span>
+            <select class="cz-tf-select" value={categoryGroupFilter} onChange={(event) => setCategoryGroupFilter(event.currentTarget.value)}>
+              <option value="all">All Category Groups</option>
+              <option value="unassigned">Unassigned</option>
+              {categoryGroups.map((group) => <option value={group.group_id} key={group.group_id}>{group.label}</option>)}
+            </select>
+          </label>
+          <label class="cz-tf-field"><span>Category</span>
+            <select class="cz-tf-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.currentTarget.value)}>
+              <option value="all">All Categories</option>
+              {categories.map((category) => <option value={category} key={category}>{category}</option>)}
+            </select>
+          </label>
+          <label class="cz-tf-field"><span>Status</span>
+            <select class="cz-tf-select" value={statusFilter} onChange={(event) => setStatusFilter(event.currentTarget.value)}>
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="pending">Pending</option>
+              <option value="disabled">Disabled</option>
+            </select>
+          </label>
+        </div>
+        {visibleServices.length === 0 ? (
+          <div class="cz-manager-empty"><strong>No Services match the current filters.</strong></div>
+        ) : <div class="cz-sp-tier-table-wrap cz-manager-services-table-wrap">
           <table class="cz-sp-tier-table cz-manager-relationships cz-manager-services-table">
             <thead><tr>
               <th>Service</th><th>Service Category</th><th>Category Group</th>
               <th>Inclusions</th><th>FAQs</th><th>Status</th><th>Actions</th>
             </tr></thead>
-            <tbody>{services.map((summary) => {
+            <tbody>{visibleServices.map((summary) => {
               const assignment = packageServiceCategoryGroup({ sources }, summary.id);
               const connected = assignment !== undefined
                 || (sources.length === 0 && hostServiceId > 0 && summary.id === hostServiceId);
@@ -107,7 +151,8 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
               );
             })}</tbody>
           </table>
-        </div>
+        </div>}
+        </>
       )}
     </section>
   );

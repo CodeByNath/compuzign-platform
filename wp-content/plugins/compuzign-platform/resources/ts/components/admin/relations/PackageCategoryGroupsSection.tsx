@@ -57,6 +57,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
   const [createDescription, setCreateDescription] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
   const [editing, setEditing] = useState<{ id: string; name: string; description: string } | null>(null);
+  const [openActions, setOpenActions] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<{
     id: string; label: string; action: 'trash' | 'delete'; dependents: string;
   } | null>(null);
@@ -73,6 +74,12 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
   }, []);
 
   useEffect(() => { setRows(null); void load(scope); }, [scope, load]);
+  useEffect(() => {
+    if (openActions === null) return undefined;
+    const close = () => setOpenActions(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openActions]);
 
   const run = async (groupId: string, operation: () => Promise<unknown>) => {
     setActionError(null);
@@ -114,13 +121,11 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
   };
 
   return (
-    <section class="cz-manager-section" aria-labelledby="manager-category-groups">
-      <h4 id="manager-category-groups">Category Groups</h4>
-
+    <section class="cz-manager-section cz-manager-section--content-only" aria-label="Category Groups">
       <div class="cz-manager-filters" role="group" aria-label="Group lifecycle scope">
         {(['current', 'archived', 'trashed'] as const).map((candidate) => (
           <button type="button" key={candidate} class={scope === candidate ? 'is-active' : undefined}
-            aria-pressed={scope === candidate} onClick={() => setScope(candidate)}>
+            aria-pressed={scope === candidate} onClick={() => { setOpenActions(null); setScope(candidate); }}>
             {candidate === 'current' ? 'Current' : candidate === 'archived' ? 'Archived' : 'Trash'}
           </button>
         ))}
@@ -164,8 +169,8 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
       )}
 
       {rows !== null && rows.length > 0 && (
-        <div class="cz-sp-tier-table-wrap">
-          <table class="cz-sp-tier-table cz-manager-relationships">
+        <div class="cz-sp-tier-table-wrap cz-manager-category-groups-wrap">
+          <table class="cz-sp-tier-table cz-manager-relationships cz-manager-category-groups-table">
             <thead><tr>
               <th>Group</th><th>Description</th><th>Connected</th><th>Status</th><th>Actions</th>
             </tr></thead>
@@ -199,48 +204,37 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
                           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                             disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
                         </>
-                      ) : scope === 'current' ? (
-                        <>
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={busy}
-                            onClick={() => setEditing({ id: row.group_id, name: row.label, description: row.description })}>Edit</button>
-                          {row.has_draft && (
-                            <>
-                              <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={busy}
-                                onClick={() => void run(row.group_id, () => settlePackageCategoryGroupOverview(row.group_id))}>Apply changes</button>
-                              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={busy}
-                                onClick={() => void run(row.group_id, () => revertPackageCategoryGroupOverview(row.group_id))}>Discard changes</button>
-                            </>
-                          )}
-                          {row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview === 'settled' && (
-                            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={busy}
-                              onClick={() => void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'active'))}>Publish</button>
-                          )}
-                          {row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview !== 'settled' && (
-                            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={busy}
-                              onClick={() => void run(row.group_id, () => settlePackageCategoryGroupOverview(row.group_id))}>Complete setup</button>
-                          )}
-                          {row.platform_status === 'active' && (
-                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={busy}
-                              onClick={() => void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'disabled'))}>Disable</button>
-                          )}
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={busy}
-                            onClick={() => void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'archived'))}>Archive</button>
-                          <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={busy}
-                            onClick={() => setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) })}>Trash</button>
-                        </>
                       ) : (
-                        <>
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={busy}
-                            onClick={() => void run(row.group_id, () => restorePackageCategoryGroup(row.group_id))}>Restore</button>
-                          {scope === 'archived' && (
-                            <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={busy}
-                              onClick={() => setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) })}>Move to Trash</button>
+                        <div class="cz-manager-split-action">
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__primary"
+                            disabled={busy || scope !== 'current'}
+                            onClick={() => setEditing({ id: row.group_id, name: row.label, description: row.description })}>Edit</button>
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__toggle"
+                            disabled={busy} aria-label={`More actions for ${row.label}`} aria-expanded={openActions === row.group_id}
+                            onClick={(event) => { event.stopPropagation(); setOpenActions(openActions === row.group_id ? null : row.group_id); }}>▾</button>
+                          {openActions === row.group_id && (
+                            <div class="cz-manager-split-action__menu" onClick={(event) => event.stopPropagation()}>
+                              {scope === 'current' ? <>
+                                {row.has_draft && <>
+                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => settlePackageCategoryGroupOverview(row.group_id)); }}>Apply changes</button>
+                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => revertPackageCategoryGroupOverview(row.group_id)); }}>Discard changes</button>
+                                </>}
+                                {row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview === 'settled' &&
+                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'active')); }}>Publish</button>}
+                                {row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview !== 'settled' &&
+                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => settlePackageCategoryGroupOverview(row.group_id)); }}>Complete setup</button>}
+                                {row.platform_status === 'active' &&
+                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'disabled')); }}>Disable</button>}
+                                <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'archived')); }}>Archive</button>
+                                <button type="button" class="is-danger" onClick={() => { setOpenActions(null); setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) }); }}>Trash</button>
+                              </> : <>
+                                <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => restorePackageCategoryGroup(row.group_id)); }}>Restore</button>
+                                {scope === 'archived' && <button type="button" class="is-danger" onClick={() => { setOpenActions(null); setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) }); }}>Move to Trash</button>}
+                                {scope === 'trashed' && <button type="button" class="is-danger" onClick={() => { setOpenActions(null); setConfirming({ id: row.group_id, label: row.label, action: 'delete', dependents: dependentsSummary(row) }); }}>Delete permanently</button>}
+                              </>}
+                            </div>
                           )}
-                          {scope === 'trashed' && (
-                            <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={busy}
-                              onClick={() => setConfirming({ id: row.group_id, label: row.label, action: 'delete', dependents: dependentsSummary(row) })}>Delete permanently</button>
-                          )}
-                        </>
+                        </div>
                       )}
                     </div>
                   </td>

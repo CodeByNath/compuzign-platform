@@ -326,7 +326,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         if (activeSubTab !== sectionTab) return null;
         const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
         const projection = section.project(readModel, scope, draft);
-        if (activeSubTab === 'connections' && projection.role !== 'relations') return null;
+        if (activeSubTab === 'connections' && projection.role !== 'relations' && projection.role !== 'structure') return null;
         if (projection.role === 'rate-sheet') {
           const beginEdit = () => {
             setRateSheetError(null);
@@ -359,8 +359,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             setRateGroupTargetIndex(null);
           };
           return (
-            <section class="cz-manager-section cz-manager-rate-sheet" key={section.id} aria-labelledby={`manager-${section.id}`}>
-              <h4 id={`manager-${section.id}`}>{section.label}</h4>
+            <section class="cz-manager-section cz-manager-section--content-only cz-manager-rate-sheet" key={section.id} aria-label="Rate Sheet">
               {editingRateSheet ? (
                 <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
                   onSave={() => saveRateSheet(section)}
@@ -448,7 +447,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                 </div>
               ) : (
                 <div class="cz-manager-rate-sheet__catalogue">
-                  <div class="cz-manager-section__actions"><strong>{projection.title}</strong><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Edit Rate Sheet</button></div>
+                  <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Edit Rate Sheet</button></div>
                   <PackageRateSheetFilters
                     items={projection.items}
                     sources={((draft as PackageRelationDraft | undefined)?.sources) ?? []}
@@ -501,19 +500,18 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             setEditingGroup(null);
           };
           return (
-            <section class="cz-manager-section" key={section.id} aria-labelledby={`manager-${section.id}`}
+            <section class="cz-manager-section cz-manager-section--content-only" key={section.id} aria-label="Option Groups"
               onFocus={() => setSelectedSectionKey(section.id)}>
-              <h4 id={`manager-${section.id}`}>{section.label}</h4>
               {projection.rows.length === 0 ? (
                 <div class="cz-manager-empty">
                   <span class="cz-manager-empty__icon">{MODULE_ICONS.package}</span>
                   <strong>{section.emptyState.title}</strong>
                   {section.emptyState.description && <p>{section.emptyState.description}</p>}
-                  {controls && <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup} disabled={editingGroup !== null}>Create Group</button>}
+                  {controls && <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup} disabled={editingGroup !== null}>+ New Group</button>}
                 </div>
               ) : (
                 <div>
-                  {controls && <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup} disabled={editingGroup !== null}>Create Group</button></div>}
+                  {controls && <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createGroup} disabled={editingGroup !== null}>+ New Group</button></div>}
                   <div class="cz-manager-groups" role="list">
                   <div class="cz-manager-groups__heading"><span>Group</span><span>Order</span><span>Relationships</span><span>Actions</span></div>
                   {projection.rows.map((row) => (

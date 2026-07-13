@@ -16,7 +16,7 @@ Builds the Station Manager action, hosts `DynamicStationManager`, and opens nest
 
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
-Composes the presentation workspaces in the order Services, Packages, Promotions while retaining the existing Package and Promotion data providers. Services and Packages share the Package draft/save authority: Services owns the catalogue table, Category Groups, and a reserved Settings tab; Packages owns Tier cards, the relationship table, and Rate Sheet Settings. Use this file when changing manager-wide UI, Rate Sheet editing, provider switching, or save/exit orchestration.
+Composes the presentation workspaces in the order Services, Packages, Promotions while retaining the existing Package and Promotion data providers. Services and Packages share the Package draft/save authority: Services owns the filtered catalogue table, Category Group lifecycle surface, and a reserved Settings tab; Packages owns Tier cards, the relationship table with source-option Group controls, and Rate Sheet Settings. Use this file when changing manager-wide UI, Rate Sheet editing, provider switching, or save/exit orchestration.
 
 ### [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts)
 
@@ -26,9 +26,9 @@ Adapts Package Station data into manager sections, drafts, validation, save resu
 
 - [PackageManagerTierCards.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageManagerTierCards.tsx) renders the dynamic settled-occupant collection supplied by `usePackageStation`, excluding empty fixed shells. Cards are keyed and selected by `occupant_id`, while their View/Edit handoff retains the resolved `slotId`. This surface does not yet filter occupants by Package Category Group because no Tier occupant carries a Category Group assignment.
 - [ManagerSubTabs.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/ManagerSubTabs.tsx) renders canonical Details / Connections / Settings navigation for Services and Packages; Promotion behavior is unchanged.
-- [PackageServicesTable.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx) is the complete Services > Details surface. It lists catalogue Services with readable fixed columns and the Category Group connect-and-assign dropdown, without a duplicate section heading.
-- [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx) presents the Package-owned group station as **Category Groups** under Services > Connections while retaining its lifecycle and guarded-delete behavior.
-- [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx) filters Rate Sheet rows by Package Category Group, Service Category, Service, Inclusion Group, status, and search.
+- [PackageServicesTable.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx) is the complete Services > Details surface. It filters by Category Group, Category, and Status, retains the Category Group connect-and-assign control, and contains horizontal table overflow inside the manager canvas.
+- [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx) presents the Package-owned group station under Services > Connections without a duplicate heading. Edit remains the visible row action and valid lifecycle/guarded-delete operations live in its split-action menu.
+- [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx) filters Rate Sheet rows by Category Group, Category, Service, Inclusion Group, status, and search. The UI omits redundant Rate Sheet and station-title headings.
 
 ## State and Providers
 

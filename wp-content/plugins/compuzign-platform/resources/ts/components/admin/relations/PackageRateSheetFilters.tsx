@@ -97,11 +97,11 @@ export function PackageRateSheetFilters({ items, sources, categoryGroups, rateGr
 
   return (
     <div class="cz-manager-filters cz-manager-rate-sheet__filters" role="group" aria-label="Rate Sheet filters">
-      {select('categoryGroup', 'Package Category Group', [
+      {select('categoryGroup', 'Category Group', [
         { id: 'unassigned', label: 'Unassigned' },
         ...categoryGroups.map((group) => ({ id: group.group_id, label: group.label })),
       ])}
-      {select('serviceCategory', 'Service Category', [...categories].sort().map((name) => ({ id: name, label: name })))}
+      {select('serviceCategory', 'Category', [...categories].sort().map((name) => ({ id: name, label: name })))}
       {select('service', 'Service', [...services.entries()]
         .sort((a, b) => a[1].localeCompare(b[1]))
         .map(([id, title]) => ({ id: String(id), label: title })))}
