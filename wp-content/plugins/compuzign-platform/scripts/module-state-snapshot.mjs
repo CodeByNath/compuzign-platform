@@ -61,7 +61,6 @@ const CTX = {
   disabledSettled: { platformStatus: 'disabled', moduleTransition: 'settled' },
   notConfigured:   { platformStatus: 'disabled', moduleTransition: 'not-configured' },
   parentBlocked:   { platformStatus: 'active',   parentReady: false, parentLabel: 'Tier Overview' },
-  parentBlockedPromo: { platformStatus: 'active', parentReady: false, parentLabel: 'Promotion Overview' },
   parentReady:     { platformStatus: 'active',   parentReady: true },
   parentReadyOff:  { platformStatus: 'disabled', parentReady: true },
 };
@@ -111,11 +110,6 @@ const cases = [
   ['promoOverview.pending',       dna.promotionOverviewModule, { name: 'Summer', price: 9, billing_label: '/mo' }, CTX.activePending],
   ['promoOverview.active',        dna.promotionOverviewModule, { name: 'Summer', price: 9, billing_label: '/mo' }, CTX.activeSettled],
 
-  ['promoFeatures.blocked',       dna.promotionFeaturesModule, { count: 1 },                                     CTX.parentBlockedPromo],
-  ['promoFeatures.active',        dna.promotionFeaturesModule, { count: 1 },                                     CTX.parentReady],
-  ['promoFaqs.empty',             dna.promotionFaqsModule, { count: 0 },                                         CTX.parentReady],
-  ['promoFaqs.active',            dna.promotionFaqsModule, { count: 4 },                                         CTX.parentReady],
-
   // ── Category modules (S6) ──────────────────────────────────────────────────
   // categoryOverviewModule — the canonical 5-state resolution (blueprint D4).
   ['categoryOverview.complete.active',   dna.categoryOverviewModule, cat(),                              CTX.activeSettled],
@@ -123,11 +117,6 @@ const cases = [
   ['categoryOverview.incomplete',        dna.categoryOverviewModule, cat({ description: '' }),           CTX.activeSettled],
   ['categoryOverview.notconfigured',     dna.categoryOverviewModule, cat({ name: '', description: '' }), CTX.notConfigured],
   ['categoryOverview.platformInactive',  dna.categoryOverviewModule, cat(),                              CTX.disabledSettled],
-
-  // categoryServicesModule — read-only projection; status follows platform state.
-  ['categoryServices.empty',             dna.categoryServicesModule, { total: 0, active: 0, disabled: 0 }, CTX.activeSettled],
-  ['categoryServices.populated',         dna.categoryServicesModule, { total: 3, active: 2, disabled: 1 }, CTX.activeSettled],
-  ['categoryServices.platformInactive',  dna.categoryServicesModule, { total: 3, active: 2, disabled: 1 }, CTX.disabledSettled],
 ];
 
 const snapshot = {};

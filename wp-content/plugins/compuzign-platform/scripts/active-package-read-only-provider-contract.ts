@@ -88,7 +88,7 @@ check(missing?.resolved === false, 'unresolved Rate Sheet selection remains visi
 check(provider.display(missing!, readModel).description === '(unresolved Rate Sheet item)', 'unresolved selection has a diagnostic display label');
 const missingHealth = provider.health(missing!, readModel, scope);
 check(missingHealth.state.status === 'pending-full' && missingHealth.notes.some((note) => note.id.includes('unresolved_item')), 'unresolved selection emits stable unhealthy diagnostics');
-check(!missingHealth.destinationAvailable && provider.destination(missing!, readModel, scope, { openAction: () => undefined }) === null, 'diagnostic rows expose no destination');
+check(!('destination' in provider), 'read-only diagnostics do not restore the removed transit-drawer destination contract');
 check(rows.some((row) => row.item_id === 'rate-backup' && !row.available), 'unavailable selection remains diagnosable');
 check(provider.health(rows.find((row) => row.item_id === 'rate-os')!, readModel, scope).notes.some((note) => note.id.includes('invalid_option')), 'invalid option remains diagnosable');
 

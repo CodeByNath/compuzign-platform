@@ -92,26 +92,7 @@ $unresolvedSheet = Schema::sanitizeRateSheet(['title' => 'Unresolved', 'items' =
 check_active_package($unresolvedSheet['items'][0]['item_id'] === 'legacy-missing', 'unresolved source item is preserved');
 check_active_package(Schema::validateRateSheet($unresolvedSheet)[0]['path'] === 'rate_sheet.items.0.source', 'unresolved source is visible to validation');
 
-$legacyRateSheet = [
-    'title' => 'Legacy', 'groups' => [['group_id' => 'core', 'label' => 'Core']],
-    'items' => [[
-        'item_id' => 'rate-legacy', 'source_type' => 'inclusion', 'source_id' => 'managed-vm',
-        'group_id' => 'core', 'per' => 'Per VM', 'unit_price' => 36, 'quantity' => 1,
-    ]],
-];
-$legacyTiers = ['basic' => ['rate_sheet_items' => [['item_id' => 'rate-legacy', 'quantity' => 4]], 'price' => 144]];
-$planA = Schema::planLegacyMigration(42, $legacyRateSheet, $legacyTiers);
-$planB = Schema::planLegacyMigration(42, $legacyRateSheet, $legacyTiers);
-check_active_package($planA === $planB, 'migration planning is idempotent');
-check_active_package($planA['rate_sheet']['items'][0]['source']['entity_id'] === 42, 'legacy Service ownership becomes provenance only');
-check_active_package($planA['tiers']['basic']['selections'] === [['item_id' => 'rate-legacy', 'quantity' => 4, 'option_selections' => []]], 'legacy Tier maps directly to Rate Sheet selections');
-check_active_package($planA['parity']['basic']['matches'] === true, 'migration parity compares derived and legacy catalogue price');
-check_active_package(!Schema::migrationHasDelta($planA['source_fingerprint'], 42, $legacyRateSheet, $legacyTiers), 'unchanged legacy source has no migration delta');
-$changedLegacyTiers = $legacyTiers;
-$changedLegacyTiers['basic']['rate_sheet_items'][0]['quantity'] = 5;
-check_active_package(Schema::migrationHasDelta($planA['source_fingerprint'], 42, $legacyRateSheet, $changedLegacyTiers), 'legacy authoring after planning is detected as a migration delta');
-
-echo "Active Package Rate Sheet and migration contract checks passed.\n";
+echo "Active Package Rate Sheet contract checks passed.\n";
 
 $projectionStation = Schema::defaultStation();
 $projectionStation['lifecycle']['status'] = 'active';

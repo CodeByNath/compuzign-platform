@@ -1,0 +1,51 @@
+# Reproducible dependency trees and package-manager caches
+**/node_modules/
+**/.npm/
+**/.yarn/
+**/.pnpm-store/
+**/vendor/
+
+# Generated production bundles (source lives under resources/)
+wp-content/plugins/compuzign-platform/dist/
+
+# Dependency resolution metadata is retained in Git but rarely useful as context
+**/package-lock.json
+**/composer.lock
+
+# Test/build output and caches
+**/coverage/
+**/.nyc_output/
+**/.phpunit.cache/
+**/.phpunit.result.cache
+**/.vite/
+**/.cache/
+**/build/
+**/tmp/
+**/temp/
+
+# Local-only configuration, editor metadata, logs, and OS files
+.git/
+.claude/
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.example.*
+**/.idea/
+**/.vscode/
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.DS_Store
+
+# Archives, dumps, reports, and screenshots are not normal code context
+**/*.zip
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.sql
+**/*.sqlite
+**/*.sqlite3
+**/*.dump
+**/reports/
+**/screenshots/

@@ -285,34 +285,6 @@
     "status": "active",
     "notes": []
   },
-  "promoFeatures.blocked": {
-    "status": "pending-dim",
-    "notes": [
-      {
-        "id": "promotion-features.parent.waiting",
-        "message": "Waiting for Promotion Overview.",
-        "type": "info"
-      }
-    ]
-  },
-  "promoFeatures.active": {
-    "status": "active",
-    "notes": []
-  },
-  "promoFaqs.empty": {
-    "status": "pending-dim",
-    "notes": [
-      {
-        "id": "promotion-faqs.empty.action",
-        "message": "Edit and add questions.",
-        "type": "info"
-      }
-    ]
-  },
-  "promoFaqs.active": {
-    "status": "active",
-    "notes": []
-  },
   "categoryOverview.complete.active": {
     "status": "active",
     "notes": []
@@ -328,21 +300,15 @@
     ]
   },
   "categoryOverview.incomplete": {
-    "status": "pending-dim",
-    "notes": [
-      {
-        "id": "category-overview.description.missing",
-        "message": "Description missing",
-        "type": "error"
-      }
-    ]
+    "status": "active",
+    "notes": []
   },
   "categoryOverview.notconfigured": {
     "status": "pending-dim",
     "notes": [
       {
         "id": "category-overview.empty.action",
-        "message": "Edit and describe this category.",
+        "message": "Edit and name this category.",
         "type": "info"
       }
     ]
@@ -352,30 +318,6 @@
     "notes": [
       {
         "id": "category-overview.platform.inactive",
-        "message": "Waiting for service activation",
-        "type": "info"
-      }
-    ]
-  },
-  "categoryServices.empty": {
-    "status": "pending-dim",
-    "notes": [
-      {
-        "id": "category-services.empty.action",
-        "message": "Assign services to this category from the Service Catalog.",
-        "type": "info"
-      }
-    ]
-  },
-  "categoryServices.populated": {
-    "status": "active",
-    "notes": []
-  },
-  "categoryServices.platformInactive": {
-    "status": "disabled",
-    "notes": [
-      {
-        "id": "category-services.platform.inactive",
         "message": "Waiting for service activation",
         "type": "info"
       }

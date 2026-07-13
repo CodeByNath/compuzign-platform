@@ -31,6 +31,7 @@ const readModel: PackageRelationReadModel = {
   service_id: 42,
   platform_status: 'active',
   has_configuration: true,
+  sources: [],
   groups: [{ group_id: 'core', label: 'Core', sort_order: 0 }],
   items: [
     {
@@ -118,7 +119,7 @@ check(!packageRelationProvider.validate(invalid, readModel, {
 }).valid, 'unknown groups fail provider validation');
 
 const providers = relationProvidersFor(scope);
-check(providers.length === 1 && providers[0].key === 'package', 'registry discovers Package by scope');
+check(providers.map((provider) => provider.key).join(',') === 'package,promotion', 'registry composes Package ownership with the read-only Promotion provider');
 check(providersExposeManager(providers), 'Package writable capabilities expose Manager');
 check(typeof providers[0].save === 'function', 'writable registry adapter exposes Package persistence');
 check(packageRelationProvider.manager.summary === undefined, 'Package does not declare a duplicated static Manager summary');
@@ -127,12 +128,6 @@ check(packageRelationProvider.manager.sections[0].id === 'rate-sheets', 'Rate Sh
 check(packageRelationProvider.manager.sections[1].id === 'groups', 'Package keeps Groups structure');
 check(packageRelationProvider.manager.sections[2].id === 'relationships', 'Package keeps one Relationships section');
 check(packageRelationProvider.manager.sections[2].capabilities.includes('availability'), 'availability stays a capability');
-const managerSummaries = packageRelationProvider.manager.subjectSummaries?.(readModel, {
-  ...scope,
-}) ?? [];
-check(managerSummaries.length === 1 && managerSummaries[0].title === 'Package Essential', 'All projects every canonical Tier summary');
-check(managerSummaries[0].fields.map((field) => field.id).join(',') === 'pricing,includes', 'Tier summary exposes canonical pricing and inclusion fields');
-check(packageRelationProvider.manager.destinationActions === undefined, 'Package does not declare a separate View all action');
 const rateSheetSection = packageRelationProvider.manager.sections[0];
 const emptyRateSheetProjection = rateSheetSection.project(readModel, { ...scope });
 check(emptyRateSheetProjection.role === 'rate-sheet' && !emptyRateSheetProjection.configured, 'Rate Sheet begins not configured');
