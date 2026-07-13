@@ -4,14 +4,15 @@ import type { PackageCategoryGroupItem, PackageSourceRelationship, StationSummar
 import { PRESENTATION_PILL } from '../schema/presentation';
 import { packageServiceCategoryGroup } from './providers/package';
 
-// Package Manager Services table (Services sub-tab, Details section).
+// Package Manager Services collection (Services sub-tab, Details section).
 //
-// Lists every catalog Service with its Service-owned identity (title,
-// Service Categories, pool counts) beside its Package-owned commercial
-// assignment. The Package Category Group dropdown is the connect-and-assign
-// gesture: picking a group for an unconnected Service creates the source
-// relationship in the provider draft and assigns it in one step; the manager
-// Save footer persists it. Service content is never copied here.
+// Lists every catalog Service with its Service-owned identity beside its
+// Package-owned commercial assignment. Service Category remains available as a
+// filter, but is intentionally omitted from each row. The Package Category
+// Group dropdown is the connect-and-assign gesture: picking a group for an
+// unconnected Service creates the source relationship in the provider draft and
+// assigns it in one step; the manager Save footer persists it. Service content
+// is never copied here.
 
 interface Props {
   sources: PackageSourceRelationship[];
@@ -41,6 +42,7 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
   const [categoryGroupFilter, setCategoryGroupFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [openActions, setOpenActions] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +51,13 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
       .catch((error) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Could not load Services.'); });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (openActions === null) return undefined;
+    const close = () => setOpenActions(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openActions]);
 
   // Assignable buckets: live groups only. Binned groups keep their existing
   // assignments (rows still display them) but accept no new members.
@@ -101,13 +110,14 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
         </div>
         {visibleServices.length === 0 ? (
           <div class="cz-manager-empty"><strong>No Services match the current filters.</strong></div>
-        ) : <div class="cz-sp-tier-table-wrap cz-manager-services-table-wrap">
-          <table class="cz-sp-tier-table cz-manager-relationships cz-manager-services-table">
-            <thead><tr>
-              <th>Service</th><th>Service Category</th><th>Category Group</th>
-              <th>Inclusions</th><th>FAQs</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody>{visibleServices.map((summary) => {
+        ) : <div class="cz-manager-collection cz-manager-collection--services" role="table" aria-label="Services">
+          <div class="cz-manager-collection__header" role="row">
+            <span role="columnheader">Service</span>
+            <span role="columnheader">Category Group</span>
+            <span role="columnheader">Status</span>
+            <span role="columnheader">Action</span>
+          </div>
+          <div class="cz-manager-collection__body" role="rowgroup">{visibleServices.map((summary) => {
               const assignment = packageServiceCategoryGroup({ sources }, summary.id);
               const connected = assignment !== undefined
                 || (sources.length === 0 && hostServiceId > 0 && summary.id === hostServiceId);
@@ -115,12 +125,11 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
               const staleAssignment = currentGroupId !== null
                 && !assignableGroups.some((group) => group.group_id === currentGroupId);
               return (
-                <tr key={summary.id}>
-                  <td class="cz-sp-tier-table__name">{summary.title}</td>
-                  <td class="cz-sp-tier-table__muted">
-                    {summary.categories.length > 0 ? summary.categories.map((category) => category.name).join(', ') : '—'}
-                  </td>
-                  <td>
+                <div class="cz-manager-collection__row" role="row" key={summary.id}>
+                  <div class="cz-manager-collection__cell cz-manager-collection__identity" role="cell" data-label="Service">
+                    <strong>{summary.title}</strong>
+                  </div>
+                  <div class="cz-manager-collection__cell" role="cell" data-label="Category Group">
                     <select class="cz-tf-select" aria-label={`Category Group for ${summary.title}`}
                       value={currentGroupId ?? ''}
                       onChange={(event) => onAssign(summary.id, event.currentTarget.value || null)}>
@@ -132,25 +141,30 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
                         <option value={currentGroupId}>{groupLabels.get(currentGroupId) ?? currentGroupId} (binned)</option>
                       )}
                     </select>
-                  </td>
-                  <td>{summary.inclusion_count ?? 0}</td>
-                  <td>{summary.faq_count ?? 0}</td>
-                  <td>
+                  </div>
+                  <div class="cz-manager-collection__cell cz-manager-collection__status" role="cell" data-label="Status">
                     {serviceStatusPill(summary)}
-                    <small class="cz-sp-tier-table__muted"> {connected ? 'Connected' : 'Not connected'}</small>
-                  </td>
-                  <td>
-                    <div class="cz-manager-group-actions">
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                        onClick={() => onOpenService(summary, false)}>View</button>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
-                        onClick={() => onOpenService(summary, true)}>Edit</button>
+                    <small>{connected ? 'Connected' : 'Not connected'}</small>
+                  </div>
+                  <div class="cz-manager-collection__cell cz-manager-collection__action" role="cell" data-label="Action">
+                    <div class="cz-manager-split-action">
+                      <div class="cz-manager-split-action__control">
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__primary"
+                          onClick={() => { setOpenActions(null); onOpenService(summary, false); }}>View</button>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__toggle"
+                          aria-label={`More actions for ${summary.title}`} aria-expanded={openActions === summary.id}
+                          onClick={(event) => { event.stopPropagation(); setOpenActions(openActions === summary.id ? null : summary.id); }}>▾</button>
+                      </div>
+                      {openActions === summary.id && (
+                        <div class="cz-manager-split-action__menu" onClick={(event) => event.stopPropagation()}>
+                          <button type="button" onClick={() => { setOpenActions(null); onOpenService(summary, true); }}>Edit</button>
+                        </div>
+                      )}
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               );
-            })}</tbody>
-          </table>
+            })}</div>
         </div>}
         </>
       )}

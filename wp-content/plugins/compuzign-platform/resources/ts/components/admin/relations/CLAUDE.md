@@ -2,8 +2,8 @@
 
 ## Audit metadata
 
-Last audited: 2026-07-14 02:40 Australia/Brisbane
-Audited commit: `02a7bffafc6739417c95644904c91f726bc889a7` (current working-tree changes reviewed)
+Last audited: 2026-07-14 03:06 Australia/Brisbane
+Audited commit: `6b84184cc3dc4377a2c5f850a837d62748a079c9`
 Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/StationManagerStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx`
@@ -13,13 +13,13 @@ Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx`
 - `wp-content/plugins/compuzign-platform/resources/css/modules/admin.css`
-Changes in audited revision: Station Manager canvas containment, Service filters, Category Group split actions, Package option-Group controls, and Rate Sheet presentation were verified without changing provider state, contracts, or save authority.
+Changes in audited revision and current working tree: Station Manager canvas containment, Service filters, adaptive Service and Category Group collection rows, unified split actions, Package option-Group controls, and Rate Sheet presentation were verified without changing provider state, contracts, or save authority.
 
 ## Entry guide
 
 This folder owns the frontend relation-provider registry, Station Manager composition, provider-neutral coordination, Package/Promotion data providers, Package Category Groups, Service assignment, and Rate Sheet filtering. `DynamicStationManager.tsx` presents three UI workspaces in order: Services, Packages, Promotions. Services and Packages both consume the existing Package provider draft/save state; they are presentation workspaces, not additional provider contracts.
 
-Services > Details contains only `PackageServicesTable`, with Category Group / Category / Status filters and a horizontally contained table; Connections contains the Package Category Group lifecycle station without a duplicate heading and uses Edit split actions; Settings is reserved. Packages > Details contains only dynamic Tier occupant cards; Connections contains the relationship table plus its source-option Group create/rename/reorder/delete controls; Settings contains Rate Sheet editing and filters without redundant titles. Promotions retains its prior workspace behavior.
+Services > Details contains only `PackageServicesTable`, with Category Group / Category / Status filters and an adaptive Service collection whose rows become labeled cards at narrow drawer widths. Connections contains the Package Category Group lifecycle station as the same adaptive collection pattern without a duplicate heading and uses Edit split actions; Settings is reserved. Packages > Details contains only dynamic Tier occupant cards; Connections contains the relationship table plus its source-option Group create/rename/reorder/delete controls; Settings contains Rate Sheet editing and filters without redundant titles. Promotions retains its prior workspace behavior.
 
 Cards and nested Tier drawers use `occupant_id` as stable UI identity and pass the resolved `slotId` alongside it. `ServiceTierStep` re-resolves the occupant before using the fixed slot for reads, persistence, REST mutations, lifecycle, popular-Tier, and bin operations. Empty shells are absent from the card grid; fixed-shell ordering/restore consumers still use `TIER_KEYS`. Package Category Group ownership/filtering is deferred because occupants have no Category Group assignment.
 

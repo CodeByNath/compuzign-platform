@@ -169,33 +169,40 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
       )}
 
       {rows !== null && rows.length > 0 && (
-        <div class="cz-sp-tier-table-wrap cz-manager-category-groups-wrap">
-          <table class="cz-sp-tier-table cz-manager-relationships cz-manager-category-groups-table">
-            <thead><tr>
-              <th>Group</th><th>Description</th><th>Connected</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody>{rows.map((row) => {
+        <div class="cz-manager-collection cz-manager-collection--category-groups" role="table" aria-label="Category Groups">
+          <div class="cz-manager-collection__header" role="row">
+            <span role="columnheader">Group</span>
+            <span role="columnheader">Connected dependencies</span>
+            <span role="columnheader">Status</span>
+            <span role="columnheader">Action</span>
+          </div>
+          <div class="cz-manager-collection__body" role="rowgroup">{rows.map((row) => {
               const busy = busyGroupId === row.group_id;
               const pill = scope === 'current'
                 ? groupStatusPill(row)
                 : TRAVEL_PILL[row.platform_status as 'archived' | 'trashed'] ?? TRAVEL_PILL.archived;
               return (
-                <tr key={row.group_id}>
-                  <td class="cz-sp-tier-table__name">
+                <div class="cz-manager-collection__row" role="row" key={row.group_id}>
+                  <div class="cz-manager-collection__cell cz-manager-collection__identity" role="cell" data-label="Group">
                     {editing?.id === row.group_id ? (
-                      <input class="cz-tf-input" value={editing.name} autoFocus aria-label={`Rename ${row.label}`}
-                        onInput={(event) => setEditing({ ...editing, name: event.currentTarget.value })} />
-                    ) : row.label}
-                  </td>
-                  <td class="cz-sp-tier-table__muted">
-                    {editing?.id === row.group_id ? (
-                      <input class="cz-tf-input" value={editing.description} aria-label={`Description of ${row.label}`}
-                        onInput={(event) => setEditing({ ...editing, description: event.currentTarget.value })} />
-                    ) : (row.description || '—')}
-                  </td>
-                  <td class="cz-sp-tier-table__muted">{dependentsSummary(row)}</td>
-                  <td><span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span></td>
-                  <td>
+                      <div class="cz-manager-collection__edit-fields">
+                        <input class="cz-tf-input" value={editing.name} autoFocus aria-label={`Rename ${row.label}`}
+                          onInput={(event) => setEditing({ ...editing, name: event.currentTarget.value })} />
+                        <input class="cz-tf-input" value={editing.description} aria-label={`Description of ${row.label}`}
+                          onInput={(event) => setEditing({ ...editing, description: event.currentTarget.value })} />
+                      </div>
+                    ) : <>
+                      <strong>{row.label}</strong>
+                      {row.description && <small>{row.description}</small>}
+                    </>}
+                  </div>
+                  <div class="cz-manager-collection__cell cz-manager-collection__secondary" role="cell" data-label="Connected">
+                    {dependentsSummary(row)}
+                  </div>
+                  <div class="cz-manager-collection__cell cz-manager-collection__status" role="cell" data-label="Status">
+                    <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>
+                  </div>
+                  <div class="cz-manager-collection__cell cz-manager-collection__action" role="cell" data-label="Action">
                     <div class="cz-manager-group-actions">
                       {editing?.id === row.group_id ? (
                         <>
@@ -206,12 +213,14 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
                         </>
                       ) : (
                         <div class="cz-manager-split-action">
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__primary"
-                            disabled={busy || scope !== 'current'}
-                            onClick={() => setEditing({ id: row.group_id, name: row.label, description: row.description })}>Edit</button>
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__toggle"
-                            disabled={busy} aria-label={`More actions for ${row.label}`} aria-expanded={openActions === row.group_id}
-                            onClick={(event) => { event.stopPropagation(); setOpenActions(openActions === row.group_id ? null : row.group_id); }}>▾</button>
+                          <div class="cz-manager-split-action__control">
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__primary"
+                              disabled={busy || scope !== 'current'}
+                              onClick={() => setEditing({ id: row.group_id, name: row.label, description: row.description })}>Edit</button>
+                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__toggle"
+                              disabled={busy} aria-label={`More actions for ${row.label}`} aria-expanded={openActions === row.group_id}
+                              onClick={(event) => { event.stopPropagation(); setOpenActions(openActions === row.group_id ? null : row.group_id); }}>▾</button>
+                          </div>
                           {openActions === row.group_id && (
                             <div class="cz-manager-split-action__menu" onClick={(event) => event.stopPropagation()}>
                               {scope === 'current' ? <>
@@ -237,11 +246,10 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
                         </div>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               );
-            })}</tbody>
-          </table>
+            })}</div>
         </div>
       )}
 
