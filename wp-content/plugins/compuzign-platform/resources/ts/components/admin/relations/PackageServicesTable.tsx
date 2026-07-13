@@ -50,23 +50,17 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
   const groupLabels = new Map(categoryGroups.map((group) => [group.group_id, group.label]));
 
   return (
-    <section class="cz-manager-section" aria-labelledby="manager-package-services">
-      <h4 id="manager-package-services">Services</h4>
-      <p class="cz-manager-section__description">
-        All catalogue Services and their Package Category Group assignment. Selecting a group connects
-        the Service to this Package commercially; the Service and its Service Categories stay owned by
-        the Service Catalogue.
-      </p>
+    <section class="cz-manager-section cz-manager-section--content-only" aria-label="Services">
       {services === null && !loadError && <p class="cz-sp-tier-table__muted">Loading Services…</p>}
       {loadError && <div class="cz-admin-error-msg" role="alert">{loadError}</div>}
       {services !== null && services.length === 0 && (
         <div class="cz-manager-empty"><strong>No Services in the catalogue yet.</strong></div>
       )}
       {services !== null && services.length > 0 && (
-        <div class="cz-sp-tier-table-wrap">
-          <table class="cz-sp-tier-table cz-manager-relationships">
+        <div class="cz-sp-tier-table-wrap cz-manager-services-table-wrap">
+          <table class="cz-sp-tier-table cz-manager-relationships cz-manager-services-table">
             <thead><tr>
-              <th>Service</th><th>Service Category</th><th>Package Category Group</th>
+              <th>Service</th><th>Service Category</th><th>Category Group</th>
               <th>Inclusions</th><th>FAQs</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>{services.map((summary) => {
@@ -83,7 +77,7 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
                     {summary.categories.length > 0 ? summary.categories.map((category) => category.name).join(', ') : '—'}
                   </td>
                   <td>
-                    <select class="cz-tf-select" aria-label={`Package Category Group for ${summary.title}`}
+                    <select class="cz-tf-select" aria-label={`Category Group for ${summary.title}`}
                       value={currentGroupId ?? ''}
                       onChange={(event) => onAssign(summary.id, event.currentTarget.value || null)}>
                       <option value="">Unassigned</option>

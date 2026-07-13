@@ -23,9 +23,9 @@ The relation registry owns provider discovery and the coordinator owns transient
 
 ## Runtime Flow
 
-`ServiceViewStep` creates a service-scoped descriptor. The registry resolves applicable providers, then `DynamicStationManager` acts as the relation-manager composition root: it loads provider read models, coordinates provider selection/drafts/validation/save and exit guards, and renders provider-specific workspaces.
+`ServiceViewStep` creates a service-scoped descriptor. The registry resolves the Package and Promotion data providers, then `DynamicStationManager` acts as the relation-manager composition root: it loads their read models, coordinates drafts/validation/save and exit guards, and presents Services / Packages / Promotions workspaces. Services and Packages are separate UI workspaces over the same Package provider authority, not new persistence providers.
 
-For the package provider the Service Connections sub-tab also hosts [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx) — the Package Category Group station (create/lifecycle/guarded delete via `/admin/package-category-groups`); source relationships carry the `category_group_id` assignment set from the Services tab table.
+Services > Details hosts the catalogue Service table and its `category_group_id` assignment control. Services > Connections hosts [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx), labelled **Category Groups**. Packages > Details hosts Tier occupant cards, Packages > Connections hosts the existing relationship table, and Packages > Settings hosts Rate Sheet editing and filters. Services > Settings remains reserved for Service settings.
 
 The same component currently also owns Rate Sheet UI state: service-source loading, source picking, temporary and persisted groups, section editing, validation issues, and saves through the active provider adapter. It follows continuations into focused Package or Promotion drawers. Read-only consumers receive projections without write lifecycle methods. This Rate Sheet responsibility makes the manager a future separation candidate even though provider composition itself is legitimate here.
 

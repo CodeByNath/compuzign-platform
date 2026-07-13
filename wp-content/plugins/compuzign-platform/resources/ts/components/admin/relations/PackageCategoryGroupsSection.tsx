@@ -13,7 +13,7 @@ import type { PackageCategoryGroupItem } from '@/api/types/admin';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '../schema/presentation';
 import type { PillMeta } from '../schema/presentation';
 
-// Package Category Group management (Service Connections sub-tab).
+// Package Category Group management (Services > Connections).
 //
 // The Package-owned commercial bucket station (e.g. KAIROS): create, overview
 // draft → apply/discard, publish/disable, archive/trash/restore, and
@@ -68,7 +68,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
       setRows(response.package_category_groups);
     } catch (error) {
       setRows([]);
-      setLoadError(error instanceof Error ? error.message : 'Could not load Package Category Groups.');
+      setLoadError(error instanceof Error ? error.message : 'Could not load Category Groups.');
     }
   }, []);
 
@@ -114,13 +114,8 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
   };
 
   return (
-    <section class="cz-manager-section" aria-labelledby="manager-package-category-groups">
-      <h4 id="manager-package-category-groups">Package Category Groups</h4>
-      <p class="cz-manager-section__description">
-        Permanent Package-owned commercial buckets (for example KAIROS). Connected Services keep their
-        own Service Categories; a group cannot be deleted while Services, Rate Sheet rows, or Tiers
-        depend on it.
-      </p>
+    <section class="cz-manager-section" aria-labelledby="manager-category-groups">
+      <h4 id="manager-category-groups">Category Groups</h4>
 
       <div class="cz-manager-filters" role="group" aria-label="Group lifecycle scope">
         {(['current', 'archived', 'trashed'] as const).map((candidate) => (
@@ -133,7 +128,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
 
       {actionError && <div class="cz-admin-error-msg" role="alert">{actionError}</div>}
       {loadError && <div class="cz-admin-error-msg" role="alert">{loadError}</div>}
-      {rows === null && !loadError && <p class="cz-sp-tier-table__muted">Loading Package Category Groups…</p>}
+      {rows === null && !loadError && <p class="cz-sp-tier-table__muted">Loading Category Groups…</p>}
 
       {scope === 'current' && (
         creating ? (
@@ -155,7 +150,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
         ) : (
           <div class="cz-manager-section__actions">
             <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => setCreating(true)}>
-              Create Package Category Group
+              <span aria-hidden="true">+</span> New Category Group
             </button>
           </div>
         )
@@ -163,7 +158,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
 
       {rows !== null && rows.length === 0 && !loadError && (
         <div class="cz-manager-empty">
-          <strong>{scope === 'current' ? 'No Package Category Groups yet.' : scope === 'archived' ? 'No archived groups.' : 'Trash is empty.'}</strong>
+          <strong>{scope === 'current' ? 'No Category Groups yet.' : scope === 'archived' ? 'No archived groups.' : 'Trash is empty.'}</strong>
           {scope === 'current' && <p>Create a permanent commercial bucket such as KAIROS, then assign Services to it from the Services tab.</p>}
         </div>
       )}

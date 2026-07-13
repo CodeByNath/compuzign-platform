@@ -33,6 +33,8 @@ interface RateSheetEditorValue {
   items: { id: string; optionId: string; unitPrice: number; per: string; quantity: number; groupId: string | null; sourceAvailable?: boolean }[];
 }
 
+type ManagerWorkspace = 'service' | 'package' | 'promotion';
+
 function scopeKey(scope: StationManagerScope): string {
   const station = `${scope.stationContext.type}:${scope.stationContext.id}`;
   return scope.kind === 'connection-graph'
@@ -86,6 +88,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [pendingOnboardIds, setPendingOnboardIds] = useState<string[]>([]);
   const [sourcePreviewDraft, setSourcePreviewDraft] = useState<unknown | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<ManagerSubTab>('details');
+  const [activeWorkspace, setActiveWorkspace] = useState<ManagerWorkspace>(
+    initialScope.activeProviderKey === 'promotion' ? 'promotion' : 'service',
+  );
   const [categoryGroups, setCategoryGroups] = useState<PackageCategoryGroupItem[]>([]);
   const [rateSheetFilters, setRateSheetFilters] = useState<RateSheetFilterState>(RATE_SHEET_FILTER_DEFAULTS);
   const temporaryGroupSequence = useRef(0);
@@ -160,6 +165,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   }, [shell.setFooter, shell.requestExit, providers, providerDirty, footerState.saveDisabled, state, scope]);
 
   const active = providers.find((provider) => provider.key === state.activeProviderKey) ?? providers[0];
+  const packageProvider = providers.find((provider) => provider.key === 'package');
+  const promotionProvider = providers.find((provider) => provider.key === 'promotion');
   const readModel = active ? state.readModelByProvider[active.key] : undefined;
   const loadState = active ? state.loadStateByProvider[active.key] : 'idle';
   const loadError = active ? state.loadErrorsByProvider[active.key] : null;
@@ -235,10 +242,19 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
     : [];
 
   return (
-    <section class="cz-manager-workspace" aria-label={`${active?.label ?? 'Connection'} Manager`}>
+    <section class="cz-manager-workspace" aria-label={`${activeWorkspace === 'service' ? 'Services' : active?.label ?? 'Connection'} Manager`}>
       {providers.length > 0 && (
         <nav class="cz-manager-provider-nav" aria-label="Relation providers">
-          {providers.map((provider) => {
+          {([
+            ...(packageProvider ? [
+              { key: 'service' as const, label: 'Services', provider: packageProvider },
+              { key: 'package' as const, label: 'Packages', provider: packageProvider },
+            ] : []),
+            ...(promotionProvider ? [
+              { key: 'promotion' as const, label: 'Promotions', provider: promotionProvider },
+            ] : []),
+          ]).map((workspace) => {
+            const provider = workspace.provider;
             const indicator = providerCompositionIndicator(state, provider);
             const indicatorLabel = indicator.error ? 'Error'
               : indicator.invalid ? 'Invalid'
@@ -248,32 +264,30 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             return (
               <button
                 type="button"
-                key={provider.key}
-                class={state.activeProviderKey === provider.key ? 'is-active' : undefined}
-                aria-current={state.activeProviderKey === provider.key ? 'page' : undefined}
+                key={workspace.key}
+                class={activeWorkspace === workspace.key ? 'is-active' : undefined}
+                aria-current={activeWorkspace === workspace.key ? 'page' : undefined}
                 onClick={() => {
                   setState((current) => selectManagerProvider(current, provider.key, providers));
+                  setActiveWorkspace(workspace.key);
                   setActiveSubTab('details');
                 }}
               >
-                <span>{provider.label}</span>
+                <span>{workspace.label}</span>
                 {indicatorLabel && <small>{indicatorLabel}</small>}
               </button>
             );
           })}
         </nav>
       )}
-      {(active?.key === 'package' || active?.key === 'promotion') && (
-        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab}
-          labels={active?.key === 'package' ? { details: 'Services', connections: 'Service Connections' } : undefined} />
+      {(activeWorkspace === 'service' || activeWorkspace === 'package' || activeWorkspace === 'promotion') && (
+        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} />
       )}
-      {activeSubTab === 'details' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
+      {activeSubTab === 'details' && activeWorkspace === 'promotion' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
         <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} onOpen={onOpenPromotion ?? (() => {})} />
       )}
-      {activeSubTab === 'details' && active?.key === 'package' && scope.stationContext.type === 'service' && (
-        <>
-          <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
-          <PackageServicesTable
+      {activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
+        <PackageServicesTable
             sources={((sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined)?.sources
               ?? (state.readModelByProvider[active.key] as { sources?: PackageRelationDraft['sources'] } | undefined)?.sources
               ?? []}
@@ -287,13 +301,18 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
               replaceActiveDraft(next);
             }}
             onOpenService={(summary, edit) => onOpenService?.(summary, edit)}
-          />
-        </>
+        />
       )}
-      {activeSubTab === 'connections' && active?.key === 'package' && scope.stationContext.type === 'service' && (
+      {activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'connections' && (
         <PackageCategoryGroupsSection onChanged={() => { void reloadCategoryGroups(); }} />
       )}
-      {active?.key === 'promotion' && activeSubTab !== 'details' && (
+      {activeWorkspace === 'service' && activeSubTab === 'settings' && (
+        <div class="cz-manager-empty"><strong>No Service settings configured.</strong></div>
+      )}
+      {activeWorkspace === 'package' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
+        <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
+      )}
+      {activeWorkspace === 'promotion' && active?.key === 'promotion' && activeSubTab !== 'details' && (
         <div class="cz-manager-empty"><strong>No {activeSubTab === 'connections' ? 'connections' : 'settings'} configured.</strong></div>
       )}
 
@@ -302,10 +321,12 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       {managerNotice && <div class={managerNotice.kind === 'error' ? 'cz-admin-error-msg' : 'cz-admin-success-msg'} role="status">{managerNotice.message}</div>}
 
       {readModel !== undefined && active?.manager.sections.map((section) => {
+        if (activeWorkspace !== 'package' || active.key !== 'package') return null;
         const sectionTab: ManagerSubTab = section.id === 'rate-sheets' ? 'settings' : 'connections';
         if (activeSubTab !== sectionTab) return null;
         const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
         const projection = section.project(readModel, scope, draft);
+        if (activeSubTab === 'connections' && projection.role !== 'relations') return null;
         if (projection.role === 'rate-sheet') {
           const beginEdit = () => {
             setRateSheetError(null);
@@ -340,7 +361,6 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           return (
             <section class="cz-manager-section cz-manager-rate-sheet" key={section.id} aria-labelledby={`manager-${section.id}`}>
               <h4 id={`manager-${section.id}`}>{section.label}</h4>
-              <p class="cz-manager-section__description">Manage the pricing catalogue for this Service. Rate sheets define the available options, units, and base prices that Packages and Tiers can include.</p>
               {editingRateSheet ? (
                 <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
                   onSave={() => saveRateSheet(section)}
@@ -541,9 +561,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         const activeFilter = filterBySection[section.id] ?? 'all';
         const rows = projection.rows.filter((row) => row.filterIds.includes(activeFilter));
         return (
-          <section class="cz-manager-section" key={section.id} aria-labelledby={`manager-${section.id}`}
+          <section class="cz-manager-section cz-manager-section--content-only" key={section.id}
             onFocus={() => setSelectedSectionKey(section.id)}>
-            <h4 id={`manager-${section.id}`}>{section.label}</h4>
             <div class="cz-manager-filters" role="group" aria-label="Relationship filters">
               {projection.filters.map((filter) => (
                 <button type="button" key={filter.id} class={activeFilter === filter.id ? 'is-active' : undefined}

@@ -4361,8 +4361,8 @@ button.cz-module-status-pill {
 }
 
 .cz-manager-section { border-top: 1px solid var(--admin-border-blue); padding-top: var(--cz-space-5); }
+.cz-manager-section--content-only { border-top: 0; padding-top: 0; }
 .cz-manager-section h4 { margin: 0 0 var(--cz-space-4); font-size: var(--admin-fs-s-sub); }
-.cz-manager-section__description { margin: calc(-1 * var(--cz-space-3)) 0 var(--cz-space-4); color: var(--admin-text-muted); }
 .cz-manager-section__actions { display: flex; justify-content: flex-end; margin-bottom: var(--cz-space-3); }
 
 .cz-manager-empty__status { color: var(--admin-text-faint); }
@@ -4440,6 +4440,18 @@ button.cz-module-status-pill {
 .cz-manager-filters button.is-active { background: var(--admin-accent-a12); color: var(--admin-accent-text); font-weight: var(--admin-fw-strong); }
 
 .cz-manager-relationships td small { display: block; margin-top: var(--cz-space-1); color: var(--admin-text-muted); }
+.cz-manager-services-table-wrap { overflow-x: auto; }
+.cz-manager-services-table { min-width: 1040px; table-layout: fixed; }
+.cz-manager-services-table th { white-space: normal; overflow-wrap: anywhere; }
+.cz-manager-services-table th:nth-child(1) { width: 18%; }
+.cz-manager-services-table th:nth-child(2) { width: 16%; }
+.cz-manager-services-table th:nth-child(3) { width: 20%; }
+.cz-manager-services-table th:nth-child(4),
+.cz-manager-services-table th:nth-child(5) { width: 7%; }
+.cz-manager-services-table th:nth-child(6) { width: 18%; }
+.cz-manager-services-table th:nth-child(7) { width: 14%; }
+.cz-manager-services-table td { overflow-wrap: anywhere; }
+.cz-manager-services-table td .cz-tf-select { width: 100%; min-width: 0; }
 .cz-manager-text--attention { color: var(--admin-warning); }
 
 @media screen and (max-width: 767px) {

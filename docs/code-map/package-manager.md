@@ -6,17 +6,17 @@ Configures the Package Station’s relationship sources and manager-wide selecti
 
 ## Ownership
 
-The Package Station owns `package_manager`, rate-sheet selections, tiers, promotions, bin entries, station status, and the Package Category Group registry (`package_manager.category_groups` — permanent commercial buckets such as KAIROS, assigned to sources via `category_group_id`). Services and Service Categories stay Service-owned. The manager UI coordinates provider drafts but must not own tier lifecycle or duplicate Package Station persistence. `PackageRepository` is the independent persistence authority; a service ID is retained as routing and legacy-host context.
+The Package Station owns `package_manager`, rate-sheet selections, tiers, promotions, bin entries, status, and `package_manager.category_groups`, assigned to sources through `category_group_id`. Services stay Service-owned. The manager UI coordinates drafts but does not own lifecycle or persistence. `PackageRepository` is the persistence authority.
 
 ## Main Entry Points
 
 ### [StationManagerStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/StationManagerStep.tsx)
 
-Builds the Station Manager action config, supplies service-scoped context, hosts `DynamicStationManager`, and opens nested Promotion or Tier drawers through portal overlays. Tier-card handoff carries stable `occupantId` plus the resolved internal `slotId`; the drawer uses occupant identity while existing Tier operations retain the slot address. Use this file when changing manager navigation, overlays, Back behavior, or Package/Promotion handoffs.
+Builds the Station Manager action, hosts `DynamicStationManager`, and opens nested Promotion or Tier drawers. Tier-card handoff carries stable `occupantId` and internal `slotId`; Tier operations retain the slot address.
 
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
-Contains provider tabs/workspaces, manager drafts, Rate Sheet groups and source picker, validation summaries, dirty-exit confirmation, and coordinated Save footer behavior. Use this file when changing manager-wide UI, Rate Sheet editing, provider switching, or save/exit orchestration.
+Composes the presentation workspaces in the order Services, Packages, Promotions while retaining the existing Package and Promotion data providers. Services and Packages share the Package draft/save authority: Services owns the catalogue table, Category Groups, and a reserved Settings tab; Packages owns Tier cards, the relationship table, and Rate Sheet Settings. Use this file when changing manager-wide UI, Rate Sheet editing, provider switching, or save/exit orchestration.
 
 ### [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts)
 
@@ -25,9 +25,9 @@ Adapts Package Station data into manager sections, drafts, validation, save resu
 ## UI and Drawers
 
 - [PackageManagerTierCards.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageManagerTierCards.tsx) renders the dynamic settled-occupant collection supplied by `usePackageStation`, excluding empty fixed shells. Cards are keyed and selected by `occupant_id`, while their View/Edit handoff retains the resolved `slotId`. This surface does not yet filter occupants by Package Category Group because no Tier occupant carries a Category Group assignment.
-- [ManagerSubTabs.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/ManagerSubTabs.tsx) renders provider sub-navigation with per-provider labels (package: Services / Service Connections / Settings). Use it for manager tab labels and selection behavior.
-- [PackageServicesTable.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx) lists all catalog Services with pool counts and the Package Category Group dropdown — the connect-and-assign gesture into the provider draft. Use it for the Services tab table.
-- [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx) manages the group station (create, draft apply/discard, publish/disable, archive/trash/restore, guarded delete) under Service Connections.
+- [ManagerSubTabs.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/ManagerSubTabs.tsx) renders canonical Details / Connections / Settings navigation for Services and Packages; Promotion behavior is unchanged.
+- [PackageServicesTable.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx) is the complete Services > Details surface. It lists catalogue Services with readable fixed columns and the Category Group connect-and-assign dropdown, without a duplicate section heading.
+- [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx) presents the Package-owned group station as **Category Groups** under Services > Connections while retaining its lifecycle and guarded-delete behavior.
 - [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx) filters Rate Sheet rows by Package Category Group, Service Category, Service, Inclusion Group, status, and search.
 
 ## State and Providers

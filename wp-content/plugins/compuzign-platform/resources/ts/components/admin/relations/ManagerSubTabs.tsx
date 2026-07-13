@@ -11,8 +11,8 @@ const TAB_ORDER: ManagerSubTab[] = ['details', 'connections', 'settings'];
 export function ManagerSubTabs({ active, onChange, labels }: {
   active: ManagerSubTab;
   onChange: (tab: ManagerSubTab) => void;
-  // Per-provider tab naming (e.g. the package provider reads
-  // Services / Service Connections / Settings); ids stay stable.
+  // Optional presentation overrides; the Station Manager's primary Services
+  // and Packages workspaces use the canonical labels.
   labels?: Partial<Record<ManagerSubTab, string>>;
 }) {
   return (
