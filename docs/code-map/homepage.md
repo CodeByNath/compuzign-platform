@@ -1,0 +1,30 @@
+# Homepage
+
+## Purpose
+
+Registers the public homepage sections and provides a compact Cost Builder configurator backed by the live public catalogue projection.
+
+## Ownership
+
+The homepage runtime owns component registration and presentation. `HomeConfigurator` owns transient category, Service preview, and quote-selection state, then writes the shared browser cart before linking to the full Cost Builder. It must not own catalogue pricing or submit requests directly.
+
+## Main Entry Points
+
+- [homepage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/homepage.ts) registers every homepage component and shortcode mount condition with the runtime registry. Use it when adding, removing, or remapping a homepage section.
+- [HomeConfigurator.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/homepage/HomeConfigurator.tsx) contains category navigation, Service/Tier preview cards, Add/Remove actions, quote summary and total, cart save, and Cost Builder handoff. Use it for interactive homepage configurator state or UI.
+- [HomepageModule.php](../../wp-content/plugins/compuzign-platform/src/Modules/Homepage/HomepageModule.php) registers homepage shortcodes/templates on the server. Use it for WordPress-side section availability.
+
+## UI and State
+
+- [useCostBuilder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCostBuilder.ts) loads the shared public catalogue projection. Use it for homepage fetch state.
+- [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) persists quote selections shared with the full builder. Use it for transfer-state format.
+- [config.ts](../../wp-content/plugins/compuzign-platform/resources/ts/runtime/config.ts) reads localized runtime URLs and API configuration. Use it for Cost Builder destination configuration.
+- [configurator.php](../../wp-content/plugins/compuzign-platform/app/modules/homepage/templates/configurator.php) emits the configurator shortcode mount. Use it for server markup placement.
+
+## Runtime Flow
+
+The runtime registry mounts each homepage section independently. `HomeConfigurator` fetches the same projection as the Cost Builder, defaults to the first category, resets Service preview when category data changes, previews the popular or standard tier, builds quote items, computes a display total, saves the shared cart, and transfers the user to the configured pricing URL. It is a legitimate feature composition component, though its internal preview and dashboard components could be separated if it grows.
+
+## Related Code Maps
+
+[Cost Builder](cost-builder.md) and [Quote Builder](quote-builder.md).

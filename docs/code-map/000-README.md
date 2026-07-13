@@ -1,0 +1,34 @@
+# Repository Code Map
+
+The Code Map points to the **current implementation**: the small set of authoritative files needed to understand and safely change a subsystem. It is separate from [Project History](../project-history/000-README.md), which records completed decisions and milestones. Code maps are updated in place when code moves; completed Project History documents remain closed and immutable.
+
+## Subsystem Index
+
+- [Package Manager](package-manager.md)
+- [Service Catalogue](service-catalogue.md)
+- [Service Connections](service-connections.md)
+- [Rate Sheet](rate-sheet.md)
+- [Tiers](tiers.md)
+- [Promotions](promotions.md)
+- [Categories](categories.md)
+- [Category Groups](category-groups.md)
+- [Homepage](homepage.md)
+- [Cost Builder](cost-builder.md)
+- [Quote Builder](quote-builder.md)
+- [Drawer System](drawer-system.md)
+- [Lifecycle and Module State](lifecycle-system.md)
+
+## How to Use and Maintain This Map
+
+This README is the routing index; do not treat it as a substitute for a subsystem map. For a first-time task:
+
+1. Choose the closest subsystem from the index above. If a task crosses boundaries, begin with the primary owning subsystem and follow only its necessary **Related Code Maps** links.
+2. Read that subsystem map before searching or modifying source.
+3. Read [Project History guidance](../project-history/000-README.md) and only relevant milestone documents when historical decisions are needed or the task is major work.
+4. Open the authoritative source links from the selected map and proceed with the audit or implementation.
+
+**Do not load every Code Map file automatically. Do not load the entire Project History directory.** If no map clearly owns the task, inspect only enough source to identify the owner, then create or correct a focused map rather than reading every map.
+
+After a major change moves, adds, replaces, or removes authoritative files, update the affected map paths in place and verify every link. Keep each subsystem map at no more than 600 words. If a map begins to cover another distinct responsibility, create a new subsystem file and add it to this index rather than enlarging the existing map.
+
+Code Map maintenance does not create a historical record. After a major implementation, also ask whether a new immutable Project History document should be created; never create one automatically or rewrite a closed history document to reflect the current layout.
