@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { ActionShell } from '../ActionShell';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
-import type { SurfacePackageSummary } from '@/api/types/admin';
+import type { StationSummary, SurfacePackageSummary } from '@/api/types/admin';
 import { DynamicStationManager } from './DynamicStationManager';
 import { PromotionOverviewDrawerStep } from './PromotionOverviewDrawerStep';
 import { ServiceTierStep } from '../workstations/ServiceTierStep';
+import { ServiceViewStep } from '../workstations/ServiceViewStep';
+import { buildServiceItemForStationHandoff } from '../workstations/ServiceCatalogWorkstation';
 import type { StationManagerScope } from './types';
 
 export interface StationManagerDependencies {
@@ -47,13 +49,30 @@ export function StationManagerStep({ ctx }: { ctx: StepContext }) {
     });
   };
 
-  const openPackage = (tierId: string, edit = false) => {
+  // View/Edit from the Package Manager Services table opens the authoritative
+  // Service drawer (never a group-local model); the drawer loads its own
+  // detail and owns all editing affordances.
+  const openService = (summary: StationSummary, edit = false) => {
     setOverlay({
-      id: `package-tier-${tierId}`,
+      id: `service-view-${summary.id}${edit ? '-edit' : ''}`,
+      mode: 'drawer', title: 'Service Detail',
+      initialStepData: {
+        service: buildServiceItemForStationHandoff(summary),
+        packages: deps.packages, openAction: deps.openAction,
+        allCategories: deps.allCategories, onRefresh: deps.onRefresh,
+        initialTab: 'details',
+      },
+      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
+    });
+  };
+
+  const openPackage = (occupantId: string, slotId: string, edit = false) => {
+    setOverlay({
+      id: `package-tier-${occupantId}`,
       mode: 'drawer', title: 'Package', hideStepHeader: true,
       initialStepData: {
         serviceId: deps.service.id, service: deps.service, openAction: deps.openAction,
-        onRefresh: deps.onRefresh, initialTierId: tierId,
+        onRefresh: deps.onRefresh, initialOccupantId: occupantId, initialTierId: slotId,
         initialTierSection: edit ? 'tier-overview' : undefined,
       },
       steps: [{ id: 'package-tier', title: 'Tier Overview', component: ServiceTierStep }],
@@ -62,7 +81,7 @@ export function StationManagerStep({ ctx }: { ctx: StepContext }) {
 
   return (
     <>
-      <DynamicStationManager scope={scope} shell={ctx} onOpenPromotion={openPromotion} onOpenPackage={openPackage} />
+      <DynamicStationManager scope={scope} shell={ctx} onOpenPromotion={openPromotion} onOpenPackage={openPackage} onOpenService={openService} />
       {overlay && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 'var(--admin-z-action)' }}>
           <ActionShell

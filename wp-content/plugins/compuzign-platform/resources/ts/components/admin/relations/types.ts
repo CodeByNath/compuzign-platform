@@ -129,6 +129,10 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
         groupId: string | null;
         groupLabel: string;
         sourceAvailable: boolean;
+        // Supplying-Service provenance (optional; drives Rate Sheet filters).
+        serviceId?: number | null;
+        serviceTitle?: string | null;
+        serviceCategories?: readonly string[];
       }[];
     };
   structureControls?: {

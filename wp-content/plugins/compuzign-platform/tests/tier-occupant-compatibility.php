@@ -36,6 +36,14 @@ $ensured['module_status']['overview'] = 'pending';
 $settled = Schema::settleTierSlot($ensured);
 $detail = Schema::normaliseTierSlot($settled);
 check_tier_occupant(Schema::isOccupantFormat($settled), 'publishing migrates a flat tier into an occupant envelope');
+check_tier_occupant(
+    is_string($detail['occupant_id'] ?? null) && str_starts_with($detail['occupant_id'], 'occ_'),
+    'normalised Admin detail exposes the stored occupant id'
+);
+check_tier_occupant(
+    $detail['occupant_id'] === $settled['current_occupant']['id'],
+    'exposed occupant id is the stable stored identity'
+);
 check_tier_occupant($detail['label'] === 'Starter Cloud Updated', 'overview draft wins during flat migration');
 check_tier_occupant($detail['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2]], 'untouched Rate Sheet selections survive flat migration');
 check_tier_occupant(array_unique(array_values($settled['module_status'])) === ['settled'], 'publish settles every module exactly once');

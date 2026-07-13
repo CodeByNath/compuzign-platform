@@ -58,7 +58,7 @@ final class PackageManagerSchema
      * (Option A from the accepted Phase A audit: no write-on-read).
      *
      * @param  mixed $data
-     * @return array{sources: array<int, array>, groups: array<int, array>, items: array<int, array>, rate_sheet: array|null}
+     * @return array{sources: array<int, array>, groups: array<int, array>, category_groups: array<int, array>, items: array<int, array>, rate_sheet: array|null}
      */
     public static function sanitize(mixed $data): array
     {
@@ -69,18 +69,33 @@ final class PackageManagerSchema
         $groups   = self::sanitizeGroups($data['groups'] ?? []);
         $groupIds = array_column($groups, 'group_id');
 
+        $categoryGroups = PackageCategoryGroups::sanitizeAll($data['category_groups'] ?? []);
+        $categoryGroupIds = PackageCategoryGroups::idSet($categoryGroups);
+
+        // A source assignment must reference a live Package Category Group;
+        // an unknown id is reassigned to null (unassigned), never dropped —
+        // the same reassign-not-delete rule the decorative groups use.
+        $sources = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($data['sources'] ?? []);
+        foreach ($sources as &$source) {
+            if ($source['category_group_id'] !== null && !isset($categoryGroupIds[$source['category_group_id']])) {
+                $source['category_group_id'] = null;
+            }
+        }
+        unset($source);
+
         return [
-            'sources' => \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($data['sources'] ?? []),
+            'sources' => $sources,
             'groups' => $groups,
+            'category_groups' => $categoryGroups,
             'items'  => self::sanitizeItems($data['items'] ?? [], $groupIds),
             'rate_sheet' => self::sanitizeRateSheet($data['rate_sheet'] ?? null),
         ];
     }
 
-    /** @return array{sources: array, groups: array, items: array, rate_sheet: null} */
+    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheet: null} */
     public static function defaultManager(): array
     {
-        return ['sources' => [], 'groups' => [], 'items' => [], 'rate_sheet' => null];
+        return ['sources' => [], 'groups' => [], 'category_groups' => [], 'items' => [], 'rate_sheet' => null];
     }
 
     /**
@@ -90,7 +105,7 @@ final class PackageManagerSchema
      */
     public static function hasConfiguration(array $storedManager): bool
     {
-        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']);
+        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']);
     }
 
     /**
@@ -453,6 +468,9 @@ final class PackageManagerSchema
         return self::sanitize([
             'sources' => $submittedSources,
             'groups' => $groups,
+            // The group registry has its own station lifecycle endpoints; a
+            // manager configuration commit never creates or removes groups.
+            'category_groups' => $stored['category_groups'],
             'items' => $items,
             'rate_sheet' => $rateSheet,
         ]);
@@ -651,6 +669,7 @@ final class PackageManagerSchema
                 : null;
             $sourceAvailable = self::sourceAvailability($item['source_type'], $item['source_id'], $inclusionPool, $faqPool);
             $operational = self::deriveOperationalState($item, $matchingSources, $platformStatus, $sourceAvailable);
+            $provenance = self::sourceProvenance($item['source_type'], $item['source_id'], $inclusionPool, $faqPool);
 
             $outItems[] = [
                 'item_id'           => $item['item_id'],
@@ -667,6 +686,12 @@ final class PackageManagerSchema
                 'operational_state' => $operational['operational_state'],
                 'health_reasons'    => $operational['health_reasons'],
                 'module_transition' => $item['module_transition'],
+                // Live-resolved supplying-Service provenance (admin read model
+                // only — never enters commercial projections): drives the Rate
+                // Sheet filters and the group dependency guard.
+                'source_service_id'    => $provenance['service_id'],
+                'source_service_title' => $provenance['service_title'],
+                'source_categories'    => $provenance['categories'],
             ];
         }
 
@@ -676,10 +701,40 @@ final class PackageManagerSchema
             'platform_status'   => $platformStatus,
             'has_configuration' => self::hasConfiguration($storedManager),
             'groups'            => $groups,
+            'category_groups'   => array_map(
+                static fn(array $group): array => PackageCategoryGroups::projection($group),
+                is_array($storedManager['category_groups'] ?? null) ? $storedManager['category_groups'] : []
+            ),
             'items'             => $outItems,
             'rate_sheet'        => $storedManager['rate_sheet'] ?? null,
             'projections'       => self::buildConsumerProjections($outItems, $platformStatus),
         ];
+    }
+
+    /**
+     * Supplying-Service provenance carried on pool entries by
+     * PackageRepository::sourcePools (`_source_service_id` etc). Null-safe for
+     * pools built without provenance (tests, legacy callers) and for missing
+     * sources.
+     *
+     * @return array{service_id: int|null, service_title: string|null, categories: array<int, string>}
+     */
+    private static function sourceProvenance(string $sourceType, string $sourceId, array $inclusionPool, array $faqPool): array
+    {
+        $pool = $sourceType === 'inclusion' ? $inclusionPool : ($sourceType === 'faq' ? $faqPool : []);
+        foreach ($pool as $entry) {
+            if (!is_array($entry) || (string) ($entry['id'] ?? '') !== $sourceId) {
+                continue;
+            }
+            return [
+                'service_id'    => isset($entry['_source_service_id']) ? (int) $entry['_source_service_id'] : null,
+                'service_title' => isset($entry['_source_service_title']) ? (string) $entry['_source_service_title'] : null,
+                'categories'    => is_array($entry['_source_categories'] ?? null)
+                    ? array_values(array_map('strval', $entry['_source_categories']))
+                    : [],
+            ];
+        }
+        return ['service_id' => null, 'service_title' => null, 'categories' => []];
     }
 
     private static function countSourceMatches(

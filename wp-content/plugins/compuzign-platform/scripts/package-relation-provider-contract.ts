@@ -33,6 +33,7 @@ const readModel: PackageRelationReadModel = {
   has_configuration: true,
   sources: [],
   groups: [{ group_id: 'core', label: 'Core', sort_order: 0 }],
+  category_groups: [],
   items: [
     {
       item_id: 'mgr_feature', source_type: 'inclusion', source_id: 'feature',
@@ -55,8 +56,9 @@ const readModel: PackageRelationReadModel = {
     id: 'essential',
     label: 'Essential',
     detail: {
-      label: 'Essential', price: 10, contact: false, billing_cycle: 'monthly',
+      label: 'Essential', ideal_for: '', price: 10, contact: false, billing_cycle: 'monthly',
       inclusions_override: [{ id: 'feature', label: 'Feature' }], features: [],
+      rate_sheet_items: [], rate_sheet_selections: [],
       faq_refs: ['question'], enabled: true,
     },
     status: 'active',
@@ -233,8 +235,9 @@ readOnlyState = seedProviderReadModel(readOnlyState, readOnly, scope, { changed:
 check(!managerIsDirty(readOnlyState, [readOnly]), 'read-only providers cannot contribute dirty state');
 
 const inheritedTier = {
-  label: 'Essential', price: 10, contact: false, billing_cycle: 'monthly',
-  inclusions_override: [], features: [], faq_refs: ['question'], enabled: true,
+  label: 'Essential', ideal_for: '', price: 10, contact: false, billing_cycle: 'monthly',
+  inclusions_override: [], features: [], rate_sheet_items: [], rate_sheet_selections: [],
+  faq_refs: ['question'], enabled: true,
 };
 const inheritedProjection = await projectPackageReadModelForTier(readModel, inheritedTier, readModel.tierSubjects);
 check(inheritedProjection.items.map((item) => item.item_id).join(',') === 'mgr_feature,mgr_question', 'Tier projection retains canonical Package item ids');

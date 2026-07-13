@@ -3,9 +3,12 @@ import { usePackageStation } from '@/hooks/usePackageStation';
 import { ReadBlock } from '../ReadBlock';
 import { MODULE_ICONS } from '../schema/icons';
 import { getTierNotes } from '../utils/moduleNotifications';
-import { TIER_KEYS, TIER_LABELS } from '../workstations/serviceDrawerShared';
+import { TIER_LABELS } from '../workstations/serviceDrawerShared';
 
-export function PackageManagerTierCards({ serviceId, onOpen }: { serviceId: number; onOpen: (tierId: string, edit?: boolean) => void }) {
+export function PackageManagerTierCards({ serviceId, onOpen }: {
+  serviceId: number;
+  onOpen: (occupantId: string, slotId: string, edit?: boolean) => void;
+}) {
   const pkg = usePackageStation(serviceId);
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   if (!pkg.detailLoaded) return <p class="cz-sp-tier-table__muted">Loading Packages…</p>;
@@ -13,26 +16,26 @@ export function PackageManagerTierCards({ serviceId, onOpen }: { serviceId: numb
   return (
     <section class="cz-manager-packages" aria-label="Packages">
       <div class="cz-manager-summary-grid">
-        {TIER_KEYS.map((tierId) => {
-          const view = pkg.tierView(tierId);
+        {pkg.tierOccupants.map(({ occupantId, slotId }) => {
+          const view = pkg.tierView(slotId);
           const detail = view?.detail;
           const price = detail?.price ?? null;
           const inclusions = detail?.inclusions_override.length ?? 0;
           const faqs = detail?.faq_refs.length ?? 0;
           return (
             <ReadBlock
-              key={tierId}
-              title={`Package ${detail?.label?.trim() || TIER_LABELS[tierId]}`}
+              key={occupantId}
+              title={`Package ${detail?.label?.trim() || TIER_LABELS[slotId] || slotId}`}
               subtitle="Pricing and inclusions for this tier."
               icon={MODULE_ICONS.package}
               scopeClass="drawerOverview tier cz-manager-summary-card"
               status={view?.status ?? 'pending-dim'}
               notes={detail ? getTierNotes(detail, { platformStatus: pkg.platformStatus }) : []}
-              panelOpen={openPanel === tierId}
-              onTogglePanel={() => setOpenPanel((current) => current === tierId ? null : tierId)}
+              panelOpen={openPanel === occupantId}
+              onTogglePanel={() => setOpenPanel((current) => current === occupantId ? null : occupantId)}
               actions={[
-                { id: 'view', label: 'View', onSelect: () => onOpen(tierId) },
-                { id: 'edit', label: 'Edit', onSelect: () => onOpen(tierId, true) },
+                { id: 'view', label: 'View', onSelect: () => onOpen(occupantId, slotId) },
+                { id: 'edit', label: 'Edit', onSelect: () => onOpen(occupantId, slotId, true) },
               ]}
             >
               <div class="drawerModule__fields">

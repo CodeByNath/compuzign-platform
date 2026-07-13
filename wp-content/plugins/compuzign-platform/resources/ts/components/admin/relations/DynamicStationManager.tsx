@@ -4,10 +4,16 @@ import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
 import { ReadBlock } from '../ReadBlock';
 import { InlineEditorShell } from '../InlineEditorShell';
-import { fetchAdminCatalog } from '@/api/endpoints/admin';
-import type { AdminCatalogResponse } from '@/api/types/admin';
+import { fetchAdminCatalog, fetchPackageCategoryGroups } from '@/api/endpoints/admin';
+import type { AdminCatalogResponse, PackageCategoryGroupItem, StationSummary } from '@/api/types/admin';
 import { relationProvidersFor } from './registry';
 import type { ManagerContinuation, StationManagerScope } from './types';
+import { assignPackageServiceCategoryGroup } from './providers/package';
+import type { PackageRelationDraft } from './providers/package';
+import { PackageServicesTable } from './PackageServicesTable';
+import { PackageCategoryGroupsSection } from './PackageCategoryGroupsSection';
+import { PackageRateSheetFilters, RATE_SHEET_FILTER_DEFAULTS, filterRateSheetItems } from './PackageRateSheetFilters';
+import type { RateSheetFilterState } from './PackageRateSheetFilters';
 import {
   applyProviderSaveResults, collectManagerValidation, createManagerCoordinatorState, managerFooterState, managerIsDirty,
   orderManagerProviders, providerCompositionIndicator, resetManagerDrafts,
@@ -34,12 +40,13 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
   onOpenPromotion?: (promotionId?: string, edit?: boolean) => void;
-  onOpenPackage?: (tierId: string, edit?: boolean) => void;
+  onOpenPackage?: (occupantId: string, slotId: string, edit?: boolean) => void;
+  onOpenService?: (summary: StationSummary, edit?: boolean) => void;
 }) {
   const [scope] = useState(initialScope);
   const currentScopeKey = scopeKey(scope);
@@ -79,7 +86,24 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [pendingOnboardIds, setPendingOnboardIds] = useState<string[]>([]);
   const [sourcePreviewDraft, setSourcePreviewDraft] = useState<unknown | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<ManagerSubTab>('details');
+  const [categoryGroups, setCategoryGroups] = useState<PackageCategoryGroupItem[]>([]);
+  const [rateSheetFilters, setRateSheetFilters] = useState<RateSheetFilterState>(RATE_SHEET_FILTER_DEFAULTS);
   const temporaryGroupSequence = useRef(0);
+
+  // Package Category Group registry — shared by the Services table dropdowns
+  // and the Rate Sheet filters; the management section reloads it on change.
+  const reloadCategoryGroups = useCallback(async () => {
+    try {
+      const response = await fetchPackageCategoryGroups();
+      setCategoryGroups(response.package_category_groups);
+    } catch {
+      // Non-fatal: dropdowns simply stay empty; the section shows its own error.
+    }
+  }, []);
+  const hasPackageProvider = providers.some((provider) => provider.key === 'package');
+  useEffect(() => {
+    if (hasPackageProvider) void reloadCategoryGroups();
+  }, [hasPackageProvider, reloadCategoryGroups]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -240,13 +264,34 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         </nav>
       )}
       {(active?.key === 'package' || active?.key === 'promotion') && (
-        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} />
+        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab}
+          labels={active?.key === 'package' ? { details: 'Services', connections: 'Service Connections' } : undefined} />
       )}
       {activeSubTab === 'details' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
         <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} onOpen={onOpenPromotion ?? (() => {})} />
       )}
       {activeSubTab === 'details' && active?.key === 'package' && scope.stationContext.type === 'service' && (
-        <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
+        <>
+          <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
+          <PackageServicesTable
+            sources={((sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined)?.sources
+              ?? (state.readModelByProvider[active.key] as { sources?: PackageRelationDraft['sources'] } | undefined)?.sources
+              ?? []}
+            categoryGroups={categoryGroups}
+            hostServiceId={Number(scope.stationContext.id)}
+            onAssign={(serviceId, groupId) => {
+              const base = (sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined;
+              if (base === undefined) return;
+              const next = assignPackageServiceCategoryGroup(base, serviceId, groupId, Number(scope.stationContext.id));
+              if (sourcePreviewDraft !== null) setSourcePreviewDraft(next);
+              replaceActiveDraft(next);
+            }}
+            onOpenService={(summary, edit) => onOpenService?.(summary, edit)}
+          />
+        </>
+      )}
+      {activeSubTab === 'connections' && active?.key === 'package' && scope.stationContext.type === 'service' && (
+        <PackageCategoryGroupsSection onChanged={() => { void reloadCategoryGroups(); }} />
       )}
       {active?.key === 'promotion' && activeSubTab !== 'details' && (
         <div class="cz-manager-empty"><strong>No {activeSubTab === 'connections' ? 'connections' : 'settings'} configured.</strong></div>
@@ -384,9 +429,33 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
               ) : (
                 <div class="cz-manager-rate-sheet__catalogue">
                   <div class="cz-manager-section__actions"><strong>{projection.title}</strong><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Edit Rate Sheet</button></div>
-                  <div class="cz-sp-tier-table-wrap"><table class="cz-sp-tier-table"><thead><tr><th>Option</th><th>Unit Price</th><th>Per</th><th>Quantity</th><th>Group</th></tr></thead>
-                    <tbody>{projection.items.map((item) => <tr key={item.id}><td class="cz-sp-tier-table__name">{item.optionLabel}</td><td>${item.unitPrice.toFixed(2)}</td><td>{item.per}</td><td>{item.quantity}</td><td>{item.groupLabel}</td></tr>)}</tbody>
-                  </table></div>
+                  <PackageRateSheetFilters
+                    items={projection.items}
+                    sources={((draft as PackageRelationDraft | undefined)?.sources) ?? []}
+                    categoryGroups={categoryGroups}
+                    rateGroups={projection.groups}
+                    value={rateSheetFilters}
+                    onChange={setRateSheetFilters}
+                  />
+                  {(() => {
+                    const visibleItems = filterRateSheetItems(
+                      projection.items,
+                      ((draft as PackageRelationDraft | undefined)?.sources) ?? [],
+                      rateSheetFilters,
+                    );
+                    return visibleItems.length === 0 ? (
+                      <div class="cz-manager-empty"><strong>No Rate Sheet rows match the current filters.</strong></div>
+                    ) : (
+                      <div class="cz-sp-tier-table-wrap"><table class="cz-sp-tier-table"><thead><tr><th>Option</th><th>Service</th><th>Service Category</th><th>Unit Price</th><th>Per</th><th>Quantity</th><th>Group</th></tr></thead>
+                        <tbody>{visibleItems.map((item) => <tr key={item.id}>
+                          <td class="cz-sp-tier-table__name">{item.optionLabel}</td>
+                          <td class="cz-sp-tier-table__muted">{item.serviceTitle ?? '—'}</td>
+                          <td class="cz-sp-tier-table__muted">{(item.serviceCategories?.length ?? 0) > 0 ? item.serviceCategories!.join(', ') : '—'}</td>
+                          <td>${item.unitPrice.toFixed(2)}</td><td>{item.per}</td><td>{item.quantity}</td><td>{item.groupLabel}</td>
+                        </tr>)}</tbody>
+                      </table></div>
+                    );
+                  })()}
                 </div>
               )}
             </section>

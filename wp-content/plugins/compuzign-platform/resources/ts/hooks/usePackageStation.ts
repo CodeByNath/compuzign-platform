@@ -40,6 +40,8 @@ import {
 } from '@/components/admin/utils/moduleNotifications';
 import type { ModuleState } from '@/components/admin/utils/moduleNotifications';
 import { patchTierModuleDraft } from './stationPrimitives';
+import { deriveTierOccupants, resolveTierOccupantSlot } from '@/components/admin/utils/tierOccupants';
+import type { TierOccupant } from '@/components/admin/utils/tierOccupants';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
 //
@@ -129,6 +131,9 @@ export interface PackageStation {
   platformStatus: string;
   popularTier:    string | null;
   popularLabel:   string;
+  // Dynamic settled occupants for Admin cards. slotId remains the mutation key.
+  tierOccupants:  TierOccupant<PackageStationTier>[];
+  resolveOccupantSlot: (occupantId: string) => string | null;
   // Draft-preferred view of one tier (null until loaded / unknown tier).
   tierView:       (tierId: string) => PackageStationTierView | null;
   // Per-module persist-through saves (draft) — patch the source in place.
@@ -177,6 +182,11 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
 
   const station        = detail?.station ?? null;
   const platformStatus = station?.platform_status ?? 'disabled';
+  const tierOccupants  = deriveTierOccupants(station?.tiers ?? {});
+  const resolveOccupantSlot = useCallback(
+    (occupantId: string) => resolveTierOccupantSlot(detail?.station.tiers ?? {}, occupantId),
+    [detail],
+  );
 
   const tierView = useCallback((tierId: string): PackageStationTierView | null => {
     const slot = detail?.station.tiers[tierId];
@@ -464,6 +474,8 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     platformStatus,
     popularTier:    station?.popular_tier ?? null,
     popularLabel:   station?.popular_label ?? '',
+    tierOccupants,
+    resolveOccupantSlot,
     tierView,
     saveTierOverview,
     saveTierFeatures,

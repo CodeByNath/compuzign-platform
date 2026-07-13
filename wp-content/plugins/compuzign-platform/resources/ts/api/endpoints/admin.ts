@@ -40,6 +40,9 @@ import type {
   CategoryGroupMutationResponse,
   CategoryGroupOverviewDraft,
   CategoryGroupOverviewSaveResponse,
+  PackageCategoryGroupDeleteResponse,
+  PackageCategoryGroupListResponse,
+  PackageCategoryGroupMutationResponse,
   InclusionItem,
   RequestEntry,
   ServiceFaqsPayload,
@@ -237,6 +240,61 @@ export function restoreCategoryGroup(groupId: number): Promise<CategoryGroupMuta
 // throws; the error text carries { message, assigned_count }).
 export function permanentDeleteCategoryGroup(groupId: number): Promise<CategoryGroupDeleteResponse> {
   return apiClient.delete<CategoryGroupDeleteResponse>(`admin/category-groups/${groupId}`);
+}
+
+// The /admin/package-category-groups family — the Package-owned commercial
+// bucket station (e.g. KAIROS). Same route grammar as the taxonomy Category
+// Group station; storage is the single cz_package_station authority.
+export function fetchPackageCategoryGroups(
+  platformStatus?: 'archived' | 'trashed',
+): Promise<PackageCategoryGroupListResponse> {
+  const path = platformStatus
+    ? `admin/package-category-groups?platform_status=${platformStatus}`
+    : 'admin/package-category-groups';
+  return apiClient.get<PackageCategoryGroupListResponse>(path);
+}
+
+// Station create — born disabled, overview pending.
+export function createPackageCategoryGroup(payload: {
+  name: string;
+  description?: string;
+}): Promise<PackageCategoryGroupMutationResponse> {
+  return apiClient.post<PackageCategoryGroupMutationResponse>('admin/package-category-groups', payload);
+}
+
+export function savePackageCategoryGroupOverview(
+  groupId: string,
+  payload: { name: string; description: string },
+): Promise<PackageCategoryGroupMutationResponse> {
+  return apiClient.put<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/overview`, payload);
+}
+
+export function settlePackageCategoryGroupOverview(groupId: string): Promise<PackageCategoryGroupMutationResponse> {
+  return apiClient.post<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/overview/settle`, {});
+}
+
+export function revertPackageCategoryGroupOverview(groupId: string): Promise<PackageCategoryGroupMutationResponse> {
+  return apiClient.post<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/overview/revert`, {});
+}
+
+export function updatePackageCategoryGroupStatus(
+  groupId: string,
+  platformStatus: 'active' | 'disabled' | 'archived' | 'trashed',
+): Promise<PackageCategoryGroupMutationResponse> {
+  return apiClient.patch<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/status`, {
+    platform_status: platformStatus,
+  });
+}
+
+// Server-driven restore — resolves previous_platform_status, lands disabled.
+export function restorePackageCategoryGroup(groupId: string): Promise<PackageCategoryGroupMutationResponse> {
+  return apiClient.post<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/restore`, {});
+}
+
+// Trashed-only. A dependency-guard failure is an HTTP 409 (apiClient throws;
+// the error text carries { message, assigned_count, dependents }).
+export function permanentDeletePackageCategoryGroup(groupId: string): Promise<PackageCategoryGroupDeleteResponse> {
+  return apiClient.delete<PackageCategoryGroupDeleteResponse>(`admin/package-category-groups/${groupId}`);
 }
 
 

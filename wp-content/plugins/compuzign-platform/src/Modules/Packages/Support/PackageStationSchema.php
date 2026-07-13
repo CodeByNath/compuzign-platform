@@ -38,8 +38,11 @@ final class PackageStationSchema
     /**
      * Package-owned supply identity. Providers resolve presentation and
      * exposed content; Package persists only the durable generic relationship.
+     * category_group_id is the Package-owned commercial bucket assignment
+     * (Package Category Group, e.g. KAIROS) — existence against the group
+     * registry is normalised by the Manager layer, not here.
      *
-     * @return array<int, array{relationship_id:string,provider_key:string,entity_type:string,entity_id:string|int,sort_order:int}>
+     * @return array<int, array{relationship_id:string,provider_key:string,entity_type:string,entity_id:string|int,sort_order:int,category_group_id:string|null}>
      */
     public static function sanitizeSourceRelationships(mixed $value): array
     {
@@ -65,12 +68,14 @@ final class PackageStationSchema
             if ($relationshipId === '') {
                 $relationshipId = 'source_' . substr(hash('sha256', $identity), 0, 16);
             }
+            $categoryGroupId = self::text($source['category_group_id'] ?? '');
             $out[] = [
                 'relationship_id' => $relationshipId,
                 'provider_key' => $providerKey,
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
                 'sort_order' => count($out),
+                'category_group_id' => $categoryGroupId !== '' ? $categoryGroupId : null,
             ];
         }
         return $out;

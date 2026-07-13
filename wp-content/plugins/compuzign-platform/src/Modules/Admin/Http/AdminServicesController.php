@@ -533,6 +533,11 @@ class AdminServicesController
                 'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
             ], $postTerms);
 
+            // Pool sizes for the Package Manager Services table — counts only;
+            // the Service-owned pool content itself never leaves the Service.
+            $rawInclusions = get_post_meta($post->ID, 'cz_service_inclusions', true);
+            $rawFaqs       = get_post_meta($post->ID, 'cz_service_faqs', true);
+
             $stations[] = [
                 'id'                       => $post->ID,
                 'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
@@ -544,6 +549,8 @@ class AdminServicesController
                 'has_drafts'               => $this->hasDraft($post->ID, 'overview')
                                            || $this->hasDraft($post->ID, 'inclusions')
                                            || $this->hasDraft($post->ID, 'faqs'),
+                'inclusion_count'          => is_array($rawInclusions['inclusions'] ?? null) ? count($rawInclusions['inclusions']) : 0,
+                'faq_count'                => is_array($rawFaqs) ? count($rawFaqs) : 0,
             ];
         }
 

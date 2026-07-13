@@ -1,21 +1,26 @@
 export type ManagerSubTab = 'details' | 'connections' | 'settings';
 
-const TABS: { id: ManagerSubTab; label: string }[] = [
-  { id: 'details', label: 'Details' },
-  { id: 'connections', label: 'Connections' },
-  { id: 'settings', label: 'Settings' },
-];
+const DEFAULT_LABELS: Record<ManagerSubTab, string> = {
+  details: 'Details',
+  connections: 'Connections',
+  settings: 'Settings',
+};
 
-export function ManagerSubTabs({ active, onChange }: {
+const TAB_ORDER: ManagerSubTab[] = ['details', 'connections', 'settings'];
+
+export function ManagerSubTabs({ active, onChange, labels }: {
   active: ManagerSubTab;
   onChange: (tab: ManagerSubTab) => void;
+  // Per-provider tab naming (e.g. the package provider reads
+  // Services / Service Connections / Settings); ids stay stable.
+  labels?: Partial<Record<ManagerSubTab, string>>;
 }) {
   return (
     <nav class="cz-manager-subtabs" aria-label="Manager sections">
-      {TABS.map((tab) => (
-        <button type="button" key={tab.id} class={active === tab.id ? 'is-active' : undefined}
-          aria-current={active === tab.id ? 'page' : undefined} onClick={() => onChange(tab.id)}>
-          {tab.label}
+      {TAB_ORDER.map((tab) => (
+        <button type="button" key={tab} class={active === tab ? 'is-active' : undefined}
+          aria-current={active === tab ? 'page' : undefined} onClick={() => onChange(tab)}>
+          {labels?.[tab] ?? DEFAULT_LABELS[tab]}
         </button>
       ))}
     </nav>

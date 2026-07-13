@@ -231,23 +231,60 @@ class PackageRepository
             $prefix = $sourceServiceId === $hostId ? '' : 'service:' . $sourceServiceId . ':';
             $serviceMeta = get_post_meta($sourceServiceId, 'cz_service_meta', true);
             $sourceAvailable = is_array($serviceMeta) && ($serviceMeta['platform_status'] ?? 'disabled') === 'active';
+            // Supplying-Service provenance for the admin read model (Rate Sheet
+            // filters, group dependency guards). Category names are the
+            // Service-owned category-role terms only — group-role terms are a
+            // different station and never read as a Service Category.
+            $provenance = [
+                '_source_available'     => $sourceAvailable,
+                '_source_service_id'    => $sourceServiceId,
+                '_source_service_title' => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                '_source_categories'    => $this->serviceCategoryNames($sourceServiceId),
+            ];
             $rawInc = get_post_meta($sourceServiceId, 'cz_service_inclusions', true) ?: [];
             foreach ((isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [] as $item) {
                 if (!is_array($item) || empty($item['id'])) {
                     continue;
                 }
-                $inclusions[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
+                $inclusions[] = [...$item, 'id' => $prefix . (string) $item['id'], ...$provenance];
             }
             $rawFaqs = get_post_meta($sourceServiceId, 'cz_service_faqs', true) ?: [];
             foreach (is_array($rawFaqs) ? $rawFaqs : [] as $item) {
                 if (!is_array($item) || empty($item['id'])) {
                     continue;
                 }
-                $faqs[] = [...$item, 'id' => $prefix . (string) $item['id'], '_source_available' => $sourceAvailable];
+                $faqs[] = [...$item, 'id' => $prefix . (string) $item['id'], ...$provenance];
             }
         }
 
         return [$inclusions, $faqs];
+    }
+
+    /**
+     * Service-owned category names for a supplying service — category-role
+     * terms only. A group-role term shares the taxonomy but is a different
+     * station (Category Group) and must never read as a Service Category.
+     *
+     * @return string[]
+     */
+    private function serviceCategoryNames(int $serviceId): array
+    {
+        $terms = wp_get_post_terms($serviceId, \CompuZign\Platform\Modules\Admin\Support\CategoryMeta::TAXONOMY, ['fields' => 'all']);
+        if (!is_array($terms)) {
+            return [];
+        }
+        $names = [];
+        foreach ($terms as $term) {
+            if (!$term instanceof \WP_Term) {
+                continue;
+            }
+            if (\CompuZign\Platform\Modules\Admin\Support\CategoryMeta::role((int) $term->term_id)
+                !== \CompuZign\Platform\Modules\Admin\Support\CategoryMeta::STATION_ROLE_CATEGORY) {
+                continue;
+            }
+            $names[] = html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        return $names;
     }
 
     /**

@@ -14,12 +14,13 @@ This file defines the repository working standard for all AI assistants. If your
 
 Follow this path for every subsystem audit or implementation:
 
-1. Start at `docs/code-map/000-README.md` and choose only the subsystem map relevant to the task.
-2. Read that subsystem map before searching or modifying its source.
-3. Read `docs/project-history/000-README.md` and only the history documents relevant to the task when historical decisions are needed or the work is a major implementation, migration, refactor, repair, or architectural change.
-4. Open the authoritative source linked by the selected map, then audit or implement the change.
-5. After a major change moves, adds, replaces, or removes authoritative files, update the affected Code Map in place and verify its links.
-6. Before closing a qualifying major milestone, ask whether a new immutable Project History document should be created. Never create one automatically.
+1. Read the nearest local `CLAUDE.md` when one exists for the source folder. Its current audit metadata and boundaries should prevent unnecessary full re-audits; verify changed or undocumented areas only.
+2. Start at `docs/code-map/000-README.md` and choose only the subsystem map relevant to the task.
+3. Read that subsystem map before searching or modifying its source.
+4. Read `docs/project-history/000-README.md` and only the history documents relevant to the task when historical decisions are needed or the work is a major implementation, migration, refactor, repair, or architectural change.
+5. Open the authoritative source linked by the selected map, then audit or implement the change.
+6. After relevant changes, update the nearest local `CLAUDE.md` and affected Code Map when their ownership, paths, dependencies, persistence, runtime flow, or boundaries changed; verify documented paths.
+7. Before closing a qualifying major milestone, ask whether a new immutable Project History document should be created. Never create one automatically.
 
 Do not load the entire Code Map or Project History directories. Do not read unrelated subsystem maps or history documents.
 

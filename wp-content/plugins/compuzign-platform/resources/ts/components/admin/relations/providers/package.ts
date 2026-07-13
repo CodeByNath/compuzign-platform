@@ -235,9 +235,52 @@ export function connectPackageServiceSources(
       relationship_id: `source_service_${entityId}`,
       provider_key: 'service', entity_type: 'service', entity_id: entityId,
       sort_order: sources.length,
+      category_group_id: null,
     });
   }
   return { ...draft, sources };
+}
+
+/**
+ * Assign a connected Service to a Package Category Group (e.g. KAIROS), or
+ * unassign with null. An unconnected Service is connected first — selecting a
+ * group in the Services table IS the connect-and-assign gesture. The legacy
+ * empty-sources station promotes its host into an explicit source first, same
+ * rule as resolvePackageServiceSources, so host supply keeps resolving.
+ */
+export function assignPackageServiceCategoryGroup(
+  draft: PackageRelationDraft,
+  serviceId: number,
+  categoryGroupId: string | null,
+  hostServiceId: number,
+): PackageRelationDraft {
+  const idsToConnect = draft.sources.length === 0 && hostServiceId > 0
+    ? Array.from(new Set([hostServiceId, serviceId]))
+    : [serviceId];
+  const connected = connectPackageServiceSources(draft, idsToConnect);
+  return {
+    ...connected,
+    sources: connected.sources.map((source) => (
+      source.provider_key === 'service'
+        && source.entity_type === 'service'
+        && Number(source.entity_id) === serviceId
+        ? { ...source, category_group_id: categoryGroupId }
+        : source
+    )),
+  };
+}
+
+/** The draft's current group assignment for a Service; null = connected but unassigned, undefined = not connected. */
+export function packageServiceCategoryGroup(
+  draft: Pick<PackageRelationDraft, 'sources'>,
+  serviceId: number,
+): string | null | undefined {
+  const source = draft.sources.find((candidate) => (
+    candidate.provider_key === 'service'
+    && candidate.entity_type === 'service'
+    && Number(candidate.entity_id) === serviceId
+  ));
+  return source ? source.category_group_id ?? null : undefined;
 }
 
 async function canonicalRateSheetItemId(sourceItemId: string): Promise<string> {
@@ -276,6 +319,9 @@ export async function resolvePackageServiceSources(
         resolved: candidate.resolved, decorated_label: null, group_id: null,
         sort_order: connected.itemsById ? Object.keys(connected.itemsById).length + previewItems.length : previewItems.length,
         disabled: false, missing: false, module_transition: 'not-configured',
+        source_service_id: detail.id,
+        source_service_title: detail.title,
+        source_categories: detail.categories.map((category) => category.name),
       };
       existingPreview.set(itemId, item);
       previewItems.push(item);
@@ -451,6 +497,9 @@ export const packageRelationProvider: WritableRelationProvider<
               groupLabel: item.group_id ? groupLabels.get(item.group_id) ?? 'Unknown group' : 'Ungrouped',
               sourceAvailable: sourceItems.get(item.source_item_id)?.available !== false
                 && !sourceItems.get(item.source_item_id)?.missing,
+              serviceId: sourceItems.get(item.source_item_id)?.source_service_id ?? null,
+              serviceTitle: sourceItems.get(item.source_item_id)?.source_service_title ?? null,
+              serviceCategories: sourceItems.get(item.source_item_id)?.source_categories ?? [],
             })),
           };
         },
@@ -609,6 +658,21 @@ export const packageRelationProvider: WritableRelationProvider<
   validate: (draft, readModel) => {
     const issues: ProviderValidationIssue[] = [];
     const groupIds = new Set<string>();
+
+    // A source's commercial assignment must reference a group in the Package
+    // Category Group registry (any lifecycle state — assignments survive a
+    // group being binned; sanitize nulls only genuinely deleted groups).
+    const categoryGroupIds = new Set(readModel.category_groups.map((group) => group.group_id));
+    draft.sources.forEach((source, index) => {
+      const assignment = source.category_group_id ?? null;
+      if (assignment !== null && !categoryGroupIds.has(assignment)) {
+        issues.push({
+          path: `sources.${index}.category_group_id`,
+          rowIdentity: source.relationship_id,
+          message: 'Assignment references an unknown Package Category Group.',
+        });
+      }
+    });
 
     const orderedGroups = [...draft.groups].sort((a, b) => a.sort_order - b.sort_order);
     orderedGroups.forEach((group, index) => {

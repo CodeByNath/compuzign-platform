@@ -62,7 +62,7 @@ const fixture: ActivePackageContractFixture = {
 
 const frozenBefore = JSON.stringify(fixture);
 const scope = { kind: 'connection-graph' as const, stationContext: { type: 'service' as const, id: 42 } };
-let receivedScope = scope;
+let receivedScope: unknown = scope;
 let receivedSignal: AbortSignal | undefined;
 const provider = createActivePackageReadOnlyProvider(async (candidate, signal) => {
   receivedScope = candidate;

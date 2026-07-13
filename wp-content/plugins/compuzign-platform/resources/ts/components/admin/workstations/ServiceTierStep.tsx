@@ -86,6 +86,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const svc     = pkg.service;
 
   const initialTierId = ctx.stepData.initialTierId as string | undefined;
+  const initialOccupantId = ctx.stepData.initialOccupantId as string | undefined;
   const initialTierSection = ctx.stepData.initialTierSection as 'tier-overview' | undefined;
   const [editingTierId, setEditingTierId] = useState<string | null>(initialTierId ?? null);
   // Single Individual Tier drawer: editingSection === null → tier view (3 module cards);
@@ -108,6 +109,15 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   // Package overview view: Details (tier cards + pricing) | Connections (parent service).
   const [overviewTab, setOverviewTab] = useState<DrawerBaseTabId>('details');
+
+  // Cards hand off both identities. Re-resolve the stable occupant id after
+  // loading so stale card content can never address lifecycle mutations to the
+  // wrong shell; all existing operations continue to receive the slot id.
+  useEffect(() => {
+    if (!initialOccupantId || !pkg.detailLoaded) return;
+    const resolvedSlotId = pkg.resolveOccupantSlot(initialOccupantId);
+    if (resolvedSlotId) setEditingTierId(resolvedSlotId);
+  }, [initialOccupantId, pkg.detailLoaded, pkg.resolveOccupantSlot]);
 
   // Section editors own transient, unsaved state. Keep every shell exit on the
   // canonical guarded-close path; the editor's Cancel control has its own
@@ -657,7 +667,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
 
         {listView === 'current' && (
         <>
-        {TIER_KEYS.map((tierId) => {
+        {pkg.tierOccupants.map(({ occupantId, slotId: tierId }) => {
           const view       = pkg.tierView(tierId);
           const detail     = view?.detail;
           const status     = view ? view.status : 'not-configured';
@@ -673,7 +683,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
           const tierNotes  = detail ? getTierNotes(detail, { platformStatus: pkgStatus }) : [];
           return (
             <ReadBlock
-              key={tierId}
+              key={occupantId}
               title={`Package ${detail?.label?.trim() || TIER_LABELS[tierId]}`}
               subtitle="Pricing and inclusions for this tier."
               icon={MODULE_ICONS.package}
@@ -912,10 +922,11 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
   // manifest's drawer placements (Schema architecture S4): Details = the
   // tier's own modules; Connections = the parent service. Back-to-overview is
   // handled by the single drawer header Back (context-aware), not a second
-  // control. Keyed by tier so opening a tier always lands on Details.
+  // control. Keyed by stable occupant identity so content edits do not remount
+  // the drawer; the resolved shell id continues to address all mutations.
   return (
     <EntityDrawer
-      key={editingTierId}
+      key={initialOccupantId ?? view.detail.occupant_id ?? editingTierId}
       entity={TIER_ENTITY}
       bindings={{
         overview: tierOverviewBinding,

@@ -115,6 +115,56 @@ export interface PackageManagerItem {
   missing:             boolean;
   available?:          boolean;
   module_transition:   PackageManagerModuleTransition;
+  // Supplying-Service provenance (admin read model only) — drives the Rate
+  // Sheet filters and group dependency displays. Null for missing sources or
+  // pools built without provenance.
+  source_service_id?:    number | null;
+  source_service_title?: string | null;
+  source_categories?:    string[];
+}
+
+// ── Package Category Group station (Package-owned commercial buckets) ─────────
+// A Package Category Group (e.g. KAIROS) groups connected Services
+// commercially. Full StationLifecycle participation; overview draft/settle
+// mechanics mirror the taxonomy Category Group station.
+
+export type PackageCategoryGroupStatus = 'active' | 'disabled' | 'archived' | 'trashed';
+
+export interface PackageCategoryGroupDependents {
+  services:        number;
+  rate_sheet_rows: number;
+  tier_selections: number;
+}
+
+export interface PackageCategoryGroupItem {
+  group_id:                 string;
+  label:                    string;
+  description:              string;
+  platform_status:          PackageCategoryGroupStatus;
+  previous_platform_status: 'active' | 'disabled' | null;
+  module_status:            { overview: string };
+  has_draft:                boolean;
+  sort_order:               number;
+  assigned_service_count:   number;
+  dependents:               PackageCategoryGroupDependents;
+}
+
+export interface PackageCategoryGroupListResponse {
+  package_category_groups: PackageCategoryGroupItem[];
+}
+
+export interface PackageCategoryGroupMutationResponse {
+  success:  boolean;
+  message?: string;
+  group:    PackageCategoryGroupItem | null;
+}
+
+// A dependency-guard failure is an HTTP 409 — apiClient throws, and the error
+// text carries the JSON body { message, assigned_count, dependents }, same
+// parsing contract as CategoryGroupDeleteResponse.
+export interface PackageCategoryGroupDeleteResponse {
+  success: boolean;
+  deleted: string;
 }
 
 export interface PackageManagerProjectionInclusion {
@@ -155,6 +205,7 @@ export interface PackageManagerReadModel {
   has_configuration: boolean;
   sources:           PackageSourceRelationship[];
   groups:            PackageManagerGroup[];
+  category_groups:   PackageCategoryGroupItem[];
   items:             PackageManagerItem[];
   rate_sheet:        PackageRateSheet | null;
   projections: {
@@ -169,6 +220,9 @@ export interface PackageSourceRelationship {
   entity_type: string;
   entity_id: string | number;
   sort_order: number;
+  // Package-owned commercial bucket assignment (Package Category Group,
+  // e.g. KAIROS); null = connected but unassigned.
+  category_group_id?: string | null;
 }
 
 export interface PackageManagerResponse {
@@ -431,6 +485,9 @@ export interface FaqItem {
 }
 
 export interface SurfaceTierDetail {
+  // Stable identity of the settled occupant. Null identifies an empty shell;
+  // the containing record key remains the slot id used by mutations.
+  occupant_id: string | null;
   label: string;
   ideal_for: string;
   price: number | null;
@@ -758,6 +815,9 @@ export interface StationSummary {
   previous_platform_status?: 'active' | 'disabled' | '';
   module_status:             { overview: string; inclusions: string; faqs: string };
   has_drafts:                boolean;
+  // Service-owned pool sizes (counts only) for the Package Manager Services table.
+  inclusion_count?:          number;
+  faq_count?:                number;
 }
 
 export interface PermanentDeleteResponse {

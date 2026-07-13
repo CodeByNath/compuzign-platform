@@ -24,6 +24,8 @@ The rate sheet is part of the single Package Station persisted by `PackageReposi
 
 The manager selects source services, the provider normalizes those selections, and tier pricing evaluation resolves source prices for each fixed tier. Package tiers consume the result; the public pricing builder later projects active package and service pricing.
 
+The read view filters rows by provenance via [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx): Package Category Group (supplying Service's `category_group_id` assignment), Service Category, Service, Inclusion Group, availability, and search. Provenance (`source_service_id`/title/categories) is resolved live by `PackageRepository::sourcePools` and carried on read-model items — never persisted on rows, never flattening the Service structure.
+
 ## Validation
 
 - [tier-pricing-parity-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/tier-pricing-parity-contract.ts)
@@ -33,3 +35,7 @@ The manager selects source services, the provider normalizes those selections, a
 ## Related Code Maps
 
 [Package Manager](package-manager.md), [Tiers](tiers.md), and [Cost Builder](cost-builder.md).
+
+## Related History
+
+[Package Category Groups v1](../project-history/PackageCategoryGroups-v1.md) — provenance-based Rate Sheet filtering and why group data stays out of the public pricing projection for now.

@@ -1031,7 +1031,9 @@ class PackageSchema
     /**
      * Normalise a raw tier slot (Phase 1 flat OR Phase 2 occupant) to the
      * SurfaceTierDetail shape expected by admin API responses.
-     * Returns the 8-field flat detail used by the frontend form.
+     * Returns the flat detail used by the frontend form. Occupant envelopes
+     * additionally expose their stable stored id as occupant_id; the shell key
+     * remains the address used by lifecycle mutations.
      */
     public static function normaliseTierSlot(array $tier): array
     {
@@ -1041,6 +1043,7 @@ class PackageSchema
                 return self::emptyTierDetail();
             }
             return [
+                'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
@@ -1059,6 +1062,7 @@ class PackageSchema
             return self::emptyTierDetail();
         }
         return [
+            'occupant_id'          => null,
             'label'               => $tier['label'] ?? '',
             'ideal_for'           => $tier['ideal_for'] ?? '',
             'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
@@ -1189,7 +1193,7 @@ class PackageSchema
     private static function emptyTierDetail(): array
     {
         return [
-            'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
+            'occupant_id' => null, 'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
             'billing_cycle' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false,
         ];

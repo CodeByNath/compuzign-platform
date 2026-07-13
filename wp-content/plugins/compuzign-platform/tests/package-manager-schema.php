@@ -11,6 +11,8 @@ if (!function_exists('sanitize_text_field')) {
     }
 }
 
+require_once __DIR__ . '/../src/Modules/Admin/Support/StationLifecycle.php';
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageCategoryGroups.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageManagerSchema.php';
 require_once __DIR__ . '/../src/Modules/Packages/Support/PackageStationSchema.php';
 

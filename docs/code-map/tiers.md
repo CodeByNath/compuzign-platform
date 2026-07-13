@@ -12,9 +12,9 @@ Each tier occupant owns its module drafts and lifecycle inside the Package Stati
 
 ### [ServiceTierStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceTierStep.tsx)
 
-Contains Package overview cards and pricing table, current/bin tabs, individual Tier Details/Connections drawer, overview/features/FAQ editors, publish and lifecycle buttons, restore conflicts, and confirmation dialogs. Use this file when changing Tier cards, drawers, summaries, navigation, or lifecycle actions.
+Contains the dynamic settled-occupant overview cards and pricing table, current/bin tabs, individual Tier Details/Connections drawer, overview/features/FAQ editors, publish and lifecycle buttons, restore conflicts, and confirmation dialogs. The Admin card grid loops over the occupant collection derived from `station.tiers`, excludes empty shells, and uses `occupant_id` for card/drawer identity. The resolved `slotId` remains the mutation address. Use this file when changing Tier cards, drawers, summaries, navigation, or lifecycle actions.
 
-- [PackageManagerTierCards.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageManagerTierCards.tsx) renders compact fixed-slot cards and View/Edit actions inside Station Manager. Use it for manager-level Tier summaries.
+- [PackageManagerTierCards.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageManagerTierCards.tsx) renders compact cards for the station's settled occupant collection and hands both `occupantId` and `slotId` to View/Edit actions inside Station Manager. Empty shells are omitted.
 - [tier.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/tier.ts) declares Tier drawer tabs and module placements. Use it when moving schema-rendered Tier modules.
 
 ## UI and Drawers
@@ -26,23 +26,25 @@ Contains Package overview cards and pricing table, current/bin tabs, individual 
 ## State and Providers
 
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns station loading and Tier draft, settle, enable, popular, pool, archive, restore, trash, and delete mutations. Use it for Tier client state or API actions.
+- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/utils/tierOccupants.ts) projects fixed internal shells into the dynamic Admin occupant collection and resolves stable occupant IDs back to slot IDs.
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/packages/evaluateTierPricing.ts) derives Tier line totals and pricing issues. Use it for Rate Sheet pricing rules.
 
 ## Runtime Flow
 
-`ServiceTierStep` is the Package overview and individual Tier drawer composition root. In overview mode it renders current tier cards, pricing summaries, the parent-Service connection, and archived/trashed bin occupants. It owns restore conflict handling (swap, retarget, or discard pending drafts), trash and permanent-delete confirmations, and context-aware Back/footer behavior.
+`ServiceTierStep` is the Package overview and individual Tier drawer composition root. In overview mode it renders settled occupant cards from `usePackageStation.tierOccupants`, pricing summaries, the parent-Service connection, and archived/trashed bin occupants. Card and drawer identity is stable `occupant_id`; the drawer resolves that identity back to its fixed slot before invoking existing slot-addressed operations. It owns restore conflict handling (swap, retarget, or discard pending drafts), trash and permanent-delete confirmations, and context-aware Back/footer behavior.
 
-In individual-tier mode it binds overview, features, FAQs, and Service connection shells; owns transient per-module edit sessions; creates pool items; and invokes `usePackageStation` for save, revert, settle/publish, enable/disable, popular-tier, archive, restore, trash, and delete operations. This is an oversized mixed-responsibility file and a future separation candidate; the hook remains the state/API boundary.
+In individual-tier mode it binds overview, features, FAQs, and Service connection shells; owns transient per-module edit sessions; creates pool items; and invokes `usePackageStation` for save, revert, settle/publish, enable/disable, popular-tier, archive, restore, trash, and delete operations. Those persistence, REST, lifecycle, popular-Tier, and bin operations continue to use `slotId`/fixed shell keys. Fixed-shell consumers, including restore/retarget choices and pricing-order summaries, still use `TIER_KEYS`. Package Category Group ownership/filtering is not implemented because Tier occupants do not yet carry a Category Group assignment.
 
 ## Backend and Persistence
 
-- [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) defines current Package/Tier defaults, sanitization, projections, and occupant compatibility. Use it for authoritative station schema behavior.
+- [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) defines current Package/Tier defaults, sanitization, projections, and occupant compatibility. Its normalized Tier detail exposes the existing `current_occupant.id` as `occupant_id` without changing persistence. Use it for authoritative station schema behavior.
 - [PackageStationSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Packages/Support/PackageStationSchema.php) preserves legacy Service-hosted station compatibility. Use it only when tracing migration-era data behavior.
 - [AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) registers Tier module, enabled, popular, bin, pool, and settle routes. Use it for backend Tier actions.
 
 ## Validation
 
 - [tier-occupant-compatibility.php](../../wp-content/plugins/compuzign-platform/tests/tier-occupant-compatibility.php)
+- [tier-occupant-admin-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/tier-occupant-admin-contract.ts)
 - [package-manager-schema.php](../../wp-content/plugins/compuzign-platform/tests/package-manager-schema.php)
 
 ## Related Code Maps
