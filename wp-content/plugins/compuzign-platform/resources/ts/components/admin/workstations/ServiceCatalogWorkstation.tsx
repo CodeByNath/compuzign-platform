@@ -515,6 +515,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
             scope={scope}
             shell={shell}
             surface="service-catalog"
+            services={stations}
             openAction={openAction}
             onManageCategoryGroups={(group) => openAction(buildCategoryGroupDrawerConfig(group, handleCategoryGroupsChanged))}
             onOpenService={(summary, edit) => openAction(buildServiceDetailDrawerConfig(drawerDeps, summary, edit))}

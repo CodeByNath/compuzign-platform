@@ -36,6 +36,13 @@ export interface RateRowDrawerValue {
   units: readonly string[];
 }
 
+export interface FamilyAssignmentDrawerValue {
+  serviceId: number;
+  serviceTitle: string;
+  groupId: string | null;
+  groups: readonly { id: string; label: string }[];
+}
+
 function DrawerFooter({ ctx, saving, disabled, onApply, applyLabel = 'Apply changes', dangerLabel, onDanger }: {
   ctx: StepContext;
   saving?: boolean;
@@ -114,6 +121,25 @@ function ConnectionDrawerStep({ ctx }: { ctx: StepContext }) {
   </div></div>;
 }
 
+function FamilyAssignmentDrawerStep({ ctx }: { ctx: StepContext }) {
+  const initial = ctx.stepData.value as FamilyAssignmentDrawerValue;
+  const onApply = ctx.stepData.onApply as (value: FamilyAssignmentDrawerValue) => void;
+  const [value, setValue] = useState(initial);
+  useEffect(() => {
+    ctx.setFooter(<DrawerFooter ctx={ctx} onApply={() => { onApply(value); ctx.close(); }} applyLabel="Apply to draft" />);
+    return () => ctx.setFooter(null);
+  }, [ctx.setFooter, ctx.close, value, onApply]);
+  return <div class="cz-focused-drawer-form"><div class="cz-focused-drawer-card">
+    <h3>Service family assignment</h3>
+    <label class="cz-tf-field"><span>Service</span><input class="cz-tf-input" value={value.serviceTitle} readOnly /></label>
+    <label class="cz-tf-field"><span>Category Group</span><select class="cz-tf-select" value={value.groupId ?? ''} onChange={(event) => setValue({ ...value, groupId: event.currentTarget.value || null })}>
+      <option value="">Ungrouped</option>
+      {value.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}
+    </select></label>
+    <p class="cz-sp-tier-table__muted">Assignment is Package-owned. Applying updates the current manager draft; use Save changes on Station Home to persist it.</p>
+  </div></div>;
+}
+
 function CommercialGroupDrawerStep({ ctx }: { ctx: StepContext }) {
   const initial = ctx.stepData.value as CommercialGroupDrawerValue;
   const onApply = ctx.stepData.onApply as (value: CommercialGroupDrawerValue) => void;
@@ -178,6 +204,7 @@ function config(id: string, title: string, component: ActionConfig['steps'][numb
 
 export const buildCategoryGroupDrawerConfig = (group: PackageCategoryGroupItem | undefined, onChanged: () => void) => config(`category-group-${group?.group_id ?? 'new'}`, group ? `Edit ${group.label}` : 'New Category Group', CategoryGroupDrawerStep, { group, onChanged });
 export const buildConnectionDrawerConfig = (value: ConnectionDrawerValue, groups: readonly { id: string; label: string }[], onApply: (value: ConnectionDrawerValue) => void) => config(`connection-${value.id}`, 'Edit Connection', ConnectionDrawerStep, { value, groups, onApply });
+export const buildFamilyAssignmentDrawerConfig = (value: FamilyAssignmentDrawerValue, onApply: (value: FamilyAssignmentDrawerValue) => void) => config(`service-family-${value.serviceId}`, `Assign ${value.serviceTitle}`, FamilyAssignmentDrawerStep, { value, onApply });
 export const buildCommercialGroupDrawerConfig = (value: CommercialGroupDrawerValue, onApply: (value: CommercialGroupDrawerValue) => void, onDelete?: () => void) => config(`commercial-group-${value.id}`, value.isNew ? 'New Commercial Group' : `Edit ${value.label}`, CommercialGroupDrawerStep, { value, onApply, onDelete });
 export const buildRateRowDrawerConfig = (value: RateRowDrawerValue, onApply: (value: RateRowDrawerValue) => void) => config(`rate-row-${value.id}`, `Edit ${value.optionLabel}`, RateRowDrawerStep, { value, onApply });
 export const buildPriceSettingsDrawerConfig = () => config('price-settings-audit', 'Price Settings', PriceSettingsDrawerStep, {});

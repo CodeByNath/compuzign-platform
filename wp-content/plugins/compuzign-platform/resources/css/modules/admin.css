@@ -4480,7 +4480,7 @@ button.cz-module-status-pill {
   border-radius: var(--admin-radius-base);
 }
 .cz-manager-collection--services {
-  --cz-manager-collection-columns: minmax(220px, 1fr) minmax(190px, 260px) minmax(130px, 170px) auto;
+  --cz-manager-collection-columns: minmax(220px, 1.2fr) minmax(140px, .8fr) minmax(145px, .7fr) minmax(140px, .7fr) auto;
 }
 .cz-manager-collection--category-groups {
   --cz-manager-collection-columns: minmax(220px, 1fr) minmax(260px, 1.4fr) minmax(120px, 160px) auto;
@@ -4538,6 +4538,7 @@ button.cz-module-status-pill {
 }
 .cz-manager-collection__identity small,
 .cz-manager-collection__status small,
+.cz-manager-collection__health small,
 .cz-manager-collection__secondary {
   color: var(--admin-text-muted);
   font-size: var(--admin-fs-s-label);
@@ -4551,6 +4552,39 @@ button.cz-module-status-pill {
 .cz-manager-collection__action { display: flex; justify-content: flex-end; overflow: visible; }
 .cz-manager-text--attention { color: var(--admin-warning); }
 
+.cz-manager-services-toolbar {
+  display: flex;
+  align-items: end;
+  gap: var(--cz-space-3);
+  margin-bottom: var(--cz-space-4);
+}
+.cz-manager-search { min-width: min(360px, 100%); margin-right: auto; }
+.cz-manager-search .cz-tf-input { width: 100%; }
+.cz-manager-compact-filter { display: grid; min-width: 150px; gap: var(--cz-space-1); }
+.cz-manager-compact-filter > span { color: var(--admin-text-faint); font-size: var(--admin-fs-s-label); }
+.cz-manager-service-identity { display: flex; align-items: center; gap: var(--cz-space-3); min-width: 0; }
+.cz-manager-service-identity > span:last-child { display: grid; min-width: 0; gap: var(--cz-space-1); }
+.cz-manager-service-identity__icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: var(--admin-radius-base);
+  color: var(--admin-accent-text);
+  background: var(--admin-accent-a12);
+  font-weight: var(--admin-fw-strong);
+}
+.cz-manager-category-list { color: var(--admin-text-muted); line-height: var(--admin-lh-label); }
+.cz-manager-collection__health { display: flex; flex-direction: column; align-items: flex-start; gap: var(--cz-space-1); }
+.cz-manager-health { display: inline-flex; align-items: center; gap: var(--cz-space-2); color: var(--admin-text-muted); font-size: var(--admin-fs-s-label); }
+.cz-manager-health > span { width: 7px; height: 7px; border-radius: 50%; background: var(--admin-text-faint); }
+.cz-manager-health.is-healthy { color: var(--admin-success); }
+.cz-manager-health.is-healthy > span { background: var(--admin-success); }
+.cz-manager-health.is-attention { color: var(--admin-warning); }
+.cz-manager-health.is-attention > span { background: var(--admin-warning); }
+.cz-manager-row-actions { display: flex; justify-content: flex-end; gap: var(--cz-space-2); }
+
 @media screen and (max-width: 767px) {
   .cz-manager-workspace { padding: var(--cz-space-4); }
   .cz-manager-workspace__header { flex-direction: column; }
@@ -4559,6 +4593,9 @@ button.cz-module-status-pill {
   .cz-manager-filters button { padding-inline: var(--cz-space-2); }
   .cz-manager-select-filters,
   .cz-manager-rate-sheet__filters { grid-template-columns: 1fr; }
+  .cz-manager-services-toolbar { align-items: stretch; flex-direction: column; }
+  .cz-manager-search { width: 100%; min-width: 0; }
+  .cz-manager-compact-filter { width: 100%; }
   .cz-rate-sheet-editor__group-create { align-items: stretch; flex-direction: column; }
   .cz-manager-collection { padding: var(--cz-space-2); }
   .cz-manager-collection__header { display: none; }
@@ -4583,10 +4620,12 @@ button.cz-module-status-pill {
   }
   .cz-manager-collection__cell > * { grid-column: 2; }
   .cz-manager-collection__identity,
-  .cz-manager-collection__status { align-items: stretch; }
+  .cz-manager-collection__status,
+  .cz-manager-collection__health { align-items: stretch; }
   .cz-manager-collection__action { justify-content: stretch; }
   .cz-manager-collection__action .cz-manager-group-actions,
   .cz-manager-collection__action > .cz-manager-split-action { justify-self: end; }
+  .cz-manager-row-actions { flex-wrap: wrap; justify-content: flex-start; }
 }
 
 /* ── Package Manager workstation (page host for DynamicStationManager) ──────── */

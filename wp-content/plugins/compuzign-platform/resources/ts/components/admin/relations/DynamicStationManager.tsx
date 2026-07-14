@@ -35,6 +35,7 @@ import type { ManagerSubTab } from './ManagerSubTabs';
 import {
   buildCommercialGroupDrawerConfig,
   buildConnectionDrawerConfig,
+  buildFamilyAssignmentDrawerConfig,
   buildPriceSettingsDrawerConfig,
   buildRateRowDrawerConfig,
 } from './serviceManagerDrawers';
@@ -69,13 +70,14 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, surface, onManageCategoryGroups, openAction }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, services, surface, onManageCategoryGroups, openAction }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
   onOpenPromotion?: (promotionId?: string, edit?: boolean) => void;
   onOpenPackage?: (occupantId: string, slotId: string, edit?: boolean) => void;
   onOpenService?: (summary: StationSummary, edit?: boolean) => void;
+  services?: readonly StationSummary[];
   surface?: ManagerSurface;
   onManageCategoryGroups?: (group?: PackageCategoryGroupItem) => void;
   openAction?: (config: ActionConfig) => void;
@@ -225,6 +227,18 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
     : 0;
   const commercialGroupCount = structureProjection?.role === 'structure' ? structureProjection.rows.length : 0;
   const rateSheetRowCount = rateSheetProjection?.role === 'rate-sheet' ? rateSheetProjection.items.length : 0;
+  const serviceConnectionSummaryById = useMemo(() => {
+    const summaries = new Map<number, { count: number; attention: number }>();
+    if (relationshipProjection?.role !== 'relations') return summaries;
+    for (const row of relationshipProjection.rows) {
+      if (row.sourceServiceId == null) continue;
+      const current = summaries.get(row.sourceServiceId) ?? { count: 0, attention: 0 };
+      current.count += 1;
+      if (row.state.status !== 'active' || row.availability !== 'Available' || row.sourceHealth !== 'Connected') current.attention += 1;
+      summaries.set(row.sourceServiceId, current);
+    }
+    return summaries;
+  }, [relationshipProjection]);
 
   // Keep the Rate Sheet's existing Category Group filter in step with the
   // workspace scope; the Rate Sheet dropdown can still refine locally after.
@@ -417,21 +431,32 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       {/* SECTION: SERVICE_WORKSPACE */}
       {!packagesSurface && (serviceCatalogSurface || activeWorkspace === 'service') && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
         <PackageServicesTable
+            services={services ?? []}
             sources={((sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined)?.sources
               ?? (state.readModelByProvider[active.key] as { sources?: PackageRelationDraft['sources'] } | undefined)?.sources
               ?? []}
             categoryGroups={categoryGroups}
             hostServiceId={Number(scope.stationContext.id)}
-            onAssign={(serviceId, groupId) => {
-              const base = (sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined;
-              if (base === undefined) return;
-              const next = assignPackageServiceCategoryGroup(base, serviceId, groupId, Number(scope.stationContext.id));
-              if (sourcePreviewDraft !== null) setSourcePreviewDraft(next);
-              replaceActiveDraft(next);
-            }}
+            connectionSummaryByServiceId={serviceConnectionSummaryById}
             onOpenService={(summary, edit) => onOpenService?.(summary, edit)}
+            onManageAssignment={(summary, groupId) => {
+              if (!openAction) return;
+              openAction(buildFamilyAssignmentDrawerConfig({
+                serviceId: summary.id,
+                serviceTitle: summary.title,
+                groupId,
+                groups: categoryGroups
+                  .filter((group) => group.platform_status === 'active' || group.platform_status === 'disabled' || group.group_id === groupId)
+                  .map((group) => ({ id: group.group_id, label: `${group.label}${group.platform_status === 'archived' || group.platform_status === 'trashed' ? ' (binned)' : ''}` })),
+              }, (next) => {
+                const base = (sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined;
+                if (base === undefined) return;
+                const nextDraft = assignPackageServiceCategoryGroup(base, next.serviceId, next.groupId, Number(scope.stationContext.id));
+                if (sourcePreviewDraft !== null) setSourcePreviewDraft(nextDraft);
+                replaceActiveDraft(nextDraft);
+              }));
+            }}
             categoryGroupFilter={selectedCategoryGroupId}
-            onCategoryGroupFilterChange={(value) => setSelectedCategoryGroupId(value as WorkspaceGroupScope)}
         />
       )}
       {/* SECTION: PACKAGE_WORKSPACE */}
