@@ -48,6 +48,7 @@ export type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPen
 export type ManagerSurface = 'service-catalog' | 'packages';
 
 type ManagerWorkspace = 'service' | 'package' | 'promotion';
+type ManagerSectionProjection = ReturnType<ManagerProviderAdapter['manager']['sections'][number]['project']>;
 
 // Sub-tabs each workspace actually populates (Phase 3): Services has no
 // Settings content, Promotions has Details only. Empty tabs never render.
@@ -204,6 +205,26 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const packageDraftSources = ((sourcePreviewDraft ?? state.draftByProvider['package']) as PackageRelationDraft | undefined)?.sources
     ?? (state.readModelByProvider['package'] as { sources?: PackageRelationDraft['sources'] } | undefined)?.sources
     ?? [];
+  // Project each Package section once from the draft-preferred model. Station
+  // Home metrics and collections consume these same projections; presentation
+  // never creates a second read model or persistence path.
+  const packageSectionProjections = useMemo(() => {
+    const model = state.readModelByProvider['package'];
+    if (!packageProvider || model === undefined) return new Map<string, ManagerSectionProjection>();
+    const draft = sourcePreviewDraft ?? state.draftByProvider['package'];
+    return new Map(packageProvider.manager.sections.map((section) => [section.id, section.project(model, scope, draft)]));
+  }, [packageProvider, state.readModelByProvider['package'], state.draftByProvider['package'], sourcePreviewDraft, currentScopeKey]);
+  const relationshipProjection = packageSectionProjections.get('relationships');
+  const structureProjection = packageSectionProjections.get('groups');
+  const rateSheetProjection = packageSectionProjections.get('rate-sheets');
+  const connectedServiceCount = new Set(packageDraftSources
+    .filter((source) => source.provider_key === 'service' && source.entity_type === 'service')
+    .map((source) => Number(source.entity_id))).size;
+  const activeConnectionCount = relationshipProjection?.role === 'relations'
+    ? relationshipProjection.rows.filter((row) => row.state.status === 'active' && row.availability === 'Available' && row.sourceHealth === 'Connected').length
+    : 0;
+  const commercialGroupCount = structureProjection?.role === 'structure' ? structureProjection.rows.length : 0;
+  const rateSheetRowCount = rateSheetProjection?.role === 'rate-sheet' ? rateSheetProjection.items.length : 0;
 
   // Keep the Rate Sheet's existing Category Group filter in step with the
   // workspace scope; the Rate Sheet dropdown can still refine locally after.
@@ -310,6 +331,25 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   // ===========================================================================
   return (
     <section class="cz-manager-workspace" aria-label={serviceCatalogSurface ? 'Your Service Manager' : `${activeWorkspace === 'service' ? 'Services' : active?.label ?? 'Connection'} Manager`}>
+      {serviceCatalogSurface && (
+        <section class="cz-station-summary" aria-label="Service Station summary">
+          {([
+            { label: 'Connected Services', value: connectedServiceCount, detail: 'Available to Package connections', icon: MODULE_ICONS.package, tone: 'blue' },
+            { label: 'Active Connections', value: activeConnectionCount, detail: 'Healthy and available', icon: MODULE_ICONS.features, tone: 'green' },
+            { label: 'Commercial Groups', value: commercialGroupCount, detail: 'Package-owned groupings', icon: MODULE_ICONS.category, tone: 'violet' },
+            { label: 'Rate Sheet Rows', value: rateSheetRowCount, detail: 'Configured pricing rows', icon: MODULE_ICONS.overview, tone: 'amber' },
+          ] as const).map((metric) => (
+            <article class="cz-station-summary__card" key={metric.label}>
+              <span class={`cz-station-summary__icon is-${metric.tone}`}>{metric.icon}</span>
+              <div>
+                <span class="cz-station-summary__label">{metric.label}</span>
+                <strong class="cz-station-summary__value">{metric.value.toLocaleString()}</strong>
+                <small>{metric.detail}</small>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
       {/* SECTION: FAMILY_SCOPE — Category Group cards establish the workspace scope. */}
       {!packagesSurface && hasPackageProvider && scope.stationContext.type === 'service' && (
         <PackageCategoryGroupCards
@@ -411,7 +451,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         const sectionTab: ManagerSubTab = section.id === 'relationships' ? 'connections' : 'settings';
         if (activeSubTab !== sectionTab) return null;
         const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
-        const projection = section.project(readModel, scope, draft);
+        const projection = active.key === 'package'
+          ? packageSectionProjections.get(section.id) ?? section.project(readModel, scope, draft)
+          : section.project(readModel, scope, draft);
         if (activeSubTab === 'connections' && projection.role !== 'relations') return null;
         if (activeSubTab === 'settings' && projection.role !== 'structure' && projection.role !== 'rate-sheet') return null;
         if (projection.role === 'rate-sheet') {

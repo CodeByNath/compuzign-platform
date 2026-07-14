@@ -424,12 +424,17 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
   const { data: surfacePkgData }          = useSurfacePackages();
   const { shell, footer } = usePageManagerShell();
   const [managerRefreshKey, setManagerRefreshKey] = useState(0);
+  const [catalogLoadedAt, setCatalogLoadedAt] = useState<Date | null>(null);
 
   const packages = surfacePkgData?.packages ?? [];
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
+
+  useEffect(() => {
+    if (data) setCatalogLoadedAt(new Date());
+  }, [data]);
 
   useEffect(() => {
     setNavigationInterceptor?.((proceed) => shell.requestExit({ kind: 'destination', target: 'workstation-navigation' }, proceed));
@@ -481,11 +486,17 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
     <Workstation className="cz-service-manager-workstation">
       <Workstation.Header className="cz-ws-header">
         <div>
-          <p class="cz-ws-eyebrow">Service Catalog</p>
+          <p class="cz-ws-eyebrow">Service Station · Station Home</p>
           <h2 class="cz-ws-title">Your Service Manager</h2>
           <p class="cz-ws-subtitle">
-            {totalStations} service{totalStations !== 1 ? 's' : ''} — manage families, source connections, and pricing from one dashboard.
+            Browse service families, monitor operational connections, and manage commercial configuration from one station.
           </p>
+        </div>
+        <div class="cz-station-home__status" role="status" aria-label="Service Station status">
+          <span class="cz-station-home__status-dot" aria-hidden="true" />
+          <span>Station operational</span>
+          <span class="cz-station-home__status-divider" aria-hidden="true" />
+          <span>{catalogLoadedAt ? `Updated ${catalogLoadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : `${totalStations} Services loaded`}</span>
         </div>
       </Workstation.Header>
       <Workstation.Actions className="cz-service-manager-workstation__actions">

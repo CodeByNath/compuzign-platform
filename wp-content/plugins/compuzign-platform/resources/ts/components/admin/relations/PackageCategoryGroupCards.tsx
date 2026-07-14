@@ -60,9 +60,9 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
   }, [openActions]);
 
   const counts = serviceAssignmentCounts(sources);
-  const card = (scope: WorkspaceGroupScope, body: ComponentChildren) => (
+  const card = (scope: WorkspaceGroupScope, body: ComponentChildren, utility = false) => (
     <div
-      class={`cz-family-card${selected === scope ? ' is-selected' : ''}`}
+      class={`cz-family-card${utility ? ' cz-family-card--utility' : ' cz-family-card--primary'}${selected === scope ? ' is-selected' : ''}`}
       role="radio"
       aria-checked={selected === scope}
       tabIndex={0}
@@ -77,19 +77,17 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
   return (
     <section class="cz-family-strip" aria-label="Category Group scope">
       <div class="cz-family-strip__cards" role="radiogroup" aria-label="Workspace scope">
-        {card('all', <>
-          <strong class="cz-family-card__name">All Groups</strong>
-          <span class="cz-family-card__meta">{counts.total} connected {counts.total === 1 ? 'Service' : 'Services'}</span>
-        </>)}
-        {card('unassigned', <>
-          <strong class="cz-family-card__name">Ungrouped</strong>
-          <span class="cz-family-card__meta">{counts.unassigned} connected {counts.unassigned === 1 ? 'Service' : 'Services'}</span>
-        </>)}
         {groups.map((group) => {
           const pill = groupStatusPill(group);
           return card(group.group_id, <>
             <div class="cz-family-card__head">
-              <strong class="cz-family-card__name">{group.label}</strong>
+              <div class="cz-family-card__identity">
+                <span class="cz-family-card__monogram" aria-hidden="true">{group.label.trim().charAt(0).toUpperCase() || 'G'}</span>
+                <div>
+                  <strong class="cz-family-card__name">{group.label}</strong>
+                  <span class="cz-family-card__kind">Service family</span>
+                </div>
+              </div>
               <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>
             </div>
             {group.description && <p class="cz-family-card__description">{group.description}</p>}
@@ -121,6 +119,16 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
             </div>
           </>);
         })}
+      </div>
+      <div class="cz-family-strip__utilities" role="radiogroup" aria-label="Utility scopes">
+        {card('all', <>
+          <strong class="cz-family-card__name">All Groups</strong>
+          <span class="cz-family-card__meta">{counts.total} connected {counts.total === 1 ? 'Service' : 'Services'}</span>
+        </>, true)}
+        {card('unassigned', <>
+          <strong class="cz-family-card__name">Ungrouped</strong>
+          <span class="cz-family-card__meta">{counts.unassigned} connected {counts.unassigned === 1 ? 'Service' : 'Services'}</span>
+        </>, true)}
       </div>
       {confirming && (
         <PackageCategoryGroupConfirmDialog
