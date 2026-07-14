@@ -4605,6 +4605,31 @@ button.cz-module-status-pill {
   padding-top: 0;
 }
 
+/* ── Your Service Manager dashboard ───────────────────────────────────────── */
+.cz-service-manager-workstation__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cz-space-2);
+  flex-wrap: wrap;
+}
+
+.cz-ws-eyebrow {
+  margin: 0 0 var(--cz-space-1);
+  color: var(--admin-accent);
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.cz-service-manager-workstation__family-manager {
+  margin-bottom: var(--cz-space-4);
+  padding: var(--cz-space-4);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: 12px;
+  background: var(--admin-bg);
+}
+
 /* ── Family Card strip (Package Category Group workspace scope) ─────────────── */
 .cz-family-strip {
   margin-bottom: var(--cz-space-4);

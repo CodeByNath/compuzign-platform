@@ -12,7 +12,7 @@ The relation registry owns provider discovery and the coordinator owns transient
 
 - [registry.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/registry.ts) registers relation providers and resolves those applicable to a station scope. Use it when adding a provider or changing discovery rules.
 - [types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/types.ts) defines station scopes, connection descriptors, provider sections, summaries, and continuations. Use it when changing the provider contract.
-- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) renders the Family Card scope strip, provider tabs/workspaces, Rate Sheet forms, validation summaries, Save controls, and dirty-exit confirmation. Use it for connection-manager runtime UI. The relations projection row carries optional `sourceServiceId` provenance so the workspace can scope rows by Package Category Group.
+- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) owns coordinator state, Family Card scope, Service Catalog Details / Connections / Settings composition, Rate Sheet forms, Save controls, and dirty-exit confirmation. The relations projection row carries optional `sourceServiceId` provenance so rows can scope by Package Category Group.
 
 ## State and Providers
 
@@ -38,7 +38,7 @@ The relation registry owns provider discovery and the coordinator owns transient
 
 ## Runtime Flow
 
-Two hosts supply a service scope: `ServiceViewStep` via the Station Manager drawer, and the top-level [PackageManagerWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/PackageManagerWorkstation.tsx) page (which adapts the exported `ManagerShellContext` to a page footer and navigation guard). The registry resolves providers; `DynamicStationManager` coordinates their drafts, validation, saves, workspaces, continuations, and exit guards. Shared drawer configs live in [stationManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/stationManagerDrawers.ts). Providers retain persistence authority.
+The primary page host is [ServiceCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx), which renders `service-catalog` mode and adapts the manager contract through `usePageManagerShell`. The legacy Package Manager page and Station Manager drawer remain temporarily reachable pending the navigation-retirement phases. Providers retain persistence authority in every host.
 
 ## Validation
 

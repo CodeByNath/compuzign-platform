@@ -29,6 +29,7 @@ import { ManagerSubTabs } from './ManagerSubTabs';
 import type { ManagerSubTab } from './ManagerSubTabs';
 
 export type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
+export type ManagerSurface = 'legacy' | 'service-catalog' | 'packages';
 
 type ManagerWorkspace = 'service' | 'package' | 'promotion';
 
@@ -51,13 +52,15 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, surface = 'legacy', onManageCategoryGroups }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
   onOpenPromotion?: (promotionId?: string, edit?: boolean) => void;
   onOpenPackage?: (occupantId: string, slotId: string, edit?: boolean) => void;
   onOpenService?: (summary: StationSummary, edit?: boolean) => void;
+  surface?: ManagerSurface;
+  onManageCategoryGroups?: () => void;
 }) {
   // ===========================================================================
   // SECTION: MANAGER_COORDINATION
@@ -103,6 +106,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [selectedCategoryGroupId, setSelectedCategoryGroupId] = useState<WorkspaceGroupScope>('all');
   const [groupActionBusy, setGroupActionBusy] = useState(false);
   const temporaryGroupSequence = useRef(0);
+  const serviceCatalogSurface = surface === 'service-catalog';
+  const packagesSurface = surface === 'packages';
 
   // Package Category Group registry — shared by the Services table dropdowns
   // and the Rate Sheet filters; the management section reloads it on change.
@@ -193,8 +198,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
 
   // A workspace only offers the sub-tabs it populates.
   useEffect(() => {
+    if (serviceCatalogSurface) return;
     if (!WORKSPACE_SUB_TABS[activeWorkspace].includes(activeSubTab)) setActiveSubTab('details');
-  }, [activeWorkspace, activeSubTab]);
+  }, [activeWorkspace, activeSubTab, serviceCatalogSurface]);
 
   // A group that leaves the current registry (archived, trashed, deleted)
   // cannot remain the workspace scope.
@@ -285,7 +291,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   // SECTION: MANAGER_RENDER
   // ===========================================================================
   return (
-    <section class="cz-manager-workspace" aria-label={`${activeWorkspace === 'service' ? 'Services' : active?.label ?? 'Connection'} Manager`}>
+    <section class="cz-manager-workspace" aria-label={serviceCatalogSurface ? 'Your Service Manager' : `${activeWorkspace === 'service' ? 'Services' : active?.label ?? 'Connection'} Manager`}>
       {/* SECTION: FAMILY_SCOPE — Category Group cards establish the workspace scope. */}
       {hasPackageProvider && scope.stationContext.type === 'service' && (
         <PackageCategoryGroupCards
@@ -296,13 +302,17 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           busy={groupActionBusy}
           onLifecycleAction={(groupId, operation) => { void runGroupLifecycle(groupId, operation); }}
           onManageGroups={() => {
+            if (onManageCategoryGroups) {
+              onManageCategoryGroups();
+              return;
+            }
             if (packageProvider) setState((current) => selectManagerProvider(current, packageProvider.key, providers));
             setActiveWorkspace('service');
             setActiveSubTab('connections');
           }}
         />
       )}
-      {providers.length > 0 && (
+      {!serviceCatalogSurface && providers.length > 0 && (
         <nav class="cz-manager-provider-nav" aria-label="Relation providers">
           {([
             ...(packageProvider ? [
@@ -339,15 +349,15 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           })}
         </nav>
       )}
-      {WORKSPACE_SUB_TABS[activeWorkspace].length > 1 && (
-        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} tabs={WORKSPACE_SUB_TABS[activeWorkspace]} />
+      {(serviceCatalogSurface || WORKSPACE_SUB_TABS[activeWorkspace].length > 1) && (
+        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} tabs={serviceCatalogSurface ? ['details', 'connections', 'settings'] : WORKSPACE_SUB_TABS[activeWorkspace]} />
       )}
       {/* SECTION: PROMOTION_WORKSPACE */}
-      {activeSubTab === 'details' && activeWorkspace === 'promotion' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
+      {!serviceCatalogSurface && activeSubTab === 'details' && activeWorkspace === 'promotion' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
         <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} onOpen={onOpenPromotion ?? (() => {})} />
       )}
       {/* SECTION: SERVICE_WORKSPACE */}
-      {activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
+      {!packagesSurface && (serviceCatalogSurface || activeWorkspace === 'service') && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
         <PackageServicesTable
             sources={((sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined)?.sources
               ?? (state.readModelByProvider[active.key] as { sources?: PackageRelationDraft['sources'] } | undefined)?.sources
@@ -366,11 +376,11 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             onCategoryGroupFilterChange={(value) => setSelectedCategoryGroupId(value as WorkspaceGroupScope)}
         />
       )}
-      {activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'connections' && (
+      {!serviceCatalogSurface && activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'connections' && (
         <PackageCategoryGroupsSection onChanged={() => { void reloadCategoryGroups(); }} />
       )}
       {/* SECTION: PACKAGE_WORKSPACE */}
-      {activeWorkspace === 'package' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
+      {!serviceCatalogSurface && activeWorkspace === 'package' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
         <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
       )}
       {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}
@@ -380,7 +390,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       {readModel !== undefined && active && [...active.manager.sections]
         .sort((a, b) => (SETTINGS_SECTION_ORDER[a.id] ?? 9) - (SETTINGS_SECTION_ORDER[b.id] ?? 9))
         .map((section) => {
-        if (activeWorkspace !== 'package' || active.key !== 'package') return null;
+        if ((!serviceCatalogSurface && activeWorkspace !== 'package') || active.key !== 'package') return null;
         // Relationships are the primary Connections content; Commercial
         // (option) Groups and the Rate Sheet compose Settings.
         const sectionTab: ManagerSubTab = section.id === 'relationships' ? 'connections' : 'settings';

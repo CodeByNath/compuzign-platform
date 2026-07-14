@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provides the admin catalogue, service creation, and canonical Service detail workspace for overview, inclusions, FAQs, status, and adjacent commercial connections.
+Provides the “Your Service Manager” dashboard, Service creation, and canonical Service detail workspace. The dashboard is the family-first reading surface for Services plus Package-owned connections, Commercial Groups, and Rate Sheet configuration.
 
 ## Ownership
 
@@ -12,7 +12,7 @@ Provides the admin catalogue, service creation, and canonical Service detail wor
 
 ### [ServiceCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx)
 
-Contains the Service table, category/status filters, create-Service drawer, locked pre-creation cards, category normalization, and summary-to-drawer handoff adapters. Use this file when changing catalogue rows, filters, Service creation, or drawer launch data.
+Hosts the family cards and Details / Connections / Settings manager composition, page-level dirty-state guard/footer, create-Service flow, temporary Category Group management panel, and canonical Service drawer handoff. Use this file when changing the Service Catalog dashboard, Service creation, or dashboard action routing.
 
 ### [ServiceViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceViewStep.tsx)
 
@@ -31,12 +31,11 @@ Contains the canonical Details/Connections Service drawer; overview, inclusions,
 
 - [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceStation.ts) owns authoritative detail loading, draft-preferred module state, saves/reverts, publish/settle, and status mutations. Use it for Service drawer state and API behavior.
 - [useAdminCatalog.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useAdminCatalog.ts) loads and refetches catalogue summaries. Use it for catalogue request state.
+- [usePageManagerShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx) adapts the shared manager exit-guard/footer contract to a workstation page without acquiring persistence.
 
 ## Backend and Persistence
 
-- [AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) registers Service CRUD, module save/settle/revert, status, and Package Station compatibility routes. Use it for backend request validation and Service persistence flows.
-- [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) is the typed frontend boundary for all admin REST calls. Use it when adding or changing client endpoint contracts.
-- [PostTypeRegistrar.php](../../wp-content/plugins/compuzign-platform/src/Core/PostTypeRegistrar.php) registers authoritative WordPress post types. Use it for Service/request entity registration, not drawer behavior.
+[AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) owns Service REST behavior, [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) is the typed frontend boundary, and [PostTypeRegistrar.php](../../wp-content/plugins/compuzign-platform/src/Core/PostTypeRegistrar.php) registers authoritative post types.
 
 ## Internal File Navigation
 
@@ -44,7 +43,7 @@ Contains the canonical Details/Connections Service drawer; overview, inclusions,
 | --- | --- | --- | --- |
 | Catalogue model | `SECTION: SERVICE_CATALOGUE_MODEL` | Status/category adapters and drawer handoff | Changing projections or handoff data |
 | Service creation | `SECTION: SERVICE_CREATION` | Create drawer and submission | Changing Service creation |
-| Catalogue table | `SECTION: SERVICE_CATALOGUE_TABLE` | Filters, rows, and drawer launch | Changing the catalogue UI |
+| Catalogue dashboard | `SECTION: SERVICE_CATALOGUE_TABLE` | Page host, actions, manager scope, and drawer launch | Changing the catalogue UI |
 | Drawer state | `SECTION: SERVICE_DRAWER_STATE` | Drafts, editors, dirty checks | Changing Service editing |
 | Lifecycle | `SECTION: SERVICE_LIFECYCLE` | Publish, status, travel, exit guards | Changing Service actions |
 | Module bindings | `SECTION: SERVICE_MODULE_BINDINGS` | Overview, inclusions, FAQs, Package summary | Changing module shells |
@@ -53,9 +52,9 @@ Contains the canonical Details/Connections Service drawer; overview, inclusions,
 
 ## Runtime Flow
 
-`ServiceCatalogWorkstation` also contains the new-Service drawer, category normalization, and the summary-to-detail handoff adapter used by Category surfaces. It loads catalogue and package summaries, filters table rows, creates Services, and opens the canonical detail step.
+`ServiceCatalogWorkstation` contains the new-Service drawer, category normalization, and summary-to-detail handoff adapter used by Category surfaces. It resolves the Package Station compatibility host, renders `DynamicStationManager` in `service-catalog` mode, preserves page drafts through the shared shell adapter, and opens the canonical Service drawer. Package-owned state stays in the Package provider and existing manager save path.
 
-`ServiceViewStep` is the large Service drawer composition root. It binds overview, inclusions, FAQs, and package summary; owns transient editor drafts, dirty checks, footer actions, publish/settle/enable/archive/trash flows, close guards, and confirmation dialogs. Its Connections tab discovers registered providers and hands Package Manager orchestration to `StationManagerStep`. Persistence remains in `useServiceStation` and the API, not in either component.
+`ServiceViewStep` remains the Service drawer root for overview, inclusions, FAQs, lifecycle, drafts, guards, and confirmations. Its legacy Station Manager handoff is pending removal. Persistence remains in `useServiceStation` and the API.
 
 ## Related Code Maps
 

@@ -1,9 +1,7 @@
-import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { ExitGuard, ExitIntent } from '../ActionShell';
+import { useEffect, useMemo } from 'preact/hooks';
 import type { StationManagerScope } from '../relations/types';
 import { DynamicStationManager } from '../relations/DynamicStationManager';
-import type { ManagerShellContext } from '../relations/DynamicStationManager';
+import { usePageManagerShell } from '../relations/usePageManagerShell';
 import {
   buildPackageTierDrawerConfig,
   buildPromotionDrawerConfig,
@@ -28,45 +26,6 @@ import { buildServiceItemForStationHandoff, normalizeAdminCategories } from './S
 // compatibility host-Service id (any existing Service post). The host resolves
 // from loaded data — a Package's first service_ref, else the first catalogue
 // Service — mirroring what the drawer flow would supply.
-
-// Page-level ManagerShellContext: the same exit-guard / pending-exit / footer
-// contract ActionShell gives drawer steps, re-implemented for a workstation
-// page. The manager's own dialogs drive confirm/cancel; this adapter only
-// holds the guard and the deferred continuation.
-function usePageManagerShell(): { shell: ManagerShellContext; footer: ComponentChildren } {
-  const exitGuardRef = useRef<ExitGuard | null>(null);
-  const pendingExitRef = useRef<(() => void) | null>(null);
-  const [footer, setFooterState] = useState<ComponentChildren>(null);
-
-  const setExitGuard = useCallback((guard: ExitGuard | null) => {
-    exitGuardRef.current = guard;
-    if (guard === null) pendingExitRef.current = null;
-  }, []);
-  const requestExit = useCallback((intent: ExitIntent, continuation: () => void) => {
-    const allowed = exitGuardRef.current ? exitGuardRef.current(intent) : true;
-    if (!allowed) {
-      pendingExitRef.current = continuation;
-      return;
-    }
-    pendingExitRef.current = null;
-    continuation();
-  }, []);
-  const confirmPendingExit = useCallback(() => {
-    const continuation = pendingExitRef.current;
-    pendingExitRef.current = null;
-    continuation?.();
-  }, []);
-  const cancelPendingExit = useCallback(() => {
-    pendingExitRef.current = null;
-  }, []);
-  const setFooter = useCallback((content: ComponentChildren) => setFooterState(content), []);
-
-  const shell = useMemo<ManagerShellContext>(
-    () => ({ setExitGuard, requestExit, confirmPendingExit, cancelPendingExit, setFooter }),
-    [setExitGuard, requestExit, confirmPendingExit, cancelPendingExit, setFooter],
-  );
-  return { shell, footer };
-}
 
 export function PackageManagerWorkstation({ refreshKey, openAction, setNavigationInterceptor }: WorkstationSurfaceProps) {
   const { data, loading, error, refetch } = useAdminCatalog();

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'preact/hooks';
+import { useEffect, useState, useCallback, useMemo } from 'preact/hooks';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
@@ -6,24 +6,24 @@ import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
 import { createService, updateServiceCategory } from '@/api/endpoints/admin';
 import type { AdminServiceDetailResponse, StationSummary, SurfacePackageSummary } from '@/api/types/admin';
-import { resolveStationCommercialSummary, resolveStationStatus } from '@/components/admin/utils/moduleStatus';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import { ReadBlock } from '../ReadBlock';
 import { DrawerTabs } from '../DrawerTabs';
 import { MODULE_ICONS } from '@/components/admin/schema/icons';
 import { Workstation } from '../shell/Workstation';
-import { EntityTable } from '../EntityTable';
-import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
-import type { ServiceCatalogRow } from '@/components/admin/schema/tables/service';
 import { InlineEditorShell } from '../InlineEditorShell';
 import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '../editors/ServiceOverviewEditor';
 import { ServiceViewStep, decodeHtml, TIER_KEYS, TIER_LABELS } from './ServiceViewStep';
+import type { WorkstationSurfaceProps } from '../schema/workstations';
+import type { StationManagerScope } from '../relations/types';
+import { DynamicStationManager } from '../relations/DynamicStationManager';
+import { usePageManagerShell } from '../relations/usePageManagerShell';
+import { PackageCategoryGroupsSection } from '../relations/PackageCategoryGroupsSection';
+import { buildServiceDetailDrawerConfig } from '../relations/stationManagerDrawers';
+import type { StationManagerDrawerContext } from '../relations/stationManagerDrawers';
 
-interface Props {
-  refreshKey: number;
-  openAction: (config: ActionConfig) => void;
-}
+type Props = WorkstationSurfaceProps;
 
 // ===========================================================================
 // SECTION: SERVICE_CATALOGUE_MODEL
@@ -31,8 +31,6 @@ interface Props {
 // Filter buckets + the display pill live in utils/moduleStatus (moved in S3b
 // so the catalog TableSchema can project them); this file keeps only the
 // filter vocabulary.
-
-type StatusFilter = 'all' | 'active' | 'pending' | 'drafts' | 'disabled';
 
 // ── Category normalization ────────────────────────────────────────────────────
 // AdminCatalogResponse returns id: number | null. Real taxonomy terms always have
@@ -421,11 +419,12 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 // SECTION: SERVICE_CATALOGUE_TABLE
 // ===========================================================================
 
-export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
+export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigationInterceptor }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog();
   const { data: surfacePkgData }          = useSurfacePackages();
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter]     = useState<StatusFilter>('active');
+  const { shell, footer } = usePageManagerShell();
+  const [showFamilyManager, setShowFamilyManager] = useState(false);
+  const [managerRefreshKey, setManagerRefreshKey] = useState(0);
 
   const packages = surfacePkgData?.packages ?? [];
 
@@ -433,24 +432,27 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
 
-  // Default category is All Categories (activeCategory === null). No auto-select.
+  useEffect(() => {
+    setNavigationInterceptor?.((proceed) => shell.requestExit({ kind: 'destination', target: 'workstation-navigation' }, proceed));
+    return () => setNavigationInterceptor?.(null);
+  }, [setNavigationInterceptor, shell.requestExit]);
 
-  const handleViewService = (station: StationSummary) => {
-    const item   = buildServiceItemForStationHandoff(station);
-    openAction({
-      id:       `service-view-${station.id}`,
-      mode:     'drawer',
-      title:    'Service',
-      initialStepData: {
-        service:       item,
-        packages,
-        openAction,
-        allCategories: normalizeAdminCategories(data?.categories ?? []),
-        onRefresh:     refetch,
-      },
-      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
-    });
-  };
+  const stations = data?.stations ?? [];
+  const hostSummary = useMemo(() => {
+    const preferredId = packages[0]?.service_refs?.[0];
+    return stations.find((station) => station.id === preferredId) ?? stations[0];
+  }, [packages, stations]);
+  const scope = useMemo<StationManagerScope | null>(() => hostSummary ? ({
+    kind: 'connection-graph', stationContext: { type: 'service', id: hostSummary.id },
+  }) : null, [hostSummary?.id]);
+
+  const drawerDeps: StationManagerDrawerContext | null = hostSummary ? {
+    service: buildServiceItemForStationHandoff(hostSummary),
+    packages,
+    allCategories: normalizeAdminCategories(data?.categories ?? []),
+    openAction,
+    onRefresh: refetch,
+  } : null;
 
   const handleCreateService = () => {
     openAction({
@@ -471,85 +473,53 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
 
   if (error) return <AsyncError error={error} onRetry={refetch} />;
 
-  const allStations   = data?.stations ?? [];
-  const totalStations = allStations.length;
-  const allCategories = data?.categories ?? [];
-
-  const categoryStations = activeCategory
-    ? allStations.filter((s) => s.categories.some((c) => c.slug === activeCategory))
-    : allStations;
-
-  const visibleStations = statusFilter === 'all'
-    ? categoryStations
-    : categoryStations.filter((s) => resolveStationStatus(s) === statusFilter);
+  const totalStations = stations.length;
 
   return (
-    <Workstation>
+    <Workstation className="cz-service-manager-workstation">
       <Workstation.Header className="cz-ws-header">
         <div>
-          <h2 class="cz-ws-title">Services</h2>
+          <p class="cz-ws-eyebrow">Service Catalog</p>
+          <h2 class="cz-ws-title">Your Service Manager</h2>
           <p class="cz-ws-subtitle">
-            {totalStations} service{totalStations !== 1 ? 's' : ''} across {allCategories.length} categories
-            — manage your service library and availability.
+            {totalStations} service{totalStations !== 1 ? 's' : ''} — manage families, source connections, and pricing from one dashboard.
           </p>
         </div>
       </Workstation.Header>
+      <Workstation.Actions className="cz-service-manager-workstation__actions">
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>+ New Service</button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setShowFamilyManager((current) => !current)}>+ New Group</button>
+      </Workstation.Actions>
 
-      {totalStations === 0 ? (
+      {showFamilyManager && (
         <Workstation.Content>
-          <div class="cz-admin-empty">
-            <p>No services in catalog. Use the import endpoint to load from XLSX.</p>
+          <div class="cz-service-manager-workstation__family-manager">
+            <div class="cz-manager-section__actions">
+              <strong>Package Category Groups</strong>
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setShowFamilyManager(false)}>Close</button>
+            </div>
+            <PackageCategoryGroupsSection onChanged={() => setManagerRefreshKey((current) => current + 1)} />
           </div>
         </Workstation.Content>
-      ) : (
-        <>
-          <Workstation.Toolbar className="cz-sc-filters">
-            <div class="cz-tf-field cz-sc-filters__field">
-              <label class="cz-tf-label">Browse Category</label>
-              <select
-                class="cz-tf-select"
-                value={activeCategory ?? ''}
-                onChange={(e) => setActiveCategory((e.target as HTMLSelectElement).value || null)}
-              >
-                <option value="">All Categories</option>
-                {allCategories.map((cat) => (
-                  <option key={cat.slug} value={cat.slug}>{decodeHtml(cat.name)}</option>
-                ))}
-              </select>
-            </div>
-            <div class="cz-tf-field cz-sc-filters__field">
-              <label class="cz-tf-label">Status</label>
-              <select
-                class="cz-tf-select"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter((e.target as HTMLSelectElement).value as StatusFilter)}
-              >
-                {(['active', 'pending', 'drafts', 'disabled', 'all'] as const).map((f) => (
-                  <option key={f} value={f}>{f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</option>
-                ))}
-              </select>
-            </div>
-          </Workstation.Toolbar>
-
-          <Workstation.Actions className="cz-sc-section__actions">
-            <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>
-              + New Service
-            </button>
-          </Workstation.Actions>
-
-          <Workstation.Content>
-            <EntityTable
-              schema={SERVICE_ENTITY.placements.table!}
-              rows={visibleStations.map((station): ServiceCatalogRow => ({
-                station,
-                summary: resolveStationCommercialSummary(station.id, packages),
-              }))}
-              rowKey={(r) => r.station.id}
-              handlers={{ view: (r) => handleViewService(r.station) }}
-            />
-          </Workstation.Content>
-        </>
       )}
+
+      <Workstation.Content>
+        {!hostSummary || !scope || !drawerDeps ? (
+          <div class="cz-admin-empty">
+            <p><strong>Your Service Manager</strong> needs at least one Service. Create the first Service to begin.</p>
+          </div>
+        ) : (
+          <DynamicStationManager
+            key={`${hostSummary.id}:${managerRefreshKey}`}
+            scope={scope}
+            shell={shell}
+            surface="service-catalog"
+            onManageCategoryGroups={() => setShowFamilyManager(true)}
+            onOpenService={(summary, edit) => openAction(buildServiceDetailDrawerConfig(drawerDeps, summary, edit))}
+          />
+        )}
+      </Workstation.Content>
+      {footer && <div class="cz-package-manager-workstation__footer">{footer}</div>}
     </Workstation>
   );
 }
@@ -558,7 +528,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
  *
  * SERVICE_CATALOGUE_MODEL     Status, category, and drawer handoff adapters
  * SERVICE_CREATION            Create-Service drawer and submission flow
- * SERVICE_CATALOGUE_TABLE     Filters, rows, actions, and canonical drawer launch
+ * SERVICE_CATALOGUE_TABLE     Your Service Manager dashboard host and drawer launch
  *
  * Search: SECTION: SERVICE_CATALOGUE_MODEL
  *         SECTION: SERVICE_CREATION
