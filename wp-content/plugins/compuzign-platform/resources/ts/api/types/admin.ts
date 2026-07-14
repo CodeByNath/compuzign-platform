@@ -271,6 +271,7 @@ export type WorkstationId =
   | 'service-catalog'
   | 'service-archived'
   | 'service-trash'
+  | 'package-manager'
   | 'category-catalog'
   | 'category-group-catalog'
   | 'bundles'

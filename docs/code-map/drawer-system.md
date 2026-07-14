@@ -10,7 +10,7 @@ Supplies reusable admin navigation, action drawers, schema-driven entity modules
 
 ## Main Entry Points
 
-- [AdminApp.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminApp.tsx) owns active workstation, global action config, refresh keys, and login gate. Use it for top-level admin navigation/state.
+- [AdminApp.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminApp.tsx) owns active workstation, global action config, refresh keys, and login gate. Use it for top-level admin navigation/state. `AdminShell` routes sidebar workstation switches through an optional surface-registered navigation interceptor (`WorkstationSurfaceProps.setNavigationInterceptor`) so a page with unsaved state can guard navigation with its own confirmation.
 - [AdminShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminShell.tsx) composes sidebar, topbar, status strip, workstation content, and action overlay. Use it for admin page layout.
 - [WorkstationRouter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/WorkstationRouter.tsx) dispatches registry definitions to generic tables or feature workstations. Use it when changing surface realization, not individual workstation content.
 - [ActionShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx) owns drawer/modal steps, headers, Back/close, footer slots, panel mode, exit guards, and completion. Use it for shared drawer orchestration and navigation contracts.

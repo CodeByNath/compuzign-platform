@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Configures the Package Station’s relationship sources and manager-wide selections, then exposes its tier occupants and commercial summary to admin surfaces.
+Configures the Package Station’s relationship sources and manager-wide selections, exposing tier occupants and the commercial summary to admin surfaces.
 
 ## Ownership
 
@@ -10,13 +10,17 @@ The Package Station owns `package_manager`, rate-sheet selections, tiers, promot
 
 ## Main Entry Points
 
+### [PackageManagerWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/PackageManagerWorkstation.tsx)
+
+Top-level workstation hosting `DynamicStationManager` on a page: resolves the compatibility host-Service id, supplies a page-level `ManagerShellContext` adapter, registers the AdminShell navigation interceptor, and opens Service, Tier, and Promotion drawers as first-level actions.
+
 ### [StationManagerStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/StationManagerStep.tsx)
 
-Builds the Station Manager action, hosts `DynamicStationManager`, and opens nested Promotion or Tier drawers. Tier-card handoff carries stable `occupantId` and internal `slotId`; Tier operations retain the slot address.
+Builds the Station Manager drawer action, hosts `DynamicStationManager`, and opens nested Promotion or Tier drawers via the shared configs in [stationManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/stationManagerDrawers.ts). Tier-card handoff carries stable `occupantId` plus internal `slotId`.
 
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
-Composes Services, Packages, and Promotions over the Package and Promotion providers. Use its marker table below for workspace and Rate Sheet changes.
+Composes Services, Packages, and Promotions, headed by the Family Card strip ([PackageCategoryGroupCards.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupCards.tsx)); its `selectedCategoryGroupId` scope drives the Services filter, relationship-row scoping, and the Rate Sheet group filter through existing mechanisms.
 
 ### [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts)
 
@@ -41,8 +45,9 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 | Concern | Marker | Contains | Read when... |
 | --- | --- | --- | --- |
 | Manager coordination | `SECTION: MANAGER_COORDINATION` | Provider drafts, validation, saves | Changing orchestration |
-| Workspaces | `SECTION: SERVICE_WORKSPACE`, `PACKAGE_WORKSPACE`, `PROMOTION_WORKSPACE` | Manager surfaces | Changing workspace UI |
-| Rate Sheet editor | `SECTION: RATE_SHEET_EDITOR` | Sources, Groups, selections | Changing Rate Sheet UI |
+| Family scope | `SECTION: FAMILY_SCOPE` | Category Group cards and workspace scope | Changing scope behavior |
+| Workspaces | `SECTION: SERVICE_WORKSPACE`, `PACKAGE_WORKSPACE`, `PROMOTION_WORKSPACE` | Connections = relationships; Settings = option Groups + Rate Sheet | Changing workspace UI |
+| Rate Sheet editor | `SECTION: RATE_SHEET_EDITOR` | Save/validation; editor UI in [PackageRateSheetEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetEditor.tsx) | Changing Rate Sheet UI |
 | Package provider | `SECTION: PACKAGE_PROVIDER` | Read, validate, save, continuations | Changing provider behavior |
 | Manager shape | `SECTION: MANAGER_SHAPE` | Defaults and sanitization | Changing persisted shape |
 | Manager commit | `SECTION: MANAGER_COMMIT` | Validation and commit | Changing saves |

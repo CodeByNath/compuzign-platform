@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useRef } from 'preact/hooks';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { StatusStrip } from './StatusStrip';
 import { WorkstationRouter } from './WorkstationRouter';
 import { ActionShell } from './ActionShell';
 import type { ActionConfig } from './ActionShell';
+import type { WorkstationNavigationInterceptor } from './schema/workstations';
 import type { WorkstationId } from '@/api/types/admin';
 
 export function AdminShell() {
@@ -12,6 +13,19 @@ export function AdminShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [actionConfig, setActionConfig] = useState<ActionConfig | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Active surface's navigation guard (e.g. Package Manager with unsaved
+  // drafts). Sidebar switches route through it; the surface clears it on
+  // unmount, so a stale guard can never block an unrelated workstation.
+  const navigationInterceptorRef = useRef<WorkstationNavigationInterceptor | null>(null);
+  const setNavigationInterceptor = useCallback((interceptor: WorkstationNavigationInterceptor | null) => {
+    navigationInterceptorRef.current = interceptor;
+  }, []);
+  const navigateToWorkstation = useCallback((id: WorkstationId) => {
+    const interceptor = navigationInterceptorRef.current;
+    if (interceptor) interceptor(() => setActiveWorkstation(id));
+    else setActiveWorkstation(id);
+  }, []);
 
   const openAction = useCallback((config: ActionConfig) => {
     setActionConfig(config);
@@ -31,7 +45,7 @@ export function AdminShell() {
       <Sidebar
         active={activeWorkstation}
         collapsed={collapsed}
-        onNavigate={setActiveWorkstation}
+        onNavigate={navigateToWorkstation}
         onToggleCollapse={() => setCollapsed((c) => !c)}
       />
 
@@ -46,6 +60,7 @@ export function AdminShell() {
             active={activeWorkstation}
             refreshKey={refreshKey}
             openAction={openAction}
+            setNavigationInterceptor={setNavigationInterceptor}
           />
         </div>
       </div>

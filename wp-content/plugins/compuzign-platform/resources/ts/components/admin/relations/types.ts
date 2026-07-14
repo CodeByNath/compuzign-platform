@@ -110,6 +110,9 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
         stateDetail: string;
         availability: 'Available' | 'Not available' | 'Disabled' | 'Missing source';
         sourceHealth: 'Connected' | 'Missing';
+        // Supplying-Service provenance (read model only, never persisted on
+        // rows) so hosts can scope relationship rows by Category Group.
+        sourceServiceId?: number | null;
       }[];
     }
     | {

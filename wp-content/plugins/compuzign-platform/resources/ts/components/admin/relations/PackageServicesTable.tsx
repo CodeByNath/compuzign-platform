@@ -20,6 +20,11 @@ interface Props {
   hostServiceId: number;
   onAssign: (serviceId: number, categoryGroupId: string | null) => void;
   onOpenService: (summary: StationSummary, edit: boolean) => void;
+  // Optional controlled Category Group filter (Phase 2 workspace scope).
+  // When supplied, the table's existing dropdown reads and writes the
+  // workspace scope instead of local state — one filtering mechanism.
+  categoryGroupFilter?: string;
+  onCategoryGroupFilterChange?: (value: string) => void;
 }
 
 function serviceStatusPill(summary: StationSummary) {
@@ -36,10 +41,12 @@ function serviceStatusKey(summary: StationSummary): 'active' | 'pending' | 'disa
   return summary.module_status.overview !== 'settled' ? 'pending' : 'disabled';
 }
 
-export function PackageServicesTable({ sources, categoryGroups, hostServiceId, onAssign, onOpenService }: Props) {
+export function PackageServicesTable({ sources, categoryGroups, hostServiceId, onAssign, onOpenService, categoryGroupFilter: controlledGroupFilter, onCategoryGroupFilterChange }: Props) {
   const [services, setServices] = useState<StationSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [categoryGroupFilter, setCategoryGroupFilter] = useState('all');
+  const [localGroupFilter, setLocalGroupFilter] = useState('all');
+  const categoryGroupFilter = controlledGroupFilter ?? localGroupFilter;
+  const setCategoryGroupFilter = onCategoryGroupFilterChange ?? setLocalGroupFilter;
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [openActions, setOpenActions] = useState<number | null>(null);

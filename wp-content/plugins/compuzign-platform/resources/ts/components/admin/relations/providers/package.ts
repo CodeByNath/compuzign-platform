@@ -584,6 +584,7 @@ export const packageRelationProvider: WritableRelationProvider<
                 stateDetail: item.missing ? 'Missing source' : item.disabled ? 'Disabled' : item.module_transition === 'not-configured' ? 'Provisional' : item.module_transition === 'pending' ? 'Pending changes' : 'Configured',
                 availability,
                 sourceHealth: item.missing ? 'Missing' as const : 'Connected' as const,
+                sourceServiceId: item.source_service_id ?? null,
               };
             }),
           };

@@ -31,7 +31,10 @@ export interface RateSheetFilterRow {
   serviceCategories?: readonly string[];
 }
 
-function assignmentByServiceId(sources: readonly PackageSourceRelationship[]): Map<number, string | null> {
+// Shared provenance map: service id → Package Category Group assignment.
+// Also consumed by DynamicStationManager to scope relationship rows, so the
+// workspace never grows a second assignment-resolution implementation.
+export function assignmentByServiceId(sources: readonly PackageSourceRelationship[]): Map<number, string | null> {
   const map = new Map<number, string | null>();
   for (const source of sources) {
     if (source.provider_key === 'service' && source.entity_type === 'service') {

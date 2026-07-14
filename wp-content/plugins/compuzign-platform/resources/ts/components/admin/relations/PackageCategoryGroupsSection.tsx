@@ -23,9 +23,77 @@ import type { PillMeta } from '../schema/presentation';
 
 type BinScope = 'current' | 'archived' | 'trashed';
 
+// Lifecycle operations offered on a live (current-scope) group. The single
+// source of the visibility rules (draft, status, settled-overview branches);
+// the section's split menu and the Family Card strip both map these to
+// buttons, so the lifecycle logic never forks.
+export interface GroupLifecycleOperation {
+  id: string;
+  label: string;
+  kind: 'run' | 'confirm-trash';
+  danger?: boolean;
+  operation?: () => Promise<unknown>;
+}
+
+export function currentGroupLifecycleOperations(row: PackageCategoryGroupItem): GroupLifecycleOperation[] {
+  const operations: GroupLifecycleOperation[] = [];
+  if (row.has_draft) {
+    operations.push(
+      { id: 'settle', label: 'Apply changes', kind: 'run', operation: () => settlePackageCategoryGroupOverview(row.group_id) },
+      { id: 'revert', label: 'Discard changes', kind: 'run', operation: () => revertPackageCategoryGroupOverview(row.group_id) },
+    );
+  }
+  if (row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview === 'settled') {
+    operations.push({ id: 'publish', label: 'Publish', kind: 'run', operation: () => updatePackageCategoryGroupStatus(row.group_id, 'active') });
+  }
+  if (row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview !== 'settled') {
+    operations.push({ id: 'complete', label: 'Complete setup', kind: 'run', operation: () => settlePackageCategoryGroupOverview(row.group_id) });
+  }
+  if (row.platform_status === 'active') {
+    operations.push({ id: 'disable', label: 'Disable', kind: 'run', operation: () => updatePackageCategoryGroupStatus(row.group_id, 'disabled') });
+  }
+  operations.push(
+    { id: 'archive', label: 'Archive', kind: 'run', operation: () => updatePackageCategoryGroupStatus(row.group_id, 'archived') },
+    { id: 'trash', label: 'Trash', kind: 'confirm-trash', danger: true },
+  );
+  return operations;
+}
+
+export interface GroupConfirmState {
+  id: string; label: string; action: 'trash' | 'delete'; dependents: string;
+}
+
+export function PackageCategoryGroupConfirmDialog({ confirming, onCancel, onConfirm }: {
+  confirming: GroupConfirmState;
+  onCancel: () => void;
+  onConfirm: (target: GroupConfirmState) => void;
+}) {
+  return (
+    <div class="cz-publish-confirm-overlay"><div class="cz-publish-confirm" role="dialog" aria-modal="true">
+      <div class="cz-publish-confirm__header">
+        <h3 class="cz-publish-confirm__title">
+          {confirming.action === 'delete' ? `Permanently delete ${confirming.label}?` : `Move ${confirming.label} to Trash?`}
+        </h3>
+      </div>
+      <div class="cz-publish-confirm__body"><p class="cz-publish-confirm__lead">
+        {confirming.action === 'delete'
+          ? 'This cannot be undone. Deletion is blocked while Services, Rate Sheet rows, or Tiers depend on this group.'
+          : `Connected records are preserved (${confirming.dependents}); the group can be restored from the Trash.`}
+      </p></div>
+      <div class="cz-publish-confirm__footer">
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={onCancel}>Cancel</button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => onConfirm(confirming)}>
+          {confirming.action === 'delete' ? 'Delete permanently' : 'Move to Trash'}
+        </button>
+      </div>
+    </div></div>
+  );
+}
+
 // Station status pill — same derivation as the taxonomy Category Group table
 // (Presentation Status Contract: Active/Pending/Disabled only on live rows).
-function groupStatusPill(row: PackageCategoryGroupItem): PillMeta {
+// Exported for the Family Card strip so both surfaces share one derivation.
+export function groupStatusPill(row: PackageCategoryGroupItem): PillMeta {
   if (row.platform_status === 'disabled') {
     return row.module_status.overview !== 'settled'
       ? PRESENTATION_PILL.pending
@@ -37,7 +105,7 @@ function groupStatusPill(row: PackageCategoryGroupItem): PillMeta {
     : PRESENTATION_PILL.active;
 }
 
-function dependentsSummary(row: PackageCategoryGroupItem): string {
+export function dependentsSummary(row: PackageCategoryGroupItem): string {
   const parts = [
     `${row.dependents.services} ${row.dependents.services === 1 ? 'Service' : 'Services'}`,
   ];
@@ -224,18 +292,14 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
                           {openActions === row.group_id && (
                             <div class="cz-manager-split-action__menu" onClick={(event) => event.stopPropagation()}>
                               {scope === 'current' ? <>
-                                {row.has_draft && <>
-                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => settlePackageCategoryGroupOverview(row.group_id)); }}>Apply changes</button>
-                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => revertPackageCategoryGroupOverview(row.group_id)); }}>Discard changes</button>
-                                </>}
-                                {row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview === 'settled' &&
-                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'active')); }}>Publish</button>}
-                                {row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview !== 'settled' &&
-                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => settlePackageCategoryGroupOverview(row.group_id)); }}>Complete setup</button>}
-                                {row.platform_status === 'active' &&
-                                  <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'disabled')); }}>Disable</button>}
-                                <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => updatePackageCategoryGroupStatus(row.group_id, 'archived')); }}>Archive</button>
-                                <button type="button" class="is-danger" onClick={() => { setOpenActions(null); setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) }); }}>Trash</button>
+                                {currentGroupLifecycleOperations(row).map((operation) => (
+                                  <button type="button" key={operation.id} class={operation.danger ? 'is-danger' : undefined}
+                                    onClick={() => {
+                                      setOpenActions(null);
+                                      if (operation.kind === 'confirm-trash') setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) });
+                                      else if (operation.operation) void run(row.group_id, operation.operation);
+                                    }}>{operation.label}</button>
+                                ))}
                               </> : <>
                                 <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => restorePackageCategoryGroup(row.group_id)); }}>Restore</button>
                                 {scope === 'archived' && <button type="button" class="is-danger" onClick={() => { setOpenActions(null); setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) }); }}>Move to Trash</button>}
@@ -254,28 +318,16 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
       )}
 
       {confirming && (
-        <div class="cz-publish-confirm-overlay"><div class="cz-publish-confirm" role="dialog" aria-modal="true">
-          <div class="cz-publish-confirm__header">
-            <h3 class="cz-publish-confirm__title">
-              {confirming.action === 'delete' ? `Permanently delete ${confirming.label}?` : `Move ${confirming.label} to Trash?`}
-            </h3>
-          </div>
-          <div class="cz-publish-confirm__body"><p class="cz-publish-confirm__lead">
-            {confirming.action === 'delete'
-              ? 'This cannot be undone. Deletion is blocked while Services, Rate Sheet rows, or Tiers depend on this group.'
-              : `Connected records are preserved (${confirming.dependents}); the group can be restored from the Trash.`}
-          </p></div>
-          <div class="cz-publish-confirm__footer">
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setConfirming(null)}>Cancel</button>
-            <button type="button" class="cz-admin-btn cz-admin-btn--danger" onClick={() => {
-              const target = confirming;
-              setConfirming(null);
-              void run(target.id, () => target.action === 'delete'
-                ? permanentDeletePackageCategoryGroup(target.id)
-                : updatePackageCategoryGroupStatus(target.id, 'trashed'));
-            }}>{confirming.action === 'delete' ? 'Delete permanently' : 'Move to Trash'}</button>
-          </div>
-        </div></div>
+        <PackageCategoryGroupConfirmDialog
+          confirming={confirming}
+          onCancel={() => setConfirming(null)}
+          onConfirm={(target) => {
+            setConfirming(null);
+            void run(target.id, () => target.action === 'delete'
+              ? permanentDeletePackageCategoryGroup(target.id)
+              : updatePackageCategoryGroupStatus(target.id, 'trashed'));
+          }}
+        />
       )}
     </section>
   );

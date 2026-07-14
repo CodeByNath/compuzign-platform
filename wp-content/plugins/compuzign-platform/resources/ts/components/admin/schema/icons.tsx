@@ -55,7 +55,7 @@ export const MODULE_ICONS: Record<IconId, ComponentChildren> = {
 
 // ── Nav glyphs (Heroicons v2 solid, 24×24 viewBox) ───────────────────────────
 
-export type NavIconId = 'overview' | 'catalog' | 'category' | 'featured' | 'requests' | 'bin';
+export type NavIconId = 'overview' | 'catalog' | 'package' | 'category' | 'featured' | 'requests' | 'bin';
 
 export const NAV_ICONS: Record<NavIconId, ComponentChildren> = {
   // Chart bars — Overview / Command Centre.
@@ -68,6 +68,12 @@ export const NAV_ICONS: Record<NavIconId, ComponentChildren> = {
   catalog: (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
       <path fillRule="evenodd" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" clipRule="evenodd" />
+    </svg>
+  ),
+  // Cube — Package Manager (same glyph as the module icon, nav-sized).
+  package: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
+      <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
     </svg>
   ),
   // Tag — Categories (S6; consumed by the Phase E workstation entry).

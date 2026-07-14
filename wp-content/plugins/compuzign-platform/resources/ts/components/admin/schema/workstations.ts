@@ -20,6 +20,7 @@ import type { ActionConfig } from '../ActionShell';
 import type { NavIconId } from './icons';
 import { OverviewWorkstation } from '../workstations/OverviewWorkstation';
 import { ServiceCatalogWorkstation } from '../workstations/ServiceCatalogWorkstation';
+import { PackageManagerWorkstation } from '../workstations/PackageManagerWorkstation';
 import { CategoryCatalogWorkstation } from '../workstations/CategoryCatalogWorkstation';
 import { CategoryGroupCatalogWorkstation } from '../workstations/CategoryGroupCatalogWorkstation';
 import { BundlesWorkstation } from '../workstations/BundlesWorkstation';
@@ -30,11 +31,18 @@ import { BinWorkstation } from '../workstations/BinWorkstation';
 
 export interface GroupSchema { id: string; label: string; order: number }
 
+// Sidebar navigation guard: a surface with unsaved page state registers an
+// interceptor; AdminShell routes workstation switches through it. The
+// interceptor decides (possibly after its own confirmation UI) whether to run
+// `proceed`. Registering null releases the guard.
+export type WorkstationNavigationInterceptor = (proceed: () => void) => void;
+
 // Every surface component receives the same props; components that need less
 // (no openAction) simply declare less — assignability is contravariant.
 export interface WorkstationSurfaceProps {
   refreshKey: number;
   openAction: (config: ActionConfig) => void;
+  setNavigationInterceptor?: (interceptor: WorkstationNavigationInterceptor | null) => void;
 }
 
 export type WorkstationSurface =
@@ -67,6 +75,8 @@ export const WORKSTATIONS: WorkstationSchema[] = [
     surface: { kind: 'entity-table', entity: 'service', scope: 'archived' } },
   { id: 'service-trash',    label: 'Trash',             group: 'catalog',    parent: 'service-catalog', hiddenFromNav: true,
     surface: { kind: 'entity-table', entity: 'service', scope: 'trashed' } },
+  { id: 'package-manager',  label: 'Package Manager',   group: 'catalog',    iconId: 'package',
+    surface: { kind: 'component', component: () => PackageManagerWorkstation } },
   { id: 'category-catalog', label: 'Categories',        group: 'catalog',    iconId: 'category',
     surface: { kind: 'component', component: () => CategoryCatalogWorkstation } },
   { id: 'category-group-catalog', label: 'Category Groups', group: 'catalog', iconId: 'category',

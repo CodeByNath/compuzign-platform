@@ -3,16 +3,19 @@ import type { ExitGuard, StepContext } from '../ActionShell';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
 import { ReadBlock } from '../ReadBlock';
-import { InlineEditorShell } from '../InlineEditorShell';
-import { fetchAdminCatalog, fetchPackageCategoryGroups } from '@/api/endpoints/admin';
-import type { AdminCatalogResponse, PackageCategoryGroupItem, StationSummary } from '@/api/types/admin';
+import { fetchPackageCategoryGroups } from '@/api/endpoints/admin';
+import type { PackageCategoryGroupItem, StationSummary } from '@/api/types/admin';
 import { relationProvidersFor } from './registry';
 import type { ManagerContinuation, StationManagerScope } from './types';
 import { assignPackageServiceCategoryGroup } from './providers/package';
 import type { PackageRelationDraft } from './providers/package';
 import { PackageServicesTable } from './PackageServicesTable';
 import { PackageCategoryGroupsSection } from './PackageCategoryGroupsSection';
-import { PackageRateSheetFilters, RATE_SHEET_FILTER_DEFAULTS, filterRateSheetItems } from './PackageRateSheetFilters';
+import { PackageCategoryGroupCards } from './PackageCategoryGroupCards';
+import type { WorkspaceGroupScope } from './PackageCategoryGroupCards';
+import { PackageRateSheetFilters, RATE_SHEET_FILTER_DEFAULTS, assignmentByServiceId, filterRateSheetItems } from './PackageRateSheetFilters';
+import { PackageRateSheetEditor } from './PackageRateSheetEditor';
+import type { RateSheetEditorValue } from './PackageRateSheetEditor';
 import type { RateSheetFilterState } from './PackageRateSheetFilters';
 import {
   applyProviderSaveResults, collectManagerValidation, createManagerCoordinatorState, managerFooterState, managerIsDirty,
@@ -25,15 +28,21 @@ import { PackageManagerTierCards } from './PackageManagerTierCards';
 import { ManagerSubTabs } from './ManagerSubTabs';
 import type { ManagerSubTab } from './ManagerSubTabs';
 
-type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
-
-interface RateSheetEditorValue {
-  title: string;
-  groups: { id: string; label: string }[];
-  items: { id: string; optionId: string; unitPrice: number; per: string; quantity: number; groupId: string | null; sourceAvailable?: boolean }[];
-}
+export type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
 
 type ManagerWorkspace = 'service' | 'package' | 'promotion';
+
+// Sub-tabs each workspace actually populates (Phase 3): Services has no
+// Settings content, Promotions has Details only. Empty tabs never render.
+const WORKSPACE_SUB_TABS: Record<ManagerWorkspace, readonly ManagerSubTab[]> = {
+  service: ['details', 'connections'],
+  package: ['details', 'connections', 'settings'],
+  promotion: ['details'],
+};
+
+// Settings renders Commercial (option) Groups above the Rate Sheet; the
+// provider declares sections in contract order, so ordering is host-side.
+const SETTINGS_SECTION_ORDER: Record<string, number> = { groups: 0, 'rate-sheets': 1 };
 
 function scopeKey(scope: StationManagerScope): string {
   const station = `${scope.stationContext.type}:${scope.stationContext.id}`;
@@ -80,14 +89,6 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [rateSheetSaving, setRateSheetSaving] = useState(false);
   const [rateSheetError, setRateSheetError] = useState<string | null>(null);
   const [managerNotice, setManagerNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
-  const [newRateGroupLabel, setNewRateGroupLabel] = useState('');
-  const [creatingRateGroup, setCreatingRateGroup] = useState(false);
-  const [rateGroupTargetIndex, setRateGroupTargetIndex] = useState<number | null>(null);
-  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
-  const [sourceCatalog, setSourceCatalog] = useState<AdminCatalogResponse | null>(null);
-  const [sourceLoading, setSourceLoading] = useState(false);
-  const [sourceError, setSourceError] = useState<string | null>(null);
-  const [selectedSourceIds, setSelectedSourceIds] = useState<number[]>([]);
   const [pendingOnboardIds, setPendingOnboardIds] = useState<string[]>([]);
   const [sourcePreviewDraft, setSourcePreviewDraft] = useState<unknown | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<ManagerSubTab>('details');
@@ -96,6 +97,11 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   );
   const [categoryGroups, setCategoryGroups] = useState<PackageCategoryGroupItem[]>([]);
   const [rateSheetFilters, setRateSheetFilters] = useState<RateSheetFilterState>(RATE_SHEET_FILTER_DEFAULTS);
+  // Family-first workspace scope (Phase 2): 'all' | 'unassigned' | group_id.
+  // Drives the Services table filter, relationship-row scoping, and the Rate
+  // Sheet Category Group filter through their existing mechanisms.
+  const [selectedCategoryGroupId, setSelectedCategoryGroupId] = useState<WorkspaceGroupScope>('all');
+  const [groupActionBusy, setGroupActionBusy] = useState(false);
   const temporaryGroupSequence = useRef(0);
 
   // Package Category Group registry — shared by the Services table dropdowns
@@ -170,6 +176,45 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const active = providers.find((provider) => provider.key === state.activeProviderKey) ?? providers[0];
   const packageProvider = providers.find((provider) => provider.key === 'package');
   const promotionProvider = providers.find((provider) => provider.key === 'promotion');
+  // Package provider sources (draft-preferred) — provenance for the Family
+  // Card counts and relationship-row scoping, same source of truth the
+  // Services table and Rate Sheet filters already consume.
+  const packageDraftSources = ((sourcePreviewDraft ?? state.draftByProvider['package']) as PackageRelationDraft | undefined)?.sources
+    ?? (state.readModelByProvider['package'] as { sources?: PackageRelationDraft['sources'] } | undefined)?.sources
+    ?? [];
+
+  // Keep the Rate Sheet's existing Category Group filter in step with the
+  // workspace scope; the Rate Sheet dropdown can still refine locally after.
+  useEffect(() => {
+    setRateSheetFilters((current) => current.categoryGroup === selectedCategoryGroupId
+      ? current
+      : { ...current, categoryGroup: selectedCategoryGroupId });
+  }, [selectedCategoryGroupId]);
+
+  // A workspace only offers the sub-tabs it populates.
+  useEffect(() => {
+    if (!WORKSPACE_SUB_TABS[activeWorkspace].includes(activeSubTab)) setActiveSubTab('details');
+  }, [activeWorkspace, activeSubTab]);
+
+  // A group that leaves the current registry (archived, trashed, deleted)
+  // cannot remain the workspace scope.
+  useEffect(() => {
+    if (selectedCategoryGroupId === 'all' || selectedCategoryGroupId === 'unassigned') return;
+    if (!categoryGroups.some((group) => group.group_id === selectedCategoryGroupId)) setSelectedCategoryGroupId('all');
+  }, [categoryGroups, selectedCategoryGroupId]);
+
+  const runGroupLifecycle = async (groupId: string, operation: () => Promise<unknown>) => {
+    setGroupActionBusy(true);
+    setManagerNotice(null);
+    try {
+      await operation();
+      await reloadCategoryGroups();
+    } catch (error) {
+      setManagerNotice({ kind: 'error', message: error instanceof Error ? error.message : 'The group operation failed.' });
+    } finally {
+      setGroupActionBusy(false);
+    }
+  };
   const readModel = active ? state.readModelByProvider[active.key] : undefined;
   const loadState = active ? state.loadStateByProvider[active.key] : 'idle';
   const loadError = active ? state.loadErrorsByProvider[active.key] : null;
@@ -228,19 +273,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
     }
     replaceActiveDraft(nextDraft);
     setEditingRateSheet(null);
-    setNewRateGroupLabel('');
-    setCreatingRateGroup(false);
-    setRateGroupTargetIndex(null);
     setPendingOnboardIds([]);
     setSourcePreviewDraft(null);
-    setSourcePickerOpen(false);
-  };
-
-  const openSourcePicker = async () => {
-    setSourcePickerOpen(true); setSourceError(null); setSourceLoading(true);
-    try { setSourceCatalog(await fetchAdminCatalog()); }
-    catch (error) { setSourceError(error instanceof Error ? error.message : 'Could not load source Services.'); }
-    finally { setSourceLoading(false); }
   };
 
   const groupIssues = active
@@ -252,6 +286,22 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   // ===========================================================================
   return (
     <section class="cz-manager-workspace" aria-label={`${activeWorkspace === 'service' ? 'Services' : active?.label ?? 'Connection'} Manager`}>
+      {/* SECTION: FAMILY_SCOPE — Category Group cards establish the workspace scope. */}
+      {hasPackageProvider && scope.stationContext.type === 'service' && (
+        <PackageCategoryGroupCards
+          groups={categoryGroups}
+          sources={packageDraftSources}
+          selected={selectedCategoryGroupId}
+          onSelect={setSelectedCategoryGroupId}
+          busy={groupActionBusy}
+          onLifecycleAction={(groupId, operation) => { void runGroupLifecycle(groupId, operation); }}
+          onManageGroups={() => {
+            if (packageProvider) setState((current) => selectManagerProvider(current, packageProvider.key, providers));
+            setActiveWorkspace('service');
+            setActiveSubTab('connections');
+          }}
+        />
+      )}
       {providers.length > 0 && (
         <nav class="cz-manager-provider-nav" aria-label="Relation providers">
           {([
@@ -289,8 +339,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           })}
         </nav>
       )}
-      {(activeWorkspace === 'service' || activeWorkspace === 'package' || activeWorkspace === 'promotion') && (
-        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} />
+      {WORKSPACE_SUB_TABS[activeWorkspace].length > 1 && (
+        <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} tabs={WORKSPACE_SUB_TABS[activeWorkspace]} />
       )}
       {/* SECTION: PROMOTION_WORKSPACE */}
       {activeSubTab === 'details' && activeWorkspace === 'promotion' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
@@ -312,39 +362,36 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
               replaceActiveDraft(next);
             }}
             onOpenService={(summary, edit) => onOpenService?.(summary, edit)}
+            categoryGroupFilter={selectedCategoryGroupId}
+            onCategoryGroupFilterChange={(value) => setSelectedCategoryGroupId(value as WorkspaceGroupScope)}
         />
       )}
       {activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'connections' && (
         <PackageCategoryGroupsSection onChanged={() => { void reloadCategoryGroups(); }} />
       )}
-      {activeWorkspace === 'service' && activeSubTab === 'settings' && (
-        <div class="cz-manager-empty"><strong>No Service settings configured.</strong></div>
-      )}
       {/* SECTION: PACKAGE_WORKSPACE */}
       {activeWorkspace === 'package' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
         <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
       )}
-      {activeWorkspace === 'promotion' && active?.key === 'promotion' && activeSubTab !== 'details' && (
-        <div class="cz-manager-empty"><strong>No {activeSubTab === 'connections' ? 'connections' : 'settings'} configured.</strong></div>
-      )}
-
       {loadState === 'loading' && <p class="cz-sp-tier-table__muted">Loading provider workspace…</p>}
       {loadError && <div class="cz-admin-error-msg" role="alert">{loadError}</div>}
       {managerNotice && <div class={managerNotice.kind === 'error' ? 'cz-admin-error-msg' : 'cz-admin-success-msg'} role="status">{managerNotice.message}</div>}
 
-      {readModel !== undefined && active?.manager.sections.map((section) => {
+      {readModel !== undefined && active && [...active.manager.sections]
+        .sort((a, b) => (SETTINGS_SECTION_ORDER[a.id] ?? 9) - (SETTINGS_SECTION_ORDER[b.id] ?? 9))
+        .map((section) => {
         if (activeWorkspace !== 'package' || active.key !== 'package') return null;
-        const sectionTab: ManagerSubTab = section.id === 'rate-sheets' ? 'settings' : 'connections';
+        // Relationships are the primary Connections content; Commercial
+        // (option) Groups and the Rate Sheet compose Settings.
+        const sectionTab: ManagerSubTab = section.id === 'relationships' ? 'connections' : 'settings';
         if (activeSubTab !== sectionTab) return null;
         const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
         const projection = section.project(readModel, scope, draft);
-        if (activeSubTab === 'connections' && projection.role !== 'relations' && projection.role !== 'structure') return null;
+        if (activeSubTab === 'connections' && projection.role !== 'relations') return null;
+        if (activeSubTab === 'settings' && projection.role !== 'structure' && projection.role !== 'rate-sheet') return null;
         if (projection.role === 'rate-sheet') {
           const beginEdit = () => {
             setRateSheetError(null);
-            setNewRateGroupLabel('');
-            setCreatingRateGroup(false);
-            setRateGroupTargetIndex(null);
             setEditingRateSheet({
               title: projection.title,
               groups: projection.groups.map((group) => ({ ...group })),
@@ -355,100 +402,35 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
               })),
             });
           };
-          const createRateGroup = () => {
-            const label = newRateGroupLabel.trim();
-            if (!label) return;
-            const groupId = `rate_group_${Date.now()}_${editingRateSheet?.groups.length ?? 0}`;
-            setEditingRateSheet((current) => current ? ({
-              ...current,
-              groups: [...current.groups, { id: groupId, label }],
-              items: current.items.map((item, index) => index === rateGroupTargetIndex
-                ? { ...item, groupId }
-                : item),
-            }) : current);
-            setNewRateGroupLabel('');
-            setCreatingRateGroup(false);
-            setRateGroupTargetIndex(null);
-          };
           return (
             <section class="cz-manager-section cz-manager-section--content-only cz-manager-rate-sheet" key={section.id} aria-label="Rate Sheet">
               {editingRateSheet ? (
-                <InlineEditorShell title={projection.configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
+                <PackageRateSheetEditor
+                  value={editingRateSheet}
+                  onChange={setEditingRateSheet}
+                  configured={projection.configured}
+                  options={projection.options}
+                  units={projection.units}
+                  sourcePicker={!!section.rateSheetControls?.sourcePicker}
+                  saving={rateSheetSaving}
+                  saveError={rateSheetError}
                   onSave={() => saveRateSheet(section)}
-                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setNewRateGroupLabel(''); setCreatingRateGroup(false); setRateGroupTargetIndex(null); setPendingOnboardIds([]); setSourcePreviewDraft(null); setSourcePickerOpen(false); setSelectedSourceIds([]); }}
-                  saving={rateSheetSaving} saveErr={rateSheetError} isDirty>
-                  <div class="cz-rate-sheet-editor">
-                    <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={editingRateSheet.title}
-                      onInput={(event) => setEditingRateSheet({ ...editingRateSheet, title: event.currentTarget.value })} /></label>
-                    <div class="cz-rate-sheet-editor__toolbar">
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setCreatingRateGroup(true); setRateGroupTargetIndex(null); }}>Create Group</button>
-                      {section.rateSheetControls?.sourcePicker && <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={openSourcePicker}>Add Source Service</button>}
-                    </div>
-                    {sourcePickerOpen && <div class="cz-manager-source-picker">
-                      <div class="cz-manager-section__actions"><strong>Browse Services</strong><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setSourcePickerOpen(false); setSelectedSourceIds([]); }}>Cancel</button></div>
-                      <p>Select Services to establish supply. Their exposed Inclusions and FAQs will be loaded automatically after this Rate Sheet is saved.</p>
-                      {sourceLoading && <p class="cz-sp-tier-table__muted">Loading Services…</p>}
-                      {sourceError && <div class="cz-admin-error-msg" role="alert">{sourceError}</div>}
-                      {sourceCatalog && <div>{sourceCatalog.stations.map((service) => <label class="cz-manager-source-picker__candidate" key={service.id}><input type="checkbox" checked={selectedSourceIds.includes(service.id)} onChange={(event) => setSelectedSourceIds((current) => event.currentTarget.checked ? [...current, service.id] : current.filter((id) => id !== service.id))} /> {service.title}</label>)}
-                        <div><button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={selectedSourceIds.length === 0 || sourceLoading} onClick={async () => {
-                          if (!section.rateSheetControls?.connectSources || !active || !editingRateSheet) return;
-                          setSourceLoading(true); setSourceError(null);
-                          try {
-                            const baseDraft = section.rateSheetControls.replace(draft, editingRateSheet);
-                            const nextDraft = await section.rateSheetControls.connectSources(baseDraft, selectedSourceIds, Number(scope.stationContext.id));
-                            const nextProjection = section.project(readModel, scope, nextDraft);
-                            if (nextProjection.role === 'rate-sheet') {
-                              setEditingRateSheet({
-                                title: nextProjection.title,
-                                groups: nextProjection.groups.map((group) => ({ ...group })),
-                                items: nextProjection.items.map((item) => ({ id: item.id, optionId: item.optionId, unitPrice: item.unitPrice, per: item.per, quantity: item.quantity, groupId: item.groupId, sourceAvailable: item.sourceAvailable })),
-                              });
-                            }
-                            setSourcePreviewDraft(nextDraft);
-                            setSourcePickerOpen(false); setSelectedSourceIds([]);
-                          } catch (error) {
-                            setSourceError(error instanceof Error ? error.message : 'Could not resolve selected Services.');
-                          } finally { setSourceLoading(false); }
-                        }}>Add Selected Services</button></div></div>}
-                    </div>}
-                    {creatingRateGroup && rateGroupTargetIndex === null && <div class="cz-rate-sheet-editor__group-create">
-                      <label class="cz-tf-field"><span>Group name</span><input class="cz-tf-input" value={newRateGroupLabel} autoFocus
-                        onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)}
-                        onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); createRateGroup(); } }} /></label>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={createRateGroup} disabled={!newRateGroupLabel.trim()}>Add Group</button>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); }}>Cancel</button>
-                    </div>}
-                    <div class="cz-rate-sheet-editor__grid-wrap"><table class="cz-rate-sheet-editor__grid">
-                      <thead><tr><th>Supplied content</th><th>Unit Price</th><th>Per</th><th>Qty</th><th>Commercial Group</th></tr></thead>
-                      <tbody>{editingRateSheet.items.map((item, index) => (
-                        <tr key={item.id}>
-                          <td class="cz-sp-tier-table__name">{projection.options.find((option) => option.id === item.optionId)?.label ?? '(unresolved supplied content)'}{item.sourceAvailable === false ? ' — Unavailable' : ''}</td>
-                          <td><input class="cz-tf-input" disabled={item.sourceAvailable === false} aria-label={`Unit Price row ${index + 1}`} type="number" min="0" step="0.01" value={item.unitPrice}
-                            onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: Number(event.currentTarget.value) } : row) })} /></td>
-                          <td><select class="cz-tf-select" disabled={item.sourceAvailable === false} aria-label={`Per row ${index + 1}`} value={item.per}
-                            onChange={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, per: event.currentTarget.value } : row) })}>
-                            {projection.units.map((unit) => <option value={unit} key={unit}>{unit}</option>)}
-                          </select></td>
-                          <td><input class="cz-tf-input" disabled={item.sourceAvailable === false} aria-label={`Quantity row ${index + 1}`} type="number" min="1" step="1" value={item.quantity}
-                            onInput={(event) => setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Number(event.currentTarget.value) } : row) })} /></td>
-                          <td>{creatingRateGroup && rateGroupTargetIndex === index ? <div class="cz-rate-sheet-editor__inline-group">
-                            <input class="cz-tf-input" value={newRateGroupLabel} autoFocus placeholder="New group name" aria-label={`New group name row ${index + 1}`}
-                              onInput={(event) => setNewRateGroupLabel(event.currentTarget.value)}
-                              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); createRateGroup(); } if (event.key === 'Escape') { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); } }} />
-                            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={createRateGroup} disabled={!newRateGroupLabel.trim()}>Add</button>
-                            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setCreatingRateGroup(false); setNewRateGroupLabel(''); setRateGroupTargetIndex(null); }}>Cancel</button>
-                          </div> : <select class="cz-tf-select" disabled={item.sourceAvailable === false} aria-label={`Group row ${index + 1}`} value={item.groupId ?? ''}
-                            onChange={(event) => {
-                              if (event.currentTarget.value === '__add_new__') { setNewRateGroupLabel(''); setCreatingRateGroup(true); setRateGroupTargetIndex(index); return; }
-                              setEditingRateSheet({ ...editingRateSheet, items: editingRateSheet.items.map((row, rowIndex) => rowIndex === index ? { ...row, groupId: event.currentTarget.value || null } : row) });
-                            }}>
-                            <option value="">Ungrouped</option>{editingRateSheet.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}<option value="__add_new__">+ Add New</option>
-                          </select>}</td>
-                        </tr>
-                      ))}</tbody>
-                    </table></div>
-                  </div>
-                </InlineEditorShell>
+                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setPendingOnboardIds([]); setSourcePreviewDraft(null); }}
+                  onConnectSources={section.rateSheetControls?.connectSources ? async (serviceIds) => {
+                    if (!editingRateSheet) return;
+                    const baseDraft = section.rateSheetControls!.replace(draft, editingRateSheet);
+                    const nextDraft = await section.rateSheetControls!.connectSources!(baseDraft, serviceIds, Number(scope.stationContext.id));
+                    const nextProjection = section.project(readModel, scope, nextDraft);
+                    if (nextProjection.role === 'rate-sheet') {
+                      setEditingRateSheet({
+                        title: nextProjection.title,
+                        groups: nextProjection.groups.map((group) => ({ ...group })),
+                        items: nextProjection.items.map((item) => ({ id: item.id, optionId: item.optionId, unitPrice: item.unitPrice, per: item.per, quantity: item.quantity, groupId: item.groupId, sourceAvailable: item.sourceAvailable })),
+                      });
+                    }
+                    setSourcePreviewDraft(nextDraft);
+                  } : undefined}
+                />
               ) : !projection.configured ? (
                 <div class="cz-manager-empty">
                   <span class="cz-manager-empty__icon">{MODULE_ICONS.package}</span>
@@ -569,7 +551,16 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         }
 
         const activeFilter = filterBySection[section.id] ?? 'all';
-        const rows = projection.rows.filter((row) => row.filterIds.includes(activeFilter));
+        // Workspace scope: relationship rows resolve their supplying Service's
+        // Category Group assignment through the same provenance map the Rate
+        // Sheet filter uses (assignmentByServiceId) — no second mechanism.
+        const groupAssignments = assignmentByServiceId(packageDraftSources);
+        const rows = projection.rows.filter((row) => {
+          if (!row.filterIds.includes(activeFilter)) return false;
+          if (selectedCategoryGroupId === 'all') return true;
+          const assigned = row.sourceServiceId != null ? groupAssignments.get(row.sourceServiceId) ?? null : null;
+          return selectedCategoryGroupId === 'unassigned' ? assigned === null : assigned === selectedCategoryGroupId;
+        });
         return (
           <section class="cz-manager-section cz-manager-section--content-only" key={section.id}
             onFocus={() => setSelectedSectionKey(section.id)}>
@@ -644,13 +635,17 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
  * FILE INDEX
  *
  * MANAGER_COORDINATION       Provider reads, drafts, validation, and save state
- * RATE_SHEET_EDITOR          Rate Sheet sources, groups, selections, and filters
+ * FAMILY_SCOPE               Category Group cards and workspace scope selection
+ * RATE_SHEET_EDITOR          Rate Sheet save/validation coordination (editor UI
+ *                            extracted to PackageRateSheetEditor.tsx)
  * SERVICE_WORKSPACE          Service assignments and Package Category Groups
- * PACKAGE_WORKSPACE          Tier cards, relationships, and Rate Sheet settings
+ * PACKAGE_WORKSPACE          Tier cards, Connections relationships, and Settings
+ *                            (Commercial Groups + Rate Sheet)
  * PROMOTION_WORKSPACE        Promotion provider sections and continuations
  * MANAGER_RENDER             Tabs, actions, exit guards, and workspace composition
  *
  * Search: SECTION: MANAGER_COORDINATION
+ *         SECTION: FAMILY_SCOPE
  *         SECTION: RATE_SHEET_EDITOR
  *         SECTION: SERVICE_WORKSPACE
  *         SECTION: PACKAGE_WORKSPACE
