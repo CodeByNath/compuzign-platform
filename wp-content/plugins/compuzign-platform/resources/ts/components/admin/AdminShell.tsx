@@ -16,10 +16,9 @@ export function AdminShell() {
   const [actionConfig, setActionConfig] = useState<ActionConfig | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // The 1920px application frame is the presentation boundary: wide displays
-  // receive the full navigation rail, while frame-sized and smaller displays
-  // begin with the icon rail. The explicit toggle remains available in both
-  // modes, and crossing the boundary restores the intended default.
+  // The 1920px viewport breakpoint controls only the navigation rail: wide
+  // displays receive the full rail, while smaller displays begin icon-only.
+  // The application frame itself remains full-width and left-aligned.
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1921px)');
     const syncSidebar = (event: MediaQueryListEvent | MediaQueryList) => setCollapsed(!event.matches);

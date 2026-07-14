@@ -3,7 +3,7 @@
 ## Audit metadata
 
 Last audited: 2026-07-15 Australia/Brisbane
-Audited commit: `6cb3525` plus the Service Manager preview integration working tree
+Audited commit: `7d70e4f` plus the full-width shell correction working tree
 Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts`
@@ -24,7 +24,7 @@ Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceViewStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceTierStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/css/modules/admin.css`
-Current state: `ServiceCatalogWorkstation` is the “Your Service Manager” supply/configuration host. New Service and New Group launch from its Settings tab. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. Service and Tier entity drawers use the compact metadata header while their schema-owned Overview modules and inline editors remain authoritative. `PackageManagerWorkstation` renders the separate `packages` composition: supported Tier cards and Promotions only. The admin frame is capped at 1920px; the sidebar defaults to expanded above that boundary and icon-only at or below it.
+Current state: `ServiceCatalogWorkstation` is the “Your Service Manager” supply/configuration host. New Service and New Group launch from its Settings tab. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. Service and Tier entity drawers use the compact metadata header while their schema-owned Overview modules and inline editors remain authoritative. `PackageManagerWorkstation` renders the separate `packages` composition: supported Tier cards and Promotions only. The admin frame is full-width and left-aligned; the sidebar defaults to expanded above 1920px and icon-only at or below it.
 
 ## Entry guide
 

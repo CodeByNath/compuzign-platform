@@ -2586,15 +2586,15 @@
 #compuzign-admin {
   display: block;
   width: 100%;
-  max-width: 1920px;
-  margin-inline: auto;
+  max-width: none;
+  margin: 0;
 }
 
-/* The application frame is full-width until its 1920px presentation cap. */
+/* AdminShell owns a full-width frame anchored to the left edge. */
 .cz-admin-root {
   width: 100%;
-  max-width: 1920px;
-  margin-inline: auto;
+  max-width: none;
+  margin: 0;
   position: relative;
 }
 
