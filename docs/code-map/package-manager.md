@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Configures the Package Station’s relationship sources and manager-wide selections, exposing tier occupants and the commercial summary to admin surfaces.
+Owns Package Station persistence while exposing two bounded admin surfaces: Service-owned supply configuration in Your Service Manager, and customer-facing Tier/Promotion presentation in Packages.
 
 ## Ownership
 
@@ -12,11 +12,11 @@ The Package Station owns `package_manager`, rate-sheet selections, tiers, promot
 
 ### [PackageManagerWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/PackageManagerWorkstation.tsx)
 
-Legacy top-level mixed workstation pending the Packages-only boundary. It still hosts `DynamicStationManager`, resolves the compatibility host-Service id, uses the shared page shell adapter, and opens Service, Tier, and Promotion drawers. New Service Catalog work must target `ServiceCatalogWorkstation` instead.
+Packages-only workstation for supported Tier cards and Promotions. It resolves the compatibility host-Service id, renders `DynamicStationManager` in `packages` mode, and opens only Tier or Promotion drawers. Subscriptions, bundles, CRM, and future offers are not implemented here.
 
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
-Owns manager coordinator state and supports explicit surface composition. `service-catalog` mode renders the Family Card strip plus Details / Connections / Settings without Tier or Promotion content; the legacy mode temporarily preserves the former mixed Package Manager surface. `selectedCategoryGroupId` drives Services, relationship, and Rate Sheet filtering through existing mechanisms.
+Owns manager coordinator state with two required compositions. `service-catalog` renders Family Cards plus Details / Connections / Settings; `packages` renders only Package Tier cards and Promotions. `selectedCategoryGroupId` drives Service Catalog filtering and never assigns Tier occupants.
 
 [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) supplies the Service Catalog’s focused manager-owned editors. Their apply callbacks use the current Package provider draft; descriptions and Price Settings persistence remain outside the present schema.
 
@@ -43,7 +43,7 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 | --- | --- | --- | --- |
 | Manager coordination | `SECTION: MANAGER_COORDINATION` | Provider drafts, validation, saves | Changing orchestration |
 | Family scope | `SECTION: FAMILY_SCOPE` | Category Group cards and workspace scope | Changing scope behavior |
-| Workspaces | `SECTION: SERVICE_WORKSPACE`, `PACKAGE_WORKSPACE`, `PROMOTION_WORKSPACE` | Service Catalog composition plus retained legacy Package/Promotion sections | Changing workspace UI |
+| Workspaces | `SECTION: SERVICE_WORKSPACE`, `PACKAGE_WORKSPACE`, `PROMOTION_WORKSPACE` | Service Catalog supply versus Packages presentation | Changing workspace UI |
 | Rate Sheet editor | `SECTION: RATE_SHEET_EDITOR` | Save/validation; editor UI in [PackageRateSheetEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetEditor.tsx) | Changing Rate Sheet UI |
 | Package provider | `SECTION: PACKAGE_PROVIDER` | Read, validate, save, continuations | Changing provider behavior |
 | Manager shape | `SECTION: MANAGER_SHAPE` | Defaults and sanitization | Changing persisted shape |

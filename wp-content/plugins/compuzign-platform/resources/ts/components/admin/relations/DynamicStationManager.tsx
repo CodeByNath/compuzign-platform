@@ -16,7 +16,6 @@ import {
 } from './providers/package';
 import type { PackageRelationDraft } from './providers/package';
 import { PackageServicesTable } from './PackageServicesTable';
-import { PackageCategoryGroupsSection } from './PackageCategoryGroupsSection';
 import { PackageCategoryGroupCards } from './PackageCategoryGroupCards';
 import type { WorkspaceGroupScope } from './PackageCategoryGroupCards';
 import { PackageRateSheetFilters, RATE_SHEET_FILTER_DEFAULTS, assignmentByServiceId, filterRateSheetItems } from './PackageRateSheetFilters';
@@ -46,7 +45,7 @@ import type {
 } from './serviceManagerDrawers';
 
 export type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
-export type ManagerSurface = 'legacy' | 'service-catalog' | 'packages';
+export type ManagerSurface = 'service-catalog' | 'packages';
 
 type ManagerWorkspace = 'service' | 'package' | 'promotion';
 
@@ -69,7 +68,7 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, surface = 'legacy', onManageCategoryGroups, openAction }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, surface, onManageCategoryGroups, openAction }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
@@ -114,7 +113,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [sourcePreviewDraft, setSourcePreviewDraft] = useState<unknown | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<ManagerSubTab>('details');
   const [activeWorkspace, setActiveWorkspace] = useState<ManagerWorkspace>(
-    initialScope.activeProviderKey === 'promotion' ? 'promotion' : 'service',
+    surface === 'packages' ? 'package' : initialScope.activeProviderKey === 'promotion' ? 'promotion' : 'service',
   );
   const [categoryGroups, setCategoryGroups] = useState<PackageCategoryGroupItem[]>([]);
   const [rateSheetFilters, setRateSheetFilters] = useState<RateSheetFilterState>(RATE_SHEET_FILTER_DEFAULTS);
@@ -217,8 +216,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   // A workspace only offers the sub-tabs it populates.
   useEffect(() => {
     if (serviceCatalogSurface) return;
-    if (!WORKSPACE_SUB_TABS[activeWorkspace].includes(activeSubTab)) setActiveSubTab('details');
-  }, [activeWorkspace, activeSubTab, serviceCatalogSurface]);
+    const tabs = packagesSurface ? ['details'] : WORKSPACE_SUB_TABS[activeWorkspace];
+    if (!tabs.includes(activeSubTab)) setActiveSubTab('details');
+  }, [activeWorkspace, activeSubTab, serviceCatalogSurface, packagesSurface]);
 
   // A group that leaves the current registry (archived, trashed, deleted)
   // cannot remain the workspace scope.
@@ -311,7 +311,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   return (
     <section class="cz-manager-workspace" aria-label={serviceCatalogSurface ? 'Your Service Manager' : `${activeWorkspace === 'service' ? 'Services' : active?.label ?? 'Connection'} Manager`}>
       {/* SECTION: FAMILY_SCOPE — Category Group cards establish the workspace scope. */}
-      {hasPackageProvider && scope.stationContext.type === 'service' && (
+      {!packagesSurface && hasPackageProvider && scope.stationContext.type === 'service' && (
         <PackageCategoryGroupCards
           groups={categoryGroups}
           sources={packageDraftSources}
@@ -334,7 +334,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         <nav class="cz-manager-provider-nav" aria-label="Relation providers">
           {([
             ...(packageProvider ? [
-              { key: 'service' as const, label: 'Services', provider: packageProvider },
+              ...(!packagesSurface ? [{ key: 'service' as const, label: 'Services', provider: packageProvider }] : []),
               { key: 'package' as const, label: 'Packages', provider: packageProvider },
             ] : []),
             ...(promotionProvider ? [
@@ -367,7 +367,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           })}
         </nav>
       )}
-      {(serviceCatalogSurface || WORKSPACE_SUB_TABS[activeWorkspace].length > 1) && (
+      {(serviceCatalogSurface || (!packagesSurface && WORKSPACE_SUB_TABS[activeWorkspace].length > 1)) && (
         <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} tabs={serviceCatalogSurface ? ['details', 'connections', 'settings'] : WORKSPACE_SUB_TABS[activeWorkspace]} />
       )}
       {/* SECTION: PROMOTION_WORKSPACE */}
@@ -393,9 +393,6 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             categoryGroupFilter={selectedCategoryGroupId}
             onCategoryGroupFilterChange={(value) => setSelectedCategoryGroupId(value as WorkspaceGroupScope)}
         />
-      )}
-      {!serviceCatalogSurface && activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'connections' && (
-        <PackageCategoryGroupsSection onChanged={() => { void reloadCategoryGroups(); }} />
       )}
       {/* SECTION: PACKAGE_WORKSPACE */}
       {!serviceCatalogSurface && activeWorkspace === 'package' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
@@ -758,10 +755,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
  * FAMILY_SCOPE               Category Group cards and workspace scope selection
  * RATE_SHEET_EDITOR          Rate Sheet save/validation coordination (editor UI
  *                            extracted to PackageRateSheetEditor.tsx)
- * SERVICE_WORKSPACE          Service assignments and Package Category Groups
- * PACKAGE_WORKSPACE          Tier cards, Connections relationships, and Settings
- *                            (Commercial Groups + Rate Sheet)
- * PROMOTION_WORKSPACE        Promotion provider sections and continuations
+ * SERVICE_WORKSPACE          Your Service Manager Service assignments
+ * PACKAGE_WORKSPACE          Service Catalog connections/settings or Packages Tier cards
+ * PROMOTION_WORKSPACE        Packages Promotion presentation
  * MANAGER_RENDER             Tabs, actions, exit guards, and workspace composition
  *
  * Search: SECTION: MANAGER_COORDINATION

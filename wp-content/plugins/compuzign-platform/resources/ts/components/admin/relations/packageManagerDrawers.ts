@@ -1,7 +1,13 @@
 import type { ActionConfig } from '../ActionShell';
+import type { ServiceItem } from '@/api/types/cost-builder';
 import { PromotionOverviewDrawerStep } from './PromotionOverviewDrawerStep';
 import { ServiceTierStep } from '../workstations/ServiceTierStep';
-import type { DrawerHostContext } from './serviceDrawerConfig';
+
+export interface PackageDrawerContext {
+  service: ServiceItem;
+  openAction: (config: ActionConfig) => void;
+  onRefresh?: () => void;
+}
 
 export function buildPromotionDrawerConfig(serviceId: number, promotionId?: string, edit = false): ActionConfig {
   return {
@@ -11,7 +17,7 @@ export function buildPromotionDrawerConfig(serviceId: number, promotionId?: stri
   };
 }
 
-export function buildPackageTierDrawerConfig(deps: DrawerHostContext, occupantId: string, slotId: string, edit = false): ActionConfig {
+export function buildPackageTierDrawerConfig(deps: PackageDrawerContext, occupantId: string, slotId: string, edit = false): ActionConfig {
   return {
     id: `package-tier-${occupantId}`,
     mode: 'drawer', title: 'Package', hideStepHeader: true,

@@ -75,7 +75,7 @@ export const WORKSTATIONS: WorkstationSchema[] = [
     surface: { kind: 'entity-table', entity: 'service', scope: 'archived' } },
   { id: 'service-trash',    label: 'Trash',             group: 'catalog',    parent: 'service-catalog', hiddenFromNav: true,
     surface: { kind: 'entity-table', entity: 'service', scope: 'trashed' } },
-  { id: 'package-manager',  label: 'Package Manager',   group: 'catalog',    iconId: 'package',
+  { id: 'package-manager',  label: 'Packages',          group: 'catalog',    iconId: 'package',
     surface: { kind: 'component', component: () => PackageManagerWorkstation } },
   { id: 'category-catalog', label: 'Categories',        group: 'catalog',    iconId: 'category',
     surface: { kind: 'component', component: () => CategoryCatalogWorkstation } },

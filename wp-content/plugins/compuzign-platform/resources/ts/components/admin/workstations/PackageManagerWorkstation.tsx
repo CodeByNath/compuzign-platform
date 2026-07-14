@@ -6,20 +6,19 @@ import {
   buildPackageTierDrawerConfig,
   buildPromotionDrawerConfig,
 } from '../relations/packageManagerDrawers';
-import { buildServiceDetailDrawerConfig } from '../relations/serviceDrawerConfig';
-import type { DrawerHostContext } from '../relations/serviceDrawerConfig';
+import type { PackageDrawerContext } from '../relations/packageManagerDrawers';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Workstation } from '../shell/Workstation';
 import { AsyncError, AsyncLoading } from '../ui/AsyncSection';
 import type { WorkstationSurfaceProps } from '../schema/workstations';
-import { buildServiceItemForStationHandoff, normalizeAdminCategories } from './ServiceCatalogWorkstation';
+import { buildServiceItemForStationHandoff } from './ServiceCatalogWorkstation';
 
 // Package Manager workstation (Phase 1).
 //
-// Page host for the existing coordinator and Package provider. The full
-// manager-in-drawer route is retired; Phase D reduces this remaining page to
-// supported Package concerns.
+// Packages surface: supported Tier presentation and Promotions only. Service
+// supply, connections, Commercial Groups, and Rate Sheet configuration live on
+// Your Service Manager; future package capabilities are not invented here.
 //
 // The Package Station is global; its REST family is addressed through a
 // compatibility host-Service id (any existing Service post). The host resolves
@@ -66,10 +65,8 @@ export function PackageManagerWorkstation({ refreshKey, openAction, setNavigatio
     );
   }
 
-  const drawerDeps: DrawerHostContext = {
+  const drawerDeps: PackageDrawerContext = {
     service: buildServiceItemForStationHandoff(hostSummary),
-    packages,
-    allCategories: normalizeAdminCategories(data?.categories ?? []),
     openAction,
     onRefresh: refetch,
   };
@@ -78,8 +75,9 @@ export function PackageManagerWorkstation({ refreshKey, openAction, setNavigatio
     <Workstation className="cz-package-manager-workstation">
       <Workstation.Header className="cz-ws-header">
         <div>
-          <h2 class="cz-ws-title">Package Manager</h2>
-          <p class="cz-ws-subtitle">Connected Services, source relationships, Rate Sheet, and Package tiers.</p>
+          <p class="cz-ws-eyebrow">Package Station</p>
+          <h2 class="cz-ws-title">Packages</h2>
+          <p class="cz-ws-subtitle">Package tiers, customer-facing composition, and Promotions.</p>
         </div>
       </Workstation.Header>
       <Workstation.Content>
@@ -88,8 +86,8 @@ export function PackageManagerWorkstation({ refreshKey, openAction, setNavigatio
           key={hostSummary.id}
           scope={scope}
           shell={shell}
+          surface="packages"
           onOpenPromotion={(promotionId, edit) => openAction(buildPromotionDrawerConfig(hostSummary.id, promotionId, edit))}
-          onOpenService={(summary, edit) => openAction(buildServiceDetailDrawerConfig(drawerDeps, summary, edit))}
           onOpenPackage={(occupantId, slotId, edit) => openAction(buildPackageTierDrawerConfig(drawerDeps, occupantId, slotId, edit))}
         />
       </Workstation.Content>
