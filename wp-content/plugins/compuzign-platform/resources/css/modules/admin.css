@@ -4479,7 +4479,7 @@ button.cz-module-status-pill {
 .cz-manager-select-filters .cz-tf-select,
 .cz-manager-rate-sheet__filters .cz-tf-select,
 .cz-manager-rate-sheet__filters .cz-tf-input { width: 100%; min-width: 0; }
-.cz-manager-rate-sheet__filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cz-space-3); width: 100%; min-width: 0; margin-bottom: var(--cz-space-4); padding: var(--cz-space-3); overflow: visible; border: 1px solid var(--admin-border-blue); }
+.cz-manager-rate-sheet__filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cz-space-3); width: 100%; min-width: 0; margin-bottom: var(--cz-space-4); padding: var(--cz-space-3); overflow: visible; border: 1px solid var(--admin-border-blue); border-radius: var(--admin-radius-base); }
 .cz-manager-collection {
   box-sizing: border-box;
   width: 100%;
@@ -4735,7 +4735,7 @@ button.cz-module-status-pill {
   gap: var(--cz-space-4);
   padding: var(--cz-space-4);
   border: 1px solid var(--admin-border-blue);
-  border-radius: 12px;
+  border-radius: var(--admin-radius-base);
   background: var(--admin-bg);
 }
 .cz-focused-drawer-card h3,
@@ -4752,7 +4752,7 @@ button.cz-module-status-pill {
   overflow: auto;
   padding: var(--cz-space-2);
   border: 1px solid var(--admin-border-blue);
-  border-radius: 8px;
+  border-radius: var(--admin-radius-base);
 }
 .cz-focused-drawer-check {
   display: flex;
@@ -4767,7 +4767,7 @@ button.cz-module-status-pill {
   gap: var(--cz-space-3);
   padding: var(--cz-space-4);
   border: 1px solid var(--admin-border-blue);
-  border-radius: 10px;
+  border-radius: var(--admin-radius-base);
   background: var(--admin-bg);
 }
 .cz-manager-commercial-card > div { min-width: 0; flex: 1; }
@@ -4900,4 +4900,53 @@ button.cz-module-status-pill {
 .cz-family-card__actions {
   margin-top: auto;
   align-self: flex-end;
+}
+
+/* Station Home responsive hierarchy. The content remains full-width and
+   independent of sidebar dimensions so a future top-nav shell can re-host it. */
+@media screen and (max-width: 1180px) {
+  .cz-station-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cz-family-strip__cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+}
+
+@media screen and (max-width: 900px) {
+  .cz-manager-workspace { gap: var(--cz-space-4); padding: var(--cz-space-4); }
+  .cz-manager-section__title { align-items: stretch; flex-direction: column; }
+  .cz-manager-section__title .cz-manager-section__actions { justify-content: flex-start; }
+  .cz-manager-section__title .cz-manager-filters { margin-bottom: 0; }
+  .cz-manager-collection__header { display: none; }
+  .cz-manager-collection__body { gap: var(--cz-space-3); }
+  .cz-manager-collection__row { grid-template-columns: minmax(0, 1fr); gap: var(--cz-space-3); padding: var(--cz-space-4); }
+  .cz-manager-collection__cell { display: grid; grid-template-columns: minmax(116px, .32fr) minmax(0, 1fr); gap: var(--cz-space-3); align-items: start; }
+  .cz-manager-collection__cell::before { content: attr(data-label); color: var(--admin-text-faint); font-size: var(--admin-fs-s-label); line-height: var(--admin-lh-s-label); }
+  .cz-manager-collection__cell > * { grid-column: 2; }
+  .cz-manager-collection__identity,
+  .cz-manager-collection__status,
+  .cz-manager-collection__health { align-items: stretch; }
+  .cz-manager-collection__action { justify-content: stretch; }
+  .cz-manager-row-actions { flex-wrap: wrap; justify-content: flex-start; }
+}
+
+@media screen and (max-width: 767px) {
+  .cz-service-manager-workstation__actions { justify-content: flex-start; margin-top: calc(-1 * var(--cz-space-3)); }
+  .cz-station-home__status { width: 100%; flex-wrap: wrap; white-space: normal; }
+  .cz-station-summary { grid-template-columns: minmax(0, 1fr); }
+  .cz-station-summary__card { padding: var(--cz-space-3); }
+  .cz-family-strip__cards { grid-template-columns: minmax(0, 1fr); }
+  .cz-family-card--primary { min-height: 0; }
+  .cz-family-strip__utilities { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cz-family-card--utility { min-width: 0; }
+  .cz-manager-subtabs { gap: var(--cz-space-4); overflow-x: auto; }
+  .cz-manager-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cz-manager-summary-grid { grid-template-columns: minmax(0, 1fr); }
+  .cz-manager-commercial-card { align-items: flex-start; flex-wrap: wrap; }
+}
+
+@media screen and (max-width: 480px) {
+  .cz-family-strip__utilities { grid-template-columns: minmax(0, 1fr); }
+  .cz-family-card__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cz-family-card__metrics div { padding-inline: var(--cz-space-2); }
+  .cz-manager-collection__cell { grid-template-columns: minmax(0, 1fr); gap: var(--cz-space-1); }
+  .cz-manager-collection__cell::before { margin-bottom: var(--cz-space-1); }
+  .cz-manager-collection__cell > * { grid-column: 1; }
 }
