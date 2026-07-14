@@ -5,9 +5,9 @@ import { usePageManagerShell } from '../relations/usePageManagerShell';
 import {
   buildPackageTierDrawerConfig,
   buildPromotionDrawerConfig,
-  buildServiceDetailDrawerConfig,
-} from '../relations/stationManagerDrawers';
-import type { StationManagerDrawerContext } from '../relations/stationManagerDrawers';
+} from '../relations/packageManagerDrawers';
+import { buildServiceDetailDrawerConfig } from '../relations/serviceDrawerConfig';
+import type { DrawerHostContext } from '../relations/serviceDrawerConfig';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Workstation } from '../shell/Workstation';
@@ -17,10 +17,9 @@ import { buildServiceItemForStationHandoff, normalizeAdminCategories } from './S
 
 // Package Manager workstation (Phase 1).
 //
-// Page host for the existing DynamicStationManager: same providers, coordinator
-// state, drafts, validation, and save authority as the Station Manager drawer —
-// only the shell differs. The drawer entry (StationManagerStep) remains fully
-// operational; this surface adds a top-level route, it does not replace it.
+// Page host for the existing coordinator and Package provider. The full
+// manager-in-drawer route is retired; Phase D reduces this remaining page to
+// supported Package concerns.
 //
 // The Package Station is global; its REST family is addressed through a
 // compatibility host-Service id (any existing Service post). The host resolves
@@ -67,7 +66,7 @@ export function PackageManagerWorkstation({ refreshKey, openAction, setNavigatio
     );
   }
 
-  const drawerDeps: StationManagerDrawerContext = {
+  const drawerDeps: DrawerHostContext = {
     service: buildServiceItemForStationHandoff(hostSummary),
     packages,
     allCategories: normalizeAdminCategories(data?.categories ?? []),

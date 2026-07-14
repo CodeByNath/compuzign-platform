@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provides the “Your Service Manager” dashboard, Service creation, and canonical Service detail workspace. The dashboard is the family-first reading surface for Services plus Package-owned connections, Commercial Groups, and Rate Sheet configuration.
+Provides the “Your Service Manager” dashboard, Service creation, and canonical Service detail workspace. The dashboard is the family-first surface for Services plus Package-owned connections, Commercial Groups, and Rate Sheet configuration.
 
 ## Ownership
 
@@ -55,7 +55,7 @@ Contains the canonical Details/Connections Service drawer; overview, inclusions,
 
 `ServiceCatalogWorkstation` resolves the compatibility host, renders `service-catalog` mode, preserves drafts through the shared shell adapter, and opens focused first-level drawers. Service View/Edit uses the canonical drawer; Edit requests start its Overview editor. Package-owned drawer changes return to the dashboard draft and the page Save remains atomic.
 
-`ServiceViewStep` remains the Service drawer root for overview, inclusions, FAQs, lifecycle, drafts, guards, and confirmations. Its legacy Station Manager handoff is pending removal. Persistence remains in `useServiceStation` and the API.
+`ServiceViewStep` remains the Service drawer root for overview, inclusions, FAQs, lifecycle, drafts, guards, and confirmations. It has no manager navigation or nested drawer path. Persistence remains in `useServiceStation` and the API.
 
 ## Related Code Maps
 

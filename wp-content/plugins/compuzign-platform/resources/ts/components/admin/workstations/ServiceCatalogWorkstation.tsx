@@ -19,8 +19,8 @@ import type { WorkstationSurfaceProps } from '../schema/workstations';
 import type { StationManagerScope } from '../relations/types';
 import { DynamicStationManager } from '../relations/DynamicStationManager';
 import { usePageManagerShell } from '../relations/usePageManagerShell';
-import { buildServiceDetailDrawerConfig } from '../relations/stationManagerDrawers';
-import type { StationManagerDrawerContext } from '../relations/stationManagerDrawers';
+import { buildServiceDetailDrawerConfig } from '../relations/serviceDrawerConfig';
+import type { DrawerHostContext } from '../relations/serviceDrawerConfig';
 import { buildCategoryGroupDrawerConfig } from '../relations/serviceManagerDrawers';
 
 type Props = WorkstationSurfaceProps;
@@ -445,7 +445,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
     kind: 'connection-graph', stationContext: { type: 'service', id: hostSummary.id },
   }) : null, [hostSummary?.id]);
 
-  const drawerDeps: StationManagerDrawerContext | null = hostSummary ? {
+  const drawerDeps: DrawerHostContext | null = hostSummary ? {
     service: buildServiceItemForStationHandoff(hostSummary),
     packages,
     allCategories: normalizeAdminCategories(data?.categories ?? []),

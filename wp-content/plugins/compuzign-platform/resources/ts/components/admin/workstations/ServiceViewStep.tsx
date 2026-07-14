@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'preact/hooks';
-import type { ActionConfig, StepContext } from '../ActionShell';
+import type { StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { updateServiceCategory } from '@/api/endpoints/admin';
 import type { SurfacePackageSummary } from '@/api/types/admin';
@@ -28,9 +28,6 @@ import { EntityDrawer } from '../EntityDrawer';
 import type { DrawerTabId } from '../DrawerTabs';
 import { getPackageNotes } from '@/components/admin/utils/moduleNotifications';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
-import { providersExposeManager, relationProvidersFor } from '@/components/admin/relations';
-import type { StationConnectionDescriptor, StationManagerScope } from '@/components/admin/relations';
-import { buildStationManagerConfig } from '@/components/admin/relations/StationManagerStep';
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
 
 // ===========================================================================
@@ -66,35 +63,10 @@ function isFaqsDirty(a: FaqsDraft, b: FaqsDraft): boolean {
 export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
   const service      = ctx.stepData.service      as ServiceItem;
   const packages     = ctx.stepData.packages     as SurfacePackageSummary[];
-  const doOpen       = ctx.stepData.openAction   as (config: ActionConfig) => void;
   const allCategories = ctx.stepData.allCategories as Category[] ?? [];
   const onRefresh    = ctx.stepData.onRefresh    as (() => void) | undefined;
 
   const [tab, setTab] = useState<DrawerTabId>((ctx.stepData.initialTab as DrawerTabId) ?? 'details');
-  const packageConnection = useMemo<StationConnectionDescriptor>(() => ({
-    providerKey: 'package',
-    relationshipKey: `service:${service.id}:package`,
-    stationContext: { type: 'service', id: service.id },
-  }), [service.id]);
-  const managerAvailabilityScope = useMemo<StationManagerScope>(() => ({
-    kind: 'connection-graph', stationContext: { type: 'service', id: service.id }, activeProviderKey: ctx.stepData.initialManagerProvider as string | undefined,
-  }), [service.id, ctx.stepData.initialManagerProvider]);
-  const managerProviders = useMemo(
-    () => relationProvidersFor(managerAvailabilityScope),
-    [managerAvailabilityScope],
-  );
-  const showManager = providersExposeManager(managerProviders);
-  const openStationManager = () => {
-    const returnToManager = () => doOpen({
-      id: `service-view-${service.id}`,
-      mode: 'drawer', title: 'Service',
-      initialStepData: { service, packages, openAction: doOpen, allCategories, onRefresh, initialTab: 'connections' },
-      steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
-    });
-    ctx.close();
-    doOpen(buildStationManagerConfig({ service, packages, allCategories, openAction: doOpen, onRefresh, returnToService: returnToManager }));
-  };
-
   const selectServiceTab = (next: DrawerTabId) => {
     ctx.requestExit({ kind: 'tab', target: next }, () => setTab(next));
   };
@@ -701,7 +673,6 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
       trailing={{
         connections: (
           <>
-            {showManager && <div class="cz-shell-section cz-shell-section--no-border"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={openStationManager}>Open Station Manager</button></div>}
             {relatedPkg && (
               <div class="cz-shell-section cz-shell-section--no-border">
                 <p class="cz-shell-section__title">Pricing Summary</p>

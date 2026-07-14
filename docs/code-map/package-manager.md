@@ -14,15 +14,13 @@ The Package Station owns `package_manager`, rate-sheet selections, tiers, promot
 
 Legacy top-level mixed workstation pending the Packages-only boundary. It still hosts `DynamicStationManager`, resolves the compatibility host-Service id, uses the shared page shell adapter, and opens Service, Tier, and Promotion drawers. New Service Catalog work must target `ServiceCatalogWorkstation` instead.
 
-### [StationManagerStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/StationManagerStep.tsx)
-
-Builds the Station Manager drawer action, hosts `DynamicStationManager`, and opens nested Promotion or Tier drawers via the shared configs in [stationManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/stationManagerDrawers.ts). Tier-card handoff carries stable `occupantId` plus internal `slotId`.
-
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
 Owns manager coordinator state and supports explicit surface composition. `service-catalog` mode renders the Family Card strip plus Details / Connections / Settings without Tier or Promotion content; the legacy mode temporarily preserves the former mixed Package Manager surface. `selectedCategoryGroupId` drives Services, relationship, and Rate Sheet filtering through existing mechanisms.
 
 [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) supplies the Service Catalog’s focused manager-owned editors. Their apply callbacks use the current Package provider draft; descriptions and Price Settings persistence remain outside the present schema.
+
+[serviceDrawerConfig.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts) owns the canonical Service drawer config. [packageManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/packageManagerDrawers.ts) separately owns Tier and Promotion configs. The former full manager drawer and nested portal path have been removed.
 
 ### [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts)
 

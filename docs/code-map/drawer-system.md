@@ -23,6 +23,7 @@ Supplies reusable admin navigation, action drawers, schema-driven entity modules
 - [Workstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/shell/Workstation.tsx) composes workstation heading, actions, filters, and body slots. Use it for shared workstation layout.
 - [usePageManagerShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx) mirrors the `ActionShell` exit-guard/footer contract for a mounted dashboard so drawers can open above it without losing manager drafts.
 - [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) contains the focused Service Catalog drawer steps and config builders. Each action is first-level; manager-owned Save means apply to the mounted page draft.
+- [serviceDrawerConfig.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts) owns Service actions; [packageManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/packageManagerDrawers.ts) owns Tier and Promotion actions. No builder opens a full manager inside a drawer.
 
 ## State and Providers
 

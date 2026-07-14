@@ -5,9 +5,9 @@
 Last audited: 2026-07-14 Australia/Brisbane
 Audited commit: `64416be` plus the Your Service Manager recomposition working tree
 Audited paths:
-- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/StationManagerStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx`
-- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/stationManagerDrawers.ts`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/packageManagerDrawers.ts`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupCards.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetEditor.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx`
@@ -18,7 +18,7 @@ Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx`
 - `wp-content/plugins/compuzign-platform/resources/css/modules/admin.css`
-Current state: `ServiceCatalogWorkstation` is the primary “Your Service Manager” page host. It renders Family Cards plus Details (Services), Connections, and Settings, with Tier and Promotion content excluded. `serviceManagerDrawers.tsx` supplies focused first-level Category Group, Connection, Commercial Group, Rate Row, and audit-only Price Settings drawers. Manager-owned apply callbacks patch the mounted provider draft; page Save remains the atomic commit. The former mixed Package page and full manager drawer remain temporarily intact for later phases.
+Current state: `ServiceCatalogWorkstation` is the “Your Service Manager” host. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. `ServiceViewStep` no longer discovers or opens a Station Manager. `StationManagerStep` and its nested portal have been removed. Service drawer configuration is isolated in `serviceDrawerConfig.ts`; Tier and Promotion configs live in `packageManagerDrawers.ts`. The mixed Package page remains for Phase D reduction.
 
 ## Entry guide
 
