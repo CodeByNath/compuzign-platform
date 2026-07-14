@@ -21,6 +21,15 @@ The homepage runtime owns component registration and presentation. `HomeConfigur
 - [config.ts](../../wp-content/plugins/compuzign-platform/resources/ts/runtime/config.ts) reads localized runtime URLs and API configuration. Use it for Cost Builder destination configuration.
 - [configurator.php](../../wp-content/plugins/compuzign-platform/app/modules/homepage/templates/configurator.php) emits the configurator shortcode mount. Use it for server markup placement.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Service preview | `SECTION: SERVICE_PREVIEW` | Popular-Tier preview and Add | Changing preview cards |
+| Dashboard | `SECTION: CONFIGURATOR_DASHBOARD` | Category/Service and quote state | Changing configurator interaction |
+| Quote handoff | `SECTION: QUOTE_HANDOFF` | Cart updates and transfer | Changing Cost Builder handoff |
+| Root | `SECTION: CONFIGURATOR_ROOT` | Fetch and root composition | Changing mount behavior |
+
 ## Runtime Flow
 
 The runtime registry mounts each homepage section independently. `HomeConfigurator` fetches the same projection as the Cost Builder, defaults to the first category, resets Service preview when category data changes, previews the popular or standard tier, builds quote items, computes a display total, saves the shared cart, and transfers the user to the configured pricing URL. It is a legitimate feature composition component, though its internal preview and dashboard components could be separated if it grows.

@@ -1,5 +1,19 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * STATION_PERSISTENCE    Load, cache, defaults, save, and legacy migration
+ * PROMOTION_PERSISTENCE  Promotion collection load and save
+ * SOURCE_PROJECTIONS     Inclusion/FAQ pools and Service provenance
+ * PACKAGE_LOOKUPS        Coverage and active/disabled Package indexes
+ *
+ * Search: SECTION: STATION_PERSISTENCE
+ *         SECTION: PROMOTION_PERSISTENCE
+ *         SECTION: SOURCE_PROJECTIONS
+ *         SECTION: PACKAGE_LOOKUPS
+ */
+
 namespace CompuZign\Platform\Modules\SurfacePackages\Repositories;
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
@@ -22,6 +36,9 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
  */
 class PackageRepository
 {
+    // ===================================================================
+    // SECTION: STATION_PERSISTENCE
+    // ===================================================================
     public const OPTION_KEY = 'cz_package_station';
 
     private const LEGACY_STATION_META   = 'cz_service_package_station';
@@ -65,6 +82,9 @@ class PackageRepository
      *
      * @return array<int, array<string, mixed>>
      */
+    // ===================================================================
+    // SECTION: PROMOTION_PERSISTENCE
+    // ===================================================================
     public function loadPromotions(): array
     {
         $station = $this->loadStation();
@@ -202,6 +222,9 @@ class PackageRepository
      *
      * @return array{0: array, 1: array} [$inclusions, $faqs]
      */
+    // ===================================================================
+    // SECTION: SOURCE_PROJECTIONS
+    // ===================================================================
     public function sourcePools(array $station, ?array $sources = null): array
     {
         $manager = is_array($station['package_manager'] ?? null)
@@ -293,6 +316,9 @@ class PackageRepository
      *
      * @return int[]
      */
+    // ===================================================================
+    // SECTION: PACKAGE_LOOKUPS
+    // ===================================================================
     public function coveredServiceIds(array $station): array
     {
         $manager = is_array($station['package_manager'] ?? null)

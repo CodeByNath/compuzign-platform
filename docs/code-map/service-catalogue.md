@@ -38,6 +38,19 @@ Contains the canonical Details/Connections Service drawer; overview, inclusions,
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) is the typed frontend boundary for all admin REST calls. Use it when adding or changing client endpoint contracts.
 - [PostTypeRegistrar.php](../../wp-content/plugins/compuzign-platform/src/Core/PostTypeRegistrar.php) registers authoritative WordPress post types. Use it for Service/request entity registration, not drawer behavior.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Catalogue model | `SECTION: SERVICE_CATALOGUE_MODEL` | Status/category adapters and drawer handoff | Changing projections or handoff data |
+| Service creation | `SECTION: SERVICE_CREATION` | Create drawer and submission | Changing Service creation |
+| Catalogue table | `SECTION: SERVICE_CATALOGUE_TABLE` | Filters, rows, and drawer launch | Changing the catalogue UI |
+| Drawer state | `SECTION: SERVICE_DRAWER_STATE` | Drafts, editors, dirty checks | Changing Service editing |
+| Lifecycle | `SECTION: SERVICE_LIFECYCLE` | Publish, status, travel, exit guards | Changing Service actions |
+| Module bindings | `SECTION: SERVICE_MODULE_BINDINGS` | Overview, inclusions, FAQs, Package summary | Changing module shells |
+| Drawer render | `SECTION: SERVICE_DRAWER_RENDER` | Drawer, footer, and dialogs | Changing drawer composition |
+| Service backend | `SECTION: SERVICE_CATALOGUE` | Matching routes and handlers | Changing Service REST behavior |
+
 ## Runtime Flow
 
 `ServiceCatalogWorkstation` also contains the new-Service drawer, category normalization, and the summary-to-detail handoff adapter used by Category surfaces. It loads catalogue and package summaries, filters table rows, creates Services, and opens the canonical detail step.

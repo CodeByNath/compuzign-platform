@@ -1,5 +1,19 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * PACKAGE_STATION_SHAPE    Defaults and source relationship sanitization
+ * RATE_SHEET_SCHEMA        Rate Sheet identity, sanitization, and validation
+ * TIER_PRICING             Tier selections, totals, and activation readiness
+ * COMMERCIAL_PROJECTION    Active public Package projection
+ *
+ * Search: SECTION: PACKAGE_STATION_SHAPE
+ *         SECTION: RATE_SHEET_SCHEMA
+ *         SECTION: TIER_PRICING
+ *         SECTION: COMMERCIAL_PROJECTION
+ */
+
 namespace CompuZign\Platform\Modules\Packages\Support;
 
 /**
@@ -16,6 +30,9 @@ namespace CompuZign\Platform\Modules\Packages\Support;
  */
 final class PackageStationSchema
 {
+    // ===================================================================
+    // SECTION: PACKAGE_STATION_SHAPE
+    // ===================================================================
     public const FIXED_TIERS = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
     public const ALLOWED_UNITS = ['Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item'];
 
@@ -125,6 +142,9 @@ final class PackageStationSchema
     }
 
     /** Stable Package Rate Sheet identity; provenance never leaves the provider. */
+    // ===================================================================
+    // SECTION: RATE_SHEET_SCHEMA
+    // ===================================================================
     public static function deriveRateSheetItemId(array $source): string
     {
         $source = self::sanitizeSourceRef($source);
@@ -214,6 +234,9 @@ final class PackageStationSchema
     }
 
     /** @return array<int, array{item_id:string,quantity:int,option_selections:array<int,string>}> */
+    // ===================================================================
+    // SECTION: TIER_PRICING
+    // ===================================================================
     public static function sanitizeTierSelections(mixed $value): array
     {
         if (!is_array($value)) {
@@ -442,6 +465,9 @@ final class PackageStationSchema
      *
      * @return array{active:bool,blockers:array,projection:?array}
      */
+    // ===================================================================
+    // SECTION: COMMERCIAL_PROJECTION
+    // ===================================================================
     public static function projectActiveCommercialPackage(array $station): array
     {
         $packageActive = ($station['lifecycle']['status'] ?? 'disabled') === 'active';

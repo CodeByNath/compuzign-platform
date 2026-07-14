@@ -30,6 +30,19 @@ The Category station owns Category identity, its overview draft and lifecycle. G
 - [CategoryMeta.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/CategoryMeta.php) defines Category/Group metadata keys, defaults, sanitization, and module-state helpers. Use it for stored shape and readiness rules.
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) exposes typed Category and membership calls. Use it for client endpoint contracts.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Drawer model | `SECTION: CATEGORY_DRAWER_MODEL` | Config and Service handoff | Changing drawer entry |
+| Overview | `SECTION: CATEGORY_OVERVIEW` | Overview and Group membership edits | Changing Category authoring |
+| Lifecycle | `SECTION: CATEGORY_LIFECYCLE` | Publish, travel, close guards | Changing Category actions |
+| Connections | `SECTION: CATEGORY_CONNECTIONS` | Assigned-Service transit | Changing Service navigation |
+| Render | `SECTION: CATEGORY_DRAWER_RENDER` | Shell, footer, dialogs | Changing drawer UI |
+| Routes | `SECTION: CATEGORY_ROUTES` | Category route registration | Changing endpoints |
+| Handlers | `SECTION: CATEGORY_HANDLERS` | CRUD, membership, lifecycle | Changing backend behavior |
+| Helpers | `SECTION: CATEGORY_HELPERS` | Lookup, validation, projection | Changing responses |
+
 ## Runtime Flow
 
 `CategoryViewStep` builds the drawer config, derives assigned-Service counts, binds overview state, and owns transient editing, group selection, dirty/exit guards, footer actions, and publish/settle/enable/archive/trash confirmations. `useCategoryStation` applies mutations and refreshes canonical projections. Assigned Service cards reuse `ServiceViewStep` through the catalogue handoff adapter.

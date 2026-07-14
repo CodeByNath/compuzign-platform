@@ -1,5 +1,19 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * CATALOGUE_RESPONSE      Public category, Service, Tier, and promotion assembly
+ * SERVICE_PAYLOAD         Canonical Service payload and default pricing
+ * PACKAGE_OVERLAY         Active Package and promotion overlays
+ * PRICING_NORMALIZATION   Pricing, inclusions, and FAQs normalization
+ *
+ * Search: SECTION: CATALOGUE_RESPONSE
+ *         SECTION: SERVICE_PAYLOAD
+ *         SECTION: PACKAGE_OVERLAY
+ *         SECTION: PRICING_NORMALIZATION
+ */
+
 namespace CompuZign\Platform\Modules\CostBuilder\Services;
 
 use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
@@ -11,6 +25,9 @@ use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
 class PricingBuilder
 {
+    // ===================================================================
+    // SECTION: CATALOGUE_RESPONSE
+    // ===================================================================
     private const TIERS = [
         ['id' => 'basic',      'title' => 'Basic'],
         ['id' => 'standard',   'title' => 'Standard'],
@@ -146,6 +163,9 @@ class PricingBuilder
         ];
     }
 
+    // ===================================================================
+    // SECTION: SERVICE_PAYLOAD
+    // ===================================================================
     public function buildServicePayload(\WP_Post $post): array
     {
         // ── Legacy compilation (unchanged) ────────────────────────────────────
@@ -273,6 +293,9 @@ class PricingBuilder
      * @param  array<string, mixed> $package active cz_package meta array
      * @return array<string, mixed>
      */
+    // ===================================================================
+    // SECTION: PACKAGE_OVERLAY
+    // ===================================================================
     private function overlayPackage(array $payload, array $package): array
     {
         // ── Tier pricing, billing cycle, inclusions ───────────────────────────
@@ -455,6 +478,9 @@ class PricingBuilder
 
     // ── Legacy internals (unchanged) ──────────────────────────────────────────
 
+    // ===================================================================
+    // SECTION: PRICING_NORMALIZATION
+    // ===================================================================
     public function normalizePricing(array $pricing, string $billingCycle = 'monthly'): array
     {
         $inTiers  = $pricing['tiers'] ?? $pricing;

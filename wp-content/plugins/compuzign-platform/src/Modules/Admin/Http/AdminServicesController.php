@@ -1,5 +1,19 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * SERVICE_CATALOGUE        Service routes, modules, lifecycle, and categories
+ * PACKAGE_STATION          Manager, Tier, bin, and pool endpoints
+ * PROMOTIONS               Promotion instances, modules, and lifecycle
+ * SHARED_AUTHORIZATION     Permissions and shared Service module helpers
+ *
+ * Search: SECTION: SERVICE_CATALOGUE
+ *         SECTION: PACKAGE_STATION
+ *         SECTION: PROMOTIONS
+ *         SECTION: SHARED_AUTHORIZATION
+ */
+
 namespace CompuZign\Platform\Modules\Admin\Http;
 
 use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
@@ -34,6 +48,9 @@ class AdminServicesController
 
     public function registerRoutes(): void
     {
+        // ===================================================================
+        // SECTION: SERVICE_CATALOGUE ROUTES
+        // ===================================================================
         // ── Station catalog list (admin only) ────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/services', [
             'methods'             => 'GET',
@@ -203,6 +220,9 @@ class AdminServicesController
             ],
         ]);
 
+        // ===================================================================
+        // SECTION: PACKAGE_STATION ROUTES
+        // ===================================================================
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getPackageStation'],
@@ -367,6 +387,9 @@ class AdminServicesController
         // ── Promotions (child collection of the independent Package Station) ──
         // {id} is navigation context only — it never owns or selects storage.
         // Every read/write goes through PackageRepository (cz_package_station).
+        // ===================================================================
+        // SECTION: PROMOTIONS ROUTES
+        // ===================================================================
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/promotions', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getPromotionStation'],
@@ -467,6 +490,9 @@ class AdminServicesController
      * With platform_status=archived|trashed: returns only stations in that bin — used by the
      * Archived and Trash workstation views.
      */
+    // ===================================================================
+    // SECTION: SERVICE_CATALOGUE HANDLERS
+    // ===================================================================
     public function listServices(\WP_REST_Request $request): \WP_REST_Response
     {
         $filterStatus = $request->get_param('platform_status'); // 'archived', 'trashed', or null.
@@ -1152,6 +1178,9 @@ class AdminServicesController
 
     // ── Package Station tier management (Phase 2 — service-owned paths) ──────
 
+    // ===================================================================
+    // SECTION: PACKAGE_STATION HANDLERS
+    // ===================================================================
     public function getPackageStation(\WP_REST_Request $request): \WP_REST_Response
     {
         $serviceId = (int) $request->get_param('id');
@@ -2002,6 +2031,9 @@ class AdminServicesController
     // {id} in these handlers is navigation context only — storage is always the
     // single Package Station authority (PackageRepository / cz_package_station).
 
+    // ===================================================================
+    // SECTION: PROMOTIONS HANDLERS
+    // ===================================================================
     public function getPromotionStation(\WP_REST_Request $request): \WP_REST_Response
     {
         $serviceId = (int) $request->get_param('id');
@@ -2435,6 +2467,9 @@ class AdminServicesController
         return $added;
     }
 
+    // ===================================================================
+    // SECTION: SHARED_AUTHORIZATION HELPERS
+    // ===================================================================
     public function requireAdmin(): bool
     {
         return current_user_can(\CompuZign\Platform\Modules\Admin\AdminRouter::CAP);

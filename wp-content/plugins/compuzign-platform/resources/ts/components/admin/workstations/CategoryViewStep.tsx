@@ -22,7 +22,9 @@ import { decodeHtml } from './serviceDrawerShared';
 import { ServiceViewStep } from './ServiceViewStep';
 import { buildServiceItemForStationHandoff } from './ServiceCatalogWorkstation';
 
-// ── Drawer dependency bundle ──────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: CATEGORY_DRAWER_MODEL
+// ===========================================================================
 // The catalog data the Category drawers need (assigned services + the payload
 // for transiting into the real Service drawer) is snapshotted at open time via
 // a getter reading the workstation's live ref — so reopening a drawer (e.g.
@@ -100,7 +102,9 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
   // instead — mirrors the service footer grammar (ServiceDrawerModuleArchitecture §8).
   const canPublish = modules.overview.status === 'pending-full' || (isActive && hasDraft);
 
-  // ── Edit overlay (Edit Granularity: step-owned per-module session) ──────────
+  // ===========================================================================
+  // SECTION: CATEGORY_OVERVIEW
+  // ===========================================================================
   const [editing,         setEditing]         = useState(false);
   const [draft,           setDraft]           = useState<CategoryOverviewDraft | null>(null);
   const [original,        setOriginal]        = useState<CategoryOverviewDraft | null>(null);
@@ -188,7 +192,9 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     await (isActive ? settleModules() : publishCategory());
   }, [isActive, settleModules, publishCategory]);
 
-  // ── Terminal-action close bypass + dirty-editor close guard ─────────────────
+  // ===========================================================================
+  // SECTION: CATEGORY_LIFECYCLE
+  // ===========================================================================
   const closeWithoutGuard = useCallback(() => {
     ctx.setCloseGuard(null);
     ctx.close();
@@ -311,11 +317,15 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, isNewNeverPublished, hasBeenPublished, ctx.setFooter, ctx.close]);
 
-  // ── Gateway → collection transit ────────────────────────────────────────────
+  // ===========================================================================
+  // SECTION: CATEGORY_CONNECTIONS
+  // ===========================================================================
   // The Services gateway's View opens the dedicated Category Services collection
   // surface (Pattern B — the promotion-list / package-overview level).
 
-  // ── Shell bindings ──────────────────────────────────────────────────────────
+  // ===========================================================================
+  // SECTION: CATEGORY_DRAWER_RENDER
+  // ===========================================================================
   const overviewBinding: ShellBinding<CategoryOverviewShellData> = {
     data:  { name: decodeHtml(station.category.name), slug: station.category.slug, description: station.category.description, groupName },
     state: modules.overview,
@@ -425,3 +435,18 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
     </>
   );
 }
+/*
+ * FILE INDEX
+ *
+ * CATEGORY_DRAWER_MODEL       Drawer dependencies, config, and Service handoff
+ * CATEGORY_OVERVIEW           Overview and Category Group membership editing
+ * CATEGORY_LIFECYCLE          Publish, status, travel, and guarded close
+ * CATEGORY_CONNECTIONS        Assigned-Service gateway and collection transit
+ * CATEGORY_DRAWER_RENDER      Shell bindings, footer, and dialogs
+ *
+ * Search: SECTION: CATEGORY_DRAWER_MODEL
+ *         SECTION: CATEGORY_OVERVIEW
+ *         SECTION: CATEGORY_LIFECYCLE
+ *         SECTION: CATEGORY_CONNECTIONS
+ *         SECTION: CATEGORY_DRAWER_RENDER
+ */

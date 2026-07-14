@@ -50,6 +50,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   onOpenPackage?: (occupantId: string, slotId: string, edit?: boolean) => void;
   onOpenService?: (summary: StationSummary, edit?: boolean) => void;
 }) {
+  // ===========================================================================
+  // SECTION: MANAGER_COORDINATION
+  // ===========================================================================
   const [scope] = useState(initialScope);
   const currentScopeKey = scopeKey(scope);
   const registered = useMemo(() => relationProvidersFor(scope), [currentScopeKey]);
@@ -208,6 +211,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       : { kind: 'success', message: 'Manager changes saved.' });
   }
 
+  // ===========================================================================
+  // SECTION: RATE_SHEET_EDITOR
+  // ===========================================================================
   const saveRateSheet = async (section: ManagerProviderAdapter['manager']['sections'][number]) => {
     if (!active || !editingRateSheet || !section.rateSheetControls) return;
     const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
@@ -241,6 +247,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
     ? state.validationByProvider[active.key]?.filter((issue) => issue.sectionId === 'groups') ?? []
     : [];
 
+  // ===========================================================================
+  // SECTION: MANAGER_RENDER
+  // ===========================================================================
   return (
     <section class="cz-manager-workspace" aria-label={`${activeWorkspace === 'service' ? 'Services' : active?.label ?? 'Connection'} Manager`}>
       {providers.length > 0 && (
@@ -283,9 +292,11 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       {(activeWorkspace === 'service' || activeWorkspace === 'package' || activeWorkspace === 'promotion') && (
         <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} />
       )}
+      {/* SECTION: PROMOTION_WORKSPACE */}
       {activeSubTab === 'details' && activeWorkspace === 'promotion' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
         <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} onOpen={onOpenPromotion ?? (() => {})} />
       )}
+      {/* SECTION: SERVICE_WORKSPACE */}
       {activeWorkspace === 'service' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
         <PackageServicesTable
             sources={((sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined)?.sources
@@ -309,6 +320,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       {activeWorkspace === 'service' && activeSubTab === 'settings' && (
         <div class="cz-manager-empty"><strong>No Service settings configured.</strong></div>
       )}
+      {/* SECTION: PACKAGE_WORKSPACE */}
       {activeWorkspace === 'package' && active?.key === 'package' && scope.stationContext.type === 'service' && activeSubTab === 'details' && (
         <PackageManagerTierCards serviceId={Number(scope.stationContext.id)} onOpen={onOpenPackage ?? (() => {})} />
       )}
@@ -628,3 +640,20 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
     </section>
   );
 }
+/*
+ * FILE INDEX
+ *
+ * MANAGER_COORDINATION       Provider reads, drafts, validation, and save state
+ * RATE_SHEET_EDITOR          Rate Sheet sources, groups, selections, and filters
+ * SERVICE_WORKSPACE          Service assignments and Package Category Groups
+ * PACKAGE_WORKSPACE          Tier cards, relationships, and Rate Sheet settings
+ * PROMOTION_WORKSPACE        Promotion provider sections and continuations
+ * MANAGER_RENDER             Tabs, actions, exit guards, and workspace composition
+ *
+ * Search: SECTION: MANAGER_COORDINATION
+ *         SECTION: RATE_SHEET_EDITOR
+ *         SECTION: SERVICE_WORKSPACE
+ *         SECTION: PACKAGE_WORKSPACE
+ *         SECTION: PROMOTION_WORKSPACE
+ *         SECTION: MANAGER_RENDER
+ */

@@ -33,7 +33,9 @@ import type { StationConnectionDescriptor, StationManagerScope } from '@/compone
 import { buildStationManagerConfig } from '@/components/admin/relations/StationManagerStep';
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
 
-// ── Dirty-detection comparators ───────────────────────────────────────────────
+// ===========================================================================
+// SECTION: SERVICE_DRAWER_STATE
+// ===========================================================================
 // Pure functions — no component state. Each returns true when the working draft
 // differs from the snapshot taken at editor-open time.
 
@@ -155,6 +157,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     editingSection === 'inclusions' ? 'Included Features' :
     editingSection === 'faqs'       ? 'Common Questions'  : null;
 
+  // ===========================================================================
+  // SECTION: SERVICE_LIFECYCLE
+  // ===========================================================================
   const handleToggleActive = useCallback(async () => {
     const result = await toggleActive();
     if (result) {
@@ -610,7 +615,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, modules.overview.status, moduleStatus, ctx.setFooter, ctx.close]);
 
-  // ── Pre-resolved display values for the module shells ────────────────────
+  // ===========================================================================
+  // SECTION: SERVICE_MODULE_BINDINGS
+  // ===========================================================================
   // Fallback order mirrors the status path: draft → adminDetail settled → CostBuilder service.
   const rawDisplayTitle = stationOverviewDraft?.title.trim() || settledOverview?.title.trim() || service.title.trim() || '';
   const displayTitle    = rawDisplayTitle ? decodeHtml(rawDisplayTitle) : '';
@@ -663,6 +670,9 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     },
   };
 
+  // ===========================================================================
+  // SECTION: SERVICE_DRAWER_RENDER
+  // ===========================================================================
   return (
     <>
     {/* ── Drawer body — assembled from the service manifest's drawer
@@ -1034,3 +1044,16 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     </>
   );
 }
+/*
+ * FILE INDEX
+ *
+ * SERVICE_DRAWER_STATE       Station state, drafts, editors, and dirty checks
+ * SERVICE_LIFECYCLE          Publish, status, travel, and guarded exit flows
+ * SERVICE_MODULE_BINDINGS    Overview, inclusions, FAQs, and Package summary
+ * SERVICE_DRAWER_RENDER      Drawer composition, actions, and dialogs
+ *
+ * Search: SECTION: SERVICE_DRAWER_STATE
+ *         SECTION: SERVICE_LIFECYCLE
+ *         SECTION: SERVICE_MODULE_BINDINGS
+ *         SECTION: SERVICE_DRAWER_RENDER
+ */

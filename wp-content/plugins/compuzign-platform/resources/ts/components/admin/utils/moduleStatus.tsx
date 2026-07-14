@@ -1,5 +1,18 @@
-// Shared module status utilities.
-// Used by the Catalog lifecycle (ServiceViewStep) and the shared drawer modules.
+/*
+ * FILE INDEX
+ *
+ * COMPLETENESS             Overview completeness checks
+ * MODULE_STATUS            Service, Tier, Package Manager, and Promotion resolvers
+ * COMMERCIAL_SUMMARY       Package/Tier/Promotion catalogue summary
+ * STATUS_PRESENTATION      Status metadata, dots, and pills
+ * CATALOGUE_STATUS         Service catalogue buckets, labels, and row summaries
+ *
+ * Search: SECTION: COMPLETENESS
+ *         SECTION: MODULE_STATUS
+ *         SECTION: COMMERCIAL_SUMMARY
+ *         SECTION: STATUS_PRESENTATION
+ *         SECTION: CATALOGUE_STATUS
+ */
 
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
 import type { OverviewDraftData, StationSummary, SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
@@ -25,7 +38,9 @@ export interface TierLike {
 
 // ── Status resolvers ──────────────────────────────────────────────────────────
 
-// ── Completeness helpers ──────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: COMPLETENESS
+// ===========================================================================
 // Used by both the pill resolvers and the notification generators so the
 // field-completeness rule lives in exactly one place.
 
@@ -55,7 +70,9 @@ export function checkOverviewCompletenessFromDraft(draft: OverviewDraftData): Ov
   return { title, excerpt, category, content, complete: title && category && content };
 }
 
-// ── Status resolvers ──────────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: MODULE_STATUS
+// ===========================================================================
 
 export interface OverviewStatusOpts {
   platformStatus:   string;  // 'active' | 'disabled' | 'archived' | 'trashed'
@@ -182,7 +199,9 @@ export function resolvePromotionSummary(
   return { status, currentCount };
 }
 
-// ── Station commercial summary (list-view display) ─────────────────────────────
+// ===========================================================================
+// SECTION: COMMERCIAL_SUMMARY
+// ===========================================================================
 // Pure derivation of the at-a-glance commercial status shown in the Service Catalog
 // row, reusing the same surface-package data and resolvers the drawer uses. No fetch.
 //
@@ -216,7 +235,9 @@ export function resolveStationCommercialSummary(
   return { tiers, promoStatus };
 }
 
-// ── Status pill renderer ──────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: STATUS_PRESENTATION
+// ===========================================================================
 // Pill/dot metadata is owned by schema/presentation.ts (the Presentation Status
 // Contract chokepoint — S1a). This file keeps the resolver + renderer layer and
 // re-exports the combined map for existing consumers.
@@ -259,7 +280,9 @@ export interface ServiceStationRowSummary {
   categoryLabel:  string;
 }
 
-// ── Catalog station status (list rows) ────────────────────────────────────────
+// ===========================================================================
+// SECTION: CATALOGUE_STATUS
+// ===========================================================================
 // Moved from ServiceCatalogWorkstation in S3b so the catalog TableSchema can
 // project it. Filter buckets and the display pill stay separate on purpose:
 // the bucket drives filtering; the label distinguishes a live service with

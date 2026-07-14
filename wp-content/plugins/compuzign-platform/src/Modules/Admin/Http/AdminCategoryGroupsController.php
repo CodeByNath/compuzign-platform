@@ -1,5 +1,19 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * CATEGORY_GROUP_ROUTES          Category Group REST route registration
+ * CATEGORY_GROUP_HANDLERS        Listing, creation, modules, and lifecycle
+ * CATEGORY_GROUP_AUTHORIZATION   Permission callback
+ * CATEGORY_GROUP_HELPERS         Term lookup and response projection
+ *
+ * Search: SECTION: CATEGORY_GROUP_ROUTES
+ *         SECTION: CATEGORY_GROUP_HANDLERS
+ *         SECTION: CATEGORY_GROUP_AUTHORIZATION
+ *         SECTION: CATEGORY_GROUP_HELPERS
+ */
+
 namespace CompuZign\Platform\Modules\Admin\Http;
 
 use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
@@ -32,6 +46,9 @@ class AdminCategoryGroupsController
 
     public function registerRoutes(): void
     {
+        // ===================================================================
+        // SECTION: CATEGORY_GROUP_ROUTES
+        // ===================================================================
         // ── Station list (admin only) ─────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/category-groups', [
             'methods'             => 'GET',
@@ -136,6 +153,9 @@ class AdminCategoryGroupsController
      * list (station_role === 'group' only). Same default/bin scoping contract as
      * /admin/categories and /admin/services.
      */
+    // ===================================================================
+    // SECTION: CATEGORY_GROUP_HANDLERS
+    // ===================================================================
     public function listCategoryGroups(\WP_REST_Request $request): \WP_REST_Response
     {
         $filterStatus = $request->get_param('platform_status'); // 'archived', 'trashed', or null.
@@ -380,6 +400,9 @@ class AdminCategoryGroupsController
 
     // ── Permissions ───────────────────────────────────────────────────────────
 
+    // ===================================================================
+    // SECTION: CATEGORY_GROUP_AUTHORIZATION
+    // ===================================================================
     public function requireAdmin(): bool
     {
         return current_user_can(\CompuZign\Platform\Modules\Admin\AdminRouter::CAP);
@@ -388,6 +411,9 @@ class AdminCategoryGroupsController
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /** Resolves a term by id, scoped to station_role 'group' only (404s a category id). */
+    // ===================================================================
+    // SECTION: CATEGORY_GROUP_HELPERS
+    // ===================================================================
     private function findGroupTerm(int $termId): ?\WP_Term
     {
         $term = get_term($termId, CategoryMeta::TAXONOMY);

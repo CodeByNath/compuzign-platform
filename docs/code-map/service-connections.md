@@ -21,13 +21,24 @@ The relation registry owns provider discovery and the coordinator owns transient
 - [promotion.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/promotion.ts) supplies Promotion cards, create/edit state, validation, saves, and drawer continuations. Use it for Promotion connection behavior.
 - [active-package-read-only.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/active-package-read-only.ts) exposes active Package projections without mutation methods. Use it for read-only consumers.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Coordination | `SECTION: MANAGER_COORDINATION` | Provider reads, drafts, validation, saves | Changing manager state |
+| Rate Sheet | `SECTION: RATE_SHEET_EDITOR` | Sources, groups, selections, filters | Changing Rate Sheet UI |
+| Services | `SECTION: SERVICE_WORKSPACE` | Assignments and Category Groups | Changing Service connections |
+| Packages | `SECTION: PACKAGE_WORKSPACE` | Tiers, relationships, settings | Changing Package workspace |
+| Promotions | `SECTION: PROMOTION_WORKSPACE` | Promotion provider surface | Changing Promotion workspace |
+| Render | `SECTION: MANAGER_RENDER` | Tabs, actions, guards, composition | Changing manager UI |
+| Package draft | `SECTION: PACKAGE_DRAFT` | Decisions and dirty comparison | Changing provider drafts |
+| Groups | `SECTION: PACKAGE_GROUPS` | Group lifecycle and ordering | Changing relationship Groups |
+| Service connections | `SECTION: SERVICE_CONNECTIONS` | Connect and Group assignment | Changing source assignment |
+| Provider | `SECTION: PACKAGE_PROVIDER` | Read, validate, save, continuations | Changing provider behavior |
+
 ## Runtime Flow
 
-`ServiceViewStep` creates a service-scoped descriptor. The registry resolves the Package and Promotion data providers, then `DynamicStationManager` acts as the relation-manager composition root: it loads their read models, coordinates drafts/validation/save and exit guards, and presents Services / Packages / Promotions workspaces. Services and Packages are separate UI workspaces over the same Package provider authority, not new persistence providers.
-
-Services > Details hosts the Category Group / Category / Status-filtered catalogue as adaptive collection rows. Each row keeps Service identity, `category_group_id` assignment, combined lifecycle/connection status, and a View split action; Category remains filter-only. Services > Connections hosts [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx) as the same adaptive collection pattern without a duplicate heading and exposes lifecycle operations through the Edit split action. Both collections become labeled cards at narrow drawer widths instead of using horizontal table overflow. Packages > Details hosts Tier occupant cards, Packages > Connections hosts the relationship table and its source-option Group controls, and Packages > Settings hosts Rate Sheet editing and filters without redundant titles. Services > Settings remains reserved for Service settings.
-
-The same component currently also owns Rate Sheet UI state: service-source loading, source picking, temporary and persisted groups, section editing, validation issues, and saves through the active provider adapter. It follows continuations into focused Package or Promotion drawers. Read-only consumers receive projections without write lifecycle methods. This Rate Sheet responsibility makes the manager a future separation candidate even though provider composition itself is legitimate here.
+`ServiceViewStep` supplies a service scope; the registry resolves providers; `DynamicStationManager` coordinates their drafts, validation, saves, workspaces, continuations, and exit guards. Providers retain persistence authority.
 
 ## Validation
 

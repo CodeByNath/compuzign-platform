@@ -23,7 +23,9 @@ import { decodeHtml } from './serviceDrawerShared';
 import { buildCategoryViewConfig } from './CategoryViewStep';
 import type { CategoryDrawerDeps } from './CategoryViewStep';
 
-// ── Drawer dependency bundle ──────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: CATEGORY_GROUP_DRAWER_MODEL
+// ===========================================================================
 // Structural clone of CategoryDrawerDeps, one level up. `categoryDrawerDeps` is
 // the unmodified CategoryDrawerDeps bundle the Category catalog itself builds —
 // handed through unchanged so a category card's View opens the real Category
@@ -97,7 +99,9 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
   // (settle). Mirrors CategoryViewStep's canPublish exactly.
   const canPublish = modules.overview.status === 'pending-full' || (isActive && hasDraft);
 
-  // ── Edit overlay (Edit Granularity: step-owned per-module session) ──────────
+  // ===========================================================================
+  // SECTION: CATEGORY_GROUP_OVERVIEW
+  // ===========================================================================
   const [editing,         setEditing]         = useState(false);
   const [draft,           setDraft]           = useState<CategoryGroupOverviewDraft | null>(null);
   const [original,        setOriginal]        = useState<CategoryGroupOverviewDraft | null>(null);
@@ -163,7 +167,9 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
     await (isActive ? settleModules() : publishCategoryGroup());
   }, [isActive, settleModules, publishCategoryGroup]);
 
-  // ── Terminal-action close bypass + dirty-editor close guard ─────────────────
+  // ===========================================================================
+  // SECTION: CATEGORY_GROUP_LIFECYCLE
+  // ===========================================================================
   const closeWithoutGuard = useCallback(() => {
     ctx.setCloseGuard(null);
     ctx.close();
@@ -286,9 +292,13 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [tab, platformStatus, splitOpen, station.loading.status, canPublish, isNewNeverPublished, hasBeenPublished, ctx.setFooter, ctx.close]);
 
-  // ── Gateway → collection transit ────────────────────────────────────────────
+  // ===========================================================================
+  // SECTION: CATEGORY_GROUP_CONNECTIONS
+  // ===========================================================================
 
-  // ── Shell bindings ──────────────────────────────────────────────────────────
+  // ===========================================================================
+  // SECTION: CATEGORY_GROUP_RENDER
+  // ===========================================================================
   const overviewBinding: ShellBinding<CategoryGroupOverviewShellData> = {
     data:  { name: decodeHtml(station.group.name), slug: station.group.slug, description: station.group.description },
     state: modules.overview,
@@ -393,3 +403,18 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
     </>
   );
 }
+/*
+ * FILE INDEX
+ *
+ * CATEGORY_GROUP_DRAWER_MODEL   Dependencies, config, and Category handoff
+ * CATEGORY_GROUP_OVERVIEW       Overview editing and dirty state
+ * CATEGORY_GROUP_LIFECYCLE      Publish, status, travel, and guarded close
+ * CATEGORY_GROUP_CONNECTIONS    Assigned-Category gateway and collection transit
+ * CATEGORY_GROUP_RENDER         Shell binding, footer, and dialogs
+ *
+ * Search: SECTION: CATEGORY_GROUP_DRAWER_MODEL
+ *         SECTION: CATEGORY_GROUP_OVERVIEW
+ *         SECTION: CATEGORY_GROUP_LIFECYCLE
+ *         SECTION: CATEGORY_GROUP_CONNECTIONS
+ *         SECTION: CATEGORY_GROUP_RENDER
+ */

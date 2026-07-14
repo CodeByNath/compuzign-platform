@@ -30,6 +30,15 @@ The Package Station owns the promotions collection and `PackageRepository` persi
 - [AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) registers Promotion create, module save/revert, settle, publish, toggle, archive/trash/restore/delete routes. Use it for backend lifecycle behavior.
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) exposes typed Promotion REST calls. Use it for frontend/backend contract changes.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Promotion schema | `SECTION: PROMOTION_SCHEMA` | Identity, drafts, lifecycle, sanitization | Changing Promotion data |
+| Promotion routes | `SECTION: PROMOTIONS ROUTES` | REST registration | Changing endpoints |
+| Promotion handlers | `SECTION: PROMOTIONS HANDLERS` | CRUD, modules, lifecycle | Changing backend behavior |
+| Promotion workspace | `SECTION: PROMOTION_WORKSPACE` | Manager presentation | Changing Promotion manager UI |
+
 ## Runtime Flow
 
 The relation registry exposes the promotion provider to a service-scoped manager. Saves target the Package Station collection; focused drawer operations settle, publish, toggle, archive, trash, restore, or permanently delete an occupant.

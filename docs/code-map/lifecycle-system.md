@@ -16,6 +16,16 @@ Backend station/controller boundaries own canonical lifecycle transitions and pe
 
 `moduleStatus.tsx` is a presentation-policy module, not a lifecycle store. It centralizes completeness checks; Service, Tier, Package Manager, Promotion, and commercial-summary status resolution; status-dot/pill rendering; and Service catalogue filter/display status. It is depended on by station hooks, relation providers, notifications, table schemas, and large Service/Tier workspaces.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Completeness | `SECTION: COMPLETENESS` | Overview field checks | Changing readiness inputs |
+| Module status | `SECTION: MODULE_STATUS` | Service/Tier/Package/Promotion resolvers | Changing status policy |
+| Commercial summary | `SECTION: COMMERCIAL_SUMMARY` | Catalogue commercial aggregation | Changing list summaries |
+| Presentation | `SECTION: STATUS_PRESENTATION` | Pills and dots | Changing status display |
+| Catalogue status | `SECTION: CATALOGUE_STATUS` | Filters, labels, row summaries | Changing catalogue states |
+
 ## State and Providers
 
 - [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceStation.ts) owns Service detail fetch, module drafts, save/revert, settle/publish, and travel actions. Use it for Service lifecycle state.

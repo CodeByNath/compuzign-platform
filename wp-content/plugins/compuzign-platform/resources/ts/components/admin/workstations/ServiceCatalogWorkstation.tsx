@@ -25,7 +25,9 @@ interface Props {
   openAction: (config: ActionConfig) => void;
 }
 
-// ── Station status ────────────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: SERVICE_CATALOGUE_MODEL
+// ===========================================================================
 // Filter buckets + the display pill live in utils/moduleStatus (moved in S3b
 // so the catalog TableSchema can project them); this file keeps only the
 // filter vocabulary.
@@ -124,7 +126,9 @@ function buildNewServiceItem(
   };
 }
 
-// ── Service Create Step ───────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: SERVICE_CREATION
+// ===========================================================================
 
 function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   const doOpen        = ctx.stepData.openAction    as (config: ActionConfig) => void;
@@ -413,7 +417,9 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   );
 }
 
-// ── Main workstation ──────────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: SERVICE_CATALOGUE_TABLE
+// ===========================================================================
 
 export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog();
@@ -547,3 +553,14 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction }: Props) {
     </Workstation>
   );
 }
+/*
+ * FILE INDEX
+ *
+ * SERVICE_CATALOGUE_MODEL     Status, category, and drawer handoff adapters
+ * SERVICE_CREATION            Create-Service drawer and submission flow
+ * SERVICE_CATALOGUE_TABLE     Filters, rows, actions, and canonical drawer launch
+ *
+ * Search: SECTION: SERVICE_CATALOGUE_MODEL
+ *         SECTION: SERVICE_CREATION
+ *         SECTION: SERVICE_CATALOGUE_TABLE
+ */

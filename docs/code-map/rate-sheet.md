@@ -12,7 +12,7 @@ The rate sheet is part of the single Package Station persisted by `PackageReposi
 
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/packages/evaluateTierPricing.ts) calculates Tier line totals and issues for missing, disabled, unresolved, or invalid-price selections. Use it when changing pricing validation or totals.
 - [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts) maps manager sources/groups into Rate Sheet drafts and persistence payloads. Use it when changing selection shape or save rules.
-- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) contains Rate Sheet cards, group editor, source picker, validation messages, and Save behavior. Use it when changing Rate Sheet UI.
+- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) hosts the Rate Sheet under Packages → Settings, including its editor, source picker, validation messages, filters, table, and Save behavior. Use it when changing Rate Sheet UI.
 
 ## Backend and Persistence
 
@@ -24,7 +24,17 @@ The rate sheet is part of the single Package Station persisted by `PackageReposi
 
 The manager selects source services, the provider normalizes those selections, and tier pricing evaluation resolves source prices for each fixed tier. Package tiers consume the result; the public pricing builder later projects active package and service pricing.
 
-The read view filters rows by provenance via [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx): Package Category Group (supplying Service's `category_group_id` assignment), Service Category, Service, Inclusion Group, availability, and search. Provenance (`source_service_id`/title/categories) is resolved live by `PackageRepository::sourcePools` and carried on read-model items — never persisted on rows, never flattening the Service structure.
+Under Packages → Settings, the read view filters rows by provenance via [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx): Category Group (the supplying Service's `category_group_id` assignment), Category, Service, Inclusion Group, availability, and search. Provenance (`source_service_id`/title/categories) is resolved live by `PackageRepository::sourcePools` and carried on read-model items — never persisted on rows, never flattening the Service structure.
+
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Editor | `SECTION: RATE_SHEET_EDITOR` | Sources, Groups, selections, filters | Changing manager UI |
+| Provider draft | `SECTION: RATE_SHEET_DRAFT` | Replacement and onboarding | Changing frontend shape |
+| Manager projection | `SECTION: RATE_SHEET_PROJECTION` | Tier reference projection | Changing Package read models |
+| Legacy schema | `SECTION: RATE_SHEET_SCHEMA` | Sanitization and validation | Tracing legacy data |
+| Tier pricing | `SECTION: TIER_PRICING` | Selections, totals, readiness | Changing evaluation |
 
 ## Validation
 

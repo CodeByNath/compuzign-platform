@@ -8,7 +8,9 @@ import type { QuoteItem } from '@/components/cost-builder/types';
 
 const INCLUSION_PREVIEW_COUNT = 3;
 
-// ── Service preview (right panel — preview mode) ──────────────────────────────
+// ===========================================================================
+// SECTION: SERVICE_PREVIEW
+// ===========================================================================
 
 interface ServicePreviewProps {
   service: ServiceItem;
@@ -67,7 +69,9 @@ function ServicePreview({ service, tiers, onAdd, onCancel }: ServicePreviewProps
   );
 }
 
-// ── Dashboard (selector + summary panels) ─────────────────────────────────────
+// ===========================================================================
+// SECTION: CONFIGURATOR_DASHBOARD
+// ===========================================================================
 
 interface DashboardProps {
   data: CostBuilderResponse;
@@ -143,6 +147,9 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
     setPreviewServiceId(service.id);
   };
 
+  // ===========================================================================
+  // SECTION: QUOTE_HANDOFF
+  // ===========================================================================
   const handleAddToQuote = (service: ServiceItem) => {
     const tierId: TierId = service.meta.popular_tier ?? 'standard';
     const tier = data.tiers.find((t) => t.id === tierId);
@@ -311,7 +318,9 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
   );
 }
 
-// ── Root component ─────────────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: CONFIGURATOR_ROOT
+// ===========================================================================
 
 export function HomeConfigurator() {
   const { data, loading } = useCostBuilder();
@@ -352,3 +361,16 @@ export function HomeConfigurator() {
     </section>
   );
 }
+/*
+ * FILE INDEX
+ *
+ * SERVICE_PREVIEW          Popular-Tier preview and Add action
+ * CONFIGURATOR_DASHBOARD   Category/Service selection and quote state
+ * QUOTE_HANDOFF            Cart persistence and Cost Builder navigation
+ * CONFIGURATOR_ROOT        Catalogue loading and root composition
+ *
+ * Search: SECTION: SERVICE_PREVIEW
+ *         SECTION: CONFIGURATOR_DASHBOARD
+ *         SECTION: QUOTE_HANDOFF
+ *         SECTION: CONFIGURATOR_ROOT
+ */

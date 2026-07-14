@@ -29,6 +29,19 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 - [ServiceRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Repositories/ServiceRepository.php) reads active Service posts, taxonomy, metadata, and pricing inputs. Use it for catalogue persistence queries.
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/cost-builder.ts) exposes the typed public fetch. Use it for client response contracts.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Catalogue response | `SECTION: CATALOGUE_RESPONSE` | Public response assembly | Changing projection shape |
+| Service payload | `SECTION: SERVICE_PAYLOAD` | Service defaults and pricing | Changing Service projection |
+| Package overlay | `SECTION: PACKAGE_OVERLAY` | Packages and promotions | Changing commercial overlays |
+| Normalization | `SECTION: PRICING_NORMALIZATION` | Pricing, inclusions, FAQs | Changing normalized output |
+| Station shape | `SECTION: PACKAGE_STATION_SHAPE` | Legacy Package defaults/sources | Tracing legacy station data |
+| Rate Sheet | `SECTION: RATE_SHEET_SCHEMA` | Identity and validation | Changing legacy Rate Sheets |
+| Tier pricing | `SECTION: TIER_PRICING` | Selections, totals, readiness | Changing tier evaluation |
+| Commercial projection | `SECTION: COMMERCIAL_PROJECTION` | Active Package output | Changing public Packages |
+
 ## Runtime Flow
 
 The runtime mounts the app, the hook fetches the public projection, and UI selections persist locally before handing a quote cart to the request flow.

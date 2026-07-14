@@ -29,11 +29,23 @@ Contains the dynamic settled-occupant overview cards and pricing table, current/
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/utils/tierOccupants.ts) projects fixed internal shells into the dynamic Admin occupant collection and resolves stable occupant IDs back to slot IDs.
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/packages/evaluateTierPricing.ts) derives Tier line totals and pricing issues. Use it for Rate Sheet pricing rules.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Drawer state | `SECTION: TIER_DRAWER_STATE` | Identity, drafts, tabs, guards | Changing Tier state |
+| Lifecycle | `SECTION: TIER_LIFECYCLE` | Publish, status, popular, bin | Changing Tier actions |
+| Editors | `SECTION: TIER_MODULE_EDITORS` | Overview, inclusions, FAQs | Changing authoring |
+| Bindings | `SECTION: TIER_MODULE_BINDINGS` | Tier/Package/Service shells | Changing module data |
+| Render | `SECTION: TIER_DRAWER_RENDER` | Overview, detail, bin, dialogs | Changing Tier UI |
+| Tier schema | `SECTION: TIER_OCCUPANTS` | Slot normalization and projection | Changing occupant shape |
+| Tier lifecycle | `SECTION: TIER_LIFECYCLE` | Drafts, status, settling | Changing schema transitions |
+| Occupant bin | `SECTION: OCCUPANT_BIN` | Archive/restore/trash/delete | Changing bin behavior |
+| Tier backend | `SECTION: PACKAGE_STATION` | Matching routes and handlers | Changing Tier REST behavior |
+
 ## Runtime Flow
 
-`ServiceTierStep` is the Package overview and individual Tier drawer composition root. In overview mode it renders settled occupant cards from `usePackageStation.tierOccupants`, pricing summaries, the parent-Service connection, and archived/trashed bin occupants. Card and drawer identity is stable `occupant_id`; the drawer resolves that identity back to its fixed slot before invoking existing slot-addressed operations. It owns restore conflict handling (swap, retarget, or discard pending drafts), trash and permanent-delete confirmations, and context-aware Back/footer behavior.
-
-In individual-tier mode it binds overview, features, FAQs, and Service connection shells; owns transient per-module edit sessions; creates pool items; and invokes `usePackageStation` for save, revert, settle/publish, enable/disable, popular-tier, archive, restore, trash, and delete operations. Those persistence, REST, lifecycle, popular-Tier, and bin operations continue to use `slotId`/fixed shell keys. Fixed-shell consumers, including restore/retarget choices and pricing-order summaries, still use `TIER_KEYS`. Package Category Group ownership/filtering is not implemented because Tier occupants do not yet carry a Category Group assignment.
+`ServiceTierStep` composes Package overview, Tier detail, and occupant-bin views. Cards use stable `occupant_id`; mutations resolve it to the fixed `slotId`. Persistence remains in `usePackageStation` and backend boundaries.
 
 ## Backend and Persistence
 

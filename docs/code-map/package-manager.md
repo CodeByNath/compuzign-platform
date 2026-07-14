@@ -16,25 +16,17 @@ Builds the Station Manager action, hosts `DynamicStationManager`, and opens nest
 
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
-Composes the presentation workspaces in the order Services, Packages, Promotions while retaining the existing Package and Promotion data providers. Services and Packages share the Package draft/save authority: Services owns the filtered catalogue table, Category Group lifecycle surface, and a reserved Settings tab; Packages owns Tier cards, the relationship table with source-option Group controls, and Rate Sheet Settings. Use this file when changing manager-wide UI, Rate Sheet editing, provider switching, or save/exit orchestration.
+Composes Services, Packages, and Promotions over the Package and Promotion providers. Use its marker table below for workspace and Rate Sheet changes.
 
 ### [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts)
 
-Adapts Package Station data into manager sections, drafts, validation, save results, summaries, and continuations. Use this file when changing what Package Manager reads, validates, persists, or opens next.
-
-## UI and Drawers
-
-- [PackageManagerTierCards.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageManagerTierCards.tsx) renders the dynamic settled-occupant collection supplied by `usePackageStation`, excluding empty fixed shells. Cards are keyed and selected by `occupant_id`, while their View/Edit handoff retains the resolved `slotId`. This surface does not yet filter occupants by Package Category Group because no Tier occupant carries a Category Group assignment.
-- [ManagerSubTabs.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/ManagerSubTabs.tsx) renders canonical Details / Connections / Settings navigation for Services and Packages; Promotion behavior is unchanged.
-- [PackageServicesTable.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx) is the complete Services > Details surface. It filters by Category Group, Category, and Status, retains the Category Group connect-and-assign control, and contains horizontal table overflow inside the manager canvas.
-- [PackageCategoryGroupsSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx) presents the Package-owned group station under Services > Connections without a duplicate heading. Edit remains the visible row action and valid lifecycle/guarded-delete operations live in its split-action menu.
-- [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx) filters Rate Sheet rows by Category Group, Category, Service, Inclusion Group, status, and search. The UI omits redundant Rate Sheet and station-title headings.
+Adapts Package Station data into drafts, validation, saves, summaries, and continuations. Use its markers below.
 
 ## State and Providers
 
-- [coordinator.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/coordinator.ts) owns provider ordering, read models, draft state, dirty checks, validation aggregation, and save-result application. Use it for manager state rules independent of UI.
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package Station fetch/mutation state, derives the visible Tier occupant collection, resolves occupant IDs to fixed slots, and retains slot-addressed Tier, bin, pool, popular-tier, and lifecycle API actions. Use it when changing client state or mutation behavior.
-- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/utils/tierOccupants.ts) is the pure Admin projection and occupant-to-slot resolver used by Manager cards and the Tier drawer handoff.
+- [coordinator.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/coordinator.ts) owns provider-neutral state and validation.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package Station client state and mutations.
+- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/utils/tierOccupants.ts) projects occupants and resolves them to slots.
 
 ## Backend and Persistence
 
@@ -43,6 +35,24 @@ Adapts Package Station data into manager sections, drafts, validation, save resu
 - [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) owns the `cz_package_station` option, request cache, projections, and one-time legacy Service-meta migration. Use it for Package Station persistence or compatibility behavior.
 - [AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) registers manager, Tier, promotion, pool, and Service REST routes. Use it for request validation and mutation endpoints.
 - [AdminPackageCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminPackageCategoryGroupsController.php) registers the `/admin/package-category-groups` station REST family (list/create/overview/status/restore/guarded delete).
+
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Manager coordination | `SECTION: MANAGER_COORDINATION` | Provider drafts, validation, saves | Changing orchestration |
+| Workspaces | `SECTION: SERVICE_WORKSPACE`, `PACKAGE_WORKSPACE`, `PROMOTION_WORKSPACE` | Manager surfaces | Changing workspace UI |
+| Rate Sheet editor | `SECTION: RATE_SHEET_EDITOR` | Sources, Groups, selections | Changing Rate Sheet UI |
+| Package provider | `SECTION: PACKAGE_PROVIDER` | Read, validate, save, continuations | Changing provider behavior |
+| Manager shape | `SECTION: MANAGER_SHAPE` | Defaults and sanitization | Changing persisted shape |
+| Manager commit | `SECTION: MANAGER_COMMIT` | Validation and commit | Changing saves |
+| Reconciliation | `SECTION: SOURCE_RECONCILIATION` | Pool source resolution | Changing source items |
+| Read model | `SECTION: MANAGER_READ_MODEL` | Provenance and health | Changing projections |
+| Rate Sheet projection | `SECTION: RATE_SHEET_PROJECTION` | Tier references | Changing Tier inputs |
+| Persistence | `SECTION: STATION_PERSISTENCE` | Load, cache, save, migration | Changing storage |
+| Source projections | `SECTION: SOURCE_PROJECTIONS` | Pools and provenance | Changing supply data |
+| Lookups | `SECTION: PACKAGE_LOOKUPS` | Coverage and indexes | Changing Package discovery |
+| Backend | `SECTION: PACKAGE_STATION` | Matching routes and handlers | Changing REST behavior |
 
 ## Validation
 

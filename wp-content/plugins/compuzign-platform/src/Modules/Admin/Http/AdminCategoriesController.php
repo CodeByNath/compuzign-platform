@@ -1,5 +1,19 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * CATEGORY_ROUTES          Category REST route registration
+ * CATEGORY_HANDLERS        Listing, creation, membership, modules, and lifecycle
+ * CATEGORY_AUTHORIZATION   Permission callback
+ * CATEGORY_HELPERS         Term lookup, Group validation, and response projection
+ *
+ * Search: SECTION: CATEGORY_ROUTES
+ *         SECTION: CATEGORY_HANDLERS
+ *         SECTION: CATEGORY_AUTHORIZATION
+ *         SECTION: CATEGORY_HELPERS
+ */
+
 namespace CompuZign\Platform\Modules\Admin\Http;
 
 use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
@@ -26,6 +40,9 @@ class AdminCategoriesController
 
     public function registerRoutes(): void
     {
+        // ===================================================================
+        // SECTION: CATEGORY_ROUTES
+        // ===================================================================
         // ── Station list (admin only) ─────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/categories', [
             'methods'             => 'GET',
@@ -147,6 +164,9 @@ class AdminCategoriesController
      * With platform_status=archived|trashed: returns only that bin — same
      * param contract as /admin/services.
      */
+    // ===================================================================
+    // SECTION: CATEGORY_HANDLERS
+    // ===================================================================
     public function listCategories(\WP_REST_Request $request): \WP_REST_Response
     {
         $filterStatus = $request->get_param('platform_status'); // 'archived', 'trashed', or null.
@@ -456,6 +476,9 @@ class AdminCategoriesController
 
     // ── Permissions ───────────────────────────────────────────────────────────
 
+    // ===================================================================
+    // SECTION: CATEGORY_AUTHORIZATION
+    // ===================================================================
     public function requireAdmin(): bool
     {
         return current_user_can(\CompuZign\Platform\Modules\Admin\AdminRouter::CAP);
@@ -463,6 +486,9 @@ class AdminCategoriesController
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    // ===================================================================
+    // SECTION: CATEGORY_HELPERS
+    // ===================================================================
     private function findTerm(int $termId): ?\WP_Term
     {
         $term = get_term($termId, CategoryMeta::TAXONOMY);

@@ -82,6 +82,9 @@ function itemDecision(item: PackageManagerItem): PackageRelationDraftItem {
   };
 }
 
+// ===========================================================================
+// SECTION: PACKAGE_DRAFT
+// ===========================================================================
 export function createPackageRelationDraft(readModel: PackageManagerReadModel): PackageRelationDraft {
   const itemsById: Record<string, PackageRelationDraftItem> = {};
   const explicitDecisionIds: string[] = [];
@@ -138,6 +141,9 @@ function normalizePackageGroups(groups: PackageManagerGroup[]): PackageManagerGr
     .map((group, index) => ({ ...group, sort_order: index }));
 }
 
+// ===========================================================================
+// SECTION: PACKAGE_GROUPS
+// ===========================================================================
 export function createPackageRelationGroup(draft: PackageRelationDraft, groupId: string): PackageRelationDraft {
   if (draft.groups.some((group) => group.group_id === groupId)) return draft;
   const groups = normalizePackageGroups(draft.groups);
@@ -181,6 +187,9 @@ function comparableDraft(draft: PackageRelationDraft): unknown {
   };
 }
 
+// ===========================================================================
+// SECTION: RATE_SHEET_DRAFT
+// ===========================================================================
 function replacePackageRateSheet(
   draft: PackageRelationDraft,
   input: {
@@ -221,6 +230,9 @@ export function onboardPackageRateSheetOptions(
   }, rateSheet);
 }
 
+// ===========================================================================
+// SECTION: SERVICE_CONNECTIONS
+// ===========================================================================
 export function connectPackageServiceSources(
   draft: PackageRelationDraft,
   serviceIds: readonly number[],
@@ -422,6 +434,9 @@ export async function projectPackageReadModelForTier(
   };
 }
 
+// ===========================================================================
+// SECTION: PACKAGE_PROVIDER
+// ===========================================================================
 export const packageRelationProvider: WritableRelationProvider<
   PackageRelationScope,
   PackageRelationReadModel,
@@ -778,3 +793,18 @@ export const packageRelationProvider: WritableRelationProvider<
     return { ...response.manager, tierSubjects: readModel.tierSubjects };
   },
 };
+/*
+ * FILE INDEX
+ *
+ * PACKAGE_DRAFT          Provider draft creation, decisions, and dirty comparison
+ * PACKAGE_GROUPS         Relationship Group lifecycle and ordering
+ * RATE_SHEET_DRAFT       Rate Sheet option onboarding and replacement
+ * SERVICE_CONNECTIONS    Service connect and Category Group assignment
+ * PACKAGE_PROVIDER       Read, validate, save, summaries, and continuations
+ *
+ * Search: SECTION: PACKAGE_DRAFT
+ *         SECTION: PACKAGE_GROUPS
+ *         SECTION: RATE_SHEET_DRAFT
+ *         SECTION: SERVICE_CONNECTIONS
+ *         SECTION: PACKAGE_PROVIDER
+ */

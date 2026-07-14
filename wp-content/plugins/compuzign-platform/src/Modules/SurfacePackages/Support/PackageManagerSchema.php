@@ -1,5 +1,21 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * MANAGER_SHAPE          Defaults and persisted manager sanitization
+ * MANAGER_COMMIT         Configuration validation and commit projection
+ * SOURCE_RECONCILIATION  Pool source resolution and item reconciliation
+ * MANAGER_READ_MODEL     Provenance, health, and consumer projections
+ * RATE_SHEET_PROJECTION  Tier Rate Sheet reference projection
+ *
+ * Search: SECTION: MANAGER_SHAPE
+ *         SECTION: MANAGER_COMMIT
+ *         SECTION: SOURCE_RECONCILIATION
+ *         SECTION: MANAGER_READ_MODEL
+ *         SECTION: RATE_SHEET_PROJECTION
+ */
+
 namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 
 /**
@@ -44,6 +60,9 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  */
 final class PackageManagerSchema
 {
+    // ===================================================================
+    // SECTION: MANAGER_SHAPE
+    // ===================================================================
     public const ALLOWED_SOURCE_TYPES       = ['inclusion', 'faq'];
     public const ALLOWED_MODULE_TRANSITIONS = ['not-configured', 'pending', 'settled'];
     public const OPERATIONAL_STATES         = ['connected_available', 'connected_unavailable', 'source_missing', 'ambiguous'];
@@ -324,6 +343,9 @@ final class PackageManagerSchema
      *
      * @throws \InvalidArgumentException for malformed/unknown identities
      */
+    // ===================================================================
+    // SECTION: MANAGER_COMMIT
+    // ===================================================================
     public static function commitConfiguration(
         array $storedManager,
         mixed $submittedGroups,
@@ -518,6 +540,9 @@ final class PackageManagerSchema
      * @param  array<int, mixed> $faqPool         cz_service_faqs items: [{id, question, answer}]
      * @return array<int, array>  reconciled items, each carrying a `missing` bool
      */
+    // ===================================================================
+    // SECTION: SOURCE_RECONCILIATION
+    // ===================================================================
     public static function reconcileItems(array $persistedItems, array $inclusionPool, array $faqPool): array
     {
         $persistedById = [];
@@ -641,6 +666,9 @@ final class PackageManagerSchema
      * @param  string $platformStatus service/package platform_status ('active'|'disabled')
      * @return array{service_id: int, platform_status: string, has_configuration: bool, groups: array, items: array, projections: array}
      */
+    // ===================================================================
+    // SECTION: MANAGER_READ_MODEL
+    // ===================================================================
     public static function buildReadModel(
         int $serviceId,
         array $storedManager,
@@ -798,6 +826,9 @@ final class PackageManagerSchema
     }
 
     /** Resolve Tier-owned Rate Sheet references without copying catalogue data. */
+    // ===================================================================
+    // SECTION: RATE_SHEET_PROJECTION
+    // ===================================================================
     public static function projectTierRateSheet(
         int $serviceId,
         array $storedManager,

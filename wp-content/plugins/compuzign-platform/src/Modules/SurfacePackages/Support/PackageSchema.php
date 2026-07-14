@@ -1,5 +1,21 @@
 <?php
 
+/*
+ * FILE INDEX
+ *
+ * PACKAGE_SHAPE          Registration, defaults, and package sanitization
+ * PROMOTION_SCHEMA       Promotion identity, drafts, lifecycle, and sanitization
+ * TIER_OCCUPANTS         Tier slot normalization, summaries, and Cost Builder projection
+ * TIER_LIFECYCLE         Tier drafts, status derivation, and settling
+ * OCCUPANT_BIN           Archive, restore, trash, and permanent deletion
+ *
+ * Search: SECTION: PACKAGE_SHAPE
+ *         SECTION: PROMOTION_SCHEMA
+ *         SECTION: TIER_OCCUPANTS
+ *         SECTION: TIER_LIFECYCLE
+ *         SECTION: OCCUPANT_BIN
+ */
+
 namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 
 /**
@@ -10,6 +26,9 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  */
 class PackageSchema
 {
+    // ===================================================================
+    // SECTION: PACKAGE_SHAPE
+    // ===================================================================
     // Station-level lifecycle: derived from tier occupants (deriveStationStatus),
     // never archived — occupants travel to the bin, the station shell does not.
     // 'archived' retired at E2 (confirmed unreachable).
@@ -340,6 +359,9 @@ class PackageSchema
      * Generates a server-side ID for a new promotion tier.
      * Call this in the controller before persisting a new record.
      */
+    // ===================================================================
+    // SECTION: PROMOTION_SCHEMA
+    // ===================================================================
     public static function generatePromotionTierId(): string
     {
         return 'promo_' . bin2hex(random_bytes(4));
@@ -1023,6 +1045,9 @@ class PackageSchema
     /**
      * Detect whether a tier slot is in Phase 2 occupant format.
      */
+    // ===================================================================
+    // SECTION: TIER_OCCUPANTS
+    // ===================================================================
     public static function isOccupantFormat(array $tier): bool
     {
         return array_key_exists('current_occupant', $tier);
@@ -1170,6 +1195,9 @@ class PackageSchema
      * 'active' when at least one tier has a living active occupant; 'disabled' otherwise.
      * This is a Cost Builder visibility field, not Package Station lifecycle.
      */
+    // ===================================================================
+    // SECTION: TIER_LIFECYCLE
+    // ===================================================================
     public static function deriveStationStatus(array $station): string
     {
         foreach (self::ALLOWED_TIERS as $tierId) {
@@ -1277,6 +1305,9 @@ class PackageSchema
      * @param  array<string, mixed> $station
      * @return array<string, mixed>
      */
+    // ===================================================================
+    // SECTION: OCCUPANT_BIN
+    // ===================================================================
     public static function ensureOccupantBin(array $station): array
     {
         $binStatuses = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::BIN_STATUSES;

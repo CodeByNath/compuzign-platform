@@ -62,7 +62,9 @@ function slotOccupied(slot: { label: string; price: number | null; contact: bool
   );
 }
 
-// ── ServiceTierStep ───────────────────────────────────────────────────────────
+// ===========================================================================
+// SECTION: TIER_DRAWER_STATE
+// ===========================================================================
 // Phase 2 (L5): Service Station-owned tier configuration drawer.
 // P5 Step 1: consumes usePackageStation (single source, draft-preferred derive,
 // patch-in-place). Per-module Save persists a draft; footer Publish settles the tier.
@@ -145,7 +147,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   };
 
-  // ── Occupant travel chrome (engine D4) ─────────────────────────────────────
+  // ===========================================================================
+  // SECTION: TIER_LIFECYCLE
+  // ===========================================================================
   // Overview Details filter: current (4 shells) | bin (displaced occupants).
   const [listView, setListView] = useState<'current' | 'bin'>('current');
   // Footer split-button dropdown + confirm modals (Publish settle; archive with
@@ -192,6 +196,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     setConfirmModal(null);
   };
 
+  // ===========================================================================
+  // SECTION: TIER_MODULE_EDITORS
+  // ===========================================================================
   // Section edit lifecycle — seed the section's transient draft from the hook's
   // draft-preferred view; Save persists it via the hook, Cancel discards it.
   const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => {
@@ -484,7 +491,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // ── Tier overview view — polished 4-tier summary cards + Pricing Summary ─────
+  // ===========================================================================
+  // SECTION: TIER_MODULE_BINDINGS
+  // ===========================================================================
   // Bound to draft-preferred tier views from usePackageStation (station.tiers is the
   // same SurfaceTierDetail shape); the View action routes via openTierEdit (station-native).
   if (!editingTierId) {
@@ -775,7 +784,9 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     );
   }
 
-  // ── Individual Tier drawer ────────────────────────────────────────────────
+  // ===========================================================================
+  // SECTION: TIER_DRAWER_RENDER
+  // ===========================================================================
   const incPool = svc.inclusions;
   const faqPool = svc.faqs;
 
@@ -1012,3 +1023,18 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
     </EntityDrawer>
   );
 }
+/*
+ * FILE INDEX
+ *
+ * TIER_DRAWER_STATE       Package Station identity, drafts, tabs, and guards
+ * TIER_LIFECYCLE          Occupant publish, status, popular, and bin travel
+ * TIER_MODULE_EDITORS     Overview, inclusions, FAQs, and Rate Sheet edits
+ * TIER_MODULE_BINDINGS    Tier, Package, Service, and connection shell bindings
+ * TIER_DRAWER_RENDER      Package overview, Tier detail, bin, and dialogs
+ *
+ * Search: SECTION: TIER_DRAWER_STATE
+ *         SECTION: TIER_LIFECYCLE
+ *         SECTION: TIER_MODULE_EDITORS
+ *         SECTION: TIER_MODULE_BINDINGS
+ *         SECTION: TIER_DRAWER_RENDER
+ */

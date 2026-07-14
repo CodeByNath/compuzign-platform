@@ -31,6 +31,19 @@ The Category Group station owns group identity, overview draft state, lifecycle,
 - [TaxonomyRegistrar.php](../../wp-content/plugins/compuzign-platform/src/Core/TaxonomyRegistrar.php) registers Category and Group taxonomies. Use it for WordPress taxonomy boundaries.
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) exposes typed Group REST calls. Use it for endpoint contracts.
 
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Drawer model | `SECTION: CATEGORY_GROUP_DRAWER_MODEL` | Config and Category handoff | Changing drawer entry |
+| Overview | `SECTION: CATEGORY_GROUP_OVERVIEW` | Overview editing | Changing Group authoring |
+| Lifecycle | `SECTION: CATEGORY_GROUP_LIFECYCLE` | Publish, travel, close guards | Changing Group actions |
+| Connections | `SECTION: CATEGORY_GROUP_CONNECTIONS` | Assigned-Category transit | Changing Category navigation |
+| Render | `SECTION: CATEGORY_GROUP_RENDER` | Shell, footer, dialogs | Changing drawer UI |
+| Routes | `SECTION: CATEGORY_GROUP_ROUTES` | Group route registration | Changing endpoints |
+| Handlers | `SECTION: CATEGORY_GROUP_HANDLERS` | CRUD and lifecycle | Changing backend behavior |
+| Helpers | `SECTION: CATEGORY_GROUP_HELPERS` | Lookup and projection | Changing responses |
+
 ## Runtime Flow
 
 The workstation loads group summaries and opens the canonical schema-bound drawer. `CategoryGroupViewStep` builds the drawer config, derives assigned-category counts, binds the overview shell, owns its edit/dirty/close-guard state, and orchestrates publish/settle, enable/disable, archive, trash, and confirmation chrome through `useCategoryGroupStation`. Category membership opens the authoritative Category drawer rather than creating a group-local model.
