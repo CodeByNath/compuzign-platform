@@ -18,6 +18,7 @@ The relation registry owns provider discovery and the coordinator owns transient
 
 - [coordinator.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/coordinator.ts) owns read models, drafts, selection, dirty state, validation aggregation, and save results. Use it for provider-neutral state transitions.
 - [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts) supplies writable Package sections, Rate Sheet rules, summaries, and Tier continuations. Use it for Package connection behavior.
+- [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) edits one connection or Commercial Group at a time. Source facts stay read-only; grouping, ordering, disabled state, decoration, and membership patch the current provider draft.
 - [promotion.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/promotion.ts) supplies Promotion cards, create/edit state, validation, saves, and drawer continuations. Use it for Promotion connection behavior.
 - [active-package-read-only.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/active-package-read-only.ts) exposes active Package projections without mutation methods. Use it for read-only consumers.
 
@@ -38,7 +39,7 @@ The relation registry owns provider discovery and the coordinator owns transient
 
 ## Runtime Flow
 
-The primary page host is [ServiceCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx), which renders `service-catalog` mode and adapts the manager contract through `usePageManagerShell`. The legacy Package Manager page and Station Manager drawer remain temporarily reachable pending the navigation-retirement phases. Providers retain persistence authority in every host.
+The primary page host is [ServiceCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx). It stays mounted behind one AdminShell action while focused drawer callbacks patch its current provider draft. The legacy Package page and Station Manager drawer remain temporarily reachable pending navigation retirement.
 
 ## Validation
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { ExitGuard, StepContext } from '../ActionShell';
+import type { ActionConfig, ExitGuard, StepContext } from '../ActionShell';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
 import { ReadBlock } from '../ReadBlock';
@@ -7,7 +7,13 @@ import { fetchPackageCategoryGroups } from '@/api/endpoints/admin';
 import type { PackageCategoryGroupItem, StationSummary } from '@/api/types/admin';
 import { relationProvidersFor } from './registry';
 import type { ManagerContinuation, StationManagerScope } from './types';
-import { assignPackageServiceCategoryGroup } from './providers/package';
+import {
+  assignPackageServiceCategoryGroup,
+  createPackageRelationGroup,
+  deletePackageRelationGroup,
+  renamePackageRelationGroup,
+  updatePackageRelationDecision,
+} from './providers/package';
 import type { PackageRelationDraft } from './providers/package';
 import { PackageServicesTable } from './PackageServicesTable';
 import { PackageCategoryGroupsSection } from './PackageCategoryGroupsSection';
@@ -27,6 +33,17 @@ import { PromotionManagerWorkspace } from './PromotionManagerWorkspace';
 import { PackageManagerTierCards } from './PackageManagerTierCards';
 import { ManagerSubTabs } from './ManagerSubTabs';
 import type { ManagerSubTab } from './ManagerSubTabs';
+import {
+  buildCommercialGroupDrawerConfig,
+  buildConnectionDrawerConfig,
+  buildPriceSettingsDrawerConfig,
+  buildRateRowDrawerConfig,
+} from './serviceManagerDrawers';
+import type {
+  CommercialGroupDrawerValue,
+  ConnectionDrawerValue,
+  RateRowDrawerValue,
+} from './serviceManagerDrawers';
 
 export type ManagerShellContext = Pick<StepContext, 'setExitGuard' | 'confirmPendingExit' | 'cancelPendingExit' | 'requestExit' | 'setFooter'>;
 export type ManagerSurface = 'legacy' | 'service-catalog' | 'packages';
@@ -52,7 +69,7 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, surface = 'legacy', onManageCategoryGroups }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, surface = 'legacy', onManageCategoryGroups, openAction }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
@@ -60,7 +77,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   onOpenPackage?: (occupantId: string, slotId: string, edit?: boolean) => void;
   onOpenService?: (summary: StationSummary, edit?: boolean) => void;
   surface?: ManagerSurface;
-  onManageCategoryGroups?: () => void;
+  onManageCategoryGroups?: (group?: PackageCategoryGroupItem) => void;
+  openAction?: (config: ActionConfig) => void;
 }) {
   // ===========================================================================
   // SECTION: MANAGER_COORDINATION
@@ -301,9 +319,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           onSelect={setSelectedCategoryGroupId}
           busy={groupActionBusy}
           onLifecycleAction={(groupId, operation) => { void runGroupLifecycle(groupId, operation); }}
-          onManageGroups={() => {
+          onManageGroups={(group) => {
             if (onManageCategoryGroups) {
-              onManageCategoryGroups();
+              onManageCategoryGroups(group);
               return;
             }
             if (packageProvider) setState((current) => selectManagerProvider(current, packageProvider.key, providers));
@@ -451,7 +469,10 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                 </div>
               ) : (
                 <div class="cz-manager-rate-sheet__catalogue">
-                  <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Edit Rate Sheet</button></div>
+                  <div class="cz-manager-section__actions">
+                    {serviceCatalogSurface && openAction && <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openAction(buildPriceSettingsDrawerConfig())}>Price Settings</button>}
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Rate Sheet setup</button>
+                  </div>
                   <PackageRateSheetFilters
                     items={projection.items}
                     sources={((draft as PackageRelationDraft | undefined)?.sources) ?? []}
@@ -469,12 +490,33 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                     return visibleItems.length === 0 ? (
                       <div class="cz-manager-empty"><strong>No Rate Sheet rows match the current filters.</strong></div>
                     ) : (
-                      <div class="cz-sp-tier-table-wrap"><table class="cz-sp-tier-table"><thead><tr><th>Option</th><th>Service</th><th>Service Category</th><th>Unit Price</th><th>Per</th><th>Quantity</th><th>Group</th></tr></thead>
+                      <div class="cz-sp-tier-table-wrap"><table class="cz-sp-tier-table"><thead><tr><th>Option</th><th>Service</th><th>Service Category</th><th>Unit Price</th><th>Per</th><th>Quantity</th><th>Group</th>{serviceCatalogSurface && <th>Action</th>}</tr></thead>
                         <tbody>{visibleItems.map((item) => <tr key={item.id}>
                           <td class="cz-sp-tier-table__name">{item.optionLabel}</td>
                           <td class="cz-sp-tier-table__muted">{item.serviceTitle ?? '—'}</td>
                           <td class="cz-sp-tier-table__muted">{(item.serviceCategories?.length ?? 0) > 0 ? item.serviceCategories!.join(', ') : '—'}</td>
                           <td>${item.unitPrice.toFixed(2)}</td><td>{item.per}</td><td>{item.quantity}</td><td>{item.groupLabel}</td>
+                          {serviceCatalogSurface && <td><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => {
+                            if (!openAction || !section.rateSheetControls) return;
+                            const value: RateRowDrawerValue = {
+                              id: item.id, optionLabel: item.optionLabel, serviceTitle: item.serviceTitle ?? null,
+                              serviceCategories: item.serviceCategories ?? [], unitPrice: item.unitPrice,
+                              per: item.per, quantity: item.quantity, groupId: item.groupId,
+                              groups: projection.groups, units: projection.units,
+                            };
+                            openAction(buildRateRowDrawerConfig(value, (next) => {
+                              const latestDraft = sourcePreviewDraft ?? state.draftByProvider[active.key];
+                              if (latestDraft === undefined) return;
+                              const nextRateSheet = {
+                                title: projection.title,
+                                groups: projection.groups,
+                                items: projection.items.map((row) => row.id === next.id
+                                  ? { id: row.id, optionId: row.optionId, unitPrice: next.unitPrice, per: next.per, quantity: next.quantity, groupId: next.groupId }
+                                  : { id: row.id, optionId: row.optionId, unitPrice: row.unitPrice, per: row.per, quantity: row.quantity, groupId: row.groupId }),
+                              };
+                              replaceActiveDraft(section.rateSheetControls!.replace(latestDraft, nextRateSheet));
+                            }));
+                          }}>Edit</button></td>}
                         </tr>)}</tbody>
                       </table></div>
                     );
@@ -503,6 +545,57 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             replaceActiveDraft(editingGroup.originalDraft);
             setEditingGroup(null);
           };
+          if (serviceCatalogSurface && openAction && controls) {
+            const relationSection = active.manager.sections.find((candidate) => candidate.id === 'relationships');
+            const relationProjection = relationSection?.project(readModel, scope, draft);
+            const sourceOptions = relationProjection?.role === 'relations'
+              ? relationProjection.rows.map((row) => ({ id: row.id, label: row.sourceLabel }))
+              : [];
+            const openGroupDrawer = (row?: typeof projection.rows[number]) => {
+              const base = draft as PackageRelationDraft | undefined;
+              if (!base) return;
+              temporaryGroupSequence.current += 1;
+              const id = row?.id ?? `tmp_group_${Date.now()}_${temporaryGroupSequence.current}`;
+              const value: CommercialGroupDrawerValue = {
+                id,
+                label: row?.label ?? '',
+                order: row?.order ?? projection.rows.length + 1,
+                memberIds: sourceOptions.filter((source) => base.itemsById[source.id]?.group_id === id).map((source) => source.id),
+                sourceOptions,
+                isNew: !row,
+              };
+              openAction(buildCommercialGroupDrawerConfig(value, (nextValue) => {
+                let next = (sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined;
+                if (!next) return;
+                if (nextValue.isNew) next = createPackageRelationGroup(next, nextValue.id);
+                next = renamePackageRelationGroup(next, nextValue.id, nextValue.label);
+                const members = new Set(nextValue.memberIds);
+                for (const source of sourceOptions) {
+                  const current = next.itemsById[source.id];
+                  if (!current) continue;
+                  const desired = members.has(source.id) ? nextValue.id : current.group_id === nextValue.id ? null : current.group_id;
+                  if (desired !== current.group_id) next = updatePackageRelationDecision(next, source.id, { group_id: desired });
+                }
+                replaceActiveDraft(next);
+              }, row ? () => {
+                const latest = (sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined;
+                if (latest) replaceActiveDraft(deletePackageRelationGroup(latest, row.id));
+              } : undefined));
+            };
+            return (
+              <section class="cz-manager-section cz-manager-section--content-only" key={section.id} aria-label="Commercial Groups">
+                <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => openGroupDrawer()}>+ New Group</button></div>
+                {projection.rows.length === 0 ? <div class="cz-manager-empty"><strong>No Commercial Groups yet.</strong><p>Create groups to organise source connections.</p></div> : (
+                  <div class="cz-manager-summary-grid">
+                    {projection.rows.map((row) => <article class="cz-manager-commercial-card" key={row.id}>
+                      <div><strong>{row.label || 'Unnamed group'}</strong><p>{row.relationshipCount} source{row.relationshipCount === 1 ? '' : 's'} · order {row.order}</p></div>
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openGroupDrawer(row)}>Edit</button>
+                    </article>)}
+                  </div>
+                )}
+              </section>
+            );
+          }
           return (
             <section class="cz-manager-section cz-manager-section--content-only" key={section.id} aria-label="Option Groups"
               onFocus={() => setSelectedSectionKey(section.id)}>
@@ -586,7 +679,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             {rows.length === 0 ? <div class="cz-manager-empty"><strong>{section.emptyState.title}</strong></div> : (
               <div class="cz-sp-tier-table-wrap">
                 <table class="cz-sp-tier-table cz-manager-relationships">
-                  <thead><tr><th>Source</th><th>Group</th><th>Order</th><th>State</th><th>Availability</th><th>Source health</th></tr></thead>
+                  <thead><tr><th>Source</th><th>Group</th><th>Order</th><th>State</th><th>Availability</th><th>Source health</th>{serviceCatalogSurface && <th>Action</th>}</tr></thead>
                   <tbody>{rows.map((row) => (
                     <tr key={row.id} tabIndex={0}
                       aria-current={focusedRelationshipKey === row.id ? 'true' : undefined}
@@ -598,6 +691,23 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                       <td><ModuleStatusPill status={row.state.status} notes={row.state.notes} /><small>{row.stateDetail}</small></td>
                       <td>{row.availability}</td>
                       <td class={row.sourceHealth === 'Missing' ? 'cz-manager-text--attention' : 'cz-sp-tier-table__muted'}>{row.sourceHealth}</td>
+                      {serviceCatalogSurface && <td><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={(event) => {
+                        event.stopPropagation();
+                        if (!openAction) return;
+                        const value: ConnectionDrawerValue = {
+                          id: row.id, sourceLabel: row.sourceLabel, groupId: row.groupId,
+                          order: row.order, disabled: row.disabled, decoratedLabel: row.decoratedLabel,
+                          availability: row.availability, sourceHealth: row.sourceHealth,
+                        };
+                        const groupOptions = ((draft as PackageRelationDraft | undefined)?.groups ?? []).map((group) => ({ id: group.group_id, label: group.label }));
+                        openAction(buildConnectionDrawerConfig(value, groupOptions, (next) => {
+                          const latest = (sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined;
+                          if (!latest) return;
+                          replaceActiveDraft(updatePackageRelationDecision(latest, next.id, {
+                            group_id: next.groupId, sort_order: next.order, disabled: next.disabled, decorated_label: next.decoratedLabel,
+                          }));
+                        }));
+                      }}>Edit</button></td>}
                     </tr>
                   ))}</tbody>
                 </table>

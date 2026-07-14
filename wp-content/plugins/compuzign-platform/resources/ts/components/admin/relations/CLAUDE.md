@@ -11,13 +11,14 @@ Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupCards.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetEditor.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageManagerTierCards.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/ManagerSubTabs.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx`
 - `wp-content/plugins/compuzign-platform/resources/css/modules/admin.css`
-Current state: `ServiceCatalogWorkstation` is the primary “Your Service Manager” page host. It renders `DynamicStationManager` in `service-catalog` mode: Family Cards plus Details (Services), Connections (relationship projection), and Settings (Commercial Groups and Rate Sheet), with Tier and Promotion content excluded. `usePageManagerShell.tsx` is the shared workstation adapter for the manager footer and dirty-navigation guard. The former mixed Package Manager and full manager drawer remain temporarily intact for the later Package boundary and legacy-navigation retirement. Provider state, coordinator behavior, ownership, and save authority are unchanged.
+Current state: `ServiceCatalogWorkstation` is the primary “Your Service Manager” page host. It renders Family Cards plus Details (Services), Connections, and Settings, with Tier and Promotion content excluded. `serviceManagerDrawers.tsx` supplies focused first-level Category Group, Connection, Commercial Group, Rate Row, and audit-only Price Settings drawers. Manager-owned apply callbacks patch the mounted provider draft; page Save remains the atomic commit. The former mixed Package page and full manager drawer remain temporarily intact for later phases.
 
 ## Entry guide
 

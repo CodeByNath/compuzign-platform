@@ -85,6 +85,7 @@ export function PackageServicesTable({ sources, categoryGroups, hostServiceId, o
 
   return (
     <section class="cz-manager-section cz-manager-section--content-only" aria-label="Services">
+      <div class="cz-manager-section__title"><div><h3>Your Services</h3><p>Service-owned catalogue content with Package-owned family assignment.</p></div></div>
       {services === null && !loadError && <p class="cz-sp-tier-table__muted">Loading Services…</p>}
       {loadError && <div class="cz-admin-error-msg" role="alert">{loadError}</div>}
       {services !== null && services.length === 0 && (

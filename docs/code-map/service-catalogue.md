@@ -12,7 +12,7 @@ Provides the “Your Service Manager” dashboard, Service creation, and canonic
 
 ### [ServiceCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx)
 
-Hosts the family cards and Details / Connections / Settings manager composition, page-level dirty-state guard/footer, create-Service flow, temporary Category Group management panel, and canonical Service drawer handoff. Use this file when changing the Service Catalog dashboard, Service creation, or dashboard action routing.
+Hosts the family cards and Details / Connections / Settings manager composition, page-level dirty-state guard/footer, create-Service flow, focused Category Group actions, and canonical Service drawer handoff. Use this file when changing the Service Catalog dashboard, Service creation, or dashboard action routing.
 
 ### [ServiceViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceViewStep.tsx)
 
@@ -26,6 +26,7 @@ Contains the canonical Details/Connections Service drawer; overview, inclusions,
 - [ServiceInclusionsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceInclusionsEditor.tsx) edits ordered inclusion items. Use it for feature collection inputs and validation.
 - [ServiceFaqsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceFaqsEditor.tsx) edits question/answer collections. Use it for Service FAQ form behavior.
 - [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/service.tsx) defines Service shell data adapters and module editor bindings. Use it when changing schema-rendered fields or actions.
+- [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) defines focused Category Group, Connection, Commercial Group, Rate Row, and audit-only Price Settings drawers. Manager-owned drawers apply to the mounted page draft; they do not persist independently.
 
 ## State and Providers
 
@@ -52,7 +53,7 @@ Contains the canonical Details/Connections Service drawer; overview, inclusions,
 
 ## Runtime Flow
 
-`ServiceCatalogWorkstation` contains the new-Service drawer, category normalization, and summary-to-detail handoff adapter used by Category surfaces. It resolves the Package Station compatibility host, renders `DynamicStationManager` in `service-catalog` mode, preserves page drafts through the shared shell adapter, and opens the canonical Service drawer. Package-owned state stays in the Package provider and existing manager save path.
+`ServiceCatalogWorkstation` resolves the compatibility host, renders `service-catalog` mode, preserves drafts through the shared shell adapter, and opens focused first-level drawers. Service View/Edit uses the canonical drawer; Edit requests start its Overview editor. Package-owned drawer changes return to the dashboard draft and the page Save remains atomic.
 
 `ServiceViewStep` remains the Service drawer root for overview, inclusions, FAQs, lifecycle, drafts, guards, and confirmations. Its legacy Station Manager handoff is pending removal. Persistence remains in `useServiceStation` and the API.
 

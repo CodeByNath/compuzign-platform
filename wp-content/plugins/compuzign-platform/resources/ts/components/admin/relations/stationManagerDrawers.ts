@@ -42,7 +42,7 @@ export function buildServiceDetailDrawerConfig(deps: StationManagerDrawerContext
       service: buildServiceItemForStationHandoff(summary),
       packages: deps.packages, openAction: deps.openAction,
       allCategories: deps.allCategories, onRefresh: deps.onRefresh,
-      initialTab: 'details',
+      initialTab: 'details', initialEdit: edit,
     },
     steps: [{ id: 'detail', title: 'Service Detail', component: ServiceViewStep }],
   };

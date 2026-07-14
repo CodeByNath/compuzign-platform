@@ -104,8 +104,11 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
         id: string;
         filterIds: readonly string[];
         sourceLabel: string;
+        groupId: string | null;
         groupLabel: string;
         order: number;
+        disabled: boolean;
+        decoratedLabel: string | null;
         state: ModuleState;
         stateDetail: string;
         availability: 'Available' | 'Not available' | 'Disabled' | 'Missing source';

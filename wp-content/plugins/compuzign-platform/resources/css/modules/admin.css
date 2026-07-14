@@ -4622,13 +4622,49 @@ button.cz-module-status-pill {
   text-transform: uppercase;
 }
 
-.cz-service-manager-workstation__family-manager {
-  margin-bottom: var(--cz-space-4);
+.cz-focused-drawer-form { padding: var(--cz-space-4); }
+.cz-focused-drawer-card {
+  display: grid;
+  gap: var(--cz-space-4);
   padding: var(--cz-space-4);
   border: 1px solid var(--admin-border-blue);
   border-radius: 12px;
   background: var(--admin-bg);
 }
+.cz-focused-drawer-card h3,
+.cz-focused-drawer-card p { margin: 0; }
+.cz-focused-drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cz-space-3);
+}
+.cz-focused-drawer-checklist {
+  display: grid;
+  gap: var(--cz-space-2);
+  max-height: 360px;
+  overflow: auto;
+  padding: var(--cz-space-2);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: 8px;
+}
+.cz-focused-drawer-check {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-2);
+}
+.cz-manager-commercial-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cz-space-3);
+  padding: var(--cz-space-3);
+  border: 1px solid var(--admin-border-blue);
+  border-radius: 10px;
+  background: var(--admin-bg);
+}
+.cz-manager-commercial-card p { margin: var(--cz-space-1) 0 0; color: var(--admin-text-faint); }
+@media (max-width: 640px) { .cz-focused-drawer-grid { grid-template-columns: 1fr; } }
 
 /* ── Family Card strip (Package Category Group workspace scope) ─────────────── */
 .cz-family-strip {

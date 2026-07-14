@@ -241,6 +241,13 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
     setSaveErr(null);
   }, [service, stationOverviewDraft, settledOverview, localCategories]);
 
+  const initialEditOpened = useRef(false);
+  useEffect(() => {
+    if (!ctx.stepData.initialEdit || !detailLoaded || initialEditOpened.current) return;
+    initialEditOpened.current = true;
+    openOverviewEditor();
+  }, [ctx.stepData.initialEdit, detailLoaded, openOverviewEditor]);
+
   const openInclusionsEditor = useCallback(() => {
     const draft: InclusionsDraft = { items: inclusions };
     setInclusionsOriginal(draft);

@@ -22,6 +22,8 @@ Builds the Station Manager drawer action, hosts `DynamicStationManager`, and ope
 
 Owns manager coordinator state and supports explicit surface composition. `service-catalog` mode renders the Family Card strip plus Details / Connections / Settings without Tier or Promotion content; the legacy mode temporarily preserves the former mixed Package Manager surface. `selectedCategoryGroupId` drives Services, relationship, and Rate Sheet filtering through existing mechanisms.
 
+[serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) supplies the Service Catalog’s focused manager-owned editors. Their apply callbacks use the current Package provider draft; descriptions and Price Settings persistence remain outside the present schema.
+
 ### [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts)
 
 Adapts Package Station data into drafts, validation, saves, summaries, and continuations. Use its markers below.

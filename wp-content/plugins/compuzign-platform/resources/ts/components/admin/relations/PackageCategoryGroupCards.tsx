@@ -47,7 +47,7 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
   onLifecycleAction: (groupId: string, operation: () => Promise<unknown>) => void;
   // Hand off to the existing lifecycle station (Services > Connections) for
   // create/edit — the strip owns no editor.
-  onManageGroups: () => void;
+  onManageGroups: (group?: PackageCategoryGroupItem) => void;
 }) {
   const [openActions, setOpenActions] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<GroupConfirmState | null>(null);
@@ -101,7 +101,7 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
             <div class="cz-manager-split-action cz-family-card__actions" onClick={(event) => event.stopPropagation()}>
               <div class="cz-manager-split-action__control">
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__primary"
-                  disabled={busy} onClick={onManageGroups}>Edit</button>
+                  disabled={busy} onClick={() => onManageGroups(group)}>Edit</button>
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm cz-manager-split-action__toggle"
                   disabled={busy} aria-label={`More actions for ${group.label}`} aria-expanded={openActions === group.group_id}
                   onClick={(event) => { event.stopPropagation(); setOpenActions(openActions === group.group_id ? null : group.group_id); }}>▾</button>

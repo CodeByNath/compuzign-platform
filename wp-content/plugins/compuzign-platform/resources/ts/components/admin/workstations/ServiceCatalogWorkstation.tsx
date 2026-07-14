@@ -19,9 +19,9 @@ import type { WorkstationSurfaceProps } from '../schema/workstations';
 import type { StationManagerScope } from '../relations/types';
 import { DynamicStationManager } from '../relations/DynamicStationManager';
 import { usePageManagerShell } from '../relations/usePageManagerShell';
-import { PackageCategoryGroupsSection } from '../relations/PackageCategoryGroupsSection';
 import { buildServiceDetailDrawerConfig } from '../relations/stationManagerDrawers';
 import type { StationManagerDrawerContext } from '../relations/stationManagerDrawers';
+import { buildCategoryGroupDrawerConfig } from '../relations/serviceManagerDrawers';
 
 type Props = WorkstationSurfaceProps;
 
@@ -423,7 +423,6 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
   const { data, loading, error, refetch } = useAdminCatalog();
   const { data: surfacePkgData }          = useSurfacePackages();
   const { shell, footer } = usePageManagerShell();
-  const [showFamilyManager, setShowFamilyManager] = useState(false);
   const [managerRefreshKey, setManagerRefreshKey] = useState(0);
 
   const packages = surfacePkgData?.packages ?? [];
@@ -453,6 +452,9 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
     openAction,
     onRefresh: refetch,
   } : null;
+  const handleCategoryGroupsChanged = useCallback(() => {
+    setManagerRefreshKey((current) => current + 1);
+  }, []);
 
   const handleCreateService = () => {
     openAction({
@@ -488,20 +490,8 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
       </Workstation.Header>
       <Workstation.Actions className="cz-service-manager-workstation__actions">
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>+ New Service</button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setShowFamilyManager((current) => !current)}>+ New Group</button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => openAction(buildCategoryGroupDrawerConfig(undefined, handleCategoryGroupsChanged))}>+ New Group</button>
       </Workstation.Actions>
-
-      {showFamilyManager && (
-        <Workstation.Content>
-          <div class="cz-service-manager-workstation__family-manager">
-            <div class="cz-manager-section__actions">
-              <strong>Package Category Groups</strong>
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setShowFamilyManager(false)}>Close</button>
-            </div>
-            <PackageCategoryGroupsSection onChanged={() => setManagerRefreshKey((current) => current + 1)} />
-          </div>
-        </Workstation.Content>
-      )}
 
       <Workstation.Content>
         {!hostSummary || !scope || !drawerDeps ? (
@@ -514,7 +504,8 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
             scope={scope}
             shell={shell}
             surface="service-catalog"
-            onManageCategoryGroups={() => setShowFamilyManager(true)}
+            openAction={openAction}
+            onManageCategoryGroups={(group) => openAction(buildCategoryGroupDrawerConfig(group, handleCategoryGroupsChanged))}
             onOpenService={(summary, edit) => openAction(buildServiceDetailDrawerConfig(drawerDeps, summary, edit))}
           />
         )}

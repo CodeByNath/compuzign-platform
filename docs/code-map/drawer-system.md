@@ -22,6 +22,7 @@ Supplies reusable admin navigation, action drawers, schema-driven entity modules
 - [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/InlineEditorShell.tsx) supplies editor overlay, Save/Cancel footer, busy/error states, and content framing. Use it for shared form chrome.
 - [Workstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/shell/Workstation.tsx) composes workstation heading, actions, filters, and body slots. Use it for shared workstation layout.
 - [usePageManagerShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx) mirrors the `ActionShell` exit-guard/footer contract for a mounted dashboard so drawers can open above it without losing manager drafts.
+- [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) contains the focused Service Catalog drawer steps and config builders. Each action is first-level; manager-owned Save means apply to the mounted page draft.
 
 ## State and Providers
 
