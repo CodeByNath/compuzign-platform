@@ -454,7 +454,7 @@ export function ServiceTierStep({ ctx }: { ctx: StepContext }) {
             </div>
           )}
           <div class="cz-tf-footer__spacer" />
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()} disabled={pkg.saving}>Cancel</button>
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => a.close()} disabled={pkg.saving}>Close</button>
           <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => setConfirmModal('publish')} disabled={pkg.saving || !hasContent}>
             {pkg.saving ? 'Saving…' : 'Publish'}
           </button>

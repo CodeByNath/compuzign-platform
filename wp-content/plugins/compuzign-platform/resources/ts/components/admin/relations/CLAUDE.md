@@ -2,8 +2,8 @@
 
 ## Audit metadata
 
-Last audited: 2026-07-14 Australia/Brisbane
-Audited commit: `64416be` plus the Your Service Manager recomposition working tree
+Last audited: 2026-07-15 Australia/Brisbane
+Audited commit: `6cb3525` plus the Service Manager preview integration working tree
 Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts`
@@ -17,14 +17,20 @@ Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageCategoryGroupsSection.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminShell.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/DrawerTabs.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceViewStep.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceTierStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/css/modules/admin.css`
-Current state: `ServiceCatalogWorkstation` is the “Your Service Manager” supply/configuration host. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. `PackageManagerWorkstation` renders the separate `packages` composition: supported Tier cards and Promotions only. Service, Connection, Commercial Group, and Rate Sheet controls cannot render there. The full manager drawer is removed; Service drawer configuration is isolated from Tier/Promotion configs.
+Current state: `ServiceCatalogWorkstation` is the “Your Service Manager” supply/configuration host. New Service and New Group launch from its Settings tab. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. Service and Tier entity drawers use the compact metadata header while their schema-owned Overview modules and inline editors remain authoritative. `PackageManagerWorkstation` renders the separate `packages` composition: supported Tier cards and Promotions only. The admin frame is capped at 1920px; the sidebar defaults to expanded above that boundary and icon-only at or below it.
 
 ## Entry guide
 
 This folder owns the frontend relation-provider registry, provider-neutral coordination, Package/Promotion providers, Category Group assignment, Rate Sheet filtering, and focused drawer configs. `DynamicStationManager.tsx` requires either `service-catalog` supply configuration or `packages` Tier/Promotion presentation. Presentation location never changes provider ownership.
 
-A Family Card strip above the workspace nav establishes the Category Group scope (All Groups and Ungrouped are first-class). Services > Details contains only `PackageServicesTable`, with Category Group (workspace-controlled) / Category / Status filters and an adaptive Service collection whose rows become labeled cards at narrow drawer widths. Services > Connections contains the Package Category Group lifecycle station; Services has no Settings tab. Packages > Details contains only dynamic Tier occupant cards; Packages > Connections contains only the relationship table (with the existing All/Features/Common Questions/Attention filters); Packages > Settings contains the Commercial (option) Group create/rename/reorder/delete controls above Rate Sheet editing and filters. Promotions presents Details only.
+A Family Card strip above the workspace nav establishes the Category Group scope (All Groups and Ungrouped are first-class). On the `service-catalog` surface, Details contains `PackageServicesTable`, Connections contains the Package Category Group lifecycle station, and Settings begins with New Service/New Group before Commercial Groups and Rate Sheet configuration. The provider-only Services workspace still has no Settings tab. Packages > Details contains only dynamic Tier occupant cards; Packages > Connections contains only the relationship table (with the existing All/Features/Common Questions/Attention filters); Packages > Settings contains the Commercial (option) Group create/rename/reorder/delete controls above Rate Sheet editing and filters. Promotions presents Details only.
 
 Cards and nested Tier drawers use `occupant_id` as stable UI identity and pass the resolved `slotId` alongside it. `ServiceTierStep` re-resolves the occupant before using the fixed slot for reads, persistence, REST mutations, lifecycle, popular-Tier, and bin operations. Empty shells are absent from the card grid; fixed-shell ordering/restore consumers still use `TIER_KEYS`. Package Category Group ownership/filtering is deferred because occupants have no Category Group assignment.
 

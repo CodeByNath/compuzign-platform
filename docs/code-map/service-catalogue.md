@@ -2,27 +2,28 @@
 
 ## Purpose
 
-Provides the “Your Service Manager” dashboard, Service creation, and canonical Service detail workspace. The dashboard is the family-first surface for Services plus Package-owned connections, Commercial Groups, and Rate Sheet configuration.
+Provides the family-first “Your Service Manager” dashboard, Service creation, canonical detail workspace, Package-owned connections, Commercial Groups, and Rate Sheet configuration.
 
 ## Ownership
 
-`useServiceStation` owns the loaded Service detail and per-module working state for a drawer session. WordPress service posts, taxonomies, and registered metadata remain authoritative. The catalogue may open Package Station connections, but it must not absorb their commercial state.
+`useServiceStation` owns loaded Service detail and per-module drawer state. WordPress posts, taxonomies, and registered metadata remain authoritative. The catalogue may open Package Station connections but cannot absorb their commercial state.
 
 ## Main Entry Points
 
 ### [ServiceCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx)
 
-Hosts Station Home identity/freshness, loaded Service summaries, dirty-state guard/footer, creation, Category Group actions, and canonical Service drawer handoff. It passes the loaded catalogue into the family-first manager, avoiding another Details request.
+Hosts Station Home identity/freshness, loaded Service summaries, dirty-state guard/footer, Settings-tab creation actions, and canonical Service drawer handoff. It passes the loaded catalogue into the family-first manager, avoiding another Details request.
 
 ### [ServiceViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceViewStep.tsx)
 
-Contains the canonical Details/Connections Service drawer, module bindings/editors, footer lifecycle actions, and publish/discard/exit dialogs.
+Contains the Overview/Connections Service drawer, grouped module editors, lifecycle actions, and publish/discard/exit dialogs.
 
 - [service.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/service.ts) declares Service drawer/table placements.
 
 ## UI and Drawers
 
 - [ServiceOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceOverviewEditor.tsx), [ServiceInclusionsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceInclusionsEditor.tsx), and [ServiceFaqsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceFaqsEditor.tsx) own their respective module forms.
+- [ActionShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx) supplies the compact entity header used by Service and Tier drawers; [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/EntityDrawer.tsx) keeps the schema-owned modules grouped inside Overview.
 - [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/service.tsx) defines Service shell adapters and editor bindings.
 - [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) defines focused Category Group, family assignment, Connection, Commercial Group, Rate Row, Rate Sheet setup, and audit-only Price Settings drawers. Manager-owned drawers apply to the page draft only.
 - [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) composes read-only summary metrics, family scope, Details / Connections / Settings, and the draft-preferred Package section projections. Summary and collection surfaces share the same memoized projections.
@@ -53,10 +54,14 @@ Contains the canonical Details/Connections Service drawer, module bindings/edito
 
 ## Runtime Flow
 
-`ServiceCatalogWorkstation` resolves the compatibility host, renders `service-catalog` mode, preserves drafts through the shared shell adapter, and opens focused first-level drawers. Station Home is read-first: metrics and connection health derive from the existing Package projections, while Service View/Edit uses the canonical drawer and Edit starts its Overview editor. Package-owned family, connection, group, Rate Row, and full Rate Sheet setup drawers return changes to the dashboard draft; the page Save remains atomic.
+`ServiceCatalogWorkstation` resolves the compatibility host, renders `service-catalog` mode, preserves drafts through the shared shell adapter, and opens focused first-level drawers. Station Home is read-first: metrics and connection health derive from the existing Package projections, while New Service and New Group begin in Settings. Service View/Edit uses the canonical compact entity drawer and Edit starts its module-level Overview editor. Package-owned family, connection, group, Rate Row, and full Rate Sheet setup drawers return changes to the dashboard draft; the page Save remains atomic.
 
 `ServiceViewStep` remains the Service drawer root for overview, inclusions, FAQs, lifecycle, drafts, guards, and confirmations. It has no manager navigation or nested drawer path. Persistence remains in `useServiceStation` and the API.
 
 ## Related Code Maps
 
 [Categories](categories.md), [Service Connections](service-connections.md), [Drawer System](drawer-system.md), and [Lifecycle](lifecycle-system.md).
+
+## Related History
+
+[Service Manager UI and Entity Drawer Integration](../project-history/007-service-manager-ui-drawer-integration.md)

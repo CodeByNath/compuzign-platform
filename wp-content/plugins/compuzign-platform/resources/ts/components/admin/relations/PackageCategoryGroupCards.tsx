@@ -76,6 +76,16 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
 
   return (
     <section class="cz-family-strip" aria-label="Category Group scope">
+      <div class="cz-family-strip__utilities" role="radiogroup" aria-label="Utility scopes">
+        {card('all', <>
+          <strong class="cz-family-card__name">All Groups</strong>
+          <span class="cz-family-card__meta">{counts.total} connected {counts.total === 1 ? 'Service' : 'Services'}</span>
+        </>, true)}
+        {card('unassigned', <>
+          <strong class="cz-family-card__name">Ungrouped</strong>
+          <span class="cz-family-card__meta">{counts.unassigned} connected {counts.unassigned === 1 ? 'Service' : 'Services'}</span>
+        </>, true)}
+      </div>
       <div class="cz-family-strip__cards" role="radiogroup" aria-label="Workspace scope">
         {groups.map((group) => {
           const pill = groupStatusPill(group);
@@ -119,16 +129,6 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
             </div>
           </>);
         })}
-      </div>
-      <div class="cz-family-strip__utilities" role="radiogroup" aria-label="Utility scopes">
-        {card('all', <>
-          <strong class="cz-family-card__name">All Groups</strong>
-          <span class="cz-family-card__meta">{counts.total} connected {counts.total === 1 ? 'Service' : 'Services'}</span>
-        </>, true)}
-        {card('unassigned', <>
-          <strong class="cz-family-card__name">Ungrouped</strong>
-          <span class="cz-family-card__meta">{counts.unassigned} connected {counts.unassigned === 1 ? 'Service' : 'Services'}</span>
-        </>, true)}
       </div>
       {confirming && (
         <PackageCategoryGroupConfirmDialog

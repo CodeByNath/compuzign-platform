@@ -39,6 +39,15 @@ export interface ActionStep {
   component: ComponentType<{ ctx: StepContext }>;
 }
 
+export interface ActionHeaderConfig {
+  icon?: ComponentChildren;
+  subtitle?: string;
+  status?: {
+    label: string;
+    tone: 'active' | 'pending' | 'disabled';
+  };
+}
+
 export interface ActionConfig {
   id: string;
   mode: ActionMode;
@@ -46,6 +55,7 @@ export interface ActionConfig {
   steps: ActionStep[];
   confirmClose?: boolean;
   hideStepHeader?: boolean;
+  header?: ActionHeaderConfig;
   initialStepData?: Record<string, unknown>;
   onComplete?: (stepData: Record<string, unknown>) => void;
   onBack?: () => void;
@@ -191,12 +201,14 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
       class={`cz-action-shell cz-action-shell--${config.mode}`}
       onClick={handleBackdropClick}
     >
-      <div class={`cz-action-shell__panel cz-action-shell__panel--${panelMode}`}>
-        <div class="cz-action-shell__header">
+      <div class={`cz-action-shell__panel cz-action-shell__panel--${panelMode}${config.header ? ' cz-action-shell__panel--entity' : ''}`}>
+        <div class={`cz-action-shell__header${config.header ? ' cz-action-shell__header--entity' : ''}`}>
           {/* Drawer Header & Navigation Contract — single left control: Back when a
               previous drawer exists (config.onBack), otherwise Close. Never both. */}
           <div class="cz-action-shell__header-start">
-            {config.onBack ? (
+            {config.header ? (
+              config.header.icon ? <span class="cz-action-shell__entity-icon" aria-hidden="true">{config.header.icon}</span> : null
+            ) : config.onBack ? (
               <button
                 type="button"
                 class="cz-action-shell__back"
@@ -228,11 +240,33 @@ export function ActionShell({ config, onClose, onComplete }: Props) {
             )}
           </div>
           <div class="cz-action-shell__header-mid">
-            <h2 class="cz-action-shell__title">{title}</h2>
+            <div class="cz-action-shell__entity-heading">
+              <div class="cz-action-shell__title-row">
+                <h2 class="cz-action-shell__title">{title}</h2>
+                {config.header?.status && (
+                  <span class={`cz-action-shell__entity-status is-${config.header.status.tone}`}>{config.header.status.label}</span>
+                )}
+              </div>
+              {config.header?.subtitle && <p class="cz-action-shell__subtitle">{config.header.subtitle}</p>}
+            </div>
           </div>
           {/* Reserved for future header actions (action centre). Intentionally empty
               per the Drawer Header & Navigation Contract — right side reserved. */}
-          <div class="cz-action-shell__header-end" />
+          <div class="cz-action-shell__header-end">
+            {config.header && (
+              <button class="cz-action-shell__close" onClick={config.onBack ? handleBack : handleClose} aria-label={config.onBack ? 'Back' : 'Close'}>
+                {config.onBack ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {isMultiStep && !config.hideStepHeader && (

@@ -1,7 +1,9 @@
 import type { ActionConfig } from '../ActionShell';
-import type { ServiceItem } from '@/api/types/cost-builder';
+import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 import { PromotionOverviewDrawerStep } from './PromotionOverviewDrawerStep';
 import { ServiceTierStep } from '../workstations/ServiceTierStep';
+import { MODULE_ICONS } from '../schema/icons';
+import { TIER_LABELS } from '../workstations/serviceDrawerShared';
 
 export interface PackageDrawerContext {
   service: ServiceItem;
@@ -18,9 +20,15 @@ export function buildPromotionDrawerConfig(serviceId: number, promotionId?: stri
 }
 
 export function buildPackageTierDrawerConfig(deps: PackageDrawerContext, occupantId: string, slotId: string, edit = false): ActionConfig {
+  const tierId = slotId as TierId;
+  const tierLabel = deps.service.pricing.tiers[tierId]?.label?.trim() || TIER_LABELS[tierId] || 'Tier Overview';
   return {
     id: `package-tier-${occupantId}`,
-    mode: 'drawer', title: 'Package', hideStepHeader: true,
+    mode: 'drawer', title: tierLabel, hideStepHeader: true,
+    header: {
+      icon: MODULE_ICONS.package,
+      subtitle: `${deps.service.title} · Package Tier`,
+    },
     initialStepData: {
       serviceId: deps.service.id, service: deps.service, openAction: deps.openAction,
       onRefresh: deps.onRefresh, initialOccupantId: occupantId, initialTierId: slotId,

@@ -11,13 +11,13 @@ Supplies reusable admin navigation, action drawers, schema-driven entity modules
 ## Main Entry Points
 
 - [AdminApp.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminApp.tsx) owns active workstation, global action config, refresh keys, and login gate. Use it for top-level admin navigation/state. `AdminShell` routes sidebar workstation switches through an optional surface-registered navigation interceptor (`WorkstationSurfaceProps.setNavigationInterceptor`) so a page with unsaved state can guard navigation with its own confirmation.
-- [AdminShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminShell.tsx) composes sidebar, topbar, status strip, workstation content, and action overlay. Use it for admin page layout.
+- [AdminShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminShell.tsx) composes the centered 1920px frame, responsive expanded/icon-only sidebar, topbar, status strip, workstation content, and action overlay. Use it for admin page layout.
 - [WorkstationRouter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/WorkstationRouter.tsx) dispatches registry definitions to generic tables or feature workstations. Use it when changing surface realization, not individual workstation content.
-- [ActionShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx) owns drawer/modal steps, headers, Back/close, footer slots, panel mode, exit guards, and completion. Use it for shared drawer orchestration and navigation contracts.
+- [ActionShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx) owns drawer/modal steps, compact entity metadata headers, Back/close, footer slots, panel mode, exit guards, and completion. Use it for shared drawer orchestration and navigation contracts.
 
 ## UI and Drawers
 
-- [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/EntityDrawer.tsx) renders Details/Connections tabs and schema-placed module shells with notification panels and trailing content. Use it for generic entity drawer assembly.
+- [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/EntityDrawer.tsx) renders Overview/Connections tabs (internally `details`/`connections`) and schema-placed module shells with notification panels and trailing content. Use it for generic entity drawer assembly.
 - [DrawerTabs.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/DrawerTabs.tsx) renders shared drawer tab buttons. Use it for tab vocabulary or interaction.
 - [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/InlineEditorShell.tsx) supplies editor overlay, Save/Cancel footer, busy/error states, and content framing. Use it for shared form chrome.
 - [Workstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/shell/Workstation.tsx) composes workstation heading, actions, filters, and body slots. Use it for shared workstation layout.
@@ -40,3 +40,7 @@ Supplies reusable admin navigation, action drawers, schema-driven entity modules
 ## Related Code Maps
 
 [Lifecycle](lifecycle-system.md), [Service Catalogue](service-catalogue.md), and [Service Connections](service-connections.md).
+
+## Related History
+
+[Service Manager UI and Entity Drawer Integration](../project-history/007-service-manager-ui-drawer-integration.md)

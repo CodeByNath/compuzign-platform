@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ActionConfig, ExitGuard, StepContext } from '../ActionShell';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
@@ -69,7 +70,7 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, services, surface, onManageCategoryGroups, openAction }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, services, surface, onManageCategoryGroups, settingsStartContent, openAction }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
@@ -79,6 +80,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   services?: readonly StationSummary[];
   surface?: ManagerSurface;
   onManageCategoryGroups?: (group?: PackageCategoryGroupItem) => void;
+  settingsStartContent?: ComponentChildren;
   openAction?: (config: ActionConfig) => void;
 }) {
   // ===========================================================================
@@ -404,6 +406,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       {(serviceCatalogSurface || (!packagesSurface && WORKSPACE_SUB_TABS[activeWorkspace].length > 1)) && (
         <ManagerSubTabs active={activeSubTab} onChange={setActiveSubTab} tabs={serviceCatalogSurface ? ['details', 'connections', 'settings'] : WORKSPACE_SUB_TABS[activeWorkspace]} />
       )}
+      {serviceCatalogSurface && activeSubTab === 'settings' && settingsStartContent}
       {/* SECTION: PROMOTION_WORKSPACE */}
       {!serviceCatalogSurface && activeSubTab === 'details' && activeWorkspace === 'promotion' && active?.key === 'promotion' && scope.stationContext.type === 'service' && (
         <PromotionManagerWorkspace serviceId={Number(scope.stationContext.id)} onOpen={onOpenPromotion ?? (() => {})} />

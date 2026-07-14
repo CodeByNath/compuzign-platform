@@ -22,6 +22,8 @@ import { usePageManagerShell } from '../relations/usePageManagerShell';
 import { buildServiceDetailDrawerConfig } from '../relations/serviceDrawerConfig';
 import type { DrawerHostContext } from '../relations/serviceDrawerConfig';
 import { buildCategoryGroupDrawerConfig } from '../relations/serviceManagerDrawers';
+import { ManagerSubTabs } from '../relations/ManagerSubTabs';
+import type { ManagerSubTab } from '../relations/ManagerSubTabs';
 
 type Props = WorkstationSurfaceProps;
 
@@ -419,12 +421,41 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
 // SECTION: SERVICE_CATALOGUE_TABLE
 // ===========================================================================
 
+function ServiceManagerStart({ onCreateService, onCreateGroup }: {
+  onCreateService: () => void;
+  onCreateGroup: () => void;
+}) {
+  return (
+    <section class="cz-manager-start" aria-labelledby="cz-manager-start-title">
+      <div class="cz-manager-section__title">
+        <div>
+          <h3 id="cz-manager-start-title">Start new</h3>
+          <p>Create catalogue records here; each opens in the existing preview-first drawer.</p>
+        </div>
+      </div>
+      <div class="cz-manager-start__grid">
+        <article class="cz-manager-start__card">
+          <span class="cz-manager-start__icon" aria-hidden="true">{MODULE_ICONS.overview}</span>
+          <div><strong>Service</strong><p>Add a Service, preview its overview, then edit the fields that need content.</p></div>
+          <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={onCreateService}>+ New Service</button>
+        </article>
+        <article class="cz-manager-start__card">
+          <span class="cz-manager-start__icon" aria-hidden="true">{MODULE_ICONS.category}</span>
+          <div><strong>Service Group</strong><p>Add a family group used to organise Services across this station.</p></div>
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={onCreateGroup}>+ New Group</button>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigationInterceptor }: Props) {
   const { data, loading, error, refetch } = useAdminCatalog();
   const { data: surfacePkgData }          = useSurfacePackages();
   const { shell, footer } = usePageManagerShell();
   const [managerRefreshKey, setManagerRefreshKey] = useState(0);
   const [catalogLoadedAt, setCatalogLoadedAt] = useState<Date | null>(null);
+  const [emptySubTab, setEmptySubTab] = useState<ManagerSubTab>('settings');
 
   const packages = surfacePkgData?.packages ?? [];
 
@@ -475,6 +506,8 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
       steps: [{ id: 'create', title: 'New Service', component: ServiceCreateStep }],
     });
   };
+  const handleCreateGroup = () => openAction(buildCategoryGroupDrawerConfig(undefined, handleCategoryGroupsChanged));
+  const startContent = <ServiceManagerStart onCreateService={handleCreateService} onCreateGroup={handleCreateGroup} />;
 
   if (loading) return <AsyncLoading label="Loading catalog…" />;
 
@@ -486,10 +519,10 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
     <Workstation className="cz-service-manager-workstation">
       <Workstation.Header className="cz-ws-header">
         <div>
-          <p class="cz-ws-eyebrow">Service Station · Station Home</p>
+          <span class="cz-station-pill">Station Home</span>
           <h2 class="cz-ws-title">Your Service Manager</h2>
           <p class="cz-ws-subtitle">
-            Browse service families, monitor operational connections, and manage commercial configuration from one station.
+            The operational dashboard for reading and managing your station data.
           </p>
         </div>
         <div class="cz-station-home__status" role="status" aria-label="Service Station status">
@@ -499,16 +532,18 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
           <span>{catalogLoadedAt ? `Updated ${catalogLoadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : `${totalStations} Services loaded`}</span>
         </div>
       </Workstation.Header>
-      <Workstation.Actions className="cz-service-manager-workstation__actions">
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={handleCreateService}>+ New Service</button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => openAction(buildCategoryGroupDrawerConfig(undefined, handleCategoryGroupsChanged))}>+ New Group</button>
-      </Workstation.Actions>
 
       <Workstation.Content>
         {!hostSummary || !scope || !drawerDeps ? (
-          <div class="cz-admin-empty">
-            <p><strong>Your Service Manager</strong> needs at least one Service. Create the first Service to begin.</p>
-          </div>
+          <section class="cz-manager-workspace" aria-label="Your Service Manager">
+            <ManagerSubTabs active={emptySubTab} onChange={setEmptySubTab} tabs={['details', 'connections', 'settings']} />
+            {emptySubTab === 'settings' ? startContent : (
+              <div class="cz-manager-empty">
+                <strong>{emptySubTab === 'details' ? 'No Services yet.' : 'No connections yet.'}</strong>
+                <p>Open Settings to create the first Service or Service Group.</p>
+              </div>
+            )}
+          </section>
         ) : (
           <DynamicStationManager
             key={`${hostSummary.id}:${managerRefreshKey}`}
@@ -517,6 +552,7 @@ export function ServiceCatalogWorkstation({ refreshKey, openAction, setNavigatio
             surface="service-catalog"
             services={stations}
             openAction={openAction}
+            settingsStartContent={startContent}
             onManageCategoryGroups={(group) => openAction(buildCategoryGroupDrawerConfig(group, handleCategoryGroupsChanged))}
             onOpenService={(summary, edit) => openAction(buildServiceDetailDrawerConfig(drawerDeps, summary, edit))}
           />

@@ -572,10 +572,10 @@ export function ServiceViewStep({ ctx }: { ctx: StepContext }) {
             )}
           </div>
         )}
-        {/* No left-side actions (e.g. Commercial tab) → push the single Cancel right. */}
+        {/* No left-side actions (e.g. Connections tab) → push Close right. */}
         {!(tab === 'details' && isLiveState) && <div class="cz-tf-footer__spacer" />}
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={close}>
-          Cancel
+          Close
         </button>
         {tab === 'details' && isLiveState && <div class="cz-tf-footer__spacer" />}
         {/* Publish — available when canPublish; no longer gated on platformStatus */}
