@@ -19,8 +19,6 @@ import { PackageServicesTable } from './PackageServicesTable';
 import { PackageCategoryGroupCards } from './PackageCategoryGroupCards';
 import type { WorkspaceGroupScope } from './PackageCategoryGroupCards';
 import { PackageRateSheetFilters, RATE_SHEET_FILTER_DEFAULTS, assignmentByServiceId, filterRateSheetItems } from './PackageRateSheetFilters';
-import { PackageRateSheetEditor } from './PackageRateSheetEditor';
-import type { RateSheetEditorValue } from './PackageRateSheetEditor';
 import type { RateSheetFilterState } from './PackageRateSheetFilters';
 import {
   applyProviderSaveResults, collectManagerValidation, createManagerCoordinatorState, managerFooterState, managerIsDirty,
@@ -38,6 +36,7 @@ import {
   buildFamilyAssignmentDrawerConfig,
   buildPriceSettingsDrawerConfig,
   buildRateRowDrawerConfig,
+  buildRateSheetSetupDrawerConfig,
 } from './serviceManagerDrawers';
 import type {
   CommercialGroupDrawerValue,
@@ -108,12 +107,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [deleteGroup, setDeleteGroup] = useState<{ id: string; label: string; count: number } | null>(null);
   const [selectedSectionKey, setSelectedSectionKey] = useState<string | undefined>(continuation?.selectedSectionKey);
   const [focusedRelationshipKey, setFocusedRelationshipKey] = useState<string | undefined>(initialScope.activeRelationshipKey);
-  const [editingRateSheet, setEditingRateSheet] = useState<RateSheetEditorValue | null>(null);
-  const [rateSheetSaving, setRateSheetSaving] = useState(false);
-  const [rateSheetError, setRateSheetError] = useState<string | null>(null);
   const [managerNotice, setManagerNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
-  const [pendingOnboardIds, setPendingOnboardIds] = useState<string[]>([]);
   const [sourcePreviewDraft, setSourcePreviewDraft] = useState<unknown | null>(null);
+  const sourcePreviewDraftRef = useRef<unknown | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<ManagerSubTab>('details');
   const [activeWorkspace, setActiveWorkspace] = useState<ManagerWorkspace>(
     surface === 'packages' ? 'package' : initialScope.activeProviderKey === 'promotion' ? 'promotion' : 'service',
@@ -173,7 +169,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   }, [providers, scope]);
 
   const providerDirty = managerIsDirty(state, providers);
-  const dirty = providerDirty || editingRateSheet !== null || editingGroup !== null;
+  const dirty = providerDirty || editingGroup !== null;
   const footerState = managerFooterState(state, dirty);
   const exitGuard = useCallback<ExitGuard>(() => {
     if (!dirty) return true;
@@ -317,25 +313,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
 
   // ===========================================================================
   // SECTION: RATE_SHEET_EDITOR
+  // Focused drawer coordination is assembled in the Rate Sheet projection
+  // branch below; the provider remains the sole validation/draft authority.
   // ===========================================================================
-  const saveRateSheet = async (section: ManagerProviderAdapter['manager']['sections'][number]) => {
-    if (!active || !editingRateSheet || !section.rateSheetControls) return;
-    const draft = sourcePreviewDraft ?? state.draftByProvider[active.key];
-    const original = state.originalDraftByProvider[active.key];
-    const model = state.readModelByProvider[active.key];
-    const nextDraft = section.rateSheetControls.replace(draft, editingRateSheet);
-    const validation = active.validate?.(nextDraft, model, scope);
-    const rateIssues = validation?.issues.filter((issue) => issue.sectionId === section.id) ?? [];
-    if (rateIssues.length > 0) {
-      setRateSheetError(rateIssues[0].message);
-      return;
-    }
-    replaceActiveDraft(nextDraft);
-    setEditingRateSheet(null);
-    setPendingOnboardIds([]);
-    setSourcePreviewDraft(null);
-  };
-
   const groupIssues = active
     ? state.validationByProvider[active.key]?.filter((issue) => issue.sectionId === 'groups') ?? []
     : [];
@@ -483,8 +463,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         if (activeSubTab === 'settings' && projection.role !== 'structure' && projection.role !== 'rate-sheet') return null;
         if (projection.role === 'rate-sheet') {
           const beginEdit = () => {
-            setRateSheetError(null);
-            setEditingRateSheet({
+            if (!openAction || !section.rateSheetControls) return;
+            const rateSheet = {
               title: projection.title,
               groups: projection.groups.map((group) => ({ ...group })),
               items: projection.items.map((item) => ({
@@ -492,38 +472,43 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                 per: item.per, quantity: item.quantity, groupId: item.groupId,
                 sourceAvailable: item.sourceAvailable,
               })),
-            });
+            };
+            openAction(buildRateSheetSetupDrawerConfig({
+              rateSheet,
+              configured: projection.configured,
+              options: projection.options,
+              units: projection.units,
+              sourcePicker: !!section.rateSheetControls.sourcePicker,
+            }, async (nextValue) => {
+              const latestDraft = sourcePreviewDraftRef.current ?? state.draftByProvider[active.key];
+              const model = state.readModelByProvider[active.key];
+              if (latestDraft === undefined) throw new Error('The Package manager draft is unavailable.');
+              const nextDraft = section.rateSheetControls!.replace(latestDraft, nextValue);
+              const validation = active.validate?.(nextDraft, model, scope);
+              const issue = validation?.issues.find((candidate) => candidate.sectionId === section.id);
+              if (issue) throw new Error(issue.message);
+              replaceActiveDraft(nextDraft);
+              sourcePreviewDraftRef.current = null;
+              setSourcePreviewDraft(null);
+            }, () => { sourcePreviewDraftRef.current = null; setSourcePreviewDraft(null); }, section.rateSheetControls.connectSources ? async (currentValue, serviceIds) => {
+              const latestDraft = sourcePreviewDraftRef.current ?? state.draftByProvider[active.key];
+              if (latestDraft === undefined) throw new Error('The Package manager draft is unavailable.');
+              const baseDraft = section.rateSheetControls!.replace(latestDraft, currentValue);
+              const nextDraft = await section.rateSheetControls!.connectSources!(baseDraft, serviceIds, Number(scope.stationContext.id));
+              const nextProjection = section.project(readModel, scope, nextDraft);
+              if (nextProjection.role !== 'rate-sheet') throw new Error('The Rate Sheet could not be projected.');
+              sourcePreviewDraftRef.current = nextDraft;
+              setSourcePreviewDraft(nextDraft);
+              return {
+                title: nextProjection.title,
+                groups: nextProjection.groups.map((group) => ({ ...group })),
+                items: nextProjection.items.map((item) => ({ id: item.id, optionId: item.optionId, unitPrice: item.unitPrice, per: item.per, quantity: item.quantity, groupId: item.groupId, sourceAvailable: item.sourceAvailable })),
+              };
+            } : undefined));
           };
           return (
             <section class="cz-manager-section cz-manager-section--content-only cz-manager-rate-sheet" key={section.id} aria-label="Rate Sheet">
-              {editingRateSheet ? (
-                <PackageRateSheetEditor
-                  value={editingRateSheet}
-                  onChange={setEditingRateSheet}
-                  configured={projection.configured}
-                  options={projection.options}
-                  units={projection.units}
-                  sourcePicker={!!section.rateSheetControls?.sourcePicker}
-                  saving={rateSheetSaving}
-                  saveError={rateSheetError}
-                  onSave={() => saveRateSheet(section)}
-                  onCancel={() => { setEditingRateSheet(null); setRateSheetError(null); setPendingOnboardIds([]); setSourcePreviewDraft(null); }}
-                  onConnectSources={section.rateSheetControls?.connectSources ? async (serviceIds) => {
-                    if (!editingRateSheet) return;
-                    const baseDraft = section.rateSheetControls!.replace(draft, editingRateSheet);
-                    const nextDraft = await section.rateSheetControls!.connectSources!(baseDraft, serviceIds, Number(scope.stationContext.id));
-                    const nextProjection = section.project(readModel, scope, nextDraft);
-                    if (nextProjection.role === 'rate-sheet') {
-                      setEditingRateSheet({
-                        title: nextProjection.title,
-                        groups: nextProjection.groups.map((group) => ({ ...group })),
-                        items: nextProjection.items.map((item) => ({ id: item.id, optionId: item.optionId, unitPrice: item.unitPrice, per: item.per, quantity: item.quantity, groupId: item.groupId, sourceAvailable: item.sourceAvailable })),
-                      });
-                    }
-                    setSourcePreviewDraft(nextDraft);
-                  } : undefined}
-                />
-              ) : !projection.configured ? (
+              {!projection.configured ? (
                 <div class="cz-manager-empty">
                   <span class="cz-manager-empty__icon">{MODULE_ICONS.package}</span>
                   <strong>{section.emptyState.title}</strong>
@@ -533,9 +518,12 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                 </div>
               ) : (
                 <div class="cz-manager-rate-sheet__catalogue">
-                  <div class="cz-manager-section__actions">
-                    {serviceCatalogSurface && openAction && <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openAction(buildPriceSettingsDrawerConfig())}>Price Settings</button>}
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Rate Sheet setup</button>
+                  <div class="cz-manager-section__title">
+                    <div><h3>Rate Sheet</h3><p>Browse pricing rows and open one focused drawer to edit configuration.</p></div>
+                    <div class="cz-manager-section__actions">
+                      {serviceCatalogSurface && openAction && <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openAction(buildPriceSettingsDrawerConfig())}>Price Settings</button>}
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={beginEdit}>Rate Sheet setup</button>
+                    </div>
                   </div>
                   <PackageRateSheetFilters
                     items={projection.items}
@@ -554,7 +542,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                     return visibleItems.length === 0 ? (
                       <div class="cz-manager-empty"><strong>No Rate Sheet rows match the current filters.</strong></div>
                     ) : (
-                      <div class="cz-sp-tier-table-wrap"><table class="cz-sp-tier-table"><thead><tr><th>Option</th><th>Service</th><th>Service Category</th><th>Unit Price</th><th>Per</th><th>Quantity</th><th>Group</th>{serviceCatalogSurface && <th>Action</th>}</tr></thead>
+                      <div class="cz-sp-tier-table-wrap cz-manager-read-table"><table class="cz-sp-tier-table"><thead><tr><th>Option</th><th>Service</th><th>Service Category</th><th>Unit Price</th><th>Per</th><th>Quantity</th><th>Group</th>{serviceCatalogSurface && <th>Action</th>}</tr></thead>
                         <tbody>{visibleItems.map((item) => <tr key={item.id}>
                           <td class="cz-sp-tier-table__name">{item.optionLabel}</td>
                           <td class="cz-sp-tier-table__muted">{item.serviceTitle ?? '—'}</td>
@@ -648,11 +636,15 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             };
             return (
               <section class="cz-manager-section cz-manager-section--content-only" key={section.id} aria-label="Commercial Groups">
-                <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => openGroupDrawer()}>+ New Group</button></div>
+                <div class="cz-manager-section__title">
+                  <div><h3>Commercial Groups</h3><p>Organise connected source content into customer-facing collections.</p></div>
+                  <div class="cz-manager-section__actions"><button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => openGroupDrawer()}>+ New Group</button></div>
+                </div>
                 {projection.rows.length === 0 ? <div class="cz-manager-empty"><strong>No Commercial Groups yet.</strong><p>Create groups to organise source connections.</p></div> : (
                   <div class="cz-manager-summary-grid">
                     {projection.rows.map((row) => <article class="cz-manager-commercial-card" key={row.id}>
-                      <div><strong>{row.label || 'Unnamed group'}</strong><p>{row.relationshipCount} source{row.relationshipCount === 1 ? '' : 's'} · order {row.order}</p></div>
+                      <span class="cz-manager-commercial-card__icon" aria-hidden="true">{MODULE_ICONS.category}</span>
+                      <div><strong>{row.label || 'Unnamed group'}</strong><p>{row.relationshipCount} source{row.relationshipCount === 1 ? '' : 's'} · display order {row.order}</p></div>
                       <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openGroupDrawer(row)}>Edit</button>
                     </article>)}
                   </div>
@@ -731,31 +723,32 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         return (
           <section class="cz-manager-section cz-manager-section--content-only" key={section.id}
             onFocus={() => setSelectedSectionKey(section.id)}>
-            <div class="cz-manager-filters" role="group" aria-label="Relationship filters">
-              {projection.filters.map((filter) => (
-                <button type="button" key={filter.id} class={activeFilter === filter.id ? 'is-active' : undefined}
-                  aria-pressed={activeFilter === filter.id}
-                  onClick={() => setFilterBySection((current) => ({ ...current, [section.id]: filter.id }))}>
-                  {filter.label}
-                </button>
-              ))}
+            <div class="cz-manager-section__title">
+              <div><h3>Source Connections</h3><p>Monitor availability, configuration state, and source health.</p></div>
+              <div class="cz-manager-filters" role="group" aria-label="Relationship filters">
+                {projection.filters.map((filter) => (
+                  <button type="button" key={filter.id} class={activeFilter === filter.id ? 'is-active' : undefined}
+                    aria-pressed={activeFilter === filter.id}
+                    onClick={() => setFilterBySection((current) => ({ ...current, [section.id]: filter.id }))}>
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             </div>
             {rows.length === 0 ? <div class="cz-manager-empty"><strong>{section.emptyState.title}</strong></div> : (
-              <div class="cz-sp-tier-table-wrap">
-                <table class="cz-sp-tier-table cz-manager-relationships">
-                  <thead><tr><th>Source</th><th>Group</th><th>Order</th><th>State</th><th>Availability</th><th>Source health</th>{serviceCatalogSurface && <th>Action</th>}</tr></thead>
-                  <tbody>{rows.map((row) => (
-                    <tr key={row.id} tabIndex={0}
+              <div class="cz-manager-collection cz-manager-collection--connections" role="table" aria-label="Source Connections">
+                <div class="cz-manager-collection__header" role="row"><span role="columnheader">Source</span><span role="columnheader">Group</span><span role="columnheader">State</span><span role="columnheader">Availability</span><span role="columnheader">Health</span>{serviceCatalogSurface && <span role="columnheader">Action</span>}</div>
+                <div class="cz-manager-collection__body" role="rowgroup">{rows.map((row) => (
+                    <div class="cz-manager-collection__row" role="row" key={row.id} tabIndex={0}
                       aria-current={focusedRelationshipKey === row.id ? 'true' : undefined}
                       onClick={() => setFocusedRelationshipKey(row.id)}
                       onFocus={() => { setSelectedSectionKey(section.id); setFocusedRelationshipKey(row.id); }}>
-                      <td class="cz-sp-tier-table__name">{row.sourceLabel}</td>
-                      <td class="cz-sp-tier-table__muted">{row.groupLabel}</td>
-                      <td>{row.order}</td>
-                      <td><ModuleStatusPill status={row.state.status} notes={row.state.notes} /><small>{row.stateDetail}</small></td>
-                      <td>{row.availability}</td>
-                      <td class={row.sourceHealth === 'Missing' ? 'cz-manager-text--attention' : 'cz-sp-tier-table__muted'}>{row.sourceHealth}</td>
-                      {serviceCatalogSurface && <td><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={(event) => {
+                      <div class="cz-manager-collection__cell cz-manager-collection__identity" role="cell" data-label="Source"><strong>{row.sourceLabel}</strong><small>Display order {row.order}</small></div>
+                      <div class="cz-manager-collection__cell cz-manager-collection__secondary" role="cell" data-label="Group">{row.groupLabel}</div>
+                      <div class="cz-manager-collection__cell cz-manager-collection__status" role="cell" data-label="State"><ModuleStatusPill status={row.state.status} notes={row.state.notes} /><small>{row.stateDetail}</small></div>
+                      <div class="cz-manager-collection__cell" role="cell" data-label="Availability">{row.availability}</div>
+                      <div class={`cz-manager-collection__cell${row.sourceHealth === 'Missing' ? ' cz-manager-text--attention' : ' cz-manager-collection__secondary'}`} role="cell" data-label="Health">{row.sourceHealth}</div>
+                      {serviceCatalogSurface && <div class="cz-manager-collection__cell cz-manager-collection__action" role="cell" data-label="Action"><button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={(event) => {
                         event.stopPropagation();
                         if (!openAction) return;
                         const value: ConnectionDrawerValue = {
@@ -771,10 +764,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                             group_id: next.groupId, sort_order: next.order, disabled: next.disabled, decorated_label: next.decoratedLabel,
                           }));
                         }));
-                      }}>Edit</button></td>}
-                    </tr>
-                  ))}</tbody>
-                </table>
+                      }}>Edit</button></div>}
+                    </div>
+                  ))}</div>
               </div>
             )}
           </section>

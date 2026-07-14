@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { PackageCategoryGroupItem } from '@/api/types/admin';
 import { createPackageCategoryGroup, savePackageCategoryGroupOverview } from '@/api/endpoints/admin';
+import { PackageRateSheetEditor } from './PackageRateSheetEditor';
+import type { RateSheetEditorValue } from './PackageRateSheetEditor';
 
 export interface ConnectionDrawerValue {
   id: string;
@@ -41,6 +43,14 @@ export interface FamilyAssignmentDrawerValue {
   serviceTitle: string;
   groupId: string | null;
   groups: readonly { id: string; label: string }[];
+}
+
+export interface RateSheetSetupDrawerValue {
+  rateSheet: RateSheetEditorValue;
+  configured: boolean;
+  options: readonly { id: string; label: string }[];
+  units: readonly string[];
+  sourcePicker: boolean;
 }
 
 function DrawerFooter({ ctx, saving, disabled, onApply, applyLabel = 'Apply changes', dangerLabel, onDanger }: {
@@ -189,6 +199,50 @@ function RateRowDrawerStep({ ctx }: { ctx: StepContext }) {
   </div></div>;
 }
 
+function RateSheetSetupDrawerStep({ ctx }: { ctx: StepContext }) {
+  const initial = ctx.stepData.value as RateSheetSetupDrawerValue;
+  const onApply = ctx.stepData.onApply as (value: RateSheetEditorValue) => void | Promise<void>;
+  const onCancel = ctx.stepData.onCancel as () => void;
+  const onConnectSources = ctx.stepData.onConnectSources as ((value: RateSheetEditorValue, serviceIds: number[]) => Promise<RateSheetEditorValue>) | undefined;
+  const [value, setValue] = useState(initial.rateSheet);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const applied = useRef(false);
+  useEffect(() => { ctx.setPanelMode('manager-wide'); return () => ctx.setPanelMode('standard'); }, [ctx.setPanelMode]);
+  useEffect(() => () => { if (!applied.current) onCancel(); }, []);
+  const apply = async () => {
+    setSaving(true); setError(null);
+    try {
+      await onApply(value);
+      applied.current = true;
+      ctx.close();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not apply the Rate Sheet changes.');
+    } finally { setSaving(false); }
+  };
+  useEffect(() => {
+    ctx.setFooter(<DrawerFooter ctx={ctx} saving={saving} onApply={apply} applyLabel="Apply to draft" />);
+    return () => ctx.setFooter(null);
+  }, [ctx.setFooter, ctx.close, value, saving]);
+  return <div class="cz-focused-drawer-form cz-focused-drawer-form--wide">
+    <PackageRateSheetEditor
+      value={value}
+      onChange={setValue}
+      configured={initial.configured}
+      options={initial.options}
+      units={initial.units}
+      sourcePicker={initial.sourcePicker}
+      saving={saving}
+      saveError={error}
+      onSave={apply}
+      onCancel={ctx.close}
+      onConnectSources={onConnectSources ? async (serviceIds) => setValue(await onConnectSources(value, serviceIds)) : undefined}
+      embedded
+    />
+    {error && <div class="cz-admin-error-msg" role="alert">{error}</div>}
+  </div>;
+}
+
 function PriceSettingsDrawerStep({ ctx }: { ctx: StepContext }) {
   useEffect(() => { ctx.setFooter(<DrawerFooter ctx={ctx} />); return () => ctx.setFooter(null); }, [ctx.setFooter, ctx.close]);
   return <div class="cz-focused-drawer-form"><div class="cz-focused-drawer-card">
@@ -207,4 +261,5 @@ export const buildConnectionDrawerConfig = (value: ConnectionDrawerValue, groups
 export const buildFamilyAssignmentDrawerConfig = (value: FamilyAssignmentDrawerValue, onApply: (value: FamilyAssignmentDrawerValue) => void) => config(`service-family-${value.serviceId}`, `Assign ${value.serviceTitle}`, FamilyAssignmentDrawerStep, { value, onApply });
 export const buildCommercialGroupDrawerConfig = (value: CommercialGroupDrawerValue, onApply: (value: CommercialGroupDrawerValue) => void, onDelete?: () => void) => config(`commercial-group-${value.id}`, value.isNew ? 'New Commercial Group' : `Edit ${value.label}`, CommercialGroupDrawerStep, { value, onApply, onDelete });
 export const buildRateRowDrawerConfig = (value: RateRowDrawerValue, onApply: (value: RateRowDrawerValue) => void) => config(`rate-row-${value.id}`, `Edit ${value.optionLabel}`, RateRowDrawerStep, { value, onApply });
+export const buildRateSheetSetupDrawerConfig = (value: RateSheetSetupDrawerValue, onApply: (value: RateSheetEditorValue) => void | Promise<void>, onCancel: () => void, onConnectSources?: (value: RateSheetEditorValue, serviceIds: number[]) => Promise<RateSheetEditorValue>) => config('rate-sheet-setup', value.configured ? 'Rate Sheet setup' : 'Create Rate Sheet', RateSheetSetupDrawerStep, { value, onApply, onCancel, onConnectSources });
 export const buildPriceSettingsDrawerConfig = () => config('price-settings-audit', 'Price Settings', PriceSettingsDrawerStep, {});

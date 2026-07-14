@@ -20,7 +20,7 @@ export interface RateSheetEditorValue {
   items: { id: string; optionId: string; unitPrice: number; per: string; quantity: number; groupId: string | null; sourceAvailable?: boolean }[];
 }
 
-export function PackageRateSheetEditor({ value, onChange, configured, options, units, sourcePicker, saving, saveError, onSave, onCancel, onConnectSources }: {
+export function PackageRateSheetEditor({ value, onChange, configured, options, units, sourcePicker, saving, saveError, onSave, onCancel, onConnectSources, embedded = false }: {
   value: RateSheetEditorValue;
   onChange: (next: RateSheetEditorValue) => void;
   configured: boolean;
@@ -32,6 +32,7 @@ export function PackageRateSheetEditor({ value, onChange, configured, options, u
   onSave: () => Promise<void>;
   onCancel: () => void;
   onConnectSources?: (serviceIds: number[]) => Promise<void>;
+  embedded?: boolean;
 }) {
   const [newRateGroupLabel, setNewRateGroupLabel] = useState('');
   const [creatingRateGroup, setCreatingRateGroup] = useState(false);
@@ -65,12 +66,8 @@ export function PackageRateSheetEditor({ value, onChange, configured, options, u
     finally { setSourceLoading(false); }
   };
 
-  return (
-    <InlineEditorShell title={configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
-      onSave={onSave}
-      onCancel={onCancel}
-      saving={saving} saveErr={saveError} isDirty>
-      <div class="cz-rate-sheet-editor">
+  const editor = (
+      <div class={`cz-rate-sheet-editor${embedded ? ' cz-rate-sheet-editor--drawer' : ''}`}>
         <label class="cz-tf-field"><span>Title</span><input class="cz-tf-input" value={value.title}
           onInput={(event) => onChange({ ...value, title: event.currentTarget.value })} /></label>
         <div class="cz-rate-sheet-editor__toolbar">
@@ -131,6 +128,14 @@ export function PackageRateSheetEditor({ value, onChange, configured, options, u
           ))}</tbody>
         </table></div>
       </div>
+  );
+  if (embedded) return editor;
+  return (
+    <InlineEditorShell title={configured ? 'Edit Rate Sheet' : 'Create Rate Sheet'}
+      onSave={onSave}
+      onCancel={onCancel}
+      saving={saving} saveErr={saveError} isDirty>
+      {editor}
     </InlineEditorShell>
   );
 }

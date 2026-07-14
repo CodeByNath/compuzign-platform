@@ -4371,6 +4371,16 @@ button.cz-module-status-pill {
 .cz-manager-section--content-only { border-top: 0; padding-top: 0; }
 .cz-manager-section h4 { margin: 0 0 var(--cz-space-4); font-size: var(--admin-fs-s-sub); }
 .cz-manager-section__actions { display: flex; justify-content: flex-end; margin-bottom: var(--cz-space-3); }
+.cz-manager-section__title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--cz-space-4);
+  margin-bottom: var(--cz-space-4);
+}
+.cz-manager-section__title h3 { margin: 0 0 var(--cz-space-1); color: var(--admin-text); font-size: var(--admin-fs-s-heading); }
+.cz-manager-section__title p { margin: 0; color: var(--admin-text-muted); }
+.cz-manager-section__title .cz-manager-section__actions { flex-wrap: wrap; gap: var(--cz-space-2); margin-bottom: 0; }
 .cz-manager-section .cz-tf-input,
 .cz-manager-section .cz-tf-select {
   border: 1px solid var(--admin-border-blue);
@@ -4484,6 +4494,9 @@ button.cz-module-status-pill {
 }
 .cz-manager-collection--category-groups {
   --cz-manager-collection-columns: minmax(220px, 1fr) minmax(260px, 1.4fr) minmax(120px, 160px) auto;
+}
+.cz-manager-collection--connections {
+  --cz-manager-collection-columns: minmax(220px, 1.2fr) minmax(130px, .75fr) minmax(145px, .8fr) minmax(120px, .65fr) minmax(100px, .55fr) auto;
 }
 .cz-manager-collection__header,
 .cz-manager-collection__row {
@@ -4716,6 +4729,7 @@ button.cz-module-status-pill {
 }
 
 .cz-focused-drawer-form { padding: var(--cz-space-4); }
+.cz-focused-drawer-form--wide { min-width: 0; }
 .cz-focused-drawer-card {
   display: grid;
   gap: var(--cz-space-4);
@@ -4751,11 +4765,25 @@ button.cz-module-status-pill {
   align-items: center;
   justify-content: space-between;
   gap: var(--cz-space-3);
-  padding: var(--cz-space-3);
+  padding: var(--cz-space-4);
   border: 1px solid var(--admin-border-blue);
   border-radius: 10px;
   background: var(--admin-bg);
 }
+.cz-manager-commercial-card > div { min-width: 0; flex: 1; }
+.cz-manager-commercial-card__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: var(--admin-radius-base);
+  color: var(--admin-accent-text);
+  background: var(--admin-accent-a12);
+}
+.cz-manager-commercial-card__icon svg { width: 18px; height: 18px; }
+.cz-manager-read-table { border: 1px solid var(--admin-border-blue); border-radius: var(--admin-radius-base); }
+.cz-rate-sheet-editor--drawer { padding: var(--cz-space-2); }
 .cz-manager-commercial-card p { margin: var(--cz-space-1) 0 0; color: var(--admin-text-faint); }
 @media (max-width: 640px) { .cz-focused-drawer-grid { grid-template-columns: 1fr; } }
 
