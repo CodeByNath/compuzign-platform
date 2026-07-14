@@ -6,6 +6,7 @@ This file is the single source of truth for repository-wide guidance for all AI 
 
 - `AGENTS.md` defines the repository AI working standard.
 - `CLAUDE.md` contains only Claude Code startup guidance and delegates here.
+- [`docs/ai-index.md`](docs/ai-index.md) provides the shared platform orientation and read order.
 - [`docs/code-map/`](docs/code-map/000-README.md) maps the current implementation and its authoritative files.
 - [`docs/project-history/`](docs/project-history/000-README.md) contains immutable architectural and milestone history.
 
@@ -20,13 +21,13 @@ CLAUDE.md (if supported by the tool)
     ↓
 AGENTS.md
     ↓
-docs/code-map/000-README.md
+docs/ai-index.md
     ↓
 Relevant subsystem Code Map only
     ↓
-Relevant Project History only if required
-    ↓
 Authoritative source code
+    ↓
+Relevant Project History only if required
     ↓
 Implementation
     ↓
