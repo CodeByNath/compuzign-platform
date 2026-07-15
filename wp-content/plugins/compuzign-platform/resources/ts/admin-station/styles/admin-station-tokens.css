@@ -1,3 +1,70 @@
-/* Admin Station design tokens — intentionally empty.
+/* Admin Station design tokens.
  *
- * No colour system, theme, or typography scale is established yet. */
+ * All Admin Station colour and shape values live here, scoped to the
+ * `.cz-admin-station` root and switched by `data-station-theme`. Components
+ * reference these variables only — no component-level hardcoded colours. Light
+ * and dark are both defined; the old admin theme is untouched.
+ *
+ * `--station-sidebar-bg` is the single application background token. The
+ * viewport, Header, Body, Footer, and slide menu all use it. Dropdowns use the
+ * elevated surface token (a token-driven surface derived from the same family)
+ * so their border/shadow can read as a raised surface.
+ *
+ * Direction: modern, rounded, quiet, spacious-but-compact, subtle borders. */
+
+.cz-admin-station {
+  /* Shape and rhythm — theme-independent. Softer, more rounded borders. */
+  --station-pill-radius: 999px;
+  --station-menu-radius: 20px;
+  --station-dropdown-radius: 16px;
+  --station-control-radius: 14px;
+  --station-header-height: 60px;
+  --station-space-x: 16px;
+
+  /* Light theme (default). */
+  --station-sidebar-bg: #f4f5f7;
+  --station-header-bg: var(--station-sidebar-bg);
+  --station-surface: var(--station-sidebar-bg);
+  --station-surface-elevated: #ffffff;
+  --station-text: #1b1e24;
+  --station-text-muted: #5c6472;
+  --station-border: rgba(18, 22, 31, 0.10);
+  --station-hover-bg: rgba(18, 22, 31, 0.05);
+  --station-active-bg: rgba(18, 22, 31, 0.09);
+  --station-focus-ring: rgba(18, 22, 31, 0.40);
+  --station-icon: #3d434e;
+  --station-shadow: 0 10px 30px rgba(17, 20, 24, 0.14);
+  --station-backdrop: rgba(20, 22, 28, 0.38);
+}
+
+.cz-admin-station[data-station-theme='light'] {
+  --station-sidebar-bg: #f4f5f7;
+  --station-header-bg: var(--station-sidebar-bg);
+  --station-surface: var(--station-sidebar-bg);
+  --station-surface-elevated: #ffffff;
+  --station-text: #1b1e24;
+  --station-text-muted: #5c6472;
+  --station-border: rgba(18, 22, 31, 0.10);
+  --station-hover-bg: rgba(18, 22, 31, 0.05);
+  --station-active-bg: rgba(18, 22, 31, 0.09);
+  --station-focus-ring: rgba(18, 22, 31, 0.40);
+  --station-icon: #3d434e;
+  --station-shadow: 0 10px 30px rgba(17, 20, 24, 0.14);
+  --station-backdrop: rgba(20, 22, 28, 0.38);
+}
+
+.cz-admin-station[data-station-theme='dark'] {
+  --station-sidebar-bg: #15171c;
+  --station-header-bg: var(--station-sidebar-bg);
+  --station-surface: var(--station-sidebar-bg);
+  --station-surface-elevated: #21242b;
+  --station-text: #e7e9ee;
+  --station-text-muted: #9aa1ad;
+  --station-border: rgba(255, 255, 255, 0.09);
+  --station-hover-bg: rgba(255, 255, 255, 0.06);
+  --station-active-bg: rgba(255, 255, 255, 0.11);
+  --station-focus-ring: rgba(255, 255, 255, 0.45);
+  --station-icon: #c4c9d4;
+  --station-shadow: 0 12px 34px rgba(0, 0, 0, 0.50);
+  --station-backdrop: rgba(0, 0, 0, 0.55);
+}

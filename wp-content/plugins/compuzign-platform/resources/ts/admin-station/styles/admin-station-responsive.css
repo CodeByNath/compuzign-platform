@@ -1,3 +1,23 @@
-/* Admin Station responsive rules — intentionally empty.
+/* Admin Station responsive rules.
  *
- * No navigation pattern or responsive behaviour is established yet. */
+ * The Header never wraps to multiple rows. As width shrinks, the Station pills
+ * scroll horizontally, then hide entirely — at which point the slide menu is the
+ * complete navigation source. The menu button, brand, and right-side controls
+ * stay visible and accessible at every width. No bottom navigation is used. */
+
+/* Narrow tablets / large phones — pills scroll within the header row. */
+@media (max-width: 720px) {
+  .cz-station-pill__label {
+    /* Keep pills compact so more remain reachable before they are hidden. */
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Phones — hide the Header pills; the slide menu carries navigation. */
+@media (max-width: 560px) {
+  .cz-station-header__nav {
+    display: none;
+  }
+}

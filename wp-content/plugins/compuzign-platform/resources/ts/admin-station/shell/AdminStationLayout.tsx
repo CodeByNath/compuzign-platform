@@ -1,21 +1,44 @@
-// The Layout composes the four structural regions of the Admin Station shell:
-// Header, Sidebar, Body, and Footer. It owns arrangement only. No navigation,
-// content, or visual decisions live here.
+// The Layout composes the Admin Station frame: Header, Body, Footer, and the
+// slide-menu overlay. There is no fixed sidebar column — navigation is the
+// Header pills plus the slide menu. The Layout orchestrates the menu open state
+// and routes navigation selections (which close the menu).
 
+import { useState, useRef, useCallback } from 'preact/hooks';
+import { useAdminStation } from '../AdminStationContext';
 import { AdminStationHeader } from './AdminStationHeader';
-import { AdminStationSidebar } from './AdminStationSidebar';
 import { AdminStationBody } from './AdminStationBody';
 import { AdminStationFooter } from './AdminStationFooter';
+import { AdminStationSlideMenu } from './AdminStationSlideMenu';
 
 export function AdminStationLayout() {
+  const { navigate } = useAdminStation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const toggleMenu = useCallback(() => setMenuOpen((open) => !open), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  const handleSelect = useCallback((id: string) => {
+    navigate(id);
+    setMenuOpen(false);
+  }, [navigate]);
+
   return (
-    <div class="cz-admin-station">
-      <AdminStationSidebar />
-      <div class="cz-admin-station__frame">
-        <AdminStationHeader />
-        <AdminStationBody />
-        <AdminStationFooter />
-      </div>
-    </div>
+    <>
+      <AdminStationHeader
+        menuOpen={menuOpen}
+        onToggleMenu={toggleMenu}
+        menuButtonRef={menuButtonRef}
+        onSelect={handleSelect}
+      />
+      <AdminStationBody />
+      <AdminStationFooter />
+      <AdminStationSlideMenu
+        open={menuOpen}
+        onClose={closeMenu}
+        onSelect={handleSelect}
+        menuButtonRef={menuButtonRef}
+      />
+    </>
   );
 }

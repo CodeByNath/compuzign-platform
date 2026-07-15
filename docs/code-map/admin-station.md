@@ -1,47 +1,48 @@
 # Admin Station
 
-The Admin Station is a **new, independent administration environment**, built fresh rather than migrated from the existing admin. It is currently **frozen at an empty structural shell** — four regions only, with no navigation, content, branding, or visual theme decided yet:
+The Admin Station is a **new, independent administration environment**, built fresh rather than migrated from the existing admin. Its structure is:
 
 ```
 AdminStation
 ├── Header
-├── Sidebar
-├── Body
-└── Footer
+├── Body      (empty)
+└── Footer    (empty)
++ a left slide-menu overlay opened from the Header
 ```
 
-Future business areas will be built fresh inside it, one at a time, only when explicitly specified. The old implementation is never moved into this tree; it may later be inspected only to preserve required behaviour, contracts, validation, permissions, and downstream data shapes.
+There is no fixed sidebar column. Business areas will be built fresh inside it, one at a time, only when explicitly specified; the old implementation is inspected only to preserve required behaviour, contracts, validation, permissions, and downstream data shapes — never moved into this tree.
 
 ## Boundary
 
-The Admin Station may share only **platform infrastructure** with the existing system:
+Shares only **platform infrastructure** with the existing system: WordPress plugin boot, capability checks, asset registration/loading, and Vite/build infrastructure. It must **not** import the existing admin app tree or shell, Station Manager, Service/Package/Promotion components, business hooks, the old entity/workstation registries, relation providers, drawer builders, or old UI state.
 
-- WordPress plugin boot
-- capability checks
-- asset registration and loading
-- Vite / build infrastructure
-
-It must **not** share or import: the existing admin application tree or shell, Station Manager, Service or Package components, business hooks, the entity registry, relation providers, drawer builders, or old UI state.
-
-It mounts only on its **own frontend page** via the `[compuzign_admin_station]` shortcode — the repository's established application-mounting architecture. It is **not** exposed anywhere inside `/wp-admin/`: no admin menu/submenu, dashboard mount, toolbar link, admin-page entry, or `admin_enqueue_scripts` wiring.
+Mounts only on its own **frontend page** via the `[compuzign_admin_station]` shortcode. It is **not** exposed in `/wp-admin/` (no admin menu/submenu, dashboard mount, toolbar link, or `admin_enqueue_scripts` wiring).
 
 ## Frontend (Preact)
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
-- `AdminStation.tsx` — root application boundary; renders the layout.
-- `shell/AdminStationLayout.tsx` — composes the four structural regions; arrangement only.
-- `shell/AdminStationHeader.tsx`, `AdminStationSidebar.tsx`, `AdminStationBody.tsx`, `AdminStationFooter.tsx` — empty semantic containers (`<header>` / `<aside>` / `<main>` / `<footer>`) with structural class names. No contents.
-- `styles/admin-station.css` — minimal neutral structural layout that positions the four regions. No colour system, theme, typography, or component styling.
-- `styles/admin-station-tokens.css`, `styles/admin-station-responsive.css` — intentionally empty; no token system or responsive/navigation pattern established yet.
+- `AdminStation.tsx` — root; provides context and stamps `data-station-theme` (light/dark) on the `.cz-admin-station` root, which scopes all token overrides.
+- `AdminStationContext.tsx` — application state: `theme` + `toggleTheme`, and `activeDestinationId` + `navigate`. Selecting a nav item only records the active destination; no page mounts (Body stays empty).
+- `theme/useStationTheme.ts` — light/dark state persisted via a safe try/catch localStorage guard (mirrors `utils/cartStorage.ts`); degrades to session-only if storage is unavailable.
+- `navigation/stationNavigation.ts` — the **single navigation source** driving both the Header pills and the slide menu. Each `StationNavItem` has `id`, `label`, `icon`, `activationKey`, `showInHeader`, `showInMenu`, `order`. Initial items: Services, Packages, Promotions. Imports nothing from old registries.
+- `shell/AdminStationLayout.tsx` — composes Header, Body, Footer, and the slide-menu overlay; owns menu open state and routes selections.
+- `shell/AdminStationHeader.tsx` — `[menu] CompuZign [Services][Packages][Promotions] … [theme][apps][user]`. Pills render from the navigation source. Theme toggles the token theme; apps/user each open a small empty dropdown (single-open, dismiss on outside-click/Escape, `aria-expanded`/`aria-controls`).
+- `shell/AdminStationSlideMenu.tsx` — left overlay + backdrop; same navigation source; scroll-lock while open; focus moves into the panel and returns to the menu button on close; empty footer region at the bottom.
+- `shell/AdminStationDropdown.tsx` — reusable **empty** dropdown surface (positioning + token-driven surface/border/radius/shadow only; no content).
+- `shell/AdminStationBody.tsx`, `shell/AdminStationFooter.tsx` — empty semantic containers.
+- `shell/icons.tsx` — local icon set using the repository SVG system (Heroicons v2 solid, 24×24, `currentColor`): menu, Services/Packages/Promotions (reusing the repo `catalog`/`package`/`featured` paths), sun, moon, apps, user.
+- `styles/admin-station-tokens.css` — scoped light/dark tokens: app/header/surface/elevated backgrounds, text, muted text, border, hover/active bg, focus ring, icon colour, pill/menu/dropdown/control radii, header height, horizontal spacing, shadow, backdrop. `--station-sidebar-bg` is the single application background.
+- `styles/admin-station.css` — token-driven layout and component styling.
+- `styles/admin-station-responsive.css` — Header never wraps; pills scroll then hide (≤560px), leaving the slide menu as the complete navigation source.
 
-Module entry: `resources/ts/modules/admin-station.ts` registers `AdminStation` against the `compuzign-admin-station` shortcode mount and imports the three stylesheets. Added as a Vite input in `vite.config.ts` → emits `dist/js/admin-station.js` and `dist/css/admin-station.css`.
+Module entry `resources/ts/modules/admin-station.ts` registers `AdminStation` against the `compuzign-admin-station` shortcode mount and imports the three stylesheets; a Vite input in `vite.config.ts` emits `dist/js/admin-station.js` and `dist/css/admin-station.css`.
 
 ## Backend (WordPress)
 
-- `src/Modules/AdminStation/AdminStationModule.php` — registers the `compuzign_admin_station` frontend shortcode and the `admin-station` health check. Renders the mount div for logged-in platform managers (`AdminRouter::CAP` — a shared capability contract), a short notice otherwise.
+- `src/Modules/AdminStation/AdminStationModule.php` — registers the `compuzign_admin_station` frontend shortcode and the `admin-station` health check; renders the mount div for logged-in platform managers (`AdminRouter::CAP`).
 - `app/modules/admin-station/templates/admin-station.php` — outputs `<div id="compuzign-admin-station"></div>`.
-- `src/Core/AssetLoader.php` — `registerAdminStationAssets()` registers the `compuzign-admin-station` script/style from `dist/` on the frontend `wp_enqueue_scripts` hook; the handle is in `MODULE_HANDLES` so it loads as an ES module.
+- `src/Core/AssetLoader.php` — `registerAdminStationAssets()` registers the script/style on the frontend `wp_enqueue_scripts` hook; handle in `MODULE_HANDLES` (loads as an ES module).
 - `src/Core/Plugin.php` — boots `AdminStationModule`.
 
 ## Related Code Maps

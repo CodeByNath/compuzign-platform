@@ -1,34 +1,271 @@
-/* Admin Station — minimal neutral structural layout.
+/* Admin Station base + component styles.
  *
- * Positions the four empty regions (Sidebar, Header, Body, Footer) so their
- * arrangement can be verified. Intentionally establishes no colour system,
- * theme, typography, spacing scale, or component styling. */
+ * Token-driven throughout (see admin-station-tokens.css). No component-level
+ * hardcoded colours. Responsive rules live in admin-station-responsive.css. */
+
+/* ── Shell frame ────────────────────────────────────────────────────────── */
 
 .cz-admin-station {
   display: flex;
-  min-height: 100vh;
-}
-
-.cz-admin-station__sidebar {
-  flex: 0 0 auto;
-  width: 240px;
-}
-
-.cz-admin-station__frame {
-  display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-width: 0;
+  min-height: 100vh;
+  background: var(--station-sidebar-bg);
+  color: var(--station-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-.cz-admin-station__header {
+.cz-admin-station *,
+.cz-admin-station *::before,
+.cz-admin-station *::after {
+  box-sizing: border-box;
+}
+
+.cz-station-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.cz-station-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 12px;
+  height: var(--station-header-height);
+  padding: 0 var(--station-space-x);
+  background: var(--station-header-bg);
+  border-bottom: 1px solid var(--station-border);
+}
+
+.cz-station-header__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cz-station-header__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 0 0 auto;
 }
+
+.cz-station-brand {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* Icon-only controls (menu, theme, apps, user). */
+.cz-station-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--station-control-radius);
+  background: transparent;
+  color: var(--station-icon);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.cz-station-iconbtn:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-station-iconbtn[aria-expanded='true'],
+.cz-station-iconbtn[aria-pressed='true'] {
+  background: var(--station-active-bg);
+  color: var(--station-text);
+}
+
+.cz-station-iconbtn:focus-visible,
+.cz-station-pill:focus-visible,
+.cz-station-menu__item:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Header navigation pills ────────────────────────────────────────────── */
+
+.cz-station-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cz-station-header__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-station-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-pill-radius);
+  background: transparent;
+  color: var(--station-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.cz-station-pill:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-station-pill--active {
+  background: var(--station-active-bg);
+  border-color: transparent;
+}
+
+.cz-station-pill__icon {
+  display: inline-flex;
+  color: var(--station-icon);
+}
+
+.cz-station-pill__label {
+  white-space: nowrap;
+}
+
+/* ── Right-side dropdowns ───────────────────────────────────────────────── */
+
+.cz-station-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.cz-station-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  min-height: 96px;
+  max-width: calc(100vw - (2 * var(--station-space-x)));
+  padding: 8px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-dropdown-radius);
+  background: var(--station-surface-elevated);
+  box-shadow: var(--station-shadow);
+  z-index: 70;
+}
+
+/* ── Body / Footer (empty) ──────────────────────────────────────────────── */
 
 .cz-admin-station__body {
   flex: 1 1 auto;
+  min-height: 0;
+  background: var(--station-surface);
 }
 
 .cz-admin-station__footer {
   flex: 0 0 auto;
+  background: var(--station-sidebar-bg);
+  border-top: 1px solid var(--station-border);
+}
+
+/* ── Slide menu ─────────────────────────────────────────────────────────── */
+
+.cz-station-menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.cz-station-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--station-backdrop);
+}
+
+.cz-station-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  max-width: calc(100vw - 48px);
+  padding: 16px;
+  background: var(--station-sidebar-bg);
+  border-right: 1px solid var(--station-border);
+  border-top-right-radius: var(--station-menu-radius);
+  border-bottom-right-radius: var(--station-menu-radius);
+  box-shadow: var(--station-shadow);
+  outline: none;
+  animation: cz-station-menu-in 180ms ease;
+}
+
+@keyframes cz-station-menu-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+.cz-station-menu__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cz-station-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--station-control-radius);
+  background: transparent;
+  color: var(--station-text);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.cz-station-menu__item:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-station-menu__item--active {
+  background: var(--station-active-bg);
+}
+
+.cz-station-menu__icon {
+  display: inline-flex;
+  color: var(--station-icon);
+}
+
+/* Empty menu footer region — reserves the bottom rhythm, no content. */
+.cz-station-menu__footer {
+  flex: 0 0 auto;
+  min-height: 56px;
+  margin-top: 8px;
+  border-top: 1px solid var(--station-border);
 }
