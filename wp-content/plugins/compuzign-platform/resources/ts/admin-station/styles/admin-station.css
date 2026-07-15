@@ -1,287 +1,34 @@
-/* Admin Station base styles.
+/* Admin Station — minimal neutral structural layout.
  *
- * Layout and appearance for the global frame — Header, Sidebar, Body, Footer,
- * navigation, and the outlet. Consumes tokens from admin-station-tokens.css.
- * Responsive behaviour lives in admin-station-responsive.css. */
-
-/* ── Root grid ──────────────────────────────────────────────────────────── */
+ * Positions the four empty regions (Sidebar, Header, Body, Footer) so their
+ * arrangement can be verified. Intentionally establishes no colour system,
+ * theme, typography, spacing scale, or component styling. */
 
 .cz-admin-station {
-  display: grid;
-  grid-template-columns: var(--station-sidebar-width) 1fr;
+  display: flex;
   min-height: 100vh;
-  background: var(--station-bg);
-  color: var(--station-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
 }
 
-.cz-admin-station--collapsed {
-  grid-template-columns: var(--station-sidebar-width-collapsed) 1fr;
+.cz-admin-station__sidebar {
+  flex: 0 0 auto;
+  width: 240px;
 }
 
 .cz-admin-station__frame {
-  display: grid;
-  grid-template-rows: var(--station-header-height) 1fr var(--station-footer-height);
-  min-width: 0;
-  min-height: 100vh;
-}
-
-/* ── Sidebar ────────────────────────────────────────────────────────────── */
-
-.cz-station-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px 12px;
-  background: var(--station-sidebar-bg);
-  border-right: 1px solid var(--station-border);
-  overflow-y: auto;
-}
-
-.cz-station-sidebar__brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px 14px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--station-border);
-}
-
-.cz-station-sidebar__brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--station-radius-sm);
-  background: var(--station-accent-soft);
-  color: var(--station-accent);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  flex: none;
-}
-
-.cz-station-sidebar__brand-text {
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.cz-station-sidebar__scrim {
-  display: none;
-}
-
-/* ── Navigation ─────────────────────────────────────────────────────────── */
-
-.cz-station-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cz-station-nav__item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: var(--station-radius-sm);
-  background: transparent;
-  color: var(--station-text-muted);
-  font: inherit;
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--station-transition), color var(--station-transition);
-}
-
-.cz-station-nav__item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--station-text);
-}
-
-.cz-station-nav__item--active {
-  background: var(--station-accent-soft);
-  color: var(--station-text);
-}
-
-.cz-station-nav__icon {
-  display: inline-flex;
-  flex: none;
-  width: 20px;
-  height: 20px;
-}
-
-.cz-station-nav__icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.cz-station-nav__label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cz-admin-station--collapsed .cz-station-nav__item {
-  justify-content: center;
-  padding: 10px;
-}
-
-/* ── Header ─────────────────────────────────────────────────────────────── */
-
-.cz-station-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  background: var(--station-surface);
-  border-bottom: 1px solid var(--station-border);
-}
-
-.cz-station-header__lead {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.cz-station-header__toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 6px;
-  border: 0;
-  border-radius: var(--station-radius-sm);
-  background: transparent;
-  color: var(--station-text-muted);
-  cursor: pointer;
-  transition: background var(--station-transition), color var(--station-transition);
+.cz-admin-station__header {
+  flex: 0 0 auto;
 }
 
-.cz-station-header__toggle:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--station-text);
+.cz-admin-station__body {
+  flex: 1 1 auto;
 }
 
-.cz-station-header__toggle svg {
-  width: 20px;
-  height: 20px;
-}
-
-.cz-station-header__brand {
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.cz-station-header__divider {
-  width: 1px;
-  height: 20px;
-  background: var(--station-border-strong);
-}
-
-.cz-station-header__title {
-  font-size: 14px;
-  color: var(--station-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cz-station-header__actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cz-station-header__avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--station-accent-soft);
-  color: var(--station-accent);
-  font-weight: 600;
-  font-size: 13px;
-}
-
-/* ── Body / outlet ──────────────────────────────────────────────────────── */
-
-.cz-station-body {
-  min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
-  outline: none;
-}
-
-.cz-station-body__inner {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 32px 28px;
-}
-
-.cz-station-outlet__empty {
-  padding: 40px;
-  color: var(--station-text-muted);
-  text-align: center;
-}
-
-/* ── Home surface ───────────────────────────────────────────────────────── */
-
-.cz-station-home {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 48px 0;
-}
-
-.cz-station-home__title {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.cz-station-home__lede {
-  margin: 0;
-  font-size: 15px;
-  color: var(--station-text-muted);
-}
-
-/* ── Footer ─────────────────────────────────────────────────────────────── */
-
-.cz-station-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  background: var(--station-surface);
-  border-top: 1px solid var(--station-border);
-  font-size: 12px;
-  color: var(--station-text-faint);
-}
-
-.cz-station-footer__meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cz-station-footer__env {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--station-accent-soft);
-  color: var(--station-accent);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: 10px;
-  font-weight: 600;
+.cz-admin-station__footer {
+  flex: 0 0 auto;
 }
