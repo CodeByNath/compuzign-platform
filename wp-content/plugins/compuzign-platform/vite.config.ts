@@ -18,6 +18,7 @@ export default defineConfig({
         'cost-builder':  'resources/ts/modules/cost-builder.ts',
         homepage:        'resources/ts/modules/homepage.ts',
         admin:           'resources/ts/modules/admin.ts',
+        'admin-station': 'resources/ts/modules/admin-station.ts',
       },
       output: {
         entryFileNames: 'js/[name].js',

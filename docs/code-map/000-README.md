@@ -4,6 +4,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 
 ## Subsystem Index
 
+- [Admin Station](admin-station.md)
 - [Package Manager](package-manager.md)
 - [Service Catalogue](service-catalogue.md)
 - [Service Connections](service-connections.md)

@@ -1,0 +1,40 @@
+/* Admin Station design tokens.
+ *
+ * Scoped to the .cz-admin-station root so the new environment carries its own
+ * self-contained token set and inherits nothing from the existing admin. Every
+ * value the shell uses is defined here; base and responsive rules consume these
+ * variables only. */
+
+.cz-admin-station {
+  /* Surfaces */
+  --station-bg: #0f1117;
+  --station-surface: #161922;
+  --station-surface-raised: #1a1d26;
+  --station-sidebar-bg: #12141c;
+
+  /* Lines */
+  --station-border: rgba(255, 255, 255, 0.08);
+  --station-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Text */
+  --station-text: #e7e9ee;
+  --station-text-muted: #9aa0ac;
+  --station-text-faint: #6b7280;
+
+  /* Accent */
+  --station-accent: #5c6ef5;
+  --station-accent-soft: rgba(92, 110, 245, 0.14);
+
+  /* Radii */
+  --station-radius: 12px;
+  --station-radius-sm: 8px;
+
+  /* Metrics */
+  --station-header-height: 60px;
+  --station-footer-height: 40px;
+  --station-sidebar-width: 248px;
+  --station-sidebar-width-collapsed: 68px;
+
+  /* Motion */
+  --station-transition: 160ms ease;
+}

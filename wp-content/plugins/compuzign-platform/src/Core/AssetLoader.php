@@ -4,7 +4,7 @@ namespace CompuZign\Platform\Core;
 
 class AssetLoader
 {
-    private const MODULE_HANDLES = ['compuzign-homepage', 'compuzign-cost-builder', 'compuzign-admin'];
+    private const MODULE_HANDLES = ['compuzign-homepage', 'compuzign-cost-builder', 'compuzign-admin', 'compuzign-admin-station'];
 
     public function register(): void
     {
@@ -20,6 +20,7 @@ class AssetLoader
         $this->registerCostBuilderAssets();
         $this->registerHomepageAssets();
         $this->registerAdminAssets();
+        $this->registerAdminStationAssets();
         $this->enqueueAdminPageStyles();
     }
 
@@ -63,6 +64,24 @@ class AssetLoader
             return str_replace('<script ', '<script type="module" ', $tag);
         }
         return $tag;
+    }
+
+    private function registerAdminStationAssets(): void
+    {
+        $distPath = COMPUZIGN_DIST_PATH;
+        $distUrl  = COMPUZIGN_DIST_URL;
+
+        // CSS: register-only; the admin-station shortcode enqueues it (with a
+        // wp_head safety net) when its page renders.
+        if (file_exists($distPath . 'css/admin-station.css')) {
+            wp_register_style('compuzign-admin-station', $distUrl . 'css/admin-station.css', [], filemtime($distPath . 'css/admin-station.css'));
+        }
+
+        // JS: register-only; the shortcode enqueues after the mount div is in
+        // the DOM.
+        if (file_exists($distPath . 'js/admin-station.js')) {
+            wp_register_script('compuzign-admin-station', $distUrl . 'js/admin-station.js', ['compuzign-config'], filemtime($distPath . 'js/admin-station.js'), true);
+        }
     }
 
     private function enqueueAtomicStyles(): void
