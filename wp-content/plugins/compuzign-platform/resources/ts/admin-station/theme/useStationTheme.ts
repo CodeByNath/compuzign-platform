@@ -14,7 +14,7 @@ import { useState, useCallback } from 'preact/hooks';
 export type StationTheme = 'light' | 'dark';
 
 const STORAGE_KEY = 'cz-station-theme';
-const DEFAULT_THEME: StationTheme = 'light';
+const DEFAULT_THEME: StationTheme = 'dark';
 
 function readStoredTheme(): StationTheme | null {
   try {

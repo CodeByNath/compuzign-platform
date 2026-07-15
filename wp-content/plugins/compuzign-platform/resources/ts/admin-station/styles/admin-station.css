@@ -112,6 +112,8 @@
   display: none;
 }
 
+/* Accent-outline pills — the admin secondary button style, driven by the
+   navigation tab tokens. */
 .cz-station-pill {
   display: inline-flex;
   align-items: center;
@@ -119,29 +121,32 @@
   flex: 0 0 auto;
   height: 38px;
   padding: 0 14px;
-  border: 1px solid var(--station-border);
+  border: 1px solid var(--station-nav-border);
   border-radius: var(--station-pill-radius);
-  background: transparent;
-  color: var(--station-text);
+  background: var(--station-nav-bg);
+  color: var(--station-nav-text);
   font: inherit;
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
 .cz-station-pill:hover {
-  background: var(--station-hover-bg);
+  background: var(--station-nav-hover-bg);
+  border-color: var(--station-nav-accent-strong);
+  color: var(--station-nav-accent-strong);
 }
 
 .cz-station-pill--active {
-  background: var(--station-active-bg);
-  border-color: transparent;
+  background: var(--station-nav-active-bg);
+  border-color: var(--station-nav-accent-strong);
+  color: var(--station-nav-accent-strong);
 }
 
 .cz-station-pill__icon {
   display: inline-flex;
-  color: var(--station-icon);
+  color: inherit;
 }
 
 .cz-station-pill__label {

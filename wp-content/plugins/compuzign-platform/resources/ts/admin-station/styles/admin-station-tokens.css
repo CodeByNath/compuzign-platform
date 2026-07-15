@@ -21,6 +21,17 @@
   --station-header-height: 60px;
   --station-space-x: 16px;
 
+  /* Navigation tabs — derived from the admin secondary (accent-outline) button
+   * style. Theme-independent so the Header pills carry the same accent identity
+   * in both light and dark. */
+  --station-nav-accent: #5c6ef5;
+  --station-nav-accent-strong: #7080ff;
+  --station-nav-bg: transparent;
+  --station-nav-border: var(--station-nav-accent);
+  --station-nav-text: #5f6ccc;
+  --station-nav-hover-bg: rgba(92, 110, 245, 0.12);
+  --station-nav-active-bg: rgba(92, 110, 245, 0.15);
+
   /* Light theme (default). */
   --station-sidebar-bg: #f4f5f7;
   --station-header-bg: var(--station-sidebar-bg);
