@@ -193,7 +193,10 @@
 
 .cz-station-menu-layer {
   position: fixed;
-  inset: 0;
+  top: var(--station-header-height);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 80;
 }
 
