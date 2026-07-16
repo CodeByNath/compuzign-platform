@@ -180,7 +180,11 @@
 .cz-admin-station__body {
   flex: 1 1 auto;
   min-height: 0;
-  background: var(--station-surface);
+  /* !important needed: the frontend platform-canvas reset
+     (atomic-engine/css/02-base.css) targets the bare `main` element with
+     !important, which this <main> would otherwise lose to regardless of
+     class specificity. */
+  background: var(--station-surface) !important;
 }
 
 .cz-admin-station__footer {
