@@ -32,7 +32,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 - `shell/AdminStationDropdown.tsx` — reusable **empty** dropdown surface (positioning + token-driven surface/border/radius/shadow only; no content).
 - `shell/AdminStationBody.tsx`, `shell/AdminStationFooter.tsx` — empty semantic containers.
 - `shell/icons.tsx` — local icon set using the repository SVG system (Heroicons v2 solid, 24×24, `currentColor`): menu, Services/Packages/Promotions (reusing the repo `catalog`/`package`/`featured` paths), sun, moon, apps, user.
-- `styles/admin-station-tokens.css` — scoped light/dark tokens: app/header/surface/elevated backgrounds, text, muted text, border, hover/active bg, focus ring, icon colour, pill/menu/dropdown/control radii, header height, horizontal spacing, shadow, backdrop. `--station-sidebar-bg` is the single application background. The Header nav pills use `--station-nav-*` tokens derived from the admin secondary (accent-outline) button style.
+- `styles/admin-station-tokens.css` — scoped light/dark tokens: app/header/surface/elevated backgrounds, text, muted text, border, hover/active bg, focus ring, icon colour, pill/dropdown/control radii, header height, horizontal spacing, shadow, backdrop. `--station-sidebar-bg` is the single application background. The Header nav pills use `--station-nav-*` tokens derived from the admin secondary (accent-outline) button style. The slide menu is square-cornered (no radius token).
 - `styles/admin-station.css` — token-driven layout and component styling.
 - `styles/admin-station-responsive.css` — Header never wraps; pills scroll then hide (≤560px), leaving the slide menu as the complete navigation source.
 

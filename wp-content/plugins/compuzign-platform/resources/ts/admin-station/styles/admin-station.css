@@ -104,6 +104,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  padding-left: 24px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -222,8 +223,6 @@
   padding: 16px;
   background: var(--station-sidebar-bg);
   border-right: 1px solid var(--station-border);
-  border-top-right-radius: var(--station-menu-radius);
-  border-bottom-right-radius: var(--station-menu-radius);
   box-shadow: var(--station-shadow);
   outline: none;
   animation: cz-station-menu-in 180ms ease;

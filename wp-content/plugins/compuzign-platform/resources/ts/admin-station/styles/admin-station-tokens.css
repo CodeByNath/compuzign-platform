@@ -15,7 +15,6 @@
 .cz-admin-station {
   /* Shape and rhythm — theme-independent. Softer, more rounded borders. */
   --station-pill-radius: 999px;
-  --station-menu-radius: 20px;
   --station-dropdown-radius: 16px;
   --station-control-radius: 14px;
   --station-header-height: 60px;
