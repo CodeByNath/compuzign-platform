@@ -5,6 +5,15 @@
  * complete navigation source. The menu button, brand, and right-side controls
  * stay visible and accessible at every width. No bottom navigation is used. */
 
+/* Home body gutters tighten at and below 767px. The breakpoint itself is a raw
+   value because CSS custom properties are not valid in a media query prelude —
+   the padding it applies is token-driven. */
+@media (max-width: 767px) {
+  .cz-station-home {
+    padding-inline: var(--station-body-pad-sm);
+  }
+}
+
 /* Narrow tablets / large phones — pills scroll within the header row. */
 @media (max-width: 720px) {
   .cz-station-pill__label {

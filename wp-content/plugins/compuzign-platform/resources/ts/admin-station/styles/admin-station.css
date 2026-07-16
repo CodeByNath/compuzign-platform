@@ -5,10 +5,15 @@
 
 /* ── Shell frame ────────────────────────────────────────────────────────── */
 
+/* The shell is bounded to the viewport rather than growing with its content:
+   the Header, presentation, and group tabs then hold their place structurally,
+   and the active group panel is the single vertical scroll owner. Nothing here
+   scrolls the page, so no region needs sticky positioning or a sticky offset. */
 .cz-admin-station {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: var(--station-shell-height);
+  overflow: hidden;
   background: var(--station-sidebar-bg);
   color: var(--station-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -92,7 +97,9 @@
 
 .cz-station-iconbtn:focus-visible,
 .cz-station-pill:focus-visible,
-.cz-station-menu__item:focus-visible {
+.cz-station-menu__item:focus-visible,
+.cz-station-tab:focus-visible,
+.cz-station-groups__panel:focus-visible {
   outline: 2px solid var(--station-focus-ring);
   outline-offset: 2px;
 }
@@ -104,7 +111,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding-left: 24px;
+  padding-left: var(--station-nav-offset);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -176,11 +183,13 @@
   z-index: 70;
 }
 
-/* ── Body / Footer (empty) ──────────────────────────────────────────────── */
+/* ── Body / Footer ──────────────────────────────────────────────────────── */
 
 .cz-admin-station__body {
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
   /* !important needed: the frontend platform-canvas reset
      (atomic-engine/css/02-base.css) targets the bare `main` element with
      !important, which this <main> would otherwise lose to regardless of
@@ -192,6 +201,167 @@
   flex: 0 0 auto;
   background: var(--station-sidebar-bg);
   border-top: 1px solid var(--station-border);
+}
+
+/* ── Home body shell ────────────────────────────────────────────────────── */
+
+/* Centred, width-bounded twelve-column grid. Row 1 holds the presentation at its
+   bounded height; row 2 takes the remaining space and owns the group region.
+   `minmax(0, 1fr)` and `min-height: 0` are what let the panel inside actually
+   overflow instead of stretching the shell. */
+.cz-station-home {
+  display: grid;
+  grid-template-columns: repeat(var(--station-grid-columns), minmax(0, 1fr));
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--station-grid-gap);
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--station-content-max);
+  min-height: 0;
+  margin-inline: auto;
+  padding-inline: var(--station-body-pad);
+  padding-block: var(--station-grid-gap);
+}
+
+/* ── Presentation region ────────────────────────────────────────────────── */
+
+/* Bounded height: the preferred value squeezes with the viewport, while the min
+   and max stop it collapsing on short screens or sprawling on tall ones. */
+.cz-station-presentation {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  height: clamp(
+    var(--station-presentation-min-height),
+    var(--station-presentation-preferred-height),
+    var(--station-presentation-max-height)
+  );
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-dropdown-radius);
+  background: var(--station-surface-elevated);
+}
+
+/* Fixed framing — station status and actions stay reachable while content
+   scrolls beneath them. */
+.cz-station-presentation__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-grid-gap);
+  flex: 0 0 auto;
+  padding: var(--station-body-pad);
+  border-bottom: 1px solid var(--station-border);
+}
+
+.cz-station-presentation__heading,
+.cz-station-presentation__framing {
+  display: flex;
+  align-items: center;
+  gap: var(--station-grid-gap);
+  min-width: 0;
+}
+
+.cz-station-presentation__heading {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cz-station-presentation__framing {
+  flex: 0 0 auto;
+}
+
+.cz-station-presentation__eyebrow,
+.cz-station-presentation__title,
+.cz-station-presentation__description {
+  margin: 0;
+}
+
+.cz-station-presentation__eyebrow {
+  color: var(--station-text-muted);
+}
+
+/* The only scroll inside the presentation region. */
+.cz-station-presentation__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--station-body-pad);
+}
+
+/* ── Station-group region ───────────────────────────────────────────────── */
+
+.cz-station-groups {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-grid-gap);
+  min-height: 0;
+}
+
+/* Holds its place because the panel below owns the scroll — not by sticking. */
+.cz-station-groups__tablist {
+  display: flex;
+  align-items: center;
+  gap: var(--station-grid-gap);
+  flex: 0 0 auto;
+  min-width: 0;
+  padding-block-end: var(--station-grid-gap);
+  border-bottom: 1px solid var(--station-border);
+  background: var(--station-surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cz-station-groups__tablist::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-station-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--station-grid-gap);
+  flex: 0 0 auto;
+  padding: var(--station-grid-gap) var(--station-body-pad-sm);
+  border: 0;
+  border-radius: var(--station-control-radius);
+  background: transparent;
+  color: var(--station-text-muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.cz-station-tab:hover:not(:disabled) {
+  background: var(--station-hover-bg);
+  color: var(--station-text);
+}
+
+.cz-station-tab[aria-selected='true'] {
+  background: var(--station-active-bg);
+  color: var(--station-text);
+}
+
+.cz-station-tab:disabled {
+  cursor: not-allowed;
+}
+
+/* The single vertical scroll owner of the Admin Station body. */
+.cz-station-groups__panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Shell empty states ─────────────────────────────────────────────────── */
+
+.cz-station-empty {
+  margin: 0;
+  padding: var(--station-body-pad);
+  color: var(--station-text-muted);
+  text-align: center;
 }
 
 /* ── Slide menu ─────────────────────────────────────────────────────────── */

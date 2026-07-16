@@ -19,6 +19,24 @@
   --station-control-radius: 14px;
   --station-header-height: 60px;
   --station-space-x: 16px;
+  --station-nav-offset: 24px;
+
+  /* Home body shell — the station-agnostic layout frame. The shell is bounded
+   * to the viewport: the Header, presentation, and group tabs hold their place
+   * and only the active group panel scrolls. */
+  --station-shell-height: 100dvh;
+  --station-content-max: 1440px;
+  --station-grid-columns: 12;
+  --station-grid-gap: 8px;
+  --station-body-pad: 24px;
+  --station-body-pad-sm: 16px;
+
+  /* Presentation region — bounded responsive height. The preferred value is the
+   * intended ~30dvh; the min stops it collapsing on short viewports and the max
+   * stops it growing on tall displays. Consumed as a single clamp(). */
+  --station-presentation-min-height: 220px;
+  --station-presentation-preferred-height: 30dvh;
+  --station-presentation-max-height: 360px;
 
   /* Navigation tabs — derived from the admin secondary (accent-outline) button
    * style. Theme-independent so the Header pills carry the same accent identity
