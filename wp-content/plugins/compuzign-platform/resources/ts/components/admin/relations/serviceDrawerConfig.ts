@@ -1,8 +1,9 @@
 import type { ActionConfig } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
-import type { StationSummary, SurfacePackageSummary } from '@/api/types/admin';
-import { ServiceViewStep } from '../workstations/ServiceViewStep';
-import { buildServiceItemForStationHandoff } from '../workstations/ServiceCatalogWorkstation';
+import type { SurfacePackageSummary } from '@/api/types/admin';
+import type { ServiceSummary } from '@/admin-station/stations/service';
+import { ServiceViewStep } from '../stations/ServiceViewStep';
+import { buildServiceItemForStationHandoff } from '../stations/ServiceCatalogStation';
 import { MODULE_ICONS } from '../schema/icons';
 
 export interface DrawerHostContext {
@@ -13,7 +14,7 @@ export interface DrawerHostContext {
   onRefresh?: () => void;
 }
 
-export function buildServiceDetailDrawerConfig(deps: DrawerHostContext, summary: StationSummary, edit = false): ActionConfig {
+export function buildServiceDetailDrawerConfig(deps: DrawerHostContext, summary: ServiceSummary, edit = false): ActionConfig {
   const pending = summary.has_drafts || summary.module_status.overview !== 'settled';
   const status = summary.platform_status === 'active'
     ? { label: pending ? 'Active · pending' : 'Active', tone: pending ? 'pending' as const : 'active' as const }

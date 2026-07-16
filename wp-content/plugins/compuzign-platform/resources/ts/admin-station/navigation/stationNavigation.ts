@@ -2,7 +2,7 @@
 //
 // It is the single origin for both the Header navigation pills and the slide
 // menu, so the two can never drift. It deliberately does NOT import or reuse the
-// old entity registry, the old workstation registry, the Station Manager
+// old entity registry, the old station registry, the Station Manager
 // registry, relation providers, or any old admin navigation state.
 //
 // Destination pages are not built yet: selecting an item only updates the

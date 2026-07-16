@@ -10,8 +10,8 @@ The Category station owns Category identity, its overview draft and lifecycle. G
 
 ## Main Entry Points
 
-- [CategoryCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/CategoryCatalogWorkstation.tsx) renders Category tables and filters, loads Category/Service/Package context, creates Categories, and opens canonical drawers. Use it for Category catalogue or create-flow changes.
-- [CategoryViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/CategoryViewStep.tsx) contains the Details/Connections drawer, assigned-Service summary, overview editor, group selector, footer lifecycle controls, and publish/discard/exit dialogs. Use it for Category drawer, membership, lifecycle, or Service handoffs.
+- [CategoryCatalogStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/CategoryCatalogStation.tsx) renders Category tables and filters, loads Category/Service/Package context, creates Categories, and opens canonical drawers. Use it for Category catalogue or create-flow changes.
+- [CategoryViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/CategoryViewStep.tsx) contains the Details/Connections drawer, assigned-Service summary, overview editor, group selector, footer lifecycle controls, and publish/discard/exit dialogs. Use it for Category drawer, membership, lifecycle, or Service handoffs.
 - [category.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/category.ts) declares Category table/drawer placements. Use it when changing visible modules or viewpoints.
 
 ## UI and Drawers

@@ -31,7 +31,7 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  * not read). It is a top-level `package_manager` key on the Service post's
  * `cz_service_package_station` meta — the live Package Station used
  * everywhere else (tiers, popular_tier, bundle). Delegated from
- * AdminServicesController's station-default array and read/write paths, not
+ * PackageStationController's station-default array and read/write paths, not
  * from PackageSchema at all.
  *
 

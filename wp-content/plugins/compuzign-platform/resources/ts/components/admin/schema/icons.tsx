@@ -9,10 +9,10 @@
 //   The inner SVG only; callers wrap it in the shared `.drawerModule__icon`
 //   frame (ReadBlock does this via its `icon`/`iconVariant` props).
 //
-// - NAV_ICONS — workstation identity glyphs for the Sidebar (retires the
+// - NAV_ICONS — station identity glyphs for the Sidebar (retires the
 //   NavIcon switch, S5). A separate section because the two frames carry
 //   different CSS classes (`.cz-admin-nav-item__svg` vs
-//   `.drawerModule__icon-svg`); WorkstationSchema.iconId types to this
+//   `.drawerModule__icon-svg`); StationSchema.iconId types to this
 //   section.
 
 import type { ComponentChildren } from 'preact';
@@ -76,7 +76,7 @@ export const NAV_ICONS: Record<NavIconId, ComponentChildren> = {
       <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
     </svg>
   ),
-  // Tag — Categories (S6; consumed by the Phase E workstation entry).
+  // Tag — Categories (S6; consumed by the Phase E station entry).
   category: (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="cz-admin-nav-item__svg" aria-hidden="true">
       <path fillRule="evenodd" d="M5.25 2.25a3 3 0 00-3 3v4.318a3 3 0 00.879 2.121l9.58 9.581c.92.92 2.39 1.186 3.548.428a18.849 18.849 0 005.441-5.44c.758-1.16.492-2.629-.428-3.548l-9.58-9.581a3 3 0 00-2.122-.879H5.25zM6.375 7.5a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" clipRule="evenodd" />

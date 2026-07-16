@@ -7,6 +7,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Admin Station](admin-station.md)
 - [Package Manager](package-manager.md)
 - [Service Catalogue](service-catalogue.md)
+- [Service Station](service-station.md)
 - [Service Connections](service-connections.md)
 - [Rate Sheet](rate-sheet.md)
 - [Tiers](tiers.md)

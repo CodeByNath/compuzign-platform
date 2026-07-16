@@ -28,7 +28,7 @@ Backend station/controller boundaries own canonical lifecycle transitions and pe
 
 ## State and Providers
 
-- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceStation.ts) owns Service detail fetch, module drafts, save/revert, settle/publish, and travel actions. Use it for Service lifecycle state.
+- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/useServiceStation.ts) owns Service detail fetch, module drafts, save/revert, settle/publish, and travel actions. Use it for Service lifecycle state. It lives in the Service Station and is imported from `@/admin-station/stations/service`; the old `hooks/useServiceStation.ts` path is deleted.
 - [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns Category projection, readiness, draft, lifecycle, restore, and delete actions. Use it for Category state transitions.
 - [useCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryGroupStation.ts) provides the equivalent Group lifecycle boundary. Use it for Category Group transitions.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package/Tier drafts, settle, enable, bin travel, pool, and popular-tier actions. Use it for Package occupant state.
@@ -37,7 +37,7 @@ Backend station/controller boundaries own canonical lifecycle transitions and pe
 ## Backend and Persistence
 
 - [StationLifecycle.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/StationLifecycle.php) centralizes module transition defaults, draft/settled handling, status travel, and readiness helpers. Use it for shared backend lifecycle invariants.
-- [AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) applies lifecycle routes to Services, Tiers, and Promotions. Use it for those REST transitions.
+- [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php) applies lifecycle routes to Services. Tiers belong to [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) and Promotions to [PromotionsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Promotions/Http/PromotionsController.php). Use each for its own REST transitions.
 - [AdminCategoriesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoriesController.php) applies lifecycle and readiness rules to Categories. Use it for Category routes.
 - [AdminCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoryGroupsController.php) applies them to Groups. Use it for Group routes.
 

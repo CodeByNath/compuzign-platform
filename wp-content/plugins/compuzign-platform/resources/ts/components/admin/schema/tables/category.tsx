@@ -4,7 +4,7 @@
 // travel preset (Archived / Trash / Bin — D8 consumes `bin`; archived/trashed
 // are declared for travel-preset completeness). Cells are pure data
 // projections; status pills delegate to the Presentation Status Contract
-// chokepoint; behaviour arrives from the owning workstation as EntityTable
+// chokepoint; behaviour arrives from the owning station as EntityTable
 // handlers. Reached through CATEGORY_ENTITY.placements.table / .travel.
 
 import type { CategoryStationItem } from '@/api/types/admin';

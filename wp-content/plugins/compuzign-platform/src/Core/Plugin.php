@@ -6,7 +6,9 @@ use CompuZign\Platform\Modules\Admin\AdminModule;
 use CompuZign\Platform\Modules\AdminStation\AdminStationModule;
 use CompuZign\Platform\Modules\CostBuilder\CostBuilderModule;
 use CompuZign\Platform\Modules\Homepage\HomepageModule;
+use CompuZign\Platform\Modules\Promotions\PromotionsModule;
 use CompuZign\Platform\Modules\Requests\RequestsModule;
+use CompuZign\Platform\Modules\Service\ServiceModule;
 use CompuZign\Platform\Modules\SurfacePackages\SurfacePackagesModule;
 use CompuZign\Platform\Core\Health;
 
@@ -26,9 +28,11 @@ final class Plugin
         (new MailService())->register();
         (new AssetLoader())->register();
         (new SurfacePackagesModule())->register();
+        (new PromotionsModule())->register();
         (new CostBuilderModule())->register();
         (new HomepageModule())->register();
         (new RequestsModule())->register();
+        (new ServiceModule())->register();
         (new AdminModule())->register();
         (new AdminStationModule())->register();
 

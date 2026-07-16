@@ -6,13 +6,14 @@ import {
   settleServicePackageStationTier,
   setServicePackageStationTierEnabled,
   setServicePackageStationPopular,
-  createServiceInclusionPoolItem,
-  createServiceFaqPoolItem,
   archiveServicePackageStationTierOccupant,
   restoreServicePackageStationBinEntry,
   trashServicePackageStationBinEntry,
   deleteServicePackageStationBinEntry,
 } from '@/api/endpoints/admin';
+// Service owns the inclusion/FAQ pools; the Package Station creates canonical
+// items through the Service boundary.
+import { createServiceInclusionPoolItem, createServiceFaqPoolItem } from '@/admin-station/stations/service';
 import type {
   ServicePackageStationResponse,
   ServicePackageStationData,
@@ -26,10 +27,9 @@ import type {
   BinDeleteResponse,
   OccupantBinEntry,
   TierModuleKey,
-  InclusionItem,
   TierRateSheetSelection,
-  FaqItem,
 } from '@/api/types/admin';
+import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import { resolveTierStatus } from '@/components/admin/utils/moduleStatus';
 import type { TierLike } from '@/components/admin/utils/moduleStatus';
 import {

@@ -16,7 +16,7 @@ import type { StationConnectionDescriptor } from '../relations/types';
 
 // ── Modes — the viewpoint layer (§7) ─────────────────────────────────────────
 // Viewpoints only. Surfaces (drawer, page) are environments provided by
-// Groups and Workstations, never modes. S2 registers renderers for `details`
+// Groups and Stations, never modes. S2 registers renderers for `details`
 // and wires `edit`; the remaining viewpoints arrive with their phases
 // (S3a: connections/summary, S3b: table, card on adoption).
 
@@ -106,7 +106,7 @@ export interface ShellEditorSchema {
 // ── Table mode — row projection (§9, S3b) ─────────────────────────────────────
 // A TableSchema drives the EntityTable renderer: columns project row data,
 // row actions declare intent (behaviour arrives as handlers from the owning
-// workstation — never from the schema), and the built-in inline confirm
+// station — never from the schema), and the built-in inline confirm
 // replaces the per-surface copied confirm blocks. In S4 these embed into
 // EntitySchema.placements (table / travel).
 
@@ -188,7 +188,7 @@ export interface EntitySchema {
     // module key resolves through `shells` (related stations' shells rule).
     collections?: Record<string, ShellSlot>;
     table?: TableSchema<any>;
-    // Travel surfaces. `bin` is an S4 realisation: the Bin workstation's
+    // Travel surfaces. `bin` is an S4 realisation: the Bin station's
     // consolidated table spans both travel scopes and is a real consumer.
     travel?: { archived: TableSchema<any>; trashed: TableSchema<any>; bin?: TableSchema<any> };
   };

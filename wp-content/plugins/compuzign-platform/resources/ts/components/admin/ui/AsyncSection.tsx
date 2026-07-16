@@ -1,7 +1,7 @@
 // Shared async gate blocks (Schema architecture S1c).
 //
 // The loading spinner and error+retry blocks previously copy-pasted across
-// every workstation and drawer step. Kept as two early-return blocks (not a
+// every station and drawer step. Kept as two early-return blocks (not a
 // children wrapper) so call sites keep their `if (loading) return …` control
 // flow and never evaluate data-dependent JSX before the data exists.
 

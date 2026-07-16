@@ -1,0 +1,805 @@
+{
+    "contract": "service-route-baseline.v1",
+    "routes": [
+        {
+            "route": "compuzign/v1/admin/categories",
+            "methods": "GET",
+            "callback": "listCategories",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_status": {
+                    "enum": [
+                        "archived",
+                        "trashed"
+                    ],
+                    "required": false,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories",
+            "methods": "POST",
+            "callback": "createCategory",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "description": {
+                    "required": false,
+                    "sanitize_callback": "sanitize_textarea_field",
+                    "type": "string"
+                },
+                "group_id": {
+                    "required": false,
+                    "type": "integer"
+                },
+                "name": {
+                    "required": true,
+                    "sanitize_callback": "sanitize_text_field",
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)",
+            "methods": "DELETE",
+            "callback": "permanentDeleteCategory",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)/group",
+            "methods": "PATCH",
+            "callback": "updateGroup",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "group_id": {
+                    "required": false,
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)/overview",
+            "methods": "PUT",
+            "callback": "saveOverview",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "description": {
+                    "required": false,
+                    "sanitize_callback": "sanitize_textarea_field",
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "name": {
+                    "required": true,
+                    "sanitize_callback": "sanitize_text_field",
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)/overview/revert",
+            "methods": "POST",
+            "callback": "revertOverview",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)/overview/settle",
+            "methods": "POST",
+            "callback": "settleOverview",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)/restore",
+            "methods": "POST",
+            "callback": "restoreCategory",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)/status",
+            "methods": "PATCH",
+            "callback": "updateStatus",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "platform_status": {
+                    "enum": [
+                        "active",
+                        "disabled",
+                        "archived",
+                        "trashed"
+                    ],
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/service-categories",
+            "methods": "POST",
+            "callback": "createServiceCategory",
+            "permission_callback": "requireAdmin",
+            "args": []
+        },
+        {
+            "route": "compuzign/v1/admin/service-categories/(?P<id>\\d+)",
+            "methods": "POST",
+            "callback": "updateServiceCategory",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services",
+            "methods": "GET",
+            "callback": "listServices",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_status": {
+                    "enum": [
+                        "archived",
+                        "trashed"
+                    ],
+                    "required": false,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services",
+            "methods": "POST",
+            "callback": "createService",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "category_ids": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "required": false,
+                    "type": "array"
+                },
+                "content": {
+                    "required": false,
+                    "sanitize_callback": "wp_kses_post",
+                    "type": "string"
+                },
+                "excerpt": {
+                    "required": false,
+                    "sanitize_callback": "sanitize_textarea_field",
+                    "type": "string"
+                },
+                "title": {
+                    "required": true,
+                    "sanitize_callback": "sanitize_text_field",
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)",
+            "methods": "DELETE",
+            "callback": "permanentDeleteService",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)",
+            "methods": "GET",
+            "callback": "fetchDetail",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/(?P<module>overview|inclusions|faqs)/revert",
+            "methods": "POST",
+            "callback": "revertModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/(?P<module>overview|inclusions|faqs)/settle",
+            "methods": "POST",
+            "callback": "settleModuleRoute",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/faq-pool/items",
+            "methods": "POST",
+            "callback": "createFaqPoolItem",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/faqs",
+            "methods": "POST",
+            "callback": "updateFaqs",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "faqs": {
+                    "items": {
+                        "type": "object"
+                    },
+                    "required": true,
+                    "type": "array"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/inclusion-pool/items",
+            "methods": "POST",
+            "callback": "createInclusionPoolItem",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/inclusions",
+            "methods": "POST",
+            "callback": "updateInclusions",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "inclusions": {
+                    "items": {
+                        "type": "object"
+                    },
+                    "required": true,
+                    "type": "array"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/overview",
+            "methods": "POST",
+            "callback": "updateOverview",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "category_ids": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "required": false,
+                    "type": "array"
+                },
+                "content": {
+                    "required": false,
+                    "sanitize_callback": "wp_kses_post",
+                    "type": "string"
+                },
+                "excerpt": {
+                    "required": false,
+                    "sanitize_callback": "sanitize_textarea_field",
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "title": {
+                    "required": true,
+                    "sanitize_callback": "sanitize_text_field",
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station",
+            "methods": "GET",
+            "callback": "getPackageStation",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)",
+            "methods": "DELETE",
+            "callback": "deletePackageStationBinEntry",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "bin": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/restore",
+            "methods": "POST",
+            "callback": "restorePackageStationBinEntry",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "bin": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/trash",
+            "methods": "POST",
+            "callback": "trashPackageStationBinEntry",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "bin": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/manager",
+            "methods": "GET",
+            "callback": "getPackageStationManager",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/manager",
+            "methods": "POST",
+            "callback": "savePackageStationManager",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/popular",
+            "methods": "POST",
+            "callback": "setPackageStationPopular",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions",
+            "methods": "GET",
+            "callback": "getPromotionStation",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions",
+            "methods": "POST",
+            "callback": "createServicePromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)",
+            "methods": "DELETE",
+            "callback": "permanentDeletePromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/archive",
+            "methods": "POST",
+            "callback": "archiveServicePromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)",
+            "methods": "POST",
+            "callback": "savePromotionModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/modules/(?P<module>overview|features|faqs)/revert",
+            "methods": "POST",
+            "callback": "revertPromotionModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/publish",
+            "methods": "POST",
+            "callback": "publishPromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/restore",
+            "methods": "POST",
+            "callback": "restorePromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/settle",
+            "methods": "POST",
+            "callback": "settlePromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/toggle",
+            "methods": "POST",
+            "callback": "togglePromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/promotions/(?P<promo>[a-z0-9_]+)/trash",
+            "methods": "POST",
+            "callback": "trashPromotion",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "promo": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)",
+            "methods": "POST",
+            "callback": "savePackageStationTier",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "tier": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/archive",
+            "methods": "POST",
+            "callback": "archivePackageStationTierOccupant",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/enabled",
+            "methods": "POST",
+            "callback": "setPackageStationTierEnabled",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "tier": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>[a-z]+)",
+            "methods": "POST",
+            "callback": "savePackageStationTierModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "module": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                },
+                "tier": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs)/revert",
+            "methods": "POST",
+            "callback": "revertPackageStationTierModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/settle",
+            "methods": "POST",
+            "callback": "settlePackageStationTier",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "tier": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/restore",
+            "methods": "POST",
+            "callback": "restoreService",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/settle",
+            "methods": "POST",
+            "callback": "settleAll",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/status",
+            "methods": "POST",
+            "callback": "updateStatus",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "is_active": {
+                    "required": false,
+                    "type": "boolean"
+                },
+                "platform_status": {
+                    "enum": [
+                        "active",
+                        "disabled",
+                        "archived",
+                        "trashed"
+                    ],
+                    "required": false,
+                    "type": "string"
+                },
+                "post_status": {
+                    "enum": [
+                        "publish",
+                        "draft"
+                    ],
+                    "required": false,
+                    "type": "string"
+                }
+            }
+        }
+    ]
+}

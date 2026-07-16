@@ -3,7 +3,10 @@
 // Used by ModuleStatusPill (marker count) and ModuleNotificationPanel (note list).
 
 import type { ServiceInclusion, ServiceFaq } from '@/api/types/cost-builder';
-import type { OverviewDraftData, SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
+import type { SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
+// Targets the station's './types' module, not its public barrel: useServiceStation
+// imports this file, so going through the barrel would close a cycle.
+import type { OverviewDraftData } from '@/admin-station/stations/service/types';
 import {
   checkOverviewCompleteness,
   checkOverviewCompletenessFromDraft,

@@ -39,7 +39,7 @@ The relation registry owns provider discovery and the coordinator owns transient
 
 ## Runtime Flow
 
-The sole Service-management host is [ServiceCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx). It stays mounted behind one AdminShell action while focused drawer callbacks patch its current provider draft. The full Station Manager drawer and nested portal overlay have been removed.
+The sole Service-management host is [ServiceCatalogStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCatalogStation.tsx). It stays mounted behind one AdminShell action while focused drawer callbacks patch its current provider draft. The full Station Manager drawer and nested portal overlay have been removed.
 
 ## Validation
 

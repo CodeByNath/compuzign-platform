@@ -1,11 +1,11 @@
-import type { WorkstationId } from '@/api/types/admin';
-import { WORKSTATIONS, WORKSTATION_GROUPS } from './schema/workstations';
+import type { StationId } from '@/api/types/admin';
+import { STATIONS, STATION_GROUPS } from './schema/stations';
 import { NAV_ICONS } from './schema/icons';
 
 interface Props {
-  active: WorkstationId;
+  active: StationId;
   collapsed: boolean;
-  onNavigate: (id: WorkstationId) => void;
+  onNavigate: (id: StationId) => void;
   onToggleCollapse: () => void;
 }
 
@@ -27,7 +27,7 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 }
 
 export function Sidebar({ active, collapsed, onNavigate, onToggleCollapse }: Props) {
-  const groups = [...WORKSTATION_GROUPS].sort((a, b) => a.order - b.order);
+  const groups = [...STATION_GROUPS].sort((a, b) => a.order - b.order);
 
   return (
     <aside class="cz-admin-sidebar">
@@ -38,7 +38,7 @@ export function Sidebar({ active, collapsed, onNavigate, onToggleCollapse }: Pro
 
       <nav class="cz-admin-sidebar__nav">
         {groups.map((group) => {
-          const items = WORKSTATIONS.filter((w) => w.group === group.id);
+          const items = STATIONS.filter((w) => w.group === group.id);
           const topLevel = items.filter((w) => !w.hiddenFromNav && !w.parent);
           return (
             <div key={group.id} class="cz-admin-sidebar__group">
@@ -47,7 +47,7 @@ export function Sidebar({ active, collapsed, onNavigate, onToggleCollapse }: Pro
               )}
               {topLevel.map((w) => {
                 const children = items.filter((c) => !c.hiddenFromNav && c.parent === w.id);
-                // Submenu expands only when the active workstation belongs to this parent's group.
+                // Submenu expands only when the active station belongs to this parent's group.
                 const isExpanded = active === w.id || children.some((c) => c.id === active);
                 return (
                   <div key={w.id}>

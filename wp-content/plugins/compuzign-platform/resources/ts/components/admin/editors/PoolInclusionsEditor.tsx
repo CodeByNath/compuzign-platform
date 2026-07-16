@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
-import type { InclusionItem, TierRateSheetSelection, TierResolvedRateSheetSelection } from '@/api/types/admin';
+import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '@/api/types/admin';
+import type { InclusionItem } from '@/api/types/pools';
 
 // Pool-referencing Included Features editor (extracted from ServiceTierStep /
 // the shared station editors.

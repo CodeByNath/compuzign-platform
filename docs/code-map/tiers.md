@@ -10,7 +10,7 @@ Each tier occupant owns its module drafts and lifecycle inside the Package Stati
 
 ## Main Entry Points
 
-### [ServiceTierStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceTierStep.tsx)
+### [ServiceTierStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceTierStep.tsx)
 
 Contains the dynamic settled-occupant overview cards and pricing table, current/bin tabs, individual Tier Details/Connections drawer, overview/features/FAQ editors, publish and lifecycle buttons, restore conflicts, and confirmation dialogs. The Admin card grid loops over the occupant collection derived from `station.tiers`, excludes empty shells, and uses `occupant_id` for card/drawer identity. The resolved `slotId` remains the mutation address. Use this file when changing Tier cards, drawers, summaries, navigation, or lifecycle actions.
 
@@ -21,7 +21,7 @@ Contains the dynamic settled-occupant overview cards and pricing table, current/
 
 - [TierOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/TierOverviewEditor.tsx) edits label, audience, price/contact mode, billing cycle, and popular treatment. Use it for Tier overview form fields.
 - [tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/tier.tsx) defines Tier shell data and overview/features/FAQ editor bindings. Use it for schema-rendered Tier content.
-- [BinWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/BinWorkstation.tsx) provides broader archived/trashed entity tables; Package occupant bin handling remains in `ServiceTierStep`.
+- [BinStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/BinStation.tsx) provides broader archived/trashed entity tables; Package occupant bin handling remains in `ServiceTierStep`.
 
 ## State and Providers
 
@@ -51,7 +51,7 @@ Contains the dynamic settled-occupant overview cards and pricing table, current/
 
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) defines current Package/Tier defaults, sanitization, projections, and occupant compatibility. Its normalized Tier detail exposes the existing `current_occupant.id` as `occupant_id` without changing persistence. Use it for authoritative station schema behavior.
 - [PackageStationSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Packages/Support/PackageStationSchema.php) preserves legacy Service-hosted station compatibility. Use it only when tracing migration-era data behavior.
-- [AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) registers Tier module, enabled, popular, bin, pool, and settle routes. Use it for backend Tier actions.
+- [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) registers Tier module, enabled, popular, bin, and settle routes. Use it for backend Tier actions. Tier saves carrying `new_inclusions`/`new_faqs` write through [ServicePools.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Support/ServicePools.php), because those pools are Service-owned.
 
 ## Validation
 

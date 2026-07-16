@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { InlineEditorShell } from '../InlineEditorShell';
-import { fetchAdminCatalog } from '@/api/endpoints/admin';
-import type { AdminCatalogResponse } from '@/api/types/admin';
+import { fetchAdminCatalog } from '@/admin-station/stations/service';
+import type { ServiceCatalogResponse } from '@/admin-station/stations/service';
 
 // Rate Sheet inline editor (Phase 3 structural extraction).
 //
@@ -38,7 +38,7 @@ export function PackageRateSheetEditor({ value, onChange, configured, options, u
   const [creatingRateGroup, setCreatingRateGroup] = useState(false);
   const [rateGroupTargetIndex, setRateGroupTargetIndex] = useState<number | null>(null);
   const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
-  const [sourceCatalog, setSourceCatalog] = useState<AdminCatalogResponse | null>(null);
+  const [sourceCatalog, setSourceCatalog] = useState<ServiceCatalogResponse | null>(null);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<number[]>([]);

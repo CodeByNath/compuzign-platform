@@ -4,7 +4,7 @@ import type { ExitGuard, ExitIntent } from '../ActionShell';
 import type { ManagerShellContext } from './DynamicStationManager';
 
 // Page adapter for manager drafts. ActionShell supplies this contract to drawer
-// steps; workstations use the same guard/footer semantics without acquiring any
+// steps; stations use the same guard/footer semantics without acquiring any
 // provider or persistence responsibility.
 export function usePageManagerShell(): { shell: ManagerShellContext; footer: ComponentChildren } {
   const exitGuardRef = useRef<ExitGuard | null>(null);

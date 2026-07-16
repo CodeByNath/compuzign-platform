@@ -224,7 +224,7 @@ class AdminCategoryGroupsController
         }
 
         // module_status.overview is always 'pending' on creation, regardless of
-        // completeness — matching AdminServicesController::createService and the
+        // completeness — matching ServiceController::createService and the
         // (now-fixed) AdminCategoriesController::createCategory exactly. See the
         // matching comment there for why: settling immediately skips the
         // 'pending' transition that categoryGroupOverviewModule.resolveStatus

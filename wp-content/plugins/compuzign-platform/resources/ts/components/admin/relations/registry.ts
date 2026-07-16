@@ -5,7 +5,7 @@ import { packageRelationProvider } from './providers/package';
 import { promotionRelationProvider } from './providers/promotion';
 
 // Compile-time provider registry, matching the existing ENTITIES and
-// WORKSTATIONS registration model.
+// STATIONS registration model.
 export const STATION_RELATION_PROVIDERS = [
   packageRelationProvider,
   promotionRelationProvider,

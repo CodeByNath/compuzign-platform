@@ -11,9 +11,10 @@ import {
   trashServicePromotion,
   restoreServicePromotion,
   permanentDeleteServicePromotion,
-  createServiceInclusionPoolItem,
-  createServiceFaqPoolItem,
 } from '@/api/endpoints/admin';
+// Service owns the inclusion/FAQ pools; the Promotion Station creates canonical
+// items through the Service boundary.
+import { createServiceInclusionPoolItem, createServiceFaqPoolItem } from '@/admin-station/stations/service';
 import type {
   ServicePromotionStationResponse,
   ServicePromotionSaveResponse,
@@ -25,9 +26,8 @@ import type {
   PromotionOverviewDraft,
   PromotionLifecycleResponse,
   PromotionTransitionResponse,
-  InclusionItem,
-  FaqItem,
 } from '@/api/types/admin';
+import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import {
   evaluateModule,
   promotionOverviewModule,

@@ -2,18 +2,24 @@
 
 ## Audit metadata
 
-Last audited: 2026-07-14 01:28 Australia/Brisbane
-Audited commit: `7026fd74a339805cc29e98c1340a01349c4fa2d6` (current working-tree changes reviewed)
+Last audited: 2026-07-16 Australia/Brisbane
+Audited commit: `a9f765f` (current working-tree changes reviewed)
 Audited paths:
-- `wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php`
-- `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php`
-- `wp-content/plugins/compuzign-platform/resources/ts/api/types/admin.ts`
-- `wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts`
-Changes in audited revision: The existing Admin Package Station Tier read assembly was verified against the new `occupant_id` projection and unchanged slot-addressed mutation routes.
+- `wp-content/plugins/compuzign-platform/src/Modules/Admin/AdminModule.php`
+- `wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoriesController.php`
+- `wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/`
+- `wp-content/plugins/compuzign-platform/src/Core/Plugin.php`
+Changes in audited revision: The Service handlers left this module for `src/Modules/Service/`; `AdminServicesController` and `Admin\Support\ServicePools` were deleted, and `AdminModule` no longer registers a Service controller.
 
 ## Entry guide
 
-This module owns authenticated admin REST routing and mutation orchestration for Services, Categories, Category Groups, Package Category Groups, Package/Tier/Promotion compatibility routes, requests, and overview data. `AdminModule.php` wires controllers; `AdminRouter.php` serves the admin shell; controllers under this folder's `Http` directory own route validation and responses. `StationLifecycle.php`, `CategoryMeta.php`, and `PoolReferences.php` provide shared lifecycle, metadata, and pool-reference rules. `AdminServicesController::getPackageStation()` assembles Tier details through `PackageSchema::normaliseTierSlot()`, so settled records now include nullable `occupant_id` projected from `current_occupant.id`.
+This module owns authenticated admin REST routing and mutation orchestration for Categories, Category Groups, Package Category Groups, requests, and overview data. `AdminModule.php` wires controllers; `AdminRouter.php` serves the admin shell; controllers under this folder's `Http` directory own route validation and responses. `StationLifecycle.php`, `CategoryMeta.php`, and `PoolReferences.php` provide shared, entity-neutral lifecycle, metadata, and pool-reference rules — they stay here and are used by other modules; do not move them into an entity module.
+
+**This module no longer owns the Service entity.** `AdminServicesController` is deleted; all four of its tenants were evicted with URLs unchanged. Service (14 routes) now lives in `Service\Http\ServiceController`, wired by `ServiceModule` from `Core\Plugin`; Package Station (including `getPackageStation()` and its `PackageSchema::normaliseTierSlot()` / `occupant_id` projection) in `SurfacePackages\Http\PackageStationController`; Promotions in `Promotions\Http\PromotionsController`; and the inline `/admin/service-categories` handlers in `AdminCategoriesController` here, which owns Category terms. `ServicePools` moved to `Service\Support\ServicePools`. See [Service Station](../../../../../../docs/code-map/service-station.md).
+
+`AdminCategoriesController` and `Service\Http\ServiceController` both expose an `updateStatus` handler for distinct routes (`PATCH /admin/categories/{id}/status` and `POST /admin/services/{id}/status`). They must never be cross-wired; the route baseline is class-agnostic and would not catch it.
+
+Do not add Service routes, `cz_service` meta knowledge, or Service handlers here. `AdminRouter::CAP` stays the shared admin capability that every module's `requireAdmin()` reads.
 
 Persistence remains with WordPress entity/meta APIs and domain repositories—especially `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php`. The Tier route family remains addressed by fixed shell/slot IDs for module saves, settle, enabled state, popular Tier, archive, restore targeting, trash, and delete; the Admin UI's occupant identity does not alter those routes. Do not duplicate repository storage, frontend station hooks, schema UI, Cost Builder projections, or Package schema authority inside controllers. Keep permission checks and REST contracts aligned with `wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts` and `wp-content/plugins/compuzign-platform/resources/ts/api/types/admin.ts`.
 

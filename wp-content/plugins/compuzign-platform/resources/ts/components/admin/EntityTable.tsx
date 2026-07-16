@@ -2,14 +2,14 @@
 //
 // Consumes a TableSchema: columns project row data, row actions declare
 // intent, and behaviour arrives exclusively as handlers keyed by action id
-// from the owning workstation — the schema never owns business logic
+// from the owning station — the schema never owns business logic
 // (Boundary, §3). The inline destructive confirm is built in (one
 // useInlineConfirm keyed `row::action`), replacing the per-surface copied
 // confirm blocks. Renders inside the surface's AsyncSection gates; the empty
 // state replaces the per-surface `cz-admin-empty` conditionals.
 //
 // Selection is surface state (like a drawer's open panel), owned by the
-// workstation and passed as a prop — TableSchema stays pure presentation.
+// station and passed as a prop — TableSchema stays pure presentation.
 
 import type { ComponentChildren } from 'preact';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
@@ -33,7 +33,7 @@ export interface EntityTableProps<Row> {
   schema:  TableSchema<Row>;
   rows:    Row[];
   rowKey:  (row: Row) => string | number;
-  // Behaviour, keyed by action id — from the owning workstation/station hook.
+  // Behaviour, keyed by action id — from the owning station hook.
   handlers?: Record<string, (row: Row) => void | Promise<void>>;
   // Table card frame: 'shell' = cz-shell-table-card (catalog/bin),
   // 'ws' = cz-ws-card + cz-sc-table-wrap (archived/trash) — kept for parity.

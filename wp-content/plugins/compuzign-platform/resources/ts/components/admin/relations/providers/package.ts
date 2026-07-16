@@ -1,9 +1,9 @@
 import {
   fetchPackageStationManager,
-  fetchAdminServiceDetail,
   fetchServicePackageStation,
   savePackageStationManager,
 } from '@/api/endpoints/admin';
+import { fetchAdminServiceDetail } from '@/admin-station/stations/service';
 import { PACKAGE_RATE_SHEET_UNITS } from '@/api/types/admin';
 import type {
   PackageManagerGroup,

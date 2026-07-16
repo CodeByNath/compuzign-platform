@@ -1,3 +1,7 @@
+// Shared pool item shapes are owned by the neutral pool contract module; this
+// file consumes them like any other station does.
+import type { InclusionItem, FaqItem } from './pools';
+
 export interface AdminOverview {
   services_published: number;
   services_draft: number;
@@ -251,22 +255,8 @@ export type PackageManagerSaveResponse =
   | { success: true; manager: PackageManagerReadModel }
   | { success: false; message: string };
 
-// Phase 2 — P5 Step 2: immediate canonical pool creation. Service owns the pool;
-// the caller attaches the returned id to a tier's module draft in a separate save.
-export interface CreateInclusionPoolItemResponse {
-  success:   boolean;
-  existing:  boolean;
-  inclusion: InclusionItem;
-}
 
-export interface CreateFaqPoolItemResponse {
-  success:  boolean;
-  existing: boolean;
-  faq:      FaqItem;
-}
-
-
-export type WorkstationId =
+export type StationId =
   | 'overview'
   | 'service-catalog'
   | 'service-archived'
@@ -280,14 +270,14 @@ export type WorkstationId =
   | 'health'
   | 'bin';
 
-// The workstation registry itself (entries, groups, labels) lives in
-// components/admin/schema/workstations.ts (Schema architecture S5). Only the
-// type-level contract stays here; WorkstationSchema extends WorkstationDef.
-export interface WorkstationDef {
-  id:      WorkstationId;
+// The station registry itself (entries, groups, labels) lives in
+// components/admin/schema/stations.ts (Schema architecture S5). Only the
+// type-level contract stays here; StationSchema extends StationDef.
+export interface StationDef {
+  id:      StationId;
   label:   string;
   group:   string;
-  parent?: WorkstationId;
+  parent?: StationId;
 }
 
 // ── Requests river types ─────────────────────────────────────────────────────
@@ -471,20 +461,6 @@ export interface SurfacePackagesResponse {
 
 // ── Surface Package detail / tier-management types ────────────────────────────
 
-export interface InclusionItem {
-  id: string;
-  label: string;
-  // B2 — set by the admin read endpoints when the ref no longer resolves against
-  // the service inclusion pool. The cached label is kept; the ref is never pruned.
-  missing?: boolean;
-}
-
-export interface FaqItem {
-  id: string;
-  question: string;
-  answer: string;
-}
-
 export interface SurfaceTierDetail {
   // Stable identity of the settled occupant. Null identifies an empty shell;
   // the containing record key remains the slot id used by mutations.
@@ -664,167 +640,8 @@ export interface AdminRequestsResponse {
   total: number;
 }
 
-// ── Service draft types ───────────────────────────────────────────────────────
-
-export interface OverviewDraftData {
-  title:        string;
-  excerpt:      string;
-  content:      string;
-  category_ids: number[];
-}
-
-export interface ServiceModuleDrafts {
-  overview:   OverviewDraftData | null;
-  inclusions: ServiceInclusionItem[] | null;
-  faqs:       ServiceFaqItem[] | null;
-}
-
-export interface AdminServiceDetailResponse {
-  success:         boolean;
-  id:              number;
-  title:           string;
-  excerpt:         string;
-  content:         string;
-  categories:      Array<{ id: number; name: string; slug: string; description?: string }>;
-  inclusions:      ServiceInclusionItem[];
-  faqs:            ServiceFaqItem[];
-  platform_status: string;
-  module_status:   Record<string, string>;
-  drafts:          ServiceModuleDrafts;
-}
-
-// B3 — non-blocking pool-settle guard entry: a pool item the settle removed
-// while it is still referenced somewhere in the station graph. Holder labels
-// are engine-formatted (e.g. 'tier:premium', 'promo:promo_ab12:draft').
-export interface PoolSettleWarning {
-  id:            string;
-  label:         string;
-  referenced_by: string[];
-}
-
-export interface ModuleSettleResponse {
-  success:       boolean;
-  module_status: Record<string, string>;
-  service:       { id: number; title: string; excerpt: string; content: string; categories: Array<{ id: number; name: string; slug: string }> };
-  inclusions:    ServiceInclusionItem[];
-  faqs:          ServiceFaqItem[];
-  // Present only when the settle orphaned still-referenced pool items.
-  pool_warnings?: PoolSettleWarning[];
-}
-
-export interface ModuleRevertResponse {
-  success:       boolean;
-  module:        string;
-  module_status: Record<string, string>;
-}
-
-// ── Service overview editor types ─────────────────────────────────────────────
-
-export interface ServiceOverviewPayload {
-  title: string;
-  excerpt: string;
-  content: string;
-  category_ids: number[];
-}
-
-export interface ServiceOverviewResponse {
-  success:       boolean;
-  draft:         OverviewDraftData;
-  module_status: Record<string, string>;
-}
-
-export interface ServiceInclusionItem {
-  id: string;
-  label: string;
-}
-
-export interface ServiceInclusionsPayload {
-  inclusions: ServiceInclusionItem[];
-}
-
-export interface ServiceInclusionsResponse {
-  success:       boolean;
-  inclusions:    ServiceInclusionItem[];
-  module_status: Record<string, string>;
-}
-
-export interface ServiceFaqItem {
-  id: string;
-  question: string;
-  answer: string;
-}
-
-export interface ServiceFaqsPayload {
-  faqs: ServiceFaqItem[];
-}
-
-export interface ServiceFaqsResponse {
-  success:       boolean;
-  faqs:          ServiceFaqItem[];
-  module_status: Record<string, string>;
-}
-
-export interface ServiceStatusPayload {
-  platform_status?: 'active' | 'disabled' | 'archived' | 'trashed';
-  /** @deprecated Use platform_status instead. */
-  is_active?: boolean;
-  /** @deprecated Ignored by the server; kept for transition period only. */
-  post_status?: 'publish' | 'draft';
-}
-
-export interface ServiceStatusResponse {
-  success: boolean;
-  service: {
-    id: number;
-    platform_status: string;
-    module_status: Record<string, string>;
-    /** @deprecated Use platform_status instead. */
-    post_status: string;
-    /** @deprecated Use platform_status instead. */
-    is_active: boolean;
-  };
-}
-
-export interface CreateServicePayload {
-  title: string;
-  excerpt?: string;
-  content?: string;
-  category_ids?: number[];
-}
-
-export interface CreateServiceResponse {
-  success: boolean;
-  service: {
-    id:              number;
-    title:           string;
-    slug:            string;
-    platform_status: string;
-    module_status:   Record<string, string>;
-    categories:      Array<{ id: number; name: string; slug: string; description: string }>;
-  };
-  drafts: ServiceModuleDrafts;
-}
-
-// ── Admin station catalog ─────────────────────────────────────────────────────
-
-export interface StationSummary {
-  id:                        number;
-  title:                     string;
-  slug:                      string;
-  categories:                Array<{ id: number | null; name: string; slug: string }>;
-  platform_status:           'active' | 'disabled' | 'archived' | 'trashed';
-  previous_platform_status?: 'active' | 'disabled' | '';
-  module_status:             { overview: string; inclusions: string; faqs: string };
-  has_drafts:                boolean;
-  // Service-owned pool sizes (counts only) for the Package Manager Services table.
-  inclusion_count?:          number;
-  faq_count?:                number;
-}
-
-export interface PermanentDeleteResponse {
-  success: boolean;
-  deleted: number;
-}
+// Service contracts are owned by the Service Station and are NOT re-exported
+// here. Import them from '@/admin-station/stations/service'.
 
 // ── Category station (S6) ─────────────────────────────────────────────────────
 
@@ -929,11 +746,4 @@ export interface CategoryGroupOverviewSaveResponse {
 export interface CategoryGroupDeleteResponse {
   success: boolean;
   deleted: number;
-}
-
-export interface AdminCatalogResponse {
-  // platform_status is additive (S6 Phase B): entries are scoped to live
-  // categories (D7) and carry their lifecycle status for selector rendering.
-  categories: Array<{ id: number | null; name: string; slug: string; description: string; platform_status?: 'active' | 'disabled' }>;
-  stations:   StationSummary[];
 }

@@ -7,7 +7,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 
 /**
- * Read-only list endpoint for admin workstations (catalog pills, overview
+ * Read-only list endpoint for admin stations (catalog pills, overview
  * promo counts). Serves GET /admin/surface-packages in the response shape the
  * frontend already consumes (SurfacePackagesResponse), derived entirely from
  * the single Package Station authority — no cz_surface_package posts are read

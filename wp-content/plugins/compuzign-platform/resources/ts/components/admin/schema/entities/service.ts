@@ -5,7 +5,7 @@
 // with the Station (StationLifecycle.php, useServiceStation, the module REST
 // endpoints); everything here is a reference to existing presentation assets.
 
-import type { StationSummary } from '@/api/types/admin';
+import type { ServiceSummary } from '@/admin-station/stations/service';
 import {
   serviceOverviewShell,
   serviceInclusionsShell,
@@ -24,8 +24,8 @@ export const SERVICE_ENTITY: EntitySchema = {
   id:    'service',
   label: { singular: 'Service', plural: 'Services' },
   identity: {
-    idOf:    (d: StationSummary) => d.id,
-    titleOf: (d: StationSummary) => d.title,
+    idOf:    (d: ServiceSummary) => d.id,
+    titleOf: (d: ServiceSummary) => d.title,
   },
 
   lifecycle: {

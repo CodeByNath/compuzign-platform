@@ -5,7 +5,8 @@ import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
 import { ReadBlock } from '../ReadBlock';
 import { fetchPackageCategoryGroups } from '@/api/endpoints/admin';
-import type { PackageCategoryGroupItem, StationSummary } from '@/api/types/admin';
+import type { PackageCategoryGroupItem } from '@/api/types/admin';
+import type { ServiceSummary } from '@/admin-station/stations/service';
 import { relationProvidersFor } from './registry';
 import type { ManagerContinuation, StationManagerScope } from './types';
 import {
@@ -76,8 +77,8 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   continuation?: ManagerContinuation;
   onOpenPromotion?: (promotionId?: string, edit?: boolean) => void;
   onOpenPackage?: (occupantId: string, slotId: string, edit?: boolean) => void;
-  onOpenService?: (summary: StationSummary, edit?: boolean) => void;
-  services?: readonly StationSummary[];
+  onOpenService?: (summary: ServiceSummary, edit?: boolean) => void;
+  services?: readonly ServiceSummary[];
   surface?: ManagerSurface;
   onManageCategoryGroups?: (group?: PackageCategoryGroupItem) => void;
   settingsStartContent?: ComponentChildren;

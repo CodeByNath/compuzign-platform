@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
-import type { PackageCategoryGroupItem, PackageSourceRelationship, StationSummary } from '@/api/types/admin';
+import type { PackageCategoryGroupItem, PackageSourceRelationship } from '@/api/types/admin';
+import type { ServiceSummary } from '@/admin-station/stations/service';
 import { PRESENTATION_PILL } from '../schema/presentation';
 import { packageServiceCategoryGroup } from './providers/package';
 
@@ -11,19 +12,19 @@ import { packageServiceCategoryGroup } from './providers/package';
 // as secondary context and edited only through the focused manager drawer.
 
 interface Props {
-  services: readonly StationSummary[];
+  services: readonly ServiceSummary[];
   sources: PackageSourceRelationship[];
   categoryGroups: PackageCategoryGroupItem[];
   hostServiceId: number;
-  onOpenService: (summary: StationSummary, edit: boolean) => void;
-  onManageAssignment: (summary: StationSummary, categoryGroupId: string | null) => void;
+  onOpenService: (summary: ServiceSummary, edit: boolean) => void;
+  onManageAssignment: (summary: ServiceSummary, categoryGroupId: string | null) => void;
   connectionSummaryByServiceId: ReadonlyMap<number, { count: number; attention: number }>;
   // Controlled by the family scope cards; the collection does not fork that
   // filtering mechanism or expose a second assignment control.
   categoryGroupFilter?: string;
 }
 
-function serviceStatusPill(summary: StationSummary) {
+function serviceStatusPill(summary: ServiceSummary) {
   const pill = summary.platform_status === 'active'
     ? (summary.has_drafts ? { cls: PRESENTATION_PILL.active.cls, label: 'Active · changes pending' } : PRESENTATION_PILL.active)
     : summary.module_status.overview !== 'settled'
@@ -32,7 +33,7 @@ function serviceStatusPill(summary: StationSummary) {
   return <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>;
 }
 
-function serviceStatusKey(summary: StationSummary): 'active' | 'pending' | 'disabled' {
+function serviceStatusKey(summary: ServiceSummary): 'active' | 'pending' | 'disabled' {
   if (summary.platform_status === 'active') return 'active';
   return summary.module_status.overview !== 'settled' ? 'pending' : 'disabled';
 }

@@ -27,7 +27,7 @@ The Package Station owns the promotions collection and `PackageRepository` persi
 ## Backend and Persistence
 
 - [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists Promotion children in the Package Station and migrates legacy Promotion meta. Use it for collection storage and projections.
-- [AdminServicesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php) registers Promotion create, module save/revert, settle, publish, toggle, archive/trash/restore/delete routes. Use it for backend lifecycle behavior.
+- [PromotionsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Promotions/Http/PromotionsController.php) registers Promotion create, module save/revert, settle, publish, toggle, archive/trash/restore/delete routes. Use it for backend lifecycle behavior. Wired by [PromotionsModule.php](../../wp-content/plugins/compuzign-platform/src/Modules/Promotions/PromotionsModule.php) — a backend-only module holding no storage of its own; `PackageRepository` (`cz_package_station`) stays the persistence authority. Moved here from `AdminServicesController`; the nested URLs (`/admin/services/{id}/package-station/promotions/...`) are unchanged compatibility contracts, where `{id}` is navigation context only. See [Service Station](service-station.md).
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) exposes typed Promotion REST calls. Use it for frontend/backend contract changes.
 
 ## Internal File Navigation

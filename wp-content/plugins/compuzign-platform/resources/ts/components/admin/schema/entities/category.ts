@@ -66,9 +66,9 @@ export const CATEGORY_ENTITY: EntitySchema = {
     // viewpoint, each card re-selecting the `view` footer that opens the real
     // Service drawer. The surface owns the N bindings.
     table: categoryCatalogTable,
-    // D8: `bin` is the consumed schema (the Bin workstation's Category pane);
+    // D8: `bin` is the consumed schema (the Bin station's Category pane);
     // archived/trashed are declared for travel-preset completeness — no
-    // hidden category-archived/category-trash workstation routes in v1.
+    // hidden category-archived/category-trash station routes in v1.
     travel: {
       archived: categoryArchivedTable,
       trashed:  categoryTrashedTable,

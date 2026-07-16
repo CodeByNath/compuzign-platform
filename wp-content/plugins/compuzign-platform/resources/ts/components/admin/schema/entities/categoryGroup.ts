@@ -67,9 +67,9 @@ export const CATEGORY_GROUP_ENTITY: EntitySchema = {
     // `view` footer that opens the real Category drawer. The surface owns the
     // N bindings (same v1.2 mechanics as CATEGORY_ENTITY.placements.collections.services).
     table: categoryGroupCatalogTable,
-    // Bin is the consumed schema (the Bin workstation's Category Group pane);
+    // Bin is the consumed schema (the Bin station's Category Group pane);
     // archived/trashed are declared for travel-preset completeness — no hidden
-    // category-group-archived/category-group-trash workstation routes in v1.
+    // category-group-archived/category-group-trash station routes in v1.
     travel: {
       archived: categoryGroupArchivedTable,
       trashed:  categoryGroupTrashedTable,

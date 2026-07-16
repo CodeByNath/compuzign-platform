@@ -1,14 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { ServiceItem } from '@/api/types/cost-builder';
-
-export interface InclusionDraftItem {
-  id: string;
-  label: string;
-}
-
-export interface InclusionsDraft {
-  items: InclusionDraftItem[];
-}
+import type { InclusionsDraft } from '@/admin-station/stations/service';
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 5);

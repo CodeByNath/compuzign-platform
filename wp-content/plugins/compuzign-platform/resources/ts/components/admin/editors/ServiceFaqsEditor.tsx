@@ -1,15 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { ServiceItem } from '@/api/types/cost-builder';
-
-export interface FaqDraftItem {
-  id: string;
-  question: string;
-  answer: string;
-}
-
-export interface FaqsDraft {
-  items: FaqDraftItem[];
-}
+import type { FaqDraftItem, FaqsDraft } from '@/admin-station/stations/service';
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 5);

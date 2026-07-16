@@ -2,14 +2,14 @@ import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { StatusStrip } from './StatusStrip';
-import { WorkstationRouter } from './WorkstationRouter';
+import { StationRouter } from './StationRouter';
 import { ActionShell } from './ActionShell';
 import type { ActionConfig } from './ActionShell';
-import type { WorkstationNavigationInterceptor } from './schema/workstations';
-import type { WorkstationId } from '@/api/types/admin';
+import type { StationNavigationInterceptor } from './schema/stations';
+import type { StationId } from '@/api/types/admin';
 
 export function AdminShell() {
-  const [activeWorkstation, setActiveWorkstation] = useState<WorkstationId>('overview');
+  const [activeStation, setActiveStation] = useState<StationId>('overview');
   const [collapsed, setCollapsed] = useState(() => (
     typeof window === 'undefined' ? true : !window.matchMedia('(min-width: 1921px)').matches
   ));
@@ -29,15 +29,15 @@ export function AdminShell() {
 
   // Active surface's navigation guard (e.g. Package Manager with unsaved
   // drafts). Sidebar switches route through it; the surface clears it on
-  // unmount, so a stale guard can never block an unrelated workstation.
-  const navigationInterceptorRef = useRef<WorkstationNavigationInterceptor | null>(null);
-  const setNavigationInterceptor = useCallback((interceptor: WorkstationNavigationInterceptor | null) => {
+  // unmount, so a stale guard can never block an unrelated station.
+  const navigationInterceptorRef = useRef<StationNavigationInterceptor | null>(null);
+  const setNavigationInterceptor = useCallback((interceptor: StationNavigationInterceptor | null) => {
     navigationInterceptorRef.current = interceptor;
   }, []);
-  const navigateToWorkstation = useCallback((id: WorkstationId) => {
+  const navigateToStation = useCallback((id: StationId) => {
     const interceptor = navigationInterceptorRef.current;
-    if (interceptor) interceptor(() => setActiveWorkstation(id));
-    else setActiveWorkstation(id);
+    if (interceptor) interceptor(() => setActiveStation(id));
+    else setActiveStation(id);
   }, []);
 
   const openAction = useCallback((config: ActionConfig) => {
@@ -56,21 +56,21 @@ export function AdminShell() {
   return (
     <div class={`cz-admin-root${collapsed ? ' cz-admin-root--collapsed' : ''}`}>
       <Sidebar
-        active={activeWorkstation}
+        active={activeStation}
         collapsed={collapsed}
-        onNavigate={navigateToWorkstation}
+        onNavigate={navigateToStation}
         onToggleCollapse={() => setCollapsed((c) => !c)}
       />
 
       <div class="cz-admin-main">
         <Topbar
-          workstation={activeWorkstation}
+          station={activeStation}
           onToggleSidebar={() => setCollapsed((c) => !c)}
         />
         <StatusStrip />
         <div class="cz-admin-workstation-area">
-          <WorkstationRouter
-            active={activeWorkstation}
+          <StationRouter
+            active={activeStation}
             refreshKey={refreshKey}
             openAction={openAction}
             setNavigationInterceptor={setNavigationInterceptor}

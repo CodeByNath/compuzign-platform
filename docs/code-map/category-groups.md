@@ -10,8 +10,8 @@ The Category Group station owns group identity, overview draft state, lifecycle,
 
 ## Main Entry Points
 
-- [CategoryGroupCatalogWorkstation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/CategoryGroupCatalogWorkstation.tsx) renders Group tables/filters, creates groups, assembles live Category handoff context, and opens canonical drawers. Use it for Group catalogue or creation changes.
-- [CategoryGroupViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/CategoryGroupViewStep.tsx) contains the Details/Connections drawer, assigned-Category summary, overview editor, lifecycle footer, and publish/discard/exit dialogs. Use it for Group drawer, lifecycle, or Category navigation.
+- [CategoryGroupCatalogStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/CategoryGroupCatalogStation.tsx) renders Group tables/filters, creates groups, assembles live Category handoff context, and opens canonical drawers. Use it for Group catalogue or creation changes.
+- [CategoryGroupViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/CategoryGroupViewStep.tsx) contains the Details/Connections drawer, assigned-Category summary, overview editor, lifecycle footer, and publish/discard/exit dialogs. Use it for Group drawer, lifecycle, or Category navigation.
 - [categoryGroup.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/categoryGroup.ts) declares Group table/drawer placements. Use it when changing modules or viewpoints.
 
 ## UI and Drawers
@@ -46,7 +46,7 @@ The Category Group station owns group identity, overview draft state, lifecycle,
 
 ## Runtime Flow
 
-The workstation loads group summaries and opens the canonical schema-bound drawer. `CategoryGroupViewStep` builds the drawer config, derives assigned-category counts, binds the overview shell, owns its edit/dirty/close-guard state, and orchestrates publish/settle, enable/disable, archive, trash, and confirmation chrome through `useCategoryGroupStation`. Category membership opens the authoritative Category drawer rather than creating a group-local model.
+The station loads group summaries and opens the canonical schema-bound drawer. `CategoryGroupViewStep` builds the drawer config, derives assigned-category counts, binds the overview shell, owns its edit/dirty/close-guard state, and orchestrates publish/settle, enable/disable, archive, trash, and confirmation chrome through `useCategoryGroupStation`. Category membership opens the authoritative Category drawer rather than creating a group-local model.
 
 ## Related Code Maps
 

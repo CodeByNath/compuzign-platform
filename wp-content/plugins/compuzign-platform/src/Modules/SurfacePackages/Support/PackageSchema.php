@@ -413,7 +413,7 @@ class PackageSchema
         }
 
         // FAQ refs — plain string ids into the service's shared FAQ pool, same shape
-        // and sanitisation as Tier's tier-faqs module (AdminServicesController.php).
+        // and sanitisation as Tier's tier-faqs module (ServiceController.php).
         $faqRefs = $existing['faq_refs'] ?? [];
         if (array_key_exists('faq_refs', $body) && is_array($body['faq_refs'])) {
             $faqRefs = [];

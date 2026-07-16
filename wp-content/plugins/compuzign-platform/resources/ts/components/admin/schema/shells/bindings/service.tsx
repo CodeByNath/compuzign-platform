@@ -18,11 +18,9 @@ import {
   faqsModule,
 } from '@/components/admin/utils/moduleNotifications';
 import { ServiceOverviewEditor } from '../../../editors/ServiceOverviewEditor';
-import type { OverviewDraft } from '../../../editors/ServiceOverviewEditor';
 import { ServiceInclusionsEditor } from '../../../editors/ServiceInclusionsEditor';
-import type { InclusionsDraft } from '../../../editors/ServiceInclusionsEditor';
 import { ServiceFaqsEditor } from '../../../editors/ServiceFaqsEditor';
-import type { FaqsDraft } from '../../../editors/ServiceFaqsEditor';
+import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
 import { packageModule } from '@/components/admin/utils/moduleNotifications';
 import type { ShellActionSchema, ShellSchema } from '../../types';
 import type {
@@ -175,7 +173,7 @@ export interface ServiceFaqsShellData {
 // ── Package Summary (Commercial group, summary viewpoint) ────────────────────
 // The package station's primary module presented at a glance inside the
 // Service drawer's Connections tab. Read-only from this placement: the footer
-// routes into the Package workstation drawer via the step-supplied handler.
+// routes into the Package station drawer via the step-supplied handler.
 
 export interface ServicePackageSummaryShellData {
   headline: string;   // e.g. '2 tiers configured'

@@ -1,5 +1,5 @@
 import type { BasedOnTier, PromotionOverviewDraft } from '@/api/types/admin';
-import { TIER_KEYS, TIER_LABELS } from '../workstations/serviceDrawerShared';
+import { TIER_KEYS, TIER_LABELS } from '../stations/serviceDrawerShared';
 
 export function PromotionOverviewEditor({ draft, onChange }: {
   draft: PromotionOverviewDraft;

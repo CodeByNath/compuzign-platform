@@ -1,13 +1,8 @@
 import { apiClient } from '../client';
 import type {
   AcceptIntakeResponse,
-  AdminCatalogResponse,
-  PermanentDeleteResponse,
-  AdminServiceDetailResponse,
   AdminOverview,
   AdminRequestsResponse,
-  CreateServicePayload,
-  CreateServiceResponse,
   ServicePackageStationResponse,
   ServiceTierSaveResponse,
   PackageManagerResponse,
@@ -22,8 +17,6 @@ import type {
   TierModuleSavePayload,
   ServicePromotionStationResponse,
   ServicePromotionSaveResponse,
-  ModuleRevertResponse,
-  ModuleSettleResponse,
   PromotionTierPayload,
   PromotionModuleKey,
   PromotionOverviewDraft,
@@ -43,44 +36,14 @@ import type {
   PackageCategoryGroupDeleteResponse,
   PackageCategoryGroupListResponse,
   PackageCategoryGroupMutationResponse,
-  InclusionItem,
   RequestEntry,
-  ServiceFaqsPayload,
-  ServiceFaqsResponse,
-  ServiceInclusionsPayload,
-  ServiceInclusionsResponse,
-  ServiceOverviewPayload,
-  ServiceOverviewResponse,
-  ServiceStatusPayload,
-  ServiceStatusResponse,
   SurfacePackagesResponse,
   TierSavePayload,
-  CreateInclusionPoolItemResponse,
-  CreateFaqPoolItemResponse,
 } from '../types/admin';
+import type { InclusionItem } from '../types/pools';
 
-export function fetchAdminCatalog(platformStatus?: 'archived' | 'trashed'): Promise<AdminCatalogResponse> {
-  const path = platformStatus
-    ? `admin/services?platform_status=${platformStatus}`
-    : 'admin/services';
-  return apiClient.get<AdminCatalogResponse>(path);
-}
-
-export function restoreService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/restore`);
-}
-
-export function archiveService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'archived' });
-}
-
-export function trashService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'trashed' });
-}
-
-export function permanentDeleteService(serviceId: number): Promise<PermanentDeleteResponse> {
-  return apiClient.delete<PermanentDeleteResponse>(`admin/services/${serviceId}`);
-}
+// Service endpoint functions are owned by the Service Station and are NOT
+// re-exported here. Import them from '@/admin-station/stations/service'.
 
 export function fetchAdminOverview(): Promise<AdminOverview> {
   return apiClient.get<AdminOverview>('admin/overview');
@@ -566,29 +529,6 @@ export function setServicePackageStationPopular(
   );
 }
 
-// Phase 2 — P5 Step 2: immediate canonical pool creation. Service owns the pool;
-// the caller attaches the returned id to a tier's module draft in a separate save.
-export function createServiceInclusionPoolItem(
-  serviceId: number,
-  label:     string,
-): Promise<CreateInclusionPoolItemResponse> {
-  return apiClient.post<CreateInclusionPoolItemResponse>(
-    `admin/services/${serviceId}/inclusion-pool/items`,
-    { label },
-  );
-}
-
-export function createServiceFaqPoolItem(
-  serviceId: number,
-  question:  string,
-  answer:    string,
-): Promise<CreateFaqPoolItemResponse> {
-  return apiClient.post<CreateFaqPoolItemResponse>(
-    `admin/services/${serviceId}/faq-pool/items`,
-    { question, answer },
-  );
-}
-
 export function fetchAdminRequests(): Promise<AdminRequestsResponse> {
   return apiClient.get<AdminRequestsResponse>('admin/requests');
 }
@@ -605,56 +545,3 @@ export function fetchSurfacePackages(): Promise<SurfacePackagesResponse> {
   return apiClient.get<SurfacePackagesResponse>('admin/surface-packages');
 }
 
-export function updateServiceOverview(
-  serviceId: number,
-  payload: ServiceOverviewPayload,
-): Promise<ServiceOverviewResponse> {
-  return apiClient.post<ServiceOverviewResponse>(`admin/services/${serviceId}/overview`, payload);
-}
-
-export function updateServiceInclusions(
-  serviceId: number,
-  payload: ServiceInclusionsPayload,
-): Promise<ServiceInclusionsResponse> {
-  return apiClient.post<ServiceInclusionsResponse>(`admin/services/${serviceId}/inclusions`, payload);
-}
-
-export function updateServiceFaqs(
-  serviceId: number,
-  payload: ServiceFaqsPayload,
-): Promise<ServiceFaqsResponse> {
-  return apiClient.post<ServiceFaqsResponse>(`admin/services/${serviceId}/faqs`, payload);
-}
-
-export function updateServiceStatus(
-  serviceId: number,
-  payload: ServiceStatusPayload,
-): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, payload);
-}
-
-export function createService(payload: CreateServicePayload): Promise<CreateServiceResponse> {
-  return apiClient.post<CreateServiceResponse>('admin/services', payload);
-}
-
-export function fetchAdminServiceDetail(serviceId: number): Promise<AdminServiceDetailResponse> {
-  return apiClient.get<AdminServiceDetailResponse>(`admin/services/${serviceId}`);
-}
-
-export function settleServiceModule(
-  serviceId: number,
-  module: 'overview' | 'inclusions' | 'faqs',
-): Promise<ModuleSettleResponse> {
-  return apiClient.post<ModuleSettleResponse>(`admin/services/${serviceId}/${module}/settle`);
-}
-
-export function settleAllServiceModules(serviceId: number): Promise<ModuleSettleResponse> {
-  return apiClient.post<ModuleSettleResponse>(`admin/services/${serviceId}/settle`);
-}
-
-export function revertServiceModule(
-  serviceId: number,
-  module: 'overview' | 'inclusions' | 'faqs',
-): Promise<ModuleRevertResponse> {
-  return apiClient.post<ModuleRevertResponse>(`admin/services/${serviceId}/${module}/revert`);
-}

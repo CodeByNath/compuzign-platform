@@ -2,18 +2,20 @@
 
 ## Audit metadata
 
-Last audited: 2026-07-14 01:28 Australia/Brisbane
-Audited commit: `7026fd74a339805cc29e98c1340a01349c4fa2d6` (current working-tree changes reviewed)
+Last audited: 2026-07-16 Australia/Brisbane
+Audited commit: `a9f765f` (current working-tree changes reviewed)
 Audited paths:
 - `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php`
-- `wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminServicesController.php`
+- `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php`
 - `wp-content/plugins/compuzign-platform/resources/ts/api/types/admin.ts`
 - `wp-content/plugins/compuzign-platform/tests/tier-occupant-compatibility.php`
-Changes in audited revision: The Tier read projection was verified to expose stored `current_occupant.id` as `occupant_id` without changing Package Station persistence or lifecycle.
+Changes in audited revision: The `ServicePools` import moved to `Service\Support\ServicePools` when the Service module was established. Import path only — no Package Station behaviour, route, or persistence change.
 
 ## Entry guide
 
-This module owns the backend Package Station domain. `SurfacePackagesModule.php` registers health/read services; `PackageStationReadController.php` publishes the public Package Station read projection; `PackageManagerSchema.php` and `PackageSchema.php` define current sanitized shapes and readiness; `PackageCategoryGroups.php` manages Package-owned grouping rules. For Admin Tier detail, `PackageSchema::normaliseTierSlot()` exposes the existing `current_occupant.id` as nullable `occupant_id`; empty and legacy flat shells expose null.
+This module owns the backend Package Station domain. `SurfacePackagesModule.php` registers health/read services and both controllers; `PackageStationReadController.php` publishes the public Package Station read projection; `PackageStationController.php` owns the admin manager/tier/occupant-bin/popular REST mutations — moved here from the former `AdminServicesController`, with their Service-scoped URLs (`/admin/services/{id}/package-station/...`) deliberately unchanged, where `{id}` is navigation context only and never selects storage; `PackageManagerSchema.php` and `PackageSchema.php` define current sanitized shapes and readiness; `PackageCategoryGroups.php` manages Package-owned grouping rules. Promotions are a child collection of this station and are owned by the backend-only `Modules\Promotions` module, which holds no storage of its own and persists through this module's `PackageRepository` (see [Service Station](../../../../../../docs/code-map/service-station.md)). For Admin Tier detail, `PackageSchema::normaliseTierSlot()` exposes the existing `current_occupant.id` as nullable `occupant_id`; empty and legacy flat shells expose null.
+
+Tier saves carrying `new_inclusions`/`new_faqs` call `Service\Support\ServicePools` — the inclusion/FAQ pools are Service-owned, so this module must write through that contract rather than touching `cz_service_*` meta. It is the only Service internal this module may import; never import `ServiceController`.
 
 `PackageRepository.php` remains the persistence authority for the single `cz_package_station` WordPress option, request cache, promotions, relationship/pool projections, and one-time legacy Service-meta migration. `occupant_id` is projection-only: no field, collection, migration, or lifecycle rule was added. Admin controllers may mutate through this authority but must not create parallel storage. Do not duplicate Package Station schemas, promotion collections, Category Group assignments, legacy migration, Service catalogue ownership, or presentation status logic.
 

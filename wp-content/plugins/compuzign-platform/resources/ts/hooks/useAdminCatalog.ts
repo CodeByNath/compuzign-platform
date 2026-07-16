@@ -1,10 +1,10 @@
 import { useApi } from './useApi';
 import type { ApiResult } from './useApi';
-import { fetchAdminCatalog } from '@/api/endpoints/admin';
-import type { AdminCatalogResponse } from '@/api/types/admin';
+import { fetchAdminCatalog } from '@/admin-station/stations/service';
+import type { ServiceCatalogResponse } from '@/admin-station/stations/service';
 
 export function useAdminCatalog(
   opts?: { platformStatus?: 'archived' | 'trashed' },
-): ApiResult<AdminCatalogResponse> {
-  return useApi<AdminCatalogResponse>(() => fetchAdminCatalog(opts?.platformStatus));
+): ApiResult<ServiceCatalogResponse> {
+  return useApi<ServiceCatalogResponse>(() => fetchAdminCatalog(opts?.platformStatus));
 }

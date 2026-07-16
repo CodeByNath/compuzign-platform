@@ -1,12 +1,12 @@
-import type { WorkstationId } from '@/api/types/admin';
-import { WORKSTATION_LABELS } from './schema/workstations';
+import type { StationId } from '@/api/types/admin';
+import { STATION_LABELS } from './schema/stations';
 
 interface Props {
-  workstation: WorkstationId;
+  station: StationId;
   onToggleSidebar: () => void;
 }
 
-export function Topbar({ workstation, onToggleSidebar }: Props) {
+export function Topbar({ station, onToggleSidebar }: Props) {
   return (
     <header class="cz-admin-topbar">
       <button
@@ -18,7 +18,7 @@ export function Topbar({ workstation, onToggleSidebar }: Props) {
         ☰
       </button>
       <h1 class="cz-admin-topbar__title">
-        {WORKSTATION_LABELS[workstation] ?? 'Command Centre'}
+        {STATION_LABELS[station] ?? 'Command Centre'}
       </h1>
       <div class="cz-admin-topbar__brand">
         <span class="cz-admin-topbar__brand-name">CompuZign</span>

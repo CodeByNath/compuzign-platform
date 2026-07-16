@@ -20,11 +20,11 @@ Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminShell.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/DrawerTabs.tsx`
-- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceCatalogWorkstation.tsx`
-- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceViewStep.tsx`
-- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/workstations/ServiceTierStep.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCatalogStation.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceViewStep.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceTierStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/css/modules/admin.css`
-Current state: `ServiceCatalogWorkstation` is the “Your Service Manager” supply/configuration host. New Service and New Group launch from its Settings tab. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. Service and Tier entity drawers use the compact metadata header while their schema-owned Overview modules and inline editors remain authoritative. `PackageManagerWorkstation` renders the separate `packages` composition: supported Tier cards and Promotions only. The admin frame is full-width and left-aligned; the sidebar defaults to expanded above 1920px and icon-only at or below it.
+Current state: `ServiceCatalogStation` is the “Your Service Manager” supply/configuration host. New Service and New Group launch from its Settings tab. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. Service and Tier entity drawers use the compact metadata header while their schema-owned Overview modules and inline editors remain authoritative. `PackageManagerStation` renders the separate `packages` composition: supported Tier cards and Promotions only. The admin frame is full-width and left-aligned; the sidebar defaults to expanded above 1920px and icon-only at or below it.
 
 ## Entry guide
 

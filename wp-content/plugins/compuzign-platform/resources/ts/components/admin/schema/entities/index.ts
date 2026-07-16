@@ -1,7 +1,7 @@
 // Station manifest registry (Schema architecture S4, §9).
 //
 // One entry per station. Requests keeps its own RequestLifecycle and is out
-// of scope for station manifests in v1 (§8); it joins the workstation
+// of scope for station manifests in v1 (§8); it joins the station
 // registry in S5 as { kind: 'component' }.
 
 import type { EntitySchema } from '../types';

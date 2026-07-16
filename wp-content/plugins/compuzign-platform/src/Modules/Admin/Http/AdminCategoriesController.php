@@ -26,10 +26,17 @@ use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
  * access goes through CategoryMeta (the sole reader/writer of cz_category_meta);
  * every status write is a StationLifecycle-computed transition.
  *
- * The inline convenience routes (/admin/service-categories) are untouched and
- * keep producing immediately-usable categories (D3: no meta = lazy active).
+ * The inline convenience routes (/admin/service-categories) now live here too,
+ * moved from AdminServicesController because they own Category terms rather
+ * than the Service entity; their URLs and behaviour are unchanged. They keep
+ * producing immediately-usable categories (D3: no meta = lazy active).
  * Station-created categories follow the station convention instead: born
  * 'disabled', activated by Publish.
+ *
+ * Note both this class and Service\Http\ServiceController expose an
+ * `updateStatus` handler. They are distinct routes (PATCH
+ * /admin/categories/{id}/status here; POST /admin/services/{id}/status there)
+ * and must never be cross-wired — see docs/code-map/service-station.md.
  */
 class AdminCategoriesController
 {
@@ -153,6 +160,24 @@ class AdminCategoriesController
                 'id' => ['required' => true, 'type' => 'integer'],
             ],
         ]);
+
+        // ── Inline service category creation ─────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/service-categories', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createServiceCategory'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
+        // ── Inline service category update ────────────────────────────────────
+        // ── Inline service category update ────────────────────────────────────
+        register_rest_route('compuzign/v1', '/admin/service-categories/(?P<id>\d+)', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'updateServiceCategory'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'id' => ['required' => true, 'type' => 'integer'],
+            ],
+        ]);
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
@@ -248,7 +273,7 @@ class AdminCategoriesController
         }
 
         // module_status.overview is always 'pending' on creation, regardless of
-        // completeness — matching AdminServicesController::createService exactly
+        // completeness — matching ServiceController::createService exactly
         // (bug fix: settling immediately when complete skipped the 'pending'
         // transition, which is the only state categoryOverviewModule.resolveStatus
         // maps to 'pending-full' — the state canPublish requires. A category
@@ -472,6 +497,101 @@ class AdminCategoriesController
         }
 
         return rest_ensure_response(['success' => true, 'deleted' => $termId]);
+    }
+
+    // ── Inline service category creation/update ───────────────────────────────
+    //
+    // Moved here from AdminServicesController: these own Category terms, not the
+    // Service entity. Their /admin/service-categories/... URLs are unchanged.
+
+    public function createServiceCategory(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $body = $request->get_json_params();
+        $name = sanitize_text_field((string) ($body['name'] ?? ''));
+        $desc = sanitize_textarea_field((string) ($body['description'] ?? ''));
+
+        if ($name === '') {
+            return rest_ensure_response(['success' => false, 'message' => 'Category name is required.']);
+        }
+
+        // Description is stored as CompuZign-owned term meta, not the native WP term description.
+        $result = wp_insert_term($name, CategoryMeta::TAXONOMY);
+
+        if (is_wp_error($result)) {
+            // Duplicate — return the existing term so the frontend can select it.
+            if ($result->get_error_code() === 'term_exists') {
+                $existingId = (int) $result->get_error_data();
+                $term       = get_term($existingId, CategoryMeta::TAXONOMY);
+                if ($term instanceof \WP_Term) {
+                    return rest_ensure_response([
+                        'success'  => true,
+                        'existing' => true,
+                        'category' => [
+                            'id'          => (int) $term->term_id,
+                            'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                            'slug'        => $term->slug,
+                            'description' => get_term_meta((int) $term->term_id, 'cz_category_description', true) ?: '',
+                        ],
+                    ]);
+                }
+            }
+            return rest_ensure_response(['success' => false, 'message' => $result->get_error_message()]);
+        }
+
+        $termId = (int) $result['term_id'];
+
+        if ($desc !== '') {
+            update_term_meta($termId, 'cz_category_description', $desc);
+        }
+
+        $term = get_term($termId, CategoryMeta::TAXONOMY);
+
+        return rest_ensure_response([
+            'success'  => true,
+            'existing' => false,
+            'category' => [
+                'id'          => $termId,
+                'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'        => $term->slug,
+                'description' => get_term_meta($termId, 'cz_category_description', true) ?: '',
+            ],
+        ]);
+    }
+
+    // ── Inline service category update ───────────────────────────────────────
+
+    public function updateServiceCategory(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $termId = (int) $request->get_param('id');
+        $term   = get_term($termId, CategoryMeta::TAXONOMY);
+
+        if (!$term instanceof \WP_Term) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+        }
+
+        $body = $request->get_json_params();
+        $name = isset($body['name']) ? sanitize_text_field((string) $body['name']) : null;
+        $desc = isset($body['description']) ? sanitize_textarea_field((string) $body['description']) : null;
+
+        if ($name !== null && $name !== '') {
+            wp_update_term($termId, CategoryMeta::TAXONOMY, ['name' => $name]);
+        }
+
+        if ($desc !== null) {
+            update_term_meta($termId, 'cz_category_description', $desc);
+        }
+
+        $updated = get_term($termId, CategoryMeta::TAXONOMY);
+
+        return rest_ensure_response([
+            'success'  => true,
+            'category' => [
+                'id'          => $termId,
+                'name'        => html_entity_decode($updated->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'        => $updated->slug,
+                'description' => get_term_meta($termId, 'cz_category_description', true) ?: '',
+            ],
+        ]);
     }
 
     // ── Permissions ───────────────────────────────────────────────────────────

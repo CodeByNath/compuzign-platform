@@ -15,7 +15,10 @@
  */
 
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
-import type { OverviewDraftData, StationSummary, SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
+import type { SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
+// Targets the station's './types' module, not its public barrel: useServiceStation
+// imports this file, so going through the barrel would close a cycle.
+import type { OverviewDraftData, ServiceSummary } from '@/admin-station/stations/service/types';
 import {
   PILL_META,
   PRESENTATION_PILL,
@@ -283,7 +286,7 @@ export interface ServiceStationRowSummary {
 // ===========================================================================
 // SECTION: CATALOGUE_STATUS
 // ===========================================================================
-// Moved from ServiceCatalogWorkstation in S3b so the catalog TableSchema can
+// Moved from ServiceCatalogStation in S3b so the catalog TableSchema can
 // project it. Filter buckets and the display pill stay separate on purpose:
 // the bucket drives filtering; the label distinguishes a live service with
 // unsettled changes without altering which bucket it filters into.
@@ -299,7 +302,7 @@ export const STATION_STATUS_PILL: Record<StationStatus, PillMeta> = {
   'disabled': PRESENTATION_PILL.disabled,
 };
 
-export function resolveStationStatus(station: StationSummary): StationStatus {
+export function resolveStationStatus(station: ServiceSummary): StationStatus {
   if (station.platform_status === 'disabled') {
     // Never-published: overview not yet settled — show Pending, not Disabled.
     // Disabled is reserved for services that were once live and explicitly turned off.
@@ -316,7 +319,7 @@ export function resolveStationStatus(station: StationSummary): StationStatus {
 // from a never-published one — without altering filtering. Frontend visibility is
 // gated only by platform_status; "Active · changes pending" still means the service
 // is live on the public Cost Builder.
-export function stationStatusLabel(station: StationSummary): PillMeta {
+export function stationStatusLabel(station: ServiceSummary): PillMeta {
   if (station.platform_status === 'disabled') {
     return (station.module_status as Record<string, string>)?.overview !== 'settled'
       ? STATION_STATUS_PILL.pending

@@ -4,24 +4,24 @@
 // travel preset (Archived / Trash / Bin). Cells are pure data projections;
 // status pills delegate to the Presentation Status Contract chokepoint
 // (stationStatusLabel / TRAVEL_PILL); behaviour arrives from the owning
-// workstation as EntityTable handlers. Since S4 these are reached through the
+// station as EntityTable handlers. Since S4 these are reached through the
 // service manifest's placements (SERVICE_ENTITY.placements.table / .travel) —
 // this file is their definition home, the manifest is their address.
 
-import type { StationSummary } from '@/api/types/admin';
+import type { ServiceSummary } from '@/admin-station/stations/service';
 import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
 import { stationStatusLabel } from '@/components/admin/utils/moduleStatus';
 import type { StationCommercialSummary } from '@/components/admin/utils/moduleStatus';
 import { TRAVEL_PILL } from '../presentation';
 import type { ColumnDef, RowActionDef, TableSchema } from '../types';
-import { TIER_KEYS, TIER_LABELS } from '../../workstations/serviceDrawerShared';
+import { TIER_KEYS, TIER_LABELS } from '../../stations/serviceDrawerShared';
 
 // ── Catalog table ─────────────────────────────────────────────────────────────
-// Rows are assembled by the workstation as station + pre-resolved commercial
+// Rows are assembled by the station as station + pre-resolved commercial
 // summary (the summary needs the surface-package list, which is row-external).
 
 export interface ServiceCatalogRow {
-  station: StationSummary;
+  station: ServiceSummary;
   summary: StationCommercialSummary;
 }
 
@@ -62,7 +62,7 @@ export const serviceCatalogTable: TableSchema<ServiceCatalogRow> = {
 // ── Travel preset (Archived / Trash / Bin) ────────────────────────────────────
 
 // Trash glyph shared by the destructive travel actions (previously duplicated
-// inline in the Bin and Trash workstations). Exported since S6: the category
+// inline in the Bin and Trash stations). Exported since S6: the category
 // travel tables are the second consumer (Governance Rule extraction point).
 export const TRASH_ICON = (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="drawerModule__icon-svg" aria-hidden="true" focusable="false">
@@ -72,7 +72,7 @@ export const TRASH_ICON = (
 
 // Shared travel columns: title + travel-state pill (data labels — travel
 // surfaces only, per the Presentation Status Contract).
-const TRAVEL_COLUMNS: ColumnDef<StationSummary>[] = [
+const TRAVEL_COLUMNS: ColumnDef<ServiceSummary>[] = [
   {
     id: 'service', label: 'Service',
     className: 'cz-sc-table__service', cellClassName: 'cz-sc-table__service cz-sc-table__name',
@@ -88,11 +88,11 @@ const TRAVEL_COLUMNS: ColumnDef<StationSummary>[] = [
   },
 ];
 
-const RESTORE_ACTION: RowActionDef<StationSummary> = {
+const RESTORE_ACTION: RowActionDef<ServiceSummary> = {
   id: 'restore', label: 'Restore', intent: 'secondary', busyLabel: 'Restoring…',
 };
 
-export const serviceArchivedTable: TableSchema<StationSummary> = {
+export const serviceArchivedTable: TableSchema<ServiceSummary> = {
   columns: TRAVEL_COLUMNS,
   rowActions: [
     RESTORE_ACTION,
@@ -106,7 +106,7 @@ export const serviceArchivedTable: TableSchema<StationSummary> = {
   scope: 'archived',
 };
 
-export const serviceTrashedTable: TableSchema<StationSummary> = {
+export const serviceTrashedTable: TableSchema<ServiceSummary> = {
   columns: TRAVEL_COLUMNS,
   rowActions: [
     RESTORE_ACTION,
@@ -122,7 +122,7 @@ export const serviceTrashedTable: TableSchema<StationSummary> = {
 
 // Bin consolidates both travel scopes: the destructive action is
 // origin-aware — archived rows move to trash, trashed rows delete.
-export const serviceBinTable: TableSchema<StationSummary> = {
+export const serviceBinTable: TableSchema<ServiceSummary> = {
   columns: TRAVEL_COLUMNS,
   rowActions: [
     RESTORE_ACTION,

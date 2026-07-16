@@ -4,7 +4,7 @@
 // the travel preset (Archived / Trash / Bin — bin is the consumed schema;
 // archived/trashed are declared for travel-preset completeness). Cells are pure
 // data projections; status pills delegate to the Presentation Status Contract
-// chokepoint; behaviour arrives from the owning workstation as EntityTable
+// chokepoint; behaviour arrives from the owning station as EntityTable
 // handlers. Reached through CATEGORY_GROUP_ENTITY.placements.table / .travel.
 
 import type { CategoryGroupStationItem } from '@/api/types/admin';

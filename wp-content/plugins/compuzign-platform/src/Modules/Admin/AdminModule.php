@@ -8,7 +8,6 @@ use CompuZign\Platform\Modules\Admin\Http\AdminCategoryGroupsController;
 use CompuZign\Platform\Modules\Admin\Http\AdminController;
 use CompuZign\Platform\Modules\Admin\Http\AdminPackageCategoryGroupsController;
 use CompuZign\Platform\Modules\Admin\Http\AdminRequestsController;
-use CompuZign\Platform\Modules\Admin\Http\AdminServicesController;
 
 class AdminModule
 {
@@ -17,7 +16,6 @@ class AdminModule
         (new AdminRouter())->register();
         (new AdminController())->register();
         (new AdminRequestsController())->register();
-        (new AdminServicesController())->register();
         (new AdminCategoriesController())->register();
         (new AdminCategoryGroupsController())->register();
         (new AdminPackageCategoryGroupsController())->register();
