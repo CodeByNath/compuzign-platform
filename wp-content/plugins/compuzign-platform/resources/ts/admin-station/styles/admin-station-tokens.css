@@ -38,16 +38,80 @@
   --station-presentation-preferred-height: 30dvh;
   --station-presentation-max-height: 360px;
 
+  /* Accent identity — theme-independent, so accent-bearing surfaces carry the
+   * same hue in both light and dark. The navigation tokens below derive from
+   * this family rather than restating the same values. */
+  --station-accent: #5c6ef5;
+  --station-accent-strong: #7080ff;
+  --station-accent-soft-bg: rgba(92, 110, 245, 0.12);
+  --station-accent-border: rgba(92, 110, 245, 0.45);
+  /* Foreground on a filled accent surface. Theme-independent, because the
+   * accent it sits on is. */
+  --station-accent-on: #ffffff;
+  /* The seam between a split control's two halves — a divider drawn on the
+   * filled accent, never a gap. */
+  --station-accent-seam: rgba(255, 255, 255, 0.30);
+
   /* Navigation tabs — derived from the admin secondary (accent-outline) button
    * style. Theme-independent so the Header pills carry the same accent identity
    * in both light and dark. */
-  --station-nav-accent: #5c6ef5;
-  --station-nav-accent-strong: #7080ff;
+  --station-nav-accent: var(--station-accent);
+  --station-nav-accent-strong: var(--station-accent-strong);
   --station-nav-bg: transparent;
   --station-nav-border: var(--station-nav-accent);
   --station-nav-text: #5f6ccc;
-  --station-nav-hover-bg: rgba(92, 110, 245, 0.12);
+  --station-nav-hover-bg: var(--station-accent-soft-bg);
   --station-nav-active-bg: rgba(92, 110, 245, 0.15);
+
+  /* Entity cards — the presentation card system (Category Group cards are the
+   * first consumer). Shape and rhythm only; colour comes from the surface,
+   * accent, and status families.
+   *
+   * Direction: restrained and near-monochrome. The card reads as a quiet dark
+   * surface with a subtle edge; the accent is spent in three small places only
+   * (the medallion glyph, the code pill, and the primary action), never as
+   * outlines on every element.
+   *
+   * Sized to fit INSIDE the approved presentation height contract
+   * (clamp(220px, 30dvh, 360px)) rather than the shell being grown to fit the
+   * card: a full card row lands at roughly 310px. Past that — a long
+   * description, a short viewport — the region's own `__content` scroller takes
+   * the overflow, which is the approved behaviour. */
+  --station-card-radius: 16px;
+  --station-card-pad: 16px;
+  --station-card-gap: 12px;
+  --station-card-icon-size: 44px;
+  --station-card-icon-radius: 999px;
+  --station-card-glyph-size: 24px;
+
+  /* Metric blocks — the repeating value/label tiles inside a card. Neutral
+   * edges: they are data, not accent surfaces. The min size is also the reflow
+   * floor: the repeater auto-fits against it, so metrics drop to fewer per row
+   * intrinsically and need no breakpoint. */
+  --station-metric-radius: 12px;
+  --station-metric-min-size: 68px;
+  --station-metric-pad: 12px;
+
+  /* Small pills (status, code) and compact controls. */
+  --station-pill-pad-y: 3px;
+  --station-pill-pad-x: 10px;
+  --station-dot-size: 6px;
+  --station-control-height: 38px;
+  --station-control-pad-x: 14px;
+  --station-menu-min-width: 180px;
+  --station-disabled-opacity: 0.5;
+
+  /* Layering. Anchored menus share one level: they are siblings in the page, not
+   * a stack, and the slide-menu layer (80) stays above them. */
+  --station-z-dropdown: 70;
+
+  /* Type scale — card typography. */
+  --station-text-xs: 11px;
+  --station-text-sm: 13px;
+  --station-text-xl: 22px;
+  --station-tracking-wide: 0.08em;
+  --station-tracking-tight: -0.01em;
+  --station-line-snug: 1.45;
 
   /* Light theme (default). */
   --station-sidebar-bg: #f4f5f7;
@@ -63,6 +127,19 @@
   --station-icon: #3d434e;
   --station-shadow: 0 10px 30px rgba(17, 20, 24, 0.14);
   --station-backdrop: rgba(20, 22, 28, 0.38);
+
+  /* Status families — one per Presentation Status Contract pill (Active /
+   * Pending / Disabled). The contract owns which status maps to which pill;
+   * these only give that pill a station-native appearance. */
+  --station-status-active-fg: #1a7f43;
+  --station-status-active-bg: rgba(26, 127, 67, 0.10);
+  --station-status-active-border: rgba(26, 127, 67, 0.38);
+  --station-status-pending-fg: #8a5a00;
+  --station-status-pending-bg: rgba(138, 90, 0, 0.10);
+  --station-status-pending-border: rgba(138, 90, 0, 0.38);
+  --station-status-inactive-fg: #a3323b;
+  --station-status-inactive-bg: rgba(163, 50, 59, 0.10);
+  --station-status-inactive-border: rgba(163, 50, 59, 0.38);
 }
 
 .cz-admin-station[data-station-theme='light'] {
@@ -79,6 +156,16 @@
   --station-icon: #3d434e;
   --station-shadow: 0 10px 30px rgba(17, 20, 24, 0.14);
   --station-backdrop: rgba(20, 22, 28, 0.38);
+
+  --station-status-active-fg: #1a7f43;
+  --station-status-active-bg: rgba(26, 127, 67, 0.10);
+  --station-status-active-border: rgba(26, 127, 67, 0.38);
+  --station-status-pending-fg: #8a5a00;
+  --station-status-pending-bg: rgba(138, 90, 0, 0.10);
+  --station-status-pending-border: rgba(138, 90, 0, 0.38);
+  --station-status-inactive-fg: #a3323b;
+  --station-status-inactive-bg: rgba(163, 50, 59, 0.10);
+  --station-status-inactive-border: rgba(163, 50, 59, 0.38);
 }
 
 .cz-admin-station[data-station-theme='dark'] {
@@ -95,4 +182,14 @@
   --station-icon: #c4c9d4;
   --station-shadow: 0 12px 34px rgba(0, 0, 0, 0.50);
   --station-backdrop: rgba(0, 0, 0, 0.55);
+
+  --station-status-active-fg: #4ade80;
+  --station-status-active-bg: rgba(74, 222, 128, 0.12);
+  --station-status-active-border: rgba(74, 222, 128, 0.42);
+  --station-status-pending-fg: #f5c451;
+  --station-status-pending-bg: rgba(245, 196, 81, 0.12);
+  --station-status-pending-border: rgba(245, 196, 81, 0.42);
+  --station-status-inactive-fg: #f2727f;
+  --station-status-inactive-bg: rgba(242, 114, 127, 0.12);
+  --station-status-inactive-border: rgba(242, 114, 127, 0.42);
 }

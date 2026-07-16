@@ -62,11 +62,13 @@
 }
 
 .cz-station-brand {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 800;
+  font-size: 1.25rem;
   letter-spacing: -0.01em;
   white-space: nowrap;
   flex: 0 0 auto;
+  text-transform: uppercase;
+  line-height: 1.5em;
 }
 
 /* Icon-only controls (menu, theme, apps, user). */
@@ -89,9 +91,14 @@
   background: var(--station-hover-bg);
 }
 
-.cz-station-iconbtn[aria-expanded='true'],
-.cz-station-iconbtn[aria-pressed='true'] {
+.cz-station-iconbtn[aria-expanded='true'] {
   background: var(--station-active-bg);
+  color: var(--station-text);
+}
+
+/* aria-pressed (theme toggle) is a persistent state, not a transient open
+   panel — a standing fill would single it out from the other header icons. */
+.cz-station-iconbtn[aria-pressed='true'] {
   color: var(--station-text);
 }
 
@@ -180,7 +187,7 @@
   border-radius: var(--station-dropdown-radius);
   background: var(--station-surface-elevated);
   box-shadow: var(--station-shadow);
-  z-index: 70;
+  z-index: var(--station-z-dropdown);
 }
 
 /* ── Body / Footer ──────────────────────────────────────────────────────── */
@@ -226,7 +233,14 @@
 /* ── Presentation region ────────────────────────────────────────────────── */
 
 /* Bounded height: the preferred value squeezes with the viewport, while the min
-   and max stop it collapsing on short screens or sprawling on tall ones. */
+   and max stop it collapsing on short screens or sprawling on tall ones. This is
+   the approved shell height contract — a rendered height, not a ceiling. Content
+   that exceeds it overflows into `__content`, the region's own scroller; the
+   card grid fits the shell rather than the shell growing to fit the card.
+
+   No surface of its own: the region contributes no border, background, radius,
+   or separator, so the content it holds provides the visual grouping and there
+   is no panel behind it. */
 .cz-station-presentation {
   grid-column: 1 / -1;
   display: flex;
@@ -238,9 +252,6 @@
   );
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-dropdown-radius);
-  background: var(--station-surface-elevated);
 }
 
 /* Fixed framing — station status and actions stay reachable while content
@@ -282,12 +293,17 @@
   color: var(--station-text-muted);
 }
 
-/* The only scroll inside the presentation region. */
+/* The only scroll inside the presentation region.
+
+   Inline padding would double-inset the content: the Home shell already gutters
+   the body, and the region has no surface of its own to pad against. Only a
+   small block rhythm remains, so content clears the shell edges when it
+   scrolls. */
 .cz-station-presentation__content {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--station-body-pad);
+  padding-block: var(--station-grid-gap);
 }
 
 /* ── Station-group region ───────────────────────────────────────────────── */
@@ -362,6 +378,353 @@
   padding: var(--station-body-pad);
   color: var(--station-text-muted);
   text-align: center;
+}
+
+/* ── Status pill (Presentation Status Contract renderer) ────────────────── */
+
+/* The station's visual definition of the contract's pill classes.
+   `components/admin/schema/presentation.ts` owns which status maps to which
+   class and label and is the only place that mapping may live; these rules add
+   appearance to those classes and resolve nothing.
+
+   The old admin stylesheet defines the same classes, but the two can never
+   collide: the Admin Station ships its own bundle and never loads it, and these
+   rules are scoped under `.cz-admin-station` regardless. */
+.cz-station-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--station-grid-gap);
+  flex: 0 0 auto;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--station-pill-radius);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cz-station-status-pill__dot {
+  width: var(--station-dot-size);
+  height: var(--station-dot-size);
+  border-radius: var(--station-pill-radius);
+  background: currentColor;
+}
+
+.cz-station-status-pill.cz-module-status-pill--active {
+  border-color: var(--station-status-active-border);
+  background: var(--station-status-active-bg);
+  color: var(--station-status-active-fg);
+}
+
+.cz-station-status-pill.cz-module-status-pill--pending {
+  border-color: var(--station-status-pending-border);
+  background: var(--station-status-pending-bg);
+  color: var(--station-status-pending-fg);
+}
+
+.cz-station-status-pill.cz-module-status-pill--inactive {
+  border-color: var(--station-status-inactive-border);
+  background: var(--station-status-inactive-bg);
+  color: var(--station-status-inactive-fg);
+}
+
+/* ── Metric block ───────────────────────────────────────────────────────── */
+
+/* Neutral by design: metric tiles are data, not accent surfaces. Consistent
+   height and centred content, so a row of them reads as one instrument panel. */
+.cz-station-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--station-pill-pad-y);
+  min-height: var(--station-metric-min-size);
+  padding: var(--station-metric-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-metric-radius);
+  background: var(--station-hover-bg);
+  text-align: center;
+}
+
+.cz-station-metric__icon {
+  color: var(--station-text-muted);
+}
+
+.cz-station-metric__label {
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--station-tracking-wide);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cz-station-metric__value {
+  color: var(--station-text);
+  font-size: var(--station-text-xl);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── Split action ───────────────────────────────────────────────────────── */
+
+/* One unified outer shape. The halves are flush siblings — the primary drops its
+   right border and the trigger's left border becomes the seam — so there is no
+   gap between them and the outer radius belongs to the group. */
+.cz-station-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+}
+
+.cz-station-split__primary,
+.cz-station-split__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--station-grid-gap);
+  height: var(--station-control-height);
+  border: 1px solid var(--station-accent);
+  /* Accent dose 3 of 3 — the card's single filled element. */
+  background: var(--station-accent);
+  color: var(--station-accent-on);
+  font: inherit;
+  font-size: var(--station-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.cz-station-split__primary:hover:not(:disabled),
+.cz-station-split__trigger:hover:not(:disabled),
+.cz-station-split__trigger[aria-expanded='true'] {
+  background: var(--station-accent-strong);
+  border-color: var(--station-accent-strong);
+}
+
+.cz-station-split__primary:disabled,
+.cz-station-split__trigger:disabled {
+  opacity: var(--station-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.cz-station-split__primary {
+  padding-inline: var(--station-control-pad-x);
+  border-start-start-radius: var(--station-control-radius);
+  border-end-start-radius: var(--station-control-radius);
+  border-right-width: 0;
+}
+
+/* No trigger rendered (a single action): the primary is the whole shape. */
+.cz-station-split__primary:only-child {
+  border-radius: var(--station-control-radius);
+  border-right-width: 1px;
+}
+
+.cz-station-split__trigger {
+  width: var(--station-control-height);
+  padding: 0;
+  border-start-end-radius: var(--station-control-radius);
+  border-end-end-radius: var(--station-control-radius);
+  border-left-color: var(--station-accent-seam);
+}
+
+.cz-station-split__primary:focus-visible,
+.cz-station-split__trigger:focus-visible,
+.cz-station-split__item:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+.cz-station-split__menu {
+  position: absolute;
+  top: calc(100% + var(--station-grid-gap));
+  right: 0;
+  min-width: var(--station-menu-min-width);
+  padding: var(--station-grid-gap);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-dropdown-radius);
+  background: var(--station-surface-elevated);
+  box-shadow: var(--station-shadow);
+  z-index: var(--station-z-dropdown);
+}
+
+.cz-station-split__item {
+  display: flex;
+  align-items: center;
+  gap: var(--station-grid-gap);
+  width: 100%;
+  height: var(--station-control-height);
+  padding-inline: var(--station-control-pad-x);
+  border: 0;
+  border-radius: var(--station-control-radius);
+  background: transparent;
+  color: var(--station-text);
+  font: inherit;
+  font-size: var(--station-text-sm);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.cz-station-split__item:hover:not(:disabled) {
+  background: var(--station-hover-bg);
+}
+
+.cz-station-split__item:disabled {
+  opacity: var(--station-disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* Rendered only when the card's data marks an action destructive. Declared after
+   the accent hover rules above so these win at equal specificity. */
+.cz-station-split__item--destructive {
+  color: var(--station-status-inactive-fg);
+}
+
+.cz-station-split__item--destructive:hover:not(:disabled) {
+  background: var(--station-status-inactive-bg);
+}
+
+/* A destructive primary must not turn accent-blue on hover, so this restates the
+   base fill at the hover rule's specificity. It holds the same colour rather
+   than shading: no token exists for a hover shade on a filled destructive
+   surface, and inventing a component-local one is exactly what the token rules
+   forbid. Reported as a token gap; no card supplies a destructive primary yet. */
+.cz-station-split__primary--destructive,
+.cz-station-split__primary--destructive:hover:not(:disabled) {
+  border-color: var(--station-status-inactive-fg);
+  background: var(--station-status-inactive-fg);
+}
+
+/* ── Category Group card grid ───────────────────────────────────────────── */
+
+/* The Admin Station's twelve-column grid, re-established inside the presentation
+   region. Cards claim column spans rather than fixed widths, so the desktop
+   three-across comes from the grid (12 / 4) and not from a hardcoded size.
+   Narrower spans are in admin-station-responsive.css. */
+.cz-cg-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--station-grid-columns), minmax(0, 1fr));
+  gap: var(--station-card-gap);
+  align-items: start;
+}
+
+.cz-cg-grid__cell {
+  grid-column: span 4;
+  min-width: 0;
+}
+
+/* ── Category Group card ────────────────────────────────────────────────── */
+
+/* Self-contained surface. Its own edge and radius are the only edge treatment —
+   there are no separators between the header, body, metrics, or actions, which
+   are spaced apart by the card gap alone. */
+.cz-cg-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  height: 100%;
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+}
+
+.cz-cg-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--station-card-gap);
+}
+
+.cz-cg-card__medallion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-hover-bg);
+  /* Accent dose 1 of 3 — the glyph carries the colour, not the medallion. */
+  color: var(--station-accent);
+}
+
+.cz-cg-card__glyph {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+/* Takes the card's slack, so metrics and actions sit on a shared baseline across
+   a row however long each description runs. */
+.cz-cg-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-grid-gap);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cz-cg-card__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--station-grid-gap);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.cz-cg-card__name {
+  margin: 0;
+  min-width: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-xl);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-tight);
+  overflow-wrap: anywhere;
+}
+
+/* Accent dose 2 of 3. */
+.cz-cg-card__code {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid var(--station-accent-border);
+  border-radius: var(--station-pill-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-strong);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cz-cg-card__description {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: var(--station-line-snug);
+}
+
+/* The metric repeater. `auto-fit` against a token floor keeps the blocks equal
+   width when space permits and reflows them to fewer per row when it does not —
+   so any number of metrics wraps without overflowing. */
+.cz-cg-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--station-metric-min-size), 1fr));
+  gap: var(--station-grid-gap);
+}
+
+.cz-cg-card__actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ── Slide menu ─────────────────────────────────────────────────────────── */

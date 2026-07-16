@@ -1,44 +1,55 @@
 // Body — hosts the Admin Station Home shell.
 //
-// The placeholders below are neutral development scaffolding, not station
-// content: they exist only to prove the Home shell accepts and renders a dynamic
-// configuration, and to make layout, overflow, and responsiveness observable. No
-// station is connected yet. When the first station arrives it supplies the
-// presentation and groups, and this block is deleted — nothing else here changes.
+// The presentation region now renders the Category Group card grid and nothing
+// else: no eyebrow, title, description, status, or actions are supplied, so the
+// Home shell omits its framing entirely and the cards are the only content. The
+// framing contract itself is untouched and stays available to future stations.
+//
+// The data is a temporary neutral mock (see mockCategoryGroups) — no real
+// Category Station is connected. Swapping in the station's read replaces the
+// items passed here and changes nothing in the card tree.
+//
+// No groups are supplied. The former placeholder tabs were development
+// scaffolding, and a labelled tab is indistinguishable at a glance from a real
+// station group — so the region falls to the Home shell's own no-group
+// behaviour rather than showing demonstration tabs beside real card content.
+// The dynamic tab component is untouched and renders whatever a future station
+// hands it; this file simply hands it nothing yet.
 
+import { useCallback } from 'preact/hooks';
 import { AdminStationHome } from '../home/AdminStationHome';
-import type { AdminStationGroup, AdminStationPresentation } from '../home/stationHome';
-
-const placeholderPresentation: AdminStationPresentation = {
-  eyebrow: 'Placeholder',
-  title: 'Presentation region',
-  description:
-    'Neutral placeholder. A station supplies this region through the Home presentation contract — title, description, visual, summary, metrics, status, actions, or its own content. The framing above holds its place while this area scrolls.',
-};
-
-const placeholderGroups: AdminStationGroup[] = [
-  {
-    id: 'placeholder-one',
-    label: 'Placeholder one',
-    content: <p>Placeholder group panel. A station supplies this content.</p>,
-  },
-  {
-    id: 'placeholder-two',
-    label: 'Placeholder two',
-    content: <p>A second placeholder panel, proving the tabs switch content.</p>,
-  },
-  {
-    id: 'placeholder-disabled',
-    label: 'Placeholder disabled',
-    disabled: true,
-    content: <p>Unreachable: a disabled group can never become active.</p>,
-  },
-];
+import { CategoryGroupCardGrid } from '../presentation/category-groups/CategoryGroupCardGrid';
+import { mockCategoryGroupCards } from '../presentation/category-groups/mockCategoryGroups';
+import {
+  toCategoryGroupDrawerRequest,
+  openCategoryGroupDrawer,
+} from '../presentation/category-groups/categoryGroupDrawer';
+import type { CategoryGroupCardActionEvent } from '../presentation/category-groups/types';
 
 export function AdminStationBody() {
+  // The card action seam. Every action arrives carrying the dispatching card's
+  // own id/key, so the request describes the acted-on card and never the sample.
+  // The drawer it requests does not exist yet — see categoryGroupDrawer.ts.
+  const handleCategoryGroupAction = useCallback((event: CategoryGroupCardActionEvent) => {
+    const request = toCategoryGroupDrawerRequest(event);
+    if (!request) {
+      return;
+    }
+    openCategoryGroupDrawer(request);
+  }, []);
+
   return (
     <main class="cz-admin-station__body">
-      <AdminStationHome presentation={placeholderPresentation} groups={placeholderGroups} />
+      <AdminStationHome
+        presentation={{
+          content: (
+            <CategoryGroupCardGrid
+              items={mockCategoryGroupCards}
+              onAction={handleCategoryGroupAction}
+            />
+          ),
+        }}
+      />
     </main>
   );
 }

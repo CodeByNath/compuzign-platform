@@ -12,6 +12,24 @@
   .cz-station-home {
     padding-inline: var(--station-body-pad-sm);
   }
+
+  /* Card grid — one card per row. Column spans only, never widths: three across
+     (12 / 4) is the desktop default set in admin-station.css, and this claims
+     all twelve of the same columns.
+
+     Deliberately hosted in this existing shell breakpoint rather than given a
+     component breakpoint of its own — a card grid is not a reason to invent a
+     new global boundary. The intermediate two-across step is therefore absent:
+     there is no global tablet breakpoint to host it, and that gap is reported
+     rather than papered over with an arbitrary component value.
+
+     Nothing overflows in the tablet range this leaves at three across, down to
+     the boundary above: the metric blocks reflow intrinsically (auto-fit
+     against --station-metric-min-size), so they drop to two per row and then
+     one as the card narrows, without any breakpoint governing them. */
+  .cz-cg-grid__cell {
+    grid-column: span 12;
+  }
 }
 
 /* Narrow tablets / large phones — pills scroll within the header row. */
