@@ -561,7 +561,7 @@ export function ServiceCatalogStation({ refreshKey, openAction, setNavigationInt
           />
         )}
       </Station.Content>
-      {footer && <div class="cz-package-manager-workstation__footer">{footer}</div>}
+      {footer && <div class="cz-service-manager-workstation__footer">{footer}</div>}
     </Station>
   );
 }

@@ -4722,7 +4722,11 @@ button.cz-module-status-pill {
 /* ── Package Manager workstation (page host for DynamicStationManager) ──────── */
 /* Page-level home for the manager Save/Cancel footer that ActionShell renders
    inside a drawer; sticky so it stays reachable while long workspaces scroll. */
-.cz-package-manager-workstation__footer {
+/* Shared manager-station footer. Both the Package and Service manager stations
+   use identical footer styling; the Service block matches the same generic
+   rule rather than borrowing the Package block's element class. */
+.cz-package-manager-workstation__footer,
+.cz-service-manager-workstation__footer {
   position: sticky;
   bottom: 0;
   background: var(--admin-bg);
@@ -4731,7 +4735,8 @@ button.cz-module-status-pill {
   margin-top: var(--cz-space-4);
 }
 
-.cz-package-manager-workstation__footer .cz-action-shell__footer {
+.cz-package-manager-workstation__footer .cz-action-shell__footer,
+.cz-service-manager-workstation__footer .cz-action-shell__footer {
   padding-top: 0;
 }
 
