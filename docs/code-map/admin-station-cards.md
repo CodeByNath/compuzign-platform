@@ -46,7 +46,7 @@ The Admin Station ships its **own bundle** and never loads the old admin stylesh
 
 Cards claim twelve-column spans: 4 (three across), and 12 (one across) inside the shell's **existing** ≤767px block. The card system adds **no breakpoint of its own** — the intermediate two-across step is absent because no global tablet boundary exists to host it (reported gap). Nothing overflows at three across in the tablet range: metric blocks reflow intrinsically via `auto-fit` against `--station-metric-min-size`.
 
-Card tokens are sized to fit **inside** the approved presentation height contract (`clamp(220px, 30dvh, 360px)`) — a card row lands near 310px. The shell is never grown to fit the card; overflow belongs to the region's `__content` scroller.
+The presentation region has no height ceiling — a card row lands near 310px, and the region simply renders at that height, adding to the Admin Station's single page scroll (see [Admin Station § Home shell layout and scroll ownership](admin-station.md)).
 
 Card visual direction: restrained and near-monochrome. The accent is spent in exactly three places — the medallion glyph, the code pill, and the filled primary action — never as outlines on every element. **No separators inside the card**: header, body, metrics, and actions are spaced apart by `--station-card-gap` alone.
 

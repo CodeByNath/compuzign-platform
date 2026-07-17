@@ -5,15 +5,14 @@
 
 /* ── Shell frame ────────────────────────────────────────────────────────── */
 
-/* The shell is bounded to the viewport rather than growing with its content:
-   the Header, presentation, and group tabs then hold their place structurally,
-   and the active group panel is the single vertical scroll owner. Nothing here
-   scrolls the page, so no region needs sticky positioning or a sticky offset. */
+/* The whole body scrolls together as one page: the shell sets a viewport floor
+   so a short page still fills the screen, but grows past it rather than
+   clipping content into an inner scroller. The Header sticks to the top of
+   that scroll, and the group tabs stick directly beneath it. */
 .cz-admin-station {
   display: flex;
   flex-direction: column;
-  height: var(--station-shell-height);
-  overflow: hidden;
+  min-height: var(--station-shell-height);
   background: var(--station-sidebar-bg);
   color: var(--station-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -34,11 +33,18 @@
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
 
+/* Sticks to the top of the single page scroll so it stays reachable while the
+   body scrolls beneath it; the group tabs stick directly below at
+   `--station-header-height`. */
 .cz-station-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--station-z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: nowrap;
+  flex: 0 0 auto;
   gap: 12px;
   height: var(--station-header-height);
   padding: 0 var(--station-space-x);
@@ -195,8 +201,6 @@
 .cz-admin-station__body {
   display: flex;
   flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
   /* !important needed: the frontend platform-canvas reset
      (atomic-engine/css/02-base.css) targets the bare `main` element with
      !important, which this <main> would otherwise lose to regardless of
@@ -212,19 +216,17 @@
 
 /* ── Home body shell ────────────────────────────────────────────────────── */
 
-/* Centred, width-bounded twelve-column grid. Row 1 holds the presentation at its
-   bounded height; row 2 takes the remaining space and owns the group region.
-   `minmax(0, 1fr)` and `min-height: 0` are what let the panel inside actually
-   overflow instead of stretching the shell. */
+/* Centred, width-bounded twelve-column grid. Row 1 holds the presentation, row
+   2 the group region — both sized to their own content, so the grid's total
+   height is whatever they need and the page scrolls past it. */
 .cz-station-home {
   display: grid;
   grid-template-columns: repeat(var(--station-grid-columns), minmax(0, 1fr));
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: var(--station-grid-gap);
   flex: 1 1 auto;
   width: 100%;
   max-width: var(--station-content-max);
-  min-height: 0;
   margin-inline: auto;
   padding-inline: var(--station-body-pad);
   padding-block: var(--station-grid-gap);
@@ -232,11 +234,9 @@
 
 /* ── Presentation region ────────────────────────────────────────────────── */
 
-/* Bounded height: the preferred value squeezes with the viewport, while the min
-   and max stop it collapsing on short screens or sprawling on tall ones. This is
-   the approved shell height contract — a rendered height, not a ceiling. Content
-   that exceeds it overflows into `__content`, the region's own scroller; the
-   card grid fits the shell rather than the shell growing to fit the card.
+/* No height ceiling of its own: the region renders at its natural content
+   height and adds to the single page scroll, rather than clipping content
+   into an inner scroller.
 
    No surface of its own: the region contributes no border, background, radius,
    or separator, so the content it holds provides the visual grouping and there
@@ -245,17 +245,10 @@
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  height: clamp(
-    var(--station-presentation-min-height),
-    var(--station-presentation-preferred-height),
-    var(--station-presentation-max-height)
-  );
-  min-height: 0;
-  overflow: hidden;
 }
 
-/* Fixed framing — station status and actions stay reachable while content
-   scrolls beneath them. */
+/* Framing row — station status and actions sit above the content that
+   follows it in the page's single scroll. */
 .cz-station-presentation__header {
   display: flex;
   align-items: center;
@@ -293,16 +286,11 @@
   color: var(--station-text-muted);
 }
 
-/* The only scroll inside the presentation region.
-
-   Inline padding would double-inset the content: the Home shell already gutters
+/* Inline padding would double-inset the content: the Home shell already gutters
    the body, and the region has no surface of its own to pad against. Only a
-   small block rhythm remains, so content clears the shell edges when it
-   scrolls. */
+   small block rhythm remains, so content clears the shell edges as the page
+   scrolls past it. */
 .cz-station-presentation__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
   padding-block: var(--station-grid-gap);
 }
 
@@ -313,11 +301,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--station-grid-gap);
-  min-height: 0;
 }
 
-/* Holds its place because the panel below owns the scroll — not by sticking. */
+/* Sticks directly beneath the header as the page scrolls, so the active
+   station's tabs stay reachable however far the panel content runs. */
 .cz-station-groups__tablist {
+  position: sticky;
+  top: var(--station-header-height);
+  z-index: var(--station-z-sticky);
   display: flex;
   align-items: center;
   gap: var(--station-grid-gap);
@@ -362,13 +353,6 @@
 
 .cz-station-tab:disabled {
   cursor: not-allowed;
-}
-
-/* The single vertical scroll owner of the Admin Station body. */
-.cz-station-groups__panel {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 /* ── Shell empty states ─────────────────────────────────────────────────── */

@@ -1,12 +1,10 @@
 // Presentation region — the reusable container at the top of the Home body.
 //
 // It does not know which station is active. It renders only the presentation it
-// is handed, and holds a bounded responsive height (see the clamp() built from
-// the --station-presentation-* tokens).
+// is handed, at its natural content height — there is no height ceiling here.
 //
-// Scroll ownership: the framing row (eyebrow, title, status, actions) is fixed
-// and only `__content` scrolls, so station controls stay reachable however long
-// the supplied content is.
+// Scroll ownership: the region contributes no scroll of its own. It is part of
+// the single page scroll the whole Home body shares (see AdminStationHome).
 
 import type { AdminStationPresentation as Presentation } from './stationHome';
 

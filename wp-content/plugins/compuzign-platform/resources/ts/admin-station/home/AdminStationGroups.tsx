@@ -13,9 +13,11 @@
 // matches the single-click directness of the Header pills. Disabled groups are
 // skipped by the keyboard and can never be activated.
 //
-// Scroll ownership: only `__panel` scrolls. The tablist holds its place because
-// the Home shell is bounded to the viewport and the panel is the scroll owner —
-// not because the panel has been given an artificial height.
+// Scroll ownership: neither the tablist nor the panel scrolls on its own — both
+// are part of the single page scroll the whole Admin Station shares. The
+// tablist sticks directly beneath the sticky Header (`position: sticky; top:
+// var(--station-header-height)`), so it stays reachable however far the active
+// panel's content runs.
 
 import { useState, useRef, useCallback, useId } from 'preact/hooks';
 import type { AdminStationGroup } from './stationHome';

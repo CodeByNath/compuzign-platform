@@ -21,22 +21,17 @@
   --station-space-x: 16px;
   --station-nav-offset: 24px;
 
-  /* Home body shell — the station-agnostic layout frame. The shell is bounded
-   * to the viewport: the Header, presentation, and group tabs hold their place
-   * and only the active group panel scrolls. */
+  /* Home body shell — the station-agnostic layout frame. The whole body scrolls
+   * together as one page: the shell sets a viewport floor so a short page still
+   * fills the screen, but grows past it instead of clipping content into an
+   * inner scroller. The Header and the group tabs stay reachable by sticking to
+   * the top of that single scroll (see `--station-z-sticky`). */
   --station-shell-height: 100dvh;
   --station-content-max: 1440px;
   --station-grid-columns: 12;
   --station-grid-gap: 8px;
   --station-body-pad: 24px;
   --station-body-pad-sm: 16px;
-
-  /* Presentation region — bounded responsive height. The preferred value is the
-   * intended ~30dvh; the min stops it collapsing on short viewports and the max
-   * stops it growing on tall displays. Consumed as a single clamp(). */
-  --station-presentation-min-height: 220px;
-  --station-presentation-preferred-height: 30dvh;
-  --station-presentation-max-height: 360px;
 
   /* Accent identity — theme-independent, so accent-bearing surfaces carry the
    * same hue in both light and dark. The navigation tokens below derive from
@@ -72,11 +67,9 @@
    * (the medallion glyph, the code pill, and the primary action), never as
    * outlines on every element.
    *
-   * Sized to fit INSIDE the approved presentation height contract
-   * (clamp(220px, 30dvh, 360px)) rather than the shell being grown to fit the
-   * card: a full card row lands at roughly 310px. Past that — a long
-   * description, a short viewport — the region's own `__content` scroller takes
-   * the overflow, which is the approved behaviour. */
+   * The presentation region has no height ceiling of its own: a card row lands
+   * at roughly 310px, and the region simply renders at that height, adding to
+   * the single page scroll rather than clipping into an inner scroller. */
   --station-card-radius: 16px;
   --station-card-pad: 16px;
   --station-card-gap: 12px;
@@ -102,7 +95,10 @@
   --station-disabled-opacity: 0.5;
 
   /* Layering. Anchored menus share one level: they are siblings in the page, not
-   * a stack, and the slide-menu layer (80) stays above them. */
+   * a stack, and the slide-menu layer (80) stays above them. The sticky header
+   * and group tabs sit beneath both — above normal page content, never above an
+   * open dropdown or the slide menu. */
+  --station-z-sticky: 10;
   --station-z-dropdown: 70;
 
   /* Type scale — card typography. */
