@@ -10,7 +10,7 @@
 // Services collection surface (v1.2) resolves it through the category
 // manifest's `shells` record under the `service` key.
 
-import type { CategoryGroupStationItem, CategoryOverviewDraft } from '@/api/types/admin';
+import type { ServiceCategoryGroupStationItem, CategoryOverviewDraft } from '@/api/types/admin';
 import { categoryOverviewModule } from '@/components/admin/utils/moduleNotifications';
 import { CategoryOverviewEditor } from '../../../editors/CategoryOverviewEditor';
 import type { ShellActionSchema, ShellSchema } from '../../types';
@@ -85,7 +85,7 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
       <CategoryOverviewEditor
         draft={s.draft as CategoryOverviewDraft}
         onChange={(patch) => s.patch?.(patch)}
-        groups={(s.extras?.groups ?? []) as CategoryGroupStationItem[]}
+        groups={(s.extras?.groups ?? []) as ServiceCategoryGroupStationItem[]}
         groupId={(s.extras?.groupId ?? null) as number | null}
         onGroupChange={s.extras?.onGroupChange as (id: number | null) => void}
       />

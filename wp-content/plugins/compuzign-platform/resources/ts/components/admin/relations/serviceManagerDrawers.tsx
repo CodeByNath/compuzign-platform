@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import type { PackageCategoryGroupItem } from '@/api/types/admin';
-import { createPackageCategoryGroup, savePackageCategoryGroupOverview } from '@/api/endpoints/admin';
+import type { PackageFamilyItem } from '@/api/types/admin';
+import { createPackageFamily, savePackageFamilyOverview } from '@/api/endpoints/admin';
 import { PackageRateSheetEditor } from './PackageRateSheetEditor';
 import type { RateSheetEditorValue } from './PackageRateSheetEditor';
 
@@ -72,8 +72,8 @@ function DrawerFooter({ ctx, saving, disabled, onApply, applyLabel = 'Apply chan
   );
 }
 
-function CategoryGroupDrawerStep({ ctx }: { ctx: StepContext }) {
-  const group = ctx.stepData.group as PackageCategoryGroupItem | undefined;
+function PackageFamilyDrawerStep({ ctx }: { ctx: StepContext }) {
+  const group = ctx.stepData.group as PackageFamilyItem | undefined;
   const onChanged = ctx.stepData.onChanged as () => void;
   const [name, setName] = useState(group?.label ?? '');
   const [description, setDescription] = useState(group?.description ?? '');
@@ -83,8 +83,8 @@ function CategoryGroupDrawerStep({ ctx }: { ctx: StepContext }) {
     if (!name.trim()) return;
     setSaving(true); setError(null);
     try {
-      if (group) await savePackageCategoryGroupOverview(group.group_id, { name: name.trim(), description: description.trim() });
-      else await createPackageCategoryGroup({ name: name.trim(), description: description.trim() || undefined });
+      if (group) await savePackageFamilyOverview(group.group_id, { name: name.trim(), description: description.trim() });
+      else await createPackageFamily({ name: name.trim(), description: description.trim() || undefined });
       onChanged();
       ctx.close();
     } catch (cause) {
@@ -256,7 +256,7 @@ function config(id: string, title: string, component: ActionConfig['steps'][numb
   return { id, mode: 'drawer', title, initialStepData, steps: [{ id: 'detail', title, component }] };
 }
 
-export const buildCategoryGroupDrawerConfig = (group: PackageCategoryGroupItem | undefined, onChanged: () => void) => config(`category-group-${group?.group_id ?? 'new'}`, group ? `Edit ${group.label}` : 'New Category Group', CategoryGroupDrawerStep, { group, onChanged });
+export const buildPackageFamilyDrawerConfig = (group: PackageFamilyItem | undefined, onChanged: () => void) => config(`category-group-${group?.group_id ?? 'new'}`, group ? `Edit ${group.label}` : 'New Category Group', PackageFamilyDrawerStep, { group, onChanged });
 export const buildConnectionDrawerConfig = (value: ConnectionDrawerValue, groups: readonly { id: string; label: string }[], onApply: (value: ConnectionDrawerValue) => void) => config(`connection-${value.id}`, 'Edit Connection', ConnectionDrawerStep, { value, groups, onApply });
 export const buildFamilyAssignmentDrawerConfig = (value: FamilyAssignmentDrawerValue, onApply: (value: FamilyAssignmentDrawerValue) => void) => config(`service-family-${value.serviceId}`, `Assign ${value.serviceTitle}`, FamilyAssignmentDrawerStep, { value, onApply });
 export const buildCommercialGroupDrawerConfig = (value: CommercialGroupDrawerValue, onApply: (value: CommercialGroupDrawerValue) => void, onDelete?: () => void) => config(`commercial-group-${value.id}`, value.isNew ? 'New Commercial Group' : `Edit ${value.label}`, CommercialGroupDrawerStep, { value, onApply, onDelete });

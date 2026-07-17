@@ -28,14 +28,14 @@ import type {
   CategoryMutationResponse,
   CategoryOverviewDraft,
   CategoryOverviewSaveResponse,
-  CategoryGroupDeleteResponse,
-  CategoryGroupListResponse,
-  CategoryGroupMutationResponse,
-  CategoryGroupOverviewDraft,
-  CategoryGroupOverviewSaveResponse,
-  PackageCategoryGroupDeleteResponse,
-  PackageCategoryGroupListResponse,
-  PackageCategoryGroupMutationResponse,
+  ServiceCategoryGroupDeleteResponse,
+  ServiceCategoryGroupListResponse,
+  ServiceCategoryGroupMutationResponse,
+  ServiceCategoryGroupOverviewDraft,
+  ServiceCategoryGroupOverviewSaveResponse,
+  PackageFamilyDeleteResponse,
+  PackageFamilyListResponse,
+  PackageFamilyMutationResponse,
   RequestEntry,
   SurfacePackagesResponse,
   TierSavePayload,
@@ -137,7 +137,7 @@ export function permanentDeleteCategory(categoryId: number): Promise<CategoryDel
 // content: moves this category under a group term, or ungroups it when
 // groupId is null. Returns the same CategoryMutationResponse shape as every
 // other category mutation.
-export function updateCategoryGroup(
+export function updateServiceCategoryGroup(
   categoryId: number,
   groupId:    number | null,
 ): Promise<CategoryMutationResponse> {
@@ -150,114 +150,114 @@ export function updateCategoryGroup(
 // The /admin/category-groups family — same route grammar as Category, one
 // level up. Action naming mirrors the Category fetchers above exactly.
 
-export function fetchAdminCategoryGroups(platformStatus?: 'archived' | 'trashed'): Promise<CategoryGroupListResponse> {
+export function fetchAdminServiceCategoryGroups(platformStatus?: 'archived' | 'trashed'): Promise<ServiceCategoryGroupListResponse> {
   const path = platformStatus
     ? `admin/category-groups?platform_status=${platformStatus}`
     : 'admin/category-groups';
-  return apiClient.get<CategoryGroupListResponse>(path);
+  return apiClient.get<ServiceCategoryGroupListResponse>(path);
 }
 
 // Station create (D3-style): born disabled; overview settles immediately when
 // the payload is complete.
-export function createCategoryGroup(payload: {
+export function createServiceCategoryGroup(payload: {
   name:         string;
   description?: string;
-}): Promise<CategoryGroupMutationResponse> {
-  return apiClient.post<CategoryGroupMutationResponse>('admin/category-groups', payload);
+}): Promise<ServiceCategoryGroupMutationResponse> {
+  return apiClient.post<ServiceCategoryGroupMutationResponse>('admin/category-groups', payload);
 }
 
 // Save the overview draft — canonical term untouched, overview marked pending.
-export function saveCategoryGroupOverview(
+export function saveServiceCategoryGroupOverview(
   groupId: number,
-  payload: CategoryGroupOverviewDraft,
-): Promise<CategoryGroupOverviewSaveResponse> {
-  return apiClient.put<CategoryGroupOverviewSaveResponse>(`admin/category-groups/${groupId}/overview`, payload);
+  payload: ServiceCategoryGroupOverviewDraft,
+): Promise<ServiceCategoryGroupOverviewSaveResponse> {
+  return apiClient.put<ServiceCategoryGroupOverviewSaveResponse>(`admin/category-groups/${groupId}/overview`, payload);
 }
 
 // Commit the draft to the term (name + description), clear it, re-derive status.
-export function settleCategoryGroupOverview(groupId: number): Promise<CategoryGroupMutationResponse> {
-  return apiClient.post<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/overview/settle`, {});
+export function settleServiceCategoryGroupOverview(groupId: number): Promise<ServiceCategoryGroupMutationResponse> {
+  return apiClient.post<ServiceCategoryGroupMutationResponse>(`admin/category-groups/${groupId}/overview/settle`, {});
 }
 
 // Discard the draft; module_status re-derives from the settled state.
-export function revertCategoryGroupOverview(groupId: number): Promise<CategoryGroupMutationResponse> {
-  return apiClient.post<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/overview/revert`, {});
+export function revertServiceCategoryGroupOverview(groupId: number): Promise<ServiceCategoryGroupMutationResponse> {
+  return apiClient.post<ServiceCategoryGroupMutationResponse>(`admin/category-groups/${groupId}/overview/revert`, {});
 }
 
 // Engine transition — the only status write for category groups.
-export function updateCategoryGroupStatus(
+export function updateServiceCategoryGroupStatus(
   groupId:        number,
   platformStatus: 'active' | 'disabled' | 'archived' | 'trashed',
-): Promise<CategoryGroupMutationResponse> {
-  return apiClient.patch<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/status`, {
+): Promise<ServiceCategoryGroupMutationResponse> {
+  return apiClient.patch<ServiceCategoryGroupMutationResponse>(`admin/category-groups/${groupId}/status`, {
     platform_status: platformStatus,
   });
 }
 
 // Server-driven restore — resolves previous_platform_status, lands disabled.
-export function restoreCategoryGroup(groupId: number): Promise<CategoryGroupMutationResponse> {
-  return apiClient.post<CategoryGroupMutationResponse>(`admin/category-groups/${groupId}/restore`, {});
+export function restoreServiceCategoryGroup(groupId: number): Promise<ServiceCategoryGroupMutationResponse> {
+  return apiClient.post<ServiceCategoryGroupMutationResponse>(`admin/category-groups/${groupId}/restore`, {});
 }
 
 // Trashed-only. A guard failure (non-empty group) is an HTTP 409 (apiClient
 // throws; the error text carries { message, assigned_count }).
-export function permanentDeleteCategoryGroup(groupId: number): Promise<CategoryGroupDeleteResponse> {
-  return apiClient.delete<CategoryGroupDeleteResponse>(`admin/category-groups/${groupId}`);
+export function permanentDeleteServiceCategoryGroup(groupId: number): Promise<ServiceCategoryGroupDeleteResponse> {
+  return apiClient.delete<ServiceCategoryGroupDeleteResponse>(`admin/category-groups/${groupId}`);
 }
 
 // The /admin/package-category-groups family — the Package-owned commercial
 // bucket station (e.g. KAIROS). Same route grammar as the taxonomy Category
 // Group station; storage is the single cz_package_station authority.
-export function fetchPackageCategoryGroups(
+export function fetchPackageFamilies(
   platformStatus?: 'archived' | 'trashed',
-): Promise<PackageCategoryGroupListResponse> {
+): Promise<PackageFamilyListResponse> {
   const path = platformStatus
     ? `admin/package-category-groups?platform_status=${platformStatus}`
     : 'admin/package-category-groups';
-  return apiClient.get<PackageCategoryGroupListResponse>(path);
+  return apiClient.get<PackageFamilyListResponse>(path);
 }
 
 // Station create — born disabled, overview pending.
-export function createPackageCategoryGroup(payload: {
+export function createPackageFamily(payload: {
   name: string;
   description?: string;
-}): Promise<PackageCategoryGroupMutationResponse> {
-  return apiClient.post<PackageCategoryGroupMutationResponse>('admin/package-category-groups', payload);
+}): Promise<PackageFamilyMutationResponse> {
+  return apiClient.post<PackageFamilyMutationResponse>('admin/package-category-groups', payload);
 }
 
-export function savePackageCategoryGroupOverview(
+export function savePackageFamilyOverview(
   groupId: string,
   payload: { name: string; description: string },
-): Promise<PackageCategoryGroupMutationResponse> {
-  return apiClient.put<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/overview`, payload);
+): Promise<PackageFamilyMutationResponse> {
+  return apiClient.put<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/overview`, payload);
 }
 
-export function settlePackageCategoryGroupOverview(groupId: string): Promise<PackageCategoryGroupMutationResponse> {
-  return apiClient.post<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/overview/settle`, {});
+export function settlePackageFamilyOverview(groupId: string): Promise<PackageFamilyMutationResponse> {
+  return apiClient.post<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/overview/settle`, {});
 }
 
-export function revertPackageCategoryGroupOverview(groupId: string): Promise<PackageCategoryGroupMutationResponse> {
-  return apiClient.post<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/overview/revert`, {});
+export function revertPackageFamilyOverview(groupId: string): Promise<PackageFamilyMutationResponse> {
+  return apiClient.post<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/overview/revert`, {});
 }
 
-export function updatePackageCategoryGroupStatus(
+export function updatePackageFamilyStatus(
   groupId: string,
   platformStatus: 'active' | 'disabled' | 'archived' | 'trashed',
-): Promise<PackageCategoryGroupMutationResponse> {
-  return apiClient.patch<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/status`, {
+): Promise<PackageFamilyMutationResponse> {
+  return apiClient.patch<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/status`, {
     platform_status: platformStatus,
   });
 }
 
 // Server-driven restore — resolves previous_platform_status, lands disabled.
-export function restorePackageCategoryGroup(groupId: string): Promise<PackageCategoryGroupMutationResponse> {
-  return apiClient.post<PackageCategoryGroupMutationResponse>(`admin/package-category-groups/${groupId}/restore`, {});
+export function restorePackageFamily(groupId: string): Promise<PackageFamilyMutationResponse> {
+  return apiClient.post<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/restore`, {});
 }
 
 // Trashed-only. A dependency-guard failure is an HTTP 409 (apiClient throws;
 // the error text carries { message, assigned_count, dependents }).
-export function permanentDeletePackageCategoryGroup(groupId: string): Promise<PackageCategoryGroupDeleteResponse> {
-  return apiClient.delete<PackageCategoryGroupDeleteResponse>(`admin/package-category-groups/${groupId}`);
+export function permanentDeletePackageFamily(groupId: string): Promise<PackageFamilyDeleteResponse> {
+  return apiClient.delete<PackageFamilyDeleteResponse>(`admin/package-category-groups/${groupId}`);
 }
 
 

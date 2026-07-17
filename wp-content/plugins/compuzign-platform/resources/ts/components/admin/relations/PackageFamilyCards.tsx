@@ -1,26 +1,26 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  permanentDeletePackageCategoryGroup,
-  updatePackageCategoryGroupStatus,
+  permanentDeletePackageFamily,
+  updatePackageFamilyStatus,
 } from '@/api/endpoints/admin';
-import type { PackageCategoryGroupItem, PackageSourceRelationship } from '@/api/types/admin';
+import type { PackageFamilyItem, PackageSourceRelationship } from '@/api/types/admin';
 import {
-  PackageCategoryGroupConfirmDialog,
+  PackageFamilyConfirmDialog,
   currentGroupLifecycleOperations,
   dependentsSummary,
   groupStatusPill,
-} from './PackageCategoryGroupsSection';
-import type { GroupConfirmState } from './PackageCategoryGroupsSection';
+} from './PackageFamiliesSection';
+import type { GroupConfirmState } from './PackageFamiliesSection';
 
 // Family Card strip (Phase 2 — family-first workspace scope).
 //
 // Presents the Package Category Groups (KAIROS, APTOS, OMNIA, …) already
 // loaded by DynamicStationManager as selectable scope cards; selecting one
-// establishes the workspace `selectedCategoryGroupId`. "All Groups" and
+// establishes the workspace `selectedFamilyId`. "All Groups" and
 // "Ungrouped" stay first-class scopes so unassigned sources never disappear
 // behind a mandatory family selection. Lifecycle split actions reuse the
-// shared operations exported by PackageCategoryGroupsSection — no second
+// shared operations exported by PackageFamiliesSection — no second
 // lifecycle implementation. Metrics come from the saved read model
 // (`dependents`), not the working draft.
 
@@ -37,8 +37,8 @@ function serviceAssignmentCounts(sources: readonly PackageSourceRelationship[]):
   return { total, unassigned };
 }
 
-export function PackageCategoryGroupCards({ groups, sources, selected, onSelect, busy, onLifecycleAction, onManageGroups }: {
-  groups: readonly PackageCategoryGroupItem[];
+export function PackageFamilyCards({ groups, sources, selected, onSelect, busy, onLifecycleAction, onManageGroups }: {
+  groups: readonly PackageFamilyItem[];
   sources: readonly PackageSourceRelationship[];
   selected: WorkspaceGroupScope;
   onSelect: (scope: WorkspaceGroupScope) => void;
@@ -47,7 +47,7 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
   onLifecycleAction: (groupId: string, operation: () => Promise<unknown>) => void;
   // Hand off to the existing lifecycle station (Services > Connections) for
   // create/edit — the strip owns no editor.
-  onManageGroups: (group?: PackageCategoryGroupItem) => void;
+  onManageGroups: (group?: PackageFamilyItem) => void;
 }) {
   const [openActions, setOpenActions] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<GroupConfirmState | null>(null);
@@ -131,14 +131,14 @@ export function PackageCategoryGroupCards({ groups, sources, selected, onSelect,
         })}
       </div>
       {confirming && (
-        <PackageCategoryGroupConfirmDialog
+        <PackageFamilyConfirmDialog
           confirming={confirming}
           onCancel={() => setConfirming(null)}
           onConfirm={(target) => {
             setConfirming(null);
             onLifecycleAction(target.id, () => target.action === 'delete'
-              ? permanentDeletePackageCategoryGroup(target.id)
-              : updatePackageCategoryGroupStatus(target.id, 'trashed'));
+              ? permanentDeletePackageFamily(target.id)
+              : updatePackageFamilyStatus(target.id, 'trashed'));
           }}
         />
       )}

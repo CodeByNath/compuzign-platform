@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import {
-  permanentDeleteCategoryGroup,
-  restoreCategoryGroup,
-  revertCategoryGroupOverview,
-  saveCategoryGroupOverview,
-  settleCategoryGroupOverview,
-  updateCategoryGroupStatus,
+  permanentDeleteServiceCategoryGroup,
+  restoreServiceCategoryGroup,
+  revertServiceCategoryGroupOverview,
+  saveServiceCategoryGroupOverview,
+  settleServiceCategoryGroupOverview,
+  updateServiceCategoryGroupStatus,
 } from '@/api/endpoints/admin';
-import type { CategoryGroupOverviewDraft, CategoryGroupStationItem } from '@/api/types/admin';
-import { categoryGroupOverviewModule, evaluateModule } from '@/components/admin/utils/moduleNotifications';
+import type { ServiceCategoryGroupOverviewDraft, ServiceCategoryGroupStationItem } from '@/api/types/admin';
+import { serviceCategoryGroupOverviewModule, evaluateModule } from '@/components/admin/utils/moduleNotifications';
 import type { ModuleState, NoteContext } from '@/components/admin/utils/moduleNotifications';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -22,13 +22,13 @@ import type { ModuleState, NoteContext } from '@/components/admin/utils/moduleNo
 // projection only carries the total (assigned_count); the active/inactive
 // split comes from catalog data the hosting surface already holds, so the
 // surface supplies it — same contract as CategoryServiceCounts.
-export interface CategoryGroupCategoryCounts {
+export interface ServiceCategoryGroupCategoryCounts {
   total:    number;
   active:   number;
   disabled: number;
 }
 
-export interface CategoryGroupStation {
+export interface ServiceCategoryGroupStation {
   // ── Identity ──────────────────────────────────────────────────────────────
   platformStatus: string;
   isActive:       boolean;
@@ -36,11 +36,11 @@ export interface CategoryGroupStation {
   // ── Draft-preferred projection ────────────────────────────────────────────
   // The station's current view of the group: name/description show the draft
   // when one exists (server-merged; refreshed locally after mutations).
-  group:          CategoryGroupStationItem;
+  group:          ServiceCategoryGroupStationItem;
   hasDraft:       boolean;
   moduleStatus:   { overview: string };
   assignedCount:  number;
-  categoryCounts: CategoryGroupCategoryCounts;
+  categoryCounts: ServiceCategoryGroupCategoryCounts;
 
   // ── Resolved module computed state ────────────────────────────────────────
   // The station modules shape shared with useServiceStation / useCategoryStation.
@@ -56,29 +56,29 @@ export interface CategoryGroupStation {
   };
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  saveOverview:        (draft: CategoryGroupOverviewDraft) => Promise<Record<string, string>>;
+  saveOverview:        (draft: ServiceCategoryGroupOverviewDraft) => Promise<Record<string, string>>;
   revertOverview:      () => Promise<void>;
-  settleModules:       () => Promise<CategoryGroupStationItem | null>;
-  publishCategoryGroup: () => Promise<CategoryGroupStationItem | null>;
-  toggleActive:        () => Promise<CategoryGroupStationItem | null>;
-  archiveStation:      () => Promise<CategoryGroupStationItem | null>;
-  trashStation:        () => Promise<CategoryGroupStationItem | null>;
-  restoreStation:      () => Promise<CategoryGroupStationItem | null>;
+  settleModules:       () => Promise<ServiceCategoryGroupStationItem | null>;
+  publishServiceCategoryGroup: () => Promise<ServiceCategoryGroupStationItem | null>;
+  toggleActive:        () => Promise<ServiceCategoryGroupStationItem | null>;
+  archiveStation:      () => Promise<ServiceCategoryGroupStationItem | null>;
+  trashStation:        () => Promise<ServiceCategoryGroupStationItem | null>;
+  restoreStation:      () => Promise<ServiceCategoryGroupStationItem | null>;
   deleteStation:       () => Promise<boolean>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
-export function useCategoryGroupStation(
-  group:          CategoryGroupStationItem,
+export function useServiceCategoryGroupStation(
+  group:          ServiceCategoryGroupStationItem,
   onRefresh?:     () => void,
-  categoryCounts?: CategoryGroupCategoryCounts,
-): CategoryGroupStation {
+  categoryCounts?: ServiceCategoryGroupCategoryCounts,
+): ServiceCategoryGroupStation {
   // Local station state: seeded from the list projection, patched from mutation
   // responses (each returns the refreshed projection), re-synced when the
   // parent's refetch delivers a fresh prop. No detail fetch exists — the list
   // projection is complete (unlike the service station's drawer-open fetch).
-  const [station, setStation] = useState<CategoryGroupStationItem>(group);
+  const [station, setStation] = useState<ServiceCategoryGroupStationItem>(group);
   const [statusSaving, setStatusSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -91,7 +91,7 @@ export function useCategoryGroupStation(
   const isActive        = platformStatus === 'active';
 
   // ── Derived: module computed state ─────────────────────────────────────────
-  const counts: CategoryGroupCategoryCounts = categoryCounts
+  const counts: ServiceCategoryGroupCategoryCounts = categoryCounts
     ?? { total: station.assigned_count, active: 0, disabled: 0 };
 
   const overviewCtx: NoteContext = {
@@ -99,7 +99,7 @@ export function useCategoryGroupStation(
     moduleTransition: station.module_status.overview,
     hasDraft:         station.has_draft,
   };
-  const overviewState = evaluateModule(categoryGroupOverviewModule, {
+  const overviewState = evaluateModule(serviceCategoryGroupOverviewModule, {
     name:        station.name,
     description: station.description,
     slug:        station.slug,
@@ -113,8 +113,8 @@ export function useCategoryGroupStation(
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  const saveOverview = useCallback(async (draft: CategoryGroupOverviewDraft): Promise<Record<string, string>> => {
-    const result = await saveCategoryGroupOverview(station.id, draft);
+  const saveOverview = useCallback(async (draft: ServiceCategoryGroupOverviewDraft): Promise<Record<string, string>> => {
+    const result = await saveServiceCategoryGroupOverview(station.id, draft);
     if (!result.success) throw new Error('Failed to save changes.');
     setStation(prev => ({
       ...prev,
@@ -128,17 +128,17 @@ export function useCategoryGroupStation(
   }, [station.id, onRefresh]);
 
   const revertOverview = useCallback(async (): Promise<void> => {
-    const result = await revertCategoryGroupOverview(station.id);
+    const result = await revertServiceCategoryGroupOverview(station.id);
     if (result.success) {
       setStation(result.group);
       onRefresh?.();
     }
   }, [station.id, onRefresh]);
 
-  const settleModules = useCallback(async (): Promise<CategoryGroupStationItem | null> => {
+  const settleModules = useCallback(async (): Promise<ServiceCategoryGroupStationItem | null> => {
     setStatusSaving(true);
     try {
-      const result = await settleCategoryGroupOverview(station.id);
+      const result = await settleServiceCategoryGroupOverview(station.id);
       if (result.success) {
         setStation(result.group);
         onRefresh?.();
@@ -152,14 +152,14 @@ export function useCategoryGroupStation(
 
   // Publish = settle + activate, mirroring publishCategory. Settling without a
   // draft is a harmless re-derivation backend-side.
-  const publishCategoryGroup = useCallback(async (): Promise<CategoryGroupStationItem | null> => {
+  const publishServiceCategoryGroup = useCallback(async (): Promise<ServiceCategoryGroupStationItem | null> => {
     setStatusSaving(true);
     try {
-      const settleResult = await settleCategoryGroupOverview(station.id);
+      const settleResult = await settleServiceCategoryGroupOverview(station.id);
       if (settleResult.success) {
         setStation(settleResult.group);
       }
-      const statusResult = await updateCategoryGroupStatus(station.id, 'active');
+      const statusResult = await updateServiceCategoryGroupStatus(station.id, 'active');
       if (statusResult.success) {
         setStation(statusResult.group);
         onRefresh?.();
@@ -173,10 +173,10 @@ export function useCategoryGroupStation(
 
   const applyStatus = useCallback(async (
     target: 'active' | 'disabled' | 'archived' | 'trashed',
-  ): Promise<CategoryGroupStationItem | null> => {
+  ): Promise<ServiceCategoryGroupStationItem | null> => {
     setStatusSaving(true);
     try {
-      const result = await updateCategoryGroupStatus(station.id, target);
+      const result = await updateServiceCategoryGroupStatus(station.id, target);
       if (result.success) {
         setStation(result.group);
         onRefresh?.();
@@ -192,10 +192,10 @@ export function useCategoryGroupStation(
   const archiveStation = useCallback(() => applyStatus('archived'), [applyStatus]);
   const trashStation   = useCallback(() => applyStatus('trashed'), [applyStatus]);
 
-  const restoreStation = useCallback(async (): Promise<CategoryGroupStationItem | null> => {
+  const restoreStation = useCallback(async (): Promise<ServiceCategoryGroupStationItem | null> => {
     setStatusSaving(true);
     try {
-      const result = await restoreCategoryGroup(station.id);
+      const result = await restoreServiceCategoryGroup(station.id);
       if (result.success) {
         setStation(result.group);
         onRefresh?.();
@@ -213,7 +213,7 @@ export function useCategoryGroupStation(
   const deleteStation = useCallback(async (): Promise<boolean> => {
     setDeleting(true);
     try {
-      const result = await permanentDeleteCategoryGroup(station.id);
+      const result = await permanentDeleteServiceCategoryGroup(station.id);
       if (result.success) {
         onRefresh?.();
         return true;
@@ -240,7 +240,7 @@ export function useCategoryGroupStation(
     saveOverview,
     revertOverview,
     settleModules,
-    publishCategoryGroup,
+    publishServiceCategoryGroup,
     toggleActive,
     archiveStation,
     trashStation,

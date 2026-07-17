@@ -3,7 +3,7 @@ import { useApi } from '@/hooks/useApi';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import {
   fetchAdminCategories, restoreCategory, updateCategoryStatus, permanentDeleteCategory,
-  fetchAdminCategoryGroups, restoreCategoryGroup, updateCategoryGroupStatus, permanentDeleteCategoryGroup,
+  fetchAdminServiceCategoryGroups, restoreServiceCategoryGroup, updateServiceCategoryGroupStatus, permanentDeleteServiceCategoryGroup,
 } from '@/api/endpoints/admin';
 import { restoreService, trashService, permanentDeleteService } from '@/admin-station/stations/service';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
@@ -11,8 +11,8 @@ import { Station } from '../shell/Station';
 import { EntityTable } from '../EntityTable';
 import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
 import { CATEGORY_ENTITY } from '@/components/admin/schema/entities/category';
-import { CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/categoryGroup';
-import type { CategoryGroupStationItem, CategoryStationItem } from '@/api/types/admin';
+import { SERVICE_CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/serviceCategoryGroup';
+import type { ServiceCategoryGroupStationItem, CategoryStationItem } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';
 
 interface Props {
@@ -32,7 +32,7 @@ interface Props {
 //
 // Category Group audit (Option B): the Category Group station joins as a third
 // pane, same shape as Category one level up — rows render through
-// CATEGORY_GROUP_ENTITY.placements.travel.bin; delete surfaces the group-side
+// SERVICE_CATEGORY_GROUP_ENTITY.placements.travel.bin; delete surfaces the group-side
 // assigned-category-count guard.
 type BinFilter = 'all' | 'archived' | 'trashed';
 
@@ -46,8 +46,8 @@ export function BinStation({ refreshKey }: Props) {
   const catTrashed  = useApi(() => fetchAdminCategories('trashed'));
 
   // Category Group bin streams — same two-scope shape, one level up.
-  const groupArchived = useApi(() => fetchAdminCategoryGroups('archived'));
-  const groupTrashed  = useApi(() => fetchAdminCategoryGroups('trashed'));
+  const groupArchived = useApi(() => fetchAdminServiceCategoryGroups('archived'));
+  const groupTrashed  = useApi(() => fetchAdminServiceCategoryGroups('trashed'));
 
   const [filter,    setFilter]    = useState<BinFilter>('all');
   const [selected,  setSelected]  = useState<Set<number>>(new Set());
@@ -83,7 +83,7 @@ export function BinStation({ refreshKey }: Props) {
     return filter === 'all' ? all : all.filter((c) => c.platform_status === filter);
   }, [catArchived.data, catTrashed.data, filter]);
 
-  const groupRows = useMemo<CategoryGroupStationItem[]>(() => {
+  const groupRows = useMemo<ServiceCategoryGroupStationItem[]>(() => {
     const all = [...(groupArchived.data?.category_groups ?? []), ...(groupTrashed.data?.category_groups ?? [])];
     return filter === 'all' ? all : all.filter((g) => g.platform_status === filter);
   }, [groupArchived.data, groupTrashed.data, filter]);
@@ -153,10 +153,10 @@ export function BinStation({ refreshKey }: Props) {
   // Category Group delete: the group-side guard returns HTTP 409, same parsing
   // contract as handleCategoryDelete — one level up (assigned_count = child
   // categories, not services).
-  const handleGroupDelete = useCallback(async (row: CategoryGroupStationItem) => {
+  const handleGroupDelete = useCallback(async (row: ServiceCategoryGroupStationItem) => {
     setGroupError(null);
     try {
-      await permanentDeleteCategoryGroup(row.id);
+      await permanentDeleteServiceCategoryGroup(row.id);
       refetchAll();
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
@@ -295,12 +295,12 @@ export function BinStation({ refreshKey }: Props) {
                 <p class="cz-shell-section__title" style="margin-top:var(--cz-space-5)">Category Groups</p>
                 {groupError && <div class="cz-admin-error-msg" style="margin-bottom:var(--cz-space-3)">{groupError}</div>}
                 <EntityTable
-                  schema={CATEGORY_GROUP_ENTITY.placements.travel!.bin!}
+                  schema={SERVICE_CATEGORY_GROUP_ENTITY.placements.travel!.bin!}
                   rows={groupRows}
                   rowKey={(g) => g.id}
                   handlers={{
-                    restore: async (g) => { await restoreCategoryGroup(g.id);              refetchAll(); },
-                    trash:   async (g) => { await updateCategoryGroupStatus(g.id, 'trashed'); refetchAll(); },
+                    restore: async (g) => { await restoreServiceCategoryGroup(g.id);              refetchAll(); },
+                    trash:   async (g) => { await updateServiceCategoryGroupStatus(g.id, 'trashed'); refetchAll(); },
                     delete:  handleGroupDelete,
                   }}
                 />

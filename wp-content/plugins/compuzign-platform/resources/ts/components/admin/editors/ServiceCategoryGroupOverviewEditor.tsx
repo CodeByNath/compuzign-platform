@@ -1,4 +1,4 @@
-import type { CategoryGroupOverviewDraft } from '@/api/types/admin';
+import type { ServiceCategoryGroupOverviewDraft } from '@/api/types/admin';
 
 // Category Group Overview module editor (Category Group audit, Option B).
 // Structural clone of CategoryOverviewEditor.tsx, one level up: name +
@@ -7,11 +7,11 @@ import type { CategoryGroupOverviewDraft } from '@/api/types/admin';
 // category side, not the group side.
 
 interface Props {
-  draft:    CategoryGroupOverviewDraft;
-  onChange: (patch: Partial<CategoryGroupOverviewDraft>) => void;
+  draft:    ServiceCategoryGroupOverviewDraft;
+  onChange: (patch: Partial<ServiceCategoryGroupOverviewDraft>) => void;
 }
 
-export function CategoryGroupOverviewEditor({ draft, onChange }: Props) {
+export function ServiceCategoryGroupOverviewEditor({ draft, onChange }: Props) {
   return (
     <div class="cz-tf-form">
 

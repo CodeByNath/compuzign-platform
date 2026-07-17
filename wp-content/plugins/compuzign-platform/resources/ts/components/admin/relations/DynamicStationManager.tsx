@@ -4,13 +4,13 @@ import type { ActionConfig, ExitGuard, StepContext } from '../ActionShell';
 import { ModuleStatusPill } from '../ui/ModuleStatusPill';
 import { MODULE_ICONS } from '../schema/icons';
 import { ReadBlock } from '../ReadBlock';
-import { fetchPackageCategoryGroups } from '@/api/endpoints/admin';
-import type { PackageCategoryGroupItem } from '@/api/types/admin';
+import { fetchPackageFamilies } from '@/api/endpoints/admin';
+import type { PackageFamilyItem } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';
 import { relationProvidersFor } from './registry';
 import type { ManagerContinuation, StationManagerScope } from './types';
 import {
-  assignPackageServiceCategoryGroup,
+  assignPackageServiceFamily,
   createPackageRelationGroup,
   deletePackageRelationGroup,
   renamePackageRelationGroup,
@@ -18,8 +18,8 @@ import {
 } from './providers/package';
 import type { PackageRelationDraft } from './providers/package';
 import { PackageServicesTable } from './PackageServicesTable';
-import { PackageCategoryGroupCards } from './PackageCategoryGroupCards';
-import type { WorkspaceGroupScope } from './PackageCategoryGroupCards';
+import { PackageFamilyCards } from './PackageFamilyCards';
+import type { WorkspaceGroupScope } from './PackageFamilyCards';
 import { PackageRateSheetFilters, RATE_SHEET_FILTER_DEFAULTS, assignmentByServiceId, filterRateSheetItems } from './PackageRateSheetFilters';
 import type { RateSheetFilterState } from './PackageRateSheetFilters';
 import {
@@ -71,7 +71,7 @@ function scopeKey(scope: StationManagerScope): string {
     : `${scope.kind}:${station}:${scope.subject?.type}:${scope.subject?.id}`;
 }
 
-export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, services, surface, onManageCategoryGroups, settingsStartContent, openAction }: {
+export function DynamicStationManager({ scope: initialScope, shell, continuation, onOpenPromotion, onOpenPackage, onOpenService, services, surface, onManagePackageFamilies, settingsStartContent, openAction }: {
   scope: StationManagerScope;
   shell: ManagerShellContext;
   continuation?: ManagerContinuation;
@@ -80,7 +80,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   onOpenService?: (summary: ServiceSummary, edit?: boolean) => void;
   services?: readonly ServiceSummary[];
   surface?: ManagerSurface;
-  onManageCategoryGroups?: (group?: PackageCategoryGroupItem) => void;
+  onManagePackageFamilies?: (group?: PackageFamilyItem) => void;
   settingsStartContent?: ComponentChildren;
   openAction?: (config: ActionConfig) => void;
 }) {
@@ -117,12 +117,12 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [activeWorkspace, setActiveWorkspace] = useState<ManagerWorkspace>(
     surface === 'packages' ? 'package' : initialScope.activeProviderKey === 'promotion' ? 'promotion' : 'service',
   );
-  const [categoryGroups, setCategoryGroups] = useState<PackageCategoryGroupItem[]>([]);
+  const [packageFamilies, setPackageFamilies] = useState<PackageFamilyItem[]>([]);
   const [rateSheetFilters, setRateSheetFilters] = useState<RateSheetFilterState>(RATE_SHEET_FILTER_DEFAULTS);
   // Family-first workspace scope (Phase 2): 'all' | 'unassigned' | group_id.
   // Drives the Services table filter, relationship-row scoping, and the Rate
   // Sheet Category Group filter through their existing mechanisms.
-  const [selectedCategoryGroupId, setSelectedCategoryGroupId] = useState<WorkspaceGroupScope>('all');
+  const [selectedFamilyId, setSelectedFamilyId] = useState<WorkspaceGroupScope>('all');
   const [groupActionBusy, setGroupActionBusy] = useState(false);
   const temporaryGroupSequence = useRef(0);
   const serviceCatalogSurface = surface === 'service-catalog';
@@ -130,18 +130,18 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
 
   // Package Category Group registry — shared by the Services table dropdowns
   // and the Rate Sheet filters; the management section reloads it on change.
-  const reloadCategoryGroups = useCallback(async () => {
+  const reloadPackageFamilies = useCallback(async () => {
     try {
-      const response = await fetchPackageCategoryGroups();
-      setCategoryGroups(response.package_category_groups);
+      const response = await fetchPackageFamilies();
+      setPackageFamilies(response.package_category_groups);
     } catch {
       // Non-fatal: dropdowns simply stay empty; the section shows its own error.
     }
   }, []);
   const hasPackageProvider = providers.some((provider) => provider.key === 'package');
   useEffect(() => {
-    if (hasPackageProvider) void reloadCategoryGroups();
-  }, [hasPackageProvider, reloadCategoryGroups]);
+    if (hasPackageProvider) void reloadPackageFamilies();
+  }, [hasPackageProvider, reloadPackageFamilies]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -242,10 +242,10 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   // Keep the Rate Sheet's existing Category Group filter in step with the
   // workspace scope; the Rate Sheet dropdown can still refine locally after.
   useEffect(() => {
-    setRateSheetFilters((current) => current.categoryGroup === selectedCategoryGroupId
+    setRateSheetFilters((current) => current.family === selectedFamilyId
       ? current
-      : { ...current, categoryGroup: selectedCategoryGroupId });
-  }, [selectedCategoryGroupId]);
+      : { ...current, family: selectedFamilyId });
+  }, [selectedFamilyId]);
 
   // A workspace only offers the sub-tabs it populates.
   useEffect(() => {
@@ -257,16 +257,16 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   // A group that leaves the current registry (archived, trashed, deleted)
   // cannot remain the workspace scope.
   useEffect(() => {
-    if (selectedCategoryGroupId === 'all' || selectedCategoryGroupId === 'unassigned') return;
-    if (!categoryGroups.some((group) => group.group_id === selectedCategoryGroupId)) setSelectedCategoryGroupId('all');
-  }, [categoryGroups, selectedCategoryGroupId]);
+    if (selectedFamilyId === 'all' || selectedFamilyId === 'unassigned') return;
+    if (!packageFamilies.some((group) => group.group_id === selectedFamilyId)) setSelectedFamilyId('all');
+  }, [packageFamilies, selectedFamilyId]);
 
   const runGroupLifecycle = async (groupId: string, operation: () => Promise<unknown>) => {
     setGroupActionBusy(true);
     setManagerNotice(null);
     try {
       await operation();
-      await reloadCategoryGroups();
+      await reloadPackageFamilies();
     } catch (error) {
       setManagerNotice({ kind: 'error', message: error instanceof Error ? error.message : 'The group operation failed.' });
     } finally {
@@ -349,16 +349,16 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
       )}
       {/* SECTION: FAMILY_SCOPE — Category Group cards establish the workspace scope. */}
       {!packagesSurface && hasPackageProvider && scope.stationContext.type === 'service' && (
-        <PackageCategoryGroupCards
-          groups={categoryGroups}
+        <PackageFamilyCards
+          groups={packageFamilies}
           sources={packageDraftSources}
-          selected={selectedCategoryGroupId}
-          onSelect={setSelectedCategoryGroupId}
+          selected={selectedFamilyId}
+          onSelect={setSelectedFamilyId}
           busy={groupActionBusy}
           onLifecycleAction={(groupId, operation) => { void runGroupLifecycle(groupId, operation); }}
           onManageGroups={(group) => {
-            if (onManageCategoryGroups) {
-              onManageCategoryGroups(group);
+            if (onManagePackageFamilies) {
+              onManagePackageFamilies(group);
               return;
             }
             if (packageProvider) setState((current) => selectManagerProvider(current, packageProvider.key, providers));
@@ -419,7 +419,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
             sources={((sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined)?.sources
               ?? (state.readModelByProvider[active.key] as { sources?: PackageRelationDraft['sources'] } | undefined)?.sources
               ?? []}
-            categoryGroups={categoryGroups}
+            packageFamilies={packageFamilies}
             hostServiceId={Number(scope.stationContext.id)}
             connectionSummaryByServiceId={serviceConnectionSummaryById}
             onOpenService={(summary, edit) => onOpenService?.(summary, edit)}
@@ -429,18 +429,18 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                 serviceId: summary.id,
                 serviceTitle: summary.title,
                 groupId,
-                groups: categoryGroups
+                groups: packageFamilies
                   .filter((group) => group.platform_status === 'active' || group.platform_status === 'disabled' || group.group_id === groupId)
                   .map((group) => ({ id: group.group_id, label: `${group.label}${group.platform_status === 'archived' || group.platform_status === 'trashed' ? ' (binned)' : ''}` })),
               }, (next) => {
                 const base = (sourcePreviewDraft ?? state.draftByProvider[active.key]) as PackageRelationDraft | undefined;
                 if (base === undefined) return;
-                const nextDraft = assignPackageServiceCategoryGroup(base, next.serviceId, next.groupId, Number(scope.stationContext.id));
+                const nextDraft = assignPackageServiceFamily(base, next.serviceId, next.groupId, Number(scope.stationContext.id));
                 if (sourcePreviewDraft !== null) setSourcePreviewDraft(nextDraft);
                 replaceActiveDraft(nextDraft);
               }));
             }}
-            categoryGroupFilter={selectedCategoryGroupId}
+            familyFilter={selectedFamilyId}
         />
       )}
       {/* SECTION: PACKAGE_WORKSPACE */}
@@ -532,7 +532,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
                   <PackageRateSheetFilters
                     items={projection.items}
                     sources={((draft as PackageRelationDraft | undefined)?.sources) ?? []}
-                    categoryGroups={categoryGroups}
+                    packageFamilies={packageFamilies}
                     rateGroups={projection.groups}
                     value={rateSheetFilters}
                     onChange={setRateSheetFilters}
@@ -720,9 +720,9 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
         const groupAssignments = assignmentByServiceId(packageDraftSources);
         const rows = projection.rows.filter((row) => {
           if (!row.filterIds.includes(activeFilter)) return false;
-          if (selectedCategoryGroupId === 'all') return true;
+          if (selectedFamilyId === 'all') return true;
           const assigned = row.sourceServiceId != null ? groupAssignments.get(row.sourceServiceId) ?? null : null;
-          return selectedCategoryGroupId === 'unassigned' ? assigned === null : assigned === selectedCategoryGroupId;
+          return selectedFamilyId === 'unassigned' ? assigned === null : assigned === selectedFamilyId;
         });
         return (
           <section class="cz-manager-section cz-manager-section--content-only" key={section.id}

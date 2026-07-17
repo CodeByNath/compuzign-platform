@@ -4,28 +4,28 @@ import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import { createCategoryGroup, fetchAdminCategoryGroups, fetchAdminCategories } from '@/api/endpoints/admin';
+import { createServiceCategoryGroup, fetchAdminServiceCategoryGroups, fetchAdminCategories } from '@/api/endpoints/admin';
 import type { Category } from '@/api/types/cost-builder';
 import type {
-  CategoryGroupOverviewDraft,
-  CategoryGroupStationItem,
+  ServiceCategoryGroupOverviewDraft,
+  ServiceCategoryGroupStationItem,
   CategoryStationItem,
   SurfacePackageSummary,
 } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
-import { categoryGroupOverviewShell } from '@/components/admin/schema/shells/bindings/categoryGroup';
-import type { CategoryGroupOverviewShellData } from '@/components/admin/schema/shells/bindings/categoryGroup';
+import { serviceCategoryGroupOverviewShell } from '@/components/admin/schema/shells/bindings/serviceCategoryGroup';
+import type { ServiceCategoryGroupOverviewShellData } from '@/components/admin/schema/shells/bindings/serviceCategoryGroup';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 import type { ShellBinding } from '@/components/admin/schema/types';
-import { CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/categoryGroup';
+import { SERVICE_CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/serviceCategoryGroup';
 import { Station } from '../shell/Station';
 import { EntityTable } from '../EntityTable';
 import { EntityDrawer } from '../EntityDrawer';
 import { normalizeAdminCategories } from './ServiceCatalogStation';
-import { buildCategoryGroupViewConfig } from './CategoryGroupViewStep';
-import type { CategoryGroupDrawerDeps } from './CategoryGroupViewStep';
+import { buildServiceCategoryGroupViewConfig } from './ServiceCategoryGroupViewStep';
+import type { ServiceCategoryGroupDrawerDeps } from './ServiceCategoryGroupViewStep';
 
 interface Props {
   refreshKey: number;
@@ -39,10 +39,10 @@ interface Props {
 // gateway is omitted pre-creation — no binding is delivered, so EntityDrawer's
 // Connections tab renders empty until the group exists.
 
-function CategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
-  const deps = ctx.stepData.deps as CategoryGroupDrawerDeps;
+function ServiceCategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
+  const deps = ctx.stepData.deps as ServiceCategoryGroupDrawerDeps;
 
-  const [draft,    setDraft]    = useState<CategoryGroupOverviewDraft>({ name: '', description: '' });
+  const [draft,    setDraft]    = useState<ServiceCategoryGroupOverviewDraft>({ name: '', description: '' });
   const [editing,  setEditing]  = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [saveErr,  setSaveErr]  = useState<string | null>(null);
@@ -58,11 +58,11 @@ function CategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
     setSaving(true);
     setSaveErr(null);
     try {
-      const result = await createCategoryGroup({ name: draft.name, description: draft.description });
+      const result = await createServiceCategoryGroup({ name: draft.name, description: draft.description });
       if (result.success) {
         deps.onRefresh?.();
         ctx.close();
-        deps.openAction(buildCategoryGroupViewConfig(result.group, deps));
+        deps.openAction(buildServiceCategoryGroupViewConfig(result.group, deps));
       } else {
         setSaveErr(result.message ?? 'Failed to create category group.');
       }
@@ -84,7 +84,7 @@ function CategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
     return () => setFooter(null);
   }, [ctx.setFooter, ctx.close]);
 
-  const overviewBinding: ShellBinding<CategoryGroupOverviewShellData> = {
+  const overviewBinding: ShellBinding<ServiceCategoryGroupOverviewShellData> = {
     data:  { name: draft.name, slug: '', description: draft.description },
     state: { status: 'pending-dim', notes },
     hasDraft: false,
@@ -94,7 +94,7 @@ function CategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
   return (
     <>
       <EntityDrawer
-        entity={CATEGORY_GROUP_ENTITY}
+        entity={SERVICE_CATEGORY_GROUP_ENTITY}
         bindings={{ overview: overviewBinding }}
         openPanel={openPanel}
         onTogglePanel={(m) => setOpenPanel((p) => (p === m ? null : m))}
@@ -103,12 +103,12 @@ function CategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
       {editing && (
         <ModeProvider mode="edit">
           <OverviewShell
-            schema={categoryGroupOverviewShell}
+            schema={serviceCategoryGroupOverviewShell}
             binding={overviewBinding}
             editSession={{
               draft,
-              patch:    (p) => setDraft((d) => ({ ...d, ...(p as Partial<CategoryGroupOverviewDraft>) })),
-              replace:  (next) => setDraft(next as CategoryGroupOverviewDraft),
+              patch:    (p) => setDraft((d) => ({ ...d, ...(p as Partial<ServiceCategoryGroupOverviewDraft>) })),
+              replace:  (next) => setDraft(next as ServiceCategoryGroupOverviewDraft),
               onSave:   handleSave,
               onCancel: () => { setEditing(false); setSaveErr(null); },
               saving,
@@ -129,8 +129,8 @@ function CategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
 // CategoryDrawerDeps bundle so a category card's View can open the real
 // Category drawer through the existing buildCategoryViewConfig, unchanged.
 
-export function CategoryGroupCatalogStation({ refreshKey, openAction }: Props) {
-  const groupsApi     = useApi(() => fetchAdminCategoryGroups());
+export function ServiceCategoryGroupCatalogStation({ refreshKey, openAction }: Props) {
+  const groupsApi     = useApi(() => fetchAdminServiceCategoryGroups());
   const categoriesApi = useApi(() => fetchAdminCategories());
   const catalog       = useAdminCatalog();
   const surfacePkgs   = useSurfacePackages();
@@ -139,7 +139,7 @@ export function CategoryGroupCatalogStation({ refreshKey, openAction }: Props) {
   // open time, so reopening (e.g. returning from a category edit) reads fresh —
   // same pattern as CategoryCatalogStation's dataRef.
   const dataRef = useRef<{
-    groups:                 CategoryGroupStationItem[];
+    groups:                 ServiceCategoryGroupStationItem[];
     categories:             CategoryStationItem[];
     stations:               ServiceSummary[];
     packages:               SurfacePackageSummary[];
@@ -191,10 +191,10 @@ export function CategoryGroupCatalogStation({ refreshKey, openAction }: Props) {
     openAction,
   };
 
-  const deps: CategoryGroupDrawerDeps = { getCatalogData, categoryDrawerDeps, onRefresh, openAction };
+  const deps: ServiceCategoryGroupDrawerDeps = { getCatalogData, categoryDrawerDeps, onRefresh, openAction };
 
-  const openCategoryGroupDrawer = (group: CategoryGroupStationItem) => {
-    openAction(buildCategoryGroupViewConfig(group, deps));
+  const openServiceCategoryGroupDrawer = (group: ServiceCategoryGroupStationItem) => {
+    openAction(buildServiceCategoryGroupViewConfig(group, deps));
   };
 
   const openCreateDrawer = () => {
@@ -203,7 +203,7 @@ export function CategoryGroupCatalogStation({ refreshKey, openAction }: Props) {
       mode:  'drawer',
       title: 'Category Group',
       initialStepData: { deps },
-      steps: [{ id: 'create', title: 'New Category Group', component: CategoryGroupCreateStep }],
+      steps: [{ id: 'create', title: 'New Category Group', component: ServiceCategoryGroupCreateStep }],
     });
   };
 
@@ -233,10 +233,10 @@ export function CategoryGroupCatalogStation({ refreshKey, openAction }: Props) {
 
       <Station.Content>
         <EntityTable
-          schema={CATEGORY_GROUP_ENTITY.placements.table!}
+          schema={SERVICE_CATEGORY_GROUP_ENTITY.placements.table!}
           rows={groups}
           rowKey={(r) => r.id}
-          handlers={{ view: (r) => openCategoryGroupDrawer(r) }}
+          handlers={{ view: (r) => openServiceCategoryGroupDrawer(r) }}
           frame="ws"
         />
       </Station.Content>

@@ -1,4 +1,4 @@
-import type { CategoryGroupStationItem, CategoryOverviewDraft } from '@/api/types/admin';
+import type { ServiceCategoryGroupStationItem, CategoryOverviewDraft } from '@/api/types/admin';
 
 // Category Overview module editor (S6). Name + description — the slug is
 // immutable in v1 (D5) and deliberately absent; category-to-service assignment
@@ -15,7 +15,7 @@ import type { CategoryGroupStationItem, CategoryOverviewDraft } from '@/api/type
 interface Props {
   draft:         CategoryOverviewDraft;
   onChange:      (patch: Partial<CategoryOverviewDraft>) => void;
-  groups:        CategoryGroupStationItem[];
+  groups:        ServiceCategoryGroupStationItem[];
   groupId:       number | null;
   onGroupChange: (id: number | null) => void;
 }

@@ -353,13 +353,13 @@ export const categoryOverviewModule: ModuleDefinition<CategoryOverviewLike> = {
 // counterparts (station_role is a storage/relation concern; it does not change
 // how a station's own modules resolve).
 
-export interface CategoryGroupOverviewLike {
+export interface ServiceCategoryGroupOverviewLike {
   name:        string;
   description: string;
   slug:        string;
 }
 
-export const categoryGroupOverviewModule: ModuleDefinition<CategoryGroupOverviewLike> = {
+export const serviceCategoryGroupOverviewModule: ModuleDefinition<ServiceCategoryGroupOverviewLike> = {
   key:                'category-group-overview',
   emptyPrompt:        'Edit and name this category group.',
   isEmpty:            (g) => !g.name.trim(),

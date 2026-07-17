@@ -5,7 +5,7 @@
 // the owned Category Group Overview shell and the Assigned Categories summary
 // gateway (same D4 Package-Summary-derived pattern). Everything here is
 // presentation; behaviour arrives at render time through ShellBinding,
-// assembled by the Category Group drawer step from useCategoryGroupStation.
+// assembled by the Category Group drawer step from useServiceCategoryGroupStation.
 //
 // The shared categoryOverviewShell is NOT re-declared here: the Category Group
 // Categories collection surface resolves it through the group manifest's
@@ -13,9 +13,9 @@
 // the exact same shell object Category itself uses for its own Details tab —
 // no new card, no new content elements added to it.
 
-import type { CategoryGroupOverviewDraft } from '@/api/types/admin';
-import { categoryGroupOverviewModule } from '@/components/admin/utils/moduleNotifications';
-import { CategoryGroupOverviewEditor } from '../../../editors/CategoryGroupOverviewEditor';
+import type { ServiceCategoryGroupOverviewDraft } from '@/api/types/admin';
+import { serviceCategoryGroupOverviewModule } from '@/components/admin/utils/moduleNotifications';
+import { ServiceCategoryGroupOverviewEditor } from '../../../editors/ServiceCategoryGroupOverviewEditor';
 import type { ShellActionSchema, ShellSchema } from '../../types';
 import type { RichTextValue, TextValue } from '../../elements/library';
 
@@ -38,15 +38,15 @@ const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 // display only (immutable, same D5 rationale as Category — read-only here,
 // absent from the editor).
 
-export interface CategoryGroupOverviewShellData {
+export interface ServiceCategoryGroupOverviewShellData {
   name:        string;
   slug:        string;
   description: string;
 }
 
-export const categoryGroupOverviewShell: ShellSchema<CategoryGroupOverviewShellData> = {
+export const serviceCategoryGroupOverviewShell: ShellSchema<ServiceCategoryGroupOverviewShellData> = {
   archetype: 'overview',
-  dna:       categoryGroupOverviewModule,
+  dna:       serviceCategoryGroupOverviewModule,
   header: {
     title:       'Category Group Overview',
     subtitle:    'General information about the category group.',
@@ -77,8 +77,8 @@ export const categoryGroupOverviewShell: ShellSchema<CategoryGroupOverviewShellD
   actions: DETAILS_ACTIONS,
   editor: {
     render: (s) => (
-      <CategoryGroupOverviewEditor
-        draft={s.draft as CategoryGroupOverviewDraft}
+      <ServiceCategoryGroupOverviewEditor
+        draft={s.draft as ServiceCategoryGroupOverviewDraft}
         onChange={(patch) => s.patch?.(patch)}
       />
     ),

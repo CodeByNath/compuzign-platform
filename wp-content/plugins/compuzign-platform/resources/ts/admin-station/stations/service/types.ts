@@ -34,7 +34,7 @@
  * Service-owned despite the historical name `StationSummary`: module_status
  * carries exactly the Service module triple, and the pool counts are Service
  * pools. Other stations have their own row types (CategoryStationItem,
- * CategoryGroupStationItem, PackageCategoryGroupItem). Consumers outside
+ * ServiceCategoryGroupStationItem, PackageFamilyItem). Consumers outside
  * Service hold these to display Service data — they never construct one from
  * another entity.
  */

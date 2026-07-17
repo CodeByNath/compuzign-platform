@@ -1,19 +1,19 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
-import type { CategoryGroupStationItem, CategoryStationItem } from '@/api/types/admin';
-import { useCategoryGroupStation } from '@/hooks/useCategoryGroupStation';
-import type { CategoryGroupCategoryCounts } from '@/hooks/useCategoryGroupStation';
-import type { CategoryGroupOverviewDraft } from '@/api/types/admin';
+import type { ServiceCategoryGroupStationItem, CategoryStationItem } from '@/api/types/admin';
+import { useServiceCategoryGroupStation } from '@/hooks/useServiceCategoryGroupStation';
+import type { ServiceCategoryGroupCategoryCounts } from '@/hooks/useServiceCategoryGroupStation';
+import type { ServiceCategoryGroupOverviewDraft } from '@/api/types/admin';
 import { ModeProvider } from '@/components/admin/schema/modeContext';
 import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
-import { categoryGroupOverviewShell } from '@/components/admin/schema/shells/bindings/categoryGroup';
+import { serviceCategoryGroupOverviewShell } from '@/components/admin/schema/shells/bindings/serviceCategoryGroup';
 import type {
-  CategoryGroupOverviewShellData,
-} from '@/components/admin/schema/shells/bindings/categoryGroup';
+  ServiceCategoryGroupOverviewShellData,
+} from '@/components/admin/schema/shells/bindings/serviceCategoryGroup';
 import { categoryOverviewShell } from '@/components/admin/schema/shells/bindings/category';
 import type { CategoryOverviewShellData } from '@/components/admin/schema/shells/bindings/category';
 import type { ShellBinding, ShellSchema } from '@/components/admin/schema/types';
-import { CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/categoryGroup';
+import { SERVICE_CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/serviceCategoryGroup';
 import { EntityDrawer } from '../EntityDrawer';
 import { DrawerTabs } from '../DrawerTabs';
 import { decodeHtml } from './serviceDrawerShared';
@@ -31,8 +31,8 @@ import type { CategoryDrawerDeps } from './CategoryViewStep';
 // handed through unchanged so a category card's View opens the real Category
 // drawer via the existing buildCategoryViewConfig, with the same services/
 // packages/allCategories context that drawer already expects.
-export interface CategoryGroupDrawerDeps {
-  getCatalogData: () => { groups: CategoryGroupStationItem[]; categories: CategoryStationItem[] };
+export interface ServiceCategoryGroupDrawerDeps {
+  getCatalogData: () => { groups: ServiceCategoryGroupStationItem[]; categories: CategoryStationItem[] };
   categoryDrawerDeps: CategoryDrawerDeps;
   onRefresh?: () => void;
   openAction: (config: ActionConfig) => void;
@@ -40,9 +40,9 @@ export interface CategoryGroupDrawerDeps {
 
 // ── Config builder (shared by the station, create flow, card transit) ─────
 
-export function buildCategoryGroupViewConfig(
-  group: CategoryGroupStationItem,
-  deps:  CategoryGroupDrawerDeps,
+export function buildServiceCategoryGroupViewConfig(
+  group: ServiceCategoryGroupStationItem,
+  deps:  ServiceCategoryGroupDrawerDeps,
   initialTab: 'details' | 'connections' = 'details',
 ): ActionConfig {
   return {
@@ -50,7 +50,7 @@ export function buildCategoryGroupViewConfig(
     mode:  'drawer',
     title: 'Category Group',
     initialStepData: { group, deps, initialTab },
-    steps: [{ id: 'detail', title: 'Category Group Detail', component: CategoryGroupViewStep }],
+    steps: [{ id: 'detail', title: 'Category Group Detail', component: ServiceCategoryGroupViewStep }],
   };
 }
 
@@ -58,21 +58,21 @@ export function buildCategoryGroupViewConfig(
 // drawer reached from the Connections-tab Categories gateway's View. Back
 // returns to the Category Group drawer on its Connections tab, where the
 // Group-scoped child categories, read fresh from the station ref.
-function categoriesFor(group: CategoryGroupStationItem, deps: CategoryGroupDrawerDeps): CategoryStationItem[] {
+function categoriesFor(group: ServiceCategoryGroupStationItem, deps: ServiceCategoryGroupDrawerDeps): CategoryStationItem[] {
   return deps.getCatalogData().categories.filter((c) => c.group_id === group.id);
 }
 
 // Presentation Status Contract mapping for the summary cards (Active / Pending /
 // Disabled only) — mirrors CategoryViewStep's summaryCardStatus, applied to a
 // CategoryStationItem instead of a ServiceSummary.
-// ── CategoryGroupViewStep ──────────────────────────────────────────────────────
+// ── ServiceCategoryGroupViewStep ──────────────────────────────────────────────────────
 // Manifest-assembly drawer (pattern: CategoryViewStep, one owned module). Details
 // tab = the owned Category Group Overview; Connections tab = the Assigned
 // Categories summary gateway whose View transits to the collection surface.
 
-export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
-  const group = ctx.stepData.group as CategoryGroupStationItem;
-  const deps  = ctx.stepData.deps  as CategoryGroupDrawerDeps;
+export function ServiceCategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
+  const group = ctx.stepData.group as ServiceCategoryGroupStationItem;
+  const deps  = ctx.stepData.deps  as ServiceCategoryGroupDrawerDeps;
   const onRefresh = deps.onRefresh;
 
   const [tab, setTab] = useState<'details' | 'connections'>(
@@ -81,16 +81,16 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
 
   // Assigned categories (read fresh at mount) → the gateway split.
   const assignedCategories = useMemo(() => categoriesFor(group, deps), [group.id]);
-  const categoryCounts: CategoryGroupCategoryCounts = useMemo(() => {
+  const categoryCounts: ServiceCategoryGroupCategoryCounts = useMemo(() => {
     const total  = assignedCategories.length;
     const active = assignedCategories.filter((c) => c.platform_status === 'active').length;
     return { total, active, disabled: total - active };
   }, [assignedCategories]);
 
-  const station = useCategoryGroupStation(group, onRefresh, categoryCounts);
+  const station = useServiceCategoryGroupStation(group, onRefresh, categoryCounts);
   const {
     platformStatus, isActive, hasDraft, moduleStatus, modules,
-    saveOverview, revertOverview, settleModules, publishCategoryGroup,
+    saveOverview, revertOverview, settleModules, publishServiceCategoryGroup,
     toggleActive, archiveStation, trashStation,
   } = station;
 
@@ -103,8 +103,8 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
   // SECTION: CATEGORY_GROUP_OVERVIEW
   // ===========================================================================
   const [editing,         setEditing]         = useState(false);
-  const [draft,           setDraft]           = useState<CategoryGroupOverviewDraft | null>(null);
-  const [original,        setOriginal]        = useState<CategoryGroupOverviewDraft | null>(null);
+  const [draft,           setDraft]           = useState<ServiceCategoryGroupOverviewDraft | null>(null);
+  const [original,        setOriginal]        = useState<ServiceCategoryGroupOverviewDraft | null>(null);
   const [saving,          setSaving]          = useState(false);
   const [saveErr,         setSaveErr]         = useState<string | null>(null);
   const [saveOk,          setSaveOk]          = useState(false);
@@ -124,7 +124,7 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
     (draft.name !== original.name || draft.description !== original.description);
 
   const openOverviewEditor = useCallback(() => {
-    const seed: CategoryGroupOverviewDraft = { name: station.group.name, description: station.group.description };
+    const seed: ServiceCategoryGroupOverviewDraft = { name: station.group.name, description: station.group.description };
     setOriginal(seed);
     setDraft(seed);
     setEditing(true);
@@ -164,8 +164,8 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
-    await (isActive ? settleModules() : publishCategoryGroup());
-  }, [isActive, settleModules, publishCategoryGroup]);
+    await (isActive ? settleModules() : publishServiceCategoryGroup());
+  }, [isActive, settleModules, publishServiceCategoryGroup]);
 
   // ===========================================================================
   // SECTION: CATEGORY_GROUP_LIFECYCLE
@@ -299,7 +299,7 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
   // ===========================================================================
   // SECTION: CATEGORY_GROUP_RENDER
   // ===========================================================================
-  const overviewBinding: ShellBinding<CategoryGroupOverviewShellData> = {
+  const overviewBinding: ShellBinding<ServiceCategoryGroupOverviewShellData> = {
     data:  { name: decodeHtml(station.group.name), slug: station.group.slug, description: station.group.description },
     state: modules.overview,
     hasDraft,
@@ -313,7 +313,7 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
   return (
     <>
       <EntityDrawer
-        entity={CATEGORY_GROUP_ENTITY}
+        entity={SERVICE_CATEGORY_GROUP_ENTITY}
         tab={tab}
         onSelectTab={setTab}
         bindings={{ overview: overviewBinding }}
@@ -385,12 +385,12 @@ export function CategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
       {editing && draft && (
         <ModeProvider mode="edit">
           <OverviewShell
-            schema={categoryGroupOverviewShell}
+            schema={serviceCategoryGroupOverviewShell}
             binding={overviewBinding}
             editSession={{
               draft,
-              patch:    (p) => setDraft((d) => d ? { ...d, ...(p as Partial<CategoryGroupOverviewDraft>) } : d),
-              replace:  (next) => setDraft(next as CategoryGroupOverviewDraft),
+              patch:    (p) => setDraft((d) => d ? { ...d, ...(p as Partial<ServiceCategoryGroupOverviewDraft>) } : d),
+              replace:  (next) => setDraft(next as ServiceCategoryGroupOverviewDraft),
               onSave:   handleSaveOverview,
               onCancel: handleCancelEdit,
               saving,

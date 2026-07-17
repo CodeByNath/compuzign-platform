@@ -22,7 +22,7 @@ import { OverviewStation } from '../stations/OverviewStation';
 import { ServiceCatalogStation } from '../stations/ServiceCatalogStation';
 import { PackageManagerStation } from '../stations/PackageManagerStation';
 import { CategoryCatalogStation } from '../stations/CategoryCatalogStation';
-import { CategoryGroupCatalogStation } from '../stations/CategoryGroupCatalogStation';
+import { ServiceCategoryGroupCatalogStation } from '../stations/ServiceCategoryGroupCatalogStation';
 import { BundlesStation } from '../stations/BundlesStation';
 import { FeaturedStation } from '../stations/FeaturedStation';
 import { RequestsStation } from '../stations/RequestsStation';
@@ -80,7 +80,7 @@ export const STATIONS: StationSchema[] = [
   { id: 'category-catalog', label: 'Categories',        group: 'catalog',    iconId: 'category',
     surface: { kind: 'component', component: () => CategoryCatalogStation } },
   { id: 'category-group-catalog', label: 'Category Groups', group: 'catalog', iconId: 'category',
-    surface: { kind: 'component', component: () => CategoryGroupCatalogStation } },
+    surface: { kind: 'component', component: () => ServiceCategoryGroupCatalogStation } },
   { id: 'bundles',          label: 'Bundles',           group: 'catalog',    hiddenFromNav: true,
     surface: { kind: 'component', component: () => BundlesStation } },
   { id: 'featured',         label: 'Featured Controls', group: 'catalog',    iconId: 'featured',

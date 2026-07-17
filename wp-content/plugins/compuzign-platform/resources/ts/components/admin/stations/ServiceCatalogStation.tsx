@@ -23,7 +23,7 @@ import { DynamicStationManager } from '../relations/DynamicStationManager';
 import { usePageManagerShell } from '../relations/usePageManagerShell';
 import { buildServiceDetailDrawerConfig } from '../relations/serviceDrawerConfig';
 import type { DrawerHostContext } from '../relations/serviceDrawerConfig';
-import { buildCategoryGroupDrawerConfig } from '../relations/serviceManagerDrawers';
+import { buildPackageFamilyDrawerConfig } from '../relations/serviceManagerDrawers';
 import { ManagerSubTabs } from '../relations/ManagerSubTabs';
 import type { ManagerSubTab } from '../relations/ManagerSubTabs';
 
@@ -491,7 +491,7 @@ export function ServiceCatalogStation({ refreshKey, openAction, setNavigationInt
     openAction,
     onRefresh: refetch,
   } : null;
-  const handleCategoryGroupsChanged = useCallback(() => {
+  const handlePackageFamiliesChanged = useCallback(() => {
     setManagerRefreshKey((current) => current + 1);
   }, []);
 
@@ -509,7 +509,7 @@ export function ServiceCatalogStation({ refreshKey, openAction, setNavigationInt
       steps: [{ id: 'create', title: 'New Service', component: ServiceCreateStep }],
     });
   };
-  const handleCreateGroup = () => openAction(buildCategoryGroupDrawerConfig(undefined, handleCategoryGroupsChanged));
+  const handleCreateGroup = () => openAction(buildPackageFamilyDrawerConfig(undefined, handlePackageFamiliesChanged));
   const startContent = <ServiceManagerStart onCreateService={handleCreateService} onCreateGroup={handleCreateGroup} />;
 
   if (loading) return <AsyncLoading label="Loading catalog…" />;
@@ -556,7 +556,7 @@ export function ServiceCatalogStation({ refreshKey, openAction, setNavigationInt
             services={stations}
             openAction={openAction}
             settingsStartContent={startContent}
-            onManageCategoryGroups={(group) => openAction(buildCategoryGroupDrawerConfig(group, handleCategoryGroupsChanged))}
+            onManagePackageFamilies={(group) => openAction(buildPackageFamilyDrawerConfig(group, handlePackageFamiliesChanged))}
             onOpenService={(summary, edit) => openAction(buildServiceDetailDrawerConfig(drawerDeps, summary, edit))}
           />
         )}

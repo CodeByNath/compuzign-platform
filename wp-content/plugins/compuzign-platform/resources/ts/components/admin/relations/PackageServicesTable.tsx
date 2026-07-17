@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
-import type { PackageCategoryGroupItem, PackageSourceRelationship } from '@/api/types/admin';
+import type { PackageFamilyItem, PackageSourceRelationship } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';
 import { PRESENTATION_PILL } from '../schema/presentation';
-import { packageServiceCategoryGroup } from './providers/package';
+import { packageServiceFamily } from './providers/package';
 
 // Package Manager Services collection (Services sub-tab, Details section).
 //
@@ -14,14 +14,14 @@ import { packageServiceCategoryGroup } from './providers/package';
 interface Props {
   services: readonly ServiceSummary[];
   sources: PackageSourceRelationship[];
-  categoryGroups: PackageCategoryGroupItem[];
+  packageFamilies: PackageFamilyItem[];
   hostServiceId: number;
   onOpenService: (summary: ServiceSummary, edit: boolean) => void;
-  onManageAssignment: (summary: ServiceSummary, categoryGroupId: string | null) => void;
+  onManageAssignment: (summary: ServiceSummary, familyId: string | null) => void;
   connectionSummaryByServiceId: ReadonlyMap<number, { count: number; attention: number }>;
   // Controlled by the family scope cards; the collection does not fork that
   // filtering mechanism or expose a second assignment control.
-  categoryGroupFilter?: string;
+  familyFilter?: string;
 }
 
 function serviceStatusPill(summary: ServiceSummary) {
@@ -38,24 +38,24 @@ function serviceStatusKey(summary: ServiceSummary): 'active' | 'pending' | 'disa
   return summary.module_status.overview !== 'settled' ? 'pending' : 'disabled';
 }
 
-export function PackageServicesTable({ services, sources, categoryGroups, hostServiceId, onOpenService, onManageAssignment, connectionSummaryByServiceId, categoryGroupFilter = 'all' }: Props) {
+export function PackageServicesTable({ services, sources, packageFamilies, hostServiceId, onOpenService, onManageAssignment, connectionSummaryByServiceId, familyFilter = 'all' }: Props) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
   // Assignable buckets: live groups only. Binned groups keep their existing
   // assignments (rows still display them) but accept no new members.
-  const assignableGroups = categoryGroups.filter((group) => (
+  const assignableGroups = packageFamilies.filter((group) => (
     group.platform_status === 'active' || group.platform_status === 'disabled'
   ));
-  const groupLabels = new Map(categoryGroups.map((group) => [group.group_id, group.label]));
+  const groupLabels = new Map(packageFamilies.map((group) => [group.group_id, group.label]));
   const categories = [...new Set(services.flatMap((service) => service.categories.map((category) => category.name)))]
     .sort((left, right) => left.localeCompare(right));
   const query = search.trim().toLocaleLowerCase();
   const visibleServices = services.filter((summary) => {
-    const assignment = packageServiceCategoryGroup({ sources }, summary.id) ?? null;
-    if (categoryGroupFilter !== 'all'
-      && (categoryGroupFilter === 'unassigned' ? assignment !== null : assignment !== categoryGroupFilter)) return false;
+    const assignment = packageServiceFamily({ sources }, summary.id) ?? null;
+    if (familyFilter !== 'all'
+      && (familyFilter === 'unassigned' ? assignment !== null : assignment !== familyFilter)) return false;
     if (categoryFilter !== 'all' && !summary.categories.some((category) => category.name === categoryFilter)) return false;
     if (statusFilter !== 'all' && serviceStatusKey(summary) !== statusFilter) return false;
     if (query && ![summary.title, summary.slug, ...summary.categories.map((category) => category.name)].some((value) => value.toLocaleLowerCase().includes(query))) return false;
@@ -98,7 +98,7 @@ export function PackageServicesTable({ services, sources, categoryGroups, hostSe
             <span role="columnheader">Action</span>
           </div>
           <div class="cz-manager-collection__body" role="rowgroup">{visibleServices.map((summary) => {
-              const assignment = packageServiceCategoryGroup({ sources }, summary.id);
+              const assignment = packageServiceFamily({ sources }, summary.id);
               const connected = assignment !== undefined
                 || (sources.length === 0 && hostServiceId > 0 && summary.id === hostServiceId);
               const currentGroupId = assignment ?? null;

@@ -132,41 +132,41 @@ export interface PackageManagerItem {
 // commercially. Full StationLifecycle participation; overview draft/settle
 // mechanics mirror the taxonomy Category Group station.
 
-export type PackageCategoryGroupStatus = 'active' | 'disabled' | 'archived' | 'trashed';
+export type PackageFamilyStatus = 'active' | 'disabled' | 'archived' | 'trashed';
 
-export interface PackageCategoryGroupDependents {
+export interface PackageFamilyDependents {
   services:        number;
   rate_sheet_rows: number;
   tier_selections: number;
 }
 
-export interface PackageCategoryGroupItem {
+export interface PackageFamilyItem {
   group_id:                 string;
   label:                    string;
   description:              string;
-  platform_status:          PackageCategoryGroupStatus;
+  platform_status:          PackageFamilyStatus;
   previous_platform_status: 'active' | 'disabled' | null;
   module_status:            { overview: string };
   has_draft:                boolean;
   sort_order:               number;
   assigned_service_count:   number;
-  dependents:               PackageCategoryGroupDependents;
+  dependents:               PackageFamilyDependents;
 }
 
-export interface PackageCategoryGroupListResponse {
-  package_category_groups: PackageCategoryGroupItem[];
+export interface PackageFamilyListResponse {
+  package_category_groups: PackageFamilyItem[];
 }
 
-export interface PackageCategoryGroupMutationResponse {
+export interface PackageFamilyMutationResponse {
   success:  boolean;
   message?: string;
-  group:    PackageCategoryGroupItem | null;
+  group:    PackageFamilyItem | null;
 }
 
 // A dependency-guard failure is an HTTP 409 — apiClient throws, and the error
 // text carries the JSON body { message, assigned_count, dependents }, same
-// parsing contract as CategoryGroupDeleteResponse.
-export interface PackageCategoryGroupDeleteResponse {
+// parsing contract as ServiceCategoryGroupDeleteResponse.
+export interface PackageFamilyDeleteResponse {
   success: boolean;
   deleted: string;
 }
@@ -209,7 +209,7 @@ export interface PackageManagerReadModel {
   has_configuration: boolean;
   sources:           PackageSourceRelationship[];
   groups:            PackageManagerGroup[];
-  category_groups:   PackageCategoryGroupItem[];
+  category_groups:   PackageFamilyItem[];
   items:             PackageManagerItem[];
   rate_sheet:        PackageRateSheet | null;
   projections: {
@@ -698,11 +698,11 @@ export interface CategoryDeleteResponse {
 // ── Category Group station (Category Group audit, Option B, Phase C) ─────────
 // Same station shape as Category, one level up: overview (name/description) +
 // a categories gateway (child-category counts) in place of a services gateway.
-// Response keys mirror what AdminCategoryGroupsController actually returns
+// Response keys mirror what AdminServiceCategoryGroupsController actually returns
 // ('category_groups' / 'group') — distinct from the Category equivalents
 // ('categories' / 'category') so the two stations' fetchers never collide.
 
-export interface CategoryGroupOverviewDraft {
+export interface ServiceCategoryGroupOverviewDraft {
   name:        string;
   description: string;
 }
@@ -710,7 +710,7 @@ export interface CategoryGroupOverviewDraft {
 // The /admin/category-groups list-route projection. assigned_count here is the
 // group-side delete guard: count of child category terms (any status), not
 // services — see CategoryMeta::assignedCategoryCount().
-export interface CategoryGroupStationItem {
+export interface ServiceCategoryGroupStationItem {
   id:                       number;
   name:                     string;
   slug:                     string;
@@ -722,28 +722,28 @@ export interface CategoryGroupStationItem {
   assigned_count:           number;
 }
 
-export interface CategoryGroupListResponse {
-  category_groups: CategoryGroupStationItem[];
+export interface ServiceCategoryGroupListResponse {
+  category_groups: ServiceCategoryGroupStationItem[];
 }
 
 // Shared by create / settle / revert / status / restore — each returns the full
 // refreshed projection.
-export interface CategoryGroupMutationResponse {
+export interface ServiceCategoryGroupMutationResponse {
   success:  boolean;
   message?: string;
-  group:    CategoryGroupStationItem;
+  group:    ServiceCategoryGroupStationItem;
 }
 
-export interface CategoryGroupOverviewSaveResponse {
+export interface ServiceCategoryGroupOverviewSaveResponse {
   success:       boolean;
-  draft:         CategoryGroupOverviewDraft;
+  draft:         ServiceCategoryGroupOverviewDraft;
   module_status: { overview: string };
 }
 
 // A D6-style guard failure (non-empty group) is an HTTP 409 — apiClient throws,
 // and the error text carries the JSON body { message, assigned_count }, same
 // parsing contract as CategoryDeleteResponse.
-export interface CategoryGroupDeleteResponse {
+export interface ServiceCategoryGroupDeleteResponse {
   success: boolean;
   deleted: number;
 }

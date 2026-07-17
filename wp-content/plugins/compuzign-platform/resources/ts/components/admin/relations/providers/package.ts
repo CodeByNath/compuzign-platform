@@ -260,10 +260,10 @@ export function connectPackageServiceSources(
  * empty-sources station promotes its host into an explicit source first, same
  * rule as resolvePackageServiceSources, so host supply keeps resolving.
  */
-export function assignPackageServiceCategoryGroup(
+export function assignPackageServiceFamily(
   draft: PackageRelationDraft,
   serviceId: number,
-  categoryGroupId: string | null,
+  familyId: string | null,
   hostServiceId: number,
 ): PackageRelationDraft {
   const idsToConnect = draft.sources.length === 0 && hostServiceId > 0
@@ -276,14 +276,14 @@ export function assignPackageServiceCategoryGroup(
       source.provider_key === 'service'
         && source.entity_type === 'service'
         && Number(source.entity_id) === serviceId
-        ? { ...source, category_group_id: categoryGroupId }
+        ? { ...source, category_group_id: familyId }
         : source
     )),
   };
 }
 
 /** The draft's current group assignment for a Service; null = connected but unassigned, undefined = not connected. */
-export function packageServiceCategoryGroup(
+export function packageServiceFamily(
   draft: Pick<PackageRelationDraft, 'sources'>,
   serviceId: number,
 ): string | null | undefined {
@@ -681,10 +681,10 @@ export const packageRelationProvider: WritableRelationProvider<
     // A source's commercial assignment must reference a group in the Package
     // Category Group registry (any lifecycle state — assignments survive a
     // group being binned; sanitize nulls only genuinely deleted groups).
-    const categoryGroupIds = new Set(readModel.category_groups.map((group) => group.group_id));
+    const familyIds = new Set(readModel.category_groups.map((group) => group.group_id));
     draft.sources.forEach((source, index) => {
       const assignment = source.category_group_id ?? null;
-      if (assignment !== null && !categoryGroupIds.has(assignment)) {
+      if (assignment !== null && !familyIds.has(assignment)) {
         issues.push({
           path: `sources.${index}.category_group_id`,
           rowIdentity: source.relationship_id,

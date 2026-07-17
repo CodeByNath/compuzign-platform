@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category } from '@/api/types/cost-builder';
-import type { CategoryGroupStationItem, CategoryStationItem, SurfacePackageSummary } from '@/api/types/admin';
+import type { ServiceCategoryGroupStationItem, CategoryStationItem, SurfacePackageSummary } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';
 import { useApi } from '@/hooks/useApi';
-import { fetchAdminCategoryGroups, updateCategoryGroup } from '@/api/endpoints/admin';
+import { fetchAdminServiceCategoryGroups, updateServiceCategoryGroup } from '@/api/endpoints/admin';
 import { useCategoryStation } from '@/hooks/useCategoryStation';
 import type { CategoryServiceCounts } from '@/hooks/useCategoryStation';
 import type { CategoryOverviewDraft } from '@/api/types/admin';
@@ -123,7 +123,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
   // step-owned current/original pair (mirrors catDesc/catDescOriginal on the
   // Service overview editor), saved alongside the overview Save action but
   // never folded into `draft`/CategoryOverviewDraft.
-  const groupsApi = useApi(() => fetchAdminCategoryGroups());
+  const groupsApi = useApi(() => fetchAdminServiceCategoryGroups());
   const [groupId,         setGroupId]         = useState<number | null>(station.category.group_id);
   const [groupIdOriginal, setGroupIdOriginal] = useState<number | null>(station.category.group_id);
   const groupName = useMemo(() => {
@@ -169,7 +169,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
       // Group membership: a separate, structural call — only fired when
       // changed, never folded into the overview draft (D2 scope).
       if (groupId !== groupIdOriginal) {
-        await updateCategoryGroup(station.category.id, groupId);
+        await updateServiceCategoryGroup(station.category.id, groupId);
         setGroupIdOriginal(groupId);
       }
       setEditing(false);

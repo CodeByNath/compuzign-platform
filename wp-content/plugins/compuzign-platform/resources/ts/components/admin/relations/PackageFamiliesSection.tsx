@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import {
-  createPackageCategoryGroup,
-  fetchPackageCategoryGroups,
-  permanentDeletePackageCategoryGroup,
-  restorePackageCategoryGroup,
-  revertPackageCategoryGroupOverview,
-  savePackageCategoryGroupOverview,
-  settlePackageCategoryGroupOverview,
-  updatePackageCategoryGroupStatus,
+  createPackageFamily,
+  fetchPackageFamilies,
+  permanentDeletePackageFamily,
+  restorePackageFamily,
+  revertPackageFamilyOverview,
+  savePackageFamilyOverview,
+  settlePackageFamilyOverview,
+  updatePackageFamilyStatus,
 } from '@/api/endpoints/admin';
-import type { PackageCategoryGroupItem } from '@/api/types/admin';
+import type { PackageFamilyItem } from '@/api/types/admin';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '../schema/presentation';
 import type { PillMeta } from '../schema/presentation';
 
@@ -35,25 +35,25 @@ export interface GroupLifecycleOperation {
   operation?: () => Promise<unknown>;
 }
 
-export function currentGroupLifecycleOperations(row: PackageCategoryGroupItem): GroupLifecycleOperation[] {
+export function currentGroupLifecycleOperations(row: PackageFamilyItem): GroupLifecycleOperation[] {
   const operations: GroupLifecycleOperation[] = [];
   if (row.has_draft) {
     operations.push(
-      { id: 'settle', label: 'Apply changes', kind: 'run', operation: () => settlePackageCategoryGroupOverview(row.group_id) },
-      { id: 'revert', label: 'Discard changes', kind: 'run', operation: () => revertPackageCategoryGroupOverview(row.group_id) },
+      { id: 'settle', label: 'Apply changes', kind: 'run', operation: () => settlePackageFamilyOverview(row.group_id) },
+      { id: 'revert', label: 'Discard changes', kind: 'run', operation: () => revertPackageFamilyOverview(row.group_id) },
     );
   }
   if (row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview === 'settled') {
-    operations.push({ id: 'publish', label: 'Publish', kind: 'run', operation: () => updatePackageCategoryGroupStatus(row.group_id, 'active') });
+    operations.push({ id: 'publish', label: 'Publish', kind: 'run', operation: () => updatePackageFamilyStatus(row.group_id, 'active') });
   }
   if (row.platform_status === 'disabled' && !row.has_draft && row.module_status.overview !== 'settled') {
-    operations.push({ id: 'complete', label: 'Complete setup', kind: 'run', operation: () => settlePackageCategoryGroupOverview(row.group_id) });
+    operations.push({ id: 'complete', label: 'Complete setup', kind: 'run', operation: () => settlePackageFamilyOverview(row.group_id) });
   }
   if (row.platform_status === 'active') {
-    operations.push({ id: 'disable', label: 'Disable', kind: 'run', operation: () => updatePackageCategoryGroupStatus(row.group_id, 'disabled') });
+    operations.push({ id: 'disable', label: 'Disable', kind: 'run', operation: () => updatePackageFamilyStatus(row.group_id, 'disabled') });
   }
   operations.push(
-    { id: 'archive', label: 'Archive', kind: 'run', operation: () => updatePackageCategoryGroupStatus(row.group_id, 'archived') },
+    { id: 'archive', label: 'Archive', kind: 'run', operation: () => updatePackageFamilyStatus(row.group_id, 'archived') },
     { id: 'trash', label: 'Trash', kind: 'confirm-trash', danger: true },
   );
   return operations;
@@ -63,7 +63,7 @@ export interface GroupConfirmState {
   id: string; label: string; action: 'trash' | 'delete'; dependents: string;
 }
 
-export function PackageCategoryGroupConfirmDialog({ confirming, onCancel, onConfirm }: {
+export function PackageFamilyConfirmDialog({ confirming, onCancel, onConfirm }: {
   confirming: GroupConfirmState;
   onCancel: () => void;
   onConfirm: (target: GroupConfirmState) => void;
@@ -93,7 +93,7 @@ export function PackageCategoryGroupConfirmDialog({ confirming, onCancel, onConf
 // Station status pill — same derivation as the taxonomy Category Group table
 // (Presentation Status Contract: Active/Pending/Disabled only on live rows).
 // Exported for the Family Card strip so both surfaces share one derivation.
-export function groupStatusPill(row: PackageCategoryGroupItem): PillMeta {
+export function groupStatusPill(row: PackageFamilyItem): PillMeta {
   if (row.platform_status === 'disabled') {
     return row.module_status.overview !== 'settled'
       ? PRESENTATION_PILL.pending
@@ -105,7 +105,7 @@ export function groupStatusPill(row: PackageCategoryGroupItem): PillMeta {
     : PRESENTATION_PILL.active;
 }
 
-export function dependentsSummary(row: PackageCategoryGroupItem): string {
+export function dependentsSummary(row: PackageFamilyItem): string {
   const parts = [
     `${row.dependents.services} ${row.dependents.services === 1 ? 'Service' : 'Services'}`,
   ];
@@ -114,9 +114,9 @@ export function dependentsSummary(row: PackageCategoryGroupItem): string {
   return parts.join(' · ');
 }
 
-export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => void }) {
+export function PackageFamiliesSection({ onChanged }: { onChanged: () => void }) {
   const [scope, setScope] = useState<BinScope>('current');
-  const [rows, setRows] = useState<PackageCategoryGroupItem[] | null>(null);
+  const [rows, setRows] = useState<PackageFamilyItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyGroupId, setBusyGroupId] = useState<string | null>(null);
@@ -133,7 +133,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
   const load = useCallback(async (nextScope: BinScope) => {
     setLoadError(null);
     try {
-      const response = await fetchPackageCategoryGroups(nextScope === 'current' ? undefined : nextScope);
+      const response = await fetchPackageFamilies(nextScope === 'current' ? undefined : nextScope);
       setRows(response.package_category_groups);
     } catch (error) {
       setRows([]);
@@ -169,7 +169,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
     setActionError(null);
     setCreateBusy(true);
     try {
-      await createPackageCategoryGroup({ name, description: createDescription.trim() || undefined });
+      await createPackageFamily({ name, description: createDescription.trim() || undefined });
       setCreating(false); setCreateName(''); setCreateDescription('');
       await load(scope);
       onChanged();
@@ -182,7 +182,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
 
   const submitEdit = async () => {
     if (!editing || !editing.name.trim()) return;
-    await run(editing.id, () => savePackageCategoryGroupOverview(editing.id, {
+    await run(editing.id, () => savePackageFamilyOverview(editing.id, {
       name: editing.name.trim(), description: editing.description,
     }));
     setEditing(null);
@@ -301,7 +301,7 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
                                     }}>{operation.label}</button>
                                 ))}
                               </> : <>
-                                <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => restorePackageCategoryGroup(row.group_id)); }}>Restore</button>
+                                <button type="button" onClick={() => { setOpenActions(null); void run(row.group_id, () => restorePackageFamily(row.group_id)); }}>Restore</button>
                                 {scope === 'archived' && <button type="button" class="is-danger" onClick={() => { setOpenActions(null); setConfirming({ id: row.group_id, label: row.label, action: 'trash', dependents: dependentsSummary(row) }); }}>Move to Trash</button>}
                                 {scope === 'trashed' && <button type="button" class="is-danger" onClick={() => { setOpenActions(null); setConfirming({ id: row.group_id, label: row.label, action: 'delete', dependents: dependentsSummary(row) }); }}>Delete permanently</button>}
                               </>}
@@ -318,14 +318,14 @@ export function PackageCategoryGroupsSection({ onChanged }: { onChanged: () => v
       )}
 
       {confirming && (
-        <PackageCategoryGroupConfirmDialog
+        <PackageFamilyConfirmDialog
           confirming={confirming}
           onCancel={() => setConfirming(null)}
           onConfirm={(target) => {
             setConfirming(null);
             void run(target.id, () => target.action === 'delete'
-              ? permanentDeletePackageCategoryGroup(target.id)
-              : updatePackageCategoryGroupStatus(target.id, 'trashed'));
+              ? permanentDeletePackageFamily(target.id)
+              : updatePackageFamilyStatus(target.id, 'trashed'));
           }}
         />
       )}

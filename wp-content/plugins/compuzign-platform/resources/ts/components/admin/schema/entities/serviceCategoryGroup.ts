@@ -3,26 +3,26 @@
 // Structural clone of entities/category.ts, one level up: declared here as
 // pure configuration of the existing archetypes — zero new renderer
 // components, zero new modes. Behaviour stays with the Station
-// (StationLifecycle.php via CategoryMeta, useCategoryGroupStation, the
+// (StationLifecycle.php via CategoryMeta, useServiceCategoryGroupStation, the
 // /admin/category-groups REST family); everything here references existing
 // presentation assets.
 
-import type { CategoryGroupStationItem } from '@/api/types/admin';
-import { categoryGroupOverviewShell } from '../shells/bindings/categoryGroup';
+import type { ServiceCategoryGroupStationItem } from '@/api/types/admin';
+import { serviceCategoryGroupOverviewShell } from '../shells/bindings/serviceCategoryGroup';
 import {
-  categoryGroupCatalogTable,
-  categoryGroupArchivedTable,
-  categoryGroupTrashedTable,
-  categoryGroupBinTable,
-} from '../tables/categoryGroup';
+  serviceCategoryGroupCatalogTable,
+  serviceCategoryGroupArchivedTable,
+  serviceCategoryGroupTrashedTable,
+  serviceCategoryGroupBinTable,
+} from '../tables/serviceCategoryGroup';
 import type { EntitySchema } from '../types';
 
-export const CATEGORY_GROUP_ENTITY: EntitySchema = {
+export const SERVICE_CATEGORY_GROUP_ENTITY: EntitySchema = {
   id:    'category-group',
   label: { singular: 'Category Group', plural: 'Category Groups' },
   identity: {
-    idOf:    (d: CategoryGroupStationItem) => d.id,
-    titleOf: (d: CategoryGroupStationItem) => d.name,
+    idOf:    (d: ServiceCategoryGroupStationItem) => d.id,
+    titleOf: (d: ServiceCategoryGroupStationItem) => d.name,
   },
 
   lifecycle: {
@@ -36,7 +36,7 @@ export const CATEGORY_GROUP_ENTITY: EntitySchema = {
   // copy (S4 related-stations rule), the same precedent as CATEGORY_ENTITY
   // registering serviceOverviewShell under `service`.
   shells: {
-    overview:   categoryGroupOverviewShell,
+    overview:   serviceCategoryGroupOverviewShell,
   },
 
   // Entity travel actions (StationLifecycle transitions). Declarations only —
@@ -66,14 +66,14 @@ export const CATEGORY_GROUP_ENTITY: EntitySchema = {
     // child category in the summary viewpoint, each card re-selecting the
     // `view` footer that opens the real Category drawer. The surface owns the
     // N bindings (same v1.2 mechanics as CATEGORY_ENTITY.placements.collections.services).
-    table: categoryGroupCatalogTable,
+    table: serviceCategoryGroupCatalogTable,
     // Bin is the consumed schema (the Bin station's Category Group pane);
     // archived/trashed are declared for travel-preset completeness — no hidden
     // category-group-archived/category-group-trash station routes in v1.
     travel: {
-      archived: categoryGroupArchivedTable,
-      trashed:  categoryGroupTrashedTable,
-      bin:      categoryGroupBinTable,
+      archived: serviceCategoryGroupArchivedTable,
+      trashed:  serviceCategoryGroupTrashedTable,
+      bin:      serviceCategoryGroupBinTable,
     },
   },
 };

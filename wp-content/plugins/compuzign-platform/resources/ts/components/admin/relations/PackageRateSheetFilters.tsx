@@ -1,4 +1,4 @@
-import type { PackageCategoryGroupItem, PackageSourceRelationship } from '@/api/types/admin';
+import type { PackageFamilyItem, PackageSourceRelationship } from '@/api/types/admin';
 
 // Rate Sheet source filtering (Package Manager, Settings sub-tab).
 //
@@ -9,7 +9,7 @@ import type { PackageCategoryGroupItem, PackageSourceRelationship } from '@/api/
 // Pure projection filtering: nothing here mutates the Rate Sheet.
 
 export interface RateSheetFilterState {
-  categoryGroup: string;  // 'all' | 'unassigned' | group_id
+  family: string;  // 'all' | 'unassigned' | group_id
   serviceCategory: string; // 'all' | category name
   service: string;         // 'all' | service id (string)
   inclusionGroup: string;  // 'all' | 'ungrouped' | rate-sheet group id
@@ -18,7 +18,7 @@ export interface RateSheetFilterState {
 }
 
 export const RATE_SHEET_FILTER_DEFAULTS: RateSheetFilterState = {
-  categoryGroup: 'all', serviceCategory: 'all', service: 'all',
+  family: 'all', serviceCategory: 'all', service: 'all',
   inclusionGroup: 'all', status: 'all', search: '',
 };
 
@@ -52,9 +52,9 @@ export function filterRateSheetItems<Row extends RateSheetFilterRow>(
   const assignments = assignmentByServiceId(sources);
   const search = filters.search.trim().toLowerCase();
   return items.filter((item) => {
-    if (filters.categoryGroup !== 'all') {
+    if (filters.family !== 'all') {
       const assigned = item.serviceId != null ? assignments.get(item.serviceId) ?? null : null;
-      if (filters.categoryGroup === 'unassigned' ? assigned !== null : assigned !== filters.categoryGroup) return false;
+      if (filters.family === 'unassigned' ? assigned !== null : assigned !== filters.family) return false;
     }
     if (filters.serviceCategory !== 'all'
       && !(item.serviceCategories ?? []).includes(filters.serviceCategory)) return false;
@@ -69,10 +69,10 @@ export function filterRateSheetItems<Row extends RateSheetFilterRow>(
   });
 }
 
-export function PackageRateSheetFilters({ items, sources, categoryGroups, rateGroups, value, onChange }: {
+export function PackageRateSheetFilters({ items, sources, packageFamilies, rateGroups, value, onChange }: {
   items: readonly RateSheetFilterRow[];
   sources: readonly PackageSourceRelationship[];
-  categoryGroups: readonly PackageCategoryGroupItem[];
+  packageFamilies: readonly PackageFamilyItem[];
   rateGroups: readonly { id: string; label: string }[];
   value: RateSheetFilterState;
   onChange: (next: RateSheetFilterState) => void;
@@ -100,9 +100,9 @@ export function PackageRateSheetFilters({ items, sources, categoryGroups, rateGr
 
   return (
     <div class="cz-manager-filters cz-manager-rate-sheet__filters" role="group" aria-label="Rate Sheet filters">
-      {select('categoryGroup', 'Category Group', [
+      {select('family', 'Category Group', [
         { id: 'unassigned', label: 'Unassigned' },
-        ...categoryGroups.map((group) => ({ id: group.group_id, label: group.label })),
+        ...packageFamilies.map((group) => ({ id: group.group_id, label: group.label })),
       ])}
       {select('serviceCategory', 'Category', [...categories].sort().map((name) => ({ id: name, label: name })))}
       {select('service', 'Service', [...services.entries()]

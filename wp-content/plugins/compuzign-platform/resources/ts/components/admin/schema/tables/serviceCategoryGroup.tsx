@@ -5,9 +5,9 @@
 // archived/trashed are declared for travel-preset completeness). Cells are pure
 // data projections; status pills delegate to the Presentation Status Contract
 // chokepoint; behaviour arrives from the owning station as EntityTable
-// handlers. Reached through CATEGORY_GROUP_ENTITY.placements.table / .travel.
+// handlers. Reached through SERVICE_CATEGORY_GROUP_ENTITY.placements.table / .travel.
 
-import type { CategoryGroupStationItem } from '@/api/types/admin';
+import type { ServiceCategoryGroupStationItem } from '@/api/types/admin';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '../presentation';
 import type { PillMeta } from '../presentation';
 import type { ColumnDef, RowActionDef, TableSchema } from '../types';
@@ -16,7 +16,7 @@ import { TRASH_ICON } from './service';
 // Station status pill — the Category Group mirror of categoryStatusPill, over
 // the single owned module. Returns chokepoint metas only (Presentation Status
 // Contract: Active/Pending/Disabled; never a travel label here).
-function categoryGroupStatusPill(row: CategoryGroupStationItem): PillMeta {
+function serviceCategoryGroupStatusPill(row: ServiceCategoryGroupStationItem): PillMeta {
   if (row.platform_status === 'disabled') {
     // Never-published (overview unsettled) reads Pending, not Disabled.
     return row.module_status.overview !== 'settled'
@@ -39,7 +39,7 @@ function excerpt(text: string, max = 80): string {
 
 // ── Catalog table ─────────────────────────────────────────────────────────────
 
-export const categoryGroupCatalogTable: TableSchema<CategoryGroupStationItem> = {
+export const serviceCategoryGroupCatalogTable: TableSchema<ServiceCategoryGroupStationItem> = {
   columns: [
     {
       id: 'name', label: 'Category Group',
@@ -62,7 +62,7 @@ export const categoryGroupCatalogTable: TableSchema<CategoryGroupStationItem> = 
       id: 'status', label: 'Status',
       className: 'cz-sc-table__status',
       cell: (r) => {
-        const pill = categoryGroupStatusPill(r);
+        const pill = serviceCategoryGroupStatusPill(r);
         return <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>;
       },
     },
@@ -79,7 +79,7 @@ export const categoryGroupCatalogTable: TableSchema<CategoryGroupStationItem> = 
 // Grammar copied from the category travel schemas (busyLabel, icon-only danger,
 // confirm prompts). Travel-state pills are data labels — travel surfaces only.
 
-const TRAVEL_COLUMNS: ColumnDef<CategoryGroupStationItem>[] = [
+const TRAVEL_COLUMNS: ColumnDef<ServiceCategoryGroupStationItem>[] = [
   {
     id: 'category-group', label: 'Category Group',
     className: 'cz-sc-table__service', cellClassName: 'cz-sc-table__service cz-sc-table__name',
@@ -99,11 +99,11 @@ const TRAVEL_COLUMNS: ColumnDef<CategoryGroupStationItem>[] = [
   },
 ];
 
-const RESTORE_ACTION: RowActionDef<CategoryGroupStationItem> = {
+const RESTORE_ACTION: RowActionDef<ServiceCategoryGroupStationItem> = {
   id: 'restore', label: 'Restore', intent: 'secondary', busyLabel: 'Restoring…',
 };
 
-export const categoryGroupArchivedTable: TableSchema<CategoryGroupStationItem> = {
+export const serviceCategoryGroupArchivedTable: TableSchema<ServiceCategoryGroupStationItem> = {
   columns: TRAVEL_COLUMNS,
   rowActions: [
     RESTORE_ACTION,
@@ -117,7 +117,7 @@ export const categoryGroupArchivedTable: TableSchema<CategoryGroupStationItem> =
   scope: 'archived',
 };
 
-export const categoryGroupTrashedTable: TableSchema<CategoryGroupStationItem> = {
+export const serviceCategoryGroupTrashedTable: TableSchema<ServiceCategoryGroupStationItem> = {
   columns: TRAVEL_COLUMNS,
   rowActions: [
     RESTORE_ACTION,
@@ -134,7 +134,7 @@ export const categoryGroupTrashedTable: TableSchema<CategoryGroupStationItem> = 
 // Bin consolidates both travel scopes (D8 precedent — the consumed schema): the
 // destructive action is origin-aware, and a non-empty-group guard failure
 // surfaces through the owning surface's error affordance.
-export const categoryGroupBinTable: TableSchema<CategoryGroupStationItem> = {
+export const serviceCategoryGroupBinTable: TableSchema<ServiceCategoryGroupStationItem> = {
   columns: TRAVEL_COLUMNS,
   rowActions: [
     RESTORE_ACTION,
