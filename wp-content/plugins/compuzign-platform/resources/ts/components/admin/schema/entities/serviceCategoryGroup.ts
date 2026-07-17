@@ -19,7 +19,11 @@ import type { EntitySchema } from '../types';
 
 export const SERVICE_CATEGORY_GROUP_ENTITY: EntitySchema = {
   id:    'category-group',
-  label: { singular: 'Category Group', plural: 'Category Groups' },
+  // Consumed only by EntityTableStation (`ENTITIES[entity].label`). No
+  // entity-table station registers `category-group` yet, so this renders
+  // nowhere today; it is the entity's own name and must stay correct for the
+  // archived/trashed surfaces that will.
+  label: { singular: 'Service Service Category Group', plural: 'Service Service Service Category Groups' },
   identity: {
     idOf:    (d: ServiceCategoryGroupStationItem) => d.id,
     titleOf: (d: ServiceCategoryGroupStationItem) => d.name,
@@ -67,7 +71,7 @@ export const SERVICE_CATEGORY_GROUP_ENTITY: EntitySchema = {
     // `view` footer that opens the real Category drawer. The surface owns the
     // N bindings (same v1.2 mechanics as CATEGORY_ENTITY.placements.collections.services).
     table: serviceCategoryGroupCatalogTable,
-    // Bin is the consumed schema (the Bin station's Category Group pane);
+    // Bin is the consumed schema (the Bin station's Service Category Group pane);
     // archived/trashed are declared for travel-preset completeness — no hidden
     // category-group-archived/category-group-trash station routes in v1.
     travel: {

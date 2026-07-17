@@ -13,7 +13,7 @@ import type { PillMeta } from '../presentation';
 import type { ColumnDef, RowActionDef, TableSchema } from '../types';
 import { TRASH_ICON } from './service';
 
-// Station status pill — the Category Group mirror of categoryStatusPill, over
+// Station status pill — the Service Category Group mirror of categoryStatusPill, over
 // the single owned module. Returns chokepoint metas only (Presentation Status
 // Contract: Active/Pending/Disabled; never a travel label here).
 function serviceCategoryGroupStatusPill(row: ServiceCategoryGroupStationItem): PillMeta {
@@ -42,7 +42,7 @@ function excerpt(text: string, max = 80): string {
 export const serviceCategoryGroupCatalogTable: TableSchema<ServiceCategoryGroupStationItem> = {
   columns: [
     {
-      id: 'name', label: 'Category Group',
+      id: 'name', label: 'Service Service Category Group',
       className: 'cz-sc-table__service', cellClassName: 'cz-sc-table__service cz-sc-table__name',
       cell: (r) => r.name,
     },
@@ -81,7 +81,7 @@ export const serviceCategoryGroupCatalogTable: TableSchema<ServiceCategoryGroupS
 
 const TRAVEL_COLUMNS: ColumnDef<ServiceCategoryGroupStationItem>[] = [
   {
-    id: 'category-group', label: 'Category Group',
+    id: 'category-group', label: 'Service Service Category Group',
     className: 'cz-sc-table__service', cellClassName: 'cz-sc-table__service cz-sc-table__name',
     cell: (r) => r.name,
   },

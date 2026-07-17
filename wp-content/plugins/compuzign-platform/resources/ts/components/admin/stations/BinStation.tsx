@@ -45,7 +45,7 @@ export function BinStation({ refreshKey }: Props) {
   const catArchived = useApi(() => fetchAdminCategories('archived'));
   const catTrashed  = useApi(() => fetchAdminCategories('trashed'));
 
-  // Category Group bin streams — same two-scope shape, one level up.
+  // Service Category Group bin streams — same two-scope shape, one level up.
   const groupArchived = useApi(() => fetchAdminServiceCategoryGroups('archived'));
   const groupTrashed  = useApi(() => fetchAdminServiceCategoryGroups('trashed'));
 
@@ -150,7 +150,7 @@ export function BinStation({ refreshKey }: Props) {
     }
   }, [refetchAll]);
 
-  // Category Group delete: the group-side guard returns HTTP 409, same parsing
+  // Service Category Group delete: the group-side guard returns HTTP 409, same parsing
   // contract as handleCategoryDelete — one level up (assigned_count = child
   // categories, not services).
   const handleGroupDelete = useCallback(async (row: ServiceCategoryGroupStationItem) => {
@@ -292,7 +292,7 @@ export function BinStation({ refreshKey }: Props) {
 
             {groupRows.length > 0 && (
               <>
-                <p class="cz-shell-section__title" style="margin-top:var(--cz-space-5)">Category Groups</p>
+                <p class="cz-shell-section__title" style="margin-top:var(--cz-space-5)">Service Service Service Category Groups</p>
                 {groupError && <div class="cz-admin-error-msg" style="margin-bottom:var(--cz-space-3)">{groupError}</div>}
                 <EntityTable
                   schema={SERVICE_CATEGORY_GROUP_ENTITY.placements.travel!.bin!}

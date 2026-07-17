@@ -1,13 +1,13 @@
 // Category Group shell bindings (Category Group audit, Option B).
 //
-// Per-module configuration of the overview archetype for the Category Group
+// Per-module configuration of the overview archetype for the Service Category Group
 // station — a structural clone of shells/bindings/category.tsx, one level up:
-// the owned Category Group Overview shell and the Assigned Categories summary
+// the owned Service Category Group Overview shell and the Assigned Categories summary
 // gateway (same D4 Package-Summary-derived pattern). Everything here is
 // presentation; behaviour arrives at render time through ShellBinding,
-// assembled by the Category Group drawer step from useServiceCategoryGroupStation.
+// assembled by the Service Category Group drawer step from useServiceCategoryGroupStation.
 //
-// The shared categoryOverviewShell is NOT re-declared here: the Category Group
+// The shared categoryOverviewShell is NOT re-declared here: the Service Category Group
 // Categories collection surface resolves it through the group manifest's
 // `shells` record under the `category` key (S4 related-stations rule), reusing
 // the exact same shell object Category itself uses for its own Details tab —
@@ -32,7 +32,7 @@ const DETAILS_ACTIONS: Record<string, ShellActionSchema> = {
 
 const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 
-// ── Category Group Overview ───────────────────────────────────────────────────
+// ── Service Category Group Overview ───────────────────────────────────────────────────
 // Presentation projection delivered by the drawer step: name/description are
 // draft-preferred (the station projection is server-merged); slug is settled
 // display only (immutable, same D5 rationale as Category — read-only here,
@@ -48,7 +48,7 @@ export const serviceCategoryGroupOverviewShell: ShellSchema<ServiceCategoryGroup
   archetype: 'overview',
   dna:       serviceCategoryGroupOverviewModule,
   header: {
-    title:       'Category Group Overview',
+    title:       'Service Service Category Group Overview',
     subtitle:    'General information about the category group.',
     icon:        'category',
     iconVariant: 'drawerModule__icon--overview',
@@ -57,7 +57,7 @@ export const serviceCategoryGroupOverviewShell: ShellSchema<ServiceCategoryGroup
   content: [
     {
       id: 'name', element: 'text', label: 'Name',
-      bind: (d): TextValue => ({ value: d.name, fallback: 'New Category Group' }),
+      bind: (d): TextValue => ({ value: d.name, fallback: 'New Service Service Category Group' }),
     },
     {
       id: 'slug', element: 'text', label: 'Slug',
@@ -87,7 +87,7 @@ export const serviceCategoryGroupOverviewShell: ShellSchema<ServiceCategoryGroup
 
 // ── Categories (relation summary gateway, D4 precedent) ───────────────────────
 // one level up: a metrics element + a `view` footer. Placed in the Connections
-// tab; its View transits to the Category Group Categories collection surface,
+// tab; its View transits to the Service Category Group Categories collection surface,
 // which repeats the existing categoryOverviewShell once per child category.
 // Read-only in v1: group assignment stays on the category side (Category
 // chooses its group, the same relational-ecosystem precedent as Service

@@ -2,7 +2,7 @@ import type { PackageFamilyItem, PackageSourceRelationship } from '@/api/types/a
 
 // Rate Sheet source filtering (Package Manager, Settings sub-tab).
 //
-// Filters the catalogue rows by their provenance — Package Category Group
+// Filters the catalogue rows by their provenance — Package Family
 // (via the supplying Service's source assignment), Service Category, Service,
 // Inclusion Group (Rate Sheet group), availability, and label search — while
 // every row keeps its real Service / Category / Inclusion Group identity.
@@ -31,7 +31,7 @@ export interface RateSheetFilterRow {
   serviceCategories?: readonly string[];
 }
 
-// Shared provenance map: service id → Package Category Group assignment.
+// Shared provenance map: service id → Package Family assignment.
 // Also consumed by DynamicStationManager to scope relationship rows, so the
 // workspace never grows a second assignment-resolution implementation.
 export function assignmentByServiceId(sources: readonly PackageSourceRelationship[]): Map<number, string | null> {
@@ -100,7 +100,7 @@ export function PackageRateSheetFilters({ items, sources, packageFamilies, rateG
 
   return (
     <div class="cz-manager-filters cz-manager-rate-sheet__filters" role="group" aria-label="Rate Sheet filters">
-      {select('family', 'Category Group', [
+      {select('family', 'Family', [
         { id: 'unassigned', label: 'Unassigned' },
         ...packageFamilies.map((group) => ({ id: group.group_id, label: group.label })),
       ])}

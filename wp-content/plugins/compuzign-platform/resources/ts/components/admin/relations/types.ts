@@ -114,7 +114,7 @@ export interface ManagerSectionDefinition<ReadModel = unknown, Row = unknown, Id
         availability: 'Available' | 'Not available' | 'Disabled' | 'Missing source';
         sourceHealth: 'Connected' | 'Missing';
         // Supplying-Service provenance (read model only, never persisted on
-        // rows) so hosts can scope relationship rows by Category Group.
+        // rows) so hosts can scope relationship rows by Service Category Group.
         sourceServiceId?: number | null;
       }[];
     }

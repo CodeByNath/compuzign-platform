@@ -13,7 +13,7 @@ import type { PackageFamilyItem } from '@/api/types/admin';
 import { PRESENTATION_PILL, TRAVEL_PILL } from '../schema/presentation';
 import type { PillMeta } from '../schema/presentation';
 
-// Package Category Group management (Services > Connections).
+// Package Family management (Services > Connections).
 //
 // The Package-owned commercial bucket station (e.g. KAIROS): create, overview
 // draft → apply/discard, publish/disable, archive/trash/restore, and
@@ -90,7 +90,7 @@ export function PackageFamilyConfirmDialog({ confirming, onCancel, onConfirm }: 
   );
 }
 
-// Station status pill — same derivation as the taxonomy Category Group table
+// Station status pill — same derivation as the taxonomy Service Category Group table
 // (Presentation Status Contract: Active/Pending/Disabled only on live rows).
 // Exported for the Family Card strip so both surfaces share one derivation.
 export function groupStatusPill(row: PackageFamilyItem): PillMeta {
@@ -137,7 +137,7 @@ export function PackageFamiliesSection({ onChanged }: { onChanged: () => void })
       setRows(response.package_category_groups);
     } catch (error) {
       setRows([]);
-      setLoadError(error instanceof Error ? error.message : 'Could not load Category Groups.');
+      setLoadError(error instanceof Error ? error.message : 'Could not load Package Families.');
     }
   }, []);
 
@@ -189,7 +189,7 @@ export function PackageFamiliesSection({ onChanged }: { onChanged: () => void })
   };
 
   return (
-    <section class="cz-manager-section cz-manager-section--content-only" aria-label="Category Groups">
+    <section class="cz-manager-section cz-manager-section--content-only" aria-label="Package Families">
       <div class="cz-manager-filters" role="group" aria-label="Group lifecycle scope">
         {(['current', 'archived', 'trashed'] as const).map((candidate) => (
           <button type="button" key={candidate} class={scope === candidate ? 'is-active' : undefined}
@@ -201,7 +201,7 @@ export function PackageFamiliesSection({ onChanged }: { onChanged: () => void })
 
       {actionError && <div class="cz-admin-error-msg" role="alert">{actionError}</div>}
       {loadError && <div class="cz-admin-error-msg" role="alert">{loadError}</div>}
-      {rows === null && !loadError && <p class="cz-sp-tier-table__muted">Loading Category Groups…</p>}
+      {rows === null && !loadError && <p class="cz-sp-tier-table__muted">Loading Families…</p>}
 
       {scope === 'current' && (
         creating ? (
@@ -223,7 +223,7 @@ export function PackageFamiliesSection({ onChanged }: { onChanged: () => void })
         ) : (
           <div class="cz-manager-section__actions">
             <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => setCreating(true)}>
-              <span aria-hidden="true">+</span> New Category Group
+              <span aria-hidden="true">+</span> New Family
             </button>
           </div>
         )
@@ -231,13 +231,13 @@ export function PackageFamiliesSection({ onChanged }: { onChanged: () => void })
 
       {rows !== null && rows.length === 0 && !loadError && (
         <div class="cz-manager-empty">
-          <strong>{scope === 'current' ? 'No Category Groups yet.' : scope === 'archived' ? 'No archived groups.' : 'Trash is empty.'}</strong>
+          <strong>{scope === 'current' ? 'No Families yet.' : scope === 'archived' ? 'No archived families.' : 'Trash is empty.'}</strong>
           {scope === 'current' && <p>Create a permanent commercial bucket such as KAIROS, then assign Services to it from the Services tab.</p>}
         </div>
       )}
 
       {rows !== null && rows.length > 0 && (
-        <div class="cz-manager-collection cz-manager-collection--category-groups" role="table" aria-label="Category Groups">
+        <div class="cz-manager-collection cz-manager-collection--category-groups" role="table" aria-label="Package Families">
           <div class="cz-manager-collection__header" role="row">
             <span role="columnheader">Group</span>
             <span role="columnheader">Connected dependencies</span>

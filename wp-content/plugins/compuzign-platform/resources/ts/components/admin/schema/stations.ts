@@ -79,7 +79,7 @@ export const STATIONS: StationSchema[] = [
     surface: { kind: 'component', component: () => PackageManagerStation } },
   { id: 'category-catalog', label: 'Categories',        group: 'catalog',    iconId: 'category',
     surface: { kind: 'component', component: () => CategoryCatalogStation } },
-  { id: 'category-group-catalog', label: 'Category Groups', group: 'catalog', iconId: 'category',
+  { id: 'category-group-catalog', label: 'Service Service Service Category Groups', group: 'catalog', iconId: 'category',
     surface: { kind: 'component', component: () => ServiceCategoryGroupCatalogStation } },
   { id: 'bundles',          label: 'Bundles',           group: 'catalog',    hiddenFromNav: true,
     surface: { kind: 'component', component: () => BundlesStation } },

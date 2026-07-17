@@ -78,7 +78,7 @@ class AdminCategoriesController
             ],
         ]);
 
-        // ── Group assignment (structural, not draft content — Category Group
+        // ── Group assignment (structural, not draft content — Service Category Group
         // audit Phase B): moves this category under a group term, or ungroups it
         // when group_id is null/0. Validated against station_role, not folded
         // into the overview draft envelope.
@@ -627,11 +627,11 @@ class AdminCategoriesController
     {
         $groupTerm = get_term($groupId, CategoryMeta::TAXONOMY);
         if (!$groupTerm instanceof \WP_Term) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 422);
         }
 
         if (CategoryMeta::role($groupId) !== CategoryMeta::STATION_ROLE_GROUP) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'group_id must reference a Category Group.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'group_id must reference a Service Service Category Group.'], 422);
         }
 
         return null;

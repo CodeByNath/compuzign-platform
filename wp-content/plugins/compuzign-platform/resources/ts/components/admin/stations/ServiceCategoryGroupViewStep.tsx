@@ -48,15 +48,15 @@ export function buildServiceCategoryGroupViewConfig(
   return {
     id:    `category-group-view-${group.id}`,
     mode:  'drawer',
-    title: 'Category Group',
+    title: 'Service Service Category Group',
     initialStepData: { group, deps, initialTab },
-    steps: [{ id: 'detail', title: 'Category Group Detail', component: ServiceCategoryGroupViewStep }],
+    steps: [{ id: 'detail', title: 'Service Service Category Group Detail', component: ServiceCategoryGroupViewStep }],
   };
 }
 
 // The dedicated Categories collection surface: a Details | Connections list
 // drawer reached from the Connections-tab Categories gateway's View. Back
-// returns to the Category Group drawer on its Connections tab, where the
+// returns to the Service Category Group drawer on its Connections tab, where the
 // Group-scoped child categories, read fresh from the station ref.
 function categoriesFor(group: ServiceCategoryGroupStationItem, deps: ServiceCategoryGroupDrawerDeps): CategoryStationItem[] {
   return deps.getCatalogData().categories.filter((c) => c.group_id === group.id);
@@ -67,7 +67,7 @@ function categoriesFor(group: ServiceCategoryGroupStationItem, deps: ServiceCate
 // CategoryStationItem instead of a ServiceSummary.
 // ── ServiceCategoryGroupViewStep ──────────────────────────────────────────────────────
 // Manifest-assembly drawer (pattern: CategoryViewStep, one owned module). Details
-// tab = the owned Category Group Overview; Connections tab = the Assigned
+// tab = the owned Service Category Group Overview; Connections tab = the Assigned
 // Categories summary gateway whose View transits to the collection surface.
 
 export function ServiceCategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
@@ -371,7 +371,7 @@ export function ServiceCategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-publish-confirm">
             <div class="cz-publish-confirm__header"><h3 class="cz-publish-confirm__title">Unsaved changes</h3></div>
             <div class="cz-publish-confirm__body">
-              <p class="cz-publish-confirm__lead">You have unsaved changes in <strong>Category Group Overview</strong>. Closing will discard them.</p>
+              <p class="cz-publish-confirm__lead">You have unsaved changes in <strong>Service Service Category Group Overview</strong>. Closing will discard them.</p>
             </div>
             <div class="cz-publish-confirm__footer">
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { handleCancelEdit(); setExitDialog(null); closeWithoutGuard(); }}>Discard and close</button>

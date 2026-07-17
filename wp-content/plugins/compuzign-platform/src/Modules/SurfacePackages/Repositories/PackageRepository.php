@@ -286,7 +286,7 @@ class PackageRepository
     /**
      * Service-owned category names for a supplying service — category-role
      * terms only. A group-role term shares the taxonomy but is a different
-     * station (Category Group) and must never read as a Service Category.
+     * station (Service Category Group) and must never read as a Service Category.
      *
      * @return string[]
      */

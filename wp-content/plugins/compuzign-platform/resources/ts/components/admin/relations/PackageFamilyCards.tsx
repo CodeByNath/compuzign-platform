@@ -15,7 +15,7 @@ import type { GroupConfirmState } from './PackageFamiliesSection';
 
 // Family Card strip (Phase 2 — family-first workspace scope).
 //
-// Presents the Package Category Groups (KAIROS, APTOS, OMNIA, …) already
+// Presents the Package Families (KAIROS, APTOS, OMNIA, …) already
 // loaded by DynamicStationManager as selectable scope cards; selecting one
 // establishes the workspace `selectedFamilyId`. "All Groups" and
 // "Ungrouped" stay first-class scopes so unassigned sources never disappear
@@ -75,7 +75,7 @@ export function PackageFamilyCards({ groups, sources, selected, onSelect, busy, 
   );
 
   return (
-    <section class="cz-family-strip" aria-label="Category Group scope">
+    <section class="cz-family-strip" aria-label="Package Family scope">
       <div class="cz-family-strip__utilities" role="radiogroup" aria-label="Utility scopes">
         {card('all', <>
           <strong class="cz-family-card__name">All Groups</strong>
@@ -95,7 +95,7 @@ export function PackageFamilyCards({ groups, sources, selected, onSelect, busy, 
                 <span class="cz-family-card__monogram" aria-hidden="true">{group.label.trim().charAt(0).toUpperCase() || 'G'}</span>
                 <div>
                   <strong class="cz-family-card__name">{group.label}</strong>
-                  <span class="cz-family-card__kind">Service family</span>
+                  <span class="cz-family-card__kind">Package family</span>
                 </div>
               </div>
               <span class={`cz-module-status-pill ${pill.cls}`}>{pill.label}</span>

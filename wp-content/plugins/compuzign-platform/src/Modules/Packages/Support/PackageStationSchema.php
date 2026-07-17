@@ -56,7 +56,7 @@ final class PackageStationSchema
      * Package-owned supply identity. Providers resolve presentation and
      * exposed content; Package persists only the durable generic relationship.
      * category_group_id is the Package-owned commercial bucket assignment
-     * (Package Category Group, e.g. KAIROS) — existence against the group
+     * (Package Family, e.g. KAIROS) — existence against the group
      * registry is normalised by the Manager layer, not here.
      *
      * @return array<int, array{relationship_id:string,provider_key:string,entity_type:string,entity_id:string|int,sort_order:int,category_group_id:string|null}>

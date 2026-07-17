@@ -440,7 +440,7 @@ export function CategoryViewStep({ ctx }: { ctx: StepContext }) {
  * FILE INDEX
  *
  * CATEGORY_DRAWER_MODEL       Drawer dependencies, config, and Service handoff
- * CATEGORY_OVERVIEW           Overview and Category Group membership editing
+ * CATEGORY_OVERVIEW           Overview and Service Category Group membership editing
  * CATEGORY_LIFECYCLE          Publish, status, travel, and guarded close
  * CATEGORY_CONNECTIONS        Assigned-Service gateway and collection transit
  * CATEGORY_DRAWER_RENDER      Shell bindings, footer, and dialogs

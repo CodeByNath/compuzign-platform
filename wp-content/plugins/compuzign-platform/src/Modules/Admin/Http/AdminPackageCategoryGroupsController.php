@@ -8,7 +8,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 
 /**
- * AdminPackageCategoryGroupsController — the Package Category Group station's
+ * AdminPackageCategoryGroupsController — the Package Family station's
  * REST family.
  *
  * Route grammar, lifecycle handling, and draft/settle/revert mechanics mirror
@@ -167,7 +167,7 @@ class AdminPackageCategoryGroupsController
         $description = (string) ($request->get_param('description') ?? '');
 
         if ($name === '') {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Package Category Group name is required.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Package Family name is required.'], 422);
         }
 
         // First-time configuration bootstraps the independent station anchor,
@@ -239,7 +239,7 @@ class AdminPackageCategoryGroupsController
 
         $group = PackageCategoryGroups::find($manager['category_groups'], $gid);
         if ($group === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Package Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Package Family not found.'], 404);
         }
 
         $dependents = PackageCategoryGroups::dependents($station, $this->readModelItems($station, $manager), $gid);
@@ -325,7 +325,7 @@ class AdminPackageCategoryGroupsController
         [$station, $manager] = $this->loadStationAndManager();
 
         if (PackageCategoryGroups::find($manager['category_groups'], $gid) === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Package Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Package Family not found.'], 404);
         }
 
         try {
@@ -345,7 +345,7 @@ class AdminPackageCategoryGroupsController
         $manager = $station['package_manager'];
         $group   = PackageCategoryGroups::find($manager['category_groups'], $gid);
         if ($group === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Package Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Package Family not found.'], 404);
         }
         $dependents = PackageCategoryGroups::dependents($station, $this->readModelItems($station, $manager), $gid);
 

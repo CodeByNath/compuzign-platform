@@ -3,7 +3,7 @@
 /*
  * FILE INDEX
  *
- * CATEGORY_GROUP_ROUTES          Category Group REST route registration
+ * CATEGORY_GROUP_ROUTES          Service Category Group REST route registration
  * CATEGORY_GROUP_HANDLERS        Listing, creation, modules, and lifecycle
  * CATEGORY_GROUP_AUTHORIZATION   Permission callback
  * CATEGORY_GROUP_HELPERS         Term lookup and response projection
@@ -20,10 +20,10 @@ use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 
 /**
- * AdminCategoryGroupsController — the Category Group station's REST family
+ * AdminCategoryGroupsController — the Service Category Group station's REST family
  * (Category Group audit, Option B, Phase B).
  *
- * Category Group is a second station sharing the existing `cz_service_category`
+ * Service Category Group is a second station sharing the existing `cz_service_category`
  * taxonomy and `cz_category_meta` envelope with Category — distinguished only by
  * `station_role`. Route grammar, lifecycle handling, and draft/settle/revert
  * mechanics mirror AdminCategoriesController exactly; the two differences are:
@@ -209,7 +209,7 @@ class AdminCategoryGroupsController
         $description = (string) ($request->get_param('description') ?? '');
 
         if ($name === '') {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group name is required.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group name is required.'], 422);
         }
 
         $result = wp_insert_term($name, CategoryMeta::TAXONOMY);
@@ -251,7 +251,7 @@ class AdminCategoryGroupsController
     {
         $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 404);
         }
 
         $meta = CategoryMeta::saveOverviewDraft(
@@ -272,7 +272,7 @@ class AdminCategoryGroupsController
     {
         $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 404);
         }
 
         $termId = (int) $term->term_id;
@@ -301,7 +301,7 @@ class AdminCategoryGroupsController
     {
         $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 404);
         }
 
         CategoryMeta::clearOverviewDraft((int) $term->term_id);
@@ -317,7 +317,7 @@ class AdminCategoryGroupsController
     {
         $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 404);
         }
 
         $target = sanitize_text_field((string) $request->get_param('platform_status'));
@@ -345,14 +345,14 @@ class AdminCategoryGroupsController
     {
         $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 404);
         }
 
         $termId = (int) $term->term_id;
 
         $change = StationLifecycle::restore(CategoryMeta::status($termId));
         if ($change === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group is not in a restorable state.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group is not in a restorable state.'], 422);
         }
         CategoryMeta::applyStatusChange($termId, $change);
 
@@ -372,13 +372,13 @@ class AdminCategoryGroupsController
     {
         $term = $this->findGroupTerm((int) $request->get_param('id'));
         if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category Group not found.'], 404);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 404);
         }
 
         $termId = (int) $term->term_id;
 
         if (!StationLifecycle::canDelete(CategoryMeta::status($termId))) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed category groups can be permanently deleted.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed Service Service Service Category Groups can be permanently deleted.'], 422);
         }
 
         $assignedCount = CategoryMeta::assignedCategoryCount($termId);

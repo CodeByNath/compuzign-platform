@@ -40,7 +40,7 @@ export interface CategoryOverviewShellData {
   description: string;
   // Group membership display (Category Group audit, Phase D2) — structural,
   // not part of the overview draft. Optional: consumers that don't track group
-  // membership (e.g. the pre-creation New-state binding, the Category Group
+  // membership (e.g. the pre-creation New-state binding, the Service Category Group
   // collection's own cards) simply omit it and the field reads "Ungrouped".
   groupName?: string;
 }

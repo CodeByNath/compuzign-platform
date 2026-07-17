@@ -379,7 +379,7 @@ export const serviceCategoryGroupOverviewModule: ModuleDefinition<ServiceCategor
   },
 };
 
-// Category Group Categories — the relation-summary gateway, one level up from
+// Service Category Group Categories — the relation-summary gateway, one level up from
 // categoryServicesModule: counts child category terms, not services.
 
 // ── Backward-compatible generators ────────────────────────────────────────────

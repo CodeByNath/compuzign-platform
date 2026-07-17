@@ -127,10 +127,10 @@ export interface PackageManagerItem {
   source_categories?:    string[];
 }
 
-// ── Package Category Group station (Package-owned commercial buckets) ─────────
-// A Package Category Group (e.g. KAIROS) groups connected Services
+// ── Package Family station (Package-owned commercial buckets) ─────────
+// A Package Family (e.g. KAIROS) groups connected Services
 // commercially. Full StationLifecycle participation; overview draft/settle
-// mechanics mirror the taxonomy Category Group station.
+// mechanics mirror the taxonomy Service Category Group station.
 
 export type PackageFamilyStatus = 'active' | 'disabled' | 'archived' | 'trashed';
 
@@ -224,7 +224,7 @@ export interface PackageSourceRelationship {
   entity_type: string;
   entity_id: string | number;
   sort_order: number;
-  // Package-owned commercial bucket assignment (Package Category Group,
+  // Package-owned commercial bucket assignment (Package Family,
   // e.g. KAIROS); null = connected but unassigned.
   category_group_id?: string | null;
 }

@@ -88,20 +88,20 @@ function PackageFamilyDrawerStep({ ctx }: { ctx: StepContext }) {
       onChanged();
       ctx.close();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save the Category Group.');
+      setError(cause instanceof Error ? cause.message : 'Could not save the Package Family.');
     } finally { setSaving(false); }
   };
   useEffect(() => {
-    ctx.setFooter(<DrawerFooter ctx={ctx} saving={saving} disabled={!name.trim()} onApply={apply} applyLabel={group ? 'Save draft' : 'Create Group'} />);
+    ctx.setFooter(<DrawerFooter ctx={ctx} saving={saving} disabled={!name.trim()} onApply={apply} applyLabel={group ? 'Save draft' : 'Create Family'} />);
     return () => ctx.setFooter(null);
   }, [ctx.setFooter, ctx.close, saving, name, description]);
   return <div class="cz-focused-drawer-form">
     <div class="cz-focused-drawer-card">
-      <h3>{group ? 'Category Group overview' : 'New Category Group'}</h3>
+      <h3>{group ? 'Package Family overview' : 'New Package Family'}</h3>
       <label class="cz-tf-field"><span>Name</span><input class="cz-tf-input" value={name} onInput={(event) => setName(event.currentTarget.value)} /></label>
       <label class="cz-tf-field"><span>Description</span><textarea class="cz-tf-textarea" value={description} onInput={(event) => setDescription(event.currentTarget.value)} /></label>
       {group && <p class="cz-sp-tier-table__muted">{group.dependents.services} Services · {group.dependents.rate_sheet_rows} Rate Sheet rows · {group.dependents.tier_selections} Tier selections</p>}
-      {group?.has_draft && <p class="cz-admin-notice">This group already has pending overview changes. Saving replaces that overview draft; lifecycle actions remain on the family card.</p>}
+      {group?.has_draft && <p class="cz-admin-notice">This family already has pending overview changes. Saving replaces that overview draft; lifecycle actions remain on the family card.</p>}
       {error && <div class="cz-admin-error-msg" role="alert">{error}</div>}
     </div>
   </div>;
@@ -140,9 +140,9 @@ function FamilyAssignmentDrawerStep({ ctx }: { ctx: StepContext }) {
     return () => ctx.setFooter(null);
   }, [ctx.setFooter, ctx.close, value, onApply]);
   return <div class="cz-focused-drawer-form"><div class="cz-focused-drawer-card">
-    <h3>Service family assignment</h3>
+    <h3>Package Family assignment</h3>
     <label class="cz-tf-field"><span>Service</span><input class="cz-tf-input" value={value.serviceTitle} readOnly /></label>
-    <label class="cz-tf-field"><span>Category Group</span><select class="cz-tf-select" value={value.groupId ?? ''} onChange={(event) => setValue({ ...value, groupId: event.currentTarget.value || null })}>
+    <label class="cz-tf-field"><span>Package Family</span><select class="cz-tf-select" value={value.groupId ?? ''} onChange={(event) => setValue({ ...value, groupId: event.currentTarget.value || null })}>
       <option value="">Ungrouped</option>
       {value.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}
     </select></label>
@@ -256,7 +256,7 @@ function config(id: string, title: string, component: ActionConfig['steps'][numb
   return { id, mode: 'drawer', title, initialStepData, steps: [{ id: 'detail', title, component }] };
 }
 
-export const buildPackageFamilyDrawerConfig = (group: PackageFamilyItem | undefined, onChanged: () => void) => config(`category-group-${group?.group_id ?? 'new'}`, group ? `Edit ${group.label}` : 'New Category Group', PackageFamilyDrawerStep, { group, onChanged });
+export const buildPackageFamilyDrawerConfig = (group: PackageFamilyItem | undefined, onChanged: () => void) => config(`category-group-${group?.group_id ?? 'new'}`, group ? `Edit ${group.label}` : 'New Package Family', PackageFamilyDrawerStep, { group, onChanged });
 export const buildConnectionDrawerConfig = (value: ConnectionDrawerValue, groups: readonly { id: string; label: string }[], onApply: (value: ConnectionDrawerValue) => void) => config(`connection-${value.id}`, 'Edit Connection', ConnectionDrawerStep, { value, groups, onApply });
 export const buildFamilyAssignmentDrawerConfig = (value: FamilyAssignmentDrawerValue, onApply: (value: FamilyAssignmentDrawerValue) => void) => config(`service-family-${value.serviceId}`, `Assign ${value.serviceTitle}`, FamilyAssignmentDrawerStep, { value, onApply });
 export const buildCommercialGroupDrawerConfig = (value: CommercialGroupDrawerValue, onApply: (value: CommercialGroupDrawerValue) => void, onDelete?: () => void) => config(`commercial-group-${value.id}`, value.isNew ? 'New Commercial Group' : `Edit ${value.label}`, CommercialGroupDrawerStep, { value, onApply, onDelete });

@@ -254,7 +254,7 @@ export function connectPackageServiceSources(
 }
 
 /**
- * Assign a connected Service to a Package Category Group (e.g. KAIROS), or
+ * Assign a connected Service to a Package Family (e.g. KAIROS), or
  * unassign with null. An unconnected Service is connected first — selecting a
  * group in the Services table IS the connect-and-assign gesture. The legacy
  * empty-sources station promotes its host into an explicit source first, same
@@ -679,7 +679,7 @@ export const packageRelationProvider: WritableRelationProvider<
     const groupIds = new Set<string>();
 
     // A source's commercial assignment must reference a group in the Package
-    // Category Group registry (any lifecycle state — assignments survive a
+    // Service Category Group registry (any lifecycle state — assignments survive a
     // group being binned; sanitize nulls only genuinely deleted groups).
     const familyIds = new Set(readModel.category_groups.map((group) => group.group_id));
     draft.sources.forEach((source, index) => {
@@ -688,7 +688,7 @@ export const packageRelationProvider: WritableRelationProvider<
         issues.push({
           path: `sources.${index}.category_group_id`,
           rowIdentity: source.relationship_id,
-          message: 'Assignment references an unknown Package Category Group.',
+          message: 'Assignment references an unknown Package Family.',
         });
       }
     });
@@ -803,7 +803,7 @@ export const packageRelationProvider: WritableRelationProvider<
  * PACKAGE_DRAFT          Provider draft creation, decisions, and dirty comparison
  * PACKAGE_GROUPS         Relationship Group lifecycle and ordering
  * RATE_SHEET_DRAFT       Rate Sheet option onboarding and replacement
- * SERVICE_CONNECTIONS    Service connect and Category Group assignment
+ * SERVICE_CONNECTIONS    Service connect and Service Category Group assignment
  * PACKAGE_PROVIDER       Read, validate, save, summaries, and continuations
  *
  * Search: SECTION: PACKAGE_DRAFT

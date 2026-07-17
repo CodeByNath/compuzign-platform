@@ -91,7 +91,7 @@ final class PackageManagerSchema
         $categoryGroups = PackageCategoryGroups::sanitizeAll($data['category_groups'] ?? []);
         $categoryGroupIds = PackageCategoryGroups::idSet($categoryGroups);
 
-        // A source assignment must reference a live Package Category Group;
+        // A source assignment must reference a live Package Family;
         // an unknown id is reassigned to null (unassigned), never dropped —
         // the same reassign-not-delete rule the decorative groups use.
         $sources = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($data['sources'] ?? []);

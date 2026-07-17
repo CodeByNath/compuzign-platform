@@ -121,14 +121,14 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
   const [rateSheetFilters, setRateSheetFilters] = useState<RateSheetFilterState>(RATE_SHEET_FILTER_DEFAULTS);
   // Family-first workspace scope (Phase 2): 'all' | 'unassigned' | group_id.
   // Drives the Services table filter, relationship-row scoping, and the Rate
-  // Sheet Category Group filter through their existing mechanisms.
+  // Sheet Service Category Group filter through their existing mechanisms.
   const [selectedFamilyId, setSelectedFamilyId] = useState<WorkspaceGroupScope>('all');
   const [groupActionBusy, setGroupActionBusy] = useState(false);
   const temporaryGroupSequence = useRef(0);
   const serviceCatalogSurface = surface === 'service-catalog';
   const packagesSurface = surface === 'packages';
 
-  // Package Category Group registry — shared by the Services table dropdowns
+  // Package Family registry — shared by the Services table dropdowns
   // and the Rate Sheet filters; the management section reloads it on change.
   const reloadPackageFamilies = useCallback(async () => {
     try {
@@ -239,7 +239,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
     return summaries;
   }, [relationshipProjection]);
 
-  // Keep the Rate Sheet's existing Category Group filter in step with the
+  // Keep the Rate Sheet's existing Service Category Group filter in step with the
   // workspace scope; the Rate Sheet dropdown can still refine locally after.
   useEffect(() => {
     setRateSheetFilters((current) => current.family === selectedFamilyId
@@ -347,7 +347,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
           ))}
         </section>
       )}
-      {/* SECTION: FAMILY_SCOPE — Category Group cards establish the workspace scope. */}
+      {/* SECTION: FAMILY_SCOPE — Service Category Group cards establish the workspace scope. */}
       {!packagesSurface && hasPackageProvider && scope.stationContext.type === 'service' && (
         <PackageFamilyCards
           groups={packageFamilies}
@@ -715,7 +715,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
 
         const activeFilter = filterBySection[section.id] ?? 'all';
         // Workspace scope: relationship rows resolve their supplying Service's
-        // Category Group assignment through the same provenance map the Rate
+        // Service Category Group assignment through the same provenance map the Rate
         // Sheet filter uses (assignmentByServiceId) — no second mechanism.
         const groupAssignments = assignmentByServiceId(packageDraftSources);
         const rows = projection.rows.filter((row) => {
@@ -815,7 +815,7 @@ export function DynamicStationManager({ scope: initialScope, shell, continuation
  * FILE INDEX
  *
  * MANAGER_COORDINATION       Provider reads, drafts, validation, and save state
- * FAMILY_SCOPE               Category Group cards and workspace scope selection
+ * FAMILY_SCOPE               Service Category Group cards and workspace scope selection
  * RATE_SHEET_EDITOR          Rate Sheet save/validation coordination (editor UI
  *                            extracted to PackageRateSheetEditor.tsx)
  * SERVICE_WORKSPACE          Your Service Manager Service assignments

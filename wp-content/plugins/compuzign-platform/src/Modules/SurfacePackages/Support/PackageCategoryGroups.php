@@ -5,9 +5,9 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 
 /**
- * PackageCategoryGroups — the Package Category Group station collection.
+ * PackageCategoryGroups — the Package Family station collection.
  *
- * A Package Category Group (e.g. KAIROS) is the Package-owned permanent
+ * A Package Family (e.g. KAIROS) is the Package-owned permanent
  * commercial bucket that Services are connected to. It is NOT a Service
  * Category and never replaces one: Services keep their own Service
  * Categories; membership is recorded as `category_group_id` on the Package
@@ -20,7 +20,7 @@ use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
  * Lifecycle: delegated entirely to the shared StationLifecycle engine
  * (born disabled, publish/toggle/archive/trash/restore/delete), with the
  * same overview draft → settle/revert module mechanics as the Category and
- * Category Group taxonomy stations. No custom lifecycle vocabulary exists
+ * Service Category Group taxonomy stations. No custom lifecycle vocabulary exists
  * here.
  */
 final class PackageCategoryGroups
@@ -93,7 +93,7 @@ final class PackageCategoryGroups
 
     /**
      * Station create — born disabled with the overview module pending, exactly
-     * matching the Category Group taxonomy station's create semantics.
+     * matching the Service Category Group taxonomy station's create semantics.
      *
      * @return array{groups: array, group: array}
      */
@@ -101,13 +101,13 @@ final class PackageCategoryGroups
     {
         $label = sanitize_text_field($label);
         if ($label === '') {
-            throw new \InvalidArgumentException('Package Category Group name is required.');
+            throw new \InvalidArgumentException('Package Family name is required.');
         }
         $groupId = $groupId !== null && $groupId !== ''
             ? sanitize_text_field($groupId)
             : 'pcg_' . substr(hash('sha256', $label . '|' . uniqid('', true)), 0, 16);
         if (isset(self::idSet($groups)[$groupId])) {
-            throw new \InvalidArgumentException('Package Category Group identity already exists.');
+            throw new \InvalidArgumentException('Package Family identity already exists.');
         }
 
         $group = [
@@ -149,7 +149,7 @@ final class PackageCategoryGroups
     {
         $group = self::find($groups, $groupId);
         if ($group === null) {
-            throw new \InvalidArgumentException('Package Category Group not found.');
+            throw new \InvalidArgumentException('Package Family not found.');
         }
         $group['overview_draft'] = [
             'label'       => sanitize_text_field($label),
@@ -163,7 +163,7 @@ final class PackageCategoryGroups
     {
         $group = self::find($groups, $groupId);
         if ($group === null) {
-            throw new \InvalidArgumentException('Package Category Group not found.');
+            throw new \InvalidArgumentException('Package Family not found.');
         }
         $draft = $group['overview_draft'];
         if (is_array($draft)) {
@@ -181,7 +181,7 @@ final class PackageCategoryGroups
     {
         $group = self::find($groups, $groupId);
         if ($group === null) {
-            throw new \InvalidArgumentException('Package Category Group not found.');
+            throw new \InvalidArgumentException('Package Family not found.');
         }
         $group['overview_draft'] = null;
         $group['module_status']['overview'] = self::deriveOverviewStatus($group);
@@ -220,7 +220,7 @@ final class PackageCategoryGroups
     {
         $group = self::find($groups, $groupId);
         if ($group === null) {
-            throw new \InvalidArgumentException('Package Category Group not found.');
+            throw new \InvalidArgumentException('Package Family not found.');
         }
         if (!StationLifecycle::isValidStatus($target) || $target === StationLifecycle::STATUS_DRAFT) {
             throw new \InvalidArgumentException('Invalid platform_status.');
@@ -240,11 +240,11 @@ final class PackageCategoryGroups
     {
         $group = self::find($groups, $groupId);
         if ($group === null) {
-            throw new \InvalidArgumentException('Package Category Group not found.');
+            throw new \InvalidArgumentException('Package Family not found.');
         }
         $change = StationLifecycle::restore((string) $group['platform_status']);
         if ($change === null) {
-            throw new \InvalidArgumentException('Package Category Group is not in a restorable state.');
+            throw new \InvalidArgumentException('Package Family is not in a restorable state.');
         }
         $group['platform_status']          = $change['status'];
         $group['previous_platform_status'] = $change['previous_status'];
@@ -262,10 +262,10 @@ final class PackageCategoryGroups
     {
         $group = self::find($groups, $groupId);
         if ($group === null) {
-            throw new \InvalidArgumentException('Package Category Group not found.');
+            throw new \InvalidArgumentException('Package Family not found.');
         }
         if (!StationLifecycle::canDelete((string) $group['platform_status'])) {
-            throw new \InvalidArgumentException('Only trashed Package Category Groups can be permanently deleted.');
+            throw new \InvalidArgumentException('Only trashed Package Families can be permanently deleted.');
         }
         if (array_sum($dependents) > 0) {
             throw new \RuntimeException('This group still has connected Services or dependent commercial records. Move them out before deleting.');
@@ -280,7 +280,7 @@ final class PackageCategoryGroups
 
     /**
      * Draft-preferred station projection — the same field grammar the taxonomy
-     * Category Group station exposes, so pill derivation is shared.
+     * Service Category Group station exposes, so pill derivation is shared.
      */
     public static function projection(array $group, array $dependents = ['services' => 0, 'rate_sheet_rows' => 0, 'tier_selections' => 0]): array
     {
