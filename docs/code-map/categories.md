@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provides the Category admin station, including overview authoring, Category Group membership, lifecycle actions, and navigation to assigned Services.
+Provides the Category admin station, including overview authoring, Service Category Group membership, lifecycle actions, and navigation to assigned Services.
 
 ## Ownership
 
@@ -16,7 +16,7 @@ The Category station owns Category identity, its overview draft and lifecycle. G
 
 ## UI and Drawers
 
-- [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/CategoryOverviewEditor.tsx) renders name, description, and optional Category Group selection. Use it for Category overview form fields.
+- [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/CategoryOverviewEditor.tsx) renders name, description, and optional Service Category Group selection. Use it for Category overview form fields.
 - [category.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/category.tsx) binds Category overview and assigned-Service summaries to schema shells. Use it for drawer field presentation.
 - [category.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/tables/category.tsx) projects Category station rows, status, counts, and actions. Use it for table columns and row actions.
 
@@ -49,4 +49,4 @@ The Category station owns Category identity, its overview draft and lifecycle. G
 
 ## Related Code Maps
 
-[Category Groups](category-groups.md), [Service Catalogue](service-catalogue.md), and [Lifecycle](lifecycle-system.md).
+[Service Category Groups](category-groups.md), [Service Catalogue](service-catalogue.md), and [Lifecycle](lifecycle-system.md).

@@ -12,7 +12,7 @@ The relation registry owns provider discovery and the coordinator owns transient
 
 - [registry.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/registry.ts) registers relation providers and resolves those applicable to a station scope. Use it when adding a provider or changing discovery rules.
 - [types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/types.ts) defines station scopes, connection descriptors, provider sections, summaries, and continuations. Use it when changing the provider contract.
-- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) owns coordinator state, Family Card scope, Service Catalog Details / Connections / Settings composition, Rate Sheet forms, Save controls, and dirty-exit confirmation. The relations projection row carries optional `sourceServiceId` provenance so rows can scope by Package Category Group.
+- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) owns coordinator state, Family Card scope, Service Catalog Details / Connections / Settings composition, Rate Sheet forms, Save controls, and dirty-exit confirmation. The relations projection row carries optional `sourceServiceId` provenance so rows can scope by Package Family.
 
 ## State and Providers
 
@@ -28,7 +28,7 @@ The relation registry owns provider discovery and the coordinator owns transient
 | --- | --- | --- | --- |
 | Coordination | `SECTION: MANAGER_COORDINATION` | Provider reads, drafts, validation, saves | Changing manager state |
 | Rate Sheet | `SECTION: RATE_SHEET_EDITOR` | Save/validation; editor in `PackageRateSheetEditor.tsx` | Changing Rate Sheet UI |
-| Services | `SECTION: SERVICE_WORKSPACE` | Assignments and Category Groups | Changing Service connections |
+| Services | `SECTION: SERVICE_WORKSPACE` | Assignments and Package Families | Changing Service connections |
 | Packages | `SECTION: PACKAGE_WORKSPACE` | Tiers, Connections relationships, Settings (Groups + Rate Sheet) | Changing Package workspace |
 | Promotions | `SECTION: PROMOTION_WORKSPACE` | Promotion provider surface | Changing Promotion workspace |
 | Render | `SECTION: MANAGER_RENDER` | Tabs, actions, guards, composition | Changing manager UI |

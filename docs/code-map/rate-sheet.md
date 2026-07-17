@@ -25,7 +25,7 @@ The rate sheet is part of the single Package Station persisted by `PackageReposi
 
 The manager selects source services, the provider normalizes those selections, and tier pricing evaluation resolves source prices for each fixed tier. Package tiers consume the result; the public pricing builder later projects active package and service pricing.
 
-Under Your Service Manager → Settings, the read view filters rows by provenance via [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx). Its exported `assignmentByServiceId` map also scopes connection rows, and the Family Card scope seeds the Category Group filter. Provenance (`source_service_id`/title/categories) remains live read-model data and is never persisted on rows.
+Under Your Service Manager → Settings, the read view filters rows by provenance via [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx). Its exported `assignmentByServiceId` map also scopes connection rows, and the Family Card scope seeds the Package Family filter. Provenance (`source_service_id`/title/categories) remains live read-model data and is never persisted on rows.
 
 ## Internal File Navigation
 

@@ -14,7 +14,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Tiers](tiers.md)
 - [Promotions](promotions.md)
 - [Categories](categories.md)
-- [Category Groups](category-groups.md)
+- [Service Category Groups](category-groups.md)
 - [Homepage](homepage.md)
 - [Cost Builder](cost-builder.md)
 - [Quote Builder](quote-builder.md)

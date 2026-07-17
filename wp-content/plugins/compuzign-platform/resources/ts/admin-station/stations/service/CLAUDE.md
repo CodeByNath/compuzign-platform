@@ -34,7 +34,7 @@ Shared, entity-neutral infrastructure stays outside — Service uses it, it does
 
 - `api/client.ts` (`apiClient`) — transport: base URL, headers, parsing, errors. Never duplicate it here.
 - `hooks/stationPrimitives.ts` (`patchModuleDraft`) — also used by `usePackageStation` / `usePromotionStation`.
-- `components/admin/utils/moduleStatus.tsx`, `moduleNotifications.ts` — multi-entity module status and notes, used across Category, Category Group, Promotion, Package, and Tier.
+- `components/admin/utils/moduleStatus.tsx`, `moduleNotifications.ts` — multi-entity module status and notes, used across Category, Service Category Group, Promotion, Package, and Tier.
 
 ## Naming
 
@@ -54,7 +54,7 @@ Service's own `ServiceInclusionItem` / `ServiceFaqItem` are deliberately separat
 
 One accepted edge remains, resolved when the Service UI moves:
 
-**`useServiceStation.ts` → `@/components/admin/utils/{moduleStatus,moduleNotifications}`** for status resolution and note text. These are genuine multi-entity utilities (Category, Category Group, Promotion, Package, and Tier all use them), so they are not Service UI to be moved — but they sit in a UI directory, which leaves a state → UI-directory edge open. They are value imports, so they cannot be erased at compile time. Resolve by relocating them to neutral shared infrastructure during the UI phase, never by copying them here.
+**`useServiceStation.ts` → `@/components/admin/utils/{moduleStatus,moduleNotifications}`** for status resolution and note text. These are genuine multi-entity utilities (Category, Service Category Group, Promotion, Package, and Tier all use them), so they are not Service UI to be moved — but they sit in a UI directory, which leaves a state → UI-directory edge open. They are value imports, so they cannot be erased at compile time. Resolve by relocating them to neutral shared infrastructure during the UI phase, never by copying them here.
 
 The editor draft-type edge is **resolved**: `OverviewDraft` / `InclusionsDraft` / `FaqsDraft` are pure data with no rendering knowledge, so they moved into `types.ts` and the editors import them back. The `init*Draft` builders stay in the editors — they need the DOM.
 

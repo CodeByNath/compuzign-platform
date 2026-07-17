@@ -30,7 +30,7 @@ Backend station/controller boundaries own canonical lifecycle transitions and pe
 
 - [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/useServiceStation.ts) owns Service detail fetch, module drafts, save/revert, settle/publish, and travel actions. Use it for Service lifecycle state. It lives in the Service Station and is imported from `@/admin-station/stations/service`; the old `hooks/useServiceStation.ts` path is deleted.
 - [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns Category projection, readiness, draft, lifecycle, restore, and delete actions. Use it for Category state transitions.
-- [useCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryGroupStation.ts) provides the equivalent Group lifecycle boundary. Use it for Category Group transitions.
+- [useServiceCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceCategoryGroupStation.ts) provides the equivalent Group lifecycle boundary. Use it for Service Category Group transitions.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package/Tier drafts, settle, enable, bin travel, pool, and popular-tier actions. Use it for Package occupant state.
 - [usePromotionStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePromotionStation.ts) owns Promotion drafts, publish/toggle, and travel actions. Use it for Promotion state.
 

@@ -2,6 +2,8 @@
 
 The Admin Station's **presentation card system**, and its first consumer, the Category Group card grid. Split from [Admin Station](admin-station.md) so the shell map stays focused on the shell.
 
+`CategoryGroup*` here is a **mock proving-ground name** — neither [Service Category Group](category-groups.md) nor Package Family; it goes neutral on adoption.
+
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presentation/`
 
 ```
@@ -52,4 +54,4 @@ Card visual direction: restrained and near-monochrome. The accent is spent in ex
 
 ## Related Code Maps
 
-[Admin Station](admin-station.md) (shell, tokens, scroll ownership), [Category Groups](category-groups.md) (the entity and its backend), [Lifecycle and Module State](lifecycle-system.md) (status resolution).
+[Admin Station](admin-station.md) (shell, tokens, scroll ownership), [Service Category Groups](category-groups.md) (the entity and its backend), [Lifecycle and Module State](lifecycle-system.md) (status resolution).
