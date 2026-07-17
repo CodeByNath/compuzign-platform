@@ -26,14 +26,17 @@ export function StationRouter({ active, refreshKey, openAction, setNavigationInt
   }
 
   if (def.surface.kind === 'entity-table') {
-    const { entity, scope } = def.surface;
-    // Keyed per entity:scope — useApi fetchers are fixed at mount, so a scope
-    // change must remount the surface rather than re-render it.
+    const { entity, scope, source } = def.surface;
+    // Keyed per entity:scope — the loader hook is fixed at mount, so a scope
+    // change must remount the surface rather than re-render it. The runtime
+    // source travels with the registration; the router forwards it untyped-of-
+    // entity, so no per-entity branch lives here either.
     return (
       <EntityTableStation
         key={`${entity}:${scope}`}
         entity={entity}
         scope={scope}
+        source={source}
         refreshKey={refreshKey}
       />
     );

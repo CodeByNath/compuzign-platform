@@ -1,63 +1,34 @@
-import { useEffect } from 'preact/hooks';
-import { useAdminCatalog } from '@/hooks/useAdminCatalog';
-import { restoreService, trashService, permanentDeleteService } from '@/admin-station/stations/service';
+import { useEffect, useState } from 'preact/hooks';
 import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
 import { Station } from '../shell/Station';
 import { EntityTable } from '../EntityTable';
 import { ENTITIES } from '@/components/admin/schema/entities';
 import type { EntitySchema, TableSchema } from '@/components/admin/schema/types';
+import type { EntityTravelSource, TravelScope } from './entityTravelSources';
 
 // Generic entity-table surface (S5). The station registry declares
-// { kind: 'entity-table', entity, scope }; this surface resolves the entity's
-// TableSchema from its station manifest and renders it on the S3b travel
-// preset. Data flow and transition handlers stay HERE, renderer-side — the
-// registry and manifests declare intent only (Station DNA boundary).
+// { kind: 'entity-table', entity, scope, source }; this surface resolves the
+// entity's TableSchema from its declaration-only manifest (ENTITIES[entity]) and
+// takes its runtime row loader + transition handlers from the registration's
+// `source` (entityTravelSources.ts). It holds ZERO branch on entity identity —
+// every entity renders through the same code path; adding one is a registration
+// entry, never an edit here.
 //
-// StationRouter keys this component per entity:scope, so a mounted
-// instance never changes source or scope (useApi fetchers are fixed at mount).
-
-type TravelScope = 'archived' | 'trashed';
-
-interface TravelRows {
-  rows: unknown[];
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
-}
-
-interface TravelSource {
-  useRows: (scope: TravelScope) => TravelRows;
-  handlers: (refetch: () => void) => Record<string, (row: any) => Promise<void>>;
-}
-
-const TRAVEL_SOURCES: Record<string, TravelSource> = {
-  service: {
-    useRows(scope) {
-      const { data, loading, error, refetch } = useAdminCatalog({ platformStatus: scope });
-      return { rows: data?.stations ?? [], loading, error, refetch };
-    },
-    handlers(refetch) {
-      return {
-        restore: async (s) => { await restoreService(s.id);         refetch(); },
-        trash:   async (s) => { await trashService(s.id);           refetch(); },
-        delete:  async (s) => { await permanentDeleteService(s.id); refetch(); },
-      };
-    },
-  },
-};
+// StationRouter keys this component per entity:scope, so a mounted instance
+// never changes source or scope (the loader hook is fixed at mount).
 
 interface Props {
   entity: string;
   scope: 'current' | 'archived' | 'trashed';
+  source: EntityTravelSource;
   refreshKey: number;
 }
 
-export function EntityTableStation({ entity, scope, refreshKey }: Props) {
+export function EntityTableStation({ entity, scope, source, refreshKey }: Props) {
   const def = ENTITIES[entity];
-  const source = TRAVEL_SOURCES[entity];
   const schema = scope !== 'current' ? def?.placements.travel?.[scope] : undefined;
 
-  if (!def || !source || !schema) {
+  if (!def || !schema) {
     return (
       <div class="cz-admin-empty">
         <p><strong>{entity}</strong> has no {scope} table surface registered.</p>
@@ -78,7 +49,7 @@ export function EntityTableStation({ entity, scope, refreshKey }: Props) {
 
 interface SurfaceProps {
   def: EntitySchema;
-  source: TravelSource;
+  source: EntityTravelSource;
   schema: TableSchema<any>;
   scope: TravelScope;
   refreshKey: number;
@@ -86,10 +57,28 @@ interface SurfaceProps {
 
 function TravelTableSurface({ def, source, schema, scope, refreshKey }: SurfaceProps) {
   const { rows, loading, error, refetch } = source.useRows(scope);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
   }, [refreshKey]);
+
+  // Wrap the registration's handlers once, generically: a rejected transition
+  // (e.g. a 409 dependency guard on permanent delete) surfaces the backend
+  // message here instead of escaping the table's confirm runner unhandled. This
+  // is engine behaviour, not entity behaviour — it applies to every source.
+  const wrap = (fn: (row: any) => Promise<void>) => async (row: unknown) => {
+    setActionError(null);
+    try {
+      await fn(row);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'The action could not be completed.');
+    }
+  };
+  const rawHandlers = source.handlers(refetch);
+  const handlers = Object.fromEntries(
+    Object.entries(rawHandlers).map(([id, fn]) => [id, wrap(fn)]),
+  );
 
   if (loading) return <AsyncLoading label={`Loading ${scope === 'archived' ? `archived ${def.label.plural.toLowerCase()}` : 'trash'}…`} />;
 
@@ -112,12 +101,13 @@ function TravelTableSurface({ def, source, schema, scope, refreshKey }: SurfaceP
       </Station.Header>
 
       <Station.Content>
+        {actionError && <div class="cz-admin-error-msg" style="margin-bottom:var(--cz-space-3)">{actionError}</div>}
         <EntityTable
           schema={schema}
           rows={rows}
           rowKey={(r) => def.identity.idOf(r)}
           frame="ws"
-          handlers={source.handlers(refetch)}
+          handlers={handlers}
         />
       </Station.Content>
     </Station>

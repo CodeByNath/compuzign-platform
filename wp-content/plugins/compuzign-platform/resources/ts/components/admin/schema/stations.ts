@@ -28,6 +28,12 @@ import { FeaturedStation } from '../stations/FeaturedStation';
 import { RequestsStation } from '../stations/RequestsStation';
 import { HealthStation } from '../stations/HealthStation';
 import { BinStation } from '../stations/BinStation';
+import type { EntityTravelSource } from '../stations/entityTravelSources';
+import {
+  serviceTravelSource,
+  categoryTravelSource,
+  serviceCategoryGroupTravelSource,
+} from '../stations/entityTravelSources';
 
 export interface GroupSchema { id: string; label: string; order: number }
 
@@ -46,7 +52,11 @@ export interface StationSurfaceProps {
 }
 
 export type StationSurface =
-  | { kind: 'entity-table'; entity: string; scope: 'current' | 'archived' | 'trashed' }
+  // The runtime `source` (row loader + transition handlers) rides with the
+  // registration — the owning surface — so the generic EntityTableStation
+  // engine holds no per-entity branch. The manifest (ENTITIES[entity]) stays
+  // declaration-only; see stations/entityTravelSources.ts.
+  | { kind: 'entity-table'; entity: string; scope: 'current' | 'archived' | 'trashed'; source: EntityTravelSource }
   | { kind: 'component'; component: () => ComponentType<StationSurfaceProps> };
 
 export interface StationSchema extends StationDef {
@@ -72,15 +82,29 @@ export const STATIONS: StationSchema[] = [
   { id: 'service-catalog',  label: 'Service Catalog',   group: 'catalog',    iconId: 'catalog',
     surface: { kind: 'component', component: () => ServiceCatalogStation } },
   { id: 'service-archived', label: 'Archived',          group: 'catalog',    parent: 'service-catalog', hiddenFromNav: true,
-    surface: { kind: 'entity-table', entity: 'service', scope: 'archived' } },
+    surface: { kind: 'entity-table', entity: 'service', scope: 'archived', source: serviceTravelSource } },
   { id: 'service-trash',    label: 'Trash',             group: 'catalog',    parent: 'service-catalog', hiddenFromNav: true,
-    surface: { kind: 'entity-table', entity: 'service', scope: 'trashed' } },
+    surface: { kind: 'entity-table', entity: 'service', scope: 'trashed', source: serviceTravelSource } },
   { id: 'package-manager',  label: 'Packages',          group: 'catalog',    iconId: 'package',
     surface: { kind: 'component', component: () => PackageManagerStation } },
   { id: 'category-catalog', label: 'Categories',        group: 'catalog',    iconId: 'category',
     surface: { kind: 'component', component: () => CategoryCatalogStation } },
+  // Category / Service Category Group travel surfaces, rendered by the same
+  // generic engine via registration-supplied sources. hiddenFromNav mirrors the
+  // Service pair above: routable by destination id, fronted for users by the
+  // consolidated Bin. NOTE: this supersedes the earlier S6/Option-B "bin is the
+  // sole travel surface" note (no standalone category-archived/trash routes) —
+  // the generic engine makes these one registration entry, not a bespoke screen.
+  { id: 'category-archived', label: 'Archived',         group: 'catalog',    parent: 'category-catalog', hiddenFromNav: true,
+    surface: { kind: 'entity-table', entity: 'category', scope: 'archived', source: categoryTravelSource } },
+  { id: 'category-trash',    label: 'Trash',            group: 'catalog',    parent: 'category-catalog', hiddenFromNav: true,
+    surface: { kind: 'entity-table', entity: 'category', scope: 'trashed', source: categoryTravelSource } },
   { id: 'category-group-catalog', label: 'Service Service Service Category Groups', group: 'catalog', iconId: 'category',
     surface: { kind: 'component', component: () => ServiceCategoryGroupCatalogStation } },
+  { id: 'category-group-archived', label: 'Archived',   group: 'catalog',    parent: 'category-group-catalog', hiddenFromNav: true,
+    surface: { kind: 'entity-table', entity: 'category-group', scope: 'archived', source: serviceCategoryGroupTravelSource } },
+  { id: 'category-group-trash',    label: 'Trash',      group: 'catalog',    parent: 'category-group-catalog', hiddenFromNav: true,
+    surface: { kind: 'entity-table', entity: 'category-group', scope: 'trashed', source: serviceCategoryGroupTravelSource } },
   { id: 'bundles',          label: 'Bundles',           group: 'catalog',    hiddenFromNav: true,
     surface: { kind: 'component', component: () => BundlesStation } },
   { id: 'featured',         label: 'Featured Controls', group: 'catalog',    iconId: 'featured',
