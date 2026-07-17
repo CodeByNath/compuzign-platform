@@ -99,7 +99,7 @@ export const STATIONS: StationSchema[] = [
     surface: { kind: 'entity-table', entity: 'category', scope: 'archived', source: categoryTravelSource } },
   { id: 'category-trash',    label: 'Trash',            group: 'catalog',    parent: 'category-catalog', hiddenFromNav: true,
     surface: { kind: 'entity-table', entity: 'category', scope: 'trashed', source: categoryTravelSource } },
-  { id: 'category-group-catalog', label: 'Service Service Service Category Groups', group: 'catalog', iconId: 'category',
+  { id: 'category-group-catalog', label: 'Service Category Groups', group: 'catalog', iconId: 'category',
     surface: { kind: 'component', component: () => ServiceCategoryGroupCatalogStation } },
   { id: 'category-group-archived', label: 'Archived',   group: 'catalog',    parent: 'category-group-catalog', hiddenFromNav: true,
     surface: { kind: 'entity-table', entity: 'category-group', scope: 'archived', source: serviceCategoryGroupTravelSource } },

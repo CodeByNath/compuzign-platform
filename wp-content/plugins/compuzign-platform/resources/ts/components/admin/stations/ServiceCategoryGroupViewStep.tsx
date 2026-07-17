@@ -48,9 +48,9 @@ export function buildServiceCategoryGroupViewConfig(
   return {
     id:    `category-group-view-${group.id}`,
     mode:  'drawer',
-    title: 'Service Service Category Group',
+    title: 'Service Category Group',
     initialStepData: { group, deps, initialTab },
-    steps: [{ id: 'detail', title: 'Service Service Category Group Detail', component: ServiceCategoryGroupViewStep }],
+    steps: [{ id: 'detail', title: 'Service Category Group Detail', component: ServiceCategoryGroupViewStep }],
   };
 }
 
@@ -371,7 +371,7 @@ export function ServiceCategoryGroupViewStep({ ctx }: { ctx: StepContext }) {
           <div class="cz-publish-confirm">
             <div class="cz-publish-confirm__header"><h3 class="cz-publish-confirm__title">Unsaved changes</h3></div>
             <div class="cz-publish-confirm__body">
-              <p class="cz-publish-confirm__lead">You have unsaved changes in <strong>Service Service Category Group Overview</strong>. Closing will discard them.</p>
+              <p class="cz-publish-confirm__lead">You have unsaved changes in <strong>Service Category Group Overview</strong>. Closing will discard them.</p>
             </div>
             <div class="cz-publish-confirm__footer">
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => { handleCancelEdit(); setExitDialog(null); closeWithoutGuard(); }}>Discard and close</button>

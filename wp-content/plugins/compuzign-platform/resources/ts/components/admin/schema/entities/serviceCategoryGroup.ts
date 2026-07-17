@@ -23,7 +23,7 @@ export const SERVICE_CATEGORY_GROUP_ENTITY: EntitySchema = {
   // entity-table station registers `category-group` yet, so this renders
   // nowhere today; it is the entity's own name and must stay correct for the
   // archived/trashed surfaces that will.
-  label: { singular: 'Service Service Category Group', plural: 'Service Service Service Category Groups' },
+  label: { singular: 'Service Category Group', plural: 'Service Category Groups' },
   identity: {
     idOf:    (d: ServiceCategoryGroupStationItem) => d.id,
     titleOf: (d: ServiceCategoryGroupStationItem) => d.name,

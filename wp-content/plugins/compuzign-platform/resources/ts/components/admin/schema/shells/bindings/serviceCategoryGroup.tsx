@@ -48,7 +48,7 @@ export const serviceCategoryGroupOverviewShell: ShellSchema<ServiceCategoryGroup
   archetype: 'overview',
   dna:       serviceCategoryGroupOverviewModule,
   header: {
-    title:       'Service Service Category Group Overview',
+    title:       'Service Category Group Overview',
     subtitle:    'General information about the category group.',
     icon:        'category',
     iconVariant: 'drawerModule__icon--overview',
@@ -57,7 +57,7 @@ export const serviceCategoryGroupOverviewShell: ShellSchema<ServiceCategoryGroup
   content: [
     {
       id: 'name', element: 'text', label: 'Name',
-      bind: (d): TextValue => ({ value: d.name, fallback: 'New Service Service Category Group' }),
+      bind: (d): TextValue => ({ value: d.name, fallback: 'New Service Category Group' }),
     },
     {
       id: 'slug', element: 'text', label: 'Slug',

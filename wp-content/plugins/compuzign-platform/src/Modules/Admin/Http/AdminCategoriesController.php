@@ -627,11 +627,11 @@ class AdminCategoriesController
     {
         $groupTerm = get_term($groupId, CategoryMeta::TAXONOMY);
         if (!$groupTerm instanceof \WP_Term) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Service Service Category Group not found.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service Category Group not found.'], 422);
         }
 
         if (CategoryMeta::role($groupId) !== CategoryMeta::STATION_ROLE_GROUP) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'group_id must reference a Service Service Category Group.'], 422);
+            return new \WP_REST_Response(['success' => false, 'message' => 'group_id must reference a Service Category Group.'], 422);
         }
 
         return null;

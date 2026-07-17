@@ -114,7 +114,7 @@ function ServiceCategoryGroupCreateStep({ ctx }: { ctx: StepContext }) {
               saving,
               saveErr,
               isDirty:  complete,
-              title:    'Create Service Service Category Group',
+              title:    'Create Service Category Group',
             }}
           />
         </ModeProvider>
@@ -201,9 +201,9 @@ export function ServiceCategoryGroupCatalogStation({ refreshKey, openAction }: P
     openAction({
       id:    'category-group-create',
       mode:  'drawer',
-      title: 'Service Service Category Group',
+      title: 'Service Category Group',
       initialStepData: { deps },
-      steps: [{ id: 'create', title: 'New Service Service Category Group', component: ServiceCategoryGroupCreateStep }],
+      steps: [{ id: 'create', title: 'New Service Category Group', component: ServiceCategoryGroupCreateStep }],
     });
   };
 
@@ -218,7 +218,7 @@ export function ServiceCategoryGroupCatalogStation({ refreshKey, openAction }: P
     <Station>
       <Station.Header className="cz-ws-header">
         <div>
-          <h2 class="cz-ws-title">Service Service Service Category Groups</h2>
+          <h2 class="cz-ws-title">Service Category Groups</h2>
           <p class="cz-ws-subtitle">
             {total} categor{total !== 1 ? 'y groups' : 'y group'} — organise related categories together.
           </p>
@@ -227,7 +227,7 @@ export function ServiceCategoryGroupCatalogStation({ refreshKey, openAction }: P
 
       <Station.Actions className="cz-sc-section__actions">
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={openCreateDrawer}>
-          + New Service Service Category Group
+          + New Service Category Group
         </button>
       </Station.Actions>
 

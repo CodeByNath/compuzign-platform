@@ -42,7 +42,7 @@ function excerpt(text: string, max = 80): string {
 export const serviceCategoryGroupCatalogTable: TableSchema<ServiceCategoryGroupStationItem> = {
   columns: [
     {
-      id: 'name', label: 'Service Service Category Group',
+      id: 'name', label: 'Service Category Group',
       className: 'cz-sc-table__service', cellClassName: 'cz-sc-table__service cz-sc-table__name',
       cell: (r) => r.name,
     },
@@ -81,7 +81,7 @@ export const serviceCategoryGroupCatalogTable: TableSchema<ServiceCategoryGroupS
 
 const TRAVEL_COLUMNS: ColumnDef<ServiceCategoryGroupStationItem>[] = [
   {
-    id: 'category-group', label: 'Service Service Category Group',
+    id: 'category-group', label: 'Service Category Group',
     className: 'cz-sc-table__service', cellClassName: 'cz-sc-table__service cz-sc-table__name',
     cell: (r) => r.name,
   },

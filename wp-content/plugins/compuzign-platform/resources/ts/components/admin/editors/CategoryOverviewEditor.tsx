@@ -6,7 +6,7 @@ import type { ServiceCategoryGroupStationItem, CategoryOverviewDraft } from '@/a
 // anchor), so there is no service selector here.
 //
 // Group field (Category Group audit, Phase D2): an optional picker of existing
-// live Service Service Category Groups + "No group". Structural, not draft content — group/id
+// live Service Category Groups + "No group". Structural, not draft content — group/id
 // is delivered and changed via extras (groups/groupId/onGroupChange), never
 // through `draft`/`onChange`, and persists through the dedicated
 // PATCH /admin/categories/{id}/group endpoint, not the overview_draft

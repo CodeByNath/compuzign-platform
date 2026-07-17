@@ -292,7 +292,7 @@ export function BinStation({ refreshKey }: Props) {
 
             {groupRows.length > 0 && (
               <>
-                <p class="cz-shell-section__title" style="margin-top:var(--cz-space-5)">Service Service Service Category Groups</p>
+                <p class="cz-shell-section__title" style="margin-top:var(--cz-space-5)">Service Category Groups</p>
                 {groupError && <div class="cz-admin-error-msg" style="margin-bottom:var(--cz-space-3)">{groupError}</div>}
                 <EntityTable
                   schema={SERVICE_CATEGORY_GROUP_ENTITY.placements.travel!.bin!}
