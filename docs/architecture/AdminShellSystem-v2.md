@@ -1,8 +1,14 @@
 # Admin Shell System — v2
 
+> **Terminology note (2026-07-18):** this is a frozen record and keeps the
+> original "Workstation" term. In active code the concept is now **Station** —
+> the file below is `shell/Station.tsx` and the compound component is `Station`.
+> The `.cz-shell-workstation*` CSS class names deliberately keep the older
+> spelling (see `shell/Station.tsx`). Nomenclature only; the contract is unchanged.
+
 Canonical specification for the workstation page frame: the four-zone layout
 contract every admin workstation inherits. Implemented by
-`resources/ts/components/admin/shell/Workstation.tsx` (compound component)
+`resources/ts/components/admin/shell/Station.tsx` (compound component)
 and the `.cz-shell-workstation*` classes in `resources/css/modules/admin.css`.
 Generalised from the Service Catalog pilot (Admin Shell System P2). This
 document was written retroactively in 2026-07 (Phase S0 of the
