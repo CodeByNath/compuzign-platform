@@ -28,6 +28,17 @@ import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 // ── Identity and vocabulary ──────────────────────────────────────────────────
 
 /**
+ * The Category Group's stable record identity — the taxonomy `term_id`.
+ *
+ * Kept numeric end-to-end, deliberately: the group is a `cz_service_category`
+ * term, every backend route is keyed by the numeric id, and the shared drawer
+ * and lifecycle actions all send that number. Carrying it as a string here would
+ * force a stringify→parse round-trip at the exact action boundary that matters,
+ * so this kit types identity as a number and never converts it.
+ */
+export type CategoryGroupId = number;
+
+/**
  * The existing 5-state resolver vocabulary — NOT a new set of statuses.
  *
  * These are exactly the keys PILL_META accepts; the pill collapses both pending
@@ -82,8 +93,9 @@ export interface CategoryGroupCardAction {
 
 /** One Category Group, as the grid renders it. */
 export interface CategoryGroupCardItem {
-  // Stable identity — keys the render and travels with every dispatch.
-  id:    string;
+  // Stable identity — the numeric term_id. Keys the render and travels, numeric,
+  // with every dispatch.
+  id:    CategoryGroupId;
   // Optional stable slug/key. Carried through dispatches so a future consumer
   // may resolve by key without a lookup.
   key?:  string;
@@ -102,7 +114,7 @@ export interface CategoryGroupCardItem {
 
 /** The payload every card action emits. Identity-only — never a name. */
 export interface CategoryGroupCardActionEvent {
-  cardId:   string;
+  cardId:   CategoryGroupId;
   cardKey?: string;
   actionId: string;
 }
@@ -118,7 +130,7 @@ export type CategoryGroupDrawerMode = 'overview' | 'edit' | 'archive';
  * determines the content — nothing here is bound to the sample item.
  */
 export interface CategoryGroupDrawerRequest {
-  categoryGroupId:   string;
+  categoryGroupId:   CategoryGroupId;
   categoryGroupKey?: string;
   mode:              CategoryGroupDrawerMode;
 }

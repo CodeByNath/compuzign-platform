@@ -1,1 +1,0 @@
-import{u as n}from"./hooks.module-Bku00WFJ.js";function s({label:r="Loading…"}){return n("div",{class:"cz-spinner",role:"status","aria-label":r,children:[n("span",{class:"cz-spinner__ring","aria-hidden":"true"}),n("span",{class:"cz-muted",children:r})]})}export{s as S};

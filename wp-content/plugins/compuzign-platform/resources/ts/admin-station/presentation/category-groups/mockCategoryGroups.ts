@@ -1,12 +1,13 @@
-// Temporary mock Category Group data.
+// Standby mock Category Group data.
 //
-// Stands in for the future Category Station read, and is shaped as that read's
-// result so the swap is a data change and not a UI change. Deliberately neutral:
-// no real Category Group is named here, and no real station is connected.
+// No longer the wired data boundary: AdminStationBody now reads real groups via
+// useServiceCategoryGroupCards. This fixture is kept only as a neutral local
+// preview of the loop and the three-across grid, because there is no local
+// WordPress runtime to exercise the real read. It is shaped as the read's result
+// so it stays a drop-in preview and never diverges from the card contract.
 //
-// This module is the whole data boundary. The grid receives items and callbacks
-// and never reaches for this file, so replacing it with the Category Station's
-// read touches nothing in the card tree.
+// Deliberately neutral: no real Category Group is named, and the ids are obvious
+// placeholders (not real term_ids). Identity is numeric to match the kit.
 //
 // Three records for development preview — enough to inspect the loop and the
 // desktop three-across grid. The count is data, not structure: the grid renders
@@ -24,7 +25,7 @@ import { ServicesIcon, PackagesIcon, PromotionsIcon, ViewIcon } from '../../shel
 
 export const mockCategoryGroupCards: CategoryGroupCardItem[] = [
   {
-    id: 'sample-group-alpha',
+    id: 9001,
     key: 'sample-group-alpha',
     name: 'Sample Group Alpha',
     code: 'ALPHA',
@@ -48,7 +49,7 @@ export const mockCategoryGroupCards: CategoryGroupCardItem[] = [
     ],
   },
   {
-    id: 'sample-group-beta',
+    id: 9002,
     key: 'sample-group-beta',
     name: 'Sample Group Beta',
     code: 'BETA',
@@ -67,7 +68,7 @@ export const mockCategoryGroupCards: CategoryGroupCardItem[] = [
     ],
   },
   {
-    id: 'sample-group-gamma',
+    id: 9003,
     key: 'sample-group-gamma',
     name: 'Sample Group Gamma',
     code: 'GAMMA',

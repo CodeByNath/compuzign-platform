@@ -23,7 +23,7 @@ The neutral primitives sit one level up from `category-groups/` because they res
 
 ## Contract
 
-`CategoryGroupCardItem` — `id`, `key?`, `name`, `description?`, `icon?`, `code?`, `status?`, `notifications?`, `metrics[]`, `actions[]`. Identity is `id`/`key` and nothing else: **no consumer branches on a Category Group's name.**
+`CategoryGroupCardItem` — `id`, `key?`, `name`, `description?`, `icon?`, `code?`, `status?`, `notifications?`, `metrics[]`, `actions[]`. Identity is `id`/`key` and nothing else: **no consumer branches on a Category Group's name.** `id` is the **numeric `term_id`** (`CategoryGroupId = number`), carried numeric through every dispatch and into the drawer request — never stringified.
 
 - `metrics` are loop-rendered through the single `StationMetricBlock`. There is deliberately no Services/Inclusions/Packages component, so a new or renamed metric is a data change. Labels live in data. **Tiers is not a Category Group metric.**
 - `actions[0]` is the split control's primary (`View`); the rest fill its menu. `destructive` is honoured only when data supplies it.
@@ -40,7 +40,9 @@ The Admin Station ships its **own bundle** and never loads the old admin stylesh
 
 ## Data boundary
 
-`mockCategoryGroups.ts` is the entire data boundary — neutral, no real Category Station connected. It holds **three sample records for development preview** so the loop and the three-across grid are inspectable; the count is data, not structure, and no real group (KAIROS/APTOS/OMNIA) is named. The grid **receives items and callbacks and never fetches**; cards are pure presentation. Swapping in the Category Station's read replaces the items passed by `AdminStationBody` and touches nothing in the card tree.
+The real read is wired (Phase 1). `AdminStationBody` reads current-scope Service Category Groups through `stations/serviceCategoryGroup/` — `useServiceCategoryGroupCards` (fetches `/admin/category-groups` via the shared `apiClient`, no old UI crosses the bundle) mapped by the pure `cardAdapter.ts` into `CategoryGroupCardItem[]`. The adapter is truthful: identity is the numeric `term_id`; the **only** metric is **Assigned Categories** (`assigned_count` — the list route carries no Services/Inclusions/Packages counts); status mirrors the authoritative `serviceCategoryGroupStatusPill` in the card's 4-state vocabulary; actions are **View + Edit** only (no archive/delete until a station drawer exists to service them).
+
+`mockCategoryGroups.ts` is now a **standby preview fixture only** — no longer wired, kept because there is no local WordPress runtime to exercise the real read; its ids are obvious placeholders (numeric, not real `term_id`s). The grid still **receives items and callbacks and never fetches**; cards are pure presentation.
 
 ## Layout and states
 
