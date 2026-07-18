@@ -15,7 +15,7 @@
 // the only thing that changed, and it moved onto the bridge.
 
 import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
-import type { Category, ServiceItem } from '@/api/types/cost-builder';
+import type { Category, ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
 import { updateServiceCategory } from '@/api/endpoints/admin';
 import type { SurfacePackageSummary } from '@/api/types/admin';
 import { useServiceStation } from '@/admin-station/stations/service';
@@ -128,7 +128,7 @@ export function useServiceDrawerController({
     if (result) {
       setService((prev) => ({
         ...prev,
-        meta: { ...prev.meta, platform_status: result.platform_status, module_status: result.module_status as any },
+        meta: { ...prev.meta, platform_status: result.platform_status as PlatformStatus, module_status: result.module_status as any },
       }));
     }
   }, [toggleActive]);
@@ -161,7 +161,7 @@ export function useServiceDrawerController({
           inclusions: result.inclusions ?? prev.inclusions,
           faqs:       result.faqs ?? prev.faqs,
         } : {}),
-        meta: { ...prev.meta, platform_status: result.platform_status, module_status: result.module_status as any },
+        meta: { ...prev.meta, platform_status: result.platform_status as PlatformStatus, module_status: result.module_status as any },
       }));
     }
   }, [publishService]);
