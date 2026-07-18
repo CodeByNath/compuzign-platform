@@ -1,7 +1,7 @@
 // Standby mock Category Group data.
 //
-// No longer the wired data boundary: AdminStationBody now reads real groups via
-// useServiceCategoryGroupCards. This fixture is kept only as a neutral local
+// No longer the wired data boundary: AdminStationBody reads real records through
+// the bound data source hook. This fixture is kept only as a neutral local
 // preview of the loop and the three-across grid, because there is no local
 // WordPress runtime to exercise the real read. It is shaped as the read's result
 // so it stays a drop-in preview and never diverges from the card contract.

@@ -14,22 +14,16 @@
 // stay entity-agnostic. The contracts live in ./drawerTypes so this registry can
 // value-import the content without a cycle back through it.
 
-import { ServiceCategoryGroupDrawerContent } from '../serviceCategoryGroup/ServiceCategoryGroupDrawerContent';
 import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawerContent';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
 
 export type { DrawerMode, DrawerTemplateKey, DrawerContentProps, DrawerContent, DrawerTemplateRegistration } from './drawerTypes';
 
+// Registering or retiring a template touches nothing outside this map and the
+// template's own content file — the shell, controller, tabs, and identity path
+// are generic enough to carry a string- or number-keyed entity without an edit.
+// This map has held two templates at once and still resolves the same way.
 export const DRAWER_TEMPLATES: Record<DrawerTemplateKey, DrawerTemplateRegistration> = {
-  'service-category-group': {
-    key:            'service-category-group',
-    title:          'Service Category Group',
-    supportedModes: ['view', 'edit'],
-    content:        ServiceCategoryGroupDrawerContent,
-  },
-  // The second template. Adding it changed nothing outside this map and its own
-  // content file — the shell, controller, tabs, and identity path were already
-  // generic enough to carry a string-keyed entity without an edit.
   'package-family': {
     key:            'package-family',
     title:          'Package Family',

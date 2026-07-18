@@ -13,16 +13,17 @@ export type DrawerMode = 'view' | 'edit';
 
 // Registered drawer template keys. A string-literal union so a binding and an
 // intent can only name a template the registry actually defines.
-export type DrawerTemplateKey = 'service-category-group' | 'package-family';
+export type DrawerTemplateKey = 'package-family';
 
 // What the shell hands a template's content: the record identity that drove the
 // intent — exactly as the card carried it — plus the active tab and a close
 // handle.
 //
 // The content resolves its own record from that id by matching its OWN native id
-// field, so a Service Category Group template compares a numeric term_id and a
-// Package Family template compares a string group_id. Neither converts: the id
-// that opened the drawer is the id that reads and edits the record.
+// field — the Package Family template compares a string group_id; a numerically
+// keyed entity compares its number. `StationRecordId` stays string | number for
+// exactly that reason, and no template converts: the id that opened the drawer
+// is the id that reads and edits the record.
 export interface DrawerContentProps {
   recordId: StationRecordId;
   mode:     DrawerMode;

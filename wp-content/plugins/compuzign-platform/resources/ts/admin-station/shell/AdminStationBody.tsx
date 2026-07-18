@@ -9,10 +9,11 @@
 //
 //   placement → multiple bindings → multiple walls
 //
-// So the Service home stacks the Package Families wall and the Service Category
-// Groups wall, each with its own source, kit, actions, and drawer. Adding,
-// reordering, or removing a wall is a binding row — not an edit here. The shell
-// stays entity-agnostic and prints whatever kits the bindings name.
+// A region can stack several walls, each with its own source, kit, actions, and
+// drawer; the Service home shows one today (Package Families) and has carried
+// two. Adding, reordering, or removing a wall is a binding row — not an edit
+// here. The shell stays entity-agnostic and prints whatever kits the bindings
+// name.
 //
 // Active station: the resolved nav destination's station, or the Service home
 // (DEFAULT_HOME_STATION) when nothing is selected. A station with no presentation

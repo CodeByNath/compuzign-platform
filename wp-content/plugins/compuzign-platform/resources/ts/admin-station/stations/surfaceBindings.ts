@@ -27,7 +27,7 @@ import type { DrawerTemplateKey } from './drawers/drawerTypes';
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'service-category-groups' | 'package-families';
+export type DataSourceKey = 'package-families';
 export type TemplateKitKey = 'category-group-cards';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
@@ -42,7 +42,7 @@ export interface StationActionIntent {
 }
 
 // One bound surface — one "wall". A station may own several at the SAME
-// placement (two card walls stacked in the presentation region) as well as at
+// placement (card walls stacked in the presentation region) as well as at
 // different placements (a presentation wall and a body table). Each is a row.
 export interface AdminStationSurfaceBinding {
   stationId: string;
@@ -66,14 +66,14 @@ export interface AdminStationSurfaceBinding {
 // rather than a bare literal in the Body so the default is one documented place.
 export const DEFAULT_HOME_STATION = 'services';
 
-// The table. The Service home presentation region holds TWO walls, rendered in
-// the order they appear here.
+// The table. The Service home presentation region holds ONE wall today —
+// Package Families. Rows render in the order they appear here.
 //
-// Note what these rows demonstrate. Two entirely unrelated entities — a
-// Package-owned, string-keyed record and a taxonomy term — reach the same region
-// through the same kit, each keeping its own data source, actions, and drawer.
-// Neither row required an edit to the card, the grid, the host, the drawer
-// shell, or the Body: a wall is a row, and a second wall is a second row.
+// The list shape is not vestigial. A placement resolves to a LIST of walls, and
+// this table carried two of them (Package Families beside a Service Category
+// Groups wall) without a single edit to the card, the grid, the host, the drawer
+// shell, or the Body. Removing that wall was likewise one row: a wall is a row,
+// which is exactly what makes adding, reordering, or retiring one cheap.
 //
 // Packages / Promotions presentation surfaces are intentionally absent — no row
 // is invented before a real data source and kit exist for them (they resolve to
@@ -88,20 +88,6 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     templateKitKey: 'category-group-cards',
     conditions: { scope: 'current' },
     drawerTemplateKey: 'package-family',
-    actionIntents: [
-      { id: 'view', target: 'drawer', mode: 'view' },
-      { id: 'edit', target: 'drawer', mode: 'edit' },
-    ],
-  },
-  {
-    stationId: 'services',
-    surfaceId: 'service-category-groups',
-    placement: 'presentation',
-    title: 'Service Category Groups',
-    dataSourceKey: 'service-category-groups',
-    templateKitKey: 'category-group-cards',
-    conditions: { scope: 'current' },
-    drawerTemplateKey: 'service-category-group',
     actionIntents: [
       { id: 'view', target: 'drawer', mode: 'view' },
       { id: 'edit', target: 'drawer', mode: 'edit' },
@@ -151,10 +137,10 @@ const BINDING_INDEX: Record<string, AdminStationSurfaceBinding[]> = SURFACE_BIND
 // Returns an empty array when the station has nothing bound there (the region
 // then shows its empty state).
 //
-// A placement holds a LIST, not one surface: the Service home region stacks the
-// Package Families wall and the Service Category Groups wall, each with its own
-// source, kit, actions, and drawer. `surfaceId` is what keeps two walls at one
-// placement distinct — the well-formedness guard still rejects two rows sharing
+// A placement holds a LIST, not one surface: a region can stack several walls,
+// each with its own source, kit, actions, and drawer, and the Service home
+// region has done so. `surfaceId` is what keeps walls at one placement distinct
+// — the well-formedness guard still rejects two rows sharing
 // station + surface + placement, which would be a genuine ambiguity.
 export function resolveSurfaceBindings(
   stationId: string,

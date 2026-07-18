@@ -10,7 +10,6 @@
 // Every source here is a pure read hook (fetch + map), so nothing from the old
 // admin UI tree is pulled in by registering it.
 
-import { useServiceCategoryGroupCards } from './serviceCategoryGroup';
 import { usePackageFamilyCards } from './packageFamily';
 import type { DataSourceKey } from './surfaceBindings';
 
@@ -32,6 +31,5 @@ export type StationDataSource = () => SurfaceCollection;
 // names it — that is what makes re-pointing a surface a one-word change in the
 // binding table rather than a code move.
 export const DATA_SOURCES: Record<DataSourceKey, StationDataSource> = {
-  'service-category-groups': useServiceCategoryGroupCards,
-  'package-families':        usePackageFamilyCards,
+  'package-families': usePackageFamilyCards,
 };
