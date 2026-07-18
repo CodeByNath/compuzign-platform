@@ -35,7 +35,7 @@ The current table maps the three nav items to `placement: 'body'`, `mode: 'table
 - **`stationId` values are AdminStation-native** (`services`/`packages`/`promotions`), **not** old-registry ids (`service-catalog`/`package-manager`). This tree resolves its own future registrations.
 - **Lean registrations + a separate resolver table.** The resolver selects registrations; it never branches on entity.
 - **`conditions` is not the runtime `MountCondition`.** `MountCondition` resolves *where* the app mounts in the DOM; `StationConditions` resolves *what data* a surface shows. Different axis — do not merge.
-- **Record identity stays native/numeric** (term_id numeric; `recordId` is never a stringified display key).
+- **Record identity stays native** — each entity keeps its own real id (`StationRecordId = string | number`: numeric term_id, string group_id), converted in neither direction and never a surrogate display key. See [Record identity](admin-station-cards.md#record-identity).
 - **Boundary note:** the one cross-tree reference is a type-only `import type { ShellMode }` from `components/admin/schema/types` — erased at build (verified: no `components/admin` runtime tokens in `admin-station.js`), the same sanctioned contract-crossing as `presentation/category-groups/types.ts` type-importing `ModuleNote`.
 
 ## Authoring guard
@@ -44,7 +44,7 @@ The current table maps the three nav items to `placement: 'body'`, `mode: 'table
 
 ## Projection status
 
-The lean registration table now **exists**, in its dynamic form: the [Surface Binding](admin-station-surface-binding.md) table (`stations/surfaceBindings.ts`) binds a station's placement region to a data-source key + template-kit key + conditions + action intents — not a fixed `EntitySchema` (that rigid proposal was dropped). The **presentation wall is projected** through it (the Service home Category Group cards), and its actions open the **shared [Admin Station Drawer](admin-station-drawer.md)** (View/Edit, numeric record id). Remaining projection: the **body table**. See [Project History 008](../project-history/008-admin-station-engine-and-resolver.md).
+The lean registration table now **exists**, in its dynamic form: the [Surface Binding](admin-station-surface-binding.md) table (`stations/surfaceBindings.ts`) binds a station's placement region to a data-source key + template-kit key + conditions + action intents — not a fixed `EntitySchema` (that rigid proposal was dropped). The **presentation walls are projected** through it (the Service home region renders the Package Families wall, and the table supports several at one placement), and their actions open the **shared [Admin Station Drawer](admin-station-drawer.md)** (View/Edit, the record's own id), whose saves refresh the originating wall. Remaining projection: the **body table**. See [Project History 008](../project-history/008-admin-station-engine-and-resolver.md).
 
 Note the two tables are distinct axes: this file's `destinations.ts` resolves a nav *activation* to a destination (a future body/table surface); `surfaceBindings.ts` resolves a station *placement* to a live presentation surface. They do not share rows.
 

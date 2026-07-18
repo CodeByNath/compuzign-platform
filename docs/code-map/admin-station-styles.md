@@ -31,7 +31,7 @@ The slide menu is square-cornered (no radius token).
 - Home gutters drop to `--station-body-pad-sm` at ≤767px.
 - Card grid cells claim twelve-column spans — 4 (three across) by default, 12 (one across) inside that same ≤767px block.
 
-**Three breakpoints exist in total (767 / 720 / 560) and a component may not add a fourth**: the card grid reuses the shell's boundary rather than inventing one, and metric blocks reflow intrinsically (`auto-fit`) with no breakpoint at all. Breakpoint values are raw because custom properties are not valid in a media-query prelude; everything they change is token- or grid-driven.
+**Three breakpoints exist in total (767 / 720 / 560) and a component may not add a fourth**: the card grid reuses the shell's boundary rather than inventing one, and metric rows are full-width list lines that narrow with their card, needing no breakpoint at all. Breakpoint values are raw because custom properties are not valid in a media-query prelude; everything they change is token- or grid-driven.
 
 ## Related Code Maps
 

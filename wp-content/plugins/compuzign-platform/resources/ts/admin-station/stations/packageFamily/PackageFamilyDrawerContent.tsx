@@ -31,7 +31,7 @@ import { usePackageFamilyRecord } from './usePackageFamilyRecord';
 import { resolvePackageFamilyCardStatus } from './cardAdapter';
 import { StationStatusPill } from '../../presentation/StationStatusPill';
 
-export function PackageFamilyDrawerContent({ recordId, mode, onClose, onSaved }: DrawerContentProps) {
+export function PackageFamilyDrawerContent({ recordId, mode, onClose, onModeChange, onSaved }: DrawerContentProps) {
   const { record, loading, error } = usePackageFamilyRecord(recordId);
 
   if (loading) {
@@ -51,16 +51,18 @@ export function PackageFamilyDrawerContent({ recordId, mode, onClose, onSaved }:
     );
   }
 
-  return <PackageFamilyDrawerLoaded record={record} mode={mode} onSaved={onSaved} />;
+  return <PackageFamilyDrawerLoaded record={record} mode={mode} onClose={onClose} onModeChange={onModeChange} onSaved={onSaved} />;
 }
 
 interface LoadedProps {
   record:  PackageFamilyItem;
   mode:    DrawerContentProps['mode'];
+  onClose: DrawerContentProps['onClose'];
+  onModeChange: DrawerContentProps['onModeChange'];
   onSaved: () => void;
 }
 
-function PackageFamilyDrawerLoaded({ record, mode, onSaved }: LoadedProps) {
+function PackageFamilyDrawerLoaded({ record, mode, onClose, onModeChange, onSaved }: LoadedProps) {
   // The live record for this drawer. Seeded from the list projection and then
   // advanced by each save's server response, so View reflects an edit without
   // refetching this drawer's own read — which would clear the record and flash
@@ -76,13 +78,14 @@ function PackageFamilyDrawerLoaded({ record, mode, onSaved }: LoadedProps) {
   };
 
   return mode === 'edit'
-    ? <EditBody record={current} onSaved={handleSaved} />
-    : <ViewBody record={current} />;
+    ? <EditBody record={current} onCancel={() => onModeChange('view')} onSaved={(saved) => { handleSaved(saved); onModeChange('view'); }} />
+    : <ViewBody record={current} onClose={onClose} onEdit={() => onModeChange('edit')} />;
 }
 
 // ── View tab ─────────────────────────────────────────────────────────────────
 
-function ViewBody({ record }: { record: PackageFamilyItem }) {
+function ViewBody({ record, onClose, onEdit }: { record: PackageFamilyItem; onClose: () => void; onEdit: () => void }) {
+  const [section, setSection] = useState<'overview' | 'connections'>('overview');
   // Connections are read straight from the record's own dependents projection —
   // counts the backend already reports, never derived or estimated here.
   const connections: Array<{ id: string; label: string; value: number }> = [
@@ -91,46 +94,58 @@ function ViewBody({ record }: { record: PackageFamilyItem }) {
     { id: 'tier-selections', label: 'Tier selections', value: record.dependents.tier_selections },
   ];
 
-  return (
-    <div class="cz-record-drawer__view">
-      <div class="cz-record-drawer__row">
-        <span class="cz-record-drawer__field-label">Status</span>
-        <StationStatusPill status={resolvePackageFamilyCardStatus(record)} />
-      </div>
-      <div class="cz-record-drawer__row">
-        <span class="cz-record-drawer__field-label">Name</span>
-        <span class="cz-record-drawer__field-value">{record.label}</span>
-      </div>
-      <div class="cz-record-drawer__row">
-        <span class="cz-record-drawer__field-label">Description</span>
-        <span class="cz-record-drawer__field-value">
-          {record.description.trim() || <span class="cz-record-drawer__muted">No description</span>}
-        </span>
-      </div>
-      <div class="cz-record-drawer__row">
-        <span class="cz-record-drawer__field-label">Assigned Services</span>
-        <span class="cz-record-drawer__field-value">{record.assigned_service_count}</span>
-      </div>
+  return <div class="cz-record-drawer">
+    <section class="cz-record-drawer__hero">
+      <span class="cz-record-drawer__hero-icon" aria-hidden="true">PF</span>
+      <div class="cz-record-drawer__hero-copy"><h3>{record.label}</h3><p>Package family</p></div>
+      <StationStatusPill status={resolvePackageFamilyCardStatus(record)} />
+    </section>
 
-      {/* Connections — what this family holds together. Looped, never named
-          one by one, so a future dependent is a data change. */}
-      {connections.map((connection) => (
-        <div key={connection.id} class="cz-record-drawer__row">
-          <span class="cz-record-drawer__field-label">{connection.label}</span>
-          <span class="cz-record-drawer__field-value">{connection.value}</span>
-        </div>
-      ))}
+    <div class="cz-record-drawer__section-tabs" role="tablist" aria-label="Package family sections">
+      {(['overview', 'connections'] as const).map((id) => <button key={id} type="button" role="tab" aria-selected={section === id} class={section === id ? 'is-active' : ''} onClick={() => setSection(id)}>{id === 'overview' ? 'Overview' : 'Connections'}</button>)}
     </div>
-  );
+
+    <div class="cz-record-drawer__content">
+      {section === 'overview' ? <section class="cz-record-module">
+        <header class="cz-record-module__head">
+          <span class="cz-record-module__icon" aria-hidden="true">PF</span>
+          <div><h4>Family Overview</h4><p>General information about this package family.</p></div>
+          <StationStatusPill status={resolvePackageFamilyCardStatus(record)} />
+        </header>
+        <div class="cz-record-module__body">
+          <dl class="cz-record-module__details">
+            <div><dt>Name</dt><dd>{record.label}</dd></div>
+            <div><dt>Description</dt><dd>{record.description.trim() || <span class="cz-record-drawer__muted">No description</span>}</dd></div>
+          </dl>
+          <button type="button" class="cz-record-drawer__outline-action" onClick={onEdit}>Edit</button>
+        </div>
+      </section> : <section class="cz-record-module">
+        <header class="cz-record-module__head">
+          <span class="cz-record-module__icon" aria-hidden="true">#</span>
+          <div><h4>Connected Records</h4><p>Live relationships using this package family.</p></div>
+        </header>
+        <div class="cz-record-module__body"><dl class="cz-record-module__details">
+          {connections.map((connection) => <div key={connection.id}><dt>{connection.label}</dt><dd>{connection.value}</dd></div>)}
+        </dl></div>
+      </section>}
+    </div>
+
+    <footer class="cz-record-drawer__footer">
+      <button type="button" class="cz-record-drawer__outline-action" onClick={onClose}>Close</button>
+      <button type="button" class="cz-record-drawer__primary-action" onClick={onEdit}>Edit overview</button>
+    </footer>
+  </div>;
 }
 
 // ── Edit tab ─────────────────────────────────────────────────────────────────
 
 function EditBody({
   record,
+  onCancel,
   onSaved,
 }: {
   record:  PackageFamilyItem;
+  onCancel: () => void;
   onSaved: (record: PackageFamilyItem | null) => void;
 }) {
   const [name, setName] = useState(record.label);
@@ -164,8 +179,13 @@ function EditBody({
   };
 
   return (
-    <div class="cz-record-drawer__edit">
-      <div class="cz-station-field">
+    <div class="cz-record-drawer__editor">
+      <header class="cz-record-drawer__editor-head">
+        <button type="button" aria-label="Back to overview" onClick={onCancel}>‹</button>
+        <div><h3>Family Overview</h3><p>Live editor</p></div>
+      </header>
+      <div class="cz-record-drawer__editor-fields">
+        <div class="cz-station-field">
         <label class="cz-station-field__label" for="cz-package-family-name">Name</label>
         <input
           id="cz-package-family-name"
@@ -174,9 +194,9 @@ function EditBody({
           value={name}
           onInput={(e) => { setName((e.target as HTMLInputElement).value); setSavedAt(null); }}
         />
-      </div>
+        </div>
 
-      <div class="cz-station-field">
+        <div class="cz-station-field">
         <label class="cz-station-field__label" for="cz-package-family-description">Description</label>
         <textarea
           id="cz-package-family-description"
@@ -184,12 +204,14 @@ function EditBody({
           value={description}
           onInput={(e) => { setDescription((e.target as HTMLTextAreaElement).value); setSavedAt(null); }}
         />
+        </div>
+
+        {saveError && <p class="cz-record-drawer__error" role="alert">{saveError}</p>}
       </div>
 
-      {saveError && <p class="cz-record-drawer__error" role="alert">{saveError}</p>}
-
-      <div class="cz-record-drawer__edit-actions">
-        <button type="button" class="cz-record-drawer__save" disabled={!canSave} onClick={save}>
+      <div class="cz-record-drawer__editor-actions">
+        <button type="button" class="cz-record-drawer__outline-action" disabled={saving} onClick={onCancel}>Cancel</button>
+        <button type="button" class="cz-record-drawer__primary-action" disabled={!canSave} onClick={save}>
           {saving ? 'Saving…' : 'Save changes'}
         </button>
         {savedAt !== null && !dirty && <span class="cz-record-drawer__saved">Saved</span>}

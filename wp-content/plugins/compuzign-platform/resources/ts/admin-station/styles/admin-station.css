@@ -1103,3 +1103,121 @@
   cursor: pointer;
   padding: 0;
 }
+
+/* Record drawer composition: record hero, reading tabs, module panels, and the
+ * inline editor. Entity content owns this hierarchy; the shared shell still
+ * owns overlay, focus, identity and close behaviour. */
+.cz-record-drawer {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: -20px;
+}
+
+.cz-record-drawer__hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border-bottom: 1px solid var(--station-border);
+}
+
+.cz-record-drawer__hero-icon,
+.cz-record-module__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--station-active-bg);
+  color: var(--station-accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cz-record-drawer__hero-copy { flex: 1 1 auto; min-width: 0; }
+.cz-record-drawer__hero-copy h3,
+.cz-record-module__head h4,
+.cz-record-drawer__editor-head h3 { margin: 0; color: var(--station-text); }
+.cz-record-drawer__hero-copy h3 { font-size: 21px; }
+.cz-record-drawer__hero-copy p,
+.cz-record-module__head p,
+.cz-record-drawer__editor-head p { margin: 3px 0 0; color: var(--station-text-muted); }
+
+.cz-record-drawer__section-tabs {
+  display: flex;
+  gap: 28px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--station-border);
+}
+
+.cz-record-drawer__section-tabs button {
+  position: relative;
+  padding: 18px 0;
+  border: 0;
+  background: transparent;
+  color: var(--station-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cz-record-drawer__section-tabs button.is-active { color: var(--station-text); font-weight: 700; }
+.cz-record-drawer__section-tabs button.is-active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  background: var(--station-accent);
+}
+
+.cz-record-drawer__content { flex: 1 1 auto; padding: 20px; }
+.cz-record-module { overflow: hidden; border: 1px solid var(--station-border); border-radius: 16px; background: var(--station-surface); }
+.cz-record-module__head { display: flex; align-items: center; gap: 12px; padding: 18px; background: var(--station-active-bg); }
+.cz-record-module__head > div { flex: 1 1 auto; }
+.cz-record-module__head h4 { font-size: 16px; }
+.cz-record-module__head p { font-size: var(--station-text-sm); }
+.cz-record-module__icon { width: 42px; height: 42px; border-radius: 12px; }
+.cz-record-module__body { display: flex; flex-direction: column; gap: 20px; padding: 22px; }
+.cz-record-module__details { display: grid; gap: 16px; margin: 0; }
+.cz-record-module__details > div { display: grid; grid-template-columns: 120px 1fr; gap: 14px; }
+.cz-record-module__details dt { color: var(--station-text-muted); }
+.cz-record-module__details dd { margin: 0; color: var(--station-text); line-height: var(--station-line-snug); }
+
+.cz-record-drawer__footer,
+.cz-record-drawer__editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--station-border);
+}
+
+.cz-record-drawer__outline-action,
+.cz-record-drawer__primary-action {
+  padding: 10px 18px;
+  border-radius: var(--station-control-radius);
+  border: 1px solid var(--station-accent);
+  background: transparent;
+  color: var(--station-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cz-record-drawer__primary-action { border-color: transparent; background: var(--station-accent); color: var(--station-accent-on); }
+.cz-record-drawer__primary-action:disabled { opacity: var(--station-disabled-opacity); cursor: default; }
+
+.cz-record-drawer__editor { min-height: 100%; display: flex; flex-direction: column; margin: -20px; }
+.cz-record-drawer__editor-head { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--station-border); }
+.cz-record-drawer__editor-head button { border: 0; background: transparent; color: var(--station-text-muted); font-size: 30px; cursor: pointer; }
+.cz-record-drawer__editor-head div { flex: 1 1 auto; }
+.cz-record-drawer__editor-head p { color: var(--station-status-active-fg); font-size: var(--station-text-sm); }
+.cz-record-drawer__editor-fields { flex: 1 1 auto; display: flex; flex-direction: column; gap: 20px; padding: 24px 20px; }
+.cz-record-drawer__editor-actions { margin-top: auto; }
+
+@media (min-width: 720px) {
+  .cz-station-drawer { width: 560px; }
+}

@@ -18,8 +18,6 @@ import type { OpenDrawerState } from './AdminStationDrawerContext';
 import { resolveDrawerTemplate } from '../../stations/drawers/drawerRegistry';
 import type { DrawerMode } from '../../stations/drawers/drawerTypes';
 
-const MODE_LABEL: Record<DrawerMode, string> = { view: 'View', edit: 'Edit' };
-
 export function AdminStationDrawer() {
   const { open, close } = useAdminStationDrawer();
   if (!open) return null;
@@ -96,25 +94,7 @@ function ResolvedDrawer({
         <button type="button" class="cz-station-drawer__close" aria-label="Close" onClick={onClose}>×</button>
       </header>
 
-      <div class="cz-station-drawer__tabs" role="tablist" aria-label="Drawer views">
-        {template.supportedModes.map((mode) => {
-          const selected = mode === activeMode;
-          return (
-            <button
-              key={mode}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              class={`cz-station-drawer__tab${selected ? ' cz-station-drawer__tab--active' : ''}`}
-              onClick={() => setMode(mode)}
-            >
-              {MODE_LABEL[mode]}
-            </button>
-          );
-        })}
-      </div>
-
-      <div class="cz-station-drawer__body" role="tabpanel">
+      <div class="cz-station-drawer__body">
         {/* Keyed by template + record so it survives tab switches and remounts
             only for a different record — the numeric identity never resets. */}
         <Content
@@ -122,6 +102,7 @@ function ResolvedDrawer({
           recordId={open.recordId}
           mode={activeMode}
           onClose={onClose}
+          onModeChange={setMode}
           onSaved={notifySaved}
         />
       </div>

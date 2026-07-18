@@ -28,6 +28,7 @@ export interface DrawerContentProps {
   recordId: StationRecordId;
   mode:     DrawerMode;
   onClose:  () => void;
+  onModeChange: (mode: DrawerMode) => void;
   // Call after a save that changed the record. It refreshes the wall this drawer
   // was opened from — and only that wall. Content does not know, and must not
   // know, which wall that is: it reports the fact, the controller routes it.

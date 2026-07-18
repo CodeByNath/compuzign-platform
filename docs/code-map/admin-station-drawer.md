@@ -1,6 +1,6 @@
 # Admin Station Drawer
 
-The fresh, shared **drawer path**: how a template kit's action becomes an open drawer over a numeric record, with View/Edit tabs, without the shell or controller naming an entity. Completes the projection sequence begun in [Surface Binding](admin-station-surface-binding.md). Built new — it imports **no** old-tree drawer UI (`EntityDrawer`, `InlineEditorShell`); only the pure authoritative state hook is reused.
+The fresh, shared **drawer path**: how a template kit's action becomes an open drawer over a record, with View/Edit tabs, without the shell or controller naming an entity. Completes the projection sequence begun in [Surface Binding](admin-station-surface-binding.md). Built new — it imports **no** old-tree drawer UI (`EntityDrawer`, `InlineEditorShell`).
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
@@ -9,25 +9,46 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 ```
 template action → onIntent(recordId, actionId)
   → StationSurfaceHost resolves the binding's action intent + drawerTemplateKey
-    → ResolvedStationIntent { recordId:number, intent, drawerTemplateKey }
+    → ResolvedStationIntent { recordId:StationRecordId, intent, drawerTemplateKey }
+       + that wall's own refetch
       → drawer controller (openFromIntent) stores { drawerTemplateKey, recordId, mode }
         → shared drawer shell resolves the template by key
-          → View / Edit tab → entity-specific content, record loaded by numeric id
+          → entity content renders its reading surface / inline editor
+            → save succeeds → onSaved() → the ORIGINATING wall refetches
 ```
+
+The id the card carried is the id the drawer edits with. Nothing in this chain converts, re-keys, or looks up a surrogate — see [Record identity](admin-station-cards.md#record-identity).
 
 ## Authoritative files
 
-- `stations/drawers/drawerTypes.ts` — zero-dependency contracts: `DrawerMode` (`'view'|'edit'`), `DrawerTemplateKey`, `DrawerContentProps` (`recordId:number`, `mode`, `onClose`), `DrawerTemplateRegistration`. Separate from the registry so the registry can value-import content without a cycle.
+- `stations/drawers/drawerTypes.ts` — the contracts: `DrawerMode` (`'view'|'edit'`), `DrawerTemplateKey` (`'package-family'`), `DrawerContentProps` (`recordId:StationRecordId`, `mode`, `onModeChange`, `onClose`, `onSaved`), `DrawerTemplateRegistration`. Separate from the registry so the registry can value-import content without a cycle; its one import is the zero-dependency identity type.
 - `stations/drawers/drawerRegistry.tsx` — `DrawerTemplateKey → { title, supportedModes, content }`. Load-time guard (`assertDrawerTemplatesWellFormed`: key match, non-empty modes) and `resolveDrawerTemplate` (null → neutral state, never throws at open).
-- `shell/drawer/AdminStationDrawerContext.tsx` — the **controller** (generic): holds the one open drawer (`drawerTemplateKey`, numeric `recordId`, `mode`) or null. `openFromIntent` (ignores non-drawer / keyless intents), `setMode` (switches tab, **preserves recordId**), `close` (clears all state — no stale intent survives). Narrows a free-string intent mode to a `DrawerMode` (`'edit'` else `'view'`).
-- `shell/drawer/AdminStationDrawer.tsx` — the **shared shell** (generic): right-side modal, backdrop/Escape close, scroll lock, focus into panel + restore on close. Renders one tab per `supportedMode`, clamps an unsupported requested mode, and renders the template's content keyed by `template:recordId` (survives tab switches, remounts per record). Unknown key → neutral `UnresolvedDrawer`.
-- `stations/serviceCategoryGroup/ServiceCategoryGroupDrawerContent.tsx` — the **first real template** (entity-specific, allowed to know its data). Loads the raw record by numeric id (`useServiceCategoryGroupRecord`, list-scan — there is no single GET), then reuses `hooks/useServiceCategoryGroupStation` (the authoritative mutation boundary — bundle-safe: pure endpoints + `moduleNotifications` logic). View = read overview; Edit = name/description → `saveOverview` (numeric `term_id`). No `onRefresh`: the hook reflects the save from its response, so the form never flashes; refreshing the card wall behind is deferred.
+- `shell/drawer/AdminStationDrawerContext.tsx` — the **controller** (generic): holds the one open drawer (`drawerTemplateKey`, `recordId`, `mode`) or null. `openFromIntent(intent, refetchSurface?)` (ignores non-drawer / keyless intents), `setMode` (switches tab, **preserves recordId**), `close` (clears all state — no stale intent survives), `notifySaved` (fires the originating wall's refresh). The refresh handle lives in a **ref**, not in state: it is a side-effect handle rather than rendered data, and it is dropped on close so a late async save refreshes nothing rather than a wall the user has left.
+- `shell/drawer/AdminStationDrawer.tsx` — the **shared shell** (generic): right-side modal, backdrop/Escape close, scroll lock, focus into panel + restore on close. It clamps an unsupported requested mode and hands `onModeChange` to entity content, allowing editing to open inline from the owning module rather than appearing as a contextless first-level tab. Content is keyed by `template:recordId` (survives mode switches, remounts per record). Unknown key → neutral `UnresolvedDrawer`.
+### Registered templates
+
+**One template is registered today.** A template is entity-specific by design (that is what a template *is*); only the shell and controller stay generic.
+
+- `stations/packageFamily/PackageFamilyDrawerContent.tsx` — loads by string `group_id` (`usePackageFamilyRecord`, a list-scan because there is no single GET). Its populated reading surface has a record hero, Overview/Connections tabs, a module card, and fixed Close/Edit actions. Overview editing replaces that reading surface inline with Back/Cancel/Save; save calls `savePackageFamilyOverview` with the same string id, then returns to Overview. Connections shows the backend `dependents` counts (Services, Rate Sheet rows, Tier selections).
+  - **Mutation boundary, deliberate:** families have no shared authoritative state hook to reuse — the legacy tree owns that logic *inside its own UI components* (`PackageFamiliesSection`, `DynamicStationManager`), which must not cross the bundle. So this content calls the pure endpoint directly and advances its local record from the server's returned `group`. Overview edits save the station's **draft**; apply/publish stays with the lifecycle actions and is not reinvented here.
+
+The registry has carried **two** templates at once (a numerically keyed Service Category Group template alongside this string-keyed one), which is how the axis was proven entity-agnostic: adding the second changed nothing but the registry map and its own folder, and retiring it later changed nothing else either.
+
+It does not pass `onRefresh`: content reflects its save from that save's **own response**, so the open form never flashes.
+
+## Save → refresh
+
+`DrawerContentProps.onSaved` is how content reports a successful save. It is called **only on success** — a failed save must not refresh a wall, which would imply a change that never happened. Content does not know which wall opened it; it reports the fact and the controller routes it.
+
+The two reads are **separate `useApi` instances** (the drawer's record read vs. the wall's collection read), so refreshing the wall cannot disturb what is on screen in the drawer. Both update, neither flashes: the drawer from its save response, the wall from a retained-collection reload (see [Surface Binding](admin-station-surface-binding.md) → `useRetainedCollection`).
+
+Drawer content styles are the shared, entity-neutral `cz-record-drawer__*` + `cz-station-field*` primitives (renamed from the entity-named `cz-scg-drawer__*` when the second template landed).
 
 ## Invariants
 
 - **Entity-agnostic shell + controller.** They hold a template *key*, never an entity; only content is entity-specific.
-- **Numeric identity end-to-end:** `recordId:number` from card action → intent → controller → content → endpoint. Never stringified. Survives View↔Edit switching.
-- **No old drawer UI imported.** Bundle isolation holds (madge baseline of four `components/admin` cycles unchanged; the shared `useServiceCategoryGroupStation` chunk carries no renderer).
+- **Native identity end-to-end:** one `recordId: StationRecordId` from card action → intent → controller → content → endpoint, in the record's own form (today a string `group_id`; the type stays `string | number` because an entity's id travels as its own source expresses it). Never converted in either direction. Survives View↔Edit switching. The controller treats it as **opaque** — it stores and returns it without parsing or comparing.
+- **No old drawer UI imported.** Bundle isolation holds (madge baseline of four `components/admin` cycles unchanged). The shell no longer imports any `hooks/useServiceCategoryGroup*` state hook — the only remaining template calls pure endpoints.
 - **Fails loudly / degrades safely:** malformed registry throws at load; an unresolved key or missing record renders a neutral state, never a blank or a crash.
 - **One intent→mode system.** The old `categoryGroupDrawer.ts` seam was deleted; the action→tab mapping lives only in the binding's `actionIntents`.
 
