@@ -42,6 +42,22 @@ export const ServicesIcon: ComponentType<IconProps> = (props) => (
   </Icon>
 );
 
+// Table cells — Rate Sheet rows.
+export const RateSheetIcon: ComponentType<IconProps> = (props) => (
+  <Icon {...props}>
+    <path fillRule="evenodd" d="M3.75 3A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25A2.25 2.25 0 0020.25 3H3.75zM3 9h5.25V4.5h-4.5A.75.75 0 003 5.25V9zm6.75-4.5V9H21V5.25a.75.75 0 00-.75-.75H9.75zM21 10.5H9.75v4.25H21V10.5zm0 5.75H9.75v3.25h10.5a.75.75 0 00.75-.75v-2.5zm-12.75 3.25v-3.25H3v2.5c0 .414.336.75.75.75h4.5zM3 14.75h5.25V10.5H3v4.25z" clipRule="evenodd" />
+  </Icon>
+);
+
+// Stacked layers — Tier selections.
+export const TiersIcon: ComponentType<IconProps> = (props) => (
+  <Icon {...props}>
+    <path d="M11.644 1.59a.75.75 0 01.712 0l9 4.875a.75.75 0 010 1.32l-9 4.875a.75.75 0 01-.712 0l-9-4.875a.75.75 0 010-1.32l9-4.875z" />
+    <path d="M2.25 12.525a.75.75 0 011.106-.66L12 16.548l8.644-4.683a.75.75 0 11.712 1.32l-9 4.875a.75.75 0 01-.712 0l-9-4.875a.75.75 0 01-.394-.66z" />
+    <path d="M2.25 17.4a.75.75 0 011.106-.66L12 21.423l8.644-4.683a.75.75 0 11.712 1.32l-9 4.875a.75.75 0 01-.712 0l-9-4.875a.75.75 0 01-.394-.66z" />
+  </Icon>
+);
+
 // Cube (repo `package`) — Packages.
 export const PackagesIcon: ComponentType<IconProps> = (props) => (
   <Icon {...props}>

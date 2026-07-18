@@ -15,16 +15,10 @@
 //   - Identity is the record's own `group_id` — a STRING — carried through
 //     unchanged. It is never coerced to a number to look like a term_id; the
 //     family's routes are all string-keyed, so the string is the real id.
-//   - Metrics show ONLY what the list route actually returns, and only counts
-//     whose MEANING is settled. Today that is one: Services. The route also
-//     carries `rate_sheet_rows` and `tier_selections`, but the card face is
-//     meant to read as Services / Categories / Tiers — and neither a per-family
-//     category count nor a distinct-tier count is computed by the backend
-//     (`PackageCategoryGroups::dependents` returns services, rate_sheet_rows,
-//     tier_selections; `tier_selections` counts rate-sheet-row selections, NOT
-//     distinct tiers). So the list stays at Services rather than showing a
-//     number under a label it does not mean. The metrics array is a loop —
-//     adding the other two is a data change here once the backend reports them.
+//   - Metrics repeat the backend's complete `dependents` list using its precise
+//     meanings: connected Services, dependent Rate Sheet rows, and Tier
+//     selections. The adapter supplies data records; the shared card loops them
+//     and knows none of these names.
 //   - `assigned_service_count` IS `dependents.services` (the projection assigns
 //     one from the other), so this metric and the drawer's Services connection
 //     can never disagree.
@@ -39,7 +33,7 @@
 // erased at build.
 
 import type { PackageFamilyItem } from '@/api/types/admin';
-import { ViewIcon, PackagesIcon, ServicesIcon } from '../../shell/icons';
+import { ViewIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '../../shell/icons';
 import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
@@ -79,10 +73,11 @@ export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardI
     description: item.description,
     icon:        PackagesIcon,
     status:      resolvePackageFamilyCardStatus(item),
-    // One settled count. See the truthfulness note above for why the other two
-    // dependents are not here.
+    // Complete live dependency list. The shared card renders this as a repeater.
     metrics: [
-      { id: 'services', label: 'Services', value: item.assigned_service_count, icon: ServicesIcon },
+      { id: 'services', label: 'Services', value: item.dependents.services, icon: ServicesIcon },
+      { id: 'rate-sheet-rows', label: 'Rate Sheet rows', value: item.dependents.rate_sheet_rows, icon: RateSheetIcon },
+      { id: 'tier-selections', label: 'Tier selections', value: item.dependents.tier_selections, icon: TiersIcon },
     ],
     // A single action. Identity-only dispatch; the string group_id travels to
     // the drawer exactly as it sits here, and Edit lives inside that drawer.

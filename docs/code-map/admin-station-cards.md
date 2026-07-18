@@ -9,7 +9,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presenta
 ```
 presentation/
 ├── StationStatusPill.tsx     neutral — renders the Presentation Status Contract
-├── StationMetricBlock.tsx    neutral — the one metric tile
+├── StationMetricBlock.tsx    neutral — one row in the metric repeater
 ├── StationSplitAction.tsx    neutral — primary + menu in one shape
 └── category-groups/
     ├── types.ts                  the card contract
@@ -61,13 +61,11 @@ The Admin Station ships its **own bundle** and never loads the old admin stylesh
 
 The read is real and reached through the [Surface Binding](admin-station-surface-binding.md) engine, not hardcoded. The `category-group-cards` kit (`presentation/templateKits.tsx`) wraps this grid. The source is a pure read through the shared `apiClient` with no old UI crossing the bundle, with a pure `cardAdapter.ts` projecting into `CategoryGroupCardItem[]`:
 
-| Wall | Data source key | Station folder | Route | Identity | The one card metric | Status mirrors |
+| Wall | Data source key | Station folder | Route | Identity | Repeated card metrics | Status mirrors |
 | --- | --- | --- | --- | --- | --- | --- |
-| Package Families | `package-families` | `stations/packageFamily/` | `/admin/package-category-groups` | string `group_id` | **Services** (`assigned_service_count`) | `groupStatusPill` |
+| Package Families | `package-families` | `stations/packageFamily/` | `/admin/package-category-groups` | string `group_id` | **Services**, **Rate Sheet rows**, **Tier selections** (`dependents`) | `groupStatusPill` |
 
-The adapter's truthfulness rules: identity is carried unchanged; status is a faithful re-expression of the authoritative pill in the card's 4-state vocabulary, never a second rule; and metrics show only what the list route returns **and whose meaning is settled**.
-
-The card face is intended to read **Services / Categories / Tiers**, but only Services can be shown truthfully today: `PackageCategoryGroups::dependents()` returns `{services, rate_sheet_rows, tier_selections}` — there is **no per-family category count**, and `tier_selections` counts rate-sheet-row selections, **not distinct tiers**. So the list stays at one row rather than printing a number under a label it does not mean. `assigned_service_count` **is** `dependents.services` (the projection assigns one from the other), so the card and the drawer's Services connection cannot disagree. Metrics are a loop: adding the other two is a data change here once the backend reports them.
+The adapter's truthfulness rules: identity is carried unchanged; status is a faithful re-expression of the authoritative pill in the card's 4-state vocabulary, never a second rule; and metrics repeat the complete backend `dependents` projection using its precise labels. `PackageCategoryGroups::dependents()` returns `{services, rate_sheet_rows, tier_selections}`; these are connected Services, dependent Rate Sheet rows, and selection occurrences (not distinct tiers). The adapter supplies those three records and the shared card loops them through `StationMetricBlock`, so the presentation card and drawer Connections view read the same live values without fixed metric slots.
 
 Actions are **View only** — one gesture, rendered full width as the card's footer. Edit is not withdrawn from the product: the drawer that View opens registers both modes as tabs (see [Drawer](admin-station-drawer.md)), so editing is one click further in rather than a menu on every card.
 
