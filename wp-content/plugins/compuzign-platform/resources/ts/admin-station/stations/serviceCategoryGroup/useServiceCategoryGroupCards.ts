@@ -16,6 +16,7 @@ import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { fetchAdminServiceCategoryGroups } from '@/api/endpoints/admin';
 import { toCategoryGroupCard } from './cardAdapter';
+import { useRetainedCollection } from '../useRetainedCollection';
 import type { CategoryGroupCardItem } from '../../presentation/category-groups/types';
 
 export interface ServiceCategoryGroupCardsResult {
@@ -32,14 +33,20 @@ export interface ServiceCategoryGroupCardsResult {
  * archived and trashed belong to the body/archive surfaces, not the presentation
  * wall. The mapping is memoised on the raw response so re-renders don't rebuild
  * the card array.
+ *
+ * `refetch` is the handle this wall hands to the drawer it opens, so a saved
+ * group refreshes THIS wall. The collection is retained across that reload, so
+ * the cards update in place instead of blanking (see useRetainedCollection).
  */
 export function useServiceCategoryGroupCards(): ServiceCategoryGroupCardsResult {
   const { data, loading, error, refetch } = useApi(() => fetchAdminServiceCategoryGroups());
 
-  const items = useMemo(
+  const projected = useMemo(
     () => (data?.category_groups ?? []).map(toCategoryGroupCard),
     [data],
   );
 
-  return { items, loading, error, refetch };
+  const retained = useRetainedCollection(projected, loading);
+
+  return { items: retained.items, loading: retained.loading, error, refetch };
 }

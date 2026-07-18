@@ -23,7 +23,7 @@ import { useServiceCategoryGroupRecord } from './useServiceCategoryGroupRecord';
 import { resolveCategoryGroupCardStatus } from './cardAdapter';
 import { StationStatusPill } from '../../presentation/StationStatusPill';
 
-export function ServiceCategoryGroupDrawerContent({ recordId, mode, onClose }: DrawerContentProps) {
+export function ServiceCategoryGroupDrawerContent({ recordId, mode, onClose, onSaved }: DrawerContentProps) {
   const { record, loading, error } = useServiceCategoryGroupRecord(recordId);
 
   if (loading) {
@@ -45,24 +45,27 @@ export function ServiceCategoryGroupDrawerContent({ recordId, mode, onClose }: D
 
   // Inner component: the mutation hook is called unconditionally here, only once
   // the record exists, so the Rules of Hooks hold across loading → loaded.
-  return <ServiceCategoryGroupDrawerLoaded record={record} mode={mode} />;
+  return <ServiceCategoryGroupDrawerLoaded record={record} mode={mode} onSaved={onSaved} />;
 }
 
 interface LoadedProps {
-  record: ServiceCategoryGroupStationItem;
-  mode:   DrawerContentProps['mode'];
+  record:  ServiceCategoryGroupStationItem;
+  mode:    DrawerContentProps['mode'];
+  onSaved: () => void;
 }
 
-function ServiceCategoryGroupDrawerLoaded({ record, mode }: LoadedProps) {
-  // No onRefresh: the authoritative hook updates its own state from each save's
-  // server response, so the drawer reflects the change without a list refetch —
-  // which would clear the record and flash the form. Refreshing the card wall
-  // behind the drawer is a deferred cross-surface concern, not this seam's.
+function ServiceCategoryGroupDrawerLoaded({ record, mode, onSaved }: LoadedProps) {
+  // Still no onRefresh: the authoritative hook updates its own state from each
+  // save's server response, so the drawer reflects the change without refetching
+  // this drawer's own read — which would clear the record and flash the form.
+  //
+  // The wall behind is a SEPARATE useApi instance, so refreshing it (onSaved)
+  // cannot disturb what is on screen here. Both are updated, neither flashes.
   const station = useServiceCategoryGroupStation(record);
   const group = station.group;
 
   return mode === 'edit'
-    ? <EditBody station={station} />
+    ? <EditBody station={station} onSaved={onSaved} />
     : <ViewBody group={group} status={resolveCategoryGroupCardStatus(group)} assigned={station.assignedCount} />;
 }
 
@@ -101,7 +104,13 @@ function ViewBody({ group, status, assigned }: ViewBodyProps) {
 
 // ── Edit tab ─────────────────────────────────────────────────────────────────
 
-function EditBody({ station }: { station: ReturnType<typeof useServiceCategoryGroupStation> }) {
+function EditBody({
+  station,
+  onSaved,
+}: {
+  station: ReturnType<typeof useServiceCategoryGroupStation>;
+  onSaved: () => void;
+}) {
   const group = station.group;
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description);
@@ -119,6 +128,9 @@ function EditBody({ station }: { station: ReturnType<typeof useServiceCategoryGr
     try {
       // Authoritative mutation boundary — numeric term_id inside saveOverview.
       await station.saveOverview({ name: trimmedName, description });
+      // Reported only on success: a failed save must not refresh the wall, which
+      // would imply a change that never happened.
+      onSaved();
       setSavedAt(Date.now());
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save changes.');

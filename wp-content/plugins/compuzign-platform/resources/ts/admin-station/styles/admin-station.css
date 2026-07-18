@@ -294,6 +294,28 @@
   padding-block: var(--station-grid-gap);
 }
 
+/* ── Presentation walls ──────────────────────────────────────────────────────
+ * The presentation region holds a LIST of walls — one per surface binding at
+ * this placement — not a single surface. Each wall is a titled section owning
+ * its own data source, kit, and drawer.
+ *
+ * Walls are separated by spacing alone: no rules, no surfaces, no boxes. That is
+ * the same discipline the cards keep internally, and it matters more here — two
+ * card walls stacked inside framed containers would read as two competing
+ * panels rather than one region. The heading carries the distinction instead. */
+.cz-station-wall + .cz-station-wall {
+  margin-block-start: var(--station-body-pad);
+}
+
+.cz-station-wall__title {
+  margin: 0 0 var(--station-card-gap);
+  font-size: var(--station-text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--station-tracking-wide);
+  color: var(--station-text-muted);
+}
+
 /* ── Station-group region ───────────────────────────────────────────────── */
 
 .cz-station-groups {

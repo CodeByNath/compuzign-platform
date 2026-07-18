@@ -19,6 +19,7 @@ import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { fetchPackageFamilies } from '@/api/endpoints/admin';
 import { toPackageFamilyCard } from './cardAdapter';
+import { useRetainedCollection } from '../useRetainedCollection';
 import type { CategoryGroupCardItem } from '../../presentation/category-groups/types';
 
 export interface PackageFamilyCardsResult {
@@ -35,14 +36,20 @@ export interface PackageFamilyCardsResult {
  * archived and trashed belong to the body/archive surfaces, not the presentation
  * wall. The mapping is memoised on the raw response so re-renders don't rebuild
  * the card array.
+ *
+ * `refetch` is the handle this wall hands to the drawer it opens, so a saved
+ * family refreshes THIS wall. The collection is retained across that reload, so
+ * the cards update in place instead of blanking (see useRetainedCollection).
  */
 export function usePackageFamilyCards(): PackageFamilyCardsResult {
   const { data, loading, error, refetch } = useApi(() => fetchPackageFamilies());
 
-  const items = useMemo(
+  const projected = useMemo(
     () => (data?.package_category_groups ?? []).map(toPackageFamilyCard),
     [data],
   );
 
-  return { items, loading, error, refetch };
+  const retained = useRetainedCollection(projected, loading);
+
+  return { items: retained.items, loading: retained.loading, error, refetch };
 }

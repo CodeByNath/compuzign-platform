@@ -31,7 +31,7 @@ import { usePackageFamilyRecord } from './usePackageFamilyRecord';
 import { resolvePackageFamilyCardStatus } from './cardAdapter';
 import { StationStatusPill } from '../../presentation/StationStatusPill';
 
-export function PackageFamilyDrawerContent({ recordId, mode, onClose }: DrawerContentProps) {
+export function PackageFamilyDrawerContent({ recordId, mode, onClose, onSaved }: DrawerContentProps) {
   const { record, loading, error } = usePackageFamilyRecord(recordId);
 
   if (loading) {
@@ -51,23 +51,32 @@ export function PackageFamilyDrawerContent({ recordId, mode, onClose }: DrawerCo
     );
   }
 
-  return <PackageFamilyDrawerLoaded record={record} mode={mode} />;
+  return <PackageFamilyDrawerLoaded record={record} mode={mode} onSaved={onSaved} />;
 }
 
 interface LoadedProps {
-  record: PackageFamilyItem;
-  mode:   DrawerContentProps['mode'];
+  record:  PackageFamilyItem;
+  mode:    DrawerContentProps['mode'];
+  onSaved: () => void;
 }
 
-function PackageFamilyDrawerLoaded({ record, mode }: LoadedProps) {
+function PackageFamilyDrawerLoaded({ record, mode, onSaved }: LoadedProps) {
   // The live record for this drawer. Seeded from the list projection and then
-  // advanced by each save's server response, so View reflects an edit without a
-  // list refetch — which would clear the record and flash the form. Refreshing
-  // the card wall behind the drawer is a deferred cross-surface concern.
+  // advanced by each save's server response, so View reflects an edit without
+  // refetching this drawer's own read — which would clear the record and flash
+  // the form.
+  //
+  // The wall behind is a SEPARATE useApi instance, so refreshing it (onSaved)
+  // cannot disturb what is on screen here. Both are updated, neither flashes.
   const [current, setCurrent] = useState<PackageFamilyItem>(record);
 
+  const handleSaved = (saved: PackageFamilyItem | null) => {
+    if (saved) setCurrent(saved);
+    onSaved();
+  };
+
   return mode === 'edit'
-    ? <EditBody record={current} onSaved={setCurrent} />
+    ? <EditBody record={current} onSaved={handleSaved} />
     : <ViewBody record={current} />;
 }
 
@@ -122,7 +131,7 @@ function EditBody({
   onSaved,
 }: {
   record:  PackageFamilyItem;
-  onSaved: (record: PackageFamilyItem) => void;
+  onSaved: (record: PackageFamilyItem | null) => void;
 }) {
   const [name, setName] = useState(record.label);
   const [description, setDescription] = useState(record.description);
@@ -143,7 +152,9 @@ function EditBody({
         name: trimmedName,
         description,
       });
-      if (response.group) onSaved(response.group);
+      // Reported only on success: a failed save must not refresh the wall, which
+      // would imply a change that never happened.
+      onSaved(response.group);
       setSavedAt(Date.now());
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save changes.');
