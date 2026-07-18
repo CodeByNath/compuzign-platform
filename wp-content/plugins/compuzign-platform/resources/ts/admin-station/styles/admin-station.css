@@ -1029,6 +1029,16 @@ button.cz-station-status-pill {
   padding: 20px;
 }
 
+/* Entity-supplied record footer region (whole-record actions). Rendered only
+   when the active drawer content publishes a footer; module-level footers stay
+   inside the body. Mirrors the head as the pinned bottom band. */
+.cz-station-drawer__foot {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+  border-top: 1px solid var(--station-border);
+  background: var(--station-surface-elevated);
+}
+
 /* Drawer content — shared read/edit primitives (entity-neutral). */
 .cz-record-drawer__view,
 .cz-record-drawer__edit {
