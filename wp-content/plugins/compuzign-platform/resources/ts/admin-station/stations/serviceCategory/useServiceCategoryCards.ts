@@ -8,9 +8,10 @@ import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 export interface ServiceCategoryCardItem {
   id: number;
   label: string;
-  assignedServiceCount: number;
-  status: string;
-  notifications: ModuleNote[];
+  modules: Array<
+    | { id: 'overview'; label: 'Overview'; status: string; notifications: ModuleNote[] }
+    | { id: 'services'; label: 'Services'; count: number }
+  >;
 }
 
 export function useServiceCategoryCards() {
@@ -29,9 +30,10 @@ export function useServiceCategoryCards() {
       return {
         id: category.id,
         label: category.name,
-        assignedServiceCount: category.assigned_count,
-        status: module.status,
-        notifications: module.notes,
+        modules: [
+          { id: 'overview', label: 'Overview', status: module.status, notifications: module.notes },
+          { id: 'services', label: 'Services', count: category.assigned_count },
+        ],
       };
     }),
     [data],

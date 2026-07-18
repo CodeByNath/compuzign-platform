@@ -18,9 +18,17 @@ export function ServiceCategoryCarousel({ items, loading, error }: TemplateKitPr
             <span class="cz-service-category-card__cube" aria-hidden="true"><PackagesIcon /></span>
             <span class="cz-service-category-card__copy">
               <span class="cz-service-category-card__label">{category.label}</span>
-              <span class="cz-service-category-card__count">{category.assignedServiceCount} {category.assignedServiceCount === 1 ? 'Service' : 'Services'}</span>
             </span>
-            <StationStatusPill status={category.status} notes={category.notifications} />
+            <span class="cz-service-category-card__modules">
+              {category.modules.map((module) => (
+                <span key={module.id} class="cz-service-category-card__module">
+                  <span class="cz-service-category-card__module-label">{module.label}</span>
+                  {module.id === 'overview'
+                    ? <StationStatusPill status={module.status} notes={module.notifications} />
+                    : <span class="cz-service-category-card__count">{module.count}</span>}
+                </span>
+              ))}
+            </span>
           </article>
         ))}
       </div>
