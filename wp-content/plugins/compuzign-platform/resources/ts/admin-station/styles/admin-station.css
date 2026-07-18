@@ -1221,3 +1221,65 @@
 @media (min-width: 720px) {
   .cz-station-drawer { width: 560px; }
 }
+
+/* ── Service Category carousel ─────────────────────────────────────────── */
+.cz-service-category-carousel {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--station-nav-accent) transparent;
+  scroll-snap-type: x proximity;
+  border-radius: var(--station-card-radius);
+  outline: none;
+}
+
+.cz-service-category-carousel:focus-visible {
+  outline: 2px solid var(--station-nav-accent-strong);
+  outline-offset: 3px;
+}
+
+.cz-service-category-carousel__track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (1.25 * var(--station-grid-gap))) / 2.25);
+  gap: var(--station-grid-gap);
+  min-width: 100%;
+  padding-bottom: 8px;
+}
+
+.cz-service-category-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-card-bg);
+  color: var(--station-text);
+  scroll-snap-align: start;
+}
+
+.cz-service-category-card__cube {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--station-nav-active-bg);
+  color: var(--station-nav-accent-strong);
+}
+
+.cz-service-category-card__cube .cz-station-icon { width: 20px; height: 20px; }
+.cz-service-category-card__label { min-width: 0; font-size: var(--station-text-sm); font-weight: 700; line-height: var(--station-line-snug); overflow-wrap: anywhere; }
+
+@media (min-width: 768px) {
+  .cz-service-category-carousel__track {
+    /* Exactly six cards in the visible track; item seven begins the carousel. */
+    grid-auto-columns: calc((100% - (5 * var(--station-grid-gap))) / 6);
+  }
+}

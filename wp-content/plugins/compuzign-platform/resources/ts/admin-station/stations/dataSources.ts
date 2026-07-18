@@ -11,6 +11,7 @@
 // admin UI tree is pulled in by registering it.
 
 import { usePackageFamilyCards } from './packageFamily';
+import { useServiceCategoryCards } from './serviceCategory/useServiceCategoryCards';
 import type { DataSourceKey } from './surfaceBindings';
 
 // The collection contract every data source returns and every template kit
@@ -32,4 +33,5 @@ export type StationDataSource = () => SurfaceCollection;
 // binding table rather than a code move.
 export const DATA_SOURCES: Record<DataSourceKey, StationDataSource> = {
   'package-families': usePackageFamilyCards,
+  'service-categories': useServiceCategoryCards,
 };

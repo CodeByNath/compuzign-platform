@@ -27,8 +27,8 @@ import type { DrawerTemplateKey } from './drawers/drawerTypes';
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'package-families';
-export type TemplateKitKey = 'category-group-cards';
+export type DataSourceKey = 'package-families' | 'service-categories';
+export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
 // own action id; `target` + `mode` say where the dispatched record identity
@@ -66,8 +66,8 @@ export interface AdminStationSurfaceBinding {
 // rather than a bare literal in the Body so the default is one documented place.
 export const DEFAULT_HOME_STATION = 'services';
 
-// The table. The Service home presentation region holds ONE wall today —
-// Package Families. Rows render in the order they appear here.
+// The table. The Service home presentation region holds Package Families and a
+// compact Service Categories carousel. Rows render in the order they appear.
 //
 // The list shape is not vestigial. A placement resolves to a LIST of walls, and
 // this table carried two of them (Package Families beside a Service Category
@@ -94,6 +94,16 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     actionIntents: [
       { id: 'view', target: 'drawer', mode: 'view' },
     ],
+  },
+  {
+    stationId: 'services',
+    surfaceId: 'service-categories',
+    placement: 'presentation',
+    title: 'Service Categories',
+    dataSourceKey: 'service-categories',
+    templateKitKey: 'service-category-carousel',
+    conditions: { scope: 'current' },
+    actionIntents: [],
   },
 ];
 
