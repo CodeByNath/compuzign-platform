@@ -4,6 +4,15 @@
 // controller, the tabs, and the registry are untouched by its arrival. Only this
 // content knows what a Package Family is.
 //
+// TRANSITIONAL — do NOT copy this as the pattern for Service or Tier. Its
+// hand-assembled hero/overview/connections/edit UI is a parallel, simpler drawer
+// that exists only because this (admin-station) bundle cannot reach the mature
+// drawer/schema renderer kit in the `admin` bundle (EntityDrawer, OverviewShell,
+// ReadBlock, InlineEditorShell). The neutral Service/Tier drawer compositions in
+// components/admin/stations/{service,tier}-drawer are the real pattern; this file
+// should adopt the shared presentation primitives once that kit is reachable from
+// here. See docs/code-map/entity-drawer-recovery.md (bundle boundary + criteria).
+//
 // Identity, end to end: the card carried the string `group_id`, the intent
 // carried that same string, the controller stored it unchanged, and this content
 // resolves the record by matching `group_id` — then sends that identical string
