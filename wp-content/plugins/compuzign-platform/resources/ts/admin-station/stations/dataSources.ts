@@ -11,6 +11,7 @@
 // admin UI tree is pulled in by registering it.
 
 import { useServiceCategoryGroupCards } from './serviceCategoryGroup';
+import { usePackageFamilyCards } from './packageFamily';
 import type { DataSourceKey } from './surfaceBindings';
 
 // The collection contract every data source returns and every template kit
@@ -27,6 +28,10 @@ export interface SurfaceCollection<Item = unknown> {
 // resolved source is stable for the life of a mount.
 export type StationDataSource = () => SurfaceCollection;
 
+// Registered reads. A source stays registered whether or not a binding currently
+// names it — that is what makes re-pointing a surface a one-word change in the
+// binding table rather than a code move.
 export const DATA_SOURCES: Record<DataSourceKey, StationDataSource> = {
   'service-category-groups': useServiceCategoryGroupCards,
+  'package-families':        usePackageFamilyCards,
 };

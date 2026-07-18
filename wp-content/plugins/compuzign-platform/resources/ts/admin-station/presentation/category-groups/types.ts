@@ -24,19 +24,25 @@
 
 import type { ComponentType } from 'preact';
 import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import type { StationRecordId } from '../../stations/recordIdentity';
 
 // ── Identity and vocabulary ──────────────────────────────────────────────────
 
 /**
- * The Category Group's stable record identity — the taxonomy `term_id`.
+ * The card's stable record identity — whatever the record's OWN id actually is.
  *
- * Kept numeric end-to-end, deliberately: the group is a `cz_service_category`
- * term, every backend route is keyed by the numeric id, and the shared drawer
- * and lifecycle actions all send that number. Carrying it as a string here would
- * force a stringify→parse round-trip at the exact action boundary that matters,
- * so this kit types identity as a number and never converts it.
+ * This kit is entity-neutral: it renders a Service Category Group (numeric
+ * `term_id`) and a Package Family (string `group_id`) through the same cards. So
+ * identity is the shell's shared {@link StationRecordId}, and each record keeps
+ * its native form — a term_id stays a number, a group_id stays a string, and
+ * neither is ever converted at this boundary. Converting is the one thing
+ * forbidden: it is what would force a round-trip at the exact action boundary
+ * that matters.
+ *
+ * The card holds the id only to render it back out on dispatch; it never parses,
+ * compares, or interprets it.
  */
-export type CategoryGroupId = number;
+export type CategoryGroupId = StationRecordId;
 
 /**
  * The existing 5-state resolver vocabulary — NOT a new set of statuses.
@@ -93,8 +99,8 @@ export interface CategoryGroupCardAction {
 
 /** One Category Group, as the grid renders it. */
 export interface CategoryGroupCardItem {
-  // Stable identity — the numeric term_id. Keys the render and travels, numeric,
-  // with every dispatch.
+  // Stable identity — the record's own native id (numeric term_id, string
+  // group_id, …). Keys the render and travels unchanged with every dispatch.
   id:    CategoryGroupId;
   // Optional stable slug/key. Carried through dispatches so a future consumer
   // may resolve by key without a lookup.
@@ -123,4 +129,4 @@ export interface CategoryGroupCardActionEvent {
 // landed: the action → tab mapping now lives generically in the surface
 // binding's `actionIntents`, and the drawer template is resolved by key (see
 // the Surface Binding and drawer registry). Cards dispatch identity-only events;
-// the host + controller carry the numeric id into the shared drawer.
+// the host + controller carry that same native id into the shared drawer.

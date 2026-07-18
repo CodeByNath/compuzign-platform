@@ -9,13 +9,15 @@
 // entity-agnostic and prints whatever kit the binding names.
 //
 // Active station: the resolved nav destination's station, or the Service home
-// (DEFAULT_HOME_STATION) when nothing is selected — the Service Category Groups
-// wall is the landing surface. A station with no presentation binding resolves
-// to nothing and the region shows the Home shell's neutral empty state.
+// (DEFAULT_HOME_STATION) when nothing is selected — whichever surface the
+// binding table names there is the landing wall. A station with no presentation
+// binding resolves to nothing and the region shows the Home shell's neutral
+// empty state.
 //
-// Action intents open the shared drawer: the dispatched record identity is
-// numeric and the intent names a drawer template + tab. No groups are supplied;
-// the group region falls to the shell's own no-group behaviour.
+// Action intents open the shared drawer: the dispatched record identity is the
+// record's own id (numeric or string, per entity) and the intent names a drawer
+// template + tab. No groups are supplied; the group region falls to the shell's
+// own no-group behaviour.
 
 import { AdminStationHome } from '../home/AdminStationHome';
 import { useAdminStation } from '../AdminStationContext';

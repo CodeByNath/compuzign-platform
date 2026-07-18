@@ -15,6 +15,7 @@
 // value-import the content without a cycle back through it.
 
 import { ServiceCategoryGroupDrawerContent } from '../serviceCategoryGroup/ServiceCategoryGroupDrawerContent';
+import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawerContent';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
 
 export type { DrawerMode, DrawerTemplateKey, DrawerContentProps, DrawerContent, DrawerTemplateRegistration } from './drawerTypes';
@@ -25,6 +26,15 @@ export const DRAWER_TEMPLATES: Record<DrawerTemplateKey, DrawerTemplateRegistrat
     title:          'Service Category Group',
     supportedModes: ['view', 'edit'],
     content:        ServiceCategoryGroupDrawerContent,
+  },
+  // The second template. Adding it changed nothing outside this map and its own
+  // content file — the shell, controller, tabs, and identity path were already
+  // generic enough to carry a string-keyed entity without an edit.
+  'package-family': {
+    key:            'package-family',
+    title:          'Package Family',
+    supportedModes: ['view', 'edit'],
+    content:        PackageFamilyDrawerContent,
   },
 };
 

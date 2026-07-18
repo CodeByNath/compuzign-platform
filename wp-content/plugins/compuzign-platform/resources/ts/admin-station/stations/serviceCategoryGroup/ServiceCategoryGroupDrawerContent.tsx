@@ -38,7 +38,7 @@ export function ServiceCategoryGroupDrawerContent({ recordId, mode, onClose }: D
     return (
       <div class="cz-station-empty">
         <p>This Service Category Group is no longer available.</p>
-        <button type="button" class="cz-scg-drawer__link" onClick={onClose}>Close</button>
+        <button type="button" class="cz-record-drawer__link" onClick={onClose}>Close</button>
       </div>
     );
   }
@@ -76,24 +76,24 @@ interface ViewBodyProps {
 
 function ViewBody({ group, status, assigned }: ViewBodyProps) {
   return (
-    <div class="cz-scg-drawer__view">
-      <div class="cz-scg-drawer__row">
-        <span class="cz-scg-drawer__field-label">Status</span>
+    <div class="cz-record-drawer__view">
+      <div class="cz-record-drawer__row">
+        <span class="cz-record-drawer__field-label">Status</span>
         <StationStatusPill status={status} />
       </div>
-      <div class="cz-scg-drawer__row">
-        <span class="cz-scg-drawer__field-label">Name</span>
-        <span class="cz-scg-drawer__field-value">{group.name}</span>
+      <div class="cz-record-drawer__row">
+        <span class="cz-record-drawer__field-label">Name</span>
+        <span class="cz-record-drawer__field-value">{group.name}</span>
       </div>
-      <div class="cz-scg-drawer__row">
-        <span class="cz-scg-drawer__field-label">Description</span>
-        <span class="cz-scg-drawer__field-value">
-          {group.description.trim() || <span class="cz-scg-drawer__muted">No description</span>}
+      <div class="cz-record-drawer__row">
+        <span class="cz-record-drawer__field-label">Description</span>
+        <span class="cz-record-drawer__field-value">
+          {group.description.trim() || <span class="cz-record-drawer__muted">No description</span>}
         </span>
       </div>
-      <div class="cz-scg-drawer__row">
-        <span class="cz-scg-drawer__field-label">Assigned Categories</span>
-        <span class="cz-scg-drawer__field-value">{assigned}</span>
+      <div class="cz-record-drawer__row">
+        <span class="cz-record-drawer__field-label">Assigned Categories</span>
+        <span class="cz-record-drawer__field-value">{assigned}</span>
       </div>
     </div>
   );
@@ -128,7 +128,7 @@ function EditBody({ station }: { station: ReturnType<typeof useServiceCategoryGr
   };
 
   return (
-    <div class="cz-scg-drawer__edit">
+    <div class="cz-record-drawer__edit">
       <div class="cz-station-field">
         <label class="cz-station-field__label" for="cz-scg-name">Name</label>
         <input
@@ -150,13 +150,13 @@ function EditBody({ station }: { station: ReturnType<typeof useServiceCategoryGr
         />
       </div>
 
-      {saveError && <p class="cz-scg-drawer__error" role="alert">{saveError}</p>}
+      {saveError && <p class="cz-record-drawer__error" role="alert">{saveError}</p>}
 
-      <div class="cz-scg-drawer__edit-actions">
-        <button type="button" class="cz-scg-drawer__save" disabled={!canSave} onClick={save}>
+      <div class="cz-record-drawer__edit-actions">
+        <button type="button" class="cz-record-drawer__save" disabled={!canSave} onClick={save}>
           {saving ? 'Saving…' : 'Save changes'}
         </button>
-        {savedAt !== null && !dirty && <span class="cz-scg-drawer__saved">Saved</span>}
+        {savedAt !== null && !dirty && <span class="cz-record-drawer__saved">Saved</span>}
       </div>
     </div>
   );

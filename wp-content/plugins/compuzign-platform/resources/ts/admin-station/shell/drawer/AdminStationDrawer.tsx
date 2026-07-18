@@ -80,7 +80,7 @@ function ResolvedDrawer({
   template: NonNullable<ReturnType<typeof resolveDrawerTemplate>>;
   onClose: () => void;
 }) {
-  const { setMode } = useAdminStationDrawer();
+  const { setMode, notifySaved } = useAdminStationDrawer();
   const Content = template.content;
 
   // Clamp the requested mode to one the template supports, so a mode the drawer
@@ -122,6 +122,7 @@ function ResolvedDrawer({
           recordId={open.recordId}
           mode={activeMode}
           onClose={onClose}
+          onSaved={notifySaved}
         />
       </div>
     </>

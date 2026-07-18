@@ -2,7 +2,10 @@
 //
 // Kept separate from drawerRegistry.tsx so both the registry (which value-imports
 // the entity content) and the entity content (which needs only these types) can
-// import from here without forming a cycle. Imports nothing by design.
+// import from here without forming a cycle. Its one import is the shell's
+// zero-dependency identity type.
+
+import type { StationRecordId } from '../recordIdentity';
 
 // The two first-level tabs of the Admin Station drawer. Not the old EntityDrawer
 // Details/Connections axis — this drawer is a view surface and an edit surface.
@@ -10,15 +13,24 @@ export type DrawerMode = 'view' | 'edit';
 
 // Registered drawer template keys. A string-literal union so a binding and an
 // intent can only name a template the registry actually defines.
-export type DrawerTemplateKey = 'service-category-group';
+export type DrawerTemplateKey = 'service-category-group' | 'package-family';
 
-// What the shell hands a template's content: the numeric record identity that
-// drove the intent, the active tab, and a close handle. The content resolves the
-// record from the id — the identity stays numeric across the whole boundary.
+// What the shell hands a template's content: the record identity that drove the
+// intent — exactly as the card carried it — plus the active tab and a close
+// handle.
+//
+// The content resolves its own record from that id by matching its OWN native id
+// field, so a Service Category Group template compares a numeric term_id and a
+// Package Family template compares a string group_id. Neither converts: the id
+// that opened the drawer is the id that reads and edits the record.
 export interface DrawerContentProps {
-  recordId: number;
+  recordId: StationRecordId;
   mode:     DrawerMode;
   onClose:  () => void;
+  // Call after a save that changed the record. It refreshes the wall this drawer
+  // was opened from — and only that wall. Content does not know, and must not
+  // know, which wall that is: it reports the fact, the controller routes it.
+  onSaved:  () => void;
 }
 
 export type DrawerContent = (props: DrawerContentProps) => import('preact').VNode;

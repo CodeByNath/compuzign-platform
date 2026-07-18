@@ -9,16 +9,17 @@
 //
 // Kits never branch on entity beyond narrowing their own item type from the
 // registry's `unknown` seam (see dataSources.ts). The record identity a kit
-// dispatches is numeric — the platform's stable id at the action boundary.
+// dispatches is the record's OWN id, forwarded exactly as the card carries it.
 
 import type { VNode } from 'preact';
 import { CategoryGroupCardGrid } from './category-groups/CategoryGroupCardGrid';
 import type { CategoryGroupCardItem } from './category-groups/types';
 import type { TemplateKitKey } from '../stations/surfaceBindings';
+import type { StationRecordId } from '../stations/recordIdentity';
 
-// The dispatch a kit emits: the acted-on record's numeric id and the action id
+// The dispatch a kit emits: the acted-on record's native id and the action id
 // (matched against the binding's action intents by the host).
-export type StationIntentDispatch = (recordId: number, intentId: string) => void;
+export type StationIntentDispatch = (recordId: StationRecordId, intentId: string) => void;
 
 export interface TemplateKitProps {
   items:   unknown[];
@@ -29,11 +30,15 @@ export interface TemplateKitProps {
 
 export type TemplateKit = (props: TemplateKitProps) => VNode;
 
-// Category Group cards — the one kit this phase registers. It narrows the
+// Category Group cards — the shell's general-purpose card kit. It narrows the
 // registry's `unknown[]` to the card contract (the binding guarantees the paired
 // source supplies it), renders the existing grid, and forwards each card action
-// as a numeric intent. The card already carries loading / error props, so this
-// kit is a thin, faithful adapter — not a second grid.
+// as an intent carrying that card's own id.
+//
+// Deliberately NOT one kit per entity: any source whose adapter projects records
+// into CategoryGroupCardItem can be bound to this kit, which is why the Package
+// Family wall reuses it unchanged. The card already carries loading / error
+// props, so this kit is a thin, faithful adapter — not a second grid.
 function CategoryGroupCardsKit({ items, loading, error, onIntent }: TemplateKitProps): VNode {
   return (
     <CategoryGroupCardGrid

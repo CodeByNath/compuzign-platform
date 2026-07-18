@@ -27,7 +27,7 @@ import type { DrawerTemplateKey } from './drawers/drawerTypes';
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'service-category-groups';
+export type DataSourceKey = 'service-category-groups' | 'package-families';
 export type TemplateKitKey = 'category-group-cards';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
@@ -41,8 +41,9 @@ export interface StationActionIntent {
   mode: string;
 }
 
-// One bound surface. A station may own several (a presentation wall, a body
-// table, …); each placement is a separate row.
+// One bound surface — one "wall". A station may own several at the SAME
+// placement (two card walls stacked in the presentation region) as well as at
+// different placements (a presentation wall and a body table). Each is a row.
 export interface AdminStationSurfaceBinding {
   stationId: string;
   surfaceId: string;
@@ -54,6 +55,10 @@ export interface AdminStationSurfaceBinding {
   // The drawer template a 'drawer'-targeted intent opens. Optional: a surface
   // whose intents open no drawer (or which has none) simply omits it.
   drawerTemplateKey?: DrawerTemplateKey;
+  // Optional heading rendered above this wall. Data, not a shell branch — it
+  // exists because a region holding more than one wall must say which is which.
+  // A lone wall can omit it and render bare.
+  title?: string;
 }
 
 // The station whose presentation wall the Home body shows when no nav
@@ -61,16 +66,38 @@ export interface AdminStationSurfaceBinding {
 // rather than a bare literal in the Body so the default is one documented place.
 export const DEFAULT_HOME_STATION = 'services';
 
-// The table. One real row this phase: the Service home presentation wall, the
-// Service Category Groups as cards. Packages / Promotions presentation surfaces
-// are intentionally absent — no row is invented before a real data source and
-// kit exist for them (they resolve to nothing and the region shows its neutral
-// empty state).
+// The table. The Service home presentation region holds TWO walls, rendered in
+// the order they appear here.
+//
+// Note what these rows demonstrate. Two entirely unrelated entities — a
+// Package-owned, string-keyed record and a taxonomy term — reach the same region
+// through the same kit, each keeping its own data source, actions, and drawer.
+// Neither row required an edit to the card, the grid, the host, the drawer
+// shell, or the Body: a wall is a row, and a second wall is a second row.
+//
+// Packages / Promotions presentation surfaces are intentionally absent — no row
+// is invented before a real data source and kit exist for them (they resolve to
+// nothing and the region shows its neutral empty state).
 export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
   {
     stationId: 'services',
-    surfaceId: 'category-groups',
+    surfaceId: 'package-families',
     placement: 'presentation',
+    title: 'Package Families',
+    dataSourceKey: 'package-families',
+    templateKitKey: 'category-group-cards',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'package-family',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+      { id: 'edit', target: 'drawer', mode: 'edit' },
+    ],
+  },
+  {
+    stationId: 'services',
+    surfaceId: 'service-category-groups',
+    placement: 'presentation',
+    title: 'Service Category Groups',
     dataSourceKey: 'service-category-groups',
     templateKitKey: 'category-group-cards',
     conditions: { scope: 'current' },
@@ -109,16 +136,29 @@ export function assertBindingsWellFormed(list: AdminStationSurfaceBinding[]): vo
 
 assertBindingsWellFormed(SURFACE_BINDINGS);
 
-const BINDING_INDEX: Record<string, AdminStationSurfaceBinding> = Object.fromEntries(
-  SURFACE_BINDINGS.map((b) => [`${b.stationId}::${b.placement}`, b]),
+// station + placement → every wall bound there, in table order. Built once at
+// load; the table is static data.
+const BINDING_INDEX: Record<string, AdminStationSurfaceBinding[]> = SURFACE_BINDINGS.reduce(
+  (index, binding) => {
+    const key = `${binding.stationId}::${binding.placement}`;
+    (index[key] ??= []).push(binding);
+    return index;
+  },
+  {} as Record<string, AdminStationSurfaceBinding[]>,
 );
 
-// Resolve the binding for a station's placement region. Returns null when the
-// station has no surface bound there (the region then shows its empty state).
-// Keyed by station + placement: a station has at most one surface per region.
-export function resolveSurfaceBinding(
+// Resolve every wall bound to a station's placement region, in table order.
+// Returns an empty array when the station has nothing bound there (the region
+// then shows its empty state).
+//
+// A placement holds a LIST, not one surface: the Service home region stacks the
+// Package Families wall and the Service Category Groups wall, each with its own
+// source, kit, actions, and drawer. `surfaceId` is what keeps two walls at one
+// placement distinct — the well-formedness guard still rejects two rows sharing
+// station + surface + placement, which would be a genuine ambiguity.
+export function resolveSurfaceBindings(
   stationId: string,
   placement: StationPlacement,
-): AdminStationSurfaceBinding | null {
-  return BINDING_INDEX[`${stationId}::${placement}`] ?? null;
+): AdminStationSurfaceBinding[] {
+  return BINDING_INDEX[`${stationId}::${placement}`] ?? [];
 }

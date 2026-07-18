@@ -17,13 +17,18 @@ import { DATA_SOURCES } from './dataSources';
 import { TEMPLATE_KITS } from '../presentation/templateKits';
 import { SURFACE_BINDINGS } from './surfaceBindings';
 import type { AdminStationSurfaceBinding, StationActionIntent } from './surfaceBindings';
+import type { StationRecordId } from './recordIdentity';
 
-// A dispatched, resolved intent: the acted-on record's numeric id, the binding's
+// A dispatched, resolved intent: the acted-on record's own id, the binding's
 // matching action intent (its target + mode), and the drawer template the
 // surface opens (carried from the binding so the drawer controller resolves it
 // without re-reading the binding table).
+//
+// The host passes the id straight through from the kit — it neither inspects nor
+// converts it, so a term_id arrives at the drawer as a number and a group_id as
+// a string.
 export interface ResolvedStationIntent {
-  recordId:           number;
+  recordId:           StationRecordId;
   intent:             StationActionIntent;
   drawerTemplateKey?: string;
 }
@@ -53,13 +58,17 @@ function assertBindingsResolvable(list: AdminStationSurfaceBinding[]): void {
 assertBindingsResolvable(SURFACE_BINDINGS);
 
 interface Props {
-  binding:    AdminStationSurfaceBinding;
-  onDispatch: (intent: ResolvedStationIntent) => void;
+  binding: AdminStationSurfaceBinding;
+  // Dispatch carries the resolved intent plus THIS wall's own refresh handle, so
+  // whatever the intent opens can refresh the wall it came from and nothing else.
+  // The handle is passed alongside the intent rather than inside it: the intent
+  // stays pure, serialisable data.
+  onDispatch: (intent: ResolvedStationIntent, refetchSurface: () => void) => void;
 }
 
 export function StationSurfaceHost({ binding, onDispatch }: Props): VNode {
   const useDataSource = DATA_SOURCES[binding.dataSourceKey];
-  const { items, loading, error } = useDataSource();
+  const { items, loading, error, refetch } = useDataSource();
   const Kit = TEMPLATE_KITS[binding.templateKitKey];
 
   return (
@@ -71,7 +80,10 @@ export function StationSurfaceHost({ binding, onDispatch }: Props): VNode {
         const intent = binding.actionIntents.find((i) => i.id === intentId);
         // An unmatched action dispatches nothing rather than guessing a target.
         if (intent) {
-          onDispatch({ recordId, intent, drawerTemplateKey: binding.drawerTemplateKey });
+          onDispatch(
+            { recordId, intent, drawerTemplateKey: binding.drawerTemplateKey },
+            refetch,
+          );
         }
       }}
     />

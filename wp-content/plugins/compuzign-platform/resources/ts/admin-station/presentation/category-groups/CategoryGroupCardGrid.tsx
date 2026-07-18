@@ -31,12 +31,16 @@ export function CategoryGroupCardGrid({
   onAction,
   loading = false,
   error = null,
-  emptyMessage = 'No category groups to show.',
+  // Entity-neutral by default: this grid now renders whatever records a binding
+  // pairs it with (Service Category Groups, Package Families, …), so its own
+  // collection states must not name one entity. A surface that wants specific
+  // wording passes it in.
+  emptyMessage = 'Nothing to show here yet.',
 }: Props) {
   if (loading) {
     return (
       <p class="cz-station-empty" aria-busy="true">
-        Loading category groups…
+        Loading…
       </p>
     );
   }

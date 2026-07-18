@@ -802,7 +802,7 @@
  * The entity-agnostic Admin Station drawer: a right-side modal panel above the
  * whole shell (layer 90 — above the slide menu's 80), with a header, View/Edit
  * tabs, and a scrolling body that holds the resolved drawer template's content.
- * Chrome only; the content styles (cz-scg-drawer__*, cz-station-field*) below are
+ * Chrome only; the content styles (cz-record-drawer__*, cz-station-field*) below are
  * shared, entity-neutral form/read primitives the first template uses. */
 .cz-station-drawer-layer {
   position: fixed;
@@ -911,33 +911,33 @@
 }
 
 /* Drawer content — shared read/edit primitives (entity-neutral). */
-.cz-scg-drawer__view,
-.cz-scg-drawer__edit {
+.cz-record-drawer__view,
+.cz-record-drawer__edit {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.cz-scg-drawer__row {
+.cz-record-drawer__row {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.cz-scg-drawer__field-label {
+.cz-record-drawer__field-label {
   font-size: var(--station-text-xs);
   text-transform: uppercase;
   letter-spacing: var(--station-tracking-wide);
   color: var(--station-text-muted);
 }
 
-.cz-scg-drawer__field-value {
+.cz-record-drawer__field-value {
   font-size: 14px;
   color: var(--station-text);
   line-height: var(--station-line-snug);
 }
 
-.cz-scg-drawer__muted {
+.cz-record-drawer__muted {
   color: var(--station-text-muted);
 }
 
@@ -973,13 +973,13 @@
   outline-offset: 1px;
 }
 
-.cz-scg-drawer__edit-actions {
+.cz-record-drawer__edit-actions {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.cz-scg-drawer__save {
+.cz-record-drawer__save {
   padding: 10px 18px;
   border: 0;
   border-radius: var(--station-control-radius);
@@ -990,23 +990,23 @@
   cursor: pointer;
 }
 
-.cz-scg-drawer__save:disabled {
+.cz-record-drawer__save:disabled {
   opacity: var(--station-disabled-opacity);
   cursor: default;
 }
 
-.cz-scg-drawer__saved {
+.cz-record-drawer__saved {
   font-size: var(--station-text-sm);
   color: var(--station-status-active-fg);
 }
 
-.cz-scg-drawer__error {
+.cz-record-drawer__error {
   margin: 0;
   color: #d64545;
   font-size: var(--station-text-sm);
 }
 
-.cz-scg-drawer__link {
+.cz-record-drawer__link {
   align-self: flex-start;
   border: 0;
   background: transparent;
