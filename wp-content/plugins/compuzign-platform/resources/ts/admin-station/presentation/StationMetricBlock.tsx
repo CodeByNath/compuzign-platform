@@ -1,8 +1,13 @@
-// Station metric block — one compact label/value tile.
+// Station metric block — one labelled metric ROW: glyph, label, value.
 //
 // The single metric renderer. There is deliberately no Services, Inclusions, or
 // Packages component: a card maps its metric data through this one block, so a
 // new or renamed metric is a data change and never a structural one.
+//
+// A row rather than a centred tile, so a card reads as a short list of named
+// counts that stays legible at one entry and still lines up its values at
+// several. The value is pushed to the trailing edge by the layout, so every
+// row in a card shares one value column without the block knowing its siblings.
 //
 // Entity-neutral and structurally typed, so any card contract carrying an
 // id/label/value metric can render through it.
@@ -26,7 +31,11 @@ export function StationMetricBlock({ metric }: Props) {
 
   return (
     <div class="cz-station-metric">
-      {Icon && <Icon class="cz-station-metric__icon" />}
+      {Icon && (
+        <span class="cz-station-metric__glyph" aria-hidden="true">
+          <Icon class="cz-station-metric__icon" />
+        </span>
+      )}
       <span class="cz-station-metric__label">{metric.label}</span>
       <span class="cz-station-metric__value">{metric.value}</span>
     </div>

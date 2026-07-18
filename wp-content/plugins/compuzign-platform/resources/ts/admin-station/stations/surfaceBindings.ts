@@ -88,9 +88,11 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     templateKitKey: 'category-group-cards',
     conditions: { scope: 'current' },
     drawerTemplateKey: 'package-family',
+    // One intent, because the card offers one action. Edit is NOT withdrawn:
+    // the drawer this opens registers both modes as tabs, so edit stays one
+    // click away without the card face carrying a menu.
     actionIntents: [
       { id: 'view', target: 'drawer', mode: 'view' },
-      { id: 'edit', target: 'drawer', mode: 'edit' },
     ],
   },
 ];

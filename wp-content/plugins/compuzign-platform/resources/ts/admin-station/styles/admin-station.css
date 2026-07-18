@@ -436,42 +436,57 @@
   color: var(--station-status-inactive-fg);
 }
 
-/* ── Metric block ───────────────────────────────────────────────────────── */
+/* ── Metric row ─────────────────────────────────────────────────────────── */
 
-/* Neutral by design: metric tiles are data, not accent surfaces. Consistent
-   height and centred content, so a row of them reads as one instrument panel. */
+/* Neutral by design: metrics are data, not accent surfaces. A row — glyph
+   plate, label, then the value pushed to the trailing edge by `margin-inline-
+   start: auto`, so sibling rows share one value column without any row knowing
+   how many siblings it has. */
 .cz-station-metric {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--station-metric-row-gap);
+  min-width: 0;
+}
+
+/* The glyph's plate. Quiet: a neutral surface, never an accent one. */
+.cz-station-metric__glyph {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--station-pill-pad-y);
-  min-height: var(--station-metric-min-size);
-  padding: var(--station-metric-pad);
+  flex: 0 0 auto;
+  width: var(--station-metric-glyph-plate);
+  height: var(--station-metric-glyph-plate);
   border: 1px solid var(--station-border);
-  border-radius: var(--station-metric-radius);
+  border-radius: var(--station-metric-glyph-radius);
   background: var(--station-hover-bg);
-  text-align: center;
+  color: var(--station-text-muted);
 }
 
 .cz-station-metric__icon {
-  color: var(--station-text-muted);
+  width: var(--station-metric-glyph-size);
+  height: var(--station-metric-glyph-size);
 }
 
+/* Sentence case at reading size: these are named facts in a list, not the
+   micro-labels of a tile, so they are not uppercased or tracked out. */
 .cz-station-metric__label {
-  color: var(--station-text-muted);
-  font-size: var(--station-text-xs);
-  font-weight: 600;
-  letter-spacing: var(--station-tracking-wide);
-  line-height: 1;
-  text-transform: uppercase;
+  min-width: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+  font-weight: 500;
+  line-height: var(--station-line-snug);
+  overflow-wrap: anywhere;
 }
 
 .cz-station-metric__value {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
   color: var(--station-text);
   font-size: var(--station-text-xl);
   font-weight: 700;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Split action ───────────────────────────────────────────────────────── */
@@ -494,7 +509,7 @@
   gap: var(--station-grid-gap);
   height: var(--station-control-height);
   border: 1px solid var(--station-accent);
-  /* Accent dose 3 of 3 — the card's single filled element. */
+  /* An accent-filled surface — on a card, this and the medallion are the two. */
   background: var(--station-accent);
   color: var(--station-accent-on);
   font: inherit;
@@ -627,15 +642,14 @@
 
 /* ── Category Group card ────────────────────────────────────────────────── */
 
-/* Self-contained surface. Its own edge and radius are the only edge treatment —
-   there are no separators between the header, body, metrics, or actions, which
-   are spaced apart by the card gap alone. */
+/* Self-contained surface. Regions are stacked and delimited by hairline rules,
+   each drawn by the region that FOLLOWS it — so a card with no description or
+   no metrics never renders a stray line. Padding is owned per region rather
+   than by the card, so a rule can run the card's full width. */
 .cz-cg-card {
   display: flex;
   flex-direction: column;
-  gap: var(--station-card-gap);
   height: 100%;
-  padding: var(--station-card-pad);
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface-elevated);
@@ -643,11 +657,12 @@
 
 .cz-cg-card__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--station-card-gap);
+  padding: var(--station-card-pad);
 }
 
+/* A filled accent plate carrying a light glyph. */
 .cz-cg-card__medallion {
   display: inline-flex;
   align-items: center;
@@ -655,11 +670,9 @@
   flex: 0 0 auto;
   width: var(--station-card-icon-size);
   height: var(--station-card-icon-size);
-  border: 1px solid var(--station-border);
   border-radius: var(--station-card-icon-radius);
-  background: var(--station-hover-bg);
-  /* Accent dose 1 of 3 — the glyph carries the colour, not the medallion. */
-  color: var(--station-accent);
+  background: var(--station-accent);
+  color: var(--station-accent-on);
 }
 
 .cz-cg-card__glyph {
@@ -667,14 +680,42 @@
   height: var(--station-card-glyph-size);
 }
 
-/* Takes the card's slack, so metrics and actions sit on a shared baseline across
-   a row however long each description runs. */
-.cz-cg-card__body {
+/* Name + kind. Takes the header's slack so the status pill is pushed to the
+   trailing edge. */
+.cz-cg-card__identity {
   display: flex;
   flex-direction: column;
-  gap: var(--station-grid-gap);
+  gap: 2px;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* The vertical rule between medallion and identity — drawn only when a
+   medallion precedes it, so an icon-less card has no leading line. */
+.cz-cg-card__medallion + .cz-cg-card__identity {
+  padding-inline-start: var(--station-card-gap);
+  border-inline-start: 1px solid var(--station-card-divider);
+}
+
+/* The record's kind, beneath its name. Quiet — it classifies, it does not
+   compete with the name. */
+.cz-cg-card__kind {
+  margin: 0;
+  min-width: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: var(--station-line-snug);
+  overflow-wrap: anywhere;
+}
+
+/* The description's own subsection, beneath the header. It does NOT take the
+   card's slack: it is optional, so a description-less card would leave nothing
+   to absorb it. The actions region anchors itself to the bottom instead, which
+   holds however many regions a card actually renders. */
+.cz-cg-card__body {
+  min-width: 0;
+  padding: var(--station-card-pad);
+  border-top: 1px solid var(--station-card-divider);
 }
 
 .cz-cg-card__heading {
@@ -695,7 +736,8 @@
   overflow-wrap: anywhere;
 }
 
-/* Accent dose 2 of 3. */
+/* The optional code pill — a soft accent, rendered only when data supplies a
+   code (the Package Family adapter supplies none). */
 .cz-cg-card__code {
   display: inline-flex;
   align-items: center;
@@ -719,18 +761,42 @@
   line-height: var(--station-line-snug);
 }
 
-/* The metric repeater. `auto-fit` against a token floor keeps the blocks equal
-   width when space permits and reflows them to fewer per row when it does not —
-   so any number of metrics wraps without overflowing. */
+/* The metric repeater — a vertical list of labelled rows, each separated from
+   the last by a rule. Any number of metrics stacks; one metric renders as a
+   single row with no internal rule. Inline padding only, so the row rules span
+   the region's width while the region's own top rule spans the card's. */
 .cz-cg-card__metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--station-metric-min-size), 1fr));
-  gap: var(--station-grid-gap);
+  display: flex;
+  flex-direction: column;
+  padding-inline: var(--station-card-pad);
+  border-top: 1px solid var(--station-card-divider);
 }
 
+.cz-cg-card__metrics > * {
+  padding-block: var(--station-metric-pad);
+}
+
+.cz-cg-card__metrics > * + * {
+  border-top: 1px solid var(--station-card-divider);
+}
+
+/* Anchored to the card's bottom, so action controls line up across a row of
+   cards whose descriptions and metric counts differ. */
 .cz-cg-card__actions {
   display: flex;
-  justify-content: flex-end;
+  margin-top: auto;
+  padding: var(--station-card-pad);
+  border-top: 1px solid var(--station-card-divider);
+}
+
+/* On a card, the action control spans the full width — the card's one gesture
+   should read as its footer, not as a small button parked in a corner. Scoped
+   to the card so the split control keeps its natural inline width elsewhere.
+   With a menu trigger present the primary takes the slack and the trigger stays
+   square, so the pair still spans the width as one shape. */
+.cz-cg-card__actions .cz-station-split,
+.cz-cg-card__actions .cz-station-split__primary {
+  flex: 1 1 auto;
 }
 
 /* ── Slide menu ─────────────────────────────────────────────────────────── */

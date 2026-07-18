@@ -24,9 +24,9 @@
      rather than papered over with an arbitrary component value.
 
      Nothing overflows in the tablet range this leaves at three across, down to
-     the boundary above: the metric blocks reflow intrinsically (auto-fit
-     against --station-metric-min-size), so they drop to two per row and then
-     one as the card narrows, without any breakpoint governing them. */
+     the boundary above: metrics are a vertical list of full-width rows, so they
+     simply narrow with the card — the label wraps and the value stays on the
+     trailing edge — without any breakpoint governing them. */
   .cz-cg-grid__cell {
     grid-column: span 12;
   }

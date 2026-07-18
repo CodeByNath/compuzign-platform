@@ -6,13 +6,17 @@
 // here branches on a Category Group's name — the card reports by id/key only.
 //
 // Composition:
-//   header   — icon medallion + the existing status pill
-//   body     — name, optional code pill, description
-//   metrics  — the metric repeater
-//   actions  — the split action
+//   header   — medallion │ identity (name + kind) + the existing status pill
+//   body     — description, its own subsection beneath the header
+//   metrics  — the metric repeater, one labelled row per count
+//   actions  — the action control, full width
 //
-// No internal dividers: the regions are separated by spacing alone. The card's
-// own surface and radius are its only edge treatment.
+// Regions are separated by rules. This reverses the card's earlier "spacing
+// alone" direction deliberately: the metrics are now a LIST of labelled rows
+// rather than a row of tiles, and a list needs its rows and its neighbouring
+// regions delimited to stay readable. Each rule is drawn by the region that
+// follows it, so a card missing a region (no description, no metrics) never
+// renders a stray line.
 //
 // Notifications: the contract carries them (see types.ts) but this phase renders
 // none. The platform's only notification renderer is the old-tree
@@ -39,19 +43,26 @@ export function CategoryGroupCard({ item, onAction }: Props) {
   return (
     <article class="cz-cg-card" aria-labelledby={nameId}>
       <div class="cz-cg-card__header">
-        <span class="cz-cg-card__medallion">
-          {Icon && <Icon class="cz-cg-card__glyph" />}
-        </span>
+        {Icon && (
+          <span class="cz-cg-card__medallion">
+            <Icon class="cz-cg-card__glyph" />
+          </span>
+        )}
+        <div class="cz-cg-card__identity">
+          <div class="cz-cg-card__heading">
+            <h3 id={nameId} class="cz-cg-card__name">{item.name}</h3>
+            {item.code && <span class="cz-cg-card__code">{item.code}</span>}
+          </div>
+          {item.kind && <p class="cz-cg-card__kind">{item.kind}</p>}
+        </div>
         {item.status && <StationStatusPill status={item.status} />}
       </div>
 
-      <div class="cz-cg-card__body">
-        <div class="cz-cg-card__heading">
-          <h3 id={nameId} class="cz-cg-card__name">{item.name}</h3>
-          {item.code && <span class="cz-cg-card__code">{item.code}</span>}
+      {item.description && (
+        <div class="cz-cg-card__body">
+          <p class="cz-cg-card__description">{item.description}</p>
         </div>
-        {item.description && <p class="cz-cg-card__description">{item.description}</p>}
-      </div>
+      )}
 
       {item.metrics.length > 0 && (
         <div class="cz-cg-card__metrics">

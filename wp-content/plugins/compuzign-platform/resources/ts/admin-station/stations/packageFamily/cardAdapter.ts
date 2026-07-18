@@ -15,21 +15,31 @@
 //   - Identity is the record's own `group_id` — a STRING — carried through
 //     unchanged. It is never coerced to a number to look like a term_id; the
 //     family's routes are all string-keyed, so the string is the real id.
-//   - Metrics show ONLY what the list route actually returns. The projection
-//     carries `assigned_service_count`, so the one honest card metric is
-//     "Assigned Services". The richer `dependents` breakdown (rate sheet rows,
-//     tier selections) is real too, but belongs to the drawer's connections
-//     section rather than the card face.
+//   - Metrics show ONLY what the list route actually returns, and only counts
+//     whose MEANING is settled. Today that is one: Services. The route also
+//     carries `rate_sheet_rows` and `tier_selections`, but the card face is
+//     meant to read as Services / Categories / Tiers — and neither a per-family
+//     category count nor a distinct-tier count is computed by the backend
+//     (`PackageCategoryGroups::dependents` returns services, rate_sheet_rows,
+//     tier_selections; `tier_selections` counts rate-sheet-row selections, NOT
+//     distinct tiers). So the list stays at Services rather than showing a
+//     number under a label it does not mean. The metrics array is a loop —
+//     adding the other two is a data change here once the backend reports them.
+//   - `assigned_service_count` IS `dependents.services` (the projection assigns
+//     one from the other), so this metric and the drawer's Services connection
+//     can never disagree.
 //   - Status mirrors the authoritative family pill (relations/
 //     PackageFamiliesSection.tsx :: groupStatusPill) expressed in the card's
 //     4-state vocabulary. No new status rule is created.
-//   - Actions are View + Edit only — the two the family drawer template serves.
+//   - One action: View. Edit is not dropped from the product — it is a tab
+//     inside the drawer View opens (the drawer registry's `supportedModes`),
+//     so the card face offers one gesture instead of a menu.
 //
 // Type-only across the tree: the backend row type is imported for its shape and
 // erased at build.
 
 import type { PackageFamilyItem } from '@/api/types/admin';
-import { ViewIcon } from '../../shell/icons';
+import { ViewIcon, PackagesIcon, ServicesIcon } from '../../shell/icons';
 import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
@@ -64,17 +74,20 @@ export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardI
     id:          item.group_id,   // native string group_id, unchanged
     key:         item.group_id,
     name:        item.label,
+    // The record's kind, in the reader's language. Data, not a card branch.
+    kind:        'Package family',
     description: item.description,
+    icon:        PackagesIcon,
     status:      resolvePackageFamilyCardStatus(item),
-    // The one truthful metric the list route supplies for the card face.
+    // One settled count. See the truthfulness note above for why the other two
+    // dependents are not here.
     metrics: [
-      { id: 'assigned-services', label: 'Assigned Services', value: item.assigned_service_count },
+      { id: 'services', label: 'Services', value: item.assigned_service_count, icon: ServicesIcon },
     ],
-    // View (primary) + Edit. Identity-only dispatch; the string group_id travels
-    // to the drawer exactly as it sits here.
+    // A single action. Identity-only dispatch; the string group_id travels to
+    // the drawer exactly as it sits here, and Edit lives inside that drawer.
     actions: [
       { id: 'view', label: 'View', icon: ViewIcon },
-      { id: 'edit', label: 'Edit' },
     ],
   };
 }

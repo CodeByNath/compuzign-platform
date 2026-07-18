@@ -62,10 +62,14 @@
    * first consumer). Shape and rhythm only; colour comes from the surface,
    * accent, and status families.
    *
-   * Direction: restrained and near-monochrome. The card reads as a quiet dark
-   * surface with a subtle edge; the accent is spent in three small places only
-   * (the medallion glyph, the code pill, and the primary action), never as
-   * outlines on every element.
+   * Direction: restrained and near-monochrome. The card reads as a quiet
+   * surface with a subtle edge; the accent is spent in a few small places only
+   * (the medallion, the code pill, and the primary action), never as outlines
+   * on every element. The medallion is a FILLED accent plate carrying a light
+   * glyph — it and the action are the two accents a typical card shows.
+   *
+   * Regions are delimited by hairline rules (--station-card-divider) rather
+   * than spacing alone, because the metrics read as a list of labelled rows.
    *
    * The presentation region has no height ceiling of its own: a card row lands
    * at roughly 310px, and the region simply renders at that height, adding to
@@ -74,16 +78,26 @@
   --station-card-pad: 16px;
   --station-card-gap: 12px;
   --station-card-icon-size: 44px;
-  --station-card-icon-radius: 999px;
+  /* A rounded square, not a disc: the medallion reads as a plate behind the
+   * glyph and sits square with the identity block beside it. */
+  --station-card-icon-radius: 13px;
   --station-card-glyph-size: 24px;
+  --station-card-divider: var(--station-border);
 
-  /* Metric blocks — the repeating value/label tiles inside a card. Neutral
-   * edges: they are data, not accent surfaces. The min size is also the reflow
-   * floor: the repeater auto-fits against it, so metrics drop to fewer per row
-   * intrinsically and need no breakpoint. */
+  /* Metric rows — the repeating glyph/label/value lines inside a card. Neutral
+   * by design: they are data, not accent surfaces. A row carries its own glyph
+   * plate and pushes the value to the trailing edge, so several rows share one
+   * value column and a single row still reads as a labelled fact.
+   *
+   * `--station-metric-min-size` is retained: it remains the reflow floor for any
+   * surface that lays metrics out horizontally. */
   --station-metric-radius: 12px;
   --station-metric-min-size: 68px;
   --station-metric-pad: 12px;
+  --station-metric-row-gap: 10px;
+  --station-metric-glyph-plate: 34px;
+  --station-metric-glyph-radius: 10px;
+  --station-metric-glyph-size: 18px;
 
   /* Small pills (status, code) and compact controls. */
   --station-pill-pad-y: 3px;

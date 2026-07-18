@@ -106,6 +106,10 @@ export interface CategoryGroupCardItem {
   // may resolve by key without a lookup.
   key?:  string;
   name:  string;
+  // What kind of record this is, in the reader's language ("Package family").
+  // A subtitle under the name, supplied as DATA by the adapter — the card never
+  // knows which entity it is rendering, so it cannot name the kind itself.
+  kind?:          string;
   description?:   string;
   icon?:          ComponentType<{ class?: string }>;
   // Short code / family pill shown beside the name where available.
