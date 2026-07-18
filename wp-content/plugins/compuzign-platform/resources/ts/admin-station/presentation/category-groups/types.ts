@@ -119,18 +119,8 @@ export interface CategoryGroupCardActionEvent {
   actionId: string;
 }
 
-/** Drawer modes the future Category Group drawer may support. */
-export type CategoryGroupDrawerMode = 'overview' | 'edit' | 'archive';
-
-/**
- * The drawer-opening request.
- *
- * Prepared now and emitted by the card's primary action; the drawer that
- * consumes it does not exist yet (see the phase report). The selected card's id
- * determines the content — nothing here is bound to the sample item.
- */
-export interface CategoryGroupDrawerRequest {
-  categoryGroupId:   CategoryGroupId;
-  categoryGroupKey?: string;
-  mode:              CategoryGroupDrawerMode;
-}
+// The card's drawer request/mode types were removed when the shared drawer
+// landed: the action → tab mapping now lives generically in the surface
+// binding's `actionIntents`, and the drawer template is resolved by key (see
+// the Surface Binding and drawer registry). Cards dispatch identity-only events;
+// the host + controller carry the numeric id into the shared drawer.

@@ -12,6 +12,7 @@
 //   (+ a slide-menu overlay opened from the Header)
 
 import { AdminStationProvider, useAdminStation } from './AdminStationContext';
+import { AdminStationDrawerProvider } from './shell/drawer/AdminStationDrawerContext';
 import { AdminStationLayout } from './shell/AdminStationLayout';
 
 function AdminStationRoot() {
@@ -26,7 +27,9 @@ function AdminStationRoot() {
 export function AdminStation() {
   return (
     <AdminStationProvider>
-      <AdminStationRoot />
+      <AdminStationDrawerProvider>
+        <AdminStationRoot />
+      </AdminStationDrawerProvider>
     </AdminStationProvider>
   );
 }

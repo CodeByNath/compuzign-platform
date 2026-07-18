@@ -18,7 +18,7 @@ active destination (station) + placement
 
 ## Authoritative files
 
-- `stations/surfaceBindings.ts` — the **binding table** (data only) plus its structural guard and `resolveSurfaceBinding`. Each row binds one `stationId + surfaceId + placement` to a `dataSourceKey`, a `templateKitKey`, optional `conditions`, and `actionIntents` (`{ id, target: 'drawer', mode }` — entity-agnostic). `DEFAULT_HOME_STATION` names the station whose presentation wall the Home body shows when no destination is active. `assertBindingsWellFormed` throws at load on a duplicate `station::surface::placement`.
+- `stations/surfaceBindings.ts` — the **binding table** (data only) plus its structural guard and `resolveSurfaceBinding`. Each row binds one `stationId + surfaceId + placement` to a `dataSourceKey`, a `templateKitKey`, optional `conditions`, `actionIntents` (`{ id, target: 'drawer', mode: 'view' | 'edit' }` — entity-agnostic), and an optional `drawerTemplateKey` (the drawer a dispatched intent opens). `DEFAULT_HOME_STATION` names the station whose presentation wall the Home body shows when no destination is active. `assertBindingsWellFormed` throws at load on a duplicate `station::surface::placement`.
 - `stations/dataSources.ts` — `DataSourceKey → read hook` registry. Every source returns `SurfaceCollection<Item>` (`items/loading/error/refetch`); the item type is widened to `unknown` at this registry seam (a binding pairs a source with a kit that narrows it). Sources are pure reads — registering one pulls no old UI.
 - `presentation/templateKits.tsx` — `TemplateKitKey → kit` registry. A kit is pure presentation: it takes the collection + an intent dispatcher, narrows `unknown[]` to its item type, loops, and forwards each action as `onIntent(recordId, actionId)`. `CategoryGroupCardsKit` wraps the existing card grid.
 - `stations/StationSurfaceHost.tsx` — the **generic composer**. Resolves both keys, calls the one data-source hook, renders the kit, and maps a dispatched `actionId` to the binding's intent → `ResolvedStationIntent { recordId, intent }`. `assertBindingsResolvable` throws at load if any binding names a source/kit the registries lack (fails loudly, not silently blank).
@@ -32,9 +32,9 @@ active destination (station) + placement
 - **Numeric identity end-to-end.** Intents carry `recordId: number` (the `term_id`) to the drawer boundary — never stringified.
 - **No invented rows.** Only surfaces with a real data source and kit are bound; Packages/Promotions presentation walls are deliberately absent and resolve to the shell's empty state.
 
-## Deferred
+## Drawer
 
-The drawer target is declared (`actionIntents[].mode`) but inert — Phase 3 builds the station drawer and consumes `ResolvedStationIntent`. The entity-specific `presentation/category-groups/categoryGroupDrawer.ts` seam is **superseded** by these generic intents and is currently unwired, to be consolidated with the Phase 3 drawer.
+The drawer target is now **live**: a dispatched `ResolvedStationIntent` (numeric `recordId`, resolved `intent`, `drawerTemplateKey` from the binding) opens the shared [Admin Station Drawer](admin-station-drawer.md). The old `categoryGroupDrawer.ts` seam was deleted — the action→tab mapping lives only in `actionIntents`.
 
 ## Related Code Maps
 

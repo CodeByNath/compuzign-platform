@@ -9,6 +9,7 @@ import { AdminStationHeader } from './AdminStationHeader';
 import { AdminStationBody } from './AdminStationBody';
 import { AdminStationFooter } from './AdminStationFooter';
 import { AdminStationSlideMenu } from './AdminStationSlideMenu';
+import { AdminStationDrawer } from './drawer/AdminStationDrawer';
 
 export function AdminStationLayout() {
   const { navigate } = useAdminStation();
@@ -39,6 +40,7 @@ export function AdminStationLayout() {
         onSelect={handleSelect}
         menuButtonRef={menuButtonRef}
       />
+      <AdminStationDrawer />
     </>
   );
 }

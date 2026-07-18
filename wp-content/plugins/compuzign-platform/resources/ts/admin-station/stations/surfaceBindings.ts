@@ -22,6 +22,7 @@
 // rendering nothing.
 
 import type { StationPlacement, StationConditions } from '../navigation/destinations';
+import type { DrawerTemplateKey } from './drawers/drawerTypes';
 
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
@@ -31,9 +32,9 @@ export type TemplateKitKey = 'category-group-cards';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
 // own action id; `target` + `mode` say where the dispatched record identity
-// goes. 'drawer' is the only target this phase declares, and it is inert until
-// Phase 3 builds the station drawer — the intent (and the numeric record id) is
-// carried, not yet consumed.
+// goes. 'drawer' is the only target this phase declares; `mode` names the drawer
+// tab to open ('view' | 'edit'), kept a plain string so this contract stays
+// decoupled from the drawer registry's mode type.
 export interface StationActionIntent {
   id: string;
   target: 'drawer';
@@ -50,6 +51,9 @@ export interface AdminStationSurfaceBinding {
   templateKitKey: TemplateKitKey;
   conditions?: StationConditions;
   actionIntents: StationActionIntent[];
+  // The drawer template a 'drawer'-targeted intent opens. Optional: a surface
+  // whose intents open no drawer (or which has none) simply omits it.
+  drawerTemplateKey?: DrawerTemplateKey;
 }
 
 // The station whose presentation wall the Home body shows when no nav
@@ -70,8 +74,9 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     dataSourceKey: 'service-category-groups',
     templateKitKey: 'category-group-cards',
     conditions: { scope: 'current' },
+    drawerTemplateKey: 'service-category-group',
     actionIntents: [
-      { id: 'view', target: 'drawer', mode: 'overview' },
+      { id: 'view', target: 'drawer', mode: 'view' },
       { id: 'edit', target: 'drawer', mode: 'edit' },
     ],
   },

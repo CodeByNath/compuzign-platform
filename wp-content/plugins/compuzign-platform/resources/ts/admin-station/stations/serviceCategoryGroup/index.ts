@@ -8,3 +8,6 @@
 export { useServiceCategoryGroupCards } from './useServiceCategoryGroupCards';
 export type { ServiceCategoryGroupCardsResult } from './useServiceCategoryGroupCards';
 export { toCategoryGroupCard, resolveCategoryGroupCardStatus } from './cardAdapter';
+export { useServiceCategoryGroupRecord } from './useServiceCategoryGroupRecord';
+export type { ServiceCategoryGroupRecordResult } from './useServiceCategoryGroupRecord';
+export { ServiceCategoryGroupDrawerContent } from './ServiceCategoryGroupDrawerContent';

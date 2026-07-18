@@ -18,12 +18,14 @@ import { TEMPLATE_KITS } from '../presentation/templateKits';
 import { SURFACE_BINDINGS } from './surfaceBindings';
 import type { AdminStationSurfaceBinding, StationActionIntent } from './surfaceBindings';
 
-// A dispatched, resolved intent: the acted-on record's numeric id and the
-// binding's matching action intent (its target + mode). Inert until Phase 3
-// builds the station drawer — the numeric identity is carried, not consumed.
+// A dispatched, resolved intent: the acted-on record's numeric id, the binding's
+// matching action intent (its target + mode), and the drawer template the
+// surface opens (carried from the binding so the drawer controller resolves it
+// without re-reading the binding table).
 export interface ResolvedStationIntent {
-  recordId: number;
-  intent:   StationActionIntent;
+  recordId:           number;
+  intent:             StationActionIntent;
+  drawerTemplateKey?: string;
 }
 
 // Resolvability guard — runs once at load, here because this is the one module
@@ -69,7 +71,7 @@ export function StationSurfaceHost({ binding, onDispatch }: Props): VNode {
         const intent = binding.actionIntents.find((i) => i.id === intentId);
         // An unmatched action dispatches nothing rather than guessing a target.
         if (intent) {
-          onDispatch({ recordId, intent });
+          onDispatch({ recordId, intent, drawerTemplateKey: binding.drawerTemplateKey });
         }
       }}
     />
