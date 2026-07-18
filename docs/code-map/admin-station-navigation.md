@@ -42,9 +42,11 @@ The current table maps the three nav items to `placement: 'body'`, `mode: 'table
 
 `assertDestinationsWellFormed` runs at module load and **throws** on a duplicate destination `id` or a fully-identical projection (`stationId + surfaceId + placement + mode + conditions`). The same surface at a different placement, mode, or scope is deliberate and passes.
 
-## Deferred — the projection sequence
+## Projection status
 
-`stationId + surfaceId` currently address a **lean AdminStation registration table that does not exist yet** (declaration only). The next step builds that registry; then projection lands in order: **body → presentation wall (`placements.collections`) → shared two-tab drawer**. The two-tab drawer contract stays locked. See [Project History 008](../project-history/008-admin-station-engine-and-resolver.md).
+The lean registration table now **exists**, in its dynamic form: the [Surface Binding](admin-station-surface-binding.md) table (`stations/surfaceBindings.ts`) binds a station's placement region to a data-source key + template-kit key + conditions + action intents — not a fixed `EntitySchema` (that rigid proposal was dropped). The **presentation wall is projected** through it (the Service home Category Group cards). Remaining projection, in order: **body table → shared two-tab drawer** (drawer inert; the two-tab contract stays locked). See [Project History 008](../project-history/008-admin-station-engine-and-resolver.md).
+
+Note the two tables are distinct axes: this file's `destinations.ts` resolves a nav *activation* to a destination (a future body/table surface); `surfaceBindings.ts` resolves a station *placement* to a live presentation surface. They do not share rows.
 
 ## Related Code Maps
 
