@@ -411,6 +411,36 @@
   white-space: nowrap;
 }
 
+button.cz-station-status-pill {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cz-station-status-notifications {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cz-station-status-notifications__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface-elevated);
+  color: var(--station-text);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+.cz-station-status-notifications__list { display: flex; flex-direction: column; gap: 4px; color: var(--station-text-muted); }
+.cz-station-status-notifications__list .is-error { color: var(--station-status-inactive-fg); }
+
 .cz-station-status-pill__dot {
   width: var(--station-dot-size);
   height: var(--station-dot-size);
@@ -662,7 +692,8 @@
   padding: var(--station-card-pad);
 }
 
-/* A filled accent plate carrying a light glyph. */
+/* Same quiet accent treatment as the compact Service Category cube: a light
+   accent plate carrying the stronger navigation-blue glyph. */
 .cz-cg-card__medallion {
   display: inline-flex;
   align-items: center;
@@ -671,8 +702,8 @@
   width: var(--station-card-icon-size);
   height: var(--station-card-icon-size);
   border-radius: var(--station-card-icon-radius);
-  background: var(--station-accent);
-  color: var(--station-accent-on);
+  background: var(--station-nav-active-bg);
+  color: var(--station-nav-accent-strong);
 }
 
 .cz-cg-card__glyph {
@@ -1249,7 +1280,8 @@
 }
 
 .cz-service-category-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -1261,6 +1293,12 @@
   color: var(--station-text);
   scroll-snap-align: start;
 }
+
+.cz-service-category-card__cube { grid-row: 1 / span 2; }
+.cz-service-category-card__copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cz-service-category-card__count { color: var(--station-text-muted); font-size: var(--station-text-xs); white-space: nowrap; }
+.cz-service-category-card > .cz-station-status-notifications,
+.cz-service-category-card > .cz-station-status-pill { grid-column: 2; justify-self: start; }
 
 .cz-service-category-card__cube {
   display: inline-flex;

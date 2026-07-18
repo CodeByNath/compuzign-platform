@@ -19,20 +19,31 @@
 // stylesheet this environment does not load.
 
 import { PILL_META, PILL_FALLBACK } from '@/components/admin/schema/presentation';
+import { useId, useState } from 'preact/hooks';
+import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
 
 interface Props {
   // A 5-state resolver value ('active' | 'disabled' | 'pending-dim' |
   // 'pending-full'). Unknown values present as Pending, per the contract.
   status: string;
+  notes?: ModuleNote[];
 }
 
-export function StationStatusPill({ status }: Props) {
+export function StationStatusPill({ status, notes = [] }: Props) {
   const meta = PILL_META[status] ?? PILL_FALLBACK;
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const content = <><span class="cz-station-status-pill__dot" aria-hidden="true" />{meta.label}</>;
 
-  return (
-    <span class={`cz-station-status-pill ${meta.cls}`}>
-      <span class="cz-station-status-pill__dot" aria-hidden="true" />
-      {meta.label}
-    </span>
-  );
+  if (notes.length === 0) return <span class={`cz-station-status-pill ${meta.cls}`}>{content}</span>;
+
+  return <span class="cz-station-status-notifications">
+    <button type="button" class={`cz-station-status-pill ${meta.cls}`} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((value) => !value)}>{content}</button>
+    {open && <span id={panelId} class="cz-station-status-notifications__panel" role="status">
+      <strong>Notifications</strong>
+      <span class="cz-station-status-notifications__list">
+        {notes.map((note) => <span key={note.id} class={`is-${note.type}`}>{note.message}</span>)}
+      </span>
+    </span>}
+  </span>;
 }

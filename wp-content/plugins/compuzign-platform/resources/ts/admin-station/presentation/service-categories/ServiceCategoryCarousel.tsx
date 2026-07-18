@@ -1,6 +1,7 @@
 import type { ServiceCategoryCardItem } from '../../stations/serviceCategory/useServiceCategoryCards';
 import type { TemplateKitProps } from '../templateKits';
 import { PackagesIcon } from '../../shell/icons';
+import { StationStatusPill } from '../StationStatusPill';
 
 export function ServiceCategoryCarousel({ items, loading, error }: TemplateKitProps) {
   if (loading) return <p class="cz-station-empty" aria-busy="true">Loading…</p>;
@@ -15,7 +16,11 @@ export function ServiceCategoryCarousel({ items, loading, error }: TemplateKitPr
         {categories.map((category) => (
           <article key={category.id} class="cz-service-category-card" role="listitem">
             <span class="cz-service-category-card__cube" aria-hidden="true"><PackagesIcon /></span>
-            <span class="cz-service-category-card__label">{category.label}</span>
+            <span class="cz-service-category-card__copy">
+              <span class="cz-service-category-card__label">{category.label}</span>
+              <span class="cz-service-category-card__count">{category.assignedServiceCount} {category.assignedServiceCount === 1 ? 'Service' : 'Services'}</span>
+            </span>
+            <StationStatusPill status={category.status} notes={category.notifications} />
           </article>
         ))}
       </div>
