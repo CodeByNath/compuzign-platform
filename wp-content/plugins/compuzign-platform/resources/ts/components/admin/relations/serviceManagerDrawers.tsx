@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { PackageFamilyItem } from '@/api/types/admin';
-import { createPackageFamily, savePackageFamilyOverview } from '@/api/endpoints/admin';
+import { createPackageFamily } from '@/api/endpoints/admin';
+import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
+import { PackageFamilyDrawerContent } from '@/entity-drawers/package-family/PackageFamilyDrawerContent';
 import { PackageRateSheetEditor } from './PackageRateSheetEditor';
 import type { RateSheetEditorValue } from './PackageRateSheetEditor';
 
@@ -74,17 +76,45 @@ function DrawerFooter({ ctx, saving, disabled, onApply, applyLabel = 'Apply chan
 
 function PackageFamilyDrawerStep({ ctx }: { ctx: StepContext }) {
   const group = ctx.stepData.group as PackageFamilyItem | undefined;
+  return group
+    ? <ExistingPackageFamilyDrawerStep ctx={ctx} group={group} />
+    : <CreatePackageFamilyDrawerStep ctx={ctx} />;
+}
+
+function ExistingPackageFamilyDrawerStep({ ctx, group }: { ctx: StepContext; group: PackageFamilyItem }) {
   const onChanged = ctx.stepData.onChanged as () => void;
-  const [name, setName] = useState(group?.label ?? '');
-  const [description, setDescription] = useState(group?.description ?? '');
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const changedRef = useRef(onChanged);
+  changedRef.current = onChanged;
+  const bridge = useMemo<EntityDrawerHostBridge>(() => ({
+    close: () => ctxRef.current.close(),
+    setFooter: (footer) => ctxRef.current.setFooter(footer),
+    setCloseGuard: (guard) => ctxRef.current.setCloseGuard(guard),
+    onMutationComplete: () => changedRef.current(),
+  }), []);
+
+  return (
+    <PackageFamilyDrawerContent
+      family={group}
+      initialTab="details"
+      initialEdit
+      bridge={bridge}
+    />
+  );
+}
+
+function CreatePackageFamilyDrawerStep({ ctx }: { ctx: StepContext }) {
+  const onChanged = ctx.stepData.onChanged as () => void;
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const apply = async () => {
     if (!name.trim()) return;
     setSaving(true); setError(null);
     try {
-      if (group) await savePackageFamilyOverview(group.group_id, { name: name.trim(), description: description.trim() });
-      else await createPackageFamily({ name: name.trim(), description: description.trim() || undefined });
+      await createPackageFamily({ name: name.trim(), description: description.trim() || undefined });
       onChanged();
       ctx.close();
     } catch (cause) {
@@ -92,16 +122,14 @@ function PackageFamilyDrawerStep({ ctx }: { ctx: StepContext }) {
     } finally { setSaving(false); }
   };
   useEffect(() => {
-    ctx.setFooter(<DrawerFooter ctx={ctx} saving={saving} disabled={!name.trim()} onApply={apply} applyLabel={group ? 'Save draft' : 'Create Family'} />);
+    ctx.setFooter(<DrawerFooter ctx={ctx} saving={saving} disabled={!name.trim()} onApply={apply} applyLabel="Create Family" />);
     return () => ctx.setFooter(null);
   }, [ctx.setFooter, ctx.close, saving, name, description]);
   return <div class="cz-focused-drawer-form">
     <div class="cz-focused-drawer-card">
-      <h3>{group ? 'Package Family overview' : 'New Package Family'}</h3>
+      <h3>New Package Family</h3>
       <label class="cz-tf-field"><span>Name</span><input class="cz-tf-input" value={name} onInput={(event) => setName(event.currentTarget.value)} /></label>
       <label class="cz-tf-field"><span>Description</span><textarea class="cz-tf-textarea" value={description} onInput={(event) => setDescription(event.currentTarget.value)} /></label>
-      {group && <p class="cz-sp-tier-table__muted">{group.dependents.services} Services · {group.dependents.rate_sheet_rows} Rate Sheet rows · {group.dependents.tier_selections} Tier selections</p>}
-      {group?.has_draft && <p class="cz-admin-notice">This family already has pending overview changes. Saving replaces that overview draft; lifecycle actions remain on the family card.</p>}
       {error && <div class="cz-admin-error-msg" role="alert">{error}</div>}
     </div>
   </div>;

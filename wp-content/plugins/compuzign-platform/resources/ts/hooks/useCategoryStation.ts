@@ -5,6 +5,7 @@ import {
   revertCategoryOverview,
   saveCategoryOverview,
   settleCategoryOverview,
+  updateServiceCategoryGroup,
   updateCategoryStatus,
 } from '@/api/endpoints/admin';
 import type { CategoryOverviewDraft, CategoryStationItem } from '@/api/types/admin';
@@ -53,6 +54,7 @@ export interface CategoryStation {
 
   // ── Actions ───────────────────────────────────────────────────────────────
   saveOverview:    (draft: CategoryOverviewDraft) => Promise<Record<string, string>>;
+  updateGroupMembership: (groupId: number | null) => Promise<CategoryStationItem | null>;
   revertOverview:  () => Promise<void>;
   settleModules:   () => Promise<CategoryStationItem | null>;
   publishCategory: () => Promise<CategoryStationItem | null>;
@@ -92,6 +94,7 @@ export function useCategoryStation(
 
   const overviewCtx: NoteContext = {
     platformStatus,
+    platformLabel:    'Category',
     moduleTransition: station.module_status.overview,
     hasDraft:         station.has_draft,
   };
@@ -121,6 +124,16 @@ export function useCategoryStation(
     }));
     onRefresh?.();
     return result.module_status;
+  }, [station.id, onRefresh]);
+
+  const updateGroupMembership = useCallback(async (groupId: number | null): Promise<CategoryStationItem | null> => {
+    const result = await updateServiceCategoryGroup(station.id, groupId);
+    if (result.success) {
+      setStation(result.category);
+      onRefresh?.();
+      return result.category;
+    }
+    return null;
   }, [station.id, onRefresh]);
 
   const revertOverview = useCallback(async (): Promise<void> => {
@@ -234,6 +247,7 @@ export function useCategoryStation(
     canPublish,
     loading: { status: statusSaving, deleting },
     saveOverview,
+    updateGroupMembership,
     revertOverview,
     settleModules,
     publishCategory,

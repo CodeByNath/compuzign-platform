@@ -33,6 +33,8 @@
 // erased at build.
 
 import type { PackageFamilyItem } from '@/api/types/admin';
+import { evaluateModule, packageFamilyOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
+import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { ViewIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '../../shell/icons';
 import type {
   CategoryGroupCardItem,
@@ -54,16 +56,26 @@ import type {
  * reads the current scope, where archived/trashed families are excluded by the
  * list route, so no card state is invented for them here.
  */
+function resolvePackageFamilyCardModule(item: PackageFamilyItem): ModuleState {
+  return evaluateModule(
+    packageFamilyOverviewModule,
+    { name: item.label, description: item.description },
+    {
+      platformStatus: item.platform_status,
+      platformLabel: 'Package Family',
+      moduleTransition: item.module_status.overview,
+      hasDraft: item.has_draft,
+    },
+  );
+}
+
 export function resolvePackageFamilyCardStatus(item: PackageFamilyItem): CategoryGroupStatus {
-  if (item.platform_status === 'disabled') {
-    return item.module_status.overview !== 'settled' ? 'pending-dim' : 'disabled';
-  }
-  const hasUnsettled = item.has_draft || item.module_status.overview === 'pending';
-  return hasUnsettled ? 'pending-full' : 'active';
+  return resolvePackageFamilyCardModule(item).status as CategoryGroupStatus;
 }
 
 /** Project one backend family record into the card the grid renders. */
 export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardItem {
+  const module = resolvePackageFamilyCardModule(item);
   return {
     id:          item.group_id,   // native string group_id, unchanged
     key:         item.group_id,
@@ -72,7 +84,8 @@ export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardI
     kind:        'Package family',
     description: item.description,
     icon:        PackagesIcon,
-    status:      resolvePackageFamilyCardStatus(item),
+    status:      module.status as CategoryGroupStatus,
+    notifications: module.notes,
     // Complete live dependency list. The shared card renders this as a repeater.
     metrics: [
       { id: 'services', label: 'Services', value: item.dependents.services, icon: ServicesIcon },

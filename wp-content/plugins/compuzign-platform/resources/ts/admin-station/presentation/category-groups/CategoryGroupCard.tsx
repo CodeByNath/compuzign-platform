@@ -55,7 +55,7 @@ export function CategoryGroupCard({ item, onAction }: Props) {
           </div>
           {item.kind && <p class="cz-cg-card__kind">{item.kind}</p>}
         </div>
-        {item.status && <StationStatusPill status={item.status} />}
+        {item.status && <StationStatusPill status={item.status} notes={item.notifications} />}
       </div>
 
       {item.description && (

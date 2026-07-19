@@ -15,9 +15,8 @@
  *
  * Shared, multi-entity infrastructure stays outside: stationPrimitives
  * (patchModuleDraft), moduleStatus, moduleNotifications. Service uses them; it
- * does not own them. Those last two are UI-directory utilities, which keeps a
- * state → UI-directory edge open until the Service UI phase; they import this
- * station's './types' directly, never the barrel, so no cycle forms.
+ * does not own them. The last two now live in the neutral drawer-kit; they
+ * import this station's './types' directly, never the barrel, so no cycle forms.
  */
 
 import { useEffect, useState, useCallback } from 'preact/hooks';

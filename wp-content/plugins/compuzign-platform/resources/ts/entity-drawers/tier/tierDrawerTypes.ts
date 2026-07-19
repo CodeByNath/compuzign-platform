@@ -2,9 +2,8 @@
 //
 // Like the Service drawer, the Tier drawer composition is host-agnostic: it
 // receives the record inputs usePackageStation needs plus an
-// EntityDrawerHostBridge, and imports neither host. The old ServiceTierStep
-// adapter reads these from StepContext; a future Admin Station adapter would
-// resolve them from the dispatched intent.
+// EntityDrawerHostBridge, and imports neither host. The Command Centre and Admin
+// Station adapters resolve these inputs from their respective routing state.
 
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';

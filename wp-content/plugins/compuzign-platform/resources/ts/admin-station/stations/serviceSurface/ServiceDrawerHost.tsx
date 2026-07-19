@@ -36,7 +36,7 @@ export function ServiceDrawerHost({
 }: DrawerContentProps): VNode {
   // The drawer's own read, separate from the wall's — refreshing one cannot
   // disturb the other (the same two-instance rule the Package Family drawer keeps).
-  const { data, loading, error, refetch } = useApi(() => fetchAdminCatalog());
+  const { data, loading, error } = useApi(() => fetchAdminCatalog());
   const { data: packagesData } = useSurfacePackages();
 
   // Resolve by the record's OWN native id. A Service id is numeric, so a foreign
@@ -59,16 +59,14 @@ export function ServiceDrawerHost({
   const footerRef = useRef(setFooter);       footerRef.current = setFooter;
   const guardRef  = useRef(setCloseGuard);   guardRef.current  = setCloseGuard;
   const savedRef  = useRef(onSaved);         savedRef.current  = onSaved;
-  const refetchRef = useRef(refetch);        refetchRef.current = refetch;
 
   const bridge = useMemo<EntityDrawerHostBridge>(() => ({
     close:         () => closeRef.current(),
     setFooter:     (footer) => footerRef.current?.(footer),
     setCloseGuard: (guard)  => guardRef.current?.(guard),
-    // Two refreshes, both targeted: the wall this drawer was opened from (the
-    // controller routes onSaved to it and only it), and the drawer's own read so
-    // the record behind the open panel is current too.
-    onMutationComplete: () => { savedRef.current(); refetchRef.current(); },
+    // The composition advances its own authoritative local record from mutation
+    // responses. Refresh only the wall that opened it, avoiding a drawer flash.
+    onMutationComplete: () => savedRef.current(),
   }), []);
 
   if (loading && !data) return <div class="cz-station-drawer__state">Loading service…</div>;

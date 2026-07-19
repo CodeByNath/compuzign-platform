@@ -31,7 +31,7 @@ const snapFile = resolve(root, 'scripts/__snapshots__/mode-renderers.v1.json');
 mkdirSync(dirname(outFile), { recursive: true });
 
 await build({
-  entryPoints: [resolve(root, 'resources/ts/components/admin/schema/elements/modeRenderers.tsx')],
+  entryPoints: [resolve(root, 'resources/ts/drawer-kit/schema/elements/modeRenderers.tsx')],
   bundle: true,
   format: 'esm',
   outfile: outFile,

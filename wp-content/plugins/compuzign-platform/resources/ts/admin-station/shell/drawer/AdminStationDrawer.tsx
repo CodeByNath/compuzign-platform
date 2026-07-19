@@ -1,14 +1,14 @@
 // Admin Station drawer — the shared, entity-agnostic drawer shell.
 //
 // It renders whatever drawer template the controller's open-state resolves to:
-// a right-side panel with a header, the two first-level tabs the template
-// supports (View / Edit), and the template's content for the active tab. It
+// a right-side panel with a header, scrolling body, and entity-supplied footer.
+// Overview / Connections and module editing are owned by the composition. It
 // names no entity and imports no entity content directly — it resolves the
 // template through the registry key, so it stays generic.
 //
 // Behaviour mirrors the slide menu: background scroll lock, Escape and backdrop
 // close, focus moved into the panel and restored to the prior element on close.
-// Switching tabs preserves the numeric recordId (the controller keeps it); the
+// Switching tabs preserves the native recordId (the controller keeps it); the
 // content is keyed by template + recordId, so it survives tab switches and
 // remounts only for a different record.
 

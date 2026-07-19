@@ -7,23 +7,16 @@
 // Connections tab carries the Pricing Summary; each module edits in place through
 // OverviewShell / ChildShell + InlineEditorShell while the others stay readable.
 //
-// It imports NEITHER host — not the old StepContext/ActionShell, not the Admin
+// It imports neither host — not the old Command Centre shell, not the Admin
 // Station shell. All coordination goes through useServiceDrawerController; all
 // host concerns (record footer, close-guard, close, refresh) go through the
-// EntityDrawerHostBridge. That is what lets the old ServiceViewStep adapter and a
-// future Admin Station adapter render exactly this composition.
+// EntityDrawerHostBridge. That is what lets ServiceViewStep and the Admin Station
+// host adapter render exactly this composition.
 
 import { useEffect } from 'preact/hooks';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
+import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import { SERVICE_ENTITY } from '../schema/entities/service';
-import { ModeProvider } from '@/drawer-kit/schema/modeContext';
-import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
-import { ChildShell } from '@/drawer-kit/schema/shells/childShell';
-import {
-  serviceOverviewShell,
-  serviceInclusionsShell,
-  serviceFaqsShell,
-} from '../schema/bindings/service';
 import { TIER_KEYS, TIER_LABELS } from '../shared/serviceDrawerShared';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
 import { useServiceDrawerController } from './useServiceDrawerController';
@@ -35,11 +28,56 @@ export function ServiceDrawerContent(props: ServiceDrawerContentProps) {
   const { bridge } = props;
   const c = useServiceDrawerController(props);
 
+  const editing: EntityDrawerEditingModule | null =
+    c.editingSection === 'overview' && c.overviewDraft ? {
+      module: 'overview',
+      session: {
+        draft: c.overviewDraft,
+        patch: (patch) => c.setOverviewDraft((current) => current ? { ...current, ...(patch as Partial<OverviewDraft>) } : current),
+        replace: (next) => c.setOverviewDraft(next as OverviewDraft),
+        onSave: c.handleSaveOverview,
+        onCancel: c.handleCancelEdit,
+        saving: c.saving,
+        saveErr: c.saveErr,
+        isDirty: c.isEditorDirty,
+        extras: {
+          categories: c.localCategories,
+          catDescription: c.catDesc,
+          onCatDescriptionChange: c.setCatDesc,
+          onCreateCategory: c.createInlineCategory,
+        },
+      },
+    } : c.editingSection === 'inclusions' && c.inclusionsDraft ? {
+      module: 'inclusions',
+      session: {
+        draft: c.inclusionsDraft,
+        patch: (patch) => c.setInclusionsDraft((current) => current ? { ...current, ...(patch as Partial<InclusionsDraft>) } : current),
+        replace: (next) => c.setInclusionsDraft(next as InclusionsDraft),
+        onSave: c.handleSaveInclusions,
+        onCancel: c.handleCancelEdit,
+        saving: c.saving,
+        saveErr: c.saveErr,
+        isDirty: c.isEditorDirty,
+      },
+    } : c.editingSection === 'faqs' && c.faqsDraft ? {
+      module: 'faqs',
+      session: {
+        draft: c.faqsDraft,
+        patch: (patch) => c.setFaqsDraft((current) => current ? { ...current, ...(patch as Partial<FaqsDraft>) } : current),
+        replace: (next) => c.setFaqsDraft(next as FaqsDraft),
+        onSave: c.handleSaveFaqs,
+        onCancel: c.handleCancelEdit,
+        saving: c.saving,
+        saveErr: c.saveErr,
+        isDirty: c.isEditorDirty,
+      },
+    } : null;
+
   // Publish the record-level footer into the host's footer region. Re-runs on
   // the same gating inputs the old host's footer effect used; edit mode leaves
   // the slot to InlineEditorShell's own Save/Cancel footer (handled below).
   useEffect(() => {
-    bridge.setFooter(
+    bridge.setFooter(c.editingSection ? null :
       <ServiceDrawerFooter
         tab={c.tab}
         platformStatus={c.platformStatus}
@@ -58,7 +96,7 @@ export function ServiceDrawerContent(props: ServiceDrawerContentProps) {
     );
     return () => bridge.setFooter(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [c.tab, c.platformStatus, c.splitOpen, c.station.loading.status, c.canPublish, c.hasBeenPublished, c.isNewNeverPublished, bridge]);
+  }, [c.tab, c.platformStatus, c.splitOpen, c.station.loading.status, c.canPublish, c.hasBeenPublished, c.isNewNeverPublished, c.editingSection, bridge]);
 
   return (
     <>
@@ -73,6 +111,7 @@ export function ServiceDrawerContent(props: ServiceDrawerContentProps) {
         }}
         openPanel={c.openPanel}
         onTogglePanel={c.togglePanel}
+        editing={editing}
         trailing={{
           connections: (
             <>
@@ -120,70 +159,6 @@ export function ServiceDrawerContent(props: ServiceDrawerContentProps) {
       </EntityDrawer>
 
       <ServiceDrawerDialogs c={c} />
-
-      {/* Module-level edit — the active module's shell in `edit` mode
-          (InlineEditorShell). One module edits while the others stay readable. */}
-      {c.editingSection === 'overview' && c.overviewDraft && (
-        <ModeProvider mode="edit">
-          <OverviewShell
-            schema={serviceOverviewShell}
-            binding={c.overviewShellBinding}
-            editSession={{
-              draft:    c.overviewDraft,
-              patch:    (p) => c.setOverviewDraft((d) => d ? { ...d, ...(p as Partial<OverviewDraft>) } : d),
-              replace:  (next) => c.setOverviewDraft(next as OverviewDraft),
-              onSave:   c.handleSaveOverview,
-              onCancel: c.handleCancelEdit,
-              saving:   c.saving,
-              saveErr:  c.saveErr,
-              isDirty:  c.isEditorDirty,
-              extras: {
-                categories:             c.localCategories,
-                catDescription:         c.catDesc,
-                onCatDescriptionChange: c.setCatDesc,
-              },
-            }}
-          />
-        </ModeProvider>
-      )}
-
-      {c.editingSection === 'inclusions' && c.inclusionsDraft && (
-        <ModeProvider mode="edit">
-          <ChildShell
-            schema={serviceInclusionsShell}
-            binding={c.inclusionsShellBinding}
-            editSession={{
-              draft:    c.inclusionsDraft,
-              patch:    (p) => c.setInclusionsDraft((d) => d ? { ...d, ...(p as Partial<InclusionsDraft>) } : d),
-              replace:  (next) => c.setInclusionsDraft(next as InclusionsDraft),
-              onSave:   c.handleSaveInclusions,
-              onCancel: c.handleCancelEdit,
-              saving:   c.saving,
-              saveErr:  c.saveErr,
-              isDirty:  c.isEditorDirty,
-            }}
-          />
-        </ModeProvider>
-      )}
-
-      {c.editingSection === 'faqs' && c.faqsDraft && (
-        <ModeProvider mode="edit">
-          <ChildShell
-            schema={serviceFaqsShell}
-            binding={c.faqsShellBinding}
-            editSession={{
-              draft:    c.faqsDraft,
-              patch:    (p) => c.setFaqsDraft((d) => d ? { ...d, ...(p as Partial<FaqsDraft>) } : d),
-              replace:  (next) => c.setFaqsDraft(next as FaqsDraft),
-              onSave:   c.handleSaveFaqs,
-              onCancel: c.handleCancelEdit,
-              saving:   c.saving,
-              saveErr:  c.saveErr,
-              isDirty:  c.isEditorDirty,
-            }}
-          />
-        </ModeProvider>
-      )}
     </>
   );
 }

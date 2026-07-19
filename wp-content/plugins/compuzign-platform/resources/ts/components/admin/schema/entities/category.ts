@@ -7,8 +7,7 @@
 // /admin/categories REST family); everything here references existing
 // presentation assets.
 
-import type { CategoryStationItem } from '@/api/types/admin';
-import { categoryOverviewShell } from '../shells/bindings/category';
+import { CATEGORY_DRAWER_ENTITY } from '@/entity-drawers/schema/entities/category';
 import {
   categoryCatalogTable,
   categoryArchivedTable,
@@ -18,49 +17,14 @@ import {
 import type { EntitySchema } from '@/drawer-kit/schema/types';
 
 export const CATEGORY_ENTITY: EntitySchema = {
-  id:    'category',
-  label: { singular: 'Category', plural: 'Categories' },
-  identity: {
-    idOf:    (d: CategoryStationItem) => d.id,
-    titleOf: (d: CategoryStationItem) => d.name,
-  },
-
-  lifecycle: {
-    participation: 'canonical',
-    statuses: ['draft', 'active', 'disabled', 'archived', 'trashed'],
-  },
-
-  // Keyed by backend module key (overview / services). `service` is the
-  // related Service station's primary module, registered for the Category
-  // Services collection surface (v1.2) — the shared shell object, never a
-  // copy (S4 related-stations rule).
-  shells: {
-    overview: categoryOverviewShell,
-  },
-
-  // Entity travel actions (StationLifecycle transitions). Declarations only —
-  // behaviour arrives as handlers from the owning surface, never from here.
-  actions: {
-    archive: { id: 'archive', label: 'Archive',       intent: 'secondary' },
-    trash:   { id: 'trash',   label: 'Move to Trash', intent: 'danger' },
-    restore: { id: 'restore', label: 'Restore',       intent: 'secondary' },
-    delete:  {
-      id: 'delete', label: 'Permanently delete', intent: 'danger',
-      confirm: { prompt: 'Delete permanently?', confirmLabel: 'Confirm' },
-    },
-  },
+  ...CATEGORY_DRAWER_ENTITY,
 
   placements: {
     // Details = the owned overview; Connections = the services summary
     // gateway in the `summary` viewpoint (metrics has a summary-only
     // renderer — a connections-mode slot would render an empty body),
     // exactly like the Service manifest's Package Summary slot.
-    drawer: {
-      details: [
-        { module: 'overview', mode: 'details' },
-      ],
-      connections: [],
-    },
+    drawer: CATEGORY_DRAWER_ENTITY.placements.drawer,
     // v1.2 Collection placement — first realisation: the shared
     // serviceOverviewShell repeated once per assigned service in the summary
     // viewpoint, each card re-selecting the `view` footer that opens the real

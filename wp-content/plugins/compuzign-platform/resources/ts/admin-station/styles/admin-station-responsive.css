@@ -44,6 +44,11 @@
 
 /* Phones — hide the Header pills; the slide menu carries navigation. */
 @media (max-width: 560px) {
+  .cz-station-drawer {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .cz-station-header__nav {
     display: none;
   }

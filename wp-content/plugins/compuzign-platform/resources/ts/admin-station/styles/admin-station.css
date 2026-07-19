@@ -389,9 +389,9 @@
 /* ── Status pill (Presentation Status Contract renderer) ────────────────── */
 
 /* The station's visual definition of the contract's pill classes.
-   `components/admin/schema/presentation.ts` owns which status maps to which
-   class and label and is the only place that mapping may live; these rules add
-   appearance to those classes and resolve nothing.
+   `drawer-kit/schema/presentation.ts` owns which status maps to which class and
+   label and is the only place that mapping may live; these rules add appearance
+   to those classes and resolve nothing.
 
    The old admin stylesheet defines the same classes, but the two can never
    collide: the Admin Station ships its own bundle and never loads it, and these
@@ -919,10 +919,9 @@ button.cz-station-status-pill {
 
 /* ── Shared drawer ─────────────────────────────────────────────────────────────
  * The entity-agnostic Admin Station drawer: a right-side modal panel above the
- * whole shell (layer 90 — above the slide menu's 80), with a header, View/Edit
- * tabs, and a scrolling body that holds the resolved drawer template's content.
- * Chrome only; the content styles (cz-record-drawer__*, cz-station-field*) below are
- * shared, entity-neutral form/read primitives the first template uses. */
+ * whole shell (layer 90 — above the slide menu's 80), with a header, pinned
+ * entity footer, and a scrolling body. Overview / Connections, modules, pills,
+ * notifications, inline editors and action footers come from drawer-kit.css. */
 .cz-station-drawer-layer {
   position: fixed;
   inset: 0;
@@ -1029,6 +1028,11 @@ button.cz-station-status-pill {
   padding: 20px;
 }
 
+.cz-station-drawer__state {
+  padding: 20px;
+  color: var(--station-text-muted);
+}
+
 /* Entity-supplied record footer region (whole-record actions). Rendered only
    when the active drawer content publishes a footer; module-level footers stay
    inside the body. Mirrors the head as the pinned bottom band. */
@@ -1038,226 +1042,6 @@ button.cz-station-status-pill {
   border-top: 1px solid var(--station-border);
   background: var(--station-surface-elevated);
 }
-
-/* Drawer content — shared read/edit primitives (entity-neutral). */
-.cz-record-drawer__view,
-.cz-record-drawer__edit {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cz-record-drawer__row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cz-record-drawer__field-label {
-  font-size: var(--station-text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--station-tracking-wide);
-  color: var(--station-text-muted);
-}
-
-.cz-record-drawer__field-value {
-  font-size: 14px;
-  color: var(--station-text);
-  line-height: var(--station-line-snug);
-}
-
-.cz-record-drawer__muted {
-  color: var(--station-text-muted);
-}
-
-.cz-station-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cz-station-field__label {
-  font-size: var(--station-text-sm);
-  color: var(--station-text-muted);
-}
-
-.cz-station-field__input,
-.cz-station-field__textarea {
-  padding: 10px 12px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-surface);
-  color: var(--station-text);
-  font: inherit;
-}
-
-.cz-station-field__textarea {
-  min-height: 96px;
-  resize: vertical;
-}
-
-.cz-station-field__input:focus-visible,
-.cz-station-field__textarea:focus-visible {
-  outline: 2px solid var(--station-accent);
-  outline-offset: 1px;
-}
-
-.cz-record-drawer__edit-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cz-record-drawer__save {
-  padding: 10px 18px;
-  border: 0;
-  border-radius: var(--station-control-radius);
-  background: var(--station-accent);
-  color: var(--station-accent-on);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.cz-record-drawer__save:disabled {
-  opacity: var(--station-disabled-opacity);
-  cursor: default;
-}
-
-.cz-record-drawer__saved {
-  font-size: var(--station-text-sm);
-  color: var(--station-status-active-fg);
-}
-
-.cz-record-drawer__error {
-  margin: 0;
-  color: #d64545;
-  font-size: var(--station-text-sm);
-}
-
-.cz-record-drawer__link {
-  align-self: flex-start;
-  border: 0;
-  background: transparent;
-  color: var(--station-accent);
-  font: inherit;
-  cursor: pointer;
-  padding: 0;
-}
-
-/* Record drawer composition: record hero, reading tabs, module panels, and the
- * inline editor. Entity content owns this hierarchy; the shared shell still
- * owns overlay, focus, identity and close behaviour. */
-.cz-record-drawer {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  margin: -20px;
-}
-
-.cz-record-drawer__hero {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 20px;
-  border-bottom: 1px solid var(--station-border);
-}
-
-.cz-record-drawer__hero-icon,
-.cz-record-module__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: var(--station-active-bg);
-  color: var(--station-nav-accent-strong);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.cz-record-drawer__hero-copy { flex: 1 1 auto; min-width: 0; }
-.cz-record-drawer__hero-copy h3,
-.cz-record-module__head h4,
-.cz-record-drawer__editor-head h3 { margin: 0; color: var(--station-text); }
-.cz-record-drawer__hero-copy h3 { font-size: 21px; }
-.cz-record-drawer__hero-copy p,
-.cz-record-module__head p,
-.cz-record-drawer__editor-head p { margin: 3px 0 0; color: var(--station-text-muted); }
-
-.cz-record-drawer__section-tabs {
-  display: flex;
-  gap: 28px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--station-border);
-}
-
-.cz-record-drawer__section-tabs button {
-  position: relative;
-  padding: 18px 0;
-  border: 0;
-  background: transparent;
-  color: var(--station-text-muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-.cz-record-drawer__section-tabs button.is-active { color: var(--station-nav-accent-strong); font-weight: 700; }
-.cz-record-drawer__section-tabs button.is-active::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 3px;
-  background: var(--station-nav-accent-strong);
-}
-
-.cz-record-drawer__content { flex: 1 1 auto; padding: 20px; }
-.cz-record-module { overflow: hidden; border: 1px solid var(--station-border); border-radius: 16px; background: var(--station-surface); }
-.cz-record-module__head { display: flex; align-items: center; gap: 12px; padding: 18px; background: var(--station-active-bg); }
-.cz-record-module__head > div { flex: 1 1 auto; }
-.cz-record-module__head h4 { font-size: 16px; }
-.cz-record-module__head p { font-size: var(--station-text-sm); }
-.cz-record-module__icon { width: 42px; height: 42px; border-radius: 12px; }
-.cz-record-module__body { display: flex; flex-direction: column; gap: 20px; padding: 22px; }
-.cz-record-module__details { display: grid; gap: 16px; margin: 0; }
-.cz-record-module__details > div { display: grid; grid-template-columns: 120px 1fr; gap: 14px; }
-.cz-record-module__details dt { color: var(--station-text-muted); }
-.cz-record-module__details dd { margin: 0; color: var(--station-text); line-height: var(--station-line-snug); }
-
-.cz-record-drawer__footer,
-.cz-record-drawer__editor-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--station-border);
-}
-
-.cz-record-drawer__outline-action,
-.cz-record-drawer__primary-action {
-  padding: 10px 18px;
-  border-radius: var(--station-control-radius);
-  border: 1px solid var(--station-nav-accent-strong);
-  background: transparent;
-  color: var(--station-nav-accent-strong);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-.cz-record-drawer__primary-action { border-color: transparent; background: var(--station-nav-accent-strong); color: var(--station-accent-on); }
-.cz-record-drawer__primary-action:disabled { opacity: var(--station-disabled-opacity); cursor: default; }
-
-.cz-record-drawer__editor { min-height: 100%; display: flex; flex-direction: column; margin: -20px; }
-.cz-record-drawer__editor-head { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--station-border); }
-.cz-record-drawer__editor-head button { border: 0; background: transparent; color: var(--station-text-muted); font-size: 30px; cursor: pointer; }
-.cz-record-drawer__editor-head div { flex: 1 1 auto; }
-.cz-record-drawer__editor-head p { color: var(--station-status-active-fg); font-size: var(--station-text-sm); }
-.cz-record-drawer__editor-fields { flex: 1 1 auto; display: flex; flex-direction: column; gap: 20px; padding: 24px 20px; }
-.cz-record-drawer__editor-actions { margin-top: auto; }
 
 @media (min-width: 720px) {
   .cz-station-drawer { width: 560px; }
@@ -1325,6 +1109,26 @@ button.cz-station-status-pill {
 
 .cz-service-category-card__cube .cz-station-icon { width: 20px; height: 20px; }
 .cz-service-category-card__label { min-width: 0; font-size: var(--station-text-sm); font-weight: 700; line-height: var(--station-line-snug); overflow-wrap: anywhere; }
+
+.cz-service-category-card__action {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--station-nav-accent-strong);
+  border-radius: var(--station-control-radius);
+  background: transparent;
+  color: var(--station-nav-accent-strong);
+  font: inherit;
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-service-category-card__action:hover,
+.cz-service-category-card__action:focus-visible {
+  background: var(--station-nav-active-bg);
+  outline: none;
+}
 
 @media (min-width: 768px) {
   .cz-service-category-carousel__track {

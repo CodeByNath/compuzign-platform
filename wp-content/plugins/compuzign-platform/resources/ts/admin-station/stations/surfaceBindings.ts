@@ -103,7 +103,10 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     dataSourceKey: 'service-categories',
     templateKitKey: 'service-category-carousel',
     conditions: { scope: 'current' },
-    actionIntents: [],
+    drawerTemplateKey: 'category',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+    ],
   },
   // The Service wall. Two intents onto the same drawer template, because the
   // Service drawer registers both modes: View opens the reading surface, Edit

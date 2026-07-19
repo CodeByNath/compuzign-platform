@@ -25,7 +25,7 @@ const snapFile = resolve(root, 'scripts/__snapshots__/module-state.v1.json');
 mkdirSync(dirname(outFile), { recursive: true });
 
 await build({
-  entryPoints: [resolve(root, 'resources/ts/components/admin/utils/moduleNotifications.ts')],
+  entryPoints: [resolve(root, 'resources/ts/drawer-kit/utils/moduleNotifications.ts')],
   bundle: true,
   format: 'esm',
   outfile: outFile,

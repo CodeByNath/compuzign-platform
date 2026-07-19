@@ -3,7 +3,7 @@ import type { TemplateKitProps } from '../templateKits';
 import { PackagesIcon } from '../../shell/icons';
 import { StationStatusPill } from '../StationStatusPill';
 
-export function ServiceCategoryCarousel({ items, loading, error }: TemplateKitProps) {
+export function ServiceCategoryCarousel({ items, loading, error, onIntent }: TemplateKitProps) {
   if (loading) return <p class="cz-station-empty" aria-busy="true">Loading…</p>;
   if (error) return <p class="cz-station-empty" role="alert">{error}</p>;
 
@@ -29,6 +29,14 @@ export function ServiceCategoryCarousel({ items, loading, error }: TemplateKitPr
                 </span>
               ))}
             </span>
+            <button
+              type="button"
+              class="cz-service-category-card__action"
+              onClick={() => onIntent(category.id, 'view')}
+              aria-label={`View ${category.label}`}
+            >
+              View
+            </button>
           </article>
         ))}
       </div>

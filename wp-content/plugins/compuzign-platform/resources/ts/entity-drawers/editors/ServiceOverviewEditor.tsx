@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
-import { createServiceCategory } from '@/api/endpoints/admin';
 import type { OverviewDraft } from '@/admin-station/stations/service';
 import { decodeHtml } from '@/utils/format';
 
@@ -19,6 +18,7 @@ interface Props {
   categories:              Category[];
   catDescription:          string;
   onCatDescriptionChange:  (val: string) => void;
+  onCreateCategory:        (name: string) => Promise<{ category: Category; existing: boolean }>;
   onCategoryCreated?:      (cat: Category) => void;
 }
 
@@ -26,7 +26,7 @@ interface Props {
 // The field, its data, and the OverviewDraft.excerpt property remain intact.
 // It does not participate in completeness, lifecycle state, or notification calculations while hidden.
 
-export function ServiceOverviewEditor({ draft, onChange, categories: initialCategories, catDescription, onCatDescriptionChange, onCategoryCreated }: Props) {
+export function ServiceOverviewEditor({ draft, onChange, categories: initialCategories, catDescription, onCatDescriptionChange, onCreateCategory, onCategoryCreated }: Props) {
   // Local category list starts from the prop; new categories are appended inline
   // without requiring a full catalog refetch during the current drawer session.
   const [categories, setCategories] = useState<Category[]>(initialCategories);
@@ -77,27 +77,22 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
     setCreating(true);
     setCreateErr(null);
     try {
-      const res = await createServiceCategory({ name });
-      if (res.success && res.category) {
-        const cat: Category = { id: res.category.id, name: res.category.name, slug: res.category.slug, description: res.category.description };
-        setCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat]);
-        onCategoryCreated?.(cat);
-        // If the name matched an existing category, surface its real description
-        // instead of silently overwriting it on Save. New categories keep what was typed.
-        if (res.existing && cat.description) onCatDescriptionChange(cat.description);
-        onChange({ category_id: cat.id });
-        setIsAdding(false);
-        setNewCatName('');
-      } else {
-        setCreateErr(res.message ?? 'Failed to create category.');
-      }
+      const { category: cat, existing } = await onCreateCategory(name);
+      setCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat]);
+      onCategoryCreated?.(cat);
+      // If the name matched an existing category, surface its real description
+      // instead of silently overwriting it on Save. New categories keep what was typed.
+      if (existing && cat.description) onCatDescriptionChange(cat.description);
+      onChange({ category_id: cat.id });
+      setIsAdding(false);
+      setNewCatName('');
     } catch (e) {
       setCreateErr(e instanceof Error ? e.message : 'Failed to create category.');
     } finally {
       setCreating(false);
       committingRef.current = false;
     }
-  }, [newCatName, onChange, onCategoryCreated, onCatDescriptionChange]);
+  }, [newCatName, onChange, onCategoryCreated, onCatDescriptionChange, onCreateCategory]);
 
   return (
     <div class="cz-tf-form">

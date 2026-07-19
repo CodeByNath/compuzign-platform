@@ -7,7 +7,7 @@
 // never name an entity, so the shell stays generic and adding a drawer is one
 // registration plus its content component.
 //
-//   intent → drawerTemplateKey → { supportedModes, content } + numeric recordId
+//   intent → drawerTemplateKey → { supportedModes, content } + native recordId
 //
 // Entity-specific content is allowed to know its own record load and mutation
 // provider (that is what "entity-specific" means); only the shell and controller
@@ -15,6 +15,7 @@
 // value-import the content without a cycle back through it.
 
 import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawerContent';
+import { CategoryDrawerHost } from '../serviceCategory/CategoryDrawerHost';
 import { ServiceDrawerHost } from '../serviceSurface/ServiceDrawerHost';
 import { TierDrawerHost } from '../tierSurface/TierDrawerHost';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
@@ -24,7 +25,7 @@ export type { DrawerMode, DrawerTemplateKey, DrawerContentProps, DrawerContent, 
 // Registering or retiring a template touches nothing outside this map and the
 // template's own content file — the shell, controller, tabs, and identity path
 // are generic enough to carry a string- or number-keyed entity without an edit.
-// This map has held two templates at once and still resolves the same way.
+// All four entity registrations resolve through the same path.
 export const DRAWER_TEMPLATES: Record<DrawerTemplateKey, DrawerTemplateRegistration> = {
   'package-family': {
     key:            'package-family',
@@ -32,10 +33,15 @@ export const DRAWER_TEMPLATES: Record<DrawerTemplateKey, DrawerTemplateRegistrat
     supportedModes: ['view', 'edit'],
     content:        PackageFamilyDrawerContent,
   },
-  // The mature Service drawer, mounted through a thin host adapter. Unlike the
-  // Package Family template — a parallel UI built here because families have no
-  // shared authoritative state hook — this registers the SAME composition the
-  // Command Centre mounts. There is one Service drawer implementation.
+  'category': {
+    key:            'category',
+    title:          'Category',
+    supportedModes: ['view', 'edit'],
+    content:        CategoryDrawerHost,
+  },
+  // The mature Service drawer, mounted through a thin host adapter. Like the
+  // Category and Package Family registrations above, this is the SAME neutral
+  // composition the Command Centre mounts.
   'service': {
     key:            'service',
     title:          'Service',

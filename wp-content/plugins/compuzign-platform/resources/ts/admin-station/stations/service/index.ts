@@ -6,15 +6,16 @@
  * read, write, or type a Service, and nothing else.
  *
  * It owns the Service contracts, the Service endpoint functions, and the
- * Service state layer. Service UI still lives in components/admin and imports
- * through this barrel; the UI moves in a later phase. The old compatibility
- * re-exports in api/types/admin.ts and api/endpoints/admin.ts, and the
- * hooks/useServiceStation.ts forwarder, were removed at the Phase 7 cutover.
+ * Service state layer. The neutral Service drawer composition lives in
+ * entity-drawers and imports through this barrel; both hosts mount it through
+ * adapters. The old compatibility re-exports in api/types/admin.ts and
+ * api/endpoints/admin.ts, and the hooks/useServiceStation.ts forwarder, were
+ * removed at the Phase 7 cutover.
  *
  * INTERNAL IMPORTS: sibling files import from './types' / './api' directly,
  * never through this barrel — importing your own barrel invites cycles. The
- * same applies to any module this station's own graph reaches: the UI utilities
- * moduleStatus / moduleNotifications import './types' directly for that reason.
+ * same applies to any module this station's own graph reaches: shared drawer-kit
+ * utilities import './types' directly for that reason.
  *
  * Shared inclusion/FAQ pool item contracts are NOT owned here — they are shared
  * with Package, Tier, and Promotion and live in api/types/pools.ts.

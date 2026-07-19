@@ -2,9 +2,9 @@
 //
 // The Service drawer composition is host-agnostic: it receives the record inputs
 // its authoritative hook (useServiceStation) needs plus an EntityDrawerHostBridge,
-// and reports host concerns through the bridge. It imports neither host — not the
-// old StepContext/ActionShell, not the Admin Station shell — so both hosts mount
-// the same composition through a thin adapter.
+// and reports host concerns through the bridge. It imports neither the Command
+// Centre host nor the Admin Station shell, so both mount the same composition
+// through a thin adapter.
 
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary } from '@/api/types/admin';
@@ -14,8 +14,8 @@ import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 // The record inputs the Service drawer needs. These mirror exactly what the old
 // host handed the step through stepData: a seed ServiceItem (the hook fetches the
 // authoritative detail from `service.id`), the package summaries, and the
-// category list for the overview editor. A future Admin Station adapter resolves
-// the same three from a numeric recordId before mounting the composition.
+// category list for the overview editor. The Admin Station adapter resolves the
+// same three from a numeric recordId before mounting the composition.
 export interface ServiceDrawerContentProps {
   service:       ServiceItem;
   packages:      SurfacePackageSummary[];

@@ -115,6 +115,7 @@ export function ShellEditFrame<T>({ schema, session }: {
       saving={session.saving}
       saveErr={session.saveErr}
       isDirty={session.isDirty}
+      saveDisabled={session.saveDisabled}
     >
       {editor.render(session)}
     </InlineEditorShell>

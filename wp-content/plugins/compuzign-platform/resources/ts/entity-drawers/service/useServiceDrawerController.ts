@@ -11,12 +11,12 @@
 // them into the mature EntityDrawer presentation, ServiceDrawerFooter into the
 // record footer, and ServiceDrawerDialogs into the confirm/exit modals. Extracted
 // verbatim from the former ServiceViewStep god file — the host coupling
-// (StepContext.setFooter / setCloseGuard / requestExit / setStepData / close) is
-// the only thing that changed, and it moved onto the bridge.
+// (footer, close guard, exit, step data, and close) is the only thing that
+// changed, and it moved onto the bridge.
 
 import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import type { Category, ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
-import { updateServiceCategory } from '@/api/endpoints/admin';
+import { createServiceCategory, updateServiceCategory } from '@/api/endpoints/admin';
 import type { SurfacePackageSummary } from '@/api/types/admin';
 import { useServiceStation } from '@/admin-station/stations/service';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
@@ -222,6 +222,23 @@ export function useServiceDrawerController({
     setSaveErr(null);
     setSaving(false);
   }, [catDescOriginal]);
+
+  const createInlineCategory = useCallback(async (name: string): Promise<{ category: Category; existing: boolean }> => {
+    const result = await createServiceCategory({ name });
+    if (!result.success || !result.category) {
+      throw new Error(result.message ?? 'Failed to create category.');
+    }
+    const category: Category = {
+      id:          result.category.id,
+      name:        result.category.name,
+      slug:        result.category.slug,
+      description: result.category.description,
+    };
+    setLocalCategories((current) => current.some((item) => item.id === category.id)
+      ? current
+      : [...current, category]);
+    return { category, existing: result.existing ?? false };
+  }, []);
 
   const handleSaveOverview = useCallback(async () => {
     if (!overviewDraft) return;
@@ -468,7 +485,7 @@ export function useServiceDrawerController({
   const displayTitle    = rawDisplayTitle ? decodeHtml(rawDisplayTitle) : '';
   const displayContent  = stationOverviewDraft?.content.trim() || settledOverview?.content?.trim() || service.content?.trim() || '';
   const displayCategory = stationOverviewDraft
-    ? decodeHtml(allCategories.find(c => stationOverviewDraft.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
+    ? decodeHtml(localCategories.find(c => stationOverviewDraft.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
     : decodeHtml(settledOverview?.categories[0]?.name ?? service.categories[0]?.name ?? 'Not selected');
   const decodedServiceTitle = decodeHtml(service.title);
 
@@ -507,7 +524,7 @@ export function useServiceDrawerController({
     // editing
     editingSection, editingSectionLabel, isEditorDirty, saving, saveErr, saveOk,
     overviewDraft, setOverviewDraft, inclusionsDraft, setInclusionsDraft, faqsDraft, setFaqsDraft,
-    localCategories, catDesc, setCatDesc,
+    localCategories, catDesc, setCatDesc, createInlineCategory,
     handleSaveOverview, handleSaveInclusions, handleSaveFaqs, handleCancelEdit,
     // footer
     splitOpen, setSplitOpen, requestClose,

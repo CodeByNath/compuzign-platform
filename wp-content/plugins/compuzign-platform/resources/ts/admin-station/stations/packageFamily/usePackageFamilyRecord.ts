@@ -4,7 +4,9 @@
 // PackageFamilyItem (the card projection kept only the face fields, dropping the
 // dependents breakdown the drawer's connections section shows). There is no
 // single-record GET on this route, so the record is resolved from the
-// current-scope list projection, which is complete.
+// list projections. Current scope is combined with archived/trashed scope so
+// the composition can also render its authoritative restore/delete footer when
+// reached from a future binned surface.
 //
 // Identity: the drawer's id arrives as the shell's StationRecordId (either
 // native form), and this station matches it against its OWN native field —
@@ -29,10 +31,21 @@ export interface PackageFamilyRecordResult {
 }
 
 export function usePackageFamilyRecord(recordId: StationRecordId): PackageFamilyRecordResult {
-  const { data, loading, error, refetch } = useApi(() => fetchPackageFamilies());
+  const { data, loading, error, refetch } = useApi(async () => {
+    const [current, archived, trashed] = await Promise.all([
+      fetchPackageFamilies(),
+      fetchPackageFamilies('archived'),
+      fetchPackageFamilies('trashed'),
+    ]);
+    return [
+      ...current.package_category_groups,
+      ...archived.package_category_groups,
+      ...trashed.package_category_groups,
+    ];
+  });
 
   const record = useMemo(
-    () => data?.package_category_groups.find((g) => g.group_id === recordId) ?? null,
+    () => data?.find((group) => group.group_id === recordId) ?? null,
     [data, recordId],
   );
 

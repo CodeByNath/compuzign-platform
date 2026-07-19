@@ -20,9 +20,12 @@ interface Props {
   status:   string;           // 'active' | 'pending-dim' | 'pending-full' | 'disabled' | 'loading'
   notes:    ModuleNote[];     // full note list — count derived internally
   onOpen?:  () => void;       // called when pill is clicked to open the panel
+  variant?: 'module' | 'station';
+  expanded?: boolean;
+  controls?: string;
 }
 
-export function ModuleStatusPill({ status, notes, onOpen }: Props) {
+export function ModuleStatusPill({ status, notes, onOpen, variant = 'module', expanded, controls }: Props) {
   // Authoritative detail still in flight — show a shimmer sized to the pill rather
   // than a status derived from the lightweight handoff. Not a lifecycle state.
   if (status === 'loading') {
@@ -32,18 +35,21 @@ export function ModuleStatusPill({ status, notes, onOpen }: Props) {
 
   const hasNotes = notes.length > 0;   // any notes — drives button vs span
   const meta     = PILL_META[status] ?? PILL_FALLBACK;
-  const cls      = `cz-module-status-pill ${meta.cls}`;
+  const cls      = `${variant === 'station' ? 'cz-station-status-pill' : 'cz-module-status-pill'} ${meta.cls}`;
+  const content  = variant === 'station'
+    ? <><span class="cz-station-status-pill__dot" aria-hidden="true" />{meta.label}</>
+    : meta.label;
 
   // Any notes (error or info): clickable pill that opens the notification panel.
   // The pill label stays lifecycle-only — the count lives in the panel, not here.
   if (hasNotes && onOpen) {
     return (
-      <button type="button" class={cls} onClick={onOpen}>
-        {meta.label}
+      <button type="button" class={cls} onClick={onOpen} aria-expanded={expanded} aria-controls={controls}>
+        {content}
       </button>
     );
   }
 
   // No notes: static pill
-  return <span class={cls}>{meta.label}</span>;
+  return <span class={cls}>{content}</span>;
 }

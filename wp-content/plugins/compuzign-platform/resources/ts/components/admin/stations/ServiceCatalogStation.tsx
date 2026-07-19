@@ -8,7 +8,7 @@ import {
   normalizeAdminCategories,
   buildServiceItemForStationHandoff,
 } from '@/entity-drawers/service/serviceSeed';
-import { updateServiceCategory } from '@/api/endpoints/admin';
+import { createServiceCategory, updateServiceCategory } from '@/api/endpoints/admin';
 import type { SurfacePackageSummary } from '@/api/types/admin';
 import { createService } from '@/admin-station/stations/service';
 import type { ServiceDetail, ServiceSummary } from '@/admin-station/stations/service';
@@ -137,6 +137,23 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
   const packageNotes: ModuleNote[] = [
     { id: 'new-service.package.activation', message: 'Waiting for service activation.', type: 'info' },
   ];
+
+  const createInlineCategory = useCallback(async (name: string): Promise<{ category: Category; existing: boolean }> => {
+    const result = await createServiceCategory({ name });
+    if (!result.success || !result.category) {
+      throw new Error(result.message ?? 'Failed to create category.');
+    }
+    const category: Category = {
+      id:          result.category.id,
+      name:        result.category.name,
+      slug:        result.category.slug,
+      description: result.category.description,
+    };
+    setLocalCategories((current) => current.some((item) => item.id === category.id)
+      ? current
+      : [...current, category]);
+    return { category, existing: result.existing ?? false };
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!draft.title.trim()) { setSaveErr('Title is required.'); return; }
@@ -372,6 +389,7 @@ function ServiceCreateStep({ ctx }: { ctx: StepContext }) {
           categories={localCategories}
           catDescription={catDesc}
           onCatDescriptionChange={setCatDesc}
+          onCreateCategory={createInlineCategory}
           onCategoryCreated={(cat) => setLocalCategories(prev => prev.some(c => c.id === cat.id) ? prev : [...prev, cat])}
         />
       </InlineEditorShell>

@@ -8,15 +8,11 @@
 // under any host that can satisfy it.
 //
 // Two hosts can satisfy it:
-//   - Old Command Centre: the StepContext ActionShell — `setFooter`,
+//   - Old Command Centre: its ActionShell host context — `setFooter`,
 //     `setCloseGuard`, `close`, and the `onRefresh` handle map 1:1 here. See
 //     ServiceViewStep / ServiceTierStep, now thin adapters over this bridge.
-//   - New Admin Station: the generic drawer host, once it renders an
-//     entity-supplied footer and honours a close-guard (see
-//     docs/code-map/admin-station-drawer.md — the shared drawer/schema renderer
-//     kit lives in the `admin` bundle, so mounting a composition in the
-//     admin-station bundle waits on that kit being relocated across the
-//     boundary; the bridge is defined here so it is ready when it is).
+//   - New Admin Station: the generic drawer shell renders the supplied footer,
+//     honours the guard, and mounts the same neutral compositions.
 //
 // It names no host and no entity: contracts cross bundle boundaries, renderers
 // do not.

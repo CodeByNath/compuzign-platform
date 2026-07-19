@@ -25,7 +25,12 @@ import type { DrawerBaseTabId, DrawerTabId } from './DrawerTabs';
 import { ModeProvider } from './schema/modeContext';
 import { OverviewShell } from './schema/shells/overviewShell';
 import { ChildShell } from './schema/shells/childShell';
-import type { EntitySchema, ShellBinding, ShellSlot } from './schema/types';
+import type { EntitySchema, ShellBinding, ShellEditSession, ShellSlot } from './schema/types';
+
+export interface EntityDrawerEditingModule {
+  module: string;
+  session: ShellEditSession;
+}
 
 export interface EntityDrawerProps<T extends DrawerTabId = DrawerBaseTabId> {
   entity: EntitySchema;
@@ -39,6 +44,9 @@ export interface EntityDrawerProps<T extends DrawerTabId = DrawerBaseTabId> {
   // Single-open notification-panel accordion, keyed by module key.
   openPanel?:     string | null;
   onTogglePanel?: (module: string) => void;
+  // Optional module-level edit session. The matching placed module switches to
+  // the shared inline editor while every sibling module stays readable.
+  editing?: EntityDrawerEditingModule | null;
   // Bespoke non-shell tail content per tab (surface content, not schema).
   trailing?: Partial<Record<DrawerBaseTabId, ComponentChildren>>;
   // Step-owned chrome rendered inside the body wrapper after the tab content.
@@ -48,24 +56,27 @@ export interface EntityDrawerProps<T extends DrawerTabId = DrawerBaseTabId> {
 // One placed shell: the manifest resolves the slot's module key to a
 // ShellSchema; the archetype picks the renderer; the slot's mode is provided
 // as the viewpoint (§7 — placements decide the mode, shells never branch).
-function PlacedShell({ entity, slot, binding, panelOpen, onTogglePanel }: {
+function PlacedShell({ entity, slot, binding, panelOpen, onTogglePanel, editing }: {
   entity:  EntitySchema;
   slot:    ShellSlot;
   binding: ShellBinding<any> | undefined;
   panelOpen:      boolean;
   onTogglePanel?: () => void;
+  editing?: EntityDrawerEditingModule | null;
 }) {
   const schema = entity.shells[slot.module];
   if (!schema || !binding) return null;
   const Shell = schema.archetype === 'overview' ? OverviewShell : ChildShell;
+  const isEditing = editing?.module === slot.module;
   return (
-    <ModeProvider mode={slot.mode}>
+    <ModeProvider mode={isEditing ? 'edit' : slot.mode}>
       <Shell
         schema={schema}
         binding={binding}
         panelOpen={panelOpen}
         onTogglePanel={onTogglePanel}
         footer={slot.footer}
+        editSession={isEditing ? editing.session : undefined}
       />
     </ModeProvider>
   );
@@ -74,6 +85,7 @@ function PlacedShell({ entity, slot, binding, panelOpen, onTogglePanel }: {
 export function EntityDrawer<T extends DrawerTabId = DrawerBaseTabId>({
   entity, bindings, tab, onSelectTab,
   openPanel, onTogglePanel, trailing, children,
+  editing,
 }: EntityDrawerProps<T>) {
   const [internalTab, setInternalTab] = useState<DrawerTabId>('details');
   const activeTab: DrawerTabId = tab ?? internalTab;
@@ -96,6 +108,7 @@ export function EntityDrawer<T extends DrawerTabId = DrawerBaseTabId>({
           binding={bindings[slot.module]}
           panelOpen={openPanel === slot.module}
           onTogglePanel={onTogglePanel ? () => onTogglePanel(slot.module) : undefined}
+          editing={editing}
         />
       ))}
 

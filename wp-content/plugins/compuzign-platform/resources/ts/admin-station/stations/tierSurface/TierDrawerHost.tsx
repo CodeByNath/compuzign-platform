@@ -43,6 +43,10 @@ export function TierDrawerHost({
     onMutationComplete: () => savedRef.current(),
   }), []);
 
+  if (typeof recordId !== 'string') {
+    return <div class="cz-station-drawer__state">This tier identity is invalid.</div>;
+  }
+
   if (host.loading && !host.service) return <div class="cz-station-drawer__state">Loading package tiers…</div>;
   if (host.error)                    return <div class="cz-station-drawer__state">{host.error}</div>;
   if (!host.service)                 return <div class="cz-station-drawer__state">No package station is available.</div>;
@@ -52,7 +56,7 @@ export function TierDrawerHost({
       serviceId={host.service.id}
       // The occupant id, exactly as the card carried it. The composition
       // resolves the slot; this host never parses or re-keys it.
-      initialOccupantId={String(recordId)}
+      initialOccupantId={recordId}
       // 'edit' opens straight into the tier's Overview editor once the occupant
       // resolves to its slot; 'view' leaves every module readable.
       initialTierSection={mode === 'edit' ? 'tier-overview' : undefined}

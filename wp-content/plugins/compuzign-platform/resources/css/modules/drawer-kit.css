@@ -157,9 +157,8 @@
  * Drawer Kit stylesheet — the shared presentation layer for the entity drawers.
  *
  * Extracted from admin.css so BOTH bundles can load it: the Command Centre
- * (which still imports admin.css alongside this) and the Admin Station, which
- * mounts the same Service and Tier drawer compositions and previously had none
- * of these rules.
+ * (which still imports admin.css alongside this) and the Admin Station, where
+ * all four registered entity compositions use these rules.
  *
  * Contents are the rules whose selectors reference a class the shared layers
  * (drawer-kit/, entity-drawers/) actually use — the drawer frame, module cards,
@@ -947,6 +946,10 @@
   color: var(--admin-accent-hover);
 }
 
+.cz-footer-split__item--danger {
+  color: var(--admin-error);
+}
+
 .cz-footer-split__item:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -1382,3 +1385,130 @@ button.cz-module-status-pill {
   .cz-manager-start__card .cz-admin-btn { grid-column: 1 / -1; justify-content: center; }
 }
 
+/* ── Admin Station host adaptation ───────────────────────────────────────────
+ * The mature renderer is shared with Command Centre, while the Admin Station
+ * supplies its newer dark shell tokens. These rules are deliberately scoped so
+ * the existing Command Centre appearance remains unchanged. */
+
+.cz-admin-station .cz-station-drawer__body {
+  position: relative;
+  padding: 0;
+}
+
+.cz-admin-station .cz-station-drawer__body > .cz-req-detail {
+  min-height: 100%;
+  padding: 20px;
+}
+
+.cz-admin-station .cz-req-detail .cz-sv-tabs {
+  top: -20px;
+  margin: 0 -20px 20px;
+  padding: 10px 20px;
+  background: var(--station-surface-elevated);
+  border-color: var(--station-border);
+}
+
+.cz-admin-station .cz-sv-tab {
+  padding: 9px 12px;
+  color: var(--station-text-muted);
+}
+
+.cz-admin-station .cz-sv-tab--active {
+  color: var(--station-nav-accent-strong);
+}
+
+.cz-admin-station .cz-sv-tab--active::after {
+  background: var(--station-nav-accent-strong);
+}
+
+.cz-admin-station .drawerModule {
+  border-color: var(--station-border);
+  border-radius: 16px;
+  background: var(--station-surface);
+}
+
+.cz-admin-station .drawerModule:hover {
+  background: var(--station-surface);
+  border-color: var(--station-accent-border);
+}
+
+.cz-admin-station .drawerModule__header {
+  padding: 18px;
+  background: var(--station-active-bg);
+  margin-bottom: 0;
+}
+
+.cz-admin-station .drawerModule__icon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  background: var(--station-nav-active-bg);
+  color: var(--station-nav-accent-strong);
+}
+
+.cz-admin-station .drawerModule__title,
+.cz-admin-station .drawerOverview .drawerModule__value {
+  color: var(--station-text);
+}
+
+.cz-admin-station .drawerModule__subtitle,
+.cz-admin-station .drawerOverview .drawerModule__label,
+.cz-admin-station .drawerOverview .drawerModule__value--muted {
+  color: var(--station-text-muted);
+}
+
+.cz-admin-station .drawerModule__body {
+  padding: 20px;
+}
+
+.cz-admin-station .drawerModule__footer {
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--station-border);
+}
+
+.cz-admin-station .cz-station-drawer__foot .cz-tf-footer {
+  position: static;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.cz-admin-station .cz-ies {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  min-height: 0;
+  margin-bottom: var(--cz-space-4);
+  border: 1px solid var(--station-accent-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--station-surface-elevated);
+}
+
+.cz-admin-station .cz-ies__header {
+  border-color: var(--station-border);
+}
+
+.cz-admin-station .cz-ies__body {
+  padding: 20px;
+}
+
+.cz-admin-station .cz-ies__footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--station-border);
+}
+
+.cz-admin-station .cz-tf-input,
+.cz-admin-station .cz-tf-select,
+.cz-admin-station .cz-tf-textarea {
+  border-color: var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface);
+  color: var(--station-text);
+}
+
+.cz-admin-station .cz-module-notes {
+  border-color: var(--station-border);
+  background: var(--station-nav-active-bg);
+}

@@ -8,11 +8,12 @@ interface Props {
   saving:   boolean;
   saveErr:  string | null;
   isDirty?: boolean;
+  saveDisabled?: boolean;
   children: ComponentChildren;
 }
 
 // Drawer Principle v1 — Edit state shell; same module shell, different content
-export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, isDirty, children }: Props) {
+export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, isDirty, saveDisabled, children }: Props) {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const handleCancelClick = () => {
@@ -88,7 +89,7 @@ export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, is
               type="button"
               class="cz-admin-btn cz-admin-btn--primary"
               onClick={onSave}
-              disabled={saving}
+              disabled={saving || saveDisabled}
             >
               {saving ? 'Saving…' : 'Save'}
             </button>

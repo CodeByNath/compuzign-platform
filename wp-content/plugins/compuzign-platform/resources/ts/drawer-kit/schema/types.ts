@@ -104,6 +104,7 @@ export interface ShellEditSession {
   saving:  boolean;
   saveErr: string | null;
   isDirty: boolean;
+  saveDisabled?: boolean;              // station-supplied validation / unchanged gate
   title?:  string;                    // session title override (e.g. the instance's own name)
   extras?: Record<string, unknown>;   // editor-specific session props (e.g. category list)
 }

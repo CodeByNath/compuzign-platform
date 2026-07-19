@@ -1,63 +1,62 @@
 # Admin Station Drawer
 
-The fresh, shared **drawer path**: how a template kit's action becomes an open drawer over a record, with View/Edit tabs, without the shell or controller naming an entity. Completes the projection sequence begun in [Surface Binding](admin-station-surface-binding.md). Built new — it imports **no** old-tree drawer UI (`EntityDrawer`, `InlineEditorShell`).
+The Admin Station has one entity-agnostic drawer shell. Package Family, Category, Service, and Tier provide registered compositions inside it; none creates another shell or imports Command Centre routing.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
-## The chain
+## Runtime chain
 
-```
-template action → onIntent(recordId, actionId)
-  → StationSurfaceHost resolves the binding's action intent + drawerTemplateKey
-    → ResolvedStationIntent { recordId:StationRecordId, intent, drawerTemplateKey }
-       + that wall's own refetch
-      → drawer controller (openFromIntent) stores { drawerTemplateKey, recordId, mode }
-        → shared drawer shell resolves the template by key
-          → entity content renders its reading surface / inline editor
-            → save succeeds → onSaved() → the ORIGINATING wall refetches
+```text
+card/carousel action with native record id
+  → StationSurfaceHost resolves action intent + drawerTemplateKey
+  → AdminStationDrawerContext stores { key, recordId, opening mode }
+  → AdminStationDrawer resolves the declarative registry
+  → entity host adapter resolves its own record
+  → shared entity composition renders Overview / Connections + modules
+  → successful mutation reports onSaved
+  → only the originating wall refetches
 ```
 
-The id the card carried is the id the drawer edits with. Nothing in this chain converts, re-keys, or looks up a surrogate — see [Record identity](admin-station-cards.md#record-identity).
+The shell owns header, scrolling body, footer slot, backdrop/Escape/header close, focus restore, scroll lock, and the close guard. It never switches on entity type.
 
 ## Authoritative files
 
-- `stations/drawers/drawerTypes.ts` — the contracts: `DrawerMode` (`'view'|'edit'`), `DrawerTemplateKey` (`'package-family' | 'service' | 'tier'`), `DrawerContentProps` (`recordId:StationRecordId`, `mode`, `onModeChange`, `onClose`, `onSaved`, and optional `setFooter`/`setCloseGuard`), `DrawerTemplateRegistration`. Separate from the registry so the registry can value-import content without a cycle; its one import is the zero-dependency identity type. With `setFooter`/`setCloseGuard`, this contract satisfies the neutral `EntityDrawerHostBridge` (see [Entity Drawer Recovery](entity-drawer-recovery.md)).
-- `stations/drawers/drawerRegistry.tsx` — `DrawerTemplateKey → { title, supportedModes, content }`. Load-time guard (`assertDrawerTemplatesWellFormed`: key match, non-empty modes) and `resolveDrawerTemplate` (null → neutral state, never throws at open).
-- `shell/drawer/AdminStationDrawerContext.tsx` — the **controller** (generic): holds the one open drawer (`drawerTemplateKey`, `recordId`, `mode`) or null. `openFromIntent(intent, refetchSurface?)` (ignores non-drawer / keyless intents), `setMode` (switches tab, **preserves recordId**), `close` (clears all state — no stale intent survives), `notifySaved` (fires the originating wall's refresh). The refresh handle lives in a **ref**, not in state: it is a side-effect handle rather than rendered data, and it is dropped on close so a late async save refreshes nothing rather than a wall the user has left.
-- `shell/drawer/AdminStationDrawer.tsx` — the **shared shell** (generic): right-side modal, backdrop/Escape close, scroll lock, focus into panel + restore on close. It clamps an unsupported requested mode and hands `onModeChange` to entity content, allowing editing to open inline from the owning module rather than appearing as a contextless first-level tab. Content is keyed by `template:recordId` (survives mode switches, remounts per record). Unknown key → neutral `UnresolvedDrawer`. It also renders an **entity-supplied record footer** (the `cz-station-drawer__foot` band) and routes every close (backdrop / Escape / header) through a single `requestClose` that consults a content-supplied **close-guard** — both absent unless content publishes them, so existing drawers are unchanged. Still imports **no** old-tree drawer UI.
-### Registered templates
+- `stations/drawers/drawerTypes.ts` — `DrawerTemplateKey` (`package-family | category | service | tier`), opaque `StationRecordId`, opening mode, footer/guard bridge props.
+- `stations/drawers/drawerRegistry.tsx` — the four declarative registrations plus load-time well-formedness guard.
+- `shell/drawer/AdminStationDrawerContext.tsx` — one open record and the originating wall refresh handle.
+- `shell/drawer/AdminStationDrawer.tsx` — the single shell and close path.
+- `stations/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
+- `stations/serviceCategory/CategoryDrawerHost.tsx` — numeric Category id adapter plus assigned-Service projection.
+- `stations/serviceSurface/ServiceDrawerHost.tsx` — numeric Service id adapter.
+- `stations/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
 
-**Three templates are registered.** A template is entity-specific by design (that is what a template *is*); only the shell and controller stay generic.
+## Shared mature compositions
 
-- `stations/serviceSurface/ServiceDrawerHost.tsx` (`service`) and `stations/tierSurface/TierDrawerHost.tsx` (`tier`) — thin adapters that map `DrawerContentProps` onto the neutral `EntityDrawerHostBridge` and mount the **same** `ServiceDrawerContent` / `TierDrawerContent` compositions the Command Centre mounts. They reimplement nothing: modules, status pills, notification panels, module footers, inline editors, save/cancel/dirty-close, publish and lifecycle, and the Tier occupant bin all come from the shared composition. Service resolves its numeric `recordId` against the catalogue; Tier carries the `occupant_id` and lets the composition re-resolve the slot. See [Entity Drawer Recovery](entity-drawer-recovery.md).
+The shell adapters mount these host-neutral implementations from `resources/ts/entity-drawers/`:
 
-- `stations/packageFamily/PackageFamilyDrawerContent.tsx` — loads by string `group_id` (`usePackageFamilyRecord`, a list-scan because there is no single GET). Its populated reading surface has a record hero, Overview/Connections tabs, a module card, and fixed Close/Edit actions. Overview editing replaces that reading surface inline with Back/Cancel/Save; save calls `savePackageFamilyOverview` with the same string id, then returns to Overview. Connections shows the backend `dependents` counts (Services, Rate Sheet rows, Tier selections).
-  - **Mutation boundary, deliberate:** families have no shared authoritative state hook to reuse — the legacy tree owns that logic *inside its own UI components* (`PackageFamiliesSection`, `DynamicStationManager`), which must not cross the bundle. So this content calls the pure endpoint directly and advances its local record from the server's returned `group`. Overview edits save the station's **draft**; apply/publish stays with the lifecycle actions and is not reinvented here.
+- `package-family/PackageFamilyDrawerContent.tsx`
+- `category/CategoryDrawerContent.tsx`
+- `service/ServiceDrawerContent.tsx`
+- `tier/TierDrawerContent.tsx`
 
-The registry has carried **two** templates at once (a numerically keyed Service Category Group template alongside this string-keyed one), which is how the axis was proven entity-agnostic: adding the second changed nothing but the registry map and its own folder, and retiring it later changed nothing else either.
+All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable. Command Centre mounts the same compositions through thin `StepContext → EntityDrawerHostBridge` adapters.
 
-It does not pass `onRefresh`: content reflects its save from that save's **own response**, so the open form never flashes.
+Category mutations stay in `useCategoryStation`; Package Family mutations stay in `usePackageFamilyStation`; Service and Tier retain `useServiceStation` / `usePackageStation`. Presentation components call no endpoints.
 
-## Save → refresh
+## Identity and refresh invariants
 
-`DrawerContentProps.onSaved` is how content reports a successful save. It is called **only on success** — a failed save must not refresh a wall, which would imply a change that never happened. Content does not know which wall opened it; it reports the fact and the controller routes it.
+- Package Family: native string `group_id`.
+- Category and Service: native numeric ids.
+- Tier: stable string `occupant_id`, never the reassignable slot.
+- No adapter parses, stringifies, or numerically coerces an id.
+- Compositions advance local records from mutation responses; `onSaved` refreshes only the wall that opened the drawer, avoiding body flashes.
 
-The two reads are **separate `useApi` instances** (the drawer's record read vs. the wall's collection read), so refreshing the wall cannot disturb what is on screen in the drawer. Both update, neither flashes: the drawer from its save response, the wall from a retained-collection reload (see [Surface Binding](admin-station-surface-binding.md) → `useRetainedCollection`).
+## Styling
 
-Drawer content styles are the shared, entity-neutral `cz-record-drawer__*` + `cz-station-field*` primitives (renamed from the entity-named `cz-scg-drawer__*` when the second template landed).
+Both pages enqueue `dist/css/drawer-kit.css`. Shared component rules live in `resources/css/modules/drawer-kit.css`; `.cz-admin-station`-scoped host adaptations apply the newer shell/module/editor treatment without changing Command Centre. Admin-only overlay chrome remains in `admin-station/styles/admin-station.css`.
 
-## Invariants
-
-- **Entity-agnostic shell + controller.** They hold a template *key*, never an entity; only content is entity-specific.
-- **Native identity end-to-end:** one `recordId: StationRecordId` from card action → intent → controller → content → endpoint, in the record's own form (today a string `group_id`; the type stays `string | number` because an entity's id travels as its own source expresses it). Never converted in either direction. Survives View↔Edit switching. The controller treats it as **opaque** — it stores and returns it without parsing or comparing.
-- **No `components/admin` imported.** Bundle isolation holds — the admin-station entry's module closure contains zero `components/admin` files. The Service and Tier templates mount shared compositions from the neutral `drawer-kit/` and `entity-drawers/`, which is a relocation, not a fork: both bundles reference one shared Rollup chunk. Cycle count is 4 (down from a 5-cycle baseline; the removed one was `schema/types ↔ relations/types`). Note the previously documented "baseline of four `components/admin` cycles" was stale — one of the five was always in `admin-station/presentation`.
-- **Fails loudly / degrades safely:** malformed registry throws at load; an unresolved key or missing record renders a neutral state, never a blank or a crash.
-- **One intent→mode system.** The old `categoryGroupDrawer.ts` seam was deleted; the action→tab mapping lives only in the binding's `actionIntents`.
-
-## Wiring
-
-`AdminStation.tsx` wraps `AdminStationDrawerProvider`; `AdminStationLayout.tsx` renders `<AdminStationDrawer/>`; `AdminStationBody.tsx` passes `openFromIntent` as the surface host's dispatch.
+Browser runtime remains unverified where no WordPress runtime is available.
 
 ## Related Code Maps
 
-[Surface Binding](admin-station-surface-binding.md), [Cards](admin-station-cards.md), [Admin Station](admin-station.md), [Entity Drawer Recovery](entity-drawer-recovery.md).
+[Entity Drawer Recovery](entity-drawer-recovery.md), [Cards](admin-station-cards.md), [Categories](categories.md), [Package Manager](package-manager.md), [Styles](admin-station-styles.md).

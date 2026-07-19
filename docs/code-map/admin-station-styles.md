@@ -1,38 +1,37 @@
 # Admin Station Styles
 
-The scoped token system and styling for the Admin Station. Part of the [Admin Station](admin-station.md) subsystem. All token overrides are scoped by `data-station-theme` (light/dark) stamped on the `.cz-admin-station` root, so nothing leaks into the surrounding page and the tree never loads `admin.css`.
+The Admin Station uses scoped station tokens plus the shared drawer stylesheet. Theme selectors remain under `.cz-admin-station`, so the surrounding WordPress page and Command Centre do not inherit station visuals.
 
-Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/styles/`
+## Authoritative files
 
-## Files
+- `resources/ts/admin-station/styles/admin-station-tokens.css` — light/dark station tokens.
+- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, carousel, and Admin-only drawer overlay/header/footer-band chrome.
+- `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell/card/drawer rules.
+- `resources/css/modules/drawer-kit.css` — shared modules, status pills, notification panels, forms, inline editors, dialogs, module actions, and record footers. `.cz-admin-station`-scoped adaptations give shared compositions the newer Admin Station module/editor treatment while leaving Command Centre unchanged.
 
-- `admin-station-tokens.css` — scoped light/dark tokens.
-- `admin-station.css` — token-driven layout and component styling.
-- `admin-station-responsive.css` — the responsive rules.
+`resources/ts/modules/admin-station.ts` emits `dist/css/admin-station.css`. Vite builds `drawer-kit.css` as its own stable entry; `Core/AssetLoader.php` registers it once and makes both page styles depend on it.
 
-The module entry `resources/ts/modules/admin-station.ts` imports all three so the bundler emits a single `dist/css/admin-station.css`.
+## Drawer styling boundary
 
-## Token families
+The one Admin Station shell owns the fixed layer, backdrop, width, header, scroll body, and pinned footer band. Entity content uses only drawer-kit primitives. The removed transitional `cz-record-drawer__*` style system no longer competes with mature modules.
 
-Theme-dependent (light/dark): app/header/surface/elevated backgrounds, text, muted text, border, hover/active bg, focus ring, icon colour, pill/dropdown/control radii, header height, horizontal spacing, nav offset, shadow, backdrop. `--station-sidebar-bg` is the single application background.
+Admin Station host adaptations in `drawer-kit.css` provide:
 
-Theme-independent:
+- sticky Overview/Connections tabs;
+- rounded dark module cards with blue accents;
+- inline (module-local) editors so sibling modules remain readable;
+- pinned record footer normalization;
+- station-token form fields and notification panels.
 
-- **Home shell layout set** — `--station-shell-height`, `--station-content-max`, `--station-grid-columns`, `--station-grid-gap`, `--station-body-pad`, `--station-body-pad-sm`.
-- **Accent family** — `--station-accent`, `--station-accent-strong`, `--station-accent-soft-bg`, `--station-accent-border`, `--station-accent-on`, `--station-accent-seam`. This is the source the `--station-nav-*` pills derive from.
-- **Status families** — `--station-status-{active,pending,inactive}-{fg,bg,border}`.
-- Card/metric/pill/control shape sets, the type scale (`--station-text-*`, `--station-tracking-*`, `--station-line-snug`), and the layering pair `--station-z-sticky` / `--station-z-dropdown`.
-
-The slide menu is square-cornered (no radius token).
+These overrides always begin with `.cz-admin-station`; unscoped drawer-kit rules preserve Command Centre.
 
 ## Responsive rules
 
-- The Header never wraps; pills scroll then hide (≤560px), leaving the slide menu as the complete navigation source.
-- Home gutters drop to `--station-body-pad-sm` at ≤767px.
-- Card grid cells claim twelve-column spans — 4 (three across) by default, 12 (one across) inside that same ≤767px block.
-
-**Three breakpoints exist in total (767 / 720 / 560) and a component may not add a fourth**: the card grid reuses the shell's boundary rather than inventing one, and metric rows are full-width list lines that narrow with their card, needing no breakpoint at all. Breakpoint values are raw because custom properties are not valid in a media-query prelude; everything they change is token- or grid-driven.
+- Home gutters/card columns change at 767px.
+- Carousel sizing uses 768px; header pill compaction uses 720px.
+- At 560px the header pills hide and the drawer becomes full viewport width.
+- Shared record footers wrap at the existing 480px drawer-kit breakpoint.
 
 ## Related Code Maps
 
-[Admin Station](admin-station.md), [Admin Station Home Shell](admin-station-home-shell.md), [Admin Station Cards](admin-station-cards.md).
+[Admin Station](admin-station.md), [Admin Station Drawer](admin-station-drawer.md), [Admin Station Cards](admin-station-cards.md).

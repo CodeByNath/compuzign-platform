@@ -9,7 +9,7 @@
 // EntityDrawerHostBridge. It renders NOTHING — TierDrawerContent turns this into
 // the mature EntityDrawer presentation, the tier cards, the bin list, the footer,
 // and the dialogs. Extracted verbatim from the former ServiceTierStep god file;
-// the only change is that StepContext coupling moved onto the bridge.
+// the only change is that legacy host coupling moved onto the bridge.
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { usePackageStation } from '@/hooks/usePackageStation';
@@ -61,6 +61,7 @@ export function useTierDrawerController({
   const [openTierPanel, setOpenTierPanel] = useState<string | null>(null);
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   const [overviewTab, setOverviewTab] = useState<DrawerBaseTabId>('details');
+  const [tierTab, setTierTab] = useState<DrawerBaseTabId>('details');
   const [listView, setListView] = useState<'current' | 'bin'>('current');
   const [splitOpen,    setSplitOpen]    = useState(false);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
@@ -207,6 +208,14 @@ export function useTierDrawerController({
     setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
+  };
+
+  const selectTierTab = (nextTab: DrawerBaseTabId) => {
+    if (editingSection !== null) {
+      if (!window.confirm('Discard unsaved Package changes?')) return;
+      cancelSection();
+    }
+    setTierTab(nextTab);
   };
 
   // ── Lifecycle (occupant-owned; the shell never travels) ─────────────────────
@@ -365,7 +374,7 @@ export function useTierDrawerController({
       data:     { refs: detail.faq_refs, pool: svc.faqs },
       state:    view.modules.faqs,
       hasDraft: view.drafts.faqs !== null,
-      handlers: { edit: () => openSection('tier-inclusions'), 'discard-draft': () => handleRevertModule('faqs') },
+      handlers: { edit: () => openSection('tier-faqs'), 'discard-draft': () => handleRevertModule('faqs') },
       busy: tierBusy,
     };
 
@@ -376,7 +385,7 @@ export function useTierDrawerController({
     // stores
     pkg, station, svc, serviceItem, serviceBack,
     // navigation
-    editingTierId, editingSection, overviewTab, selectOverviewTab, listView, setListView,
+    editingTierId, editingSection, overviewTab, selectOverviewTab, tierTab, selectTierTab, listView, setListView,
     initialOccupantId,
     // package overview
     openSummaryTier, setOpenSummaryTier, openTierEdit,

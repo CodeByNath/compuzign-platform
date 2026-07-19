@@ -12,13 +12,15 @@ The Package Station owns `package_manager`, rate-sheet selections, tiers, promot
 
 ### [PackageManagerStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/PackageManagerStation.tsx)
 
-Packages-only station for supported Tier cards and Promotions. It resolves the compatibility host-Service id, renders `DynamicStationManager` in `packages` mode, and opens only Tier or Promotion drawers. Subscriptions, bundles, CRM, and future offers are not implemented here.
+Packages-only Tier/Promotion station. It resolves the compatibility host Service and renders `DynamicStationManager` in `packages` mode.
 
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
 Owns manager coordinator state with two required compositions. `service-catalog` renders Family Cards plus Details / Connections / Settings; `packages` renders only Package Tier cards and Promotions. `selectedCategoryGroupId` drives Service Catalog filtering and never assigns Tier occupants.
 
-[serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) supplies the Service Catalog’s focused manager-owned editors. Their apply callbacks use the current Package provider draft; descriptions and Price Settings persistence remain outside the present schema.
+[serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) supplies focused manager-owned editors whose apply callbacks use the Package provider draft.
+
+Existing Package Family editing in that file now mounts the shared mature [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); only new-Family creation retains a focused create form. The same composition mounts under the Admin Station adapter, with Overview/Connections, dependency counts, shared inline editing, lifecycle footer, notifications, and dirty-close protection.
 
 [serviceDrawerConfig.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts) owns the canonical Service drawer config. [packageManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/packageManagerDrawers.ts) separately owns Tier and Promotion configs. The former full manager drawer and nested portal path have been removed.
 
@@ -31,6 +33,7 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 - [coordinator.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/coordinator.ts) owns provider-neutral state and validation.
 - [usePageManagerShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx) supplies the shared page footer and dirty-navigation adapter used by station hosts.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package Station client state and mutations.
+- [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageFamilyStation.ts) is the Package Family client write boundary: overview save/revert/settle, publish, enable/disable, archive/trash/restore, delete, module state, and mutation notification.
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/tierOccupants.ts) projects occupants and resolves them to slots.
 
 ## Backend and Persistence
@@ -43,17 +46,13 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 | --- | --- | --- | --- |
 | Manager coordination | `SECTION: MANAGER_COORDINATION` | Provider drafts, validation, saves | Changing orchestration |
 | Family scope | `SECTION: FAMILY_SCOPE` | Package Family cards and workspace scope | Changing scope behavior |
-| Workspaces | `SECTION: SERVICE_WORKSPACE`, `PACKAGE_WORKSPACE`, `PROMOTION_WORKSPACE` | Service Catalog supply versus Packages presentation | Changing workspace UI |
 | Rate Sheet editor | `SECTION: RATE_SHEET_EDITOR` | Save/validation; editor UI in [PackageRateSheetEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetEditor.tsx) | Changing Rate Sheet UI |
 | Package provider | `SECTION: PACKAGE_PROVIDER` | Read, validate, save, continuations | Changing provider behavior |
 | Manager shape | `SECTION: MANAGER_SHAPE` | Defaults and sanitization | Changing persisted shape |
 | Manager commit | `SECTION: MANAGER_COMMIT` | Validation and commit | Changing saves |
 | Reconciliation | `SECTION: SOURCE_RECONCILIATION` | Pool source resolution | Changing source items |
 | Read model | `SECTION: MANAGER_READ_MODEL` | Provenance and health | Changing projections |
-| Rate Sheet projection | `SECTION: RATE_SHEET_PROJECTION` | Tier references | Changing Tier inputs |
 | Persistence | `SECTION: STATION_PERSISTENCE` | Load, cache, save, migration | Changing storage |
-| Source projections | `SECTION: SOURCE_PROJECTIONS` | Pools and provenance | Changing supply data |
-| Lookups | `SECTION: PACKAGE_LOOKUPS` | Coverage and indexes | Changing Package discovery |
 | Backend | `SECTION: PACKAGE_STATION` | Matching routes and handlers | Changing REST behavior |
 
 ## Validation

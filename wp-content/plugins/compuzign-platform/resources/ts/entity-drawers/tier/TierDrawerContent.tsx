@@ -13,11 +13,10 @@ import { AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
+import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import { ModeProvider } from '@/drawer-kit/schema/modeContext';
 import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
-import { ChildShell } from '@/drawer-kit/schema/shells/childShell';
 import { serviceOverviewShell } from '../schema/bindings/service';
-import { tierOverviewShell, tierFeaturesShell, tierFaqsShell } from '../schema/bindings/tier';
 import { TIER_ENTITY } from '../schema/entities/tier';
 import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
@@ -38,7 +37,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // Publish the record footer through the host. Mirrors the old host's footer
   // effect deps; edit mode ('none') leaves the slot to InlineEditorShell.
   useEffect(() => {
-    bridge.setFooter(
+    bridge.setFooter(c.footerMode === 'none' ? null :
       <TierDrawerFooter
         mode={c.footerMode}
         occupied={c.footerOccupied}
@@ -218,69 +217,51 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   if (!td) return null;
   const { detail, rateSheetCatalogue } = td;
 
+  let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
-    return (
-      <ModeProvider mode="edit">
-        <OverviewShell
-          schema={tierOverviewShell}
-          binding={td.overviewBinding}
-          editSession={{
-            draft:    c.overviewDraft,
-            patch:    (p) => c.setOverviewDraft((d) => d ? { ...d, ...(p as Partial<TierOverviewEditDraft>) } : d),
-            replace:  (next) => c.setOverviewDraft(next as TierOverviewEditDraft),
-            onSave:   c.saveSection,
-            onCancel: c.cancelSection,
-            saving:   c.pkg.saving,
-            saveErr:  c.saveErr,
-            isDirty:  true,
-          }}
-        />
-      </ModeProvider>
-    );
-  }
-
-  if (c.editingSection === 'tier-inclusions' && c.featuresDraft) {
+    editing = {
+      module: 'overview',
+      session: {
+        draft: c.overviewDraft,
+        patch: (patch) => c.setOverviewDraft((current) => current ? { ...current, ...(patch as Partial<TierOverviewEditDraft>) } : current),
+        replace: (next) => c.setOverviewDraft(next as TierOverviewEditDraft),
+        onSave: c.saveSection,
+        onCancel: c.cancelSection,
+        saving: c.pkg.saving,
+        saveErr: c.saveErr,
+        isDirty: true,
+      },
+    };
+  } else if (c.editingSection === 'tier-inclusions' && c.featuresDraft) {
     const activeIds = new Set(rateSheetCatalogue.filter((item) => item.resolved).map((item) => item.item_id));
     const suspended = c.featuresDraft.filter((item) => !activeIds.has(item.item_id));
-    return (
-      <ModeProvider mode="edit">
-        <ChildShell
-          schema={tierFeaturesShell}
-          binding={td.featuresBinding}
-          editSession={{
-            draft:    c.featuresDraft.filter((item) => activeIds.has(item.item_id)),
-            replace:  (next) => c.setFeaturesDraft([...(next as TierRateSheetSelection[]), ...suspended]),
-            onSave:   c.saveSection,
-            onCancel: c.cancelSection,
-            saving:   c.pkg.saving,
-            saveErr:  c.saveErr,
-            isDirty:  true,
-            extras:   { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved) },
-          }}
-        />
-      </ModeProvider>
-    );
-  }
-
-  if (c.editingSection === 'tier-faqs' && c.faqsDraft) {
-    return (
-      <ModeProvider mode="edit">
-        <ChildShell
-          schema={tierFaqsShell}
-          binding={td.faqsBinding}
-          editSession={{
-            draft:    c.faqsDraft,
-            replace:  (next) => c.setFaqsDraft(next as string[]),
-            onSave:   c.saveSection,
-            onCancel: c.cancelSection,
-            saving:   c.pkg.saving,
-            saveErr:  c.saveErr,
-            isDirty:  true,
-            extras:   { pool: svc.faqs, onCreate: (question: string, answer: string) => c.pkg.createFaq(question, answer) },
-          }}
-        />
-      </ModeProvider>
-    );
+    editing = {
+      module: 'features',
+      session: {
+        draft: c.featuresDraft.filter((item) => activeIds.has(item.item_id)),
+        replace: (next) => c.setFeaturesDraft([...(next as TierRateSheetSelection[]), ...suspended]),
+        onSave: c.saveSection,
+        onCancel: c.cancelSection,
+        saving: c.pkg.saving,
+        saveErr: c.saveErr,
+        isDirty: true,
+        extras: { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved) },
+      },
+    };
+  } else if (c.editingSection === 'tier-faqs' && c.faqsDraft) {
+    editing = {
+      module: 'faqs',
+      session: {
+        draft: c.faqsDraft,
+        replace: (next) => c.setFaqsDraft(next as string[]),
+        onSave: c.saveSection,
+        onCancel: c.cancelSection,
+        saving: c.pkg.saving,
+        saveErr: c.saveErr,
+        isDirty: true,
+        extras: { pool: svc.faqs, onCreate: (question: string, answer: string) => c.pkg.createFaq(question, answer) },
+      },
+    };
   }
 
   // View mode — the Individual Tier drawer body. Keyed by stable occupant
@@ -290,6 +271,8 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     <EntityDrawer
       key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}
       entity={TIER_ENTITY}
+      tab={c.tierTab}
+      onSelectTab={c.selectTierTab}
       bindings={{
         overview: td.overviewBinding,
         features: td.featuresBinding,
@@ -298,6 +281,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
       }}
       openPanel={c.openTierPanel}
       onTogglePanel={(m) => c.setOpenTierPanel((p) => (p === m ? null : m))}
+      editing={editing}
       trailing={{
         details: (c.saveErr || c.saveOk) && (
           <div class="cz-shell-section cz-shell-section--no-border">

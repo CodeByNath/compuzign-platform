@@ -11,13 +11,12 @@
  *
  * Status and notifications deliberately reuse the platform's existing non-visual
  * contracts rather than restating them:
- *   - `CategoryGroupStatus` is the existing 5-state resolver vocabulary
- *     (components/admin/utils/moduleStatus.tsx), whose label/class mapping is
- *     owned by the Presentation Status Contract chokepoint
- *     (components/admin/schema/presentation.ts).
+ *   - `CategoryGroupStatus` is the existing 5-state resolver vocabulary from
+ *     drawer-kit/utils/moduleStatus.tsx; its label/class mapping is owned by the
+ *     shared Presentation Status Contract in drawer-kit/schema/presentation.ts.
  *   - `CategoryGroupNotification` is the existing ModuleNote, re-exported through
  *     this narrow adapter so the card depends on the notification *contract*
- *     without reaching for the old notification UI.
+ *     while the card adapter renders it through the shared notification UI.
  * Both imports are type-only and non-visual, matching the precedent set by
  * useServiceStation.
  */
@@ -56,17 +55,8 @@ export type CategoryGroupStatus = 'active' | 'disabled' | 'pending-dim' | 'pendi
 /**
  * The card's notification contract — the existing ModuleNote under a local name.
  *
- * A non-visual adapter, and only that. The platform's note *data* layer
- * (ModuleNote, noteCount, categoryGroupOverviewModule) is pure logic and freely
- * reusable, but its only renderer — ModuleNotificationPanel — is old-tree UI
- * whose stylesheet this environment never loads, and the old system's affordance
- * for it (a clickable status pill opening that panel) cannot be composed without
- * migrating it.
- *
- * So this phase carries the notes in the contract and renders none: the panel is
- * reported as a missing station dependency rather than reinvented as a badge
- * with nowhere to lead. When a station notification surface exists, cards already
- * hold the data it needs.
+ * The card presentation delegates both pill and note rendering to drawer-kit;
+ * this alias keeps the card contract narrow without duplicating that system.
  */
 export type CategoryGroupNotification = ModuleNote;
 

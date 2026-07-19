@@ -6,10 +6,21 @@ import type { ModuleNote } from '../utils/moduleNotifications';
 
 interface Props {
   notes: ModuleNote[];
+  variant?: 'module' | 'station';
 }
 
-export function ModuleNotificationPanel({ notes }: Props) {
+export function ModuleNotificationPanel({ notes, variant = 'module' }: Props) {
   if (notes.length === 0) return null;
+
+  if (variant === 'station') {
+    return (
+      <span class="cz-station-status-notifications__list">
+        {notes.map((note) => (
+          <span key={note.id} class={`is-${note.type}`}>{note.message}</span>
+        ))}
+      </span>
+    );
+  }
 
   return (
     <div class="cz-module-notes">

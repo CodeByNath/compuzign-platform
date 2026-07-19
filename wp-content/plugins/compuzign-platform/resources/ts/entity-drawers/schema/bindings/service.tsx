@@ -115,6 +115,7 @@ export const serviceOverviewShell: ShellSchema<ServiceOverviewShellData> = {
         categories={(s.extras?.categories ?? []) as Category[]}
         catDescription={(s.extras?.catDescription ?? '') as string}
         onCatDescriptionChange={s.extras?.onCatDescriptionChange as (val: string) => void}
+        onCreateCategory={s.extras?.onCreateCategory as (name: string) => Promise<{ category: Category; existing: boolean }>}
       />
     ),
   },

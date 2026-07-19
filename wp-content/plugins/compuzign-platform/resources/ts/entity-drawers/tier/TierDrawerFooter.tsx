@@ -4,6 +4,8 @@
 // Publish once a tier is open. Rendered into the host's footer region through
 // the bridge.
 
+import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
+
 interface TierDrawerFooterProps {
   mode: 'close-only' | 'none' | 'tier-actions';
   occupied: boolean;
@@ -26,46 +28,25 @@ export function TierDrawerFooter({
 
   if (mode === 'close-only') {
     return (
-      <div class="cz-tf-footer">
-        <div class="cz-tf-footer__spacer" />
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={onClose}>Close</button>
-      </div>
+      <EntityActionFooter close={{ id: 'close', label: 'Close', onSelect: onClose }} />
     );
   }
 
   // mode === 'tier-actions'
   return (
-    <div class="cz-tf-footer">
-      {occupied && (
-        <div class={`cz-footer-split${enabled ? ' cz-footer-split--danger' : ' cz-footer-split--secondary'}`}>
-          <button type="button" class="cz-footer-split__btn" disabled={saving} onClick={onToggleEnabled}>
-            {saving ? '…' : enabled ? 'Disable' : 'Enable'}
-          </button>
-          <button
-            type="button"
-            class="cz-footer-split__chevron"
-            disabled={saving}
-            onClick={(e) => { e.stopPropagation(); setSplitOpen((o) => !o); }}
-            aria-label="More actions"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd" />
-            </svg>
-          </button>
-          {splitOpen && (
-            <div class="cz-footer-split__menu">
-              <button type="button" class="cz-footer-split__item" disabled={saving} onClick={onArchive}>
-                Archive
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      <div class="cz-tf-footer__spacer" />
-      <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={onClose} disabled={saving}>Close</button>
-      <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={onPublish} disabled={saving || !hasContent}>
-        {saving ? 'Saving…' : 'Publish'}
-      </button>
-    </div>
+    <EntityActionFooter
+      split={occupied ? {
+        id: 'status',
+        label: enabled ? 'Disable' : 'Enable',
+        onSelect: onToggleEnabled,
+        busy: saving,
+        tone: enabled ? 'danger' : 'secondary',
+        open: splitOpen,
+        onToggle: () => setSplitOpen((value) => !value),
+        overflow: [{ id: 'archive', label: 'Archive', onSelect: onArchive, disabled: saving }],
+      } : null}
+      close={{ id: 'close', label: 'Close', onSelect: onClose, disabled: saving }}
+      primary={{ id: 'publish', label: 'Publish', onSelect: onPublish, disabled: saving || !hasContent, busy: saving, busyLabel: 'Saving…' }}
+    />
   );
 }

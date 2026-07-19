@@ -1,73 +1,51 @@
-# Entity Drawer Recovery
+# Entity Drawer Compositions
 
-The **neutral, host-agnostic Service and Tier drawer compositions**, extracted from the former `ServiceViewStep` / `ServiceTierStep` god files, and the host seam that lets any drawer host mount them. This is the "finish the Station separation" work: the mature drawer presentation is owned by the entity, not by either host — and **both hosts now mount it**.
+The mature Package Family, Category, Service, and Tier drawers are host-neutral compositions shared by Command Centre and Admin Station.
 
 Roots:
-- `wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/` — the generic renderer kit
-- `wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/` — the Service and Tier compositions
 
-## The layers
+- `wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/` — generic renderer and interaction kit.
+- `wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/` — entity compositions, controllers, manifests, bindings, and editors.
 
+## Layers
+
+```text
+Command Centre ActionShell adapter       Admin Station shell adapter
+                 ↘                        ↙
+                   EntityDrawerHostBridge
+                             ↓
+                 entity DrawerContent composition
+                             ↓
+             authoritative station hook / REST boundary
 ```
-Old Command Centre host (ActionShell / StepContext)      New Admin Station host (drawer shell)
-  → ServiceViewStep / ServiceTierStep                      → ServiceDrawerHost / TierDrawerHost
-      (thin adapter: StepContext → bridge)                     (thin adapter: DrawerContentProps → bridge)
-            ↘                                             ↙
-              → EntityDrawerHostBridge
-                → ServiceDrawerContent / TierDrawerContent   (neutral composition, no host import)
-                  → useServiceStation / usePackageStation     (authoritative state + mutation)
-                    → module REST endpoints
-```
 
-Both hosts mount the **same** composition through a thin adapter. Neither owns the drawer.
+`EntityDrawerHostBridge` carries only `close`, `setFooter`, `setCloseGuard`, and optional `onMutationComplete`. Controllers coordinate state and actions without JSX; presentation calls no endpoints.
 
-## Authoritative files
+## Shared kit
 
-- `drawer-kit/entityDrawerHost.ts` — **`EntityDrawerHostBridge`**: `{ close; setFooter(node); setCloseGuard(guard|null); onMutationComplete? }`. The whole host seam. Names no host, no entity.
-- `drawer-kit/` — the generic renderer kit, importable by both bundles: `EntityDrawer`, `DrawerTabs`, `ReadBlock`, `InlineEditorShell`, `ActionFooter`, `ui/*`, `utils/{moduleNotifications,moduleStatus}`, and `schema/{types,icons,modeContext,presentation,elements,shells}`. Its only outbound imports are type-only, to neutral modules — no host, no routing, no mutation authority. `ManagerEntityRef` / `StationConnectionDescriptor` are declared here (because `ShellBinding` carries the descriptor) and re-exported by `components/admin/relations/types.ts`.
-- `entity-drawers/service/` — the neutral Service composition:
-  - `ServiceDrawerContent.tsx` — assembles `EntityDrawer` (Overview/Inclusions/FAQs modules, status pills, notification panels, module footers), the Connections Pricing Summary, and the in-place module editors. Imports neither host. Publishes the footer through the bridge.
-  - `useServiceDrawerController.ts` — record identity, the **module-level** edit state machine (one module editing, others readable), drafts/dirty, save/cancel/discard, lifecycle (toggle/settle/publish/archive/trash), and the guarded exit (unsaved / pending / new-never-published). Coordinates `useServiceStation`; **renders no JSX**.
-  - `ServiceDrawerFooter.tsx`, `ServiceDrawerDialogs.tsx` — record footer + confirm/exit modals (pure presentation). `serviceDrawerTypes.ts` — content props.
-  - `serviceSeed.ts` — `buildServiceItemForStationHandoff` / `normalizeAdminCategories`, the drawer's INPUT adapters. Shared, so both hosts build the same seed; `ServiceCatalogStation` re-exports them for its own consumers.
-- `entity-drawers/tier/` — the neutral Tier composition, same shape plus the two-level nav (package overview ↔ individual tier) and occupant/bin travel: `TierDrawerContent.tsx`, `useTierDrawerController.ts` (archive/restore-with-swap·retarget·pending-drafts/trash/delete, popular-tier, enable-disable, guarded exit — no JSX), `TierDrawerFooter.tsx`, `TierBinList.tsx`, `TierDrawerDialogs.tsx`, `tierDrawerTypes.ts`.
-- `entity-drawers/{schema,editors,shared}/` — the Service and Tier entity manifests, bindings, tables, the six module editors, and `serviceDrawerShared` / `tierOccupants`.
+- `EntityDrawer.tsx` — schema placement, Overview/Connections, notification accordion, and per-module `editing` session. Only the named module enters edit mode; siblings remain readable.
+- `schema/{types,elements,shells,...}` — entity/shell/action/placement contracts and the two shell archetypes.
+- `ui/ModuleStatusPill.tsx` and `ui/ModuleNotificationPanel.tsx` — the single pill/panel renderers, including the Admin Station card visual variant.
+- `InlineEditorShell.tsx` — shared Save/Cancel, dirty cancel confirmation, validation disable, loading, and error chrome.
+- `ActionFooter.tsx` — module actions.
+- `EntityActionFooter.tsx` and `CanonicalEntityFooter.tsx` — one record-level footer grammar and canonical lifecycle mapping.
 
-### The two host adapters
+## Entity compositions
 
-- `components/admin/stations/ServiceViewStep.tsx` (55 lines, was ~1035) / `ServiceTierStep.tsx` (49 lines, was ~1040) — read the StepContext handoff, build the bridge (`ctx.setFooter`/`setCloseGuard`/`close`/`onRefresh`), mount the composition. `ServiceViewStep` keeps the `decodeHtml`/`TIER_KEYS`/`TIER_LABELS` re-exports.
-- `admin-station/stations/serviceSurface/ServiceDrawerHost.tsx` / `tierSurface/TierDrawerHost.tsx` — map `DrawerContentProps` onto the same bridge (`close = onClose`, `onMutationComplete = onSaved`). Service resolves its numeric `recordId` against the catalogue and builds the seed; Tier passes the card's `occupant_id` through as `initialOccupantId` and lets the composition re-resolve the slot.
+- `entity-drawers/category/` — Category Overview, assigned-Service Connections, group membership, draft/publish/enable/archive/trash/restore/delete, dialogs and close guard. `components/admin/stations/CategoryViewStep.tsx` is now a thin adapter.
+- `entity-drawers/package-family/` — Family Overview, Services/Rate Sheet/Tier dependency Connections, draft/revert/settle/publish and full lifecycle. `hooks/usePackageFamilyStation.ts` is the authoritative client write boundary. Existing Command Centre editing mounts this composition; creation remains its own first-level create form.
+- `entity-drawers/service/` — Overview, Included Features, FAQs, pricing Connections, lifecycle, guarded pending/new-draft exits.
+- `entity-drawers/tier/` — tier cards, Overview/Features/FAQs, service Connections, occupant bin, restore conflicts, swap/retarget, publish and enable/disable.
+- `entity-drawers/schema/` — shared manifests/bindings. The Command Centre Category manifest extends the neutral drawer manifest with table/travel placements rather than duplicating drawer schema.
 
-## Bundle boundary — resolved
+## Bundle and style boundary
 
-`admin` and `admin-station` remain separate Rollup entry points, and `admin-station` still imports **no** `components/admin` file (verified: the admin-station entry's module closure contains zero). The boundary was resolved by **moving** the shared code out of `components/admin` rather than by duplicating it:
+Admin Station imports no `components/admin` module and no `StepContext`. Both JS entries import the same neutral modules, emitted as shared Rollup chunks. Both pages enqueue `resources/css/modules/drawer-kit.css`; Admin Station adaptations are root-scoped, preserving Command Centre styling.
 
-- the generic kit → `drawer-kit/`
-- the Service/Tier compositions and manifests → `entity-drawers/`
+## Identity
 
-Both bundles import the same modules, so Rollup emits them as **one shared chunk** that `admin.js` and `admin-station.js` both reference. There is one implementation, not a fork.
-
-The Command Centre's own entity manifests (Category, Promotion, Category Group) and `schema/stations.ts` (which imports `ActionShell` and every station — Command Centre routing) deliberately stayed behind.
-
-**Stylesheet:** the drawer's CSS was likewise moved out of `admin.css` into `resources/css/modules/drawer-kit.css`, its own build entry (`dist/css/drawer-kit.css`), registered once in `Core/AssetLoader.php` and declared a dependency of both page stylesheets. It carries the `--admin-*` token block, whose selector was widened to `.cz-admin-root, .cz-admin-station` — the drawer rules read those tokens and they were previously scoped to the Command Centre root only.
-
-## Registered in the Admin Station
-
-`service` and `tier` are registered in the drawer template registry alongside `package-family`, each with `supportedModes: ['view','edit']`, and each has a card wall bound to it in `surfaceBindings.ts` (`services` via `useServiceCards`, `service-tiers` via `useServiceTierCards`). See [Admin Station Drawer](admin-station-drawer.md).
-
-Tier identity is the **`occupant_id`**, never the tier slot name — a slot is a position and a bin swap/retarget can reassign it. The drawer re-resolves the slot from the occupant once the station loads.
-
-## Remaining work
-
-- **Do not delete** the old-host adapters until the old Command Centre route is retired.
-- Refactor `PackageFamilyDrawerContent` onto the shared primitives — it is still the hand-built parallel UI it had to be before the kit was reachable. Package Family is otherwise untouched and works as before.
-- The Tier wall resolves ONE host service (first service referenced by the first surface package, else the first catalogue row — the Command Centre's own rule, reused by `useHostService`). A multi-service tier surface needs a real scope, not a wider default.
-- **Not yet verified in a browser.** There is no WordPress runtime in this environment; rendering, cascade-order effects, and the drawer's appearance inside the Admin Station shell need a visual pass.
-
-## Invariants
-
-Controllers render no JSX. Presentation modules make no API calls. Authoritative mutation stays in `useServiceStation` / `usePackageStation`. Module-level editing is preserved (never replaced by a global drawer edit mode). Stable native ids flow end-to-end, unconverted. The Admin Station shell and drawer controller still name no entity.
+Package Family keeps `group_id` (string), Category/Service keep numeric ids, and Tier keeps `occupant_id` (string). Host adapters reject mismatched shapes; no identity conversion is permitted.
 
 ## Related Code Maps
 
-[Drawer and Station System](drawer-system.md), [Admin Station Drawer](admin-station-drawer.md), [Service Catalogue](service-catalogue.md), [Tiers](tiers.md), [Package Manager](package-manager.md).
+[Admin Station Drawer](admin-station-drawer.md), [Drawer System](drawer-system.md), [Categories](categories.md), [Package Manager](package-manager.md), [Tiers](tiers.md).

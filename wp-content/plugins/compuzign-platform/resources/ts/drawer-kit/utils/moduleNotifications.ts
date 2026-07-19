@@ -34,6 +34,7 @@ export interface NoteContext {
   // child resolves to pending-dim + an info note — NOT a new status value.
   parentReady?:      boolean;  // true once the parent module is complete
   parentLabel?:      string;   // parent name shown in the waiting note, e.g. 'Tier Overview'
+  platformLabel?:    string;   // entity name used by the shared inactive-state note
 }
 
 // Only 'error' notes increment the numeric badge on the pill.
@@ -76,7 +77,7 @@ export interface ModuleDefinition<T> {
 // Kept in one place because it was previously copy-pasted into all five generators.
 function lifecycleTail(key: string, ctx: NoteContext, includeDraft?: boolean): ModuleNote[] {
   if (ctx.platformStatus !== 'active')
-    return [{ id: `${key}.platform.inactive`, message: 'Waiting for service activation', type: 'info' }];
+    return [{ id: `${key}.platform.inactive`, message: `Waiting for ${ctx.platformLabel ?? 'service'} activation`, type: 'info' }];
   if (includeDraft && ctx.hasDraft)
     return [{ id: `${key}.module.draft`, message: 'Draft saved — settle to publish', type: 'info' }];
   if (ctx.moduleTransition === 'pending')
@@ -345,6 +346,61 @@ export const categoryOverviewModule: ModuleDefinition<CategoryOverviewLike> = {
 // Category Services — the relation-summary gateway (D4). Pure synchronous
 // projection of assigned-service counts; no own lifecycle (Boundary Test), so
 // status follows the category's platform status. Precedent: tierFeaturesModule.
+
+export interface CategoryServicesLike {
+  total: number;
+  active: number;
+  disabled: number;
+}
+
+export const categoryServicesModule: ModuleDefinition<CategoryServicesLike> = {
+  key:         'category-services',
+  emptyPrompt: 'No Services are assigned to this Category yet.',
+  isEmpty:     ({ total }) => total === 0,
+  problems:    () => [],
+  resolveStatus: (_counts, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
+};
+
+// Package Family modules — Package-owned commercial group overview plus its
+// read-only dependency projection. These use the same evaluator, status-pill,
+// and notification-panel system as every other mature drawer module.
+
+export interface PackageFamilyOverviewLike {
+  name: string;
+  description: string;
+}
+
+export const packageFamilyOverviewModule: ModuleDefinition<PackageFamilyOverviewLike> = {
+  key:                'package-family-overview',
+  emptyPrompt:        'Edit and name this Package Family.',
+  isEmpty:            (family) => !family.name.trim(),
+  includeDraftInTail: true,
+  problems: (family) => family.name.trim()
+    ? []
+    : [{ id: 'package-family-overview.name.missing', message: 'Name missing', type: 'error' }],
+  resolveStatus: (family, ctx) => {
+    if (ctx.moduleTransition === 'not-configured' || !family.name.trim()) return 'pending-dim';
+    if (ctx.platformStatus === 'disabled') {
+      return ctx.moduleTransition === 'settled' ? 'disabled' : 'pending-dim';
+    }
+    if (ctx.moduleTransition === 'pending') return 'pending-full';
+    return 'active';
+  },
+};
+
+export interface PackageFamilyRelationshipsLike {
+  services: number;
+  rateSheetRows: number;
+  tierSelections: number;
+}
+
+export const packageFamilyRelationshipsModule: ModuleDefinition<PackageFamilyRelationshipsLike> = {
+  key:         'package-family-relationships',
+  emptyPrompt: 'No Services, Rate Sheet rows, or Tier selections use this Package Family yet.',
+  isEmpty:     ({ services, rateSheetRows, tierSelections }) => services + rateSheetRows + tierSelections === 0,
+  problems:    () => [],
+  resolveStatus: (_relationships, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
+};
 
 // ── Category Group modules (Category Group audit, Option B) ──────────────────
 // Same two-module shape as Category, one level up: an owned overview module and

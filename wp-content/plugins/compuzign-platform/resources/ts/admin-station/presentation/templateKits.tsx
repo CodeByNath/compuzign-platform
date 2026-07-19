@@ -5,7 +5,7 @@
 // and an intent dispatcher, loops the records, and emits identity-only intents.
 // It fetches nothing and owns no data source — the host pairs it with one. This
 // is the "template" half of the model: receive records, loop, print, expose
-// View/Edit, dispatch the record id.
+// entity actions, and dispatch the record id.
 //
 // Kits never branch on entity beyond narrowing their own item type from the
 // registry's `unknown` seam (see dataSources.ts). The record identity a kit
