@@ -1,47 +1,50 @@
 # Admin Station Surface Binding
 
-The **dynamic destination → template projection engine**: how the Admin Station turns an active station's placement region into a live surface without the shell branching on entity. Part of the [Admin Station](admin-station.md) subsystem; sits between the [Navigation & Destination Resolver](admin-station-navigation.md) (which resolves *where/what data*) and the [Cards](admin-station-cards.md) (one template kit).
+The dynamic station/placement → presentation projection engine. It composes live walls without shell-level entity branching.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
-## The chain
+## Runtime chain
 
-```
-active destination (station) + placement
-  → resolveSurfaceBindings(stationId, placement)   → a LIST of walls
-    → for each: dataSourceKey + templateKitKey + conditions + actionIntents + title?
-      → StationSurfaceHost resolves the two keys and composes them
-        → data source hook supplies { items, loading, error, refetch }
-          → template kit loops + prints, emits identity-only intents
-            → Body dispatches (intent, that wall's refetch) → shared drawer
+```text
+active station + placement
+  → resolveSurfaceBindings() returns ordered walls
+  → StationSurfaceHost resolves dataSourceKey + templateKitKey
+  → read hook supplies { items, loading, error, refetch }
+  → kit emits native-identity actions
+  → Body dispatches intent + that wall's refetch handle
+  → registered drawer adapter
 ```
 
-**A placement holds many walls.** A region can stack several, each with its own data source, kit, action intents, and optional drawer; the Service home presentation region shows Package Families followed by Service Categories. Adding, reordering, or removing a wall is a row in the table — never an edit to the Body or host.
+A placement may contain several ordered walls. Services currently presents Package Families, Service Categories, Services, and Package Tiers in table order.
 
 ## Authoritative files
 
-- `stations/surfaceBindings.ts` — the **binding table** (data only) plus its structural guard and `resolveSurfaceBindings`. Each row binds one `stationId + surfaceId + placement` to a `dataSourceKey`, a `templateKitKey`, optional `conditions`, `actionIntents`, and an optional drawer template. The Service presentation placement has two ordered walls: `package-families` (full cards + drawer) followed by `service-categories` (compact carousel, read-only). `BINDING_INDEX` maps `station::placement` → **a list**; `surfaceId` keeps walls distinct.
-- `stations/dataSources.ts` — `DataSourceKey → read hook` registry: `package-families` → `usePackageFamilyCards`; `service-categories` → `useServiceCategoryCards`. Every source returns `SurfaceCollection<Item>` (`items/loading/error/refetch`). Sources are pure reads — registering one pulls no old UI.
-- `stations/recordIdentity.ts` — the shell's one identity type (`StationRecordId = string | number`), zero-dependency so every layer can share it without a cycle.
-- `presentation/templateKits.tsx` — `TemplateKitKey → kit` registry. `CategoryGroupCardsKit` wraps the full card grid; `ServiceCategoryCarousel` renders compact cube cards in a horizontal, scroll-snapped repeater with six visible on desktop.
-- `stations/StationSurfaceHost.tsx` — the **generic composer**. Resolves both keys, calls the one data-source hook, renders the kit, and maps a dispatched `actionId` to the binding's intent → `ResolvedStationIntent { recordId, intent, drawerTemplateKey }`, dispatched **alongside this wall's own `refetch`**. `assertBindingsResolvable` throws at load if any binding names a source/kit the registries lack (fails loudly, not silently blank).
-- `stations/useRetainedCollection.ts` — stale-while-revalidate for a wall. `useApi` resets to `{ data: null, loading: true }` on every `refetch()`, which would blank a wall to "Loading…" to show one changed card. This retains the last loaded collection during a **reload** (first loads report the real loading state), so a save-triggered refresh swaps data in place. Kept local to these sources rather than changed inside the shared `useApi`, which the old tree also uses.
-- `shell/AdminStationBody.tsx` — resolves `activeDestination?.stationId ?? DEFAULT_HOME_STATION` at the `presentation` placement, maps **every** returned binding to a titled `.cz-station-wall` section, and passes `openFromIntent` as each host's dispatch.
+- `stations/surfaceBindings.ts` — declarative binding rows, action intents, optional drawer key, structural guard, and resolver.
+- `stations/dataSources.ts` — read-hook registry for Package Families, Service Categories, Services, and Tiers.
+- `stations/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
+- `presentation/templateKits.tsx` — kit registry for full card grids and compact Category carousel.
+- `stations/StationSurfaceHost.tsx` — generic source/kit composer and resolvability guard.
+- `stations/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
+- `shell/AdminStationBody.tsx` — renders each resolved presentation binding and forwards intents to the drawer.
 
 ## Invariants
 
-- **The shell never branches on entity.** It prints whatever kit a binding names. Adding a presentation surface is one binding row (+ a data source, + a kit if new) — no shell edit.
-- **Not the dropped `stationId + surfaceId → EntitySchema`.** Bindings hold *keys* resolved at mount, never a fixed entity schema, and value-import nothing from `components/admin` (bundle stays isolated: the admin-station entry's module closure contains zero such files; madge cycles 4, down from a 5-cycle baseline).
-- **Rules of Hooks.** The host calls exactly one data-source hook; Body mounts each wall with a `key` of `stationId:surfaceId:dataSourceKey` — the data source key is in the identity deliberately, since it decides *which* hook the host calls — so a resolved source is stable per mount and never swaps under a live instance.
-- **Refresh is targeted, not broadcast.** A wall dispatches its own `refetch` with its intent; the drawer controller remembers that one handle and calls it on save. Editing a Package Family refreshes the Package Family wall and nothing else. There is no event bus and no registry to mis-key — the targeting is structural, so it stays correct whether the region holds one wall or several.
-- **Native identity end-to-end.** Intents carry `recordId: StationRecordId` — the record's own id, numeric or string — to the drawer boundary, converted in neither direction. The host passes it straight through from the kit without inspecting it. See [Record identity](admin-station-cards.md#record-identity).
-- **No invented rows.** Only surfaces with a real data source and kit are bound; Packages/Promotions presentation walls are deliberately absent and resolve to the shell's empty state.
-- **A source stays registered when unbound.** Re-pointing a wall at a different entity is a key change in this table, never a code move.
+- The shell never branches on entity; adding a wall changes a binding plus a real source/kit registration.
+- A source hook is stable per mounted host; the host key includes its `dataSourceKey`.
+- Refresh is structural and targeted: the opening wall supplies the only refetch handle invoked after mutation.
+- Record ids remain native. Package Family and Tier ids are strings; Category and Service ids are numbers. The host neither parses nor coerces them.
+- Bindings import no Command Centre runtime module.
+- Only surfaces with real sources and kits are bound. Registered but unbound sources remain reusable.
 
-## Drawer
+## Drawer boundary
 
-The drawer target is now **live**: a dispatched `ResolvedStationIntent` (numeric `recordId`, resolved `intent`, `drawerTemplateKey` from the binding) opens the shared [Admin Station Drawer](admin-station-drawer.md). The old `categoryGroupDrawer.ts` seam was deleted — the action→tab mapping lives only in `actionIntents`.
+`ResolvedStationIntent` carries the native `recordId`, resolved intent, and `drawerTemplateKey` into the shared [Admin Station Drawer](admin-station-drawer.md). Action-to-tab mapping lives in binding `actionIntents`; the deleted `categoryGroupDrawer.ts` seam must not return.
+
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 
-[Admin Station](admin-station.md), [Navigation & Destination Resolver](admin-station-navigation.md), [Cards](admin-station-cards.md).
+[Admin Station](admin-station.md), [Navigation](admin-station-navigation.md), [Cards](admin-station-cards.md), and [Drawer](admin-station-drawer.md).

@@ -1,5 +1,13 @@
 # S6 — Category Station Onboarding Blueprint — v1
 
+**Status:** Historical completed-phase blueprint
+**Scope:** Category onboarding plan and recorded S6 implementation budget
+**Current authority:** [Categories Code Map](../code-map/categories.md) and source
+
+> Paths below are intentionally preserved as the plan executed at the time.
+> Category drawer composition has since moved; use the current Code Map for
+> ownership and path navigation.
+
 Canonical implementation blueprint for Phase S6 of the Schema-Driven
 Workstation Architecture: onboarding **Category** as the first brand-new
 Station on the completed platform architecture.

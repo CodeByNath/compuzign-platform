@@ -27,6 +27,14 @@ The intended station family is Service, Package, Promotion, Subscription, Bundle
 - UI composition and persistence ownership are separate concerns.
 - Source code remains authoritative when documentation conflicts.
 
+## Drawer ownership
+
+- `resources/ts/drawer-kit/` owns genuinely generic rendering and interaction primitives.
+- `resources/ts/entity-drawers/<entity>/` owns host-neutral entity composition and domain-specific drawer behaviour.
+- `resources/ts/admin-station/` owns Admin Station surfaces, registrations, adapters, and its one drawer shell.
+- `resources/ts/components/admin/` owns Command Centre routing and host adapters; it is not the shared drawer authority.
+- Authoritative station hooks, services, and controllers retain mutations and persistence. Screen placement never transfers that ownership.
+
 ## Navigation rule
 
 - Read only the primary Code Map first.
@@ -39,8 +47,11 @@ The intended station family is Service, Package, Promotion, Subscription, Bundle
 - **AGENTS.md** — universal working rules.
 - **docs/ai-index.md** — platform orientation and read order.
 - **Code Maps** — current subsystem ownership, entry points, boundaries, and source markers.
+- **Architecture documents** — stable constraints or clearly labelled historical/superseded specifications; never current path navigation unless their status says so.
 - **Local CLAUDE.md files** — short local pointers or boundary notes only.
 - **Project History** — immutable completed milestones.
+
+When source moves, update imports, tests/contracts, affected Code Maps and local instructions, verify links/paths, and rebuild generated output when applicable. Do not rewrite historical milestone paths.
 
 ## Validation rule
 

@@ -27,6 +27,8 @@ Use filenames and links from the selected subsystem map or already relevant hist
 
 Project History provides decision context; it does not override current authoritative source or the current Code Map. If history and current implementation differ, preserve the immutable history record and update the Code Map to describe the current implementation.
 
+Historical paths remain accurate evidence of where code lived when a milestone completed. Do not rewrite them after relocation. Current paths and current source ownership belong in Code Maps. A milestone should preserve capability, decisions, invariants, and validation—not transient file listings alone.
+
 ## When to Propose a Record
 
 During substantial work, every AI assistant should periodically assess whether a major milestone has been completed. Examples include:
@@ -40,6 +42,8 @@ During substantial work, every AI assistant should periodically assess whether a
 - A major UX redesign.
 
 Routine maintenance, small fixes, incomplete work, exploratory investigation, and ordinary incremental changes do not normally warrant a Project History document.
+
+Documentation maintenance, link repair, and current-path correction do not normally justify a milestone.
 
 When a milestone appears to qualify, the assistant must ask the user whether a Project History document should be created. It must never create one automatically.
 
@@ -58,6 +62,8 @@ Do not create history documents for formatting changes, minor fixes, small refac
 - Target approximately 300 to 1,000 words.
 
 Before selecting a number, inspect the filenames already present in this directory and use the next available sequential number. Do not reuse gaps or renumber existing documents.
+
+`PackageCategoryGroups-v1.md` is a legacy pre-numbering milestone and remains immutable under its original filename. New records must still use the next sequential numeric prefix.
 
 ## Required Template
 

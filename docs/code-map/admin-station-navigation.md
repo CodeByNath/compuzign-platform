@@ -12,7 +12,7 @@ Selection flows `Header/SlideMenu onSelect(item.id)` → `AdminStationLayout.han
 
 ## Destination resolver
 
-- `destinations.ts` — maps an activation key to a `StationDestination`. `AdminStationContext` resolves `activeDestinationId` to `activeDestination` (the seam); no surface is projected yet.
+- `destinations.ts` — maps an activation key to a `StationDestination`. `AdminStationContext` resolves `activeDestinationId` to `activeDestination`; the resolver selects identity/placement but renders nothing itself.
 
 Chain: `activation key → resolveDestination() → registration (stationId + surfaceId) → placement → mode → conditions / record id → shell region`.
 
@@ -44,9 +44,13 @@ The current table maps the three nav items to `placement: 'body'`, `mode: 'table
 
 ## Projection status
 
-The lean registration table now **exists**, in its dynamic form: the [Surface Binding](admin-station-surface-binding.md) table (`stations/surfaceBindings.ts`) binds a station's placement region to a data-source key + template-kit key + conditions + action intents — not a fixed `EntitySchema` (that rigid proposal was dropped). The **presentation walls are projected** through it (the Service home region renders the Package Families wall, and the table supports several at one placement), and their actions open the **shared [Admin Station Drawer](admin-station-drawer.md)** (View/Edit, the record's own id), whose saves refresh the originating wall. Remaining projection: the **body table**. See [Project History 008](../project-history/008-admin-station-engine-and-resolver.md).
+The [Surface Binding](admin-station-surface-binding.md) table binds placement regions to data-source/template-kit keys and action intents—not a fixed `EntitySchema`. Services currently projects Package Family, Category, Service, and Tier presentation walls; actions open the shared [Admin Station Drawer](admin-station-drawer.md) with native identity, and saves refresh the originating wall. Destination-declared body tables remain unprojected.
 
 Note the two tables are distinct axes: this file's `destinations.ts` resolves a nav *activation* to a destination (a future body/table surface); `surfaceBindings.ts` resolves a station *placement* to a live presentation surface. They do not share rows.
+
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

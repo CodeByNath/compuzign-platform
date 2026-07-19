@@ -1,6 +1,15 @@
 # Admin Workstation Drawer Principles — v1
 
-**Scope — two layers, different reach:**
+**Status:** Superseded architecture specification; preserved for design history
+**Scope:** Pre-relocation Command Centre drawer and module contracts
+**Current authority:** [Drawer System](../code-map/drawer-system.md), [Entity Drawer Compositions](../code-map/entity-drawer-recovery.md), and source
+
+> The body below records the architecture at its milestone and includes former
+> `components/admin` and monolithic notification paths. It is not current path
+> navigation. Reuse its principles only where the current Code Maps and source
+> still confirm them.
+
+**Recorded scope — two layers, different reach:**
 
 - **Drawer Header & Navigation Contract**, **Drawer Tab Contract**, **Dynamic Station Manager Contract**, and **Presentation Status Contract** (below) are **platform-wide**. They are the locked contract for **every admin drawer** — Service, Package, Promotion, and any future drawer. These sections are the canonical owner of drawer header titles, the single left control, the reserved right slot, the fixed `Details | Connections` base tabs, the optional terminal `Manager` workspace, and the operational-vs-presentation state distinction with its pill vocabulary.
 - **Module state machine / lifecycle** (New / Locked / View / Edit, status model) — reference implementation is **Service Catalog only**. It does not yet cover Transit Hub, Packages, Promotions, Requests, or CRM as built surfaces, though those drawers must adopt the platform-wide contract above.

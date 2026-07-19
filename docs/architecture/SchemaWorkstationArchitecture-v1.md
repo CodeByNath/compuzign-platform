@@ -1,5 +1,13 @@
 # Schema-Driven Workstation Architecture — v1
 
+**Status:** Superseded architecture specification; preserved for design history
+**Scope:** Schema-driven workstation S0–S6 contracts at the recorded milestone
+**Current authority:** [Platform Architecture Standards](platform-architecture-standards-v1.md), [Drawer System](../code-map/drawer-system.md), and source
+
+> The renderer concepts remain useful context, but directory ownership has moved
+> from `components/admin/schema/` into `drawer-kit/` and entity-owned composition.
+> The body and amendment log are historical evidence, not current path guidance.
+
 Canonical specification for the platform's schema-driven presentation
 architecture. Approved 2026-07-05 (Phase S0); **amended 2026-07-05 (v1.1,
 "Living Architecture" correction)** before any implementation began. The

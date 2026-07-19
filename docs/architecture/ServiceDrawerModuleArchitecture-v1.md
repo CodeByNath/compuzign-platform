@@ -1,5 +1,15 @@
 # Service Drawer Module Architecture — v1
 
+**Status:** Superseded implementation specification; preserved for design history
+**Scope:** Service drawer module architecture before host-neutral relocation
+**Current authority:** [Service Catalogue](../code-map/service-catalogue.md), [Drawer System](../code-map/drawer-system.md), and source
+
+> Former `components/admin`, `workstations`, and monolithic
+> `moduleNotifications.ts` paths below describe the recorded milestone. Current
+> Service composition lives under `entity-drawers/service/`, generic rendering
+> under `drawer-kit/`, and notification rules under
+> `drawer-kit/utils/moduleNotifications/`.
+
 Canonical specification for the **completed Service drawer modules**:
 
 - **Service Overview**

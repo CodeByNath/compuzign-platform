@@ -1,5 +1,12 @@
 # Dynamic Station Manager — Package Provider Contract (v1)
 
+**Status:** Superseded subsystem specification; preserved for design history
+**Scope:** Earlier Package-provider and terminal Manager-tab placement
+**Current authority:** [Service Connections](../code-map/service-connections.md), [Package Manager](../code-map/package-manager.md), and source
+
+> Current Command Centre placement and drawer ownership have evolved. Treat the
+> body as decision history, not current navigation or UI placement.
+
 Architecture contract for the Package relation provider and the reusable
 **Dynamic Station Manager** workspace. The accepted platform placement is the
 optional terminal Manager tab in a station drawer. This doc replaces the prior

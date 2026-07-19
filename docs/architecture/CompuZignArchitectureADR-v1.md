@@ -1,5 +1,12 @@
 # CompuZign Architecture — Decision Record — v1
 
+**Status:** Historical architecture decision record
+**Scope:** Decisions established during the schema-driven workstation milestone
+**Current authority:** [Platform Architecture Standards](platform-architecture-standards-v1.md) and [Code Maps](../code-map/000-README.md)
+
+> Paths and implementation examples below are preserved as milestone evidence.
+> Confirm current placement in the Code Maps and source.
+
 One-page ADR: why the platform works the way it does. Each entry is
 **Decision → Rationale → Consequence**. All ten are locked; they change only
 through the Amendment Log in

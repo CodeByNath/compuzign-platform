@@ -1,5 +1,12 @@
 # CompuZign Platform — Phase 1 Architecture & Delivery Freeze
 
+**Status:** Historical phase freeze and delivery record
+**Scope:** Phase 1 constraints, debt register, and execution queue at the recorded milestone
+**Current authority:** [Platform Architecture Standards](platform-architecture-standards-v1.md) and [Code Maps](../code-map/000-README.md)
+
+> The body is not a current backlog or current-state map. Preserve it as phase
+> context and verify all present implementation claims against source.
+
 ## Document Purpose
 
 This document records the current CompuZign platform architecture, what has already been built, what the system is evolving toward, what is frozen for Phase 1 delivery, and what should be executed later.

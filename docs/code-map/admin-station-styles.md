@@ -32,6 +32,10 @@ These overrides always begin with `.cz-admin-station`; unscoped drawer-kit rules
 - At 560px the header pills hide and the drawer becomes full viewport width.
 - Shared record footers wrap at the existing 480px drawer-kit breakpoint.
 
+## Validation
+
+From the plugin root: `npm run build`, `npm run docs:check`, and browser inspection when a WordPress runtime is available.
+
 ## Related Code Maps
 
 [Admin Station](admin-station.md), [Admin Station Drawer](admin-station-drawer.md), [Admin Station Cards](admin-station-cards.md).

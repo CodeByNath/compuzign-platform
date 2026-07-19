@@ -1,643 +1,86 @@
 # CompuZign Platform — Architecture Standards v1
 
-Status: Internal Architecture Standard
-Scope: Platform-wide development guidelines
-Applies to: Current and future modules, CPT ecosystems, APIs, frontend consumers, and relational data systems.
+**Status:** Current platform standard
+**Scope:** Stable backend, frontend, ownership, contract, and runtime constraints
+**Working standard:** [AGENTS.md](../../AGENTS.md)
+**Current source navigation:** [Code Map index](../code-map/000-README.md)
 
----
+## 1. Authority before pattern
 
-# 1. Core Philosophy
+CompuZign is a relational, data-driven platform. Business truth belongs to its owning entity or domain; consumers receive shaped data and do not become authorities because they display or edit it.
 
-The platform is a relational data-driven ecosystem.
+There is no mandatory one-size-fits-all repository/builder pipeline. Use the smallest cohesive path that preserves the real authority:
 
-Data owns truth.
-Components consume shaped data.
-Relationships create ecosystems.
-
-The architecture follows a river model:
-
-```txt
-Reservoirs
-= CPTs / taxonomies / structured entities
-
-River
-= shared data layer + repositories + builders + APIs
-
-Channels
-= view models / payload shaping
-
-Ecosystems
-= frontend consumers, portals, PDFs, homepage sections, dashboards
+```text
+WordPress entity/meta → domain controller/service → typed endpoint → station hook → consumer
+PackageRepository option → domain controller/builder → typed endpoint → station hook → consumer
+WordPress catalogue → repository → PricingBuilder → typed endpoint → public consumer
 ```
 
-Consumers must never become owners of business truth.
+A repository is appropriate when it owns meaningful querying, storage, migration, or projection behaviour. It must not be introduced merely to wrap a single WordPress call. Controllers may coordinate WordPress entity APIs when that is the established cohesive domain boundary.
 
----
+## 2. Backend domains
 
-# 2. Platform Stack Standard
+Backend modules live under `src/Modules/<Domain>/` and register through their module boundary. `Core/Plugin.php` orchestrates module boot; it does not acquire domain business logic.
 
-Every domain/module follows the same architectural flow:
+- Controllers own route registration, permissions, request validation, orchestration, and response contracts.
+- Support classes own cohesive schemas, sanitization, readiness, lifecycle, or shared rules.
+- Repositories own meaningful storage/query/migration authority where the domain has one.
+- Services/builders own non-trivial projection or business assembly.
+- Templates render mount surfaces and must not become query or business-rule authorities.
 
-```txt
-CPT / Entity
-→ Repository
-→ Builder / View Model
-→ REST API
-→ Hook
-→ Consumer Components
+Route location does not determine domain ownership. Compatibility URLs may retain another domain's navigation context while handlers and persistence stay with the true owner.
+
+## 3. Persistence and relationships
+
+Use WordPress posts, terms, taxonomy relationships, metadata, and options according to the established subsystem authority. Do not introduce parallel storage or copy data merely for convenient UI access.
+
+- Taxonomies suit shared classification, queryable relationships, and term enrichment.
+- Entity meta suits entity-owned structured state.
+- Options/repositories suit Package Station's established aggregate persistence.
+- References across domains must write through the owning public contract.
+
+Registration is not ownership: centralized post-type or taxonomy registrars may declare an entity while its domain module owns behaviour. A nested REST path is likewise not ownership.
+
+## 4. REST and TypeScript contracts
+
+Routes live under the existing `/compuzign/v1/` namespace and are registered by controllers. Preserve capability checks, validation, response shapes, and compatibility paths.
+
+Every consumed response and mutation payload must have an accurate TypeScript contract. Keep a contract with its owning frontend station or neutral API type module; do not duplicate shapes or re-export them from unrelated legacy barrels. `any`, inline response guesses, and identity coercion are contract failures.
+
+## 5. Frontend ownership
+
+Hooks, stations, and domain services own fetch/mutation state. Presentation components receive data and intents; they do not call endpoints, persist lifecycle, or duplicate business truth.
+
+Screen placement and source ownership are separate:
+
+- `resources/ts/drawer-kit/` owns generic schema rendering, editor chrome, status/notification presentation, actions, and host bridges.
+- `resources/ts/entity-drawers/<entity>/` owns host-neutral entity drawer composition and entity-specific coordination.
+- `resources/ts/admin-station/` owns Admin Station navigation, surfaces, registries, shell adapters, and its one drawer shell.
+- `resources/ts/components/admin/` owns Command Centre routing/hosts and any domain UI that has not moved to a neutral owner.
+
+Package Family, Category, Service, and Tier compositions mount in both hosts. Neither host may fork a reduced copy. Generic shells must not branch on entity; registries select entity adapters, and adapters preserve native record identity.
+
+## 6. Shared systems
+
+Shared code requires at least two genuine consumers, the same semantic responsibility, stable common behaviour, and no domain-authority leakage. Visual similarity and anticipated reuse do not qualify.
+
+Keep domain notification rules in the domain-organised `drawer-kit/utils/moduleNotifications/` modules behind their barrel. Keep cross-domain presentation status in `drawer-kit/utils/moduleStatus.tsx`. A shared renderer derives or displays state; it never persists it.
+
+Do not duplicate the mature drawer kit, station lifecycle, typed transport, relation provider, status pill, notification panel, inline editor, or lifecycle footer systems to obtain a different appearance. Extend them without capability loss when semantics are genuinely shared; keep behaviour local otherwise.
+
+## 7. Runtime and shell boundary
+
+The WordPress theme is a passive compatibility, lifecycle, and routing surface. The platform plugin owns application UI, Atomic Engine styles, runtime configuration, state, REST behaviour, requests, pricing, and operational systems.
+
+```text
+WordPress route → shell template → content/shortcode mount → platform runtime → module
 ```
 
-Example:
+Runtime configuration flows through `window.CompuZignConfig`. Required CSS must be registered early enough for the page lifecycle; shortcode execution must not be assumed to place styles in an already-rendered `<head>`.
 
-```txt
-cz_service
-→ ServiceRepository
-→ PricingBuilder
-→ GET /compuzign/v1/cost-builder
-→ useCostBuilder()
-→ Cost Builder Components
-```
+## 8. Change standard
 
-This is the official platform pattern.
+Preserve capability, validation, authority, native identity, dependency direction, runtime safety, and public contracts together. Line count, fewer files, generic reuse, or delivery speed is never a sufficient reason to compromise them.
 
----
-
-# 3. Module Structure Standard
-
-Each module is self-contained.
-
-Standard structure:
-
-```txt
-src/Modules/[Domain]/
-├── [Domain]Module.php
-├── Http/
-│   └── [Domain]Controller.php
-├── Repositories/
-│   └── [Entity]Repository.php
-├── Services/
-│   └── [Domain]Builder.php
-├── Support/
-│   ├── [Entity]Schema.php
-│   └── [Entity]Parser.php
-└── Templates/
-```
-
-Rules:
-
-* Modules register themselves.
-* Plugin::boot() orchestrates only.
-* Business logic never lives in Plugin.php.
-* Templates never query WordPress directly.
-
----
-
-# 4. Repository Rules
-
-Repositories are the only layer allowed to access WordPress data APIs.
-
-Repositories:
-
-* own get_posts()
-* own get_post_meta()
-* own wp_get_post_terms()
-* own WP_Query logic
-* resolve relationships
-
-Repositories do NOT:
-
-* shape API payloads
-* apply frontend formatting
-* own business ordering
-* return presentation-ready structures
-
-Repositories return:
-
-* WP_Post
-* WP_Term
-* raw associative arrays
-* entity-level data
-
----
-
-# 5. Builder / View Model Rules
-
-Builders shape data for consumers.
-
-Builders:
-
-* consume repositories
-* normalize data
-* apply business rules
-* shape payloads
-* filter inactive records
-* apply ordering
-* resolve defaults
-
-Builders do NOT:
-
-* call WordPress APIs directly
-* render UI
-* contain frontend logic
-
-Every API payload must originate from a Builder.
-
----
-
-# 6. REST API Standards
-
-Every consumer receives shaped data through REST APIs.
-
-Rules:
-
-* all routes live under `/compuzign/v1/`
-* routes registered in Controllers only
-* no procedural route registration
-* no direct repository access from templates/components
-
-Pattern:
-
-```txt
-Controller
-→ Builder
-→ Repository
-→ WordPress
-```
-
-REST APIs are the official bridge between:
-
-* backend systems
-* frontend systems
-* portals
-* PDFs
-* future integrations
-
----
-
-# 7. Frontend Consumption Rules
-
-Frontend components are consumers only.
-
-Components:
-
-* receive props
-* render shaped data
-* manage UI state
-* manage interaction state
-
-Components must NOT:
-
-* own business truth
-* duplicate catalog data
-* hardcode relational business structures
-* create parallel service definitions
-
-Hooks own data fetching.
-
-Pattern:
-
-```txt
-api/endpoints/
-→ hooks/
-→ root consumer
-→ child components
-```
-
----
-
-# 8. TypeScript Contract Rules
-
-Every endpoint has a matching TypeScript contract.
-
-Pattern:
-
-```txt
-resources/ts/api/types/[module].ts
-```
-
-Rules:
-
-* no duplicated object shapes
-* no inline API object typing
-* no `any`
-* contracts reflect Builder payloads exactly
-
-Frontend contracts are consumers of backend contracts.
-
----
-
-# 9. Relationship Architecture Standard
-
-Relationships flow through a defined pipeline.
-
-```txt
-Entity Storage
-→ Relationship Resolution
-→ Builder Shaping
-→ API Contract
-→ Consumer Rendering
-```
-
-Example:
-
-```txt
-Case Study
-→ related service IDs
-→ ServiceRepository resolves services
-→ CaseStudyBuilder shapes preview data
-→ API returns typed relationship payload
-→ component renders relationship
-```
-
-Components never resolve raw relationships.
-
----
-
-# 10. Data Ownership Rules
-
-Business truth belongs to entities.
-
-Correct ownership:
-
-```txt
-Service
-→ pricing
-→ features
-→ tiers
-→ FAQs
-→ bundles
-→ billing cycles
-```
-
-Incorrect ownership:
-
-```txt
-ComparePlans.tsx owns features
-FaqAccordion.tsx owns FAQs
-Homepage component owns categories
-```
-
-Consumers may decorate data.
-They must not redefine truth.
-
----
-
-# 11. Taxonomy vs Meta Rules
-
-Use taxonomies for:
-
-* shared classification
-* filtering
-* bidirectional relationships
-* queryable concepts
-
-Use post meta for:
-
-* entity-specific structured data
-* non-query relationship detail
-* pricing/configuration fields
-
-Examples:
-
-Correct taxonomy:
-
-```txt
-cz_service_category
-cz_billing_cycle
-```
-
-Correct meta:
-
-```txt
-service pricing
-tier features
-SLA
-notes
-```
-
----
-
-# 12. Relationship Standards
-
-Preferred relationship patterns:
-
-## A. Shared Taxonomy
-
-Best for:
-
-* category-based ecosystems
-* bidirectional discovery
-
-Example:
-
-```txt
-cz_service_category
-attached to:
-- cz_service
-- cz_case_study
-- cz_partner
-```
-
----
-
-## B. ID References in Meta
-
-Best for:
-
-* curated relationships
-* forward references
-
-Example:
-
-```txt
-related_service_ids: [42, 67]
-```
-
-Repositories resolve IDs.
-
----
-
-## C. Term Meta
-
-Best for:
-
-* category enrichment
-* icons
-* display order
-* marketing metadata
-
-Example:
-
-```txt
-display_order
-icon_key
-marketing_tagline
-```
-
----
-
-# 13. Runtime Context Standard
-
-PHP-to-JS runtime context flows through:
-
-```txt
-window.CompuZignConfig
-```
-
-Only.
-
-Examples:
-
-* API root
-* nonce
-* page type
-* active entity slug
-* feature flags
-* runtime URLs
-
-No inline PHP-generated JS logic elsewhere.
-
----
-
-# 14. Session State Rules
-
-Session state must capture enriched snapshots at selection time.
-
-Example:
-
-```txt
-QuoteItem
-→ categoryName
-→ billingCycle
-→ features[]
-→ pricing snapshot
-```
-
-Do not rely on future re-fetching for transactional flows.
-
-This applies to:
-
-* quotes
-* onboarding
-* subscriptions
-* portal actions
-* PDFs
-
----
-
-# 15. Platform Standards Going Forward
-
-Future modules should follow the same ecosystem model.
-
-Examples:
-
-```txt
-cz_case_study
-→ CaseStudyRepository
-→ CaseStudyBuilder
-→ API
-→ Homepage / Portfolio Components
-```
-
-```txt
-cz_partner
-→ PartnerRepository
-→ PartnerBuilder
-→ API
-→ Partner Showcase Components
-```
-
-```txt
-cz_client
-→ ClientRepository
-→ SubscriptionBuilder
-→ Portal API
-→ Client Dashboard
-```
-
----
-
-# 16. Anti-Patterns To Avoid
-
-Never:
-
-* duplicate business truth in components
-* create parallel route systems
-* mix procedural and OOP implementations
-* hardcode catalog mirrors
-* bypass builders
-* bypass repositories
-* place WP queries in templates
-* add more isolated constants for shared business concepts
-
----
-
-# 17. Current Canonical River
-
-Current proven architecture:
-
-```txt
-cz_service
-→ ServiceRepository
-→ PricingBuilder
-→ REST API
-→ useCostBuilder()
-→ Cost Builder Components
-```
-
-This is the foundation pattern for the platform.
-
-The river already exists.
-
-The goal of future development is:
-
-* connect new ecosystems to the river
-* avoid fragmented private wells
-* keep business truth centralized
-* allow consumers to evolve independently
-* preserve modular fault isolation
-
----
-
-# 18. Shell Runtime Architecture Standard
-
-## Purpose
-
-The frontend runtime operates through a passive shell architecture.
-
-The WordPress theme layer acts only as:
-
-* compatibility layer
-* template transport
-* lifecycle bridge
-* routing surface
-
-The plugin is the application platform. The shell enables it.
-
----
-
-## Shell Responsibilities
-
-`compuzign-shell` owns only:
-
-* template hierarchy participation
-* routing compatibility
-* `wp_head()`
-* `wp_footer()`
-* `wp_body_open()`
-* `body_class()`
-* `the_content()`
-* passive mount surfaces for shortcodes
-* lifecycle compatibility hooks (`compuzign_header`, `compuzign_footer`, `compuzign_404`)
-
----
-
-## Plugin Responsibilities
-
-The platform plugin owns everything else:
-
-* Atomic Engine design system
-* frontend runtime
-* onboarding systems
-* operational UI
-* request flows
-* pricing systems
-* PDFs
-* emails
-* runtime configuration (`window.CompuZignConfig`)
-* frontend state
-* REST APIs
-* business logic
-
----
-
-## Canonical Rule
-
-**Frontend rendering authority belongs to the platform plugin.**
-
-The shell provides the routing surface. The plugin provides the experience.
-
-This rule must not be violated. Any feature, UI element, styling system, or business logic found in the theme layer is architecture drift and must be moved to the plugin.
-
----
-
-## Rendering Flow
-
-```txt
-WordPress Route
-→ Shell Template
-→ the_content()
-→ shortcode mount surface
-→ platform plugin runtime
-→ mounted application module
-```
-
----
-
-## Asset Lifecycle Standard
-
-Required frontend CSS must be available before module mounting.
-
-Correct model:
-
-```txt
-CSS  → globally enqueued before wp_head()
-JS   → lazily enqueued by shortcode, after mount div is in the DOM
-```
-
-CSS must not depend on shortcode execution timing. Shortcode execution happens after `wp_head()` has already fired. Any CSS enqueued during shortcode processing will miss the `<head>` on WordPress versions below 6.0.
-
----
-
-## Shell Constraints
-
-The shell must never:
-
-* own business logic
-* own onboarding flows
-* own frontend UI systems
-* duplicate Atomic Engine
-* bypass `the_content()`
-* enqueue its own CSS outside of `add_theme_support` declarations
-* become tightly coupled to frontend module internals
-
----
-
-## Minimum Template Coverage
-
-Required files for a valid shell:
-
-* `index.php` — fallback route handler
-* `page.php` — WordPress pages (must include `have_posts()` guard)
-* `single.php` — single posts and CPTs
-* `404.php` — not-found surface (fires `compuzign_404` action)
-* `header.php` — document open, `wp_head()`, `wp_body_open()`
-* `footer.php` — `wp_footer()`, document close
-* `functions.php` — theme supports only, no enqueue logic
-
----
-
-## Required Theme Supports
-
-The shell must declare:
-
-* `title-tag` — allows plugins to inject `<title>`
-* `post-thumbnails` — SEO and social meta compatibility
-* `automatic-feed-links` — RSS feed link injection
-* `wp-block-styles` — Gutenberg block stylesheet compatibility
-* `html5` — clean markup for search forms, comments, gallery, caption, style, script
-
----
-
-## Runtime Stability Goal
-
-The shell exists to safely support:
-
-* shortcode mounting
-* frontend hydration
-* onboarding systems
-* customer portals
-* CRM integrations
-* future runtime-driven interfaces
-
-without frontend ownership moving into the theme layer.
+Before replacing UI or infrastructure, inventory established actions, states, guards, error handling, persistence, and downstream contracts. After ownership or paths move, update imports, contracts/tests, Code Maps, local instructions, links, and applicable generated output. Validate only what was actually run and report missing PHP or browser runtime honestly.

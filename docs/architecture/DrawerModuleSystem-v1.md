@@ -1,5 +1,12 @@
 # Drawer Module CSS System — v1
 
+**Status:** Superseded subsystem specification; preserved for design history
+**Scope:** Original Command Centre drawer-module CSS standard
+**Current authority:** [Admin Station Styles](../code-map/admin-station-styles.md), [Drawer System](../code-map/drawer-system.md), and `resources/css/modules/drawer-kit.css`
+
+> The recorded `admin.css` ownership below predates the shared `drawer-kit.css`
+> extraction and must not be used for current path navigation.
+
 The canonical CSS presentation layer for all Service Station drawer module cards.
 
 Established during the Drawer Module UI Standardisation pass (2026-06-22).

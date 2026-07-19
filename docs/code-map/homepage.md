@@ -34,6 +34,10 @@ The homepage runtime owns component registration and presentation. `HomeConfigur
 
 The runtime registry mounts each homepage section independently. `HomeConfigurator` fetches the same projection as the Cost Builder, defaults to the first category, resets Service preview when category data changes, previews the popular or standard tier, builds quote items, computes a display total, saves the shared cart, and transfers the user to the configured pricing URL. It is a legitimate feature composition component, though its internal preview and dashboard components could be separated if it grows.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, and browser inspection when a WordPress runtime is available.
+
 ## Related Code Maps
 
 [Cost Builder](cost-builder.md) and [Quote Builder](quote-builder.md).

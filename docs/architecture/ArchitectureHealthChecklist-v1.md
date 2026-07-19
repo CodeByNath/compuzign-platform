@@ -1,102 +1,64 @@
 # Architecture Health Checklist — v1
 
-Reviewer checklist for any PR that adds an entity, module, or admin surface.
-Short and strict: every "yes" below either needs an Amendment Log entry in
-[SchemaWorkstationArchitecture-v1.md](SchemaWorkstationArchitecture-v1.md) §14
-or is a **blocking finding**. When in doubt, the rationale lives in
-[CompuZignArchitectureADR-v1.md](CompuZignArchitectureADR-v1.md); the build
-steps live in
-[PlatformEntityOnboardingGuide-v1.md](PlatformEntityOnboardingGuide-v1.md).
+**Status:** Current platform standard
+**Scope:** Review gate for source, architecture, and documentation changes
+**Current implementation authority:** [Code Map index](../code-map/000-README.md)
 
-Expected answer to every question: **No.**
+Expected answer to every question is **No**. A Yes is blocking unless the change includes an explicit, reviewed architectural decision that preserves capability, ownership, validation, and public contracts.
 
----
+## Responsibility and placement
 
-## 1. Inventory growth
+- [ ] Did a file, hook, component, controller, or utility acquire an unrelated reason to change?
+- [ ] Was one cohesive operation fragmented into tiny files that obscure its flow?
+- [ ] Does an oversized coordinator contain independent presentation, mutation, lifecycle, or persistence responsibilities that have coherent boundaries?
+- [ ] Was code placed outside the domain or authority that owns its behaviour?
+- [ ] Was code moved to a shared directory because of visual similarity rather than shared semantics and ownership?
+- [ ] Does a shared directory or abstraction have fewer than two meaningful consumers?
+- [ ] Did a source move omit imports, contracts/tests, Code Maps, local instructions, link checks, or applicable generated output?
 
-- [ ] **Did we add a shell archetype?** Overview and Child are the
-      inventory. A third must first *fail* to be expressed as content,
-      actions, or mode configuration on an existing archetype — then it's
-      an amendment, not a PR.
-- [ ] **Did we add a `ShellMode`?** Six exist (`details · connections ·
-      edit · summary · table · card`). A "mode" that would alias an
-      existing one or needs cardinality awareness is a placement or DNA
-      concern, not a mode.
-- [ ] **Did we add a renderer component under `schema/`?** New entities add
-      manifests, bindings, and tables — never renderers. New element × mode
-      renderers require an amendment plus per-mode render cases in
-      `scripts/mode-renderer-snapshot.mjs`.
-- [ ] **Did we add a Platform Element or use `custom`?** Elements need one
-      real consumer + amendment entry + mode renderers. Every `custom` use
-      must be logged as a candidate element (promotion needs 2+ consumers).
+## Drawer architecture
 
-## 2. Boundary integrity
+Current boundaries are:
 
-- [ ] **Did business logic leak into a shell, binding, or step?** Shells
-      never compute status, derive notes, or call endpoints. Grep: nothing
-      under `ts/components/admin/schema/` imports a fetcher; `bind`/`when`
-      closures are data access only, never mode logic.
-- [ ] **Did we duplicate Station DNA?** One `ModuleDefinition` per module,
-      in `moduleNotifications.ts`. No copied `resolveStatus` closures, no
-      status derivation in components, no lifecycle constants outside
-      `StationLifecycle` imports, no status writes outside the engine's
-      transition table.
-- [ ] **Did we bypass EntitySchema / WorkstationSchema?** Drawers assemble
-      from `placements.drawer` via `EntityDrawer`; tables come from
-      `TableSchema` via `EntityTable`; workstations are registry entries.
-      Hand-written `.drawerModule` JSX, bespoke `<table>` literals, and
-      Router/Sidebar edits are all blocking. Backend module keys must
-      mirror manifest keys exactly.
-- [ ] **Did WordPress-owned data get duplicated into station meta?** WP
-      owns names, slugs, and relationships; meta envelopes go through the
-      entity's single Support class.
+- `resources/ts/drawer-kit/` — generic renderer and interaction primitives;
+- `resources/ts/entity-drawers/<entity>/` — host-neutral entity compositions and entity-specific behaviour;
+- `resources/ts/admin-station/` — Admin Station shell, surfaces, registries, and adapters;
+- `resources/ts/components/admin/` — Command Centre routing and host adapters, plus domains not yet relocated.
 
-## 3. Placement discipline
+- [ ] Did generic kit code acquire entity branching, endpoint calls, or persistence knowledge?
+- [ ] Did entity composition move into a host shell or surface registry?
+- [ ] Did `AdminStationDrawer` or another shell branch on entity instead of resolving a registration?
+- [ ] Did a presentation component call an endpoint rather than an authoritative station/hook/service?
+- [ ] Was a mature drawer, inline editor, notification panel, status pill, or lifecycle footer duplicated to obtain different presentation?
+- [ ] Did Command Centre or Admin Station fork capability instead of mounting the host-neutral composition through `EntityDrawerHostBridge`?
+- [ ] Was `StepContext` imported into `drawer-kit/`, `entity-drawers/`, or Admin Station?
 
-- [ ] **Did repetition end up inside a shell or mode instead of Collection
-      Placement?** Repeated cards = one shell, `summary`/`card` viewpoint,
-      `placements.collections` slot, surface-owned N bindings. A shell must
-      never know it has siblings.
-- [ ] **Did a placement invent footer actions?** `ShellSlot.footer`
-      re-selects from the shell's declared Action Group — select-only.
-- [ ] **Did a connection embed a foreign drawer?** Cross-station navigation
-      is transit: `view` → the target's real drawer with its full
-      `initialStepData`. No reduced drawer forks.
+## Capability and abstraction
 
-## 4. Presentation Status Contract
+- [ ] Did a cleanup remove established actions, guards, states, confirmations, validation, or error handling?
+- [ ] Did an abstraction collapse domain-specific behaviour into a lowest-common-denominator API?
+- [ ] Did a generic placeholder replace an authoritative action or explicit domain rule?
+- [ ] Was complexity hidden in a large parameter/configuration object or merely moved without improving dependency direction?
+- [ ] Was future anticipated reuse used as the only evidence for sharing?
 
-- [ ] **Is any pill derived outside `presentation.ts`?** No local pill
-      maps, ever. Pills render Active / Pending / Disabled only;
-      Archived/Trashed labels only on travel surfaces; **no Draft pill**.
-- [ ] **Does any surface render raw lifecycle status?** Operational states
-      (`draft/active/disabled/archived/trashed`) are storage vocabulary,
-      never UI copy.
+## Authority, identity, and lifecycle
 
-## 5. Proof
+- [ ] Did screen placement transfer source or persistence ownership?
+- [ ] Did a component bypass the authoritative station, controller, repository, WordPress entity API, or lifecycle boundary?
+- [ ] Was native identity parsed, stringified, numerically coerced, or replaced with display/slot identity?
+- [ ] Did presentation code write lifecycle state or render raw storage vocabulary as user-facing status?
+- [ ] Did module status or notification rules move out of `drawer-kit/utils/moduleStatus.tsx` or the domain-organised `drawer-kit/utils/moduleNotifications/` modules without a justified ownership change?
 
-- [ ] **Are snapshots missing or drifted?** `mode-renderer-snapshot.mjs`
-      compares clean (zero new entries unless amended);
-      `module-state-snapshot.mjs` has fixture rows for every new
-      `ModuleDefinition` and all existing rows byte-identical.
-- [ ] **Is a locked file diffed without an amendment?** The locked set:
-      `EntityDrawer`, `EntityTable`, `DrawerTabs`, `ActionFooter`,
-      `ReadBlock`, `AsyncSection`, `useInlineConfirm`, `ModuleStatusPill`,
-      `ModuleNotificationPanel`, `InlineEditorShell`, `presentation.ts`,
-      `modeContext`, `overviewShell`, `childShell`, `evaluateModule`,
-      `StationLifecycle.php`, `schema/types.ts`.
-- [ ] **Was a blocker worked around instead of documented?** Anything the
-      contracts couldn't express must appear as a Gap Protocol entry (what
-      was attempted, which contract blocked it, smallest proposed
-      amendment) — not as absorbed one-off JSX.
+## Proof and documentation
 
----
+- [ ] Is a new or changed element/mode missing from the applicable snapshot contract?
+- [ ] Is a changed REST or persistence contract missing focused validation?
+- [ ] Does current guidance link to a moved or deleted source path?
+- [ ] Is source movement undocumented in the affected Code Map?
+- [ ] Does a Code Map exceed 600 words or cover more than one owning subsystem?
+- [ ] Is a historical architecture or Project History document being used as current path authority?
+- [ ] Does the final report claim PHP, browser, integration, or runtime verification that was not performed?
 
-**Verdict rule.** All boxes "No" → approve. Any "Yes" without a matching
-Amendment Log or gap-report entry → request changes, citing this checklist
-and the ADR entry it protects.
+## Verdict
 
-## Amendment Log
-
-| Date | Amendment | Notes |
-|---|---|---|
-| 2026-07-07 | v1 — checklist written | Operationalises the S6 budget audit (blueprint §1, Phase G.3) as a standing PR gate, at architecture handoff. |
+All boxes No: the architecture check passes. Any Yes requires correction or an explicit architectural decision recorded in the appropriate current standard; Project History is created only with user approval after a qualifying milestone.

@@ -1,6 +1,10 @@
 # Tier Module L5 (Data-Layer) Migration Spec — v1
 
-**Status:** design spec. No code. Sequenced for later implementation.
+**Status:** Superseded design proposal; preserved for planning history
+**Scope:** Proposed Tier data-layer migration before the current entity drawer composition
+**Current authority:** [Tiers Code Map](../code-map/tiers.md) and source
+
+> The proposal below is not an implementation claim or current work queue.
 
 ## Purpose
 

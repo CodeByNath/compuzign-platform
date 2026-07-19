@@ -47,6 +47,10 @@ Admin Station imports no `components/admin` module and no `StepContext`. Both JS
 
 Package Family keeps `group_id` (string), Category/Service keep numeric ids, and Tier keeps `occupant_id` (string). Host adapters reject mismatched shapes; no identity conversion is permitted.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, and `npm run docs:check`.
+
 ## Related Code Maps
 
 [Admin Station Drawer](admin-station-drawer.md), [Drawer System](drawer-system.md), [Categories](categories.md), [Package Manager](package-manager.md), [Tiers](tiers.md).

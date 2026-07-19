@@ -1,8 +1,12 @@
 # WeeraX Studio Core Foundation
 
 Version: 1.0
-Status: Accepted — Frozen
+Status: Historical foundation record — Accepted and Frozen
 Date: 2026-06-04
+
+Scope: Product vision, domain metaphors, and design principles accepted at the recorded foundation milestone.
+
+Current engineering authority: [AGENTS.md](../AGENTS.md), [Platform Architecture Standards](architecture/platform-architecture-standards-v1.md), and the [Code Map index](code-map/000-README.md). The frozen terminology and priority lists below are historical context, not current source ownership or work queues.
 
 Purpose:
 

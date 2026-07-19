@@ -36,6 +36,10 @@ No adapter parses or converts identity. Package Family and Category status/notes
 
 The card grid is three across and becomes one across at the existing 767px shell breakpoint. The Category carousel is horizontal and shows six cards at desktop width. Styles live in `admin-station/styles/admin-station.css`; shared pill/panel component styling lives in `resources/css/modules/drawer-kit.css`.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+
 ## Related Code Maps
 
 [Admin Station Drawer](admin-station-drawer.md), [Surface Binding](admin-station-surface-binding.md), [Styles](admin-station-styles.md).

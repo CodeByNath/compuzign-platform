@@ -1,5 +1,9 @@
 # Admin Shell System — v2
 
+**Status:** Historical implementation record (frozen terminology)
+**Scope:** Command Centre four-zone Station shell at the recorded milestone
+**Current authority:** [Drawer System Code Map](../code-map/drawer-system.md) and source
+
 > **Terminology note (2026-07-18):** this is a frozen record and keeps the
 > original "Workstation" term. In active code the concept is now **Station** —
 > the file below is `shell/Station.tsx` and the compound component is `Station`.

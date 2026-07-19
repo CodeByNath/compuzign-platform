@@ -1,6 +1,10 @@
 # Roadmap — Category Frontend Visibility
 
-> Status: **Future enhancement — not implemented.** This note records the intended
+**Status:** Future subsystem proposal — not implemented
+**Scope:** Public Cost Builder Category visibility only
+**Current authority:** [Cost Builder Code Map](../code-map/cost-builder.md) for implemented behaviour
+
+> This note records the intended
 > direction. Do not build it until the next architecture phase is opened.
 
 ## Current behaviour (implemented)

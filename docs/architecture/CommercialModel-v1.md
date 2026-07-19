@@ -1,18 +1,21 @@
 # CompuZign Commercial Model (Canonical)
 
+**Status:** Current domain standard
+**Scope:** Service Catalogue supply authority and Package-owned commercial configuration
+
 This contract freezes the ownership boundary between the source catalogue and
 the commercial Package domain. It supersedes any flow that onboards individual
 Service inclusions or FAQs into a Package.
 
 ## 1. Service Catalogue — source domain
 
-The Service Catalogue owns Categories, Category Groups/Families, Services,
+The Service Catalogue owns Service Category Groups, Categories, Services,
 Inclusions, FAQs, Service lifecycle and Service availability. It describes what
 exists and never knows about Packages, Rate Sheets, commercial groups or Tiers.
 
 ```text
-Category
-└── Family
+Service Category Group
+└── Category
     └── Service
         ├── Inclusions
         └── FAQs
@@ -24,9 +27,10 @@ Package Manager consumes source entities through provider-owned supply
 relationships. Service is the first source provider; Package remains capable of
 bundling any registered source type.
 
-Package Manager connects sources, resolves their supplied content, maintains
-commercial configuration, organises commercial groups and maintains Rate
-Sheets. It never changes or copies catalogue identity or catalogue placement.
+Package Manager owns Package Families as commercial groupings of Services,
+connects sources, resolves their supplied content, maintains commercial
+configuration, organises Commercial Groups, and maintains Rate Sheets. It never
+changes or copies catalogue identity or catalogue placement.
 
 ```text
 Connected source entities
@@ -51,9 +55,11 @@ source provenance.
 
 ## 4. Commercial Groups
 
-Commercial Groups are Package-owned presentation structures. They organise
+Commercial Groups are Package-owned option/presentation structures, distinct
+from Package Families. They organise
 supplied content into solutions and may contain content from multiple source
-entities. They do not alter Category, Family, Service or source-item identity.
+entities. They do not alter Service Category Group, Category, Package Family,
+Service, or source-item identity.
 
 Commercial Groups are reusable downstream presentation sections, not merely
 Rate Sheet sorting labels.
@@ -100,4 +106,3 @@ row identities become available again.
 > Package Manager explains how the source's supplied content is commercially
 > configured, organised and presented. Tiers compose those commercial groups
 > into customer-facing offers.
-

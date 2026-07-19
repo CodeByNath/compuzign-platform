@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "vite build",
+    "docs:check": "node scripts/docs-check.mjs",
     "dev": "vite"
   },
   "devDependencies": {

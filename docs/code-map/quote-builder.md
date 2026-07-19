@@ -33,6 +33,10 @@ The request-flow components own only the open modal, contact draft, review step,
 
 Cost Builder opens the modal with a cart snapshot. The flow validates contact data, submits through the public API, stores a request, and lets the admin station accept and manage intake.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+
 ## Related Code Maps
 
 [Cost Builder](cost-builder.md) and [Lifecycle](lifecycle-system.md).

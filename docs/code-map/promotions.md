@@ -43,6 +43,10 @@ The Package Station owns the promotions collection and `PackageRepository` persi
 
 The relation registry exposes the promotion provider to a service-scoped manager. Saves target the Package Station collection; focused drawer operations settle, publish, toggle, archive, trash, restore, or permanently delete an occupant.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `php tests/service-route-baseline.php`, and `npm run docs:check`.
+
 ## Related Code Maps
 
 [Service Connections](service-connections.md), [Package Manager](package-manager.md), and [Lifecycle](lifecycle-system.md).

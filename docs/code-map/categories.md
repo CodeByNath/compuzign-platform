@@ -31,6 +31,10 @@ The Command Centre [category entity manifest](../../wp-content/plugins/compuzign
 
 Overview and Connections use shared schema shells, status pills, notifications, module footers, inline editor, and canonical lifecycle footer. Dirty close/tab changes are guarded. Presentation makes no API calls. Category id is never stringified.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, and `npm run docs:check`.
+
 ## Related Code Maps
 
 [Admin Station Drawer](admin-station-drawer.md), [Service Category Groups](category-groups.md), [Lifecycle](lifecycle-system.md).

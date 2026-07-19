@@ -57,6 +57,10 @@ Both pages enqueue `dist/css/drawer-kit.css`. Shared component rules live in `re
 
 Browser runtime remains unverified where no WordPress runtime is available.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+
 ## Related Code Maps
 
 [Entity Drawer Recovery](entity-drawer-recovery.md), [Cards](admin-station-cards.md), [Categories](categories.md), [Package Manager](package-manager.md), [Styles](admin-station-styles.md).

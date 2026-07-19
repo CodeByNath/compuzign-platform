@@ -1,5 +1,14 @@
 # Platform Entity Onboarding Guide — v1
 
+**Status:** Superseded implementation guide; preserved for historical reference
+**Scope:** Schema-workstation S1–S6 onboarding process before drawer relocation
+**Current authority:** [AGENTS.md](../../AGENTS.md), [Architecture Health Checklist](ArchitectureHealthChecklist-v1.md), and the owning [Code Map](../code-map/000-README.md)
+
+> The paths and additive budgets below describe the former
+> `components/admin/schema/` layout and monolithic notification module. Do not
+> follow them for new work; locate current ownership through the Code Maps and
+> source.
+
 Practical checklist for adding **any new entity (Station)** to CompuZign on
 the completed schema-driven architecture (S1–S5 done; S6 blueprint written).
 Follow the steps in order; each step names its pattern precedent in the

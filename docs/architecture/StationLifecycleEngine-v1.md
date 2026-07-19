@@ -1,14 +1,22 @@
 # Station Lifecycle Engine — v1
 
+**Status:** Superseded subsystem specification; preserved for implementation history
+**Scope:** Lifecycle authority, participation models, travel, and visibility at the recorded migration milestone
+**Current navigation:** [Lifecycle and Module-State Code Map](../code-map/lifecycle-system.md)
+
+> The shared engine remains current, but the recorded controller paths,
+> Promotion storage, participating entity set, and drawer hosts predate later
+> relocations. Use the Code Map and source for current ownership.
+
 Canonical specification for the shared station lifecycle engine
 (`src/Modules/Admin/Support/StationLifecycle.php`) and the three station
 participation models built on it. Written at the close of the lifecycle
 engine migration (Stages A–E, 2026-07); the engine is live for Service,
 Promotion and Tier.
 
-Companion documents:
-- [ServiceDrawerModuleArchitecture-v1.md](ServiceDrawerModuleArchitecture-v1.md) — the drawer module template every station UI follows.
-- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — drawer state machine, the 5-state module status model, and the Presentation Status Contract (operational states are never rendered as pills).
+Recorded companion documents:
+- [ServiceDrawerModuleArchitecture-v1.md](ServiceDrawerModuleArchitecture-v1.md) — historical drawer module template.
+- [AdminWorkstationDrawerPrinciples-v1.md](AdminWorkstationDrawerPrinciples-v1.md) — historical drawer state and presentation contract.
 
 ---
 
@@ -137,8 +145,8 @@ and binned instances neither colour the pill nor count as configured.
 | Engine | `src/Modules/Admin/Support/StationLifecycle.php` |
 | Station schemas & pure travel ops | `src/Modules/SurfacePackages/Support/PackageSchema.php` |
 | Pool reference resolution | `src/Modules/Admin/Support/PoolReferences.php` |
-| Routes & persistence | `src/Modules/Admin/Http/AdminServicesController.php` |
+| Routes & persistence | `src/Modules/Service/Http/ServiceController.php`, `src/Modules/SurfacePackages/Http/PackageStationController.php`, `src/Modules/Promotions/Http/PromotionsController.php`, Category controllers under `src/Modules/Admin/Http/` |
 | Public visibility | `src/Modules/SurfacePackages/Repositories/PackageRepository.php`, `src/Modules/CostBuilder/Services/PricingBuilder.php` |
-| Station hooks | `resources/ts/hooks/useServiceStation.ts`, `usePackageStation.ts`, `usePromotionStation.ts` (+ `stationPrimitives.ts`) |
+| Station hooks | `resources/ts/admin-station/stations/service/useServiceStation.ts`, `resources/ts/hooks/usePackageStation.ts`, `usePromotionStation.ts`, `useCategoryStation.ts` (+ `stationPrimitives.ts`) |
 | Summary resolvers | `resources/ts/drawer-kit/utils/moduleStatus.tsx` |
 | Drawer UIs | `ServiceViewStep.tsx`, `ServiceTierStep.tsx`, `ServicePromotionStep.tsx` |

@@ -4,6 +4,8 @@ The Code Map points to the **current implementation**: the small set of authorit
 
 ## Subsystem Index
 
+### Admin Station platform
+
 - [Admin Station](admin-station.md)
 - [Admin Station Navigation & Resolver](admin-station-navigation.md)
 - [Admin Station Surface Binding](admin-station-surface-binding.md)
@@ -12,6 +14,10 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Admin Station Home Shell](admin-station-home-shell.md)
 - [Admin Station Styles](admin-station-styles.md)
 - [Admin Station Cards](admin-station-cards.md)
+- [Drawer System](drawer-system.md)
+
+### Catalogue and commercial domains
+
 - [Package Manager](package-manager.md)
 - [Service Catalogue](service-catalogue.md)
 - [Service Station](service-station.md)
@@ -21,10 +27,12 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Promotions](promotions.md)
 - [Categories](categories.md)
 - [Service Category Groups](category-groups.md)
+
+### Public and shared systems
+
 - [Homepage](homepage.md)
 - [Cost Builder](cost-builder.md)
 - [Quote Builder](quote-builder.md)
-- [Drawer System](drawer-system.md)
 - [Lifecycle and Module State](lifecycle-system.md)
 
 ## How to Use and Maintain This Map
@@ -38,6 +46,6 @@ This README is the routing index; do not treat it as a substitute for a subsyste
 
 **Do not load every Code Map file automatically. Do not load the entire Project History directory.** If no map clearly owns the task, inspect only enough source to identify the owner, then create or correct a focused map rather than reading every map.
 
-After a major change moves, adds, replaces, or removes authoritative files, update the affected map paths in place and verify every link. Keep each subsystem map at no more than 600 words. If a map begins to cover another distinct responsibility, create a new subsystem file and add it to this index rather than enlarging the existing map.
+A source move is incomplete until imports and tests/contracts are updated, affected Code Maps and local instructions reflect the new ownership, links and paths are verified, and generated output is rebuilt when applicable. Keep each subsystem map at no more than 600 words. If a map begins to cover another distinct responsibility, create a focused map and index it exactly once rather than enlarging the existing map.
 
 Code Map maintenance does not create a historical record. After a major implementation, also ask whether a new immutable Project History document should be created; never create one automatically or rewrite a closed history document to reflect the current layout.

@@ -1,5 +1,12 @@
 # Atomic Engine — Rhythm Rule
 
+**Status:** Current rhythm principle with a historical Phase 1 compliance snapshot
+**Scope:** Spatial rhythm, token families, composition, and CSS ownership
+
+> The Law, contract language, and plugin ownership boundary are current. The
+> “Rhythm Compliance — Current State” table and Phase 2 target list record the
+> Phase 1 audit only; verify present token values and work priorities in source.
+
 ## The Law
 
 All spatial values in the CompuZign design system must resolve to exact multiples of the rhythm unit.

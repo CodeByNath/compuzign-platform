@@ -46,6 +46,10 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 
 The runtime mounts the app, the hook fetches the public projection, and UI selections persist locally before handing a quote cart to the request flow.
 
+## Validation
+
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `php tests/tier-pricing-parity.php`, and `npm run docs:check`.
+
 ## Related Code Maps
 
 [Rate Sheet](rate-sheet.md), [Tiers](tiers.md), and [Quote Builder](quote-builder.md).
