@@ -30,6 +30,96 @@
   .cz-cg-grid__cell {
     grid-column: span 12;
   }
+
+  .cz-service-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cz-service-stat:nth-child(odd) {
+    border-inline-start: 0;
+  }
+
+  .cz-service-stat:nth-child(n + 3) {
+    border-block-start: 1px solid var(--station-border);
+  }
+
+  .cz-service-catalogue__toolbar > * {
+    flex: 1 1 180px;
+  }
+
+  .cz-service-catalogue__sort {
+    margin-inline-start: 0;
+  }
+
+  .cz-service-catalogue__table {
+    min-width: 0;
+    border-spacing: 0;
+  }
+
+  .cz-service-catalogue__table thead {
+    display: none;
+  }
+
+  .cz-service-catalogue__table,
+  .cz-service-catalogue__table tbody,
+  .cz-service-catalogue__table tr,
+  .cz-service-catalogue__table td {
+    display: block;
+    width: 100%;
+  }
+
+  .cz-service-catalogue__table tbody tr {
+    overflow: hidden;
+    border: 1px solid var(--station-border);
+    border-radius: var(--station-card-radius);
+    background: var(--station-surface-elevated);
+  }
+
+  .cz-service-catalogue__table tbody tr + tr {
+    margin-block-start: var(--station-grid-gap);
+  }
+
+  .cz-service-catalogue__table tbody td,
+  .cz-service-catalogue__table tbody td:first-child,
+  .cz-service-catalogue__table tbody td:last-child {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .cz-service-catalogue__table tbody td + td {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--station-grid-gap);
+    border-block-start: 1px solid var(--station-border);
+  }
+
+  .cz-service-catalogue__table tbody td + td::before {
+    content: attr(data-label);
+    color: var(--station-text-muted);
+    font-size: var(--station-text-xs);
+    font-weight: 700;
+    letter-spacing: var(--station-tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .cz-service-catalogue__table .cz-service-catalogue__empty {
+    display: block;
+    border: 0 !important;
+  }
+
+  .cz-service-catalogue__table .cz-service-catalogue__empty::before {
+    content: none;
+  }
+
+  .cz-service-row__identity {
+    min-width: 0;
+  }
+
+  .cz-service-row__action {
+    width: 100%;
+  }
 }
 
 /* Narrow tablets / large phones — pills scroll within the header row. */
@@ -51,5 +141,24 @@
 
   .cz-station-header__nav {
     display: none;
+  }
+
+  .cz-service-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cz-service-stat + .cz-service-stat {
+    border-block-start: 1px solid var(--station-border);
+    border-inline-start: 0;
+  }
+
+  .cz-service-catalogue__toolbar > * {
+    flex-basis: 100%;
+  }
+
+  .cz-service-catalogue__pagination,
+  .cz-service-catalogue__page-controls {
+    align-items: stretch;
+    width: 100%;
   }
 }

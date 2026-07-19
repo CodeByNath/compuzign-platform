@@ -13,6 +13,7 @@
 import { usePackageFamilyCards } from './packageFamily';
 import { useServiceCategoryCards } from './serviceCategory/useServiceCategoryCards';
 import { useServiceCards } from './serviceSurface/useServiceCards';
+import { useServiceCatalogue } from './serviceSurface/useServiceCatalogue';
 import { useServiceTierCards } from './tierSurface/useServiceTierCards';
 import type { DataSourceKey } from './surfaceBindings';
 
@@ -37,6 +38,7 @@ export const DATA_SOURCES: Record<DataSourceKey, StationDataSource> = {
   'package-families': usePackageFamilyCards,
   'service-categories': useServiceCategoryCards,
   'services': useServiceCards,
+  'service-catalogue': useServiceCatalogue,
   // Tier occupants of the Package Station belonging to the catalogue's host
   // service. Registered as a source like any other — the wall that consumes it
   // knows nothing about tiers.

@@ -17,6 +17,7 @@ import type { CategoryGroupCardItem } from './category-groups/types';
 import type { TemplateKitKey } from '../stations/surfaceBindings';
 import type { StationRecordId } from '../stations/recordIdentity';
 import { ServiceCategoryCarousel } from './service-categories/ServiceCategoryCarousel';
+import { ServiceCatalogue } from './service-catalogue/ServiceCatalogue';
 
 // The dispatch a kit emits: the acted-on record's native id and the action id
 // (matched against the binding's action intents by the host).
@@ -54,4 +55,5 @@ function CategoryGroupCardsKit({ items, loading, error, onIntent }: TemplateKitP
 export const TEMPLATE_KITS: Record<TemplateKitKey, TemplateKit> = {
   'category-group-cards': CategoryGroupCardsKit,
   'service-category-carousel': ServiceCategoryCarousel,
+  'service-catalogue': ServiceCatalogue,
 };

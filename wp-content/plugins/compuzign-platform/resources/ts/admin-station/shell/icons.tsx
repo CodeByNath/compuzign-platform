@@ -114,3 +114,10 @@ export const ViewIcon: ComponentType<IconProps> = (props) => (
     <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" />
   </Icon>
 );
+
+// Magnifying glass — browse/search controls.
+export const SearchIcon: ComponentType<IconProps> = (props) => (
+  <Icon {...props}>
+    <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.94 4.94a.75.75 0 11-1.06 1.06l-4.94-4.94A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" />
+  </Icon>
+);

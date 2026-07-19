@@ -27,8 +27,8 @@ import type { DrawerTemplateKey } from './drawers/drawerTypes';
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'service-tiers';
-export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel';
+export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'service-tiers' | 'service-catalogue';
+export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel' | 'service-catalogue';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
 // own action id; `target` + `mode` say where the dispatched record identity
@@ -66,19 +66,30 @@ export interface AdminStationSurfaceBinding {
 // rather than a bare literal in the Body so the default is one documented place.
 export const DEFAULT_HOME_STATION = 'services';
 
-// The table. The Service home presentation region holds Package Families and a
-// compact Service Categories carousel. Rows render in the order they appear.
+// The table. Service Home renders its browse-first catalogue followed by the
+// Package Family card wall. Rows render in the order they appear.
 //
-// The list shape is not vestigial. A placement resolves to a LIST of walls, and
-// this table carried two of them (Package Families beside a Service Category
-// Groups wall) without a single edit to the card, the grid, the host, the drawer
-// shell, or the Body. Removing that wall was likewise one row: a wall is a row,
-// which is exactly what makes adding, reordering, or retiring one cheap.
+// The list shape is not vestigial. A placement resolves to a LIST of walls; the
+// current Home carries two, and the former Category, Service-card, and Tier
+// walls were retired from Home by removing binding rows only. The card, grid,
+// host, drawer shell, sources, and kits remain reusable.
 //
 // Packages / Promotions presentation surfaces are intentionally absent — no row
 // is invented before a real data source and kit exist for them (they resolve to
 // nothing and the region shows its neutral empty state).
 export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
+  {
+    stationId: 'services',
+    surfaceId: 'service-catalogue',
+    placement: 'presentation',
+    dataSourceKey: 'service-catalogue',
+    templateKitKey: 'service-catalogue',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'service',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+    ],
+  },
   {
     stationId: 'services',
     surfaceId: 'package-families',
@@ -95,55 +106,11 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
       { id: 'view', target: 'drawer', mode: 'view' },
     ],
   },
-  {
-    stationId: 'services',
-    surfaceId: 'service-categories',
-    placement: 'presentation',
-    title: 'Service Categories',
-    dataSourceKey: 'service-categories',
-    templateKitKey: 'service-category-carousel',
-    conditions: { scope: 'current' },
-    drawerTemplateKey: 'category',
-    actionIntents: [
-      { id: 'view', target: 'drawer', mode: 'view' },
-    ],
-  },
-  // The Service wall. Two intents onto the same drawer template, because the
-  // Service drawer registers both modes: View opens the reading surface, Edit
-  // opens straight into the Overview editor. The recordId dispatched is the
-  // service's own numeric id, which is what the drawer reads with.
-  {
-    stationId: 'services',
-    surfaceId: 'services',
-    placement: 'presentation',
-    title: 'Services',
-    dataSourceKey: 'services',
-    templateKitKey: 'category-group-cards',
-    conditions: { scope: 'current' },
-    drawerTemplateKey: 'service',
-    actionIntents: [
-      { id: 'view', target: 'drawer', mode: 'view' },
-      { id: 'edit', target: 'drawer', mode: 'edit' },
-    ],
-  },
-  // The Tier wall. Identity here is the occupant_id — the Package Station's own
-  // stable occupant key, NOT a tier slot name — carried through unchanged, which
-  // is what lets the drawer re-resolve the occupant before using its fixed slot.
-  {
-    stationId: 'services',
-    surfaceId: 'service-tiers',
-    placement: 'presentation',
-    title: 'Package Tiers',
-    dataSourceKey: 'service-tiers',
-    templateKitKey: 'category-group-cards',
-    conditions: { scope: 'current' },
-    drawerTemplateKey: 'tier',
-    actionIntents: [
-      { id: 'view', target: 'drawer', mode: 'view' },
-      { id: 'edit', target: 'drawer', mode: 'edit' },
-    ],
-  },
 ];
+
+// Service Categories, the former Service card wall, and Package Tiers stay in
+// the source/kit registries but are intentionally unbound from Home. Their
+// presentation and drawer adapters remain available for future placements.
 
 // Structural key for a binding's addressable identity: one surface per
 // station + surface + placement. Two rows sharing it are an authoring slip that

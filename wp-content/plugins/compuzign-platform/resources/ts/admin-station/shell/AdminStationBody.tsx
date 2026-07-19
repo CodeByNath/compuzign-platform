@@ -10,8 +10,8 @@
 //   placement → multiple bindings → multiple walls
 //
 // A region can stack several walls, each with its own source, kit, actions, and
-// drawer; the Service home shows Package Families followed by the compact
-// Service Categories carousel. Adding, reordering, or removing a wall is a binding row — not an edit
+// drawer; the Service home shows the browse-first Service Catalogue followed
+// by Package Family cards. Adding, reordering, or removing a wall is a binding row — not an edit
 // here. The shell stays entity-agnostic and prints whatever kits the bindings
 // name.
 //

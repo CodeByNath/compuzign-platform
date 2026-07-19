@@ -11,7 +11,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/home/`
 - `AdminStationPresentation.tsx` — presentation container. Renders only what it is handed and does not know which station is active. Renders at its natural content height and contributes no scroll of its own. Neutral empty state when nothing is supplied. It has **no surface of its own** — no border, background, or radius — so the content it holds provides the visual grouping and the body reads as one continuous canvas; the framing contract is untouched and stays available to future stations.
 - `AdminStationGroups.tsx` — dynamic tabs + active panel with full tab semantics (`tablist`/`tab`/`tabpanel`, `aria-selected`, `aria-controls`, `aria-labelledby`, `useId`-scoped ids, roving tabindex). **Automatic activation**: Left/Right/Home/End move focus and select in one step, skipping disabled groups. The active group is derived on every render, never mirrored into state, so a changed configuration cannot leave a stale or invalid selection. Empty collection renders no tablist (invalid semantics) and invents no default tabs; all-disabled renders tabs with a neutral empty state.
 
-The Body supplies every wall bound to the active station's `presentation` placement—currently Package Families, Service Categories, Services, and Package Tiers for Services. Each is a titled `.cz-station-wall`. It supplies no groups, so that region uses the no-group empty state.
+The Body supplies every wall bound to the active station's `presentation` placement. Service Home currently receives the browse-first Service Catalogue kit followed by the titled Package Family card wall. It supplies no groups, so that region uses the no-group empty state.
 
 ## Layout and scroll ownership
 

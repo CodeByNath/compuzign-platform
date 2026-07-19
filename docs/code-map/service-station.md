@@ -21,7 +21,9 @@ Package Station and Promotion compatibility URLs remain Service-nested, but thei
 
 ## Frontend boundary
 
-[resources/ts/admin-station/stations/service/](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/CLAUDE.md) owns Service contracts, endpoints, state, and pure derivations. External consumers import its `index.ts`; modules inside its own graph import siblings to avoid cycles.
+[resources/ts/admin-station/stations/service/](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/CLAUDE.md) owns Service contracts, endpoints, state, and pure derivations. Its catalogue summary includes settled browse copy, creation time, pool counts, and assigned Category/Family Group labels. External consumers import its `index.ts`; modules inside its own graph import siblings to avoid cycles.
+
+`admin-station/stations/serviceSurface/useServiceCatalogue.ts` and `serviceCatalogueAdapter.ts` own the Home read/projection. The Home kit lives at `admin-station/presentation/service-catalogue/`; it renders current rows and uses the archived read only for its overview count.
 
 Host-neutral Service UI lives under [entity-drawers/service/](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/service/ServiceDrawerContent.tsx), with manifests/bindings/editors under `entity-drawers/schema/` and `entity-drawers/editors/`. Command Centre and Admin Station adapters mount that one composition. `components/admin/stations/ServiceViewStep.tsx` is a thin compatibility host, not the UI authority.
 

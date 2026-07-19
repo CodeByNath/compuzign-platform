@@ -16,14 +16,14 @@ active station + placement
   → registered drawer adapter
 ```
 
-A placement may contain several ordered walls. Services currently presents Package Families, Service Categories, Services, and Package Tiers in table order.
+A placement may contain several ordered walls. Services currently presents the Service Catalogue followed by Package Families. The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
 
 ## Authoritative files
 
 - `stations/surfaceBindings.ts` — declarative binding rows, action intents, optional drawer key, structural guard, and resolver.
-- `stations/dataSources.ts` — read-hook registry for Package Families, Service Categories, Services, and Tiers.
+- `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, Service Categories, Service cards, and Tiers.
 - `stations/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
-- `presentation/templateKits.tsx` — kit registry for full card grids and compact Category carousel.
+- `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, and compact Category carousel.
 - `stations/StationSurfaceHost.tsx` — generic source/kit composer and resolvability guard.
 - `stations/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
 - `shell/AdminStationBody.tsx` — renders each resolved presentation binding and forwards intents to the drawer.

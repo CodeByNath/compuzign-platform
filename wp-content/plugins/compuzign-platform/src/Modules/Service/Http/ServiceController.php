@@ -201,8 +201,23 @@ class ServiceController
         // admin pickers. Selector scoping (D7): archived/trashed categories never
         // appear here, but stay rendered on services already assigned to them
         // (the per-service categories below are intentionally unfiltered).
-        $terms      = get_terms(['taxonomy' => ServiceSchema::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
-        $categories = [];
+        $terms              = get_terms(['taxonomy' => ServiceSchema::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
+        $categories         = [];
+        $categoryGroupNames = [];
+        $categoryRoles      = [];
+
+        // Build the hierarchy label index once. Service rows may reference a
+        // Category Group in any lifecycle state, so this uses the complete term
+        // list rather than only the live selector projection below.
+        foreach (is_array($terms) ? $terms : [] as $t) {
+            $termId                 = (int) $t->term_id;
+            $categoryRoles[$termId] = CategoryMeta::role($termId);
+
+            if ($categoryRoles[$termId] === CategoryMeta::STATION_ROLE_GROUP) {
+                $categoryGroupNames[$termId] = html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+        }
+
         foreach (is_array($terms) ? $terms : [] as $t) {
             $categoryStatus = CategoryMeta::status((int) $t->term_id);
             if (!StationLifecycle::isLive($categoryStatus)) {
@@ -211,7 +226,7 @@ class ServiceController
             // Category Group audit (Option B): keep group-role terms out of the
             // Service Catalog's category tab bar/picker — same filter as
             // AdminCategoriesController::listCategories().
-            if (CategoryMeta::role((int) $t->term_id) !== CategoryMeta::STATION_ROLE_CATEGORY) {
+            if (($categoryRoles[(int) $t->term_id] ?? null) !== CategoryMeta::STATION_ROLE_CATEGORY) {
                 continue;
             }
             $categories[] = [
@@ -252,12 +267,18 @@ class ServiceController
             }
 
             $postTerms = wp_get_post_terms($post->ID, ServiceSchema::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
-            $postCats  = array_map(fn($t) => [
-                'id'          => (int) $t->term_id,
-                'name'        => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'slug'        => $t->slug,
-                'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
-            ], $postTerms);
+            $postCats  = array_map(function ($t) use ($categoryGroupNames): array {
+                $groupId = (int) ($t->parent ?? 0);
+
+                return [
+                    'id'          => (int) $t->term_id,
+                    'name'        => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                    'slug'        => $t->slug,
+                    'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
+                    'group_id'    => $groupId > 0 ? $groupId : null,
+                    'group_name'  => $groupId > 0 ? ($categoryGroupNames[$groupId] ?? null) : null,
+                ];
+            }, $postTerms);
 
             // Pool sizes for the Package Manager Services table — counts only;
             // the Service-owned pool content itself never leaves the Service.
@@ -268,6 +289,8 @@ class ServiceController
                 'id'                       => $post->ID,
                 'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'slug'                     => $post->post_name,
+                'excerpt'                  => html_entity_decode(wp_strip_all_tags($post->post_excerpt), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'created_at'               => (string) get_post_time(DATE_ATOM, true, $post),
                 'categories'               => $postCats,
                 'platform_status'          => $platformStatus,
                 'previous_platform_status' => $meta['previous_platform_status'] ?? '',

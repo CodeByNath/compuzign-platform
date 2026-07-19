@@ -42,7 +42,19 @@ export interface ServiceSummary {
   id:                        number;
   title:                     string;
   slug:                      string;
-  categories:                Array<{ id: number | null; name: string; slug: string }>;
+  // Settled list copy for browse-first catalogue surfaces. Optional during the
+  // additive response rollout so older cached fixtures remain compatible.
+  excerpt?:                  string;
+  created_at?:               string;
+  categories:                Array<{
+    id:          number | null;
+    name:        string;
+    slug:        string;
+    // Category hierarchy is projected with the assigned term so Service Home
+    // can read its Family Group without owning or re-fetching Category state.
+    group_id?:   number | null;
+    group_name?: string | null;
+  }>;
   platform_status:           'active' | 'disabled' | 'archived' | 'trashed';
   previous_platform_status?: 'active' | 'disabled' | '';
   module_status:             { overview: string; inclusions: string; faqs: string };
