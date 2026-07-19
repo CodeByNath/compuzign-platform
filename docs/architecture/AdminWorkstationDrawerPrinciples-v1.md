@@ -373,7 +373,7 @@ The files below are the state-machine essentials cited by this document. For the
 Header, body, footer, step management. Opened via `openAction()` with `mode: 'drawer'`.
 
 **Edit state shell**
-`resources/ts/components/admin/InlineEditorShell.tsx`
+`resources/ts/drawer-kit/InlineEditorShell.tsx`
 The Edit state carrier. Wraps each module's editor component and provides Save / Cancel actions. All three modules use the same shell for their Edit state.
 
 **Module state machine**
@@ -383,9 +383,9 @@ The Edit state carrier. Wraps each module's editor component and provides Save /
 - `ServiceCreateStep` — New/Locked state rendering. Service Overview = New (blank, edit enabled). Included Features and Common Questions = Locked (shell visible, edit disabled).
 
 **Module editor content**
-- `resources/ts/components/admin/editors/ServiceOverviewEditor.tsx`
-- `resources/ts/components/admin/editors/ServiceInclusionsEditor.tsx`
-- `resources/ts/components/admin/editors/ServiceFaqsEditor.tsx`
+- `resources/ts/entity-drawers/editors/ServiceOverviewEditor.tsx`
+- `resources/ts/entity-drawers/editors/ServiceInclusionsEditor.tsx`
+- `resources/ts/entity-drawers/editors/ServiceFaqsEditor.tsx`
 
 **Drawer module CSS system**
 `resources/css/modules/admin.css`
@@ -468,7 +468,7 @@ These are distinct concepts that must never be conflated:
 
 ### Resolver Utilities
 
-Status resolution is centralised in `resources/ts/components/admin/utils/moduleStatus.tsx`:
+Status resolution is centralised in `resources/ts/drawer-kit/utils/moduleStatus.tsx`:
 
 - `resolveOverviewStatus(service, opts)` — Service Overview 5-state lifecycle
 - `resolvePackageStatus(pkg)` — Package-level status (`not-configured` / `active` / `disabled`)

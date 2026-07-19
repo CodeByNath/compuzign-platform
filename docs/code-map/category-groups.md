@@ -16,13 +16,13 @@ Group and Category are **two stations sharing one taxonomy** (`cz_service_catego
 
 - [ServiceCategoryGroupCatalogStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCategoryGroupCatalogStation.tsx) renders Group tables/filters, creates groups, assembles live Category handoff context, and opens canonical drawers. Use it for Group catalogue or creation changes.
 - [ServiceCategoryGroupViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCategoryGroupViewStep.tsx) contains the Details/Connections drawer, assigned-Category summary, overview editor, lifecycle footer, and publish/discard/exit dialogs. Use it for Group drawer, lifecycle, or Category navigation.
-- [serviceCategoryGroup.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/serviceCategoryGroup.ts) declares Group table/drawer placements. Use it when changing modules or viewpoints.
+- [serviceCategoryGroup.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/serviceCategoryGroup.ts) declares Group table/drawer placements. Use it when changing modules or viewpoints.
 
 ## UI and Drawers
 
 - [ServiceCategoryGroupOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceCategoryGroupOverviewEditor.tsx) renders Group name and description inputs. Use it for overview form behavior.
-- [serviceCategoryGroup.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/serviceCategoryGroup.tsx) binds overview and assigned-Category summaries to shells. Use it for drawer presentation.
-- [serviceCategoryGroup.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/tables/serviceCategoryGroup.tsx) projects Group status, counts, and row actions. Use it for table presentation.
+- [serviceCategoryGroup.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/serviceCategoryGroup.tsx) binds overview and assigned-Category summaries to shells. Use it for drawer presentation.
+- [serviceCategoryGroup.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/tables/serviceCategoryGroup.tsx) projects Group status, counts, and row actions. Use it for table presentation.
 
 ## State and Providers
 

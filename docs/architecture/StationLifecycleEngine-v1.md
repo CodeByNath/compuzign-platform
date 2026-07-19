@@ -140,5 +140,5 @@ and binned instances neither colour the pill nor count as configured.
 | Routes & persistence | `src/Modules/Admin/Http/AdminServicesController.php` |
 | Public visibility | `src/Modules/SurfacePackages/Repositories/PackageRepository.php`, `src/Modules/CostBuilder/Services/PricingBuilder.php` |
 | Station hooks | `resources/ts/hooks/useServiceStation.ts`, `usePackageStation.ts`, `usePromotionStation.ts` (+ `stationPrimitives.ts`) |
-| Summary resolvers | `resources/ts/components/admin/utils/moduleStatus.tsx` |
+| Summary resolvers | `resources/ts/drawer-kit/utils/moduleStatus.tsx` |
 | Drawer UIs | `ServiceViewStep.tsx`, `ServiceTierStep.tsx`, `ServicePromotionStep.tsx` |

@@ -70,7 +70,7 @@ Precedent: StationLifecycleEngine-v1 §2.
 Precedent: `categoryOverviewModule` / `tierFeaturesModule` (S6 Phase D.1).
 
 - [ ] Add one `ModuleDefinition<T>` per module in
-      `ts/components/admin/utils/moduleNotifications.ts` — additive DNA
+      `ts/drawer-kit/utils/moduleNotifications.ts` — additive DNA
       growth; the file's existing exports are untouched.
 - [ ] Each definition declares `problems`, `emptyPrompt`, `isEmpty`,
       `resolveStatus` per the canonical 5-state resolution

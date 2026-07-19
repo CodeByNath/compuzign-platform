@@ -11,8 +11,8 @@ Backend station/controller boundaries own canonical lifecycle transitions and pe
 ## Main Entry Points
 
 - [stationPrimitives.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/stationPrimitives.ts) provides shared mutation loading/error wrappers and result handling. Use it when changing cross-station action mechanics.
-- [moduleStatus.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/utils/moduleStatus.tsx) derives completeness, Service/Tier/Package/Promotion statuses, commercial summaries, catalogue buckets, and pills/dots. Use it for presentation-state rules, never persistence.
-- [moduleNotifications.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/utils/moduleNotifications.ts) declares module evaluators, readiness rules, and contextual notification copy. Use it for module validation and guidance panels.
+- [moduleStatus.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleStatus.tsx) derives completeness, Service/Tier/Package/Promotion statuses, commercial summaries, catalogue buckets, and pills/dots. Use it for presentation-state rules, never persistence.
+- [moduleNotifications.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleNotifications.ts) declares module evaluators, readiness rules, and contextual notification copy. Use it for module validation and guidance panels.
 
 `moduleStatus.tsx` is a presentation-policy module, not a lifecycle store. It centralizes completeness checks; Service, Tier, Package Manager, Promotion, and commercial-summary status resolution; status-dot/pill rendering; and Service catalogue filter/display status. It is depended on by station hooks, relation providers, notifications, table schemas, and large Service/Tier workspaces.
 

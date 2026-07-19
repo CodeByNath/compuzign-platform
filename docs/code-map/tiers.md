@@ -15,18 +15,18 @@ Each tier occupant owns its module drafts and lifecycle inside the Package Stati
 Contains the dynamic settled-occupant overview cards and pricing table, current/bin tabs, individual Tier Details/Connections drawer, overview/features/FAQ editors, publish and lifecycle buttons, restore conflicts, and confirmation dialogs. The Admin card grid loops over the occupant collection derived from `station.tiers`, excludes empty shells, and uses `occupant_id` for card/drawer identity. The resolved `slotId` remains the mutation address. Use this file when changing Tier cards, drawers, summaries, navigation, or lifecycle actions.
 
 - [PackageManagerTierCards.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageManagerTierCards.tsx) renders compact cards for the station's settled occupant collection and hands both `occupantId` and `slotId` to View/Edit actions inside Station Manager. Empty shells are omitted.
-- [tier.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/tier.ts) declares Tier drawer tabs and module placements. Use it when moving schema-rendered Tier modules.
+- [tier.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/tier.ts) declares Tier drawer tabs and module placements. Use it when moving schema-rendered Tier modules.
 
 ## UI and Drawers
 
-- [TierOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/TierOverviewEditor.tsx) edits label, audience, price/contact mode, billing cycle, and popular treatment. Use it for Tier overview form fields.
-- [tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/tier.tsx) defines Tier shell data and overview/features/FAQ editor bindings. Use it for schema-rendered Tier content.
+- [TierOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/TierOverviewEditor.tsx) edits label, audience, price/contact mode, billing cycle, and popular treatment. Use it for Tier overview form fields.
+- [tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/tier.tsx) defines Tier shell data and overview/features/FAQ editor bindings. Use it for schema-rendered Tier content.
 - [BinStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/BinStation.tsx) provides broader archived/trashed entity tables; Package occupant bin handling remains in `ServiceTierStep`.
 
 ## State and Providers
 
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns station loading and Tier draft, settle, enable, popular, pool, archive, restore, trash, and delete mutations. Use it for Tier client state or API actions.
-- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/utils/tierOccupants.ts) projects fixed internal shells into the dynamic Admin occupant collection and resolves stable occupant IDs back to slot IDs.
+- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/tierOccupants.ts) projects fixed internal shells into the dynamic Admin occupant collection and resolves stable occupant IDs back to slot IDs.
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/packages/evaluateTierPricing.ts) derives Tier line totals and pricing issues. Use it for Rate Sheet pricing rules.
 
 ## Internal File Navigation

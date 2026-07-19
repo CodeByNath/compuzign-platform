@@ -54,7 +54,7 @@ What this build **is allowed** to add — the designed extension points:
 
 | Kind | Where |
 |---|---|
-| New `ModuleDefinition`s | `ts/components/admin/utils/moduleNotifications.ts` (DNA growth — every station added its own) |
+| New `ModuleDefinition`s | `ts/drawer-kit/utils/moduleNotifications.ts` (DNA growth — every station added its own) |
 | New station hook | `ts/hooks/useCategoryStation.ts` |
 | New manifest + registry entry | `ts/components/admin/schema/entities/category.ts` + one line in `entities/index.ts` |
 | New shell bindings | `ts/components/admin/schema/shells/bindings/category.tsx` |
@@ -404,7 +404,7 @@ one editor, one bindings file, one manifest, TableSchemas, and the registry
 entries — all configuration of existing archetypes.
 
 **Scope.**
-1. **Module definitions** (`ts/components/admin/utils/moduleNotifications.ts`,
+1. **Module definitions** (`ts/drawer-kit/utils/moduleNotifications.ts`,
    additive DNA growth):
    - `categoryOverviewModule: ModuleDefinition<{ name; description; slug }>`
      — problems: name missing (description optional or required — match the

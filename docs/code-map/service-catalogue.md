@@ -18,13 +18,13 @@ Hosts Station Home identity/freshness, loaded Service summaries, dirty-state gua
 
 Contains the Overview/Connections Service drawer, grouped module editors, lifecycle actions, and publish/discard/exit dialogs.
 
-- [service.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/service.ts) declares Service drawer/table placements.
+- [service.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/service.ts) declares Service drawer/table placements.
 
 ## UI and Drawers
 
-- [ServiceOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceOverviewEditor.tsx), [ServiceInclusionsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceInclusionsEditor.tsx), and [ServiceFaqsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceFaqsEditor.tsx) own their respective module forms.
-- [ActionShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx) supplies the compact entity header for Service and Tier drawers; [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/EntityDrawer.tsx) keeps schema-owned modules grouped inside Overview.
-- [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/service.tsx) defines Service shell adapters and bindings.
+- [ServiceOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/ServiceOverviewEditor.tsx), [ServiceInclusionsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/ServiceInclusionsEditor.tsx), and [ServiceFaqsEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/ServiceFaqsEditor.tsx) own their respective module forms.
+- [ActionShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx) supplies the compact entity header for Service and Tier drawers; [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityDrawer.tsx) keeps schema-owned modules grouped inside Overview.
+- [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/service.tsx) defines Service shell adapters and bindings.
 - [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) defines focused Package Family, family assignment, Connection, Commercial Group, Rate Row, Rate Sheet setup, and audit-only Price Settings drawers. Manager-owned drawers apply to the page draft only.
 - [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) composes read-only summary metrics, family scope, Details / Connections / Settings, and draft-preferred Package section projections. Summary and collection surfaces share the same memoized projections.
 - [PackageServicesTable.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageServicesTable.tsx) renders the browse-first Services collection, search and compact filters, derived connection health, canonical Service View/Edit actions, and focused Package-owned family reassignment.

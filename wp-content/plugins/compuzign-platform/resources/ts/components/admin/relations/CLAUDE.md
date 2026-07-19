@@ -2,8 +2,8 @@
 
 ## Audit metadata
 
-Last audited: 2026-07-15 Australia/Brisbane
-Audited commit: `7d70e4f` plus the full-width shell correction working tree
+Last audited: 2026-07-19 Australia/Brisbane
+Audited commit: `6ff7bdb` (drawer-kit relocation + Admin Station Service/Tier integration)
 Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts`
@@ -19,12 +19,12 @@ Audited paths:
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/ActionShell.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/AdminShell.tsx`
-- `wp-content/plugins/compuzign-platform/resources/ts/components/admin/DrawerTabs.tsx`
+- `wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/DrawerTabs.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCatalogStation.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceViewStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceTierStep.tsx`
 - `wp-content/plugins/compuzign-platform/resources/css/modules/admin.css`
-Current state: `ServiceCatalogStation` is the “Your Service Manager” supply/configuration host. New Service and New Group launch from its Settings tab. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. Service and Tier entity drawers use the compact metadata header while their schema-owned Overview modules and inline editors remain authoritative. Their presentation and behaviour are now owned by the neutral `stations/service-drawer/` and `stations/tier-drawer/` compositions (mounted through the `stations/entityDrawerHost.ts` bridge); `ServiceViewStep` / `ServiceTierStep` are thin StepContext→bridge adapters (~50 lines each). See [Entity Drawer Recovery](../../../../../../../../docs/code-map/entity-drawer-recovery.md). `PackageManagerStation` renders the separate `packages` composition: supported Tier cards and Promotions only. The admin frame is full-width and left-aligned; the sidebar defaults to expanded above 1920px and icon-only at or below it.
+Current state: `ServiceCatalogStation` is the “Your Service Manager” supply/configuration host. New Service and New Group launch from its Settings tab. Focused manager-owned drawers patch its mounted draft and page Save remains atomic. Service and Tier entity drawers use the compact metadata header while their schema-owned Overview modules and inline editors remain authoritative. Their presentation and behaviour are owned by the neutral `entity-drawers/service/` and `entity-drawers/tier/` compositions, built on the generic `drawer-kit/` and mounted through the `drawer-kit/entityDrawerHost.ts` bridge; `ServiceViewStep` / `ServiceTierStep` are thin StepContext→bridge adapters (~50 lines each). **The Admin Station now mounts those same compositions** through its own thin adapters, so this folder is no longer the only host — do not add drawer presentation or behaviour here, and do not fork it there. See [Entity Drawer Recovery](../../../../../../../../docs/code-map/entity-drawer-recovery.md). `PackageManagerStation` renders the separate `packages` composition: supported Tier cards and Promotions only. The admin frame is full-width and left-aligned; the sidebar defaults to expanded above 1920px and icon-only at or below it.
 
 ## Entry guide
 
