@@ -15,6 +15,8 @@
 // value-import the content without a cycle back through it.
 
 import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawerContent';
+import { ServiceDrawerHost } from '../serviceSurface/ServiceDrawerHost';
+import { TierDrawerHost } from '../tierSurface/TierDrawerHost';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
 
 export type { DrawerMode, DrawerTemplateKey, DrawerContentProps, DrawerContent, DrawerTemplateRegistration } from './drawerTypes';
@@ -29,6 +31,25 @@ export const DRAWER_TEMPLATES: Record<DrawerTemplateKey, DrawerTemplateRegistrat
     title:          'Package Family',
     supportedModes: ['view', 'edit'],
     content:        PackageFamilyDrawerContent,
+  },
+  // The mature Service drawer, mounted through a thin host adapter. Unlike the
+  // Package Family template — a parallel UI built here because families have no
+  // shared authoritative state hook — this registers the SAME composition the
+  // Command Centre mounts. There is one Service drawer implementation.
+  'service': {
+    key:            'service',
+    title:          'Service',
+    supportedModes: ['view', 'edit'],
+    content:        ServiceDrawerHost,
+  },
+  // The mature Package Station tier drawer, likewise the same composition the
+  // Command Centre mounts — including the occupant bin and its restore conflict
+  // resolution. Keyed by the occupant's own stable id.
+  'tier': {
+    key:            'tier',
+    title:          'Package Tier',
+    supportedModes: ['view', 'edit'],
+    content:        TierDrawerHost,
   },
 };
 

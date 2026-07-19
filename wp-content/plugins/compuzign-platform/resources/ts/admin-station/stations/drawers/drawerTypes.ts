@@ -14,7 +14,7 @@ export type DrawerMode = 'view' | 'edit';
 
 // Registered drawer template keys. A string-literal union so a binding and an
 // intent can only name a template the registry actually defines.
-export type DrawerTemplateKey = 'package-family';
+export type DrawerTemplateKey = 'package-family' | 'service' | 'tier';
 
 // What the shell hands a template's content: the record identity that drove the
 // intent — exactly as the card carried it — plus the active tab and a close

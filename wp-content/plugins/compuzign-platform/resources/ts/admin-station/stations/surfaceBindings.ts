@@ -27,7 +27,7 @@ import type { DrawerTemplateKey } from './drawers/drawerTypes';
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'package-families' | 'service-categories';
+export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'service-tiers';
 export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
@@ -104,6 +104,41 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     templateKitKey: 'service-category-carousel',
     conditions: { scope: 'current' },
     actionIntents: [],
+  },
+  // The Service wall. Two intents onto the same drawer template, because the
+  // Service drawer registers both modes: View opens the reading surface, Edit
+  // opens straight into the Overview editor. The recordId dispatched is the
+  // service's own numeric id, which is what the drawer reads with.
+  {
+    stationId: 'services',
+    surfaceId: 'services',
+    placement: 'presentation',
+    title: 'Services',
+    dataSourceKey: 'services',
+    templateKitKey: 'category-group-cards',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'service',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+      { id: 'edit', target: 'drawer', mode: 'edit' },
+    ],
+  },
+  // The Tier wall. Identity here is the occupant_id — the Package Station's own
+  // stable occupant key, NOT a tier slot name — carried through unchanged, which
+  // is what lets the drawer re-resolve the occupant before using its fixed slot.
+  {
+    stationId: 'services',
+    surfaceId: 'service-tiers',
+    placement: 'presentation',
+    title: 'Package Tiers',
+    dataSourceKey: 'service-tiers',
+    templateKitKey: 'category-group-cards',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'tier',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+      { id: 'edit', target: 'drawer', mode: 'edit' },
+    ],
   },
 ];
 

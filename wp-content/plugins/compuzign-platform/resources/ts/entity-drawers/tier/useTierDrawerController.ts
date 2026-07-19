@@ -151,11 +151,16 @@ export function useTierDrawerController({
     setSaveOk(false);
   };
   const openedInitialSection = useRef(false);
+  // Gated on the RESOLVED tier, not on `initialTierId`. A host may address the
+  // opening tier either way — by slot id (the old host, which sets editingTierId
+  // synchronously above) or by stable occupant id (the Admin Station, where the
+  // effect at the top of this hook resolves the slot once the station loads).
+  // Keying on editingTierId covers both, and openSection reads it anyway.
   useEffect(() => {
-    if (openedInitialSection.current || !initialTierId || !initialTierSection || !pkg.detailLoaded) return;
+    if (openedInitialSection.current || !editingTierId || !initialTierSection || !pkg.detailLoaded) return;
     openedInitialSection.current = true;
     openSection(initialTierSection);
-  }, [initialTierId, initialTierSection, pkg.detailLoaded]);
+  }, [editingTierId, initialTierSection, pkg.detailLoaded]);
 
   const saveSection = async () => {
     if (!editingTierId) return;

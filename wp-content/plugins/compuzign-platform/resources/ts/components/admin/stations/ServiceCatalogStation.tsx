@@ -4,6 +4,10 @@ import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { AsyncLoading, AsyncError } from '@/drawer-kit/ui/AsyncSection';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { Category, PricingTierData, ServiceItem, TierId } from '@/api/types/cost-builder';
+import {
+  normalizeAdminCategories,
+  buildServiceItemForStationHandoff,
+} from '@/entity-drawers/service/serviceSeed';
 import { updateServiceCategory } from '@/api/endpoints/admin';
 import type { SurfacePackageSummary } from '@/api/types/admin';
 import { createService } from '@/admin-station/stations/service';
@@ -41,54 +45,11 @@ type Props = StationSurfaceProps;
 // integer IDs; null only appears for synthetic "Uncategorised" groupings.
 // Filter null-ID entries out before passing to contexts expecting Category[].
 
-type AdminCategory = { id: number | null; name: string; slug: string; description?: string };
-
-// Exported since S6: the Category Services collection surface is the second
-// consumer — it opens the real Service drawer for each assigned service and
-// needs the identical handoff payload (do not fork a reduced Service drawer).
-export function normalizeAdminCategories(cats: AdminCategory[]): Category[] {
-  return cats
-    .filter((c): c is { id: number; name: string; slug: string; description?: string } => c.id !== null)
-    .map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description ?? '' }));
-}
-
-// ── Drawer handoff adapter ────────────────────────────────────────────────────
-// Produces a minimal ServiceItem for opening the existing ServiceViewStep drawer.
-// The drawer immediately calls fetchAdminServiceDetail(service.id) on mount and
-// loads authoritative data from there. This adapter only carries enough for the
-// drawer loading window — do not treat it as a second service model.
-
-export function buildServiceItemForStationHandoff(summary: ServiceSummary): ServiceItem {
-  return {
-    id:         summary.id,
-    title:      summary.title,
-    slug:       summary.slug,
-    excerpt:    '',
-    content:    '',
-    categories: normalizeAdminCategories(summary.categories),
-    inclusions:   [],
-    faqs:         [],
-    availability: { is_available: true, message: '' },
-    meta: {
-      platform_status:   summary.platform_status,
-      module_status:     summary.module_status as any,
-      short_description: '',
-      long_description:  '',
-      billing_cycle:     '',
-      sla:               '',
-      uptime:            '',
-      notes:             '',
-      popular_tier:      null,
-      popular_label:     null,
-      sort_order:        0,
-    },
-    pricing: {
-      tiers:  {} as Record<TierId, PricingTierData>,
-      bundle: { title: '', description: '', price: null },
-    },
-    promotion_tiers: [],
-  };
-}
+// Both builders moved to @/entity-drawers/service/serviceSeed so the Admin
+// Station host builds the drawer's inputs from the identical implementation.
+// Re-exported here because existing consumers (CategoryViewStep, the Category
+// Services collection surface) import them from this module.
+export { normalizeAdminCategories, buildServiceItemForStationHandoff };
 
 // ── New-service creation helper ───────────────────────────────────────────────
 
