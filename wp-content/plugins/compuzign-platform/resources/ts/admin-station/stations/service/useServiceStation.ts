@@ -1,13 +1,15 @@
 /*
  * Service Station — the Service drawer's state layer.
  *
- * Moved verbatim from the former hooks/useServiceStation.ts when the frontend
- * Service boundary took ownership of Service state; that path is gone and every
- * consumer now imports from the station barrel. Only import paths changed — no
- * state, effect, callback, or request behaviour was touched.
+ * This hook owns the stateful station concerns: the authoritative detail fetch,
+ * draft-preferred reads, and the lifecycle/save/settle/revert actions. The pure
+ * projections it composes per render (module status resolution for the two list
+ * modules, pending-module registry, publish gating, the package summary card,
+ * and the publish-modal summaries) live in the sibling './derive' module. The
+ * public ServiceStation contract is unchanged by that split.
  *
  * Imports Service contracts and endpoints from its siblings ('./api',
- * './types'), never from the old admin API god modules.
+ * './types', './derive'), never from the old admin API god modules.
  *
  * The OverviewDraft / InclusionsDraft / FaqsDraft types are part of this hook's
  * public save signatures, so the station owns them in './types' and the editors
@@ -15,12 +17,12 @@
  *
  * Shared, multi-entity infrastructure stays outside: stationPrimitives
  * (patchModuleDraft), moduleStatus, moduleNotifications. Service uses them; it
- * does not own them. The last two now live in the neutral drawer-kit; they
+ * does not own them. The last two live in the neutral drawer-kit; they
  * import this station's './types' directly, never the barrel, so no cycle forms.
  */
 
 import { useEffect, useState, useCallback } from 'preact/hooks';
-import type { ServiceItem, ServiceInclusion, ServiceFaq, TierId } from '@/api/types/cost-builder';
+import type { ServiceItem, ServiceInclusion, ServiceFaq } from '@/api/types/cost-builder';
 import {
   archiveService,
   fetchAdminServiceDetail,
@@ -42,14 +44,19 @@ import type {
   FaqsDraft,
 } from './types';
 import type { SurfacePackageSummary } from '@/api/types/admin';
-import { resolveOverviewStatus, resolvePackageStatus } from '@/drawer-kit/utils/moduleStatus';
+import { resolveOverviewStatus } from '@/drawer-kit/utils/moduleStatus';
 import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/drawer-kit/utils/moduleNotifications';
 import type { NoteContext, ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchModuleDraft } from '@/hooks/stationPrimitives';
-
-// ── Constants ──────────────────────────────────────────────────────────────────
-
-const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
+import {
+  resolveInclusionsStatus,
+  resolveFaqsStatus,
+  derivePendingModules,
+  deriveCanPublish,
+  derivePackageSummary,
+  deriveInclusionsSummary,
+  deriveFaqsSummary,
+} from './derive';
 
 // ── Result types ───────────────────────────────────────────────────────────────
 
@@ -188,16 +195,7 @@ export function useServiceStation(
   // adminDetail.module_status is authoritative (loaded on drawer open).
   // Falls back to CostBuilder data while the fetch is in flight.
   const moduleStatus = (adminDetail?.module_status ?? service.meta?.module_status) as Record<string, string> | undefined;
-  const hasPendingModules = isActive && (
-    moduleStatus?.overview   === 'pending' ||
-    moduleStatus?.inclusions === 'pending' ||
-    moduleStatus?.faqs       === 'pending'
-  );
-  const pendingModuleNames = [
-    moduleStatus?.overview   === 'pending' ? 'Service Overview'  : null,
-    moduleStatus?.inclusions === 'pending' ? 'Included Features' : null,
-    moduleStatus?.faqs       === 'pending' ? 'Common Questions'  : null,
-  ].filter((n): n is string => n !== null);
+  const { hasPendingModules, pendingModuleNames } = derivePendingModules(moduleStatus, isActive);
 
   // ── Derived: package registry ──────────────────────────────────────────────
   const relatedPkg = packages.find((p) => p.service_refs.includes(service.id)) ?? null;
@@ -216,27 +214,8 @@ export function useServiceStation(
     moduleTransition: moduleStatus?.overview ?? 'not-configured',
   }, overviewDraft);
 
-  const inclusionsStatus = (() => {
-    const transition = moduleStatus?.inclusions ?? 'not-configured';
-    if (transition === 'not-configured') return 'pending-dim';
-    if (inclusions.length === 0) return 'pending-dim';
-    const allComplete = inclusions.every(inc => !!inc.label?.trim());
-    if (!allComplete) return 'pending-dim';
-    if (transition === 'pending') return 'pending-full';
-    if (!isActive) return 'pending-full';
-    return 'active';
-  })();
-
-  const faqsStatus = (() => {
-    const transition = moduleStatus?.faqs ?? 'not-configured';
-    if (transition === 'not-configured') return 'pending-dim';
-    if (faqs.length === 0) return 'pending-dim';
-    const allComplete = faqs.every(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim()));
-    if (!allComplete) return 'pending-dim';
-    if (transition === 'pending') return 'pending-full';
-    if (!isActive) return 'pending-full';
-    return 'active';
-  })();
+  const inclusionsStatus = resolveInclusionsStatus(inclusions, moduleStatus?.inclusions ?? 'not-configured', isActive);
+  const faqsStatus       = resolveFaqsStatus(faqs, moduleStatus?.faqs ?? 'not-configured', isActive);
 
   // ── Derived: module notes ──────────────────────────────────────────────────
   const noteCtxOverview: NoteContext = {
@@ -260,73 +239,18 @@ export function useServiceStation(
   const faqsNotes       = getFaqsNotes(faqs as unknown as ServiceFaq[], noteCtxFaqs);
 
   // ── Derived: can publish ───────────────────────────────────────────────────
-  const hasModulePendingChanges =
-    inclusionsStatus === 'pending-full' || inclusionsStatus === 'pending-dim' ||
-    faqsStatus === 'pending-full' || faqsStatus === 'pending-dim';
-
-  // A saved inclusions/FAQ draft is an independent publish enabler — but only for an
-  // already-active service (settling a module change). For a new/incomplete service we
-  // must not allow Publish off a content draft while the overview is still incomplete.
   const hasContentDraft =
     adminDetail?.drafts.inclusions != null ||
     adminDetail?.drafts.faqs != null;
 
-  const canPublish =
-    overviewStatus === 'pending-full' ||
-    (overviewStatus === 'active' && hasModulePendingChanges) ||
-    (isActive && hasContentDraft);
+  const canPublish = deriveCanPublish({ overviewStatus, inclusionsStatus, faqsStatus, isActive, hasContentDraft });
 
-  // ── Derived: surface layer ─────────────────────────────────────────────────
-  // Count the tiers actually live in the package — configured (has a price/cycle
-  // or overrides) AND enabled. `relatedPkg.tiers[t]` is always a present summary
-  // object for every tier key (empty shells included), so a bare presence check
-  // always returned 4; disabling or clearing a tier must move this number.
-  const configuredTierCount = relatedPkg
-    ? TIER_KEYS.filter((t) => relatedPkg.tiers[t]?.configured && relatedPkg.tiers[t]?.enabled).length
-    : 0;
+  // ── Derived: surface layer + publish modal summaries (pure, in ./derive) ──
+  const { configuredTierCount, pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc, pkgSummaryDescPending } =
+    derivePackageSummary(relatedPkg, isActive);
 
-  const pkgSummaryStatus = resolvePackageStatus(relatedPkg);
-
-  const allTiersEnabled = relatedPkg != null &&
-    TIER_KEYS.every((t) => relatedPkg.tiers[t]?.enabled === true);
-
-  const pkgSummaryCount = relatedPkg
-    ? `${configuredTierCount} tier${configuredTierCount !== 1 ? 's' : ''} configured`
-    : '0 tiers configured';
-
-  const pkgSummaryDesc = pkgSummaryStatus === 'active'
-    ? 'Package Overview includes a full summary view of pricing and tiers.'
-    : isActive && !relatedPkg
-      ? 'View Package Overview and manage pricing and tiers.'
-      : 'Pricing and tiers not available.';
-
-  const pkgSummaryDescPending = isActive && pkgSummaryStatus === 'active' && !allTiersEnabled;
-
-  // ── Derived: publish modal summaries ──────────────────────────────────────
-  const pluralCount = (n: number, singular: string, plural: string) =>
-    `${n} ${n === 1 ? singular : plural}`;
-
-  const inclSummary = (() => {
-    if (inclusionsStatus === 'pending-dim') return {
-      text: inclusions.length === 0
-        ? '0 included features added'
-        : `${pluralCount(inclusions.length, 'included feature', 'included features')} pending`,
-      orange: true,
-    };
-    const complete = inclusions.filter(inc => !!inc.label?.trim()).length;
-    return { text: `${pluralCount(complete, 'included feature', 'included features')} added`, orange: false };
-  })();
-
-  const faqsSummary = (() => {
-    if (faqsStatus === 'pending-dim') return {
-      text: faqs.length === 0
-        ? '0 common questions added'
-        : `${pluralCount(faqs.length, 'common question', 'common questions')} pending`,
-      orange: true,
-    };
-    const complete = faqs.filter(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim())).length;
-    return { text: `${pluralCount(complete, 'common question', 'common questions')} added`, orange: false };
-  })();
+  const inclSummary = deriveInclusionsSummary(inclusions, inclusionsStatus);
+  const faqsSummary = deriveFaqsSummary(faqs, faqsStatus);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 

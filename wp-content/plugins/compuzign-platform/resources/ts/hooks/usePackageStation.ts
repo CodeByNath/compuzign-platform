@@ -42,6 +42,7 @@ import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from './stationPrimitives';
 import { deriveTierOccupants, resolveTierOccupantSlot } from '@/entity-drawers/shared/tierOccupants';
 import type { TierOccupant } from '@/entity-drawers/shared/tierOccupants';
+import { relationshipDisplayLabel } from '@/entity-drawers/shared/rateSheetLabels';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
 //
@@ -201,7 +202,7 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
       const source = rateItem ? sourceById.get(rateItem.source_item_id) : undefined;
       const resolved = !!rateItem && !!source && !source.missing;
       const label = resolved && source
-        ? source.decorated_label ?? (source.resolved && 'label' in source.resolved ? source.resolved.label : source.resolved && 'question' in source.resolved ? source.resolved.question : '(missing source)')
+        ? relationshipDisplayLabel(source)
         : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
       return {
         ...selection, resolved, label,

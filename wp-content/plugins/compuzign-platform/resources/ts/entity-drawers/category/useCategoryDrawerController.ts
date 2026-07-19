@@ -7,6 +7,12 @@ import type { CategoryServiceCounts } from '@/hooks/useCategoryStation';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import { categoryServicesModule, evaluateModule } from '@/drawer-kit/utils/moduleNotifications';
+import {
+  useAutoDismiss,
+  useGuardedClose,
+  useLifecycleRunner,
+  useOutsideClickDismiss,
+} from '../shared/drawerChrome';
 import type {
   CategoryOverviewShellData,
   CategoryServicesShellData,
@@ -44,7 +50,6 @@ export function useCategoryDrawerController({
   const [splitOpen, setSplitOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<CategoryConfirmDialog>(null);
   const [exitDialog, setExitDialog] = useState<CategoryExitDialog>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editing) {
@@ -53,11 +58,7 @@ export function useCategoryDrawerController({
     }
   }, [editing, station.category.group_id]);
 
-  useEffect(() => {
-    if (!saveOk) return;
-    const timeout = setTimeout(() => setSaveOk(false), 3000);
-    return () => clearTimeout(timeout);
-  }, [saveOk]);
+  useAutoDismiss(saveOk, () => setSaveOk(false), 3000);
 
   const isDirty = editing && draft !== null && original !== null && (
     draft.name !== original.name
@@ -124,43 +125,17 @@ export function useCategoryDrawerController({
     }
   }, [draft, groupId, groupIdOriginal, station]);
 
-  const bypassRef = useRef(false);
-  const pendingContinuationRef = useRef<null | (() => void)>(null);
-  const dirtyRef = useRef(isDirty);
-  dirtyRef.current = isDirty;
-
-  const evaluateExit = useCallback(() => {
-    if (bypassRef.current || !dirtyRef.current) return true;
+  // Guarded exit: a dirty overview editor raises the 'unsaved' dialog; the
+  // shared machinery stashes the blocked close/tab-switch continuation.
+  const { guard, resolveExit, closeBypassingGuard } = useGuardedClose(bridge, () => {
+    if (!isDirty) return true;
     setExitDialog('unsaved');
     return false;
-  }, []);
-
-  useEffect(() => {
-    bridge.setCloseGuard(() => {
-      const allowed = evaluateExit();
-      if (!allowed) pendingContinuationRef.current = bridge.close;
-      return allowed;
-    });
-    return () => bridge.setCloseGuard(null);
-  }, [bridge, evaluateExit]);
+  });
 
   const selectTab = useCallback((next: DrawerTabId) => {
-    if (evaluateExit()) setTab(next);
-    else pendingContinuationRef.current = () => setTab(next);
-  }, [evaluateExit]);
-
-  const resolveExit = useCallback(() => {
-    bypassRef.current = true;
-    const continuation = pendingContinuationRef.current;
-    pendingContinuationRef.current = null;
-    continuation?.();
-    bypassRef.current = false;
-  }, []);
-
-  const closeBypassingGuard = useCallback(() => {
-    bypassRef.current = true;
-    bridge.close();
-  }, [bridge]);
+    guard(() => setTab(next));
+  }, [guard]);
 
   const handleExitDiscard = useCallback(() => {
     cancelEdit();
@@ -168,23 +143,13 @@ export function useCategoryDrawerController({
     resolveExit();
   }, [cancelEdit, resolveExit]);
 
-  useEffect(() => {
-    if (!splitOpen) return;
-    const close = () => setSplitOpen(false);
-    const timeout = setTimeout(() => document.addEventListener('click', close), 0);
-    return () => { clearTimeout(timeout); document.removeEventListener('click', close); };
-  }, [splitOpen]);
+  useOutsideClickDismiss(splitOpen, () => setSplitOpen(false));
 
-  const runLifecycle = useCallback(async (operation: () => Promise<unknown>, closeAfter = false) => {
-    setSplitOpen(false);
-    setActionError(null);
-    try {
-      const result = await operation();
-      if (result && closeAfter) closeBypassingGuard();
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'The Category action failed.');
-    }
-  }, [closeBypassingGuard]);
+  const { actionError, setActionError, run: runLifecycle } = useLifecycleRunner(
+    closeBypassingGuard,
+    'The Category action failed.',
+    () => setSplitOpen(false),
+  );
 
   const handleConfirmPublish = useCallback(async () => {
     setConfirmDialog(null);

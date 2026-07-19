@@ -1,7 +1,7 @@
 // ModuleState parity harness (Schema architecture S2 — permanent).
 //
-// Bundles the Station DNA engine (utils/moduleNotifications.ts, untouched by
-// the schema migration) and evaluates every exported ModuleDefinition against
+// Bundles the Station DNA engine (utils/moduleNotifications/, organised by
+// domain with an export-preserving barrel) and evaluates every exported ModuleDefinition against
 // a fixed fixture matrix. The resulting { status, notes } outputs are written
 // to scripts/__snapshots__/module-state.v1.json on first run and compared
 // byte-for-byte on every later run — any schema-phase change that alters DNA
@@ -25,7 +25,7 @@ const snapFile = resolve(root, 'scripts/__snapshots__/module-state.v1.json');
 mkdirSync(dirname(outFile), { recursive: true });
 
 await build({
-  entryPoints: [resolve(root, 'resources/ts/drawer-kit/utils/moduleNotifications.ts')],
+  entryPoints: [resolve(root, 'resources/ts/drawer-kit/utils/moduleNotifications/index.ts')],
   bundle: true,
   format: 'esm',
   outfile: outFile,

@@ -1,0 +1,133 @@
+// Tier drawer derived models — pure builders, no state and no rendering.
+//
+// buildTierDetail assembles the individual-tier presentation model (draft-
+// preferred detail, the resolved rate-sheet catalogue, and the three shell
+// bindings) from the package station's view; buildTierFooterModel derives the
+// record footer's mode and flags. The controller calls both per render and
+// passes the results through unchanged, so presentation reads the same shapes
+// as before the split.
+
+import type { PackageStation } from '@/hooks/usePackageStation';
+import type { TierResolvedRateSheetSelection } from '@/api/types/admin';
+import type { ShellBinding } from '@/drawer-kit/schema/types';
+import type {
+  TierOverviewShellData,
+  TierFeaturesShellData,
+  TierFaqsShellData,
+} from '../schema/bindings/tier';
+import { relationshipDisplayLabel } from '../shared/rateSheetLabels';
+import { TIER_LABELS } from '../shared/serviceDrawerShared';
+import type { TierEditingSection } from './tierDrawerTypes';
+
+// Whether a shell holds SETTLED content (an occupant). Client-side heuristic over
+// the settled fields — the backend is authoritative and rejects with
+// target_occupied / no_occupant when this misjudges an all-empty occupant.
+export function slotOccupied(slot: { label: string; price: number | null; contact: boolean; billing_cycle: string | null; inclusions_override: unknown[]; faq_refs: unknown[] } | undefined | null): boolean {
+  return !!slot && (
+    slot.price !== null
+    || slot.contact
+    || !!slot.billing_cycle
+    || !!slot.label.trim()
+    || slot.inclusions_override.length > 0
+    || slot.faq_refs.length > 0
+  );
+}
+
+export interface TierFooterModel {
+  footerMode:       'close-only' | 'none' | 'tier-actions';
+  footerEnabled:    boolean;
+  footerHasContent: boolean;
+  footerOccupied:   boolean;
+}
+
+export function buildTierFooterModel(
+  pkg: PackageStation,
+  editingTierId: string | null,
+  editingSection: TierEditingSection,
+): TierFooterModel {
+  const station = pkg.station;
+  const svc     = pkg.service;
+  const footerView = editingTierId ? pkg.tierView(editingTierId) : null;
+  const footerEnabled = footerView?.detail.enabled ?? false;
+  const footerHasContent = !!footerView && Object.values(footerView.moduleStatus).some((s) => s !== 'not-configured');
+  const footerOccupied = !!(editingTierId && station) && slotOccupied(station.tiers[editingTierId]);
+  const footerMode: TierFooterModel['footerMode'] =
+    (!pkg.detailLoaded || !station || !svc) ? 'close-only'
+    : editingSection != null ? 'none'
+    : !editingTierId ? 'close-only'
+    : 'tier-actions';
+  return { footerMode, footerEnabled, footerHasContent, footerOccupied };
+}
+
+export interface TierDetailHandlers {
+  onEditSection:  (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => void;
+  onRevertModule: (module: 'overview' | 'features' | 'faqs') => void;
+}
+
+// Individual-tier derived model (null unless a tier is open).
+export function buildTierDetail(
+  pkg: PackageStation,
+  editingTierId: string | null,
+  { onEditSection, onRevertModule }: TierDetailHandlers,
+) {
+  const svc = pkg.service;
+  if (!editingTierId || !svc) return null;
+  const view = pkg.tierView(editingTierId);
+  if (!view) return null;
+  const detail = view.detail;
+
+  const relationshipLabels = new Map(svc.package_relationships.map((item) => [item.item_id, relationshipDisplayLabel(item)]));
+  const relationshipsById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
+  const rateSheetCatalogue: TierResolvedRateSheetSelection[] = (svc.rate_sheet?.items ?? []).map((item) => ({
+    item_id: item.item_id,
+    source_type: relationshipsById.get(item.source_item_id)?.source_type ?? null,
+    source_id: relationshipsById.get(item.source_item_id)?.source_id ?? null,
+    quantity: 1,
+    resolved: relationshipLabels.has(item.source_item_id),
+    label: relationshipLabels.get(item.source_item_id) ?? '(unresolved Rate Sheet item)',
+    unit_price: item.unit_price,
+    per: item.per,
+    group_id: item.group_id,
+    line_total: item.unit_price,
+  }));
+  for (const selected of detail.rate_sheet_selections) {
+    if (!rateSheetCatalogue.some((item) => item.item_id === selected.item_id)) rateSheetCatalogue.push(selected);
+  }
+  const isPopular = pkg.popularTier === editingTierId;
+  const tierBusy = pkg.saving ? 'discard-draft' : null;
+
+  const overviewBinding: ShellBinding<TierOverviewShellData> = {
+    data: {
+      label:        detail.label,
+      idealFor:     detail.ideal_for,
+      tierName:     TIER_LABELS[editingTierId],
+      contact:      detail.contact,
+      price:        detail.price,
+      billingCycle: detail.billing_cycle,
+      popular:      isPopular,
+      popularLabel: pkg.popularLabel,
+    },
+    state:    view.modules.overview,
+    hasDraft: view.drafts.overview !== null,
+    handlers: { edit: () => onEditSection('tier-overview'), 'discard-draft': () => onRevertModule('overview') },
+    busy: tierBusy,
+  };
+  const featuresBinding: ShellBinding<TierFeaturesShellData> = {
+    data:     { items: detail.inclusions_override },
+    state:    view.modules.features,
+    hasDraft: view.drafts.features !== null,
+    handlers: { edit: () => onEditSection('tier-inclusions'), 'discard-draft': () => onRevertModule('features') },
+    busy: tierBusy,
+  };
+  const faqsBinding: ShellBinding<TierFaqsShellData> = {
+    data:     { refs: detail.faq_refs, pool: svc.faqs },
+    state:    view.modules.faqs,
+    hasDraft: view.drafts.faqs !== null,
+    handlers: { edit: () => onEditSection('tier-faqs'), 'discard-draft': () => onRevertModule('faqs') },
+    busy: tierBusy,
+  };
+
+  return { view, detail, rateSheetCatalogue, isPopular, overviewBinding, featuresBinding, faqsBinding };
+}
+
+export type TierDetailModel = ReturnType<typeof buildTierDetail>;

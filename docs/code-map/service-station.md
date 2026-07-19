@@ -45,7 +45,7 @@ The frontend Service re-exports are **gone**. The Phase 7 cutover redirected eve
 
 ## Target boundary
 
-Backend `src/Modules/Service/` — **complete**. Frontend `resources/ts/admin-station/stations/service/` — **contracts, API, and state complete, and every consumer now imports through `index.ts`**, the sole public entry. Only UI remains: every Service component, editor, schema, and `DynamicStationManager`'s branches stay in `components/admin`. See [its boundary doc](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/CLAUDE.md).
+Backend `src/Modules/Service/` — **complete**. Frontend `resources/ts/admin-station/stations/service/` — **contracts, API, and state complete, and every consumer now imports through `index.ts`**, the sole public entry. The state layer is `useServiceStation.ts` (fetch/state/actions) plus `derive.ts` (pure projections); contract unchanged. Only UI remains: every Service component, editor, schema, and `DynamicStationManager`'s branches stay in `components/admin`. See [its boundary doc](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/CLAUDE.md).
 
 Entity-neutral infrastructure stays shared: `StationLifecycle.php`, `PoolReferences.php`, `CategoryMeta.php`, `apiClient`, the relations framework. Service uses them; it does not own them. The shared inclusion/FAQ pool item contracts (`InclusionItem`, `FaqItem`, and the two pool-creation responses) are owned by the neutral [api/types/pools.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/types/pools.ts) — Service, Package, Tier, and Promotion all consume them, so Service must not claim them.
 

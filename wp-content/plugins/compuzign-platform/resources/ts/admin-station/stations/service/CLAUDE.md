@@ -3,18 +3,19 @@
 ## Audit metadata
 
 Last audited: 2026-07-19 Australia/Brisbane
-Audited commit: `6ff7bdb` (drawer-kit relocation + Admin Station Service/Tier integration)
+Audited commit: working tree for the drawer-organisation pass (history 010), on top of `7e5c670`
 Audited paths:
 - `resources/ts/admin-station/stations/service/index.ts`
 - `resources/ts/admin-station/stations/service/types.ts`
 - `resources/ts/admin-station/stations/service/api.ts`
 - `resources/ts/admin-station/stations/service/useServiceStation.ts`
+- `resources/ts/admin-station/stations/service/derive.ts`
 - `resources/ts/api/types/admin.ts`
 - `resources/ts/api/endpoints/admin.ts`
 - `resources/ts/api/types/pools.ts`
-Changes in audited revision: the Service UI phase landed, but **nothing moved into this folder** — the four files here are unchanged. The multi-entity `moduleStatus` / `moduleNotifications` utilities relocated to the neutral `drawer-kit/`, closing this station's last known boundary edge; the Service drawer, editors, schema and bindings relocated to `entity-drawers/`; and the Admin Station's Service card wall and drawer host adapter were added in the sibling `stations/serviceSurface/`. This station's public contract is unchanged.
+Changes in audited revision: the drawer-organisation pass (history 010) split the pure derivations out of `useServiceStation.ts` into the flat sibling `derive.ts` — list-module status resolution, pending-module registry, publish gating, package summary, and publish-modal summaries. Hook state, effects, requests, and the public `ServiceStation` contract are unchanged; `derive.ts` sits inside the station's own graph and never imports the barrel. Separately, the neutral `drawer-kit/utils/moduleNotifications` became a per-domain directory with an export-preserving barrel — this station's import specifier did not change.
 
-Previously (Phase 7): the cutover completed. Every consumer now imports Service contracts, endpoints, and state from this station's barrel; the Service re-export blocks in `api/types/admin.ts` and `api/endpoints/admin.ts` and the `hooks/useServiceStation.ts` forwarder are deleted, as are the pre-extraction aliases. The shared pool contracts moved to the neutral `api/types/pools.ts`, and the editor draft types moved into `types.ts`. Code centralization only — no route, payload, runtime, state, or UI change, and no UI file moved.
+Previously: the Service UI phase landed the drawer/editors/schema in neutral `entity-drawers/` (nothing moved into this folder), and the earlier cutover made this barrel the single import path for Service contracts, endpoints, and state, with shared pool contracts in `api/types/pools.ts`.
 
 ## Entry guide
 
@@ -22,7 +23,8 @@ The frontend boundary for the `cz_service` entity, mirroring the backend module 
 
 - `types.ts` — the authoritative Service contracts. **Zero imports by design**: modules this station's own graph reaches (`moduleStatus`, `moduleNotifications`) import from this file, so importing back from them would create a cycle. Keep it self-contained.
 - `api.ts` — the authoritative endpoint implementations. There is exactly one implementation of each call.
-- `useServiceStation.ts` — the authoritative Service state layer: detail fetch, draft-preferred reads, module status/notes, publish gating, and the lifecycle/save/settle/revert actions. Moved verbatim; the public contract is unchanged.
+- `useServiceStation.ts` — the authoritative Service state layer: detail fetch, draft-preferred reads, module notes, and the lifecycle/save/settle/revert actions. The public contract is unchanged.
+- `derive.ts` — the station's pure derivations (no state, no requests): inclusions/FAQs status resolution, pending-module registry, publish gate, package summary, publish-modal summaries. Composed by `useServiceStation` per render; imports `./types` and neutral drawer-kit resolvers only, never the barrel.
 
 **Anything inside this station's own dependency graph must target sibling modules, not this barrel.** The barrel exports `useServiceStation`, which imports `drawer-kit/utils/moduleStatus` and `moduleNotifications`; those two therefore import `./types` directly, and routing them through `index.ts` would close a real cycle. External consumers that this station does not reach — the editors, stations, schema bindings, and the other station hooks — import the barrel normally.
 
@@ -30,7 +32,7 @@ The frontend boundary for the `cz_service` entity, mirroring the backend module 
 
 ## Scope
 
-**This station holds contracts, endpoints, and state — no UI.** Do not create `ui/`, `home/`, `drawer/`, `selectors/`, or `providers/` here; the four files are flat because one hook does not justify a `state/` folder.
+**This station holds contracts, endpoints, and state — no UI.** Do not create `ui/`, `home/`, `drawer/`, `selectors/`, or `providers/` here; the five files stay flat because one hook plus its pure derivations does not justify a `state/` folder.
 
 The Service UI phase has since happened, but **not into this folder**. The Service drawer composition, its editors, rendering schema, table and bindings moved to the neutral `entity-drawers/` (with the generic renderer kit in `drawer-kit/`), so both the Command Centre and the Admin Station mount one implementation. The Admin Station's own Service surface — card wall and drawer host adapter — lives in the sibling `stations/serviceSurface/`, deliberately outside this folder so this boundary still holds. `DynamicStationManager`'s transitional Service branches remain in `components/admin`.
 

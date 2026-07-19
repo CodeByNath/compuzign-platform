@@ -21,7 +21,11 @@ Command Centre `ActionShell` and Admin Station `AdminStationDrawer` are separate
 
 `resources/ts/entity-drawers/{package-family,category,service,tier}/` contains each composition, controller, footer/dialog presentation, and types. `entity-drawers/schema/` and `entity-drawers/editors/` contain their neutral manifests/bindings/editors.
 
+The Service and Tier controllers are small coordinators composed from focused sibling hooks (Service: `useServiceModuleEditing` / `useServiceLifecycle` / `useServiceExitFlow`; Tier: `useTierModuleEditing` / `useTierBinTravel` plus the pure `tierDetailModel.ts`); their returned contracts are unchanged. `entity-drawers/shared/` holds the cross-entity coordination machinery: [drawerChrome.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/drawerChrome.ts) (`useGuardedClose`, `useLifecycleRunner`, `useAutoDismiss`, `useOutsideClickDismiss` — used by Service, Category, and Package Family; Tier keeps its own `window.confirm` guard by design), `rateSheetLabels.ts`, `tierOccupants.ts`, and `serviceDrawerShared.ts`.
+
 Controllers render no JSX. Presentation calls no endpoints. Writes remain in `usePackageFamilyStation`, `useCategoryStation`, `useServiceStation`, and `usePackageStation`.
+
+Notification rules live in [drawer-kit/utils/moduleNotifications/](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleNotifications/index.ts), organised by domain (shared engine + service/package/tier/promotion/category/packageFamily rule files) behind an export-preserving barrel.
 
 ## Host adapters
 
