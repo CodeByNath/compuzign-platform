@@ -14,10 +14,10 @@
 // no new card, no new content elements added to it.
 
 import type { ServiceCategoryGroupOverviewDraft } from '@/api/types/admin';
-import { serviceCategoryGroupOverviewModule } from '@/components/admin/utils/moduleNotifications';
+import { serviceCategoryGroupOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import { ServiceCategoryGroupOverviewEditor } from '../../../editors/ServiceCategoryGroupOverviewEditor';
-import type { ShellActionSchema, ShellSchema } from '../../types';
-import type { RichTextValue, TextValue } from '../../elements/library';
+import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
+import type { RichTextValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
 // The canonical owning-workspace footer pair, exactly as the service/tier/
 // promotion/category bindings declare it.

@@ -9,11 +9,11 @@
 // this file is their definition home, the manifest is their address.
 
 import type { ServiceSummary } from '@/admin-station/stations/service';
-import { ModuleStatusPill } from '@/components/admin/ui/ModuleStatusPill';
-import { stationStatusLabel } from '@/components/admin/utils/moduleStatus';
-import type { StationCommercialSummary } from '@/components/admin/utils/moduleStatus';
-import { TRAVEL_PILL } from '../presentation';
-import type { ColumnDef, RowActionDef, TableSchema } from '../types';
+import { ModuleStatusPill } from '@/drawer-kit/ui/ModuleStatusPill';
+import { stationStatusLabel } from '@/drawer-kit/utils/moduleStatus';
+import type { StationCommercialSummary } from '@/drawer-kit/utils/moduleStatus';
+import { TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
+import type { ColumnDef, RowActionDef, TableSchema } from '@/drawer-kit/schema/types';
 import { TIER_KEYS, TIER_LABELS } from '../../stations/serviceDrawerShared';
 
 // ── Catalog table ─────────────────────────────────────────────────────────────

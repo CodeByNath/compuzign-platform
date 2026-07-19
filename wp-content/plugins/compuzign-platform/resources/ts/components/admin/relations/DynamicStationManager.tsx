@@ -1,9 +1,9 @@
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ActionConfig, ExitGuard, StepContext } from '../ActionShell';
-import { ModuleStatusPill } from '../ui/ModuleStatusPill';
-import { MODULE_ICONS } from '../schema/icons';
-import { ReadBlock } from '../ReadBlock';
+import { ModuleStatusPill } from '@/drawer-kit/ui/ModuleStatusPill';
+import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
+import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { fetchPackageFamilies } from '@/api/endpoints/admin';
 import type { PackageFamilyItem } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';

@@ -15,7 +15,7 @@ import {
   categoryTrashedTable,
   categoryBinTable,
 } from '../tables/category';
-import type { EntitySchema } from '../types';
+import type { EntitySchema } from '@/drawer-kit/schema/types';
 
 export const CATEGORY_ENTITY: EntitySchema = {
   id:    'category',

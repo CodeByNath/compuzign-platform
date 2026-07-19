@@ -1,4 +1,4 @@
-import type { ModuleNote, ModuleState } from '../../utils/moduleNotifications';
+import type { ModuleNote, ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import type {
   ReadOnlyRelationProvider,
   RelationHealth,

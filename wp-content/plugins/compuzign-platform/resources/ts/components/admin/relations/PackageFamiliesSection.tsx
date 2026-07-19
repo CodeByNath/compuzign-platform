@@ -10,8 +10,8 @@ import {
   updatePackageFamilyStatus,
 } from '@/api/endpoints/admin';
 import type { PackageFamilyItem } from '@/api/types/admin';
-import { PRESENTATION_PILL, TRAVEL_PILL } from '../schema/presentation';
-import type { PillMeta } from '../schema/presentation';
+import { PRESENTATION_PILL, TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
+import type { PillMeta } from '@/drawer-kit/schema/presentation';
 
 // Package Family management (Services > Connections).
 //

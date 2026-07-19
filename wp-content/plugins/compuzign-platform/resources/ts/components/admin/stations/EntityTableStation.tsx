@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'preact/hooks';
-import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { AsyncLoading, AsyncError } from '@/drawer-kit/ui/AsyncSection';
 import { Station } from '../shell/Station';
 import { EntityTable } from '../EntityTable';
 import { ENTITIES } from '@/components/admin/schema/entities';
-import type { EntitySchema, TableSchema } from '@/components/admin/schema/types';
+import type { EntitySchema, TableSchema } from '@/drawer-kit/schema/types';
 import type { EntityTravelSource, TravelScope } from './entityTravelSources';
 
 // Generic entity-table surface (S5). The station registry declares

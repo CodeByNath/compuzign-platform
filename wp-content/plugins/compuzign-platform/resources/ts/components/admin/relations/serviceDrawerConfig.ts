@@ -4,7 +4,7 @@ import type { SurfacePackageSummary } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';
 import { ServiceViewStep } from '../stations/ServiceViewStep';
 import { buildServiceItemForStationHandoff } from '../stations/ServiceCatalogStation';
-import { MODULE_ICONS } from '../schema/icons';
+import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 
 export interface DrawerHostContext {
   service: ServiceItem;

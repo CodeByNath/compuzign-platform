@@ -2,7 +2,7 @@ import type { ActionConfig } from '../ActionShell';
 import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 import { PromotionOverviewDrawerStep } from './PromotionOverviewDrawerStep';
 import { ServiceTierStep } from '../stations/ServiceTierStep';
-import { MODULE_ICONS } from '../schema/icons';
+import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { TIER_LABELS } from '../stations/serviceDrawerShared';
 
 export interface PackageDrawerContext {

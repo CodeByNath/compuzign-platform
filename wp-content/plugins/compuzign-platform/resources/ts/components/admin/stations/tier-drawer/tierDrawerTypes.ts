@@ -7,7 +7,7 @@
 // resolve them from the dispatched intent.
 
 import type { ServiceItem } from '@/api/types/cost-builder';
-import type { EntityDrawerHostBridge } from '../entityDrawerHost';
+import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 
 export interface TierDrawerContentProps {
   // The package station is addressed by its parent service id (numeric).

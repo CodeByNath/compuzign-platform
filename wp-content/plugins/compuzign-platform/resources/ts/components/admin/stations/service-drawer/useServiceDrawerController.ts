@@ -26,10 +26,10 @@ import type {
   ServiceInclusionsShellData,
   ServiceFaqsShellData,
 } from '@/components/admin/schema/shells/bindings/service';
-import type { ShellBinding } from '@/components/admin/schema/types';
-import type { DrawerTabId } from '../../DrawerTabs';
+import type { ShellBinding } from '@/drawer-kit/schema/types';
+import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import { decodeHtml } from '../serviceDrawerShared';
-import type { EntityDrawerHostBridge } from '../entityDrawerHost';
+import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import type { ServiceEditingSection, ServiceExitDialog } from './serviceDrawerTypes';
 
 // ── Dirty checks — pure, no component state ──────────────────────────────────

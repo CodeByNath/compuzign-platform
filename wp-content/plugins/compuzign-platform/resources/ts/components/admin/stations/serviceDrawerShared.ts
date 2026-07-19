@@ -1,5 +1,5 @@
 import type { ServiceItem, TierId } from '@/api/types/cost-builder';
-import type { ShellBinding } from '@/components/admin/schema/types';
+import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { ServiceOverviewShellData } from '@/components/admin/schema/shells/bindings/service';
 
 // Shared helpers for the service drawer step files (ServiceViewStep / ServiceTierStep).

@@ -18,9 +18,9 @@
 // UI, it depends on the old Skeleton primitive, and its classes are styled by a
 // stylesheet this environment does not load.
 
-import { PILL_META, PILL_FALLBACK } from '@/components/admin/schema/presentation';
+import { PILL_META, PILL_FALLBACK } from '@/drawer-kit/schema/presentation';
 import { useId, useState } from 'preact/hooks';
-import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications';
 
 interface Props {
   // A 5-state resolver value ('active' | 'disabled' | 'pending-dim' |

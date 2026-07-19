@@ -1,6 +1,6 @@
 import type { StationId } from '@/api/types/admin';
 import { STATIONS, STATION_GROUPS } from './schema/stations';
-import { NAV_ICONS } from './schema/icons';
+import { NAV_ICONS } from '@/drawer-kit/schema/icons';
 
 interface Props {
   active: StationId;

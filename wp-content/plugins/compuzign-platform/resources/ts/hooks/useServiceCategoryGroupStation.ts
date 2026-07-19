@@ -8,8 +8,8 @@ import {
   updateServiceCategoryGroupStatus,
 } from '@/api/endpoints/admin';
 import type { ServiceCategoryGroupOverviewDraft, ServiceCategoryGroupStationItem } from '@/api/types/admin';
-import { serviceCategoryGroupOverviewModule, evaluateModule } from '@/components/admin/utils/moduleNotifications';
-import type { ModuleState, NoteContext } from '@/components/admin/utils/moduleNotifications';
+import { serviceCategoryGroupOverviewModule, evaluateModule } from '@/drawer-kit/utils/moduleNotifications';
+import type { ModuleState, NoteContext } from '@/drawer-kit/utils/moduleNotifications';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 // Structural clone of useCategoryStation.ts, one level up: the "services"

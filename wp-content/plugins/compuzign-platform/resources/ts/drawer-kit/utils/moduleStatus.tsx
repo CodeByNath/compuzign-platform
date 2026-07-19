@@ -27,8 +27,8 @@ import {
   STATUS_DOT_CLASS,
   STATUS_DOT_FAINT_CLASS,
   LEGACY_UNKNOWN_PILL,
-} from '@/components/admin/schema/presentation';
-import type { PillMeta } from '@/components/admin/schema/presentation';
+} from '../schema/presentation';
+import type { PillMeta } from '../schema/presentation';
 
 // Structural minimum for tier status resolution.
 // Satisfied by both SurfaceTierSummary (transit) and SurfaceTierDetail (catalog/management).

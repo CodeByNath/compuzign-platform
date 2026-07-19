@@ -4,18 +4,18 @@ import type { ServiceCategoryGroupStationItem, CategoryStationItem } from '@/api
 import { useServiceCategoryGroupStation } from '@/hooks/useServiceCategoryGroupStation';
 import type { ServiceCategoryGroupCategoryCounts } from '@/hooks/useServiceCategoryGroupStation';
 import type { ServiceCategoryGroupOverviewDraft } from '@/api/types/admin';
-import { ModeProvider } from '@/components/admin/schema/modeContext';
-import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
+import { ModeProvider } from '@/drawer-kit/schema/modeContext';
+import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
 import { serviceCategoryGroupOverviewShell } from '@/components/admin/schema/shells/bindings/serviceCategoryGroup';
 import type {
   ServiceCategoryGroupOverviewShellData,
 } from '@/components/admin/schema/shells/bindings/serviceCategoryGroup';
 import { categoryOverviewShell } from '@/components/admin/schema/shells/bindings/category';
 import type { CategoryOverviewShellData } from '@/components/admin/schema/shells/bindings/category';
-import type { ShellBinding, ShellSchema } from '@/components/admin/schema/types';
+import type { ShellBinding, ShellSchema } from '@/drawer-kit/schema/types';
 import { SERVICE_CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/serviceCategoryGroup';
-import { EntityDrawer } from '../EntityDrawer';
-import { DrawerTabs } from '../DrawerTabs';
+import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
+import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
 import { decodeHtml } from './serviceDrawerShared';
 // Read-only reuse — no edits to CategoryViewStep.tsx. buildCategoryViewConfig
 // already wires CategoryViewStep as its step component; importing it here does

@@ -18,7 +18,7 @@
 // build, so the admin-station bundle stays runtime-isolated (the bundle-boundary
 // rule: contracts cross free, renderers fork).
 
-import type { ShellMode } from '@/components/admin/schema/types';
+import type { ShellMode } from '@/drawer-kit/schema/types';
 
 // Placement — the shell REGION a destination projects into (an environment, not
 // a viewpoint). 'body' exists today (currently shows Home); 'presentation' (the

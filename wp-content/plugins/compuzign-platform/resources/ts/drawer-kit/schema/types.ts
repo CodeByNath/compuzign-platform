@@ -10,9 +10,8 @@
 // Canonical spec: docs/architecture/SchemaWorkstationArchitecture-v1.md §§3–8.
 
 import type { ComponentChildren } from 'preact';
-import type { ModuleDefinition, ModuleState } from '@/components/admin/utils/moduleNotifications';
+import type { ModuleDefinition, ModuleState } from '../utils/moduleNotifications';
 import type { IconId } from './icons';
-import type { StationConnectionDescriptor } from '../relations/types';
 
 // ── Modes — the viewpoint layer (§7) ─────────────────────────────────────────
 // Viewpoints only. Surfaces (drawer, page) are environments provided by
@@ -37,6 +36,22 @@ export type PlatformElementId =
 // ── Station DNA delivery (§3) ─────────────────────────────────────────────────
 // The one object through which DNA reaches a shell, produced by the station
 // hook / assembling step at render time. DNA flows one way, Station → Shell.
+
+// Stable graph identity for a bound module. Defined here rather than in the
+// Command Centre's relations layer because `ShellBinding` carries it: the kit
+// must describe every field it renders without importing a host. The relations
+// layer re-uses these same declarations (it imports them from here).
+
+export interface ManagerEntityRef {
+  type: EntitySchema['id'];
+  id: string | number;
+}
+
+export interface StationConnectionDescriptor {
+  providerKey: string;
+  relationshipKey: string;
+  stationContext: ManagerEntityRef;
+}
 
 export interface ShellBinding<T = unknown> {
   data: T;                            // draft-preferred module data (presentation projection)

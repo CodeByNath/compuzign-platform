@@ -8,8 +8,8 @@
 
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary } from '@/api/types/admin';
-import type { DrawerTabId } from '../../DrawerTabs';
-import type { EntityDrawerHostBridge } from '../entityDrawerHost';
+import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
+import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 
 // The record inputs the Service drawer needs. These mirror exactly what the old
 // host handed the step through stepData: a seed ServiceItem (the hook fetches the

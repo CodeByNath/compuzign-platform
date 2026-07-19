@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { PackageFamilyItem, PackageSourceRelationship } from '@/api/types/admin';
 import type { ServiceSummary } from '@/admin-station/stations/service';
-import { PRESENTATION_PILL } from '../schema/presentation';
+import { PRESENTATION_PILL } from '@/drawer-kit/schema/presentation';
 import { packageServiceFamily } from './providers/package';
 
 // Package Manager Services collection (Services sub-tab, Details section).

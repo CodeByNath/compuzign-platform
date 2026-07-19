@@ -8,17 +8,17 @@ import { fetchAdminServiceCategoryGroups, updateServiceCategoryGroup } from '@/a
 import { useCategoryStation } from '@/hooks/useCategoryStation';
 import type { CategoryServiceCounts } from '@/hooks/useCategoryStation';
 import type { CategoryOverviewDraft } from '@/api/types/admin';
-import { ModeProvider } from '@/components/admin/schema/modeContext';
-import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
+import { ModeProvider } from '@/drawer-kit/schema/modeContext';
+import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
 import { categoryOverviewShell } from '@/components/admin/schema/shells/bindings/category';
 import type {
   CategoryOverviewShellData,
 } from '@/components/admin/schema/shells/bindings/category';
 import type { ServiceOverviewShellData } from '@/components/admin/schema/shells/bindings/service';
-import type { ShellBinding, ShellSchema } from '@/components/admin/schema/types';
+import type { ShellBinding, ShellSchema } from '@/drawer-kit/schema/types';
 import { CATEGORY_ENTITY } from '@/components/admin/schema/entities/category';
-import { EntityDrawer } from '../EntityDrawer';
-import { DrawerTabs } from '../DrawerTabs';
+import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
+import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
 import { decodeHtml } from './serviceDrawerShared';
 import { ServiceViewStep } from './ServiceViewStep';
 import { buildServiceItemForStationHandoff } from './ServiceCatalogStation';

@@ -30,15 +30,15 @@ import type {
   TierRateSheetSelection,
 } from '@/api/types/admin';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
-import { resolveTierStatus } from '@/components/admin/utils/moduleStatus';
-import type { TierLike } from '@/components/admin/utils/moduleStatus';
+import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
+import type { TierLike } from '@/drawer-kit/utils/moduleStatus';
 import {
   evaluateModule,
   tierOverviewModule,
   tierFeaturesModule,
   tierFaqsModule,
-} from '@/components/admin/utils/moduleNotifications';
-import type { ModuleState } from '@/components/admin/utils/moduleNotifications';
+} from '@/drawer-kit/utils/moduleNotifications';
+import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from './stationPrimitives';
 import { deriveTierOccupants, resolveTierOccupantSlot } from '@/components/admin/utils/tierOccupants';
 import type { TierOccupant } from '@/components/admin/utils/tierOccupants';

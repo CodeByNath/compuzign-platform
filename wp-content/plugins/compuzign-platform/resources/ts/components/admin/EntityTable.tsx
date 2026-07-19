@@ -13,7 +13,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
-import type { RowActionDef, TableSchema } from '@/components/admin/schema/types';
+import type { RowActionDef, TableSchema } from '@/drawer-kit/schema/types';
 
 const INTENT_CLASS: Record<RowActionDef<unknown>['intent'], string> = {
   primary:   'cz-admin-btn--primary',

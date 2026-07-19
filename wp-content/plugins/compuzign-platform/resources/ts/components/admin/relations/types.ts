@@ -1,10 +1,9 @@
-import type { EntitySchema } from '../schema/types';
-import type { ModuleNote, ModuleState } from '../utils/moduleNotifications';
+import type { EntitySchema, ManagerEntityRef, StationConnectionDescriptor } from '@/drawer-kit/schema/types';
+import type { ModuleNote, ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 
-export interface ManagerEntityRef {
-  type: EntitySchema['id'];
-  id: string | number;
-}
+// Re-exported so existing relation call sites keep importing these from here;
+// the single declaration lives in the kit (ShellBinding carries it).
+export type { ManagerEntityRef, StationConnectionDescriptor };
 
 export type StationManagerScope =
   | {
@@ -20,12 +19,6 @@ export type StationManagerScope =
     activeProviderKey?: string;
     activeRelationshipKey?: string;
   };
-
-export interface StationConnectionDescriptor {
-  providerKey: string;
-  relationshipKey: string;
-  stationContext: ManagerEntityRef;
-}
 
 export interface ManagerContinuation {
   stationContext: ManagerEntityRef;

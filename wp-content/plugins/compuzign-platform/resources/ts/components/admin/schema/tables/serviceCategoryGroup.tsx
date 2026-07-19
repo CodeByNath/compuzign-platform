@@ -8,9 +8,9 @@
 // handlers. Reached through SERVICE_CATEGORY_GROUP_ENTITY.placements.table / .travel.
 
 import type { ServiceCategoryGroupStationItem } from '@/api/types/admin';
-import { PRESENTATION_PILL, TRAVEL_PILL } from '../presentation';
-import type { PillMeta } from '../presentation';
-import type { ColumnDef, RowActionDef, TableSchema } from '../types';
+import { PRESENTATION_PILL, TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
+import type { PillMeta } from '@/drawer-kit/schema/presentation';
+import type { ColumnDef, RowActionDef, TableSchema } from '@/drawer-kit/schema/types';
 import { TRASH_ICON } from './service';
 
 // Station status pill — the Service Category Group mirror of categoryStatusPill, over

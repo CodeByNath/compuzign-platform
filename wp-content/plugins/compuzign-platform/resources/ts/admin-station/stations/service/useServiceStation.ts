@@ -43,9 +43,9 @@ import type {
   FaqsDraft,
 } from './types';
 import type { SurfacePackageSummary } from '@/api/types/admin';
-import { resolveOverviewStatus, resolvePackageStatus } from '@/components/admin/utils/moduleStatus';
-import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/components/admin/utils/moduleNotifications';
-import type { NoteContext, ModuleState } from '@/components/admin/utils/moduleNotifications';
+import { resolveOverviewStatus, resolvePackageStatus } from '@/drawer-kit/utils/moduleStatus';
+import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/drawer-kit/utils/moduleNotifications';
+import type { NoteContext, ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchModuleDraft } from '@/hooks/stationPrimitives';
 
 // ── Constants ──────────────────────────────────────────────────────────────────

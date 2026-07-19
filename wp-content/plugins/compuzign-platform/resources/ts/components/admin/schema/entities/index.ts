@@ -4,7 +4,7 @@
 // of scope for station manifests in v1 (§8); it joins the station
 // registry in S5 as { kind: 'component' }.
 
-import type { EntitySchema } from '../types';
+import type { EntitySchema } from '@/drawer-kit/schema/types';
 import { SERVICE_ENTITY } from './service';
 import { TIER_ENTITY } from './tier';
 import { CATEGORY_ENTITY } from './category';

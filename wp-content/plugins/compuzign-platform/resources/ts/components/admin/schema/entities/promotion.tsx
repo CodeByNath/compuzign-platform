@@ -1,8 +1,8 @@
 import type { PromotionOverviewDraft, PromotionTier } from '@/api/types/admin';
-import { promotionOverviewModule } from '@/components/admin/utils/moduleNotifications';
+import { promotionOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import { PromotionOverviewEditor } from '../../editors/PromotionOverviewEditor';
-import type { EntitySchema, ShellSchema } from '../types';
-import type { TextValue } from '../elements/library';
+import type { EntitySchema, ShellSchema } from '@/drawer-kit/schema/types';
+import type { TextValue } from '@/drawer-kit/schema/elements/library';
 import { serviceOverviewShell } from '../shells/bindings/service';
 
 export interface PromotionOverviewShellData {

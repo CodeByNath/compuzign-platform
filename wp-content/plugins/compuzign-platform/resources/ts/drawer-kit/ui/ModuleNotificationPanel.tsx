@@ -2,7 +2,7 @@
 // Opens when the numeric marker in ModuleStatusPill is clicked.
 // Plain note list; no severity icons or row colours.
 
-import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import type { ModuleNote } from '../utils/moduleNotifications';
 
 interface Props {
   notes: ModuleNote[];

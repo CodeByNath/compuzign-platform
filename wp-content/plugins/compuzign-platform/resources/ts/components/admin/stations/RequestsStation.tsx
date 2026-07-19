@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { fetchAdminRequests, fetchAdminRequest, acceptIntakeRequest } from '@/api/endpoints/admin';
 import { Spinner } from '@/components/ui/Spinner';
-import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { AsyncLoading, AsyncError } from '@/drawer-kit/ui/AsyncSection';
 import { Station } from '../shell/Station';
 import type { ActionConfig, StepContext } from '../ActionShell';
 import type { RequestEntry, RequestSummary } from '@/api/types/admin';

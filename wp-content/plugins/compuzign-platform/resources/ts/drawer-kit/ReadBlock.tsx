@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import type { ModuleNote } from './utils/moduleNotifications';
 import { ModuleStatusPill } from './ui/ModuleStatusPill';
 import { ModuleNotificationPanel } from './ui/ModuleNotificationPanel';
 import { ActionFooter } from './ActionFooter';

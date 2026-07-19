@@ -16,13 +16,13 @@ import {
   overviewModule,
   inclusionsModule,
   faqsModule,
-} from '@/components/admin/utils/moduleNotifications';
+} from '@/drawer-kit/utils/moduleNotifications';
 import { ServiceOverviewEditor } from '../../../editors/ServiceOverviewEditor';
 import { ServiceInclusionsEditor } from '../../../editors/ServiceInclusionsEditor';
 import { ServiceFaqsEditor } from '../../../editors/ServiceFaqsEditor';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
-import { packageModule } from '@/components/admin/utils/moduleNotifications';
-import type { ShellActionSchema, ShellSchema } from '../../types';
+import { packageModule } from '@/drawer-kit/utils/moduleNotifications';
+import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type {
   ItemCollectionValue,
   MetricsValue,
@@ -31,7 +31,7 @@ import type {
   RichTextValue,
   TermValue,
   TextValue,
-} from '../../elements/library';
+} from '@/drawer-kit/schema/elements/library';
 
 // The canonical owning-workspace footer: Discard Draft (only while a module
 // draft exists) then Edit. Shared by all three Service module shells.

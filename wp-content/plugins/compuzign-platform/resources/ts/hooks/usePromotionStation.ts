@@ -31,8 +31,8 @@ import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import {
   evaluateModule,
   promotionOverviewModule,
-} from '@/components/admin/utils/moduleNotifications';
-import type { ModuleState } from '@/components/admin/utils/moduleNotifications';
+} from '@/drawer-kit/utils/moduleNotifications';
+import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchInstanceModuleDraft } from './stationPrimitives';
 
 // ── usePromotionStation ──────────────────────────────────────────────────────

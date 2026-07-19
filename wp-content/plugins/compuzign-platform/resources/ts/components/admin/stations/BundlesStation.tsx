@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
-import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { AsyncLoading, AsyncError } from '@/drawer-kit/ui/AsyncSection';
 import { Station } from '../shell/Station';
 import type { CostBuilderResponse } from '@/api/types/cost-builder';
 

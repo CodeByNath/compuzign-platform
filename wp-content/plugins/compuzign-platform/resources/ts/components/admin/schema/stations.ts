@@ -17,7 +17,7 @@
 import type { ComponentType } from 'preact';
 import type { StationDef, StationId } from '@/api/types/admin';
 import type { ActionConfig } from '../ActionShell';
-import type { NavIconId } from './icons';
+import type { NavIconId } from '@/drawer-kit/schema/icons';
 import { OverviewStation } from '../stations/OverviewStation';
 import { ServiceCatalogStation } from '../stations/ServiceCatalogStation';
 import { PackageManagerStation } from '../stations/PackageManagerStation';

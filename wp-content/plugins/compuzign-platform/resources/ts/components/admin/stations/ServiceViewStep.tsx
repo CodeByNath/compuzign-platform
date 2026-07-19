@@ -14,8 +14,8 @@ import { useMemo, useRef } from 'preact/hooks';
 import type { StepContext } from '../ActionShell';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary } from '@/api/types/admin';
-import type { DrawerTabId } from '../DrawerTabs';
-import type { EntityDrawerHostBridge } from './entityDrawerHost';
+import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
+import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { ServiceDrawerContent } from './service-drawer/ServiceDrawerContent';
 import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
 

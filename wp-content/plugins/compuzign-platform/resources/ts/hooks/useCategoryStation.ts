@@ -8,8 +8,8 @@ import {
   updateCategoryStatus,
 } from '@/api/endpoints/admin';
 import type { CategoryOverviewDraft, CategoryStationItem } from '@/api/types/admin';
-import { categoryOverviewModule, evaluateModule } from '@/components/admin/utils/moduleNotifications';
-import type { ModuleState, NoteContext } from '@/components/admin/utils/moduleNotifications';
+import { categoryOverviewModule, evaluateModule } from '@/drawer-kit/utils/moduleNotifications';
+import type { ModuleState, NoteContext } from '@/drawer-kit/utils/moduleNotifications';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

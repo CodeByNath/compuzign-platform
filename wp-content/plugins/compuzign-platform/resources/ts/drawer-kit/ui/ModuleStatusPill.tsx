@@ -12,8 +12,8 @@
 //
 // The pending-dim opacity (0.45) is applied by the parent .drawerModule__status--dim wrapper.
 
-import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
-import { PILL_META, PILL_FALLBACK } from '@/components/admin/schema/presentation';
+import type { ModuleNote } from '../utils/moduleNotifications';
+import { PILL_META, PILL_FALLBACK } from '../schema/presentation';
 import { Skeleton } from './Skeleton';
 
 interface Props {

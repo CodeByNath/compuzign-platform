@@ -10,7 +10,7 @@ import type { PackageDrawerContext } from '../relations/packageManagerDrawers';
 import { useAdminCatalog } from '@/hooks/useAdminCatalog';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import { Station } from '../shell/Station';
-import { AsyncError, AsyncLoading } from '../ui/AsyncSection';
+import { AsyncError, AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
 import type { StationSurfaceProps } from '../schema/stations';
 import { buildServiceItemForStationHandoff } from './ServiceCatalogStation';
 

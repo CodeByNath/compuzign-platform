@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks';
 import { useAdminOverview } from '@/hooks/useAdminOverview';
-import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { AsyncLoading, AsyncError } from '@/drawer-kit/ui/AsyncSection';
 import { Station } from '../shell/Station';
 
 interface Props {

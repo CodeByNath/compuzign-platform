@@ -18,7 +18,7 @@ import {
   serviceTrashedTable,
   serviceBinTable,
 } from '../tables/service';
-import type { EntitySchema } from '../types';
+import type { EntitySchema } from '@/drawer-kit/schema/types';
 
 export const SERVICE_ENTITY: EntitySchema = {
   id:    'service',

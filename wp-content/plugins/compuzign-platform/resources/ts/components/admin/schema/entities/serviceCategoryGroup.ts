@@ -15,7 +15,7 @@ import {
   serviceCategoryGroupTrashedTable,
   serviceCategoryGroupBinTable,
 } from '../tables/serviceCategoryGroup';
-import type { EntitySchema } from '../types';
+import type { EntitySchema } from '@/drawer-kit/schema/types';
 
 export const SERVICE_CATEGORY_GROUP_ENTITY: EntitySchema = {
   id:    'category-group',

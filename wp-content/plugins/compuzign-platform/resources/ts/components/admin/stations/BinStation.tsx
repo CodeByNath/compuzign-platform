@@ -6,7 +6,7 @@ import {
   fetchAdminServiceCategoryGroups, restoreServiceCategoryGroup, updateServiceCategoryGroupStatus, permanentDeleteServiceCategoryGroup,
 } from '@/api/endpoints/admin';
 import { restoreService, trashService, permanentDeleteService } from '@/admin-station/stations/service';
-import { AsyncLoading, AsyncError } from '@/components/admin/ui/AsyncSection';
+import { AsyncLoading, AsyncError } from '@/drawer-kit/ui/AsyncSection';
 import { Station } from '../shell/Station';
 import { EntityTable } from '../EntityTable';
 import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';

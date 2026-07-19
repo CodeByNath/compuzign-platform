@@ -20,11 +20,11 @@ import type {
   TierFeaturesShellData,
   TierFaqsShellData,
 } from '@/components/admin/schema/shells/bindings/tier';
-import type { ShellBinding } from '@/components/admin/schema/types';
+import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
-import type { DrawerBaseTabId } from '../../DrawerTabs';
+import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
 import { serviceConnectionBinding, TIER_LABELS } from '../serviceDrawerShared';
-import type { EntityDrawerHostBridge } from '../entityDrawerHost';
+import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import type { TierDrawerContentProps, TierEditingSection, TierBinPrompt } from './tierDrawerTypes';
 
 // Whether a shell holds SETTLED content (an occupant). Client-side heuristic over

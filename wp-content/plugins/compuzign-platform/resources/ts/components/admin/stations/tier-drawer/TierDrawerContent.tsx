@@ -9,19 +9,19 @@
 // useTierDrawerController, all host concerns through the EntityDrawerHostBridge.
 
 import { useEffect } from 'preact/hooks';
-import { AsyncLoading } from '@/components/admin/ui/AsyncSection';
-import { ReadBlock } from '../../ReadBlock';
-import { DrawerTabs } from '../../DrawerTabs';
-import { EntityDrawer } from '../../EntityDrawer';
-import { ModeProvider } from '@/components/admin/schema/modeContext';
-import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
-import { ChildShell } from '@/components/admin/schema/shells/childShell';
+import { AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
+import { ReadBlock } from '@/drawer-kit/ReadBlock';
+import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
+import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
+import { ModeProvider } from '@/drawer-kit/schema/modeContext';
+import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
+import { ChildShell } from '@/drawer-kit/schema/shells/childShell';
 import { serviceOverviewShell } from '@/components/admin/schema/shells/bindings/service';
 import { tierOverviewShell, tierFeaturesShell, tierFaqsShell } from '@/components/admin/schema/shells/bindings/tier';
 import { TIER_ENTITY } from '@/components/admin/schema/entities/tier';
-import { statusDotClass } from '@/components/admin/utils/moduleStatus';
-import { MODULE_ICONS } from '@/components/admin/schema/icons';
-import { getTierNotes } from '@/components/admin/utils/moduleNotifications';
+import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
+import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
+import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import type { TierRateSheetSelection } from '@/api/types/admin';
 import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
 import { TIER_KEYS, TIER_LABELS } from '../serviceDrawerShared';

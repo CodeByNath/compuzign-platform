@@ -13,14 +13,14 @@ import {
   tierOverviewModule,
   tierFeaturesModule,
   tierFaqsModule,
-} from '@/components/admin/utils/moduleNotifications';
+} from '@/drawer-kit/utils/moduleNotifications';
 import { TierOverviewEditor } from '../../../editors/TierOverviewEditor';
 import type { TierOverviewEditDraft } from '../../../editors/TierOverviewEditor';
 import { PoolInclusionsEditor } from '../../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../../editors/PoolFaqsEditor';
-import type { ShellActionSchema, ShellSchema } from '../../types';
-import type { ItemCollectionValue, QaCollectionValue, TextValue } from '../../elements/library';
+import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
+import type { ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
 // The tier/promotion owning-workspace footer: Discard pending changes (only
 // while a module draft exists) then Edit — the same Action Group shape as the

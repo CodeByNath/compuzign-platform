@@ -11,10 +11,10 @@
 // manifest's `shells` record under the `service` key.
 
 import type { ServiceCategoryGroupStationItem, CategoryOverviewDraft } from '@/api/types/admin';
-import { categoryOverviewModule } from '@/components/admin/utils/moduleNotifications';
+import { categoryOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import { CategoryOverviewEditor } from '../../../editors/CategoryOverviewEditor';
-import type { ShellActionSchema, ShellSchema } from '../../types';
-import type { RichTextValue, TextValue } from '../../elements/library';
+import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
+import type { RichTextValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
 // The canonical owning-workspace footer pair, exactly as the service/tier/
 // promotion bindings declare it.

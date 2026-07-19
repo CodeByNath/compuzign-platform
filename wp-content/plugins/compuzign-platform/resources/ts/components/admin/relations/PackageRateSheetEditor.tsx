@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { InlineEditorShell } from '../InlineEditorShell';
+import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { fetchAdminCatalog } from '@/admin-station/stations/service';
 import type { ServiceCatalogResponse } from '@/admin-station/stations/service';
 

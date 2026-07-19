@@ -3,7 +3,7 @@
 // pending_drafts → confirm discard and retry). Pure presentation over the
 // controller; every lifecycle call and conflict decision lives in the controller.
 
-import { TRAVEL_PILL } from '@/components/admin/schema/presentation';
+import { TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
 import { TIER_KEYS, TIER_LABELS } from '../serviceDrawerShared';
 import { slotOccupied } from './useTierDrawerController';
 import type { TierDrawerController } from './useTierDrawerController';

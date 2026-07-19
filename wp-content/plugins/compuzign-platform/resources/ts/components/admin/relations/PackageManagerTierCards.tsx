@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
 import { usePackageStation } from '@/hooks/usePackageStation';
-import { ReadBlock } from '../ReadBlock';
-import { MODULE_ICONS } from '../schema/icons';
-import { getTierNotes } from '../utils/moduleNotifications';
+import { ReadBlock } from '@/drawer-kit/ReadBlock';
+import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
+import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import { TIER_LABELS } from '../stations/serviceDrawerShared';
 
 export function PackageManagerTierCards({ serviceId, onOpen }: {

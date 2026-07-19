@@ -4,11 +4,11 @@ import type { PromotionOverviewDraft, PromotionTier, PromotionTierPayload } from
 import { usePromotionStation } from '@/hooks/usePromotionStation';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { PromotionOverviewEditor } from '../editors/PromotionOverviewEditor';
-import { EntityDrawer } from '../EntityDrawer';
-import { InlineEditorShell } from '../InlineEditorShell';
+import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
+import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { PROMOTION_ENTITY } from '../schema/entities/promotion';
 import type { PromotionOverviewShellData } from '../schema/entities/promotion';
-import type { ShellBinding } from '../schema/types';
+import type { ShellBinding } from '@/drawer-kit/schema/types';
 import { serviceConnectionBinding } from '../stations/serviceDrawerShared';
 import { TIER_LABELS } from '../stations/serviceDrawerShared';
 

@@ -18,8 +18,8 @@ import {
   evaluateModule,
   getTierNotes,
   packageManagerItemModule,
-} from '@/components/admin/utils/moduleNotifications';
-import { resolveTierStatus } from '@/components/admin/utils/moduleStatus';
+} from '@/drawer-kit/utils/moduleNotifications';
+import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
 import type {
   ProviderValidationIssue,
   StationManagerScope,

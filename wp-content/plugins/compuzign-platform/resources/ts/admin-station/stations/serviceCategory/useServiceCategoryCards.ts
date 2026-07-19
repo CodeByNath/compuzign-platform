@@ -2,8 +2,8 @@ import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { fetchAdminCategories } from '@/api/endpoints/admin';
 import { useRetainedCollection } from '../useRetainedCollection';
-import { categoryOverviewModule, evaluateModule } from '@/components/admin/utils/moduleNotifications';
-import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import { categoryOverviewModule, evaluateModule } from '@/drawer-kit/utils/moduleNotifications';
+import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications';
 
 export interface ServiceCategoryCardItem {
   id: number;

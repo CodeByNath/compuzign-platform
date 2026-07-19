@@ -23,7 +23,7 @@
  */
 
 import type { ComponentType } from 'preact';
-import type { ModuleNote } from '@/components/admin/utils/moduleNotifications';
+import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications';
 import type { StationRecordId } from '../../stations/recordIdentity';
 
 // ── Identity and vocabulary ──────────────────────────────────────────────────

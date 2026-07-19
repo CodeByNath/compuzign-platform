@@ -10,7 +10,7 @@
 import { useMemo, useRef } from 'preact/hooks';
 import type { StepContext } from '../ActionShell';
 import type { ServiceItem } from '@/api/types/cost-builder';
-import type { EntityDrawerHostBridge } from './entityDrawerHost';
+import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { TierDrawerContent } from './tier-drawer/TierDrawerContent';
 
 export function ServiceTierStep({ ctx }: { ctx: StepContext }) {

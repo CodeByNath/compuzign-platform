@@ -2,9 +2,9 @@ import { useState } from 'preact/hooks';
 import { usePromotionStation } from '@/hooks/usePromotionStation';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
-import { ReadBlock } from '../ReadBlock';
-import { MODULE_ICONS } from '../schema/icons';
-import { TRAVEL_PILL } from '../schema/presentation';
+import { ReadBlock } from '@/drawer-kit/ReadBlock';
+import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
+import { TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
 import { TIER_LABELS } from '../stations/serviceDrawerShared';
 
 type PromotionOpen = (promotionId?: string, edit?: boolean) => void;

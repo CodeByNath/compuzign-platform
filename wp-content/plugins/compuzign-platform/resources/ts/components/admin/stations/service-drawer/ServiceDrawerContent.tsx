@@ -14,11 +14,11 @@
 // future Admin Station adapter render exactly this composition.
 
 import { useEffect } from 'preact/hooks';
-import { EntityDrawer } from '../../EntityDrawer';
+import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
-import { ModeProvider } from '@/components/admin/schema/modeContext';
-import { OverviewShell } from '@/components/admin/schema/shells/overviewShell';
-import { ChildShell } from '@/components/admin/schema/shells/childShell';
+import { ModeProvider } from '@/drawer-kit/schema/modeContext';
+import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
+import { ChildShell } from '@/drawer-kit/schema/shells/childShell';
 import {
   serviceOverviewShell,
   serviceInclusionsShell,
