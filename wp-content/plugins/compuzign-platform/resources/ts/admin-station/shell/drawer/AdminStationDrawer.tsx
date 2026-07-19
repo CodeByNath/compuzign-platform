@@ -12,7 +12,8 @@
 // content is keyed by template + recordId, so it survives tab switches and
 // remounts only for a different record.
 
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { useAdminStationDrawer } from './AdminStationDrawerContext';
 import type { OpenDrawerState } from './AdminStationDrawerContext';
 import { resolveDrawerTemplate } from '../../stations/drawers/drawerRegistry';
@@ -29,6 +30,26 @@ export function AdminStationDrawer() {
 function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () => void }) {
   const panelRef = useRef<HTMLElement>(null);
 
+  // Entity-supplied record footer (a node) and close-guard (a predicate), both
+  // owned here so the shell's own chrome (Escape / backdrop / header close) and
+  // the content agree on when a close is allowed and what the footer shows. The
+  // shell stays entity-agnostic: it renders and consults these without knowing
+  // what they mean.
+  const [footer, setFooter] = useState<ComponentChildren>(null);
+  const closeGuardRef = useRef<(() => boolean) | null>(null);
+  const setCloseGuard = useCallback((guard: (() => boolean) | null) => {
+    closeGuardRef.current = guard;
+  }, []);
+
+  // The single close path: honour the content's guard, then close. When the
+  // guard returns false the content has raised its own blocking UI and drives
+  // the close itself; the shell does nothing further.
+  const requestClose = useCallback(() => {
+    const guard = closeGuardRef.current;
+    if (guard && !guard()) return;
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -37,7 +58,7 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
     panelRef.current?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') requestClose();
     };
     document.addEventListener('keydown', onKeyDown);
 
@@ -46,13 +67,13 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
       document.removeEventListener('keydown', onKeyDown);
       restoreFocusTo?.focus?.();
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   const template = resolveDrawerTemplate(open.drawerTemplateKey);
 
   return (
     <div class="cz-station-drawer-layer">
-      <div class="cz-station-drawer-backdrop" onClick={onClose} />
+      <div class="cz-station-drawer-backdrop" onClick={requestClose} />
       <aside
         ref={panelRef}
         class="cz-station-drawer"
@@ -62,8 +83,11 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
         tabIndex={-1}
       >
         {template
-          ? <ResolvedDrawer open={open} template={template} onClose={onClose} />
-          : <UnresolvedDrawer onClose={onClose} />}
+          ? <ResolvedDrawer open={open} template={template} onClose={requestClose} setFooter={setFooter} setCloseGuard={setCloseGuard} />
+          : <UnresolvedDrawer onClose={requestClose} />}
+        {/* Entity-supplied record footer. Absent unless content published one, so
+            drawers that keep their actions inside the body are unchanged. */}
+        {footer && <div class="cz-station-drawer__foot">{footer}</div>}
       </aside>
     </div>
   );
@@ -73,10 +97,14 @@ function ResolvedDrawer({
   open,
   template,
   onClose,
+  setFooter,
+  setCloseGuard,
 }: {
   open: OpenDrawerState;
   template: NonNullable<ReturnType<typeof resolveDrawerTemplate>>;
   onClose: () => void;
+  setFooter: (footer: ComponentChildren) => void;
+  setCloseGuard: (guard: (() => boolean) | null) => void;
 }) {
   const { setMode, notifySaved } = useAdminStationDrawer();
   const Content = template.content;
@@ -104,6 +132,8 @@ function ResolvedDrawer({
           onClose={onClose}
           onModeChange={setMode}
           onSaved={notifySaved}
+          setFooter={setFooter}
+          setCloseGuard={setCloseGuard}
         />
       </div>
     </>

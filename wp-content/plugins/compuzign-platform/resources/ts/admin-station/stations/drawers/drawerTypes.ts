@@ -5,6 +5,7 @@
 // import from here without forming a cycle. Its one import is the shell's
 // zero-dependency identity type.
 
+import type { ComponentChildren } from 'preact';
 import type { StationRecordId } from '../recordIdentity';
 
 // The two first-level tabs of the Admin Station drawer. Not the old EntityDrawer
@@ -33,6 +34,20 @@ export interface DrawerContentProps {
   // was opened from — and only that wall. Content does not know, and must not
   // know, which wall that is: it reports the fact, the controller routes it.
   onSaved:  () => void;
+  // Entity-supplied record-level chrome (optional). The shell renders the node
+  // passed to `setFooter` in its footer region, and consults the guard passed to
+  // `setCloseGuard` before closing from its own chrome (Escape / backdrop / header
+  // close). Content that supplies neither behaves exactly as before — the footer
+  // region stays absent and the shell closes directly. Module-level footers stay
+  // inside the content; only whole-record actions belong here.
+  //
+  // These two, with `onClose` and `onSaved`, let the shell's content contract
+  // satisfy the neutral EntityDrawerHostBridge (close = onClose, setFooter,
+  // setCloseGuard, onMutationComplete = onSaved) — so a reusable entity drawer
+  // composition can mount here once the shared renderer kit is reachable from this
+  // bundle (see docs/code-map/admin-station-drawer.md — the bundle boundary).
+  setFooter?:     (footer: ComponentChildren) => void;
+  setCloseGuard?: (guard: (() => boolean) | null) => void;
 }
 
 export type DrawerContent = (props: DrawerContentProps) => import('preact').VNode;
