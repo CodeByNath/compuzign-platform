@@ -19,6 +19,12 @@ export default defineConfig({
         homepage:        'resources/ts/modules/homepage.ts',
         admin:           'resources/ts/modules/admin.ts',
         'admin-station': 'resources/ts/modules/admin-station.ts',
+        // The shared drawer stylesheet is its own entry so it emits at a stable
+        // path (dist/css/drawer-kit.css) for both the Command Centre and the
+        // Admin Station to enqueue. Importing it from both JS entries instead
+        // would make Rollup attach it to their shared chunk and emit it under a
+        // chunk-derived name that nothing enqueues.
+        'drawer-kit':    'resources/css/modules/drawer-kit.css',
       },
       output: {
         entryFileNames: 'js/[name].js',

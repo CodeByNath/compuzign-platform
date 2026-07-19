@@ -262,12 +262,26 @@ class AdminRouter
             .update-nag, .notice, .error, .updated, .is-dismissible { display: none !important; }
         ');
 
+        // ── Drawer kit CSS ───────────────────────────────────────────────────
+        // The shared entity-drawer rules, moved out of admin.css so the Admin
+        // Station can load them too (see Core/AssetLoader::registerDrawerKitStyles).
+        // This route enqueues with its own src, so it must name the dependency
+        // itself — admin.css alone no longer styles the drawers.
+        if (file_exists($distPath . 'css/drawer-kit.css')) {
+            wp_enqueue_style(
+                'compuzign-drawer-kit',
+                $distUrl . 'css/drawer-kit.css',
+                ['compuzign-admin-host-reset'],
+                filemtime($distPath . 'css/drawer-kit.css')
+            );
+        }
+
         // ── Admin CSS ────────────────────────────────────────────────────────
         if (file_exists($distPath . 'css/admin.css')) {
             wp_enqueue_style(
                 'compuzign-admin',
                 $distUrl . 'css/admin.css',
-                ['compuzign-admin-host-reset'],
+                ['compuzign-admin-host-reset', 'compuzign-drawer-kit'],
                 filemtime($distPath . 'css/admin.css')
             );
         }

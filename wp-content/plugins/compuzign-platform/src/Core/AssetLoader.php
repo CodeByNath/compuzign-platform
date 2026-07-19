@@ -19,6 +19,7 @@ class AssetLoader
         $this->enqueueDistAssets();
         $this->registerCostBuilderAssets();
         $this->registerHomepageAssets();
+        $this->registerDrawerKitStyles();
         $this->registerAdminAssets();
         $this->registerAdminStationAssets();
         $this->enqueueAdminPageStyles();
@@ -66,6 +67,27 @@ class AssetLoader
         return $tag;
     }
 
+    /**
+     * The shared entity-drawer stylesheet.
+     *
+     * Its rules were moved out of admin.css so BOTH administration environments
+     * can load them: the Command Centre and the Admin Station now mount the same
+     * Service and Tier drawer compositions. Registered once here and declared as
+     * a DEPENDENCY of both page stylesheets, which loads it exactly once and
+     * always before them — so each page's own sheet keeps the last word.
+     *
+     * Registered before the two callers so the handle exists when they name it.
+     */
+    private function registerDrawerKitStyles(): void
+    {
+        $distPath = COMPUZIGN_DIST_PATH;
+        $distUrl  = COMPUZIGN_DIST_URL;
+
+        if (file_exists($distPath . 'css/drawer-kit.css')) {
+            wp_register_style('compuzign-drawer-kit', $distUrl . 'css/drawer-kit.css', [], filemtime($distPath . 'css/drawer-kit.css'));
+        }
+    }
+
     private function registerAdminStationAssets(): void
     {
         $distPath = COMPUZIGN_DIST_PATH;
@@ -74,7 +96,9 @@ class AssetLoader
         // CSS: register-only; the admin-station shortcode enqueues it (with a
         // wp_head safety net) when its page renders.
         if (file_exists($distPath . 'css/admin-station.css')) {
-            wp_register_style('compuzign-admin-station', $distUrl . 'css/admin-station.css', [], filemtime($distPath . 'css/admin-station.css'));
+            // Depends on the shared drawer kit: this environment mounts the
+            // Service and Tier drawer compositions and needs their rules.
+            wp_register_style('compuzign-admin-station', $distUrl . 'css/admin-station.css', ['compuzign-drawer-kit'], filemtime($distPath . 'css/admin-station.css'));
         }
 
         // JS: register-only; the shortcode enqueues after the mount div is in
@@ -162,7 +186,10 @@ class AssetLoader
 
         // CSS: register-only; admin shortcode enqueues when the page is an admin page.
         if (file_exists($distPath . 'css/admin.css')) {
-            wp_register_style('compuzign-admin', $distUrl . 'css/admin.css', [], filemtime($distPath . 'css/admin.css'));
+            // Depends on the shared drawer kit, which holds the drawer rules
+            // that used to live in this sheet — so the Command Centre's total
+            // rule set is unchanged and the kit still loads first.
+            wp_register_style('compuzign-admin', $distUrl . 'css/admin.css', ['compuzign-drawer-kit'], filemtime($distPath . 'css/admin.css'));
         }
 
         // JS: register-only; admin shortcode enqueues after mount div is in the DOM.

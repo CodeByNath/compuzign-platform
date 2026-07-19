@@ -5,6 +5,12 @@
 // Styles are colocated with the Admin Station source (tokens → base →
 // responsive) and imported here so the bundler emits a single stylesheet.
 
+// The shared drawer stylesheet (css/modules/drawer-kit.css) is NOT imported
+// here: this environment mounts the same Service/Tier compositions and needs its
+// rules, but importing it from two JS entries makes Rollup emit it as a third,
+// unenqueued stylesheet. It is its own build entry and arrives as a
+// wp_register_style DEPENDENCY of this sheet — which also guarantees it loads
+// first, so the station's own chrome still wins any overlap.
 import '../admin-station/styles/admin-station-tokens.css';
 import '../admin-station/styles/admin-station.css';
 import '../admin-station/styles/admin-station-responsive.css';
