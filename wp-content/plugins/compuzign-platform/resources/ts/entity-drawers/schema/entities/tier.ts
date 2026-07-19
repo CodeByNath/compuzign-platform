@@ -11,8 +11,8 @@ import {
   tierOverviewShell,
   tierFeaturesShell,
   tierFaqsShell,
-} from '../shells/bindings/tier';
-import { serviceOverviewShell } from '../shells/bindings/service';
+} from '../bindings/tier';
+import { serviceOverviewShell } from '../bindings/service';
 import type { EntitySchema } from '@/drawer-kit/schema/types';
 
 export const TIER_ENTITY: EntitySchema = {

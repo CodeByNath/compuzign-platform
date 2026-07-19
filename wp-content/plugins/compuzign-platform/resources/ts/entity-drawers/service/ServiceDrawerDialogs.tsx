@@ -4,7 +4,7 @@
 // prompts, and the new-never-published draft prompt. Each reads controller state
 // and calls a controller handler; none owns business logic or calls an API.
 
-import { decodeHtml } from '../serviceDrawerShared';
+import { decodeHtml } from '../shared/serviceDrawerShared';
 import type { ServiceDrawerController } from './useServiceDrawerController';
 
 export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {

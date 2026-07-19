@@ -14,12 +14,12 @@ import { categoryOverviewShell } from '@/components/admin/schema/shells/bindings
 import type {
   CategoryOverviewShellData,
 } from '@/components/admin/schema/shells/bindings/category';
-import type { ServiceOverviewShellData } from '@/components/admin/schema/shells/bindings/service';
+import type { ServiceOverviewShellData } from '@/entity-drawers/schema/bindings/service';
 import type { ShellBinding, ShellSchema } from '@/drawer-kit/schema/types';
 import { CATEGORY_ENTITY } from '@/components/admin/schema/entities/category';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
-import { decodeHtml } from './serviceDrawerShared';
+import { decodeHtml } from '@/entity-drawers/shared/serviceDrawerShared';
 import { ServiceViewStep } from './ServiceViewStep';
 import { buildServiceItemForStationHandoff } from './ServiceCatalogStation';
 

@@ -5,7 +5,7 @@ import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
-import { TIER_LABELS } from '../stations/serviceDrawerShared';
+import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
 
 type PromotionOpen = (promotionId?: string, edit?: boolean) => void;
 

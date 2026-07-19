@@ -14,11 +14,11 @@ import {
   tierFeaturesModule,
   tierFaqsModule,
 } from '@/drawer-kit/utils/moduleNotifications';
-import { TierOverviewEditor } from '../../../editors/TierOverviewEditor';
-import type { TierOverviewEditDraft } from '../../../editors/TierOverviewEditor';
-import { PoolInclusionsEditor } from '../../../editors/PoolInclusionsEditor';
-import { PoolFaqsEditor } from '../../../editors/PoolFaqsEditor';
-import type { FaqPoolItem } from '../../../editors/PoolFaqsEditor';
+import { TierOverviewEditor } from '../../editors/TierOverviewEditor';
+import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
+import { PoolInclusionsEditor } from '../../editors/PoolInclusionsEditor';
+import { PoolFaqsEditor } from '../../editors/PoolFaqsEditor';
+import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 

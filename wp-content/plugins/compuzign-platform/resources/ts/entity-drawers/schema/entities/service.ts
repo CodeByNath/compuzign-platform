@@ -11,7 +11,7 @@ import {
   serviceInclusionsShell,
   serviceFaqsShell,
   servicePackageSummaryShell,
-} from '../shells/bindings/service';
+} from '../bindings/service';
 import {
   serviceCatalogTable,
   serviceArchivedTable,

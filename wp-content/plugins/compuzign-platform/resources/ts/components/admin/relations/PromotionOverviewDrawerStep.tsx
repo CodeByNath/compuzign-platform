@@ -9,8 +9,8 @@ import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { PROMOTION_ENTITY } from '../schema/entities/promotion';
 import type { PromotionOverviewShellData } from '../schema/entities/promotion';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
-import { serviceConnectionBinding } from '../stations/serviceDrawerShared';
-import { TIER_LABELS } from '../stations/serviceDrawerShared';
+import { serviceConnectionBinding } from '@/entity-drawers/shared/serviceDrawerShared';
+import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
 
 function overview(promotion?: PromotionTier): PromotionOverviewDraft {
   return promotion ? {

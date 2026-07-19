@@ -19,11 +19,11 @@ import type {
   TierOverviewShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
-} from '@/components/admin/schema/shells/bindings/tier';
+} from '../schema/bindings/tier';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
-import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
+import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
-import { serviceConnectionBinding, TIER_LABELS } from '../serviceDrawerShared';
+import { serviceConnectionBinding, TIER_LABELS } from '../shared/serviceDrawerShared';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import type { TierDrawerContentProps, TierEditingSection, TierBinPrompt } from './tierDrawerTypes';
 

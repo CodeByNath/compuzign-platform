@@ -3,7 +3,7 @@ import { promotionOverviewModule } from '@/drawer-kit/utils/moduleNotifications'
 import { PromotionOverviewEditor } from '../../editors/PromotionOverviewEditor';
 import type { EntitySchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { TextValue } from '@/drawer-kit/schema/elements/library';
-import { serviceOverviewShell } from '../shells/bindings/service';
+import { serviceOverviewShell } from '@/entity-drawers/schema/bindings/service';
 
 export interface PromotionOverviewShellData {
   name: string;

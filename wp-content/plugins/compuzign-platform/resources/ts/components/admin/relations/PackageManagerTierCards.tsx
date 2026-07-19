@@ -3,7 +3,7 @@ import { usePackageStation } from '@/hooks/usePackageStation';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
-import { TIER_LABELS } from '../stations/serviceDrawerShared';
+import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
 
 export function PackageManagerTierCards({ serviceId, onOpen }: {
   serviceId: number;

@@ -15,7 +15,7 @@
 
 import { useEffect } from 'preact/hooks';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
-import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
+import { SERVICE_ENTITY } from '../schema/entities/service';
 import { ModeProvider } from '@/drawer-kit/schema/modeContext';
 import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
 import { ChildShell } from '@/drawer-kit/schema/shells/childShell';
@@ -23,8 +23,8 @@ import {
   serviceOverviewShell,
   serviceInclusionsShell,
   serviceFaqsShell,
-} from '@/components/admin/schema/shells/bindings/service';
-import { TIER_KEYS, TIER_LABELS } from '../serviceDrawerShared';
+} from '../schema/bindings/service';
+import { TIER_KEYS, TIER_LABELS } from '../shared/serviceDrawerShared';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
 import { useServiceDrawerController } from './useServiceDrawerController';
 import { ServiceDrawerFooter } from './ServiceDrawerFooter';

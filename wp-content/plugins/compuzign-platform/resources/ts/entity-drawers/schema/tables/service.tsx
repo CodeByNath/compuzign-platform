@@ -14,7 +14,7 @@ import { stationStatusLabel } from '@/drawer-kit/utils/moduleStatus';
 import type { StationCommercialSummary } from '@/drawer-kit/utils/moduleStatus';
 import { TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
 import type { ColumnDef, RowActionDef, TableSchema } from '@/drawer-kit/schema/types';
-import { TIER_KEYS, TIER_LABELS } from '../../stations/serviceDrawerShared';
+import { TIER_KEYS, TIER_LABELS } from '../../shared/serviceDrawerShared';
 
 // ── Catalog table ─────────────────────────────────────────────────────────────
 // Rows are assembled by the station as station + pre-resolved commercial

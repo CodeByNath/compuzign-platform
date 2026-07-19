@@ -1,15 +1,12 @@
 import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
-import type { ServiceOverviewShellData } from '@/components/admin/schema/shells/bindings/service';
+import type { ServiceOverviewShellData } from '../schema/bindings/service';
 
 // Shared helpers for the service drawer step files (ServiceViewStep / ServiceTierStep).
 
-export function decodeHtml(s: string): string {
-  if (typeof document === 'undefined') return s;
-  const el = document.createElement('textarea');
-  el.innerHTML = s;
-  return el.value;
-}
+// Re-exported, not redefined: the single implementation lives in @/utils/format.
+import { decodeHtml } from '@/utils/format';
+export { decodeHtml };
 
 export const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
 

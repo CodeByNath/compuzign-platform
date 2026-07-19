@@ -2,7 +2,7 @@
 // presentation over the controller; behaviour is owned by the controller and
 // usePackageStation. Rendered inside the individual-tier EntityDrawer body.
 
-import { TIER_LABELS } from '../serviceDrawerShared';
+import { TIER_LABELS } from '../shared/serviceDrawerShared';
 import type { TierDrawerController } from './useTierDrawerController';
 
 export function TierDrawerDialogs({ c }: { c: TierDrawerController }) {

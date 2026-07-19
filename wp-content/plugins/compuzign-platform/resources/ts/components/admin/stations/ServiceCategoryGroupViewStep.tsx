@@ -16,7 +16,7 @@ import type { ShellBinding, ShellSchema } from '@/drawer-kit/schema/types';
 import { SERVICE_CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/serviceCategoryGroup';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
-import { decodeHtml } from './serviceDrawerShared';
+import { decodeHtml } from '@/entity-drawers/shared/serviceDrawerShared';
 // Read-only reuse — no edits to CategoryViewStep.tsx. buildCategoryViewConfig
 // already wires CategoryViewStep as its step component; importing it here does
 // not touch that file, it only opens the existing real Category drawer.

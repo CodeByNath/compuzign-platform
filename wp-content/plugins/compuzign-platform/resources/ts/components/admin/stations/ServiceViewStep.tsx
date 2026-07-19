@@ -16,8 +16,8 @@ import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary } from '@/api/types/admin';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { ServiceDrawerContent } from './service-drawer/ServiceDrawerContent';
-import { decodeHtml, TIER_KEYS, TIER_LABELS } from './serviceDrawerShared';
+import { ServiceDrawerContent } from '@/entity-drawers/service/ServiceDrawerContent';
+import { decodeHtml, TIER_KEYS, TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
 
 export { decodeHtml, TIER_KEYS, TIER_LABELS };
 

@@ -17,9 +17,9 @@ import {
   inclusionsModule,
   faqsModule,
 } from '@/drawer-kit/utils/moduleNotifications';
-import { ServiceOverviewEditor } from '../../../editors/ServiceOverviewEditor';
-import { ServiceInclusionsEditor } from '../../../editors/ServiceInclusionsEditor';
-import { ServiceFaqsEditor } from '../../../editors/ServiceFaqsEditor';
+import { ServiceOverviewEditor } from '../../editors/ServiceOverviewEditor';
+import { ServiceInclusionsEditor } from '../../editors/ServiceInclusionsEditor';
+import { ServiceFaqsEditor } from '../../editors/ServiceFaqsEditor';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
 import { packageModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';

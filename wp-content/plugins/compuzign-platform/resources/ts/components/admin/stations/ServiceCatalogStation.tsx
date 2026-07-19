@@ -14,7 +14,7 @@ import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { Station } from '../shell/Station';
 import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
-import { ServiceOverviewEditor } from '../editors/ServiceOverviewEditor';
+import { ServiceOverviewEditor } from '@/entity-drawers/editors/ServiceOverviewEditor';
 import type { OverviewDraft } from '@/admin-station/stations/service';
 import { ServiceViewStep, decodeHtml, TIER_KEYS, TIER_LABELS } from './ServiceViewStep';
 import type { StationSurfaceProps } from '../schema/stations';

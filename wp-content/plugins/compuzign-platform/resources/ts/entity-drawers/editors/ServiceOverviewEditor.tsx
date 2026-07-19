@@ -2,13 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { createServiceCategory } from '@/api/endpoints/admin';
 import type { OverviewDraft } from '@/admin-station/stations/service';
-
-function decodeHtml(s: string): string {
-  if (typeof document === 'undefined') return s;
-  const el = document.createElement('textarea');
-  el.innerHTML = s;
-  return el.value;
-}
+import { decodeHtml } from '@/utils/format';
 
 export function initOverviewDraft(service: ServiceItem): OverviewDraft {
   return {

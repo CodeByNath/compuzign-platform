@@ -9,7 +9,7 @@ import { restoreService, trashService, permanentDeleteService } from '@/admin-st
 import { AsyncLoading, AsyncError } from '@/drawer-kit/ui/AsyncSection';
 import { Station } from '../shell/Station';
 import { EntityTable } from '../EntityTable';
-import { SERVICE_ENTITY } from '@/components/admin/schema/entities/service';
+import { SERVICE_ENTITY } from '@/entity-drawers/schema/entities/service';
 import { CATEGORY_ENTITY } from '@/components/admin/schema/entities/category';
 import { SERVICE_CATEGORY_GROUP_ENTITY } from '@/components/admin/schema/entities/serviceCategoryGroup';
 import type { ServiceCategoryGroupStationItem, CategoryStationItem } from '@/api/types/admin';

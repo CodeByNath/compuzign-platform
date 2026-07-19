@@ -40,8 +40,8 @@ import {
 } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from './stationPrimitives';
-import { deriveTierOccupants, resolveTierOccupantSlot } from '@/components/admin/utils/tierOccupants';
-import type { TierOccupant } from '@/components/admin/utils/tierOccupants';
+import { deriveTierOccupants, resolveTierOccupantSlot } from '@/entity-drawers/shared/tierOccupants';
+import type { TierOccupant } from '@/entity-drawers/shared/tierOccupants';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
 //

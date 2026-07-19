@@ -5,8 +5,8 @@
 // registry in S5 as { kind: 'component' }.
 
 import type { EntitySchema } from '@/drawer-kit/schema/types';
-import { SERVICE_ENTITY } from './service';
-import { TIER_ENTITY } from './tier';
+import { SERVICE_ENTITY } from '@/entity-drawers/schema/entities/service';
+import { TIER_ENTITY } from '@/entity-drawers/schema/entities/tier';
 import { CATEGORY_ENTITY } from './category';
 import { SERVICE_CATEGORY_GROUP_ENTITY } from './serviceCategoryGroup';
 

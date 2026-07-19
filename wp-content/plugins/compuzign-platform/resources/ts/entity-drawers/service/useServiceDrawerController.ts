@@ -20,15 +20,15 @@ import { updateServiceCategory } from '@/api/endpoints/admin';
 import type { SurfacePackageSummary } from '@/api/types/admin';
 import { useServiceStation } from '@/admin-station/stations/service';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
-import { initOverviewDraft } from '../../editors/ServiceOverviewEditor';
+import { initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import type {
   ServiceOverviewShellData,
   ServiceInclusionsShellData,
   ServiceFaqsShellData,
-} from '@/components/admin/schema/shells/bindings/service';
+} from '../schema/bindings/service';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
-import { decodeHtml } from '../serviceDrawerShared';
+import { decodeHtml } from '../shared/serviceDrawerShared';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import type { ServiceEditingSection, ServiceExitDialog } from './serviceDrawerTypes';
 

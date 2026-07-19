@@ -1,4 +1,8 @@
+// The one decodeHtml. Carries the non-DOM guard that the admin drawer copy had,
+// so the drawer compositions can share this implementation rather than keep
+// their own.
 export function decodeHtml(value: string): string {
+  if (typeof document === 'undefined') return value;
   const txt = document.createElement('textarea');
   txt.innerHTML = value;
   return txt.value;

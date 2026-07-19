@@ -3,7 +3,7 @@ import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 import { PromotionOverviewDrawerStep } from './PromotionOverviewDrawerStep';
 import { ServiceTierStep } from '../stations/ServiceTierStep';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
-import { TIER_LABELS } from '../stations/serviceDrawerShared';
+import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
 
 export interface PackageDrawerContext {
   service: ServiceItem;
