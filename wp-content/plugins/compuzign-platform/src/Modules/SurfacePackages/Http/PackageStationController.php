@@ -291,6 +291,10 @@ class PackageStationController
                 )),
                 'rate_sheet' => $managerModel['rate_sheet'],
                 'package_relationships' => $managerModel['items'],
+                // Package-owned relationship context used only for scoped Tier
+                // collection reads. It does not transfer Package authority to
+                // the Service-shaped response wrapper.
+                'package_sources' => $managerModel['sources'],
             ],
         ]);
     }

@@ -10,13 +10,21 @@ if (!function_exists('sanitize_text_field')) {
         return trim(strip_tags((string) $value));
     }
 }
+if (!function_exists('sanitize_key')) {
+    function sanitize_key(mixed $value): string
+    {
+        return preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $value)) ?? '';
+    }
+}
 
 require_once __DIR__ . '/../src/Modules/Admin/Support/StationLifecycle.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageCategoryGroups.php';
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageCapabilityAssignments.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageManagerSchema.php';
 require_once __DIR__ . '/../src/Modules/Packages/Support/PackageStationSchema.php';
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema as PMS;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCapabilityAssignments as Capabilities;
 
 function assertSameValue(mixed $expected, mixed $actual, string $message): void
 {
@@ -45,6 +53,21 @@ $faqPool = [['id' => 'faq-a', 'question' => 'Question A?', 'answer' => 'Answer A
 
 // Provisional-only source rows do not constitute Manager configuration.
 $empty = PMS::defaultManager();
+$capabilityManager = $empty;
+$capabilityManager['capability_assignments'] = Capabilities::upsert(
+    [],
+    Capabilities::OWNER_PACKAGE_MANAGER,
+    Capabilities::PACKAGE_MANAGER_ID,
+    Capabilities::CAPABILITY_TIERS,
+    true
+);
+assertSameValue(true, PMS::hasConfiguration($capabilityManager), 'enabled capability assignment is Manager-owned configuration');
+$capabilityCommitted = PMS::commitConfiguration($capabilityManager, [], [], $incPool, $faqPool, null, []);
+assertSameValue(
+    $capabilityManager['capability_assignments'],
+    $capabilityCommitted['capability_assignments'],
+    'ordinary Manager commit preserves capability assignments untouched'
+);
 $provisional = PMS::buildReadModel(10, $empty, $incPool, $faqPool, 'active');
 assertSameValue(false, $provisional['has_configuration'], 'provisional-only Manager is not configured');
 assertSameValue('not-configured', itemBySource($provisional, 'inclusion', 'inc-a')['module_transition'], 'provisional item is not configured');

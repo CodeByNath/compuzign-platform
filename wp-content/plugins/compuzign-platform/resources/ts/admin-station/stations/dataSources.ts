@@ -14,8 +14,9 @@ import { usePackageFamilyCards } from './packageFamily';
 import { useServiceCategoryCards } from './serviceCategory/useServiceCategoryCards';
 import { useServiceCards } from './serviceSurface/useServiceCards';
 import { useServiceCatalogue } from './serviceSurface/useServiceCatalogue';
-import { useServiceTierCards } from './tierSurface/useServiceTierCards';
+import { usePackageTierCollection } from './tierSurface/usePackageTierCollection';
 import type { DataSourceKey } from './surfaceBindings';
+import type { StationConditions } from '../navigation/destinations';
 
 // The collection contract every data source returns and every template kit
 // consumes. Matches the card grid's existing loading / error / items props.
@@ -24,12 +25,18 @@ export interface SurfaceCollection<Item = unknown> {
   loading: boolean;
   error:   string | null;
   refetch: () => void;
+  meta?: unknown;
+  capability?: {
+    enabled: boolean;
+    loading: boolean;
+    error: string | null;
+  };
 }
 
 // A data source is a hook. It must obey the Rules of Hooks at its call site:
 // StationSurfaceHost calls exactly one, and remounts when the key changes, so a
 // resolved source is stable for the life of a mount.
-export type StationDataSource = () => SurfaceCollection;
+export type StationDataSource = (conditions?: StationConditions) => SurfaceCollection;
 
 // Registered reads. A source stays registered whether or not a binding currently
 // names it — that is what makes re-pointing a surface a one-word change in the
@@ -39,8 +46,7 @@ export const DATA_SOURCES: Record<DataSourceKey, StationDataSource> = {
   'service-categories': useServiceCategoryCards,
   'services': useServiceCards,
   'service-catalogue': useServiceCatalogue,
-  // Tier occupants of the Package Station belonging to the catalogue's host
-  // service. Registered as a source like any other — the wall that consumes it
-  // knows nothing about tiers.
-  'service-tiers': useServiceTierCards,
+  // Package-owned Tier occupants. Optional Service/Family conditions filter
+  // the read projection while the one Package Tier authority stays unchanged.
+  'package-tiers': usePackageTierCollection,
 };

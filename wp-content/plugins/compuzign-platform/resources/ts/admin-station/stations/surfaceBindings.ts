@@ -23,12 +23,16 @@
 
 import type { StationPlacement, StationConditions } from '../navigation/destinations';
 import type { DrawerTemplateKey } from './drawers/drawerTypes';
+import {
+  PACKAGE_CAPABILITIES,
+  PACKAGE_CAPABILITY_OWNER,
+} from './packageCapabilities/capabilityRegistry';
 
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'service-tiers' | 'service-catalogue';
-export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel' | 'service-catalogue';
+export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'package-tiers' | 'service-catalogue';
+export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel' | 'service-catalogue' | 'tier-list';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
 // own action id; `target` + `mode` say where the dispatched record identity
@@ -39,6 +43,9 @@ export interface StationActionIntent {
   id: string;
   target: 'drawer';
   mode: string;
+  // An individual action may open a different registered drawer than the
+  // surface's record actions (for example capability assignment vs Tier edit).
+  drawerTemplateKey?: DrawerTemplateKey;
 }
 
 // One bound surface — one "wall". A station may own several at the SAME
@@ -64,6 +71,18 @@ export interface AdminStationSurfaceBinding {
   // exists because a region holding more than one wall must say which is which.
   // A lone wall can omit it and render bare.
   title?: string;
+  // Present only for a registered Package capability section. Assignment
+  // state still comes from the data source; this is composition/owner metadata
+  // used by the generic host chrome and contains no capability business rules.
+  capability?: {
+    capabilityKey: string;
+    label: string;
+    authorityKey: string;
+    ownerType: 'package-manager';
+    ownerId: string;
+    ownerLabel: string;
+    available: boolean;
+  };
 }
 
 // The station whose presentation wall the Home body shows when no nav
@@ -81,9 +100,9 @@ export const DEFAULT_HOME_STATION = 'services';
 // walls were retired from Home by removing binding rows only. The card, grid,
 // host, drawer shell, sources, and kits remain reusable.
 //
-// Packages / Promotions presentation surfaces are intentionally absent — no row
-// is invented before a real data source and kit exist for them (they resolve to
-// nothing and the region shows its neutral empty state).
+// Package capabilities generate ordinary bindings from their real registry
+// definitions. Promotion remains absent until its Admin Station source, kit,
+// drawer composition, and identity contract are real.
 export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
   {
     stationId: 'services',
@@ -115,11 +134,47 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
       { id: 'view', target: 'drawer', mode: 'view' },
     ],
   },
+  ...PACKAGE_CAPABILITIES.map((definition): AdminStationSurfaceBinding => ({
+    stationId: 'packages',
+    surfaceId: `capability-${definition.capabilityKey}`,
+    placement: 'presentation',
+    order: definition.order,
+    title: definition.label,
+    dataSourceKey: definition.dataSourceKey,
+    templateKitKey: definition.templateKitKey,
+    conditions: {
+      scope: 'current',
+      relatedTo: {
+        entity: PACKAGE_CAPABILITY_OWNER.ownerType,
+        id: PACKAGE_CAPABILITY_OWNER.ownerId,
+      },
+    },
+    drawerTemplateKey: definition.drawerTemplateKey,
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+      { id: 'edit', target: 'drawer', mode: 'edit' },
+      { id: 'create', target: 'drawer', mode: 'edit' },
+      {
+        id: 'manage-capability',
+        target: 'drawer',
+        mode: 'edit',
+        drawerTemplateKey: 'package-capability',
+      },
+    ],
+    capability: {
+      capabilityKey: definition.capabilityKey,
+      label: definition.label,
+      authorityKey: definition.authorityKey,
+      ownerType: PACKAGE_CAPABILITY_OWNER.ownerType,
+      ownerId: PACKAGE_CAPABILITY_OWNER.ownerId,
+      ownerLabel: PACKAGE_CAPABILITY_OWNER.ownerLabel,
+      available: definition.available,
+    },
+  })),
 ];
 
-// Service Categories, the former Service card wall, and Package Tiers stay in
-// the source/kit registries but are intentionally unbound from Home. Their
-// presentation and drawer adapters remain available for future placements.
+// Service Categories and the former Service card wall stay registered but
+// unbound from Home. Package Tiers are the first real Package capability row.
 
 // Structural key for a binding's addressable identity: one surface per
 // station + surface + placement. Two rows sharing it are an authoring slip that

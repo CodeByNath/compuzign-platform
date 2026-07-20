@@ -4,11 +4,12 @@
 // The Home presentation region renders exactly ONE of these for the active
 // station. It resolves every wall bound to that station's presentation
 // placement (the resolver returns them sorted by each binding's declared
-// `order`), wraps each in the section chrome that spaces and titles it, and
-// renders it through the generic StationSurfaceHost.
+// `order`) and renders each through the generic StationSurfaceHost. The host
+// owns the section chrome because a disabled capability must be able to omit
+// its content section while retaining an assignment control.
 //
-// Composition only. The shell owns section resolution, rendering sequence, and
-// the section wrapper — nothing else. It never names an entity, calls no
+// Composition only. The shell owns section resolution and rendering sequence —
+// nothing else. It never names an entity, calls no
 // endpoint, and holds no business state: which sections exist, their sources,
 // kits, drawers, and order all live in the binding table, so a future station
 // (Package, Subscription, CRM, …) reuses this shell by adding rows there.
@@ -38,19 +39,16 @@ export function StationPresentationShell({ stationId, onDispatch }: Props): VNod
   return (
     <>
       {sections.map((binding) => (
-        <section
+        <StationSurfaceHost
           // Remount when the bound surface changes so each section's resolved
           // data source hook stays stable for the life of its own mount. The
           // data source key is part of the identity deliberately: it is the
           // thing that decides WHICH hook the host calls, so re-pointing a
           // section can never swap a hook under a live instance.
           key={`${binding.stationId}:${binding.surfaceId}:${binding.dataSourceKey}`}
-          class="cz-station-wall"
-          aria-label={binding.title}
-        >
-          {binding.title && <h3 class="cz-station-wall__title">{binding.title}</h3>}
-          <StationSurfaceHost binding={binding} onDispatch={onDispatch} />
-        </section>
+          binding={binding}
+          onDispatch={onDispatch}
+        />
       ))}
     </>
   );

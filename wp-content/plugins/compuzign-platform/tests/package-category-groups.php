@@ -11,9 +11,16 @@ if (!function_exists('sanitize_text_field')) {
         return trim(strip_tags((string) $value));
     }
 }
+if (!function_exists('sanitize_key')) {
+    function sanitize_key(mixed $value): string
+    {
+        return preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $value)) ?? '';
+    }
+}
 
 require_once __DIR__ . '/../src/Modules/Admin/Support/StationLifecycle.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageCategoryGroups.php';
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageCapabilityAssignments.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageManagerSchema.php';
 require_once __DIR__ . '/../src/Modules/Packages/Support/PackageStationSchema.php';
 

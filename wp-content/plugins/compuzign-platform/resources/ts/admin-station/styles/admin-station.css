@@ -314,8 +314,16 @@
   margin-block-start: var(--station-body-pad);
 }
 
+.cz-station-wall__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-card-gap);
+  margin-block-end: var(--station-card-gap);
+}
+
 .cz-station-wall__title {
-  margin: 0 0 var(--station-card-gap);
+  margin: 0;
   font-size: var(--station-text-sm);
   font-weight: 600;
   text-transform: uppercase;

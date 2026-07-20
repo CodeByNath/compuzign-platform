@@ -35,6 +35,10 @@ export interface StationConditions {
   scope?: 'current' | 'archived' | 'trashed';
   recordId?: string | number;
   categoryTermId?: number;
+  // Proven current Tier collection scopes. These filter the Package-owned
+  // collection through relationship provenance; neither becomes Tier owner.
+  serviceId?: number;
+  packageFamilyId?: string;
   relatedTo?: { entity: string; id: string | number };
 }
 
@@ -76,7 +80,7 @@ export const STATION_DESTINATIONS: StationDestination[] = [
 function projectionKey(d: StationDestination): string {
   const c = d.conditions;
   const conditions = c
-    ? [c.scope ?? '', c.recordId ?? '', c.categoryTermId ?? '', c.relatedTo ? `${c.relatedTo.entity}#${c.relatedTo.id}` : ''].join('|')
+    ? [c.scope ?? '', c.recordId ?? '', c.categoryTermId ?? '', c.serviceId ?? '', c.packageFamilyId ?? '', c.relatedTo ? `${c.relatedTo.entity}#${c.relatedTo.id}` : ''].join('|')
     : '';
   return `${d.stationId}::${d.surfaceId}::${d.placement}::${d.mode}::${conditions}`;
 }

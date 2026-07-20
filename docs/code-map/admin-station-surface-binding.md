@@ -11,22 +11,23 @@ active station + placement
   → StationPresentationShell (one per Home)
   → resolveSurfaceBindings() returns walls sorted by declared order
   → StationSurfaceHost resolves dataSourceKey + templateKitKey
-  → read hook supplies { items, loading, error, refetch }
+  → read hook supplies { items, loading, error, refetch, optional capability state }
   → kit emits native-identity actions
   → shell dispatches intent + that wall's refetch handle
   → registered drawer adapter
 ```
 
-A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
+A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). Package capability definitions generate ordinary Package bindings in this same registry; their registry order is the section-order authority.
 
 ## Authoritative files
 
-- `stations/surfaceBindings.ts` — declarative binding rows with numeric `order`, action intents, optional drawer key, structural guard, and the order-sorting resolver.
-- `stations/StationPresentationShell.tsx` — the one ordered section loop: resolves a station's presentation bindings, wraps each in the titled section chrome, and hosts it. Entity-agnostic.
-- `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, Service Categories, Service cards, and Tiers.
-- `stations/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
-- `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, and compact Category carousel.
-- `stations/StationSurfaceHost.tsx` — generic source/kit composer and resolvability guard.
+- `stations/surfaceBindings.ts` — declarative binding rows with numeric `order`, action intents, optional capability metadata/drawer override, structural guard, and order-sorting resolver.
+- `stations/packageCapabilities/capabilityRegistry.ts` — lightweight Package composition definitions; Tier is the only current entry.
+- `stations/StationPresentationShell.tsx` — the one ordered section loop. Entity-agnostic.
+- `stations/dataSources.ts` — read-hook registry, including the condition-aware Package Tier collection.
+- `stations/recordIdentity.ts` — native `StationRecordId` plus opaque serialisable parent/mutation context.
+- `presentation/templateKits.tsx` — presentation-only kit registry, including the Tier collection kit.
+- `stations/StationSurfaceHost.tsx` — generic source/kit composer, capability-assignment gate, and resolvability guard. Disabled capability content is not mounted; its host activation control remains available.
 - `stations/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
 - `shell/AdminStationBody.tsx` — activates the station, hands one presentation shell to the Home, and forwards intents to the drawer.
 
@@ -37,9 +38,9 @@ A placement may contain several ordered walls, rendered by the one presentation 
 - The Home renders exactly one presentation shell per active station; sections are never separate competing presentation regions.
 - A source hook is stable per mounted host; the host key includes its `dataSourceKey`.
 - Refresh is structural and targeted: the opening wall supplies the only refetch handle invoked after mutation.
-- Record ids remain native. Package Family and Tier ids are strings; Category and Service ids are numbers. The host neither parses nor coerces them.
+- Record ids remain native. Package Family and Tier occupant ids are strings; Category and Service ids are numbers. Parent Service and Tier slot data travel in context, never as substitute identity.
 - Bindings import no Command Centre runtime module.
-- Only surfaces with real sources and kits are bound. Registered but unbound sources remain reusable.
+- Only complete capabilities with a real source, kit, drawer composition, identity, and authority are registered. Promotion, Bundle, and Campaign are not placeholders.
 
 ## Drawer boundary
 

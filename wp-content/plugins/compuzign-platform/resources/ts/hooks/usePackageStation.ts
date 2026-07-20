@@ -54,8 +54,9 @@ import { relationshipDisplayLabel } from '@/entity-drawers/shared/rateSheetLabel
 // is done HERE, client-side, from the P3 read shape (settled fields + raw drafts +
 // module_status returned separately) — parity with useServiceStation.
 //
-// P4: landed unused. No component consumes it yet; ServiceTierStep still uses useApi.
-// Nothing here changes runtime behaviour.
+// Admin Station and Command Centre both consume this authority hook. An
+// optional load gate lets a disabled capability avoid fetching Tier data;
+// mutation methods remain the same authority once its host is enabled.
 
 const EMPTY_DRAFTS: TierDrafts = { overview: null, features: null, faqs: null };
 const NOT_CONFIGURED: Record<string, string> = {
@@ -166,18 +167,27 @@ export interface PackageStation {
   refetch:          () => void;
 }
 
-export function usePackageStation(serviceId: number, onRefresh?: () => void): PackageStation {
+export function usePackageStation(
+  serviceId: number,
+  onRefresh?: () => void,
+  loadEnabled = true,
+): PackageStation {
   const [detail, setDetail]             = useState<NormDetail | null>(null);
   const [detailLoaded, setDetailLoaded] = useState(false);
   const [saving, setSaving]             = useState(false);
 
   const load = useCallback(() => {
+    if (!loadEnabled || serviceId <= 0) {
+      setDetail(null);
+      setDetailLoaded(false);
+      return;
+    }
     setDetailLoaded(false);
     fetchServicePackageStation(serviceId)
       .then(res => setDetail(res.success ? normDetail(res) : null))
       .catch(() => setDetail(null))
       .finally(() => setDetailLoaded(true));
-  }, [serviceId]);
+  }, [serviceId, loadEnabled]);
 
   useEffect(() => { load(); }, [load]);
 
