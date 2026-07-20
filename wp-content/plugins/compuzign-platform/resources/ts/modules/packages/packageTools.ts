@@ -30,6 +30,10 @@ export interface PackageToolDefinition {
   // PackageToolRegistry::isAvailable on the backend.
   available: boolean;
   supportedOwnerType: PackageToolOwnerType;
+  // The system that actually owns the tool's data and lifecycle. Shown on the
+  // Station-level catalogue so a reader knows registration and presentation are
+  // Station-owned while the tool's records live with their own authority.
+  authority: string;
   // Shown on the row when the tool cannot be activated.
   unavailableReason?: string;
 }
@@ -41,6 +45,7 @@ export const PACKAGE_TOOLS: PackageToolDefinition[] = [
     description: 'Fixed-slot Package Tiers with pricing, inclusions, FAQs, and lifecycle.',
     available: true,
     supportedOwnerType: 'package-family',
+    authority: 'Package Tier system',
   },
   {
     key: 'promotion',
@@ -48,6 +53,7 @@ export const PACKAGE_TOOLS: PackageToolDefinition[] = [
     description: 'Time-boxed promotional offers layered over Package pricing.',
     available: false,
     supportedOwnerType: 'package-family',
+    authority: 'Promotions',
     unavailableReason: 'Promotion is not yet available as a Family-activated tool.',
   },
   {
@@ -56,6 +62,7 @@ export const PACKAGE_TOOLS: PackageToolDefinition[] = [
     description: 'Curated multi-service bundles sold as one commercial unit.',
     available: false,
     supportedOwnerType: 'package-family',
+    authority: 'Bundle system',
     unavailableReason: 'Bundle is not yet available as a Family-activated tool.',
   },
   {
@@ -64,9 +71,19 @@ export const PACKAGE_TOOLS: PackageToolDefinition[] = [
     description: 'Coordinated go-to-market campaigns spanning Packages and Promotions.',
     available: false,
     supportedOwnerType: 'package-family',
+    authority: 'Campaign system',
     unavailableReason: 'Campaign is not yet available as a Family-activated tool.',
   },
 ];
+
+// Count the Families whose assignment map has a given tool enabled. Pure — the
+// Station-level catalogue projects this from the same Family list the Home reads.
+export function countFamiliesWithTool(
+  families: { tools?: Record<string, { enabled: boolean }> }[],
+  key: PackageToolKey,
+): number {
+  return families.reduce((n, family) => (isToolEnabled(family.tools, key) ? n + 1 : n), 0);
+}
 
 export function isToolEnabled(
   tools: Record<string, { enabled: boolean }> | undefined,

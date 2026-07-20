@@ -323,6 +323,140 @@
   color: var(--station-text-muted);
 }
 
+/* ── Station Tools / Skills catalogue ────────────────────────────────────────
+ * The Station-level tool catalogue wall. It reads the full registry once, at
+ * Station level — available tools with their assignment counts and authority,
+ * then a compact roadmap of future tools. It never mutates: assignment is edited
+ * from a Family's Settings, so there are no controls here. */
+.cz-tool-catalogue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-body-pad);
+}
+
+.cz-tool-catalogue__lead {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: 1.5;
+}
+
+.cz-tool-catalogue__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--station-card-gap);
+}
+
+.cz-tool-catalogue__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  padding: var(--station-body-pad-sm);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface);
+}
+
+.cz-tool-catalogue__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-card-gap);
+}
+
+.cz-tool-catalogue__label {
+  font-size: var(--station-text-md, 15px);
+  font-weight: 600;
+  color: var(--station-text);
+}
+
+.cz-tool-catalogue__state {
+  font-size: var(--station-text-xs, 11px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--station-tracking-wide);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.cz-tool-catalogue__state--available {
+  color: #fff;
+  background: var(--station-nav-accent-strong, #6366f1);
+}
+
+.cz-tool-catalogue__state--future {
+  color: var(--station-text-muted);
+  background: var(--station-active-bg, #f3f4f6);
+}
+
+.cz-tool-catalogue__desc,
+.cz-tool-catalogue__hint,
+.cz-tool-catalogue__reason {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: 1.5;
+}
+
+.cz-tool-catalogue__hint {
+  padding-top: var(--station-card-gap);
+  border-top: 1px solid var(--station-border);
+}
+
+.cz-tool-catalogue__reason {
+  font-style: italic;
+}
+
+.cz-tool-catalogue__meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-tool-catalogue__meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--station-card-gap);
+}
+
+.cz-tool-catalogue__meta-row dt {
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+}
+
+.cz-tool-catalogue__meta-row dd {
+  margin: 0;
+  color: var(--station-text);
+  font-weight: 600;
+  font-size: var(--station-text-sm);
+}
+
+.cz-tool-catalogue__roadmap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+}
+
+.cz-tool-catalogue__roadmap-title {
+  margin: 0;
+  font-size: var(--station-text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--station-tracking-wide);
+  color: var(--station-text-muted);
+}
+
+.cz-tool-catalogue__list--future .cz-tool-catalogue__item {
+  gap: 6px;
+  opacity: 0.82;
+}
+
 /* ── Station-group region ───────────────────────────────────────────────── */
 
 .cz-station-groups {

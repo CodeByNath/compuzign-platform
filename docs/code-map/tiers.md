@@ -6,7 +6,7 @@ Manages Package Station Tier occupants: overview/pricing, inclusions, FAQs, publ
 
 Stable UI/drawer identity is `occupant_id`; the resolved fixed `slotId` remains the mutation address. Never coerce or substitute one for the other.
 
-Tier is also the first **Family-activated tool**: a Package Family / Group may enable Tier from its drawer Settings → Tools / Skills. Activation is a boolean on the Family's `category_groups` row ([Package Manager](package-manager.md)) and mints **no** occupant — Tier data stays station-global and is only projected per Family. This adapter owns none of that persistence; it continues to own occupant CRUD unchanged.
+Tier is also the first **Family-activated tool**. The full tool catalogue is presented once at Package Station level (the `Tools / Skills` Home wall); a Package Family / Group enables Tier from its drawer Settings → Assigned Tools (a compact per-Family control). Activation is a boolean on the Family's `category_groups` row ([Package Manager](package-manager.md)) and mints **no** occupant — Tier data stays station-global and is only projected per Family. This adapter owns none of that persistence; it continues to own occupant CRUD unchanged.
 
 ## Shared Tier drawer
 

@@ -27,8 +27,8 @@ import type { DrawerTemplateKey } from './drawers/drawerTypes';
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'service-tiers' | 'service-catalogue';
-export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel' | 'service-catalogue';
+export type DataSourceKey = 'package-families' | 'package-tools' | 'service-categories' | 'services' | 'service-tiers' | 'service-catalogue';
+export type TemplateKitKey = 'category-group-cards' | 'package-tools' | 'service-category-carousel' | 'service-catalogue';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
 // own action id; `target` + `mode` say where the dispatched record identity
@@ -118,9 +118,9 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
   // Package Station Home. The `packages` destination previously mounted
   // nothing; binding the Package Families wall makes it a real workstation
   // whose first-class records are the Families/Groups themselves. Opening a
-  // Family card leads to its drawer → Settings → Tools / Skills. This reuses
-  // the existing Package Families source, the card kit, and the Family drawer —
-  // one binding row, no shell edit, and no Package Manager authority is copied.
+  // Family card leads to its drawer → Settings → Tools. This reuses the existing
+  // Package Families source, the card kit, and the Family drawer — one binding
+  // row, no shell edit, and no Package Manager authority is copied.
   {
     stationId: 'packages',
     surfaceId: 'package-families',
@@ -134,6 +134,24 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     actionIntents: [
       { id: 'view', target: 'drawer', mode: 'view' },
     ],
+  },
+  // Package Station Tools / Skills — the full tool catalogue, at STATION level,
+  // once. It sits after the Families wall (order 1) so the Package Station reads
+  // as a workstation (Families first, then the tools that extend it), not a
+  // tools-only page. The catalogue is presentation only: it names the available
+  // tools, their owning authority, and how many Families use each, and it
+  // carries no drawer key and no action intent because assignment is owned by
+  // the Family and edited from a Family's Settings — this wall never mutates.
+  {
+    stationId: 'packages',
+    surfaceId: 'package-tools',
+    placement: 'presentation',
+    order: 1,
+    title: 'Tools / Skills',
+    dataSourceKey: 'package-tools',
+    templateKitKey: 'package-tools',
+    conditions: { scope: 'current' },
+    actionIntents: [],
   },
 ];
 

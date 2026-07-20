@@ -17,15 +17,17 @@ active station + placement
   → registered drawer adapter
 ```
 
-A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The **Package Station Home** (`stationId: 'packages'`) binds the Package Families wall (order `0`), so the previously empty `packages` destination now opens a real workstation whose first-class records are the Families; opening a Family leads to its drawer → Settings → Tools / Skills. The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
+A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The **Package Station Home** (`stationId: 'packages'`) binds the Package Families wall (order `0`) followed by the **Tools / Skills** catalogue wall (order `1`), so the `packages` destination opens a real workstation: its first-class records are the Families (opening one leads to its drawer → Settings → Assigned Tools), and the Station-level Tools wall presents the full tool catalogue once — availability, per-tool assigned-Family counts, authority, and the future-tool roadmap. That wall is presentation only (`dataSourceKey: 'package-tools'`, `templateKitKey: 'package-tools'`): it declares no `drawerTemplateKey` and an empty `actionIntents`, so it mutates nothing — assignment is owned by the Family and edited from the Family drawer. The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
+
+The station-group region of the Home is now optional: [AdminStationHome.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/home/AdminStationHome.tsx) renders it only when a station supplies groups. No station supplies any today, so the former "No station groups have been configured" placeholder no longer appears on a station (like `packages`) whose content lives entirely in its presentation walls.
 
 ## Authoritative files
 
 - `stations/surfaceBindings.ts` — declarative binding rows with numeric `order`, action intents, optional drawer key, structural guard, and the order-sorting resolver.
 - `stations/StationPresentationShell.tsx` — the one ordered section loop: resolves a station's presentation bindings, wraps each in the titled section chrome, and hosts it. Entity-agnostic.
-- `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, Service Categories, Service cards, and Tiers.
+- `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, the Package tool catalogue (`package-tools`), Service Categories, Service cards, and Tiers.
 - `stations/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
-- `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, and compact Category carousel.
+- `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, the compact Category carousel, and the Package Station tool catalogue (`package-tools`).
 - `stations/StationSurfaceHost.tsx` — generic source/kit composer and resolvability guard.
 - `stations/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
 - `shell/AdminStationBody.tsx` — activates the station, hands one presentation shell to the Home, and forwards intents to the drawer.

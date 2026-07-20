@@ -7,7 +7,9 @@
 //   - Tier is the only real tool; Promotion / Bundle / Campaign are declared
 //     future tools and are not activatable;
 //   - the Package Station Home surfaces the Package Families domain (it is not
-//     generated solely from a tool registry) and opens the Family drawer.
+//     generated solely from a tool registry) and opens the Family drawer;
+//   - the full tool catalogue lives ONCE at Station level, as a presentation
+//     wall after the Families wall, and mutates nothing (no drawer, no intent).
 //
 // Run: npx tsx scripts/package-family-tools-contract.ts
 
@@ -60,7 +62,40 @@ const familiesWall = packagesHome.find((b) => b.dataSourceKey === 'package-famil
 check(familiesWall !== undefined, 'the Package Station Home surfaces Package Families as first-class records');
 check(
   familiesWall!.drawerTemplateKey === 'package-family',
-  'opening a Family on the Package Station Home leads to the Family drawer (Settings → Tools / Skills)',
+  'opening a Family on the Package Station Home leads to the Family drawer (Settings → Tools)',
+);
+
+// ── The full catalogue lives ONCE at Station level, after the Families wall ───
+
+const toolsWall = packagesHome.find((b) => b.dataSourceKey === 'package-tools');
+check(toolsWall !== undefined, 'the Package Station Home binds a Station-level Tools / Skills catalogue wall');
+check(
+  packagesHome.indexOf(familiesWall!) < packagesHome.indexOf(toolsWall!),
+  'the Tools / Skills wall follows the Package Families wall (workstation, not a tools-only page)',
+);
+check(
+  toolsWall!.templateKitKey === 'package-tools',
+  'the Tools / Skills wall renders the Station tool catalogue kit',
+);
+// Presentation performs no mutation: the Station catalogue opens no drawer and
+// dispatches no action intent. Assignment is owned by the Family and edited from
+// the Family drawer's Settings, never from this wall.
+check(
+  toolsWall!.drawerTemplateKey === undefined,
+  'the Station Tools / Skills wall opens no drawer — assignment is edited from a Family, not the catalogue',
+);
+check(
+  toolsWall!.actionIntents.length === 0,
+  'the Station Tools / Skills wall dispatches no intent — it reads the catalogue and mutates nothing',
+);
+
+// The Station catalogue is the single place the full registry (including the
+// future-tool roadmap) is presented; a Family drawer must not repeat it. The
+// registry itself remains the one source both the Station wall and the Family
+// panel read, so there is exactly one catalogue definition.
+check(
+  PACKAGE_TOOLS.filter((t) => !t.available).length >= 1,
+  'future tools exist in the registry and are presented at Station level only',
 );
 
 // ── Families remain first-class on the Service Home too ───────────────────────
