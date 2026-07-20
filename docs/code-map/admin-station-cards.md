@@ -37,7 +37,7 @@ No adapter parses or converts identity. Package Family and Category status/notes
 
 ## Binding and refresh
 
-`presentation/templateKits.tsx` registers the card grid and carousel. `stations/dataSources.ts` registers reads. `stations/surfaceBindings.ts` pairs source, kit, actions, and drawer key declaratively. `StationSurfaceHost` forwards the record id unchanged and passes that wall’s refresh handle to the drawer controller. `useRetainedCollection` keeps cards visible during a wall reload.
+`presentation/templateKits.tsx` registers the card grid and carousel. `stations/dataSources.ts` registers reads. `stations/surfaceBindings.ts` pairs source, kit, actions, drawer key, and numeric Home `order` declaratively; on Service Home the Package Family cards are order `0` and the Service Catalogue order `1`. `stations/StationPresentationShell.tsx` renders those ordered sections; `StationSurfaceHost` forwards the record id unchanged and passes that wall’s refresh handle to the drawer controller. `useRetainedCollection` keeps cards visible during a wall reload.
 
 ## Layout and style
 

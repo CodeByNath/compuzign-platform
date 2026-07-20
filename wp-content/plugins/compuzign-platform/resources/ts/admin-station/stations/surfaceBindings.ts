@@ -48,6 +48,11 @@ export interface AdminStationSurfaceBinding {
   stationId: string;
   surfaceId: string;
   placement: StationPlacement;
+  // Declared position of this wall within its placement region. The resolver
+  // sorts by this — never by array position alone — so where a row sits in the
+  // table can't silently decide what renders first. Ties keep registration
+  // order (the sort is stable).
+  order: number;
   dataSourceKey: DataSourceKey;
   templateKitKey: TemplateKitKey;
   conditions?: StationConditions;
@@ -66,8 +71,10 @@ export interface AdminStationSurfaceBinding {
 // rather than a bare literal in the Body so the default is one documented place.
 export const DEFAULT_HOME_STATION = 'services';
 
-// The table. Service Home renders its browse-first catalogue followed by the
-// Package Family card wall. Rows render in the order they appear.
+// The table. Service Home leads with the Package Family card wall (order 0) so
+// the family groups are what a visitor meets first, followed by the tall
+// browse-first catalogue (order 1). Declared `order` is the authority; rows are
+// merely kept in reading order to match.
 //
 // The list shape is not vestigial. A placement resolves to a LIST of walls; the
 // current Home carries two, and the former Category, Service-card, and Tier
@@ -80,20 +87,9 @@ export const DEFAULT_HOME_STATION = 'services';
 export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
   {
     stationId: 'services',
-    surfaceId: 'service-catalogue',
-    placement: 'presentation',
-    dataSourceKey: 'service-catalogue',
-    templateKitKey: 'service-catalogue',
-    conditions: { scope: 'current' },
-    drawerTemplateKey: 'service',
-    actionIntents: [
-      { id: 'view', target: 'drawer', mode: 'view' },
-    ],
-  },
-  {
-    stationId: 'services',
     surfaceId: 'package-families',
     placement: 'presentation',
+    order: 0,
     title: 'Package Families',
     dataSourceKey: 'package-families',
     templateKitKey: 'category-group-cards',
@@ -102,6 +98,19 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     // One intent, because the card offers one action. Edit is NOT withdrawn:
     // the drawer this opens registers both modes as tabs, so edit stays one
     // click away without the card face carrying a menu.
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+    ],
+  },
+  {
+    stationId: 'services',
+    surfaceId: 'service-catalogue',
+    placement: 'presentation',
+    order: 1,
+    dataSourceKey: 'service-catalogue',
+    templateKitKey: 'service-catalogue',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'service',
     actionIntents: [
       { id: 'view', target: 'drawer', mode: 'view' },
     ],
@@ -139,8 +148,10 @@ export function assertBindingsWellFormed(list: AdminStationSurfaceBinding[]): vo
 
 assertBindingsWellFormed(SURFACE_BINDINGS);
 
-// station + placement → every wall bound there, in table order. Built once at
-// load; the table is static data.
+// station + placement → every wall bound there, sorted by declared `order`.
+// Built and sorted once at load; the table is static data. The sort is stable,
+// so two walls declaring the same order keep their registration order — a
+// deterministic tie-break without inventing a second ordering rule.
 const BINDING_INDEX: Record<string, AdminStationSurfaceBinding[]> = SURFACE_BINDINGS.reduce(
   (index, binding) => {
     const key = `${binding.stationId}::${binding.placement}`;
@@ -150,7 +161,11 @@ const BINDING_INDEX: Record<string, AdminStationSurfaceBinding[]> = SURFACE_BIND
   {} as Record<string, AdminStationSurfaceBinding[]>,
 );
 
-// Resolve every wall bound to a station's placement region, in table order.
+for (const walls of Object.values(BINDING_INDEX)) {
+  walls.sort((a, b) => a.order - b.order);
+}
+
+// Resolve every wall bound to a station's placement region, in declared order.
 // Returns an empty array when the station has nothing bound there (the region
 // then shows its empty state).
 //

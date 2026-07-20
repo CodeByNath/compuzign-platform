@@ -8,29 +8,33 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
 ```text
 active station + placement
-  → resolveSurfaceBindings() returns ordered walls
+  → StationPresentationShell (one per Home)
+  → resolveSurfaceBindings() returns walls sorted by declared order
   → StationSurfaceHost resolves dataSourceKey + templateKitKey
   → read hook supplies { items, loading, error, refetch }
   → kit emits native-identity actions
-  → Body dispatches intent + that wall's refetch handle
+  → shell dispatches intent + that wall's refetch handle
   → registered drawer adapter
 ```
 
-A placement may contain several ordered walls. Services currently presents the Service Catalogue followed by Package Families. The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
+A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
 
 ## Authoritative files
 
-- `stations/surfaceBindings.ts` — declarative binding rows, action intents, optional drawer key, structural guard, and resolver.
+- `stations/surfaceBindings.ts` — declarative binding rows with numeric `order`, action intents, optional drawer key, structural guard, and the order-sorting resolver.
+- `stations/StationPresentationShell.tsx` — the one ordered section loop: resolves a station's presentation bindings, wraps each in the titled section chrome, and hosts it. Entity-agnostic.
 - `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, Service Categories, Service cards, and Tiers.
 - `stations/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
 - `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, and compact Category carousel.
 - `stations/StationSurfaceHost.tsx` — generic source/kit composer and resolvability guard.
 - `stations/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
-- `shell/AdminStationBody.tsx` — renders each resolved presentation binding and forwards intents to the drawer.
+- `shell/AdminStationBody.tsx` — activates the station, hands one presentation shell to the Home, and forwards intents to the drawer.
 
 ## Invariants
 
 - The shell never branches on entity; adding a wall changes a binding plus a real source/kit registration.
+- Section sequence is the binding's declared `order`, never array position alone; the stable sort keeps registration order as the only tie-breaker.
+- The Home renders exactly one presentation shell per active station; sections are never separate competing presentation regions.
 - A source hook is stable per mounted host; the host key includes its `dataSourceKey`.
 - Refresh is structural and targeted: the opening wall supplies the only refetch handle invoked after mutation.
 - Record ids remain native. Package Family and Tier ids are strings; Category and Service ids are numbers. The host neither parses nor coerces them.
