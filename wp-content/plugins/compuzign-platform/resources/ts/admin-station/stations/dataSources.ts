@@ -15,6 +15,7 @@ import { useServiceCategoryCards } from './serviceCategory/useServiceCategoryCar
 import { useServiceCards } from './serviceSurface/useServiceCards';
 import { useServiceCatalogue } from './serviceSurface/useServiceCatalogue';
 import { useServiceTierCards } from './tierSurface/useServiceTierCards';
+import { usePackageTierWorkspace } from './packageTierWorkspace/usePackageTierWorkspace';
 import type { DataSourceKey } from './surfaceBindings';
 
 // The collection contract every data source returns and every template kit
@@ -43,4 +44,9 @@ export const DATA_SOURCES: Record<DataSourceKey, StationDataSource> = {
   // service. Registered as a source like any other — the wall that consumes it
   // knows nothing about tiers.
   'service-tiers': useServiceTierCards,
+  // The Package Station Tier tool's read: every Package Family with its
+  // authoritative summary and the Tier occupants projected into its scope. One
+  // read composing the existing Family, host-service, and Package Station reads —
+  // it owns no persistence and the kit that consumes it holds the selected Family.
+  'package-tier-workspace': usePackageTierWorkspace,
 };

@@ -35,6 +35,16 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* Tier tool summary counts stack from three across to one, like the card grid
+     above — hosted in the same shell breakpoint rather than a new boundary. */
+  .cz-tier-workspace__summary-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cz-tier-workspace__selector {
+    flex: 1 1 auto;
+  }
+
   .cz-service-stat:nth-child(odd) {
     border-inline-start: 0;
   }

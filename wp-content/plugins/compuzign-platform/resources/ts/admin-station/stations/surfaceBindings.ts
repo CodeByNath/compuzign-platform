@@ -27,8 +27,8 @@ import type { DrawerTemplateKey } from './drawers/drawerTypes';
 // Registry keys. Kept as string-literal unions so a binding can only name a
 // source / kit the registries actually define (the registries are typed by the
 // same unions), and a new surface is a deliberate, type-checked addition.
-export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'service-tiers' | 'service-catalogue';
-export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel' | 'service-catalogue';
+export type DataSourceKey = 'package-families' | 'service-categories' | 'services' | 'service-tiers' | 'service-catalogue' | 'package-tier-workspace';
+export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel' | 'service-catalogue' | 'tier-workspace';
 
 // One action a surface may dispatch — entity-agnostic. `id` matches the kit's
 // own action id; `target` + `mode` say where the dispatched record identity
@@ -81,9 +81,13 @@ export const DEFAULT_HOME_STATION = 'services';
 // walls were retired from Home by removing binding rows only. The card, grid,
 // host, drawer shell, sources, and kits remain reusable.
 //
-// Packages / Promotions presentation surfaces are intentionally absent — no row
-// is invented before a real data source and kit exist for them (they resolve to
-// nothing and the region shows its neutral empty state).
+// The Packages station is a full Package-domain workstation: it LEADS with the
+// Package Families presentation (order 0, the same Family cards + drawer the
+// Service home reuses) and then hosts its first real tool, the Tier tool (order
+// 1). A tool is one binding row here — station-level, never per-Family — so
+// future tools (Promotion, Bundle, Campaign) register as additional walls without
+// a shell edit. Promotions presentation stays intentionally absent until a real
+// source and kit exist for it (the region shows its neutral empty state).
 export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
   {
     stationId: 'services',
@@ -113,6 +117,44 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     drawerTemplateKey: 'service',
     actionIntents: [
       { id: 'view', target: 'drawer', mode: 'view' },
+    ],
+  },
+  // ── Packages station — the Package-domain workstation ──────────────────────
+  // The Package Families presentation leads, so the family groups are what a
+  // visitor meets first here too. Reuses the SAME source, kit, and drawer as the
+  // Service home — the family cards and their entity-editor drawer are unchanged.
+  {
+    stationId: 'packages',
+    surfaceId: 'package-families',
+    placement: 'presentation',
+    order: 0,
+    title: 'Package Families',
+    dataSourceKey: 'package-families',
+    templateKitKey: 'category-group-cards',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'package-family',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+    ],
+  },
+  // The Tier tool — the station's first real tool, activated once at Station
+  // level by this row (no per-Family activation, no persistence). The tool owns
+  // its own Package Family selector; View/Edit dispatch the occupant_id into the
+  // mature Tier drawer, exactly as the Tier wall does. Edit is a tab inside that
+  // drawer, so both intents open the same composition.
+  {
+    stationId: 'packages',
+    surfaceId: 'tier-tool',
+    placement: 'presentation',
+    order: 1,
+    title: 'Tier Tool',
+    dataSourceKey: 'package-tier-workspace',
+    templateKitKey: 'tier-workspace',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'tier',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+      { id: 'edit', target: 'drawer', mode: 'edit' },
     ],
   },
 ];

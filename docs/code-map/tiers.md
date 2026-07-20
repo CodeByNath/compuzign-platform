@@ -25,9 +25,20 @@ Stable UI/drawer identity is `occupant_id`; the resolved fixed `slotId` remains 
 
 Presentation calls no endpoints. Empty shells do not become cards. Fixed-slot ordering/restore consumers retain their slot keys.
 
+## Station-level Tier tool
+
+The **Package Station** hosts Tier as its first Station-level tool — activated once by a surface-binding row, never per-Family and never persisted (see [Surface Binding](admin-station-surface-binding.md)). Files under `resources/ts/admin-station/stations/packageTierWorkspace/`:
+
+- [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/packageTierWorkspace/projection.ts) — the pure Family-scope join. A Tier occupant projects under a Package Family iff one of its Rate Sheet selections resolves (via `source_service_id`) to one of the Family's authoritative `related_service_ids` — the same provenance the backend uses for `dependents.tier_selections`. Guarded by [package-tier-workspace-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/package-tier-workspace-contract.ts).
+- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/packageTierWorkspace/usePackageTierWorkspace.ts) — the data source composing `fetchPackageFamilies`, `useHostService`, and `usePackageStation`. Adds no persistence.
+- [tierOccupantCard.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/tierSurface/tierOccupantCard.ts) — the one Tier-occupant card projection, shared with `useServiceTierCards`.
+- Kit: [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns the selected Package Family as **transient working scope** (mutates nothing) and dispatches `occupant_id` into the shared `tier` drawer.
+
+The Family is filter/scope only: it never owns Tier records, never gains a per-Family store, and `occupant_id` stays the identity (`slotId` stays the mutation address). Tier persistence and lifecycle remain the single Package Station authority above.
+
 ## Validation
 
-From the plugin root: `php tests/tier-occupant-compatibility.php`, `node scripts/tier-occupant-admin-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-occupant-compatibility.php`, `node scripts/tier-occupant-admin-contract.ts`, `node scripts/package-tier-workspace-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

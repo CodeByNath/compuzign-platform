@@ -10,6 +10,8 @@ The Package Station owns `package_manager`, rate-sheet selections, tiers, promot
 
 For the Service Catalogue, [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) resolves each Family's related native Service IDs and the existing Package Family list route exposes them as `related_service_ids`. The Catalogue joins those rows into a multi-value Family projection. It never derives commercial grouping from the Service Category taxonomy parent: Service Category Group is not part of Catalogue grouping.
 
+The Admin Station **Packages** station is a full Package-domain workstation and the host of Station-level tools. Its first tool, the **Tier tool**, reuses the same authoritative `related_service_ids` (and each Family's `dependents`) to scope Tier occupants to a selected Package Family — Family is working scope only, never a tool owner or a Tier persistence owner (see [Tiers](tiers.md) and [Surface Binding](admin-station-surface-binding.md)). The Package Family drawer stays an entity editor: it hosts no tools, no Tier manager, and stores no tool activation.
+
 ## Main Entry Points
 
 ### [PackageManagerStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/PackageManagerStation.tsx)

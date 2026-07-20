@@ -17,15 +17,15 @@ active station + placement
   → registered drawer adapter
 ```
 
-A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
+A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The **Packages** station is a full Package-domain workstation: Package Families (order `0`, reusing the same source/kit/drawer) then the **Tier tool** (order `1`) — the station's first real tool, registered as one binding row (`surfaceId: 'tier-tool'`, `dataSourceKey: 'package-tier-workspace'`, `templateKitKey: 'tier-workspace'`, `drawerTemplateKey: 'tier'`). Tool availability is a station-level binding row, never per-Family activation and never persisted; future tools (Promotion, Bundle, Campaign) add further rows. The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
 
 ## Authoritative files
 
 - `stations/surfaceBindings.ts` — declarative binding rows with numeric `order`, action intents, optional drawer key, structural guard, and the order-sorting resolver.
 - `stations/StationPresentationShell.tsx` — the one ordered section loop: resolves a station's presentation bindings, wraps each in the titled section chrome, and hosts it. Entity-agnostic.
-- `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, Service Categories, Service cards, and Tiers.
+- `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, Service Categories, Service cards, Tiers, and the Package Station Tier tool (`package-tier-workspace`, composing the Family, host-service, and Package Station reads).
 - `stations/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
-- `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, and compact Category carousel.
+- `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, compact Category carousel, and the stateful Tier tool (`tier-workspace`, which owns the selected Package Family like the Catalogue owns its filters).
 - `stations/StationSurfaceHost.tsx` — generic source/kit composer and resolvability guard.
 - `stations/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
 - `shell/AdminStationBody.tsx` — activates the station, hands one presentation shell to the Home, and forwards intents to the drawer.

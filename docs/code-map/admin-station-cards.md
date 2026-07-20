@@ -32,8 +32,13 @@ Adapters project Package Family, Service, and Tier records into the same card co
 | Service Catalogue | `stations/serviceSurface/useServiceCatalogue.ts` | numeric Service id | `service` |
 | Service cards | `stations/serviceSurface/useServiceCards.ts` | numeric Service id | `service` |
 | Package Tiers | `stations/tierSurface/useServiceTierCards.ts` | string `occupant_id` | `tier` |
+| Package Station Tier tool | `stations/packageTierWorkspace/usePackageTierWorkspace.ts` | string `occupant_id` | `tier` |
 
-No adapter parses or converts identity. Package Family and Category status/notes come from the shared `evaluateModule` definitions. Tier cards use the same tier note generator as the drawer.
+No adapter parses or converts identity. Package Family and Category status/notes come from the shared `evaluateModule` definitions. Tier cards use the same tier note generator as the drawer, built by the shared `stations/tierSurface/tierOccupantCard.ts` — the one Tier-occupant card projection both the Tier wall and the Station-level Tier tool render, so they can never disagree.
+
+## Package Station Tier tool
+
+`presentation/package-tier-workspace/PackageTierWorkspace.tsx` is a stateful kit (like the Service Catalogue) that owns the selected **Package Family** as transient view state — a working scope that mutates nothing. Its `package-tier-workspace` source composes `usePackageFamilyRelationships`-style Family data (via `fetchPackageFamilies`), `useHostService`, and `usePackageStation`, then runs the pure `stations/packageTierWorkspace/projection.ts` join: a Tier occupant projects under a Family iff a Rate Sheet selection resolves (through `source_service_id`) to one of the Family's authoritative `related_service_ids` — the same provenance the backend uses for `dependents.tier_selections`. The Family summary shows the family's own authoritative `dependents`; occupant cards dispatch `occupant_id` into the shared `tier` drawer.
 
 ## Binding and refresh
 

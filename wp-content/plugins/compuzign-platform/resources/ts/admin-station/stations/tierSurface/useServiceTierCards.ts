@@ -17,33 +17,16 @@
 
 import { useMemo } from 'preact/hooks';
 import { usePackageStation } from '@/hooks/usePackageStation';
-import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
-import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
 import { useHostService } from './useHostService';
 import { useRetainedCollection } from '../useRetainedCollection';
-import { TiersIcon, ViewIcon, PackagesIcon, RateSheetIcon } from '../../shell/icons';
-import type {
-  CategoryGroupCardItem,
-  CategoryGroupStatus,
-} from '../../presentation/category-groups/types';
+import { toTierOccupantCard } from './tierOccupantCard';
+import type { CategoryGroupCardItem } from '../../presentation/category-groups/types';
 
 export interface ServiceTierCardsResult {
   items:   CategoryGroupCardItem[];
   loading: boolean;
   error:   string | null;
   refetch: () => void;
-}
-
-// The tier resolver already returns the 5-state vocabulary; the card contract
-// accepts four. 'not-configured' is the never-touched shell, which reads as the
-// dim pending state — the same collapse the card kit makes elsewhere.
-function toCardStatus(status: string): CategoryGroupStatus {
-  switch (status) {
-    case 'active':       return 'active';
-    case 'disabled':     return 'disabled';
-    case 'pending-full': return 'pending-full';
-    default:             return 'pending-dim';
-  }
 }
 
 export function useServiceTierCards(): ServiceTierCardsResult {
@@ -54,35 +37,16 @@ export function useServiceTierCards(): ServiceTierCardsResult {
 
   const projected = useMemo<CategoryGroupCardItem[]>(() => {
     if (!host.service || !pkg.detailLoaded) return [];
-    return pkg.tierOccupants.map(({ occupantId, slotId }) => {
-      const view       = pkg.tierView(slotId);
-      const detail     = view?.detail;
-      const price      = detail?.price ?? null;
-      const inclusions = detail?.inclusions_override.length ?? 0;
-      const faqs       = detail?.faq_refs.length ?? 0;
-
-      return {
-        id:   occupantId,          // native stable occupant id, unchanged
-        key:  occupantId,
-        name: `Package ${detail?.label?.trim() || TIER_LABELS[slotId] || slotId}`,
-        kind: 'Package tier',
-        description: price == null
-          ? 'Pricing not configured'
-          : `$${price.toFixed(2)} · ${detail?.billing_cycle ?? 'Not available'}`,
-        icon:   TiersIcon,
-        status: toCardStatus(view?.status ?? 'pending-dim'),
-        // The same notes the manager card shows, from the same generator.
-        notifications: detail ? getTierNotes(detail, { platformStatus: pkg.platformStatus }) : [],
-        metrics: [
-          { id: 'features', label: 'Included features', value: inclusions, icon: PackagesIcon },
-          { id: 'faqs',     label: 'Common questions',  value: faqs,       icon: RateSheetIcon },
-        ],
-        actions: [
-          { id: 'view', label: 'View', icon: ViewIcon },
-          { id: 'edit', label: 'Edit' },
-        ],
-      };
-    });
+    // The shared Tier card builder — the same projection the Package Station Tier
+    // tool renders, so the two walls can never disagree about a Tier card.
+    return pkg.tierOccupants.map(({ occupantId, slotId }) =>
+      toTierOccupantCard({
+        occupantId,
+        slotId,
+        view: pkg.tierView(slotId),
+        platformStatus: pkg.platformStatus,
+      }),
+    );
   }, [host.service, pkg.detailLoaded, pkg.tierOccupants, pkg.tierView, pkg.platformStatus]);
 
   const loading  = host.loading || (!!host.service && !pkg.detailLoaded);

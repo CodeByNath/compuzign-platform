@@ -1542,3 +1542,102 @@ button.cz-station-status-pill {
     grid-auto-columns: calc((100% - (5 * var(--station-grid-gap))) / 6);
   }
 }
+
+/* ── Package Station Tier tool ─────────────────────────────────────────── */
+
+/* The Station-level Tier workspace: a Package Family selector, the selected
+   Family's authoritative summary, and the Tier occupants projected into its
+   scope (rendered through the shared card grid, whose own styles this reuses).
+   Selection is transient view state; the surface writes nothing. */
+.cz-tier-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  min-width: 0;
+}
+
+.cz-tier-workspace__bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--station-grid-gap);
+}
+
+.cz-tier-workspace__selector {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 1 320px;
+  min-width: 0;
+}
+
+.cz-tier-workspace__selector-label {
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
+}
+
+.cz-tier-workspace__select {
+  min-height: var(--station-control-height);
+  padding-inline: var(--station-control-pad-x);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface-elevated);
+  color: var(--station-text);
+  font: inherit;
+  font-size: var(--station-text-sm);
+}
+
+/* The selected-Family summary — one elevated surface echoing the card family. */
+.cz-tier-workspace__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+}
+
+.cz-tier-workspace__summary-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--station-card-gap);
+}
+
+.cz-tier-workspace__summary-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Mirrors the card name/kind exactly, so the summary reads as the same family. */
+.cz-tier-workspace__summary-name {
+  margin: 0;
+  min-width: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-xl);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-tight);
+  overflow-wrap: anywhere;
+}
+
+.cz-tier-workspace__summary-kind {
+  margin: 0;
+  min-width: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: var(--station-line-snug);
+  overflow-wrap: anywhere;
+}
+
+/* Three authoritative counts, divided like the overview stat strip. */
+.cz-tier-workspace__summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--station-card-gap);
+}
