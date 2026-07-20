@@ -3,6 +3,7 @@ import { CanonicalEntityFooter } from '@/drawer-kit/CanonicalEntityFooter';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import { PACKAGE_FAMILY_ENTITY } from '../schema/entities/packageFamily';
 import { PackageFamilyDrawerDialogs } from './PackageFamilyDrawerDialogs';
+import { PackageFamilyToolsPanel } from './PackageFamilyToolsPanel';
 import { usePackageFamilyDrawerController } from './usePackageFamilyDrawerController';
 import type { PackageFamilyDrawerContentProps } from './packageFamilyDrawerTypes';
 
@@ -53,6 +54,7 @@ export function PackageFamilyDrawerContent(props: PackageFamilyDrawerContentProp
         tab={c.tab}
         onSelectTab={c.selectTab}
         bindings={{ overview: c.overviewBinding, relationships: c.relationshipsBinding }}
+        trailing={{ settings: <PackageFamilyToolsPanel station={c.station} /> }}
         openPanel={c.openPanel}
         onTogglePanel={(module) => c.setOpenPanel((open) => open === module ? null : module)}
         editing={c.editing && c.draft ? {

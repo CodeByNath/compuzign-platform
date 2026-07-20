@@ -197,7 +197,12 @@ export interface EntitySchema {
   // in the boot payload. Deliberately not declared until then.
 
   placements: {
-    drawer?: { details: ShellSlot[]; connections: ShellSlot[] };   // Drawer Tab Contract keys
+    // Drawer Tab Contract keys. `details` and `connections` are the historical
+    // canonical pair; `settings` is optional — an entity declares it only when
+    // it owns a Settings surface (e.g. Package Family Tools / Skills). A
+    // declared-but-empty slot list renders the tab with bespoke `trailing`
+    // content instead of placed shells.
+    drawer?: { details: ShellSlot[]; connections: ShellSlot[]; settings?: ShellSlot[] };
     // v1.2 Collection placement: one shell repeated per related item in the
     // slot's viewpoint (card = summary; repetition = placement; cardinality =
     // the surface's ShellBinding[]). Keyed by collection name; the slot's

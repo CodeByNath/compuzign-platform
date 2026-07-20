@@ -260,6 +260,20 @@ export function permanentDeletePackageFamily(groupId: string): Promise<PackageFa
   return apiClient.delete<PackageFamilyDeleteResponse>(`admin/package-category-groups/${groupId}`);
 }
 
+// Activate / deactivate one Tool / Skill for one Package Family. The {groupId}
+// owner owns the assignment; enabling writes a boolean on the group row and
+// creates no tool data (no Tier occupant). Returns the updated group.
+export function setPackageFamilyTool(
+  groupId: string,
+  toolKey: string,
+  enabled: boolean,
+): Promise<PackageFamilyMutationResponse> {
+  return apiClient.put<PackageFamilyMutationResponse>(
+    `admin/package-category-groups/${groupId}/tools/${toolKey}`,
+    { enabled },
+  );
+}
+
 
 
 

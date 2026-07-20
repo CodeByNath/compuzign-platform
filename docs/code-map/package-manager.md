@@ -8,6 +8,10 @@ Owns Package Station persistence, Service supply configuration, and customer-fac
 
 The Package Station owns `package_manager`, rate-sheet selections, tiers, promotions, bin entries, status, and `package_manager.category_groups`, assigned through Package-owned source relationships using `category_group_id`. Services stay Service-owned. The manager UI coordinates drafts but does not own lifecycle or persistence. `PackageRepository` is the persistence authority.
 
+### Family / Group tools (Tools / Skills)
+
+A Package Family / Group may activate optional **tools** from its drawer Settings tab. The assignment is owned by the Family — a `tools` map on the `category_groups` row (`tools[key] = {enabled}`), sanitized/mutated by [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) (`sanitizeTools`, `setTool`) and gated by [PackageToolRegistry.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageToolRegistry.php). There is **no** global `package-station` tool owner. Route: `PUT /admin/package-category-groups/{gid}/tools/{tool}` on [AdminPackageCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminPackageCategoryGroupsController.php). **Tier** is the first real tool; Promotion/Bundle/Campaign are declared future tools (unavailable, never activatable). Activating Tier flips a boolean only — it mints no occupant. Tier data stays station-global and is projected per Family; activation controls access/presentation. See [package-family-tools-blueprint.md](../architecture/package-family-tools-blueprint.md).
+
 For the Service Catalogue, [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) resolves each Family's related native Service IDs and the existing Package Family list route exposes them as `related_service_ids`. The Catalogue joins those rows into a multi-value Family projection. It never derives commercial grouping from the Service Category taxonomy parent: Service Category Group is not part of Catalogue grouping.
 
 ## Main Entry Points
@@ -64,6 +68,7 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 - [package-category-groups.php](../../wp-content/plugins/compuzign-platform/tests/package-category-groups.php)
 - [tier-occupant-admin-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/tier-occupant-admin-contract.ts)
 - [service-catalogue-projection-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/service-catalogue-projection-contract.ts)
+- [package-family-tools-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/package-family-tools-contract.ts) and [package-family-tools.php](../../wp-content/plugins/compuzign-platform/tests/package-family-tools.php)
 
 ## Related Code Maps
 

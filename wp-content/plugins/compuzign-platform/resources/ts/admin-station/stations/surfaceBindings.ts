@@ -115,6 +115,26 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
       { id: 'view', target: 'drawer', mode: 'view' },
     ],
   },
+  // Package Station Home. The `packages` destination previously mounted
+  // nothing; binding the Package Families wall makes it a real workstation
+  // whose first-class records are the Families/Groups themselves. Opening a
+  // Family card leads to its drawer → Settings → Tools / Skills. This reuses
+  // the existing Package Families source, the card kit, and the Family drawer —
+  // one binding row, no shell edit, and no Package Manager authority is copied.
+  {
+    stationId: 'packages',
+    surfaceId: 'package-families',
+    placement: 'presentation',
+    order: 0,
+    title: 'Package Families',
+    dataSourceKey: 'package-families',
+    templateKitKey: 'category-group-cards',
+    conditions: { scope: 'current' },
+    drawerTemplateKey: 'package-family',
+    actionIntents: [
+      { id: 'view', target: 'drawer', mode: 'view' },
+    ],
+  },
 ];
 
 // Service Categories, the former Service card wall, and Package Tiers stay in

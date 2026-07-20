@@ -1512,3 +1512,142 @@ button.cz-module-status-pill {
   border-color: var(--station-border);
   background: var(--station-nav-active-bg);
 }
+
+/* ── Package Family Settings → Tools / Skills ─────────────────────────────────
+   The drawer Settings tab surface. Rows present each registered tool with its
+   state and an activate/deactivate action. Owner-specific activation only —
+   no persistence lives here. Uses station theme vars with neutral fallbacks so
+   it reads correctly in both the Admin Station and Command Centre hosts. */
+.cz-family-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 2px;
+}
+
+.cz-family-tools__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-family-tools__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--station-text, #111827);
+}
+
+.cz-family-tools__lead,
+.cz-family-tools__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--station-text-muted, #6b7280);
+}
+
+.cz-family-tools__note {
+  padding-top: 4px;
+  border-top: 1px solid var(--station-border, #e5e7eb);
+}
+
+.cz-family-tools__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cz-family-tool {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--station-border, #e5e7eb);
+  border-radius: var(--station-control-radius, 10px);
+  background: var(--station-surface, #fff);
+}
+
+.cz-family-tool--active {
+  border-color: var(--station-accent-border, #6366f1);
+  background: var(--station-nav-active-bg, #f5f3ff);
+}
+
+.cz-family-tool--unavailable {
+  opacity: 0.72;
+}
+
+.cz-family-tool__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cz-family-tool__heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cz-family-tool__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--station-text, #111827);
+}
+
+.cz-family-tool__state {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--station-text-muted, #6b7280);
+  background: var(--station-active-bg, #f3f4f6);
+}
+
+.cz-family-tool__state--on {
+  color: #fff;
+  background: var(--station-nav-accent-strong, #6366f1);
+}
+
+.cz-family-tool__desc,
+.cz-family-tool__reason,
+.cz-family-tool__context-lead,
+.cz-family-tool__context-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--station-text-muted, #6b7280);
+}
+
+.cz-family-tool__reason {
+  font-style: italic;
+}
+
+.cz-family-tool__context {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: var(--station-control-radius, 10px);
+  background: var(--station-surface-elevated, #f9fafb);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-family-tool__context-lead {
+  font-weight: 600;
+  color: var(--station-text, #111827);
+}
+
+.cz-family-tool__action {
+  flex: 0 0 auto;
+}
+
+.cz-family-tool__btn {
+  white-space: nowrap;
+}

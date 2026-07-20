@@ -6,6 +6,8 @@ Manages Package Station Tier occupants: overview/pricing, inclusions, FAQs, publ
 
 Stable UI/drawer identity is `occupant_id`; the resolved fixed `slotId` remains the mutation address. Never coerce or substitute one for the other.
 
+Tier is also the first **Family-activated tool**: a Package Family / Group may enable Tier from its drawer Settings → Tools / Skills. Activation is a boolean on the Family's `category_groups` row ([Package Manager](package-manager.md)) and mints **no** occupant — Tier data stays station-global and is only projected per Family. This adapter owns none of that persistence; it continues to own occupant CRUD unchanged.
+
 ## Shared Tier drawer
 
 - [TierDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/tier/TierDrawerContent.tsx) owns host-neutral Package overview, Tier modules, Connections, bin presentation, dialogs, and footer.

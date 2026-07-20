@@ -33,6 +33,10 @@ export const PACKAGE_FAMILY_ENTITY: EntitySchema = {
     drawer: {
       details: [{ module: 'overview', mode: 'details' }],
       connections: [{ module: 'relationships', mode: 'connections' }],
+      // Settings owns the Tools / Skills surface. No placed shell — the tab
+      // renders bespoke `trailing` content (PackageFamilyToolsPanel), so the
+      // presence of this key is what makes the Settings tab appear.
+      settings: [],
     },
   },
 };
