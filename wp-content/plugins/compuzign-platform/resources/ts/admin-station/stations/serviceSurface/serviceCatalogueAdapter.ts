@@ -1,22 +1,23 @@
 // Service → Service Catalogue row adapter.
 //
 // This is a pure projection. It keeps the Service list route authoritative for
-// identity, hierarchy, counts, lifecycle, and browse copy, while expressing
-// those facts in the local presentation contract consumed by the registered
-// Service Catalogue template kit.
+// identity, direct Category, counts, lifecycle, and browse copy. Package Family
+// relationships arrive separately from their Package-owned read boundary and
+// are joined here without transferring their authority to Service.
 
 import type { ServiceSummary } from '../service';
+import {
+  packageFamiliesForService,
+  type PackageFamilyRelationship,
+} from '../packageFamily';
 import { decodeHtml } from '@/utils/format';
 import { resolveServiceCardStatus } from './serviceCardAdapter';
 import type { ServiceCatalogueItem } from '../../presentation/service-catalogue/types';
 
-function uniqueLabels(labels: Array<string | null | undefined>): string[] {
-  return [...new Set(labels.map((label) => label?.trim()).filter((label): label is string => Boolean(label)))];
-}
-
 export function toServiceCatalogueItem(
   summary: ServiceSummary,
   scope: ServiceCatalogueItem['scope'],
+  packageFamilyRelationships: PackageFamilyRelationship[],
 ): ServiceCatalogueItem {
   const categories = summary.categories
     .filter((category) => category.id !== null)
@@ -26,10 +27,6 @@ export function toServiceCatalogueItem(
       slug: category.slug,
     }));
 
-  const familyGroups = uniqueLabels(
-    summary.categories.map((category) => category.group_name ? decodeHtml(category.group_name) : null),
-  );
-
   return {
     id:                 summary.id,
     name:               decodeHtml(summary.title) || 'Untitled service',
@@ -37,7 +34,8 @@ export function toServiceCatalogueItem(
     description:        decodeHtml(summary.excerpt ?? '').trim(),
     createdAt:          summary.created_at ?? null,
     categories,
-    familyGroups,
+    packageFamilies:    packageFamiliesForService(packageFamilyRelationships, summary.id)
+      .map((family) => ({ ...family, name: decodeHtml(family.name) })),
     inclusionCount:     summary.inclusion_count ?? 0,
     faqCount:           summary.faq_count ?? 0,
     platformStatus:     summary.platform_status === 'active'

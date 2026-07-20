@@ -153,8 +153,13 @@ export interface PackageFamilyItem {
   dependents:               PackageFamilyDependents;
 }
 
+/** Package Family list row with Package-owned Service relationship identity. */
+export interface PackageFamilyListItem extends PackageFamilyItem {
+  related_service_ids: number[];
+}
+
 export interface PackageFamilyListResponse {
-  package_category_groups: PackageFamilyItem[];
+  package_category_groups: PackageFamilyListItem[];
 }
 
 export interface PackageFamilyMutationResponse {

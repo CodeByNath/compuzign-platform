@@ -7,6 +7,7 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
+import { usePackageFamilyRelationships } from '../packageFamily';
 import { fetchAdminCatalog } from '../service';
 import { useRetainedCollection } from '../useRetainedCollection';
 import { toServiceCatalogueItem } from './serviceCatalogueAdapter';
@@ -22,22 +23,28 @@ export interface ServiceCatalogueResult {
 export function useServiceCatalogue(): ServiceCatalogueResult {
   const current  = useApi(() => fetchAdminCatalog());
   const archived = useApi(() => fetchAdminCatalog('archived'));
+  const packageFamilies = usePackageFamilyRelationships();
 
   const projected = useMemo<ServiceCatalogueItem[]>(() => [
-    ...(current.data?.stations ?? []).map((summary) => toServiceCatalogueItem(summary, 'current')),
-    ...(archived.data?.stations ?? []).map((summary) => toServiceCatalogueItem(summary, 'archived')),
-  ], [current.data, archived.data]);
+    ...(current.data?.stations ?? []).map((summary) => (
+      toServiceCatalogueItem(summary, 'current', packageFamilies.items)
+    )),
+    ...(archived.data?.stations ?? []).map((summary) => (
+      toServiceCatalogueItem(summary, 'archived', packageFamilies.items)
+    )),
+  ], [current.data, archived.data, packageFamilies.items]);
 
-  const loading = current.loading || archived.loading;
+  const loading = current.loading || archived.loading || packageFamilies.loading;
   const retained = useRetainedCollection(projected, loading);
 
   return {
     items:   retained.items,
     loading: retained.loading,
-    error:   current.error ?? archived.error,
+    error:   current.error ?? archived.error ?? packageFamilies.error,
     refetch: () => {
       current.refetch();
       archived.refetch();
+      packageFamilies.refetch();
     },
   };
 }

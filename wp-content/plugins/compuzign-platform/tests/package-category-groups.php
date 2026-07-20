@@ -190,6 +190,7 @@ $deps = PCG::dependents($station, $model['items'], 'pcg_kairos');
 assertSameValue(1, $deps['services'], 'assigned source counts as a dependent service');
 assertSameValue(1, $deps['rate_sheet_rows'], 'rate sheet rows supplied by member services count');
 assertSameValue(1, $deps['tier_selections'], 'tier selections referencing dependent rows count');
+assertSameValue([10], PCG::relatedServiceIds($station, 'pcg_kairos'), 'Package Family read projection preserves native related Service IDs');
 
 $noDepGroup = PCG::dependents($station, $model['items'], 'pcg_other');
 assertSameValue(['services' => 0, 'rate_sheet_rows' => 0, 'tier_selections' => 0], $noDepGroup, 'unrelated group has no dependents');

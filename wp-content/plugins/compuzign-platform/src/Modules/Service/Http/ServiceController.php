@@ -199,24 +199,11 @@ class ServiceController
 
         // Live category terms ordered by name — used for the catalog tab bar and
         // admin pickers. Selector scoping (D7): archived/trashed categories never
-        // appear here, but stay rendered on services already assigned to them
-        // (the per-service categories below are intentionally unfiltered).
-        $terms              = get_terms(['taxonomy' => ServiceSchema::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
-        $categories         = [];
-        $categoryGroupNames = [];
-        $categoryRoles      = [];
-
-        // Build the hierarchy label index once. Service rows may reference a
-        // Category Group in any lifecycle state, so this uses the complete term
-        // list rather than only the live selector projection below.
-        foreach (is_array($terms) ? $terms : [] as $t) {
-            $termId                 = (int) $t->term_id;
-            $categoryRoles[$termId] = CategoryMeta::role($termId);
-
-            if ($categoryRoles[$termId] === CategoryMeta::STATION_ROLE_GROUP) {
-                $categoryGroupNames[$termId] = html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
-        }
+        // appear here, but stay rendered on services already assigned to them.
+        // Per-Service rows retain any lifecycle state but still exclude terms
+        // whose station role is Service Category Group.
+        $terms      = get_terms(['taxonomy' => ServiceSchema::CATEGORY_TAXONOMY, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
+        $categories = [];
 
         foreach (is_array($terms) ? $terms : [] as $t) {
             $categoryStatus = CategoryMeta::status((int) $t->term_id);
@@ -226,7 +213,7 @@ class ServiceController
             // Category Group audit (Option B): keep group-role terms out of the
             // Service Catalog's category tab bar/picker — same filter as
             // AdminCategoriesController::listCategories().
-            if (($categoryRoles[(int) $t->term_id] ?? null) !== CategoryMeta::STATION_ROLE_CATEGORY) {
+            if (CategoryMeta::role((int) $t->term_id) !== CategoryMeta::STATION_ROLE_CATEGORY) {
                 continue;
             }
             $categories[] = [
@@ -267,18 +254,18 @@ class ServiceController
             }
 
             $postTerms = wp_get_post_terms($post->ID, ServiceSchema::CATEGORY_TAXONOMY, ['fields' => 'all']) ?: [];
-            $postCats  = array_map(function ($t) use ($categoryGroupNames): array {
-                $groupId = (int) ($t->parent ?? 0);
-
-                return [
+            $postCats  = array_values(array_map(
+                static fn($t): array => [
                     'id'          => (int) $t->term_id,
                     'name'        => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     'slug'        => $t->slug,
                     'description' => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',
-                    'group_id'    => $groupId > 0 ? $groupId : null,
-                    'group_name'  => $groupId > 0 ? ($categoryGroupNames[$groupId] ?? null) : null,
-                ];
-            }, $postTerms);
+                ],
+                array_filter(
+                    $postTerms,
+                    static fn($t): bool => CategoryMeta::role((int) $t->term_id) === CategoryMeta::STATION_ROLE_CATEGORY
+                )
+            ));
 
             // Pool sizes for the Package Manager Services table — counts only;
             // the Service-owned pool content itself never leaves the Service.

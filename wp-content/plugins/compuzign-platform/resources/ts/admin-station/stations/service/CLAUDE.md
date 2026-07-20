@@ -6,7 +6,7 @@ Global policy is defined by [AGENTS.md](../../../../../../../../AGENTS.md).
 
 This folder owns Service TypeScript contracts, endpoint implementations, station state, and pure derivations. External consumers import only `index.ts`.
 
-- `types.ts` — zero-import Service contracts; keep it cycle-safe.
+- `types.ts` — zero-import Service contracts; keep it cycle-safe. Catalogue summaries carry direct Service Categories only; Package Family relationships join at the `serviceSurface` read adapter.
 - `api.ts` — the single implementation of Service-owned endpoint calls.
 - `useServiceStation.ts` — detail fetch, draft-preferred state, mutations, and lifecycle actions.
 - `derive.ts` — stateless module status, publish gate, Package summary, and modal projections.

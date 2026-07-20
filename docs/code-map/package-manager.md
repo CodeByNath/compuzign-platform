@@ -2,11 +2,13 @@
 
 ## Purpose
 
-Owns Package Station persistence while exposing two bounded admin surfaces: Service-owned supply configuration in Your Service Manager, and customer-facing Tier/Promotion presentation in Packages.
+Owns Package Station persistence, Service supply configuration, and customer-facing Tier/Promotion presentation.
 
 ## Ownership
 
-The Package Station owns `package_manager`, rate-sheet selections, tiers, promotions, bin entries, status, and `package_manager.category_groups`, assigned to sources through `category_group_id`. Services stay Service-owned. The manager UI coordinates drafts but does not own lifecycle or persistence. `PackageRepository` is the persistence authority.
+The Package Station owns `package_manager`, rate-sheet selections, tiers, promotions, bin entries, status, and `package_manager.category_groups`, assigned through Package-owned source relationships using `category_group_id`. Services stay Service-owned. The manager UI coordinates drafts but does not own lifecycle or persistence. `PackageRepository` is the persistence authority.
+
+For the Service Catalogue, [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) resolves each Family's related native Service IDs and the existing Package Family list route exposes them as `related_service_ids`. The Catalogue joins those rows into a multi-value Family projection. It never derives commercial grouping from the Service Category taxonomy parent: Service Category Group is not part of Catalogue grouping.
 
 ## Main Entry Points
 
@@ -16,11 +18,11 @@ Packages-only Tier/Promotion station. It resolves the compatibility host Service
 
 ### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
-Owns manager coordinator state with two required compositions. `service-catalog` renders Family Cards plus Details / Connections / Settings; `packages` renders only Package Tier cards and Promotions. `selectedCategoryGroupId` drives Service Catalog filtering and never assigns Tier occupants.
+Owns manager coordination. `service-catalog` renders Family Cards plus Details / Connections / Settings; `packages` renders Package Tier cards and Promotions. `selectedCategoryGroupId` filters the Service Catalog and never assigns Tier occupants.
 
 [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) supplies focused manager-owned editors whose apply callbacks use the Package provider draft.
 
-Existing Package Family editing in that file now mounts the shared mature [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); only new-Family creation retains a focused create form. The same composition mounts under the Admin Station adapter, with Overview/Connections, dependency counts, shared inline editing, lifecycle footer, notifications, and dirty-close protection.
+Package Family editing mounts shared [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); only creation retains a focused form. The same composition mounts under Admin Station with Overview/Connections, dependency counts, lifecycle, notifications, and dirty-close protection.
 
 [serviceDrawerConfig.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts) owns the canonical Service drawer config. [packageManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/packageManagerDrawers.ts) separately owns Tier and Promotion configs. The former full manager drawer and nested portal path have been removed.
 
@@ -61,6 +63,7 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 - [package-manager-schema.php](../../wp-content/plugins/compuzign-platform/tests/package-manager-schema.php)
 - [package-category-groups.php](../../wp-content/plugins/compuzign-platform/tests/package-category-groups.php)
 - [tier-occupant-admin-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/tier-occupant-admin-contract.ts)
+- [service-catalogue-projection-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/service-catalogue-projection-contract.ts)
 
 ## Related Code Maps
 

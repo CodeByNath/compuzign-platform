@@ -1365,6 +1365,25 @@ button.cz-station-status-pill {
   font-variant-numeric: tabular-nums;
 }
 
+.cz-service-row__families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--station-grid-gap);
+}
+
+.cz-service-row__family {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding-inline: var(--station-control-pad-x);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-active-bg);
+  color: var(--station-text);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
 .cz-service-row__action {
   display: inline-flex;
   align-items: center;

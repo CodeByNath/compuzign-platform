@@ -10,6 +10,11 @@ import {
   ServicesIcon,
   ViewIcon,
 } from '../../shell/icons';
+import {
+  packageFamilyOptions,
+  serviceMatchesCategory,
+  serviceMatchesPackageFamily,
+} from './model';
 import type { ServiceCatalogueItem } from './types';
 
 type StatusFilter = 'all' | 'active' | 'pending' | 'disabled';
@@ -81,12 +86,6 @@ function categoryOptions(items: ServiceCatalogueItem[]): Option[] {
   return [...categories].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
 }
 
-function familyOptions(items: ServiceCatalogueItem[]): Option[] {
-  return [...new Set(items.flatMap((item) => item.familyGroups))]
-    .sort((a, b) => a.localeCompare(b))
-    .map((label) => ({ value: label, label }));
-}
-
 export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKitProps) {
   const services = items as ServiceCatalogueItem[];
   const current = useMemo(() => services.filter((item) => item.scope === 'current'), [services]);
@@ -101,7 +100,7 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
   const [requestedPage, setRequestedPage] = useState(1);
 
   const categories = useMemo(() => categoryOptions(current), [current]);
-  const families = useMemo(() => familyOptions(current), [current]);
+  const families = useMemo(() => packageFamilyOptions(current), [current]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -111,15 +110,14 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
         item.description,
         item.slug,
         ...item.categories.map((entry) => entry.name),
-        ...item.familyGroups,
+        ...item.packageFamilies.map((entry) => entry.name),
       ].some((value) => value.toLocaleLowerCase().includes(needle));
       const matchesStatus = status === 'all'
         || (status === 'active' && item.presentationStatus === 'active')
         || (status === 'disabled' && item.presentationStatus === 'disabled')
         || (status === 'pending' && isPending(item));
-      const matchesCategory = category === 'all'
-        || item.categories.some((entry) => entry.slug === category);
-      const matchesFamily = family === 'all' || item.familyGroups.includes(family);
+      const matchesCategory = serviceMatchesCategory(item, category);
+      const matchesFamily = serviceMatchesPackageFamily(item, family);
       return matchesQuery && matchesStatus && matchesCategory && matchesFamily;
     });
     return sortItems(matches, sort);
@@ -249,7 +247,15 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
                   </span>
                 </td>
                 <td data-label="Category">{service.categories.map((entry) => entry.name).join(', ') || 'Uncategorised'}</td>
-                <td data-label="Family Group">{service.familyGroups.join(', ') || 'Unassigned'}</td>
+                <td data-label="Family Group">
+                  {service.packageFamilies.length > 0 ? (
+                    <span class="cz-service-row__families">
+                      {service.packageFamilies.map((packageFamily) => (
+                        <span key={packageFamily.id} class="cz-service-row__family">{packageFamily.name}</span>
+                      ))}
+                    </span>
+                  ) : 'Unassigned'}
+                </td>
                 <td data-label="Inclusions" class="cz-service-row__count">{service.inclusionCount}</td>
                 <td data-label="FAQs" class="cz-service-row__count">{service.faqCount}</td>
                 <td data-label="Status">

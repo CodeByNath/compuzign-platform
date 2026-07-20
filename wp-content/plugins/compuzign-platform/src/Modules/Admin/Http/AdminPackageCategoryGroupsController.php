@@ -146,6 +146,10 @@ class AdminPackageCategoryGroupsController
         foreach ($manager['category_groups'] as $group) {
             $dependents = PackageCategoryGroups::dependents($station, $readModelItems, (string) $group['group_id']);
             $projection = PackageCategoryGroups::projection($group, $dependents);
+            $projection['related_service_ids'] = PackageCategoryGroups::relatedServiceIds(
+                $station,
+                (string) $group['group_id']
+            );
 
             if ($filterStatus !== null) {
                 if ($projection['platform_status'] !== $filterStatus) {

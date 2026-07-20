@@ -300,6 +300,36 @@ final class PackageCategoryGroups
     }
 
     /**
+     * Native Service identities related to one Package Family through the
+     * Package-owned source relationship collection. Generic/non-Service
+     * providers are excluded, and Service identity is never parsed or cast.
+     *
+     * @return int[]
+     */
+    public static function relatedServiceIds(array $station, string $groupId): array
+    {
+        $manager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : [];
+        $serviceIds = [];
+
+        foreach (is_array($manager['sources'] ?? null) ? $manager['sources'] : [] as $source) {
+            if (!is_array($source)
+                || ($source['category_group_id'] ?? null) !== $groupId
+                || ($source['provider_key'] ?? null) !== 'service'
+                || ($source['entity_type'] ?? null) !== 'service'
+            ) {
+                continue;
+            }
+
+            $serviceId = $source['entity_id'] ?? null;
+            if (is_int($serviceId) && $serviceId > 0) {
+                $serviceIds[$serviceId] = $serviceId;
+            }
+        }
+
+        return array_values($serviceIds);
+    }
+
+    /**
      * Dependency counts for guards, computed against the whole station.
      * Read-model items must be reconciled (buildReadModel output) so provisional
      * Rate Sheet references still resolve their supplying Service.
