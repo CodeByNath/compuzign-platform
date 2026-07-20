@@ -18,7 +18,6 @@ import type { TemplateKitKey } from '../stations/surfaceBindings';
 import type { StationRecordId } from '../stations/recordIdentity';
 import { ServiceCategoryCarousel } from './service-categories/ServiceCategoryCarousel';
 import { ServiceCatalogue } from './service-catalogue/ServiceCatalogue';
-import { PackageToolCatalogue } from './package-tools/PackageToolCatalogue';
 
 // The dispatch a kit emits: the acted-on record's native id and the action id
 // (matched against the binding's action intents by the host).
@@ -57,7 +56,4 @@ export const TEMPLATE_KITS: Record<TemplateKitKey, TemplateKit> = {
   'category-group-cards': CategoryGroupCardsKit,
   'service-category-carousel': ServiceCategoryCarousel,
   'service-catalogue': ServiceCatalogue,
-  // Station-level Tools / Skills catalogue — presentation only, dispatches no
-  // intent (assignment is edited from a Family's Settings, not this wall).
-  'package-tools': PackageToolCatalogue,
 };

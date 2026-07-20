@@ -1615,20 +1615,33 @@ button.cz-module-status-pill {
   background: var(--station-nav-accent-strong, #6366f1);
 }
 
-.cz-family-tool__context {
+.cz-family-tool__desc,
+.cz-family-tool__reason,
+.cz-family-tool__context-lead,
+.cz-family-tool__context-hint {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--station-text-muted, #6b7280);
 }
 
-/* Transient confirmation that an immediate-save assignment landed. */
-.cz-family-tool__saved {
-  font-size: 11px;
+.cz-family-tool__reason {
+  font-style: italic;
+}
+
+.cz-family-tool__context {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: var(--station-control-radius, 10px);
+  background: var(--station-surface-elevated, #f9fafb);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cz-family-tool__context-lead {
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--station-success, #16a34a);
+  color: var(--station-text, #111827);
 }
 
 .cz-family-tool__action {

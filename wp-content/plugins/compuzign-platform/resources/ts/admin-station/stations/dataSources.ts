@@ -11,7 +11,6 @@
 // admin UI tree is pulled in by registering it.
 
 import { usePackageFamilyCards } from './packageFamily';
-import { usePackageToolCatalogue } from './packageTools/usePackageToolCatalogue';
 import { useServiceCategoryCards } from './serviceCategory/useServiceCategoryCards';
 import { useServiceCards } from './serviceSurface/useServiceCards';
 import { useServiceCatalogue } from './serviceSurface/useServiceCatalogue';
@@ -37,10 +36,6 @@ export type StationDataSource = () => SurfaceCollection;
 // binding table rather than a code move.
 export const DATA_SOURCES: Record<DataSourceKey, StationDataSource> = {
   'package-families': usePackageFamilyCards,
-  // The Package Station tool catalogue (registry projected with per-tool Family
-  // counts). A pure read like any other source — the wall that consumes it
-  // dispatches nothing and mutates nothing.
-  'package-tools': usePackageToolCatalogue,
   'service-categories': useServiceCategoryCards,
   'services': useServiceCards,
   'service-catalogue': useServiceCatalogue,
