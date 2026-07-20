@@ -1,47 +1,74 @@
 # Package Manager
 
-## Purpose and authority
+## Purpose
 
-Owns Package Station persistence, Service supply configuration, Package Families, capability assignments, and customer-facing Tier/Promotion data. The live Package is the singleton `cz_package_station` option, not a standalone entity; retired `cz_surface_package` posts remain read-compatible only. `PackageRepository` is the persistence authority.
+Owns Package Station persistence, Service supply configuration, and customer-facing Tier/Promotion presentation.
 
-Service-scoped Package URLs use `{id}` as route/pool context, never Package ownership. Services remain Service-owned. Package Families are records in `package_manager.category_groups`; membership is stored on Package-owned source relationships as `category_group_id`. Service Category Group taxonomy is unrelated.
+## Ownership
 
-## Capability host
+The Package Station owns `package_manager`, rate-sheet selections, tiers, promotions, bin entries, status, and `package_manager.category_groups`, assigned through Package-owned source relationships using `category_group_id`. Services stay Service-owned. The manager UI coordinates drafts but does not own lifecycle or persistence. `PackageRepository` is the persistence authority.
 
-Package Manager is a composition host for registered real capability systems:
+For the Service Catalogue, [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) resolves each Family's related native Service IDs and the existing Package Family list route exposes them as `related_service_ids`. The Catalogue joins those rows into a multi-value Family projection. It never derives commercial grouping from the Service Category taxonomy parent: Service Category Group is not part of Catalogue grouping.
 
-- [PackageCapabilityAssignments.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCapabilityAssignments.php) validates capability keys and proven owners. The only current assignment owner is `{ package-manager, package-station }`.
-- [PackageCapabilityController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageCapabilityController.php) reads/writes `package_manager.capability_assignments` at `/admin/package-station/capabilities`.
-- [capabilityRegistry.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/packageCapabilities/capabilityRegistry.ts) registers composition metadata. Definitions generate rows in the existing surface-binding system; registry order is section order.
-- [usePackageCapabilities.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/packageCapabilities/usePackageCapabilities.ts) and `PackageCapabilityDrawerHost.tsx` own assignment state/UI through the one Admin Station drawer.
+## Main Entry Points
 
-Tier is the first registered capability. Enabling it writes one assignment row and never creates a Tier occupant. Disabling hides its Admin Station section without deleting Tier data. Promotion has domain authority but no complete Admin Station source/kit/drawer contract; Bundle and Campaign are also unregistered. Add a future capability only after its source, template kit, drawer composition, native identity, and mutation authority exist.
+### [PackageManagerStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/PackageManagerStation.tsx)
 
-Package Family and Service are supported Tier collection filters, not assignment owners. Making either an owner requires an explicit persistence/authority design first.
+Packages-only Tier/Promotion station. It resolves the compatibility host Service and renders `DynamicStationManager` in `packages` mode.
 
-## Tier collection boundary
+### [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx)
 
-[usePackageTierCollection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/tierSurface/usePackageTierCollection.ts) projects settled Package-owned occupants for the registered Tier kit. It accepts unscoped, `serviceId`, or `packageFamilyId` conditions. Family membership resolves through Package source relationships; occupant matching follows Rate Sheet selection → Manager item → supplying-Service provenance.
+Owns manager coordination. `service-catalog` renders Family Cards plus Details / Connections / Settings; `packages` renders Package Tier cards and Promotions. `selectedCategoryGroupId` filters the Service Catalog and never assigns Tier occupants.
 
-Cards and drawers use stable `occupant_id`. `slotId` and a valid Service route ID travel only as parent/mutation context. The enabled empty state opens the mature Tier drawer on the first authorable fixed slot; Tier authority creates the occupant only through its existing save/settle path.
+[serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) supplies focused manager-owned editors whose apply callbacks use the Package provider draft.
 
-## Existing manager and drawer paths
+Package Family editing mounts shared [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); only creation retains a focused form. The same composition mounts under Admin Station with Overview/Connections, dependency counts, lifecycle, notifications, and dirty-close protection.
 
-- [PackageManagerStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/PackageManagerStation.tsx) and `DynamicStationManager.tsx` remain the Command Centre Package host.
-- [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts) adapts Manager drafts, validation, saves, summaries, and continuations.
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Tier reads and mutations.
-- [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageFamilyStation.ts) owns Package Family lifecycle mutations.
-- Shared Package Family and Tier drawer compositions live under `resources/ts/entity-drawers/` and mount in both hosts.
+[serviceDrawerConfig.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceDrawerConfig.ts) owns the canonical Service drawer config. [packageManagerDrawers.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/packageManagerDrawers.ts) separately owns Tier and Promotion configs. The former full manager drawer and nested portal path have been removed.
 
-## Backend files
+### [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts)
 
-[PackageManagerSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageManagerSchema.php) owns Manager shape/reconciliation; [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) owns Family rules; [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns Tier slots/occupants/bin; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns Manager and Tier mutations. Promotions remain owned by `Modules/Promotions` while sharing Package persistence.
+Adapts Package Station data into drafts, validation, saves, summaries, and continuations. Use its markers below.
+
+## State and Providers
+
+- [coordinator.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/coordinator.ts) owns provider-neutral state and validation.
+- [usePageManagerShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx) supplies the shared page footer and dirty-navigation adapter used by station hosts.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package Station client state and mutations.
+- [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageFamilyStation.ts) is the Package Family client write boundary: overview save/revert/settle, publish, enable/disable, archive/trash/restore, delete, module state, and mutation notification.
+- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/tierOccupants.ts) projects occupants and resolves them to slots.
+
+## Backend and Persistence
+
+[PackageManagerSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageManagerSchema.php) owns manager shape and validation; [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) owns group lifecycle and guards; [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`; and [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns the manager/tier/bin/popular REST mutations, with the [Package Family](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminPackageCategoryGroupsController.php) controller owning group mutations. Package Station URLs stay Service-scoped (`/admin/services/{id}/package-station/...`) — `{id}` is navigation context only, never storage. Promotions are owned by [PromotionsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Promotions/Http/PromotionsController.php), which shares this repository; see [Service Station](service-station.md).
+
+## Internal File Navigation
+
+| Concern | Marker | Contains | Read when... |
+| --- | --- | --- | --- |
+| Manager coordination | `SECTION: MANAGER_COORDINATION` | Provider drafts, validation, saves | Changing orchestration |
+| Family scope | `SECTION: FAMILY_SCOPE` | Package Family cards and workspace scope | Changing scope behavior |
+| Rate Sheet editor | `SECTION: RATE_SHEET_EDITOR` | Save/validation; editor UI in [PackageRateSheetEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetEditor.tsx) | Changing Rate Sheet UI |
+| Package provider | `SECTION: PACKAGE_PROVIDER` | Read, validate, save, continuations | Changing provider behavior |
+| Manager shape | `SECTION: MANAGER_SHAPE` | Defaults and sanitization | Changing persisted shape |
+| Manager commit | `SECTION: MANAGER_COMMIT` | Validation and commit | Changing saves |
+| Reconciliation | `SECTION: SOURCE_RECONCILIATION` | Pool source resolution | Changing source items |
+| Read model | `SECTION: MANAGER_READ_MODEL` | Provenance and health | Changing projections |
+| Persistence | `SECTION: STATION_PERSISTENCE` | Load, cache, save, migration | Changing storage |
+| Backend | `SECTION: PACKAGE_STATION` | Matching routes and handlers | Changing REST behavior |
 
 ## Validation
 
-- `tests/package-manager-schema.php`, `tests/package-category-groups.php`, `tests/package-capability-assignments.php`
-- `scripts/package-capability-host-contract.ts`, `manager-coordinator-contract.ts`, `package-relation-provider-contract.ts`, `tier-occupant-admin-contract.ts`, `tier-pricing-parity.ts`
+- [manager-coordinator-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/manager-coordinator-contract.ts)
+- [package-manager-schema.php](../../wp-content/plugins/compuzign-platform/tests/package-manager-schema.php)
+- [package-category-groups.php](../../wp-content/plugins/compuzign-platform/tests/package-category-groups.php)
+- [tier-occupant-admin-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/tier-occupant-admin-contract.ts)
+- [service-catalogue-projection-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/service-catalogue-projection-contract.ts)
 
 ## Related Code Maps
 
-[Service Connections](service-connections.md), [Rate Sheet](rate-sheet.md), [Tiers](tiers.md), and [Surface Binding](admin-station-surface-binding.md).
+[Service Connections](service-connections.md), [Rate Sheet](rate-sheet.md), and [Tiers](tiers.md).
+
+## Related History
+
+[Package Category Groups v1](../project-history/PackageCategoryGroups-v1.md) — group registry rationale, lifecycle/guard invariants, deferred work.

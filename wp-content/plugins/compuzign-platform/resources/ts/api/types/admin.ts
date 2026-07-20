@@ -81,9 +81,6 @@ export interface ServicePackageStationResponse {
     faqs:       FaqItem[];
     rate_sheet: PackageRateSheet | null;
     package_relationships: PackageManagerItem[];
-    // Package-owned source relationships carried for scoped Tier collection
-    // projection. Service remains route/drawer context, never persistence owner.
-    package_sources: PackageSourceRelationship[];
   };
 }
 
@@ -218,7 +215,6 @@ export interface PackageManagerReadModel {
   sources:           PackageSourceRelationship[];
   groups:            PackageManagerGroup[];
   category_groups:   PackageFamilyItem[];
-  capability_assignments: PackageCapabilityAssignment[];
   items:             PackageManagerItem[];
   rate_sheet:        PackageRateSheet | null;
   projections: {
@@ -263,38 +259,6 @@ export interface PackageManagerSavePayload {
 export type PackageManagerSaveResponse =
   | { success: true; manager: PackageManagerReadModel }
   | { success: false; message: string };
-
-// Package Manager capability host. Assignments are Package-owned composition
-// configuration only; each registered capability keeps its own persistence and
-// lifecycle authority.
-export type PackageCapabilityOwnerType = 'package-manager';
-
-export interface PackageCapabilityOwner {
-  owner_type: PackageCapabilityOwnerType;
-  owner_id: string;
-}
-
-export interface PackageCapabilityAssignment extends PackageCapabilityOwner {
-  capability_key: string;
-  enabled: boolean;
-  order: number;
-}
-
-export interface RegisteredPackageCapability {
-  capability_key: string;
-  supported_owner_types: PackageCapabilityOwnerType[];
-  order: number;
-  available: boolean;
-}
-
-export interface PackageCapabilitiesResponse {
-  success: boolean;
-  owner: PackageCapabilityOwner;
-  registered_capabilities: RegisteredPackageCapability[];
-  assignments: PackageCapabilityAssignment[];
-}
-
-export type PackageCapabilityAssignmentPayload = Omit<PackageCapabilityAssignment, 'order'>;
 
 
 export type StationId =

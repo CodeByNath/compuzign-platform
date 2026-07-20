@@ -16,24 +16,17 @@ import { CategoryGroupCardGrid } from './category-groups/CategoryGroupCardGrid';
 import type { CategoryGroupCardItem } from './category-groups/types';
 import type { TemplateKitKey } from '../stations/surfaceBindings';
 import type { StationRecordId } from '../stations/recordIdentity';
-import type { StationIntentContext } from '../stations/recordIdentity';
 import { ServiceCategoryCarousel } from './service-categories/ServiceCategoryCarousel';
 import { ServiceCatalogue } from './service-catalogue/ServiceCatalogue';
-import { TierCollectionKit } from '../stations/tierSurface/TierCollectionKit';
 
 // The dispatch a kit emits: the acted-on record's native id and the action id
 // (matched against the binding's action intents by the host).
-export type StationIntentDispatch = (
-  recordId: StationRecordId,
-  intentId: string,
-  context?: StationIntentContext,
-) => void;
+export type StationIntentDispatch = (recordId: StationRecordId, intentId: string) => void;
 
 export interface TemplateKitProps {
   items:   unknown[];
   loading: boolean;
   error:   string | null;
-  meta?: unknown;
   onIntent: StationIntentDispatch;
 }
 
@@ -63,5 +56,4 @@ export const TEMPLATE_KITS: Record<TemplateKitKey, TemplateKit> = {
   'category-group-cards': CategoryGroupCardsKit,
   'service-category-carousel': ServiceCategoryCarousel,
   'service-catalogue': ServiceCatalogue,
-  'tier-list': TierCollectionKit,
 };

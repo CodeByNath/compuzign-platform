@@ -123,13 +123,12 @@ function ResolvedDrawer({
       </header>
 
       <div class="cz-station-drawer__body">
-        {/* Keyed by template + native record + opening intent so it survives
-            tab switches and remounts only for a genuinely different opening. */}
+        {/* Keyed by template + record so it survives tab switches and remounts
+            only for a different record — the numeric identity never resets. */}
         <Content
-          key={`${template.key}:${open.recordId}:${open.intentId}`}
+          key={`${template.key}:${open.recordId}`}
           recordId={open.recordId}
           mode={activeMode}
-          context={open.context}
           onClose={onClose}
           onModeChange={setMode}
           onSaved={notifySaved}

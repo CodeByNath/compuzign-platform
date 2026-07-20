@@ -34,7 +34,6 @@ const readModel: PackageRelationReadModel = {
   sources: [],
   groups: [{ group_id: 'core', label: 'Core', sort_order: 0 }],
   category_groups: [],
-  capability_assignments: [],
   items: [
     {
       item_id: 'mgr_feature', source_type: 'inclusion', source_id: 'feature',

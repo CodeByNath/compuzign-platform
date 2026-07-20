@@ -1,6 +1,6 @@
 # Admin Station Presentation Kits
 
-The Admin Station presentation layer contains the browse-first Service Catalogue, an entity-neutral card wall, the compact Service Category carousel, and a Tier collection kit.
+The Admin Station presentation layer contains the browse-first Service Catalogue, one entity-neutral card wall kit, and the compact Service Category carousel.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presentation/`
 
@@ -31,13 +31,13 @@ Adapters project Package Family, Service, and Tier records into the same card co
 | Service Categories | `stations/serviceCategory/useServiceCategoryCards.ts` | numeric Category id | `category` |
 | Service Catalogue | `stations/serviceSurface/useServiceCatalogue.ts` | numeric Service id | `service` |
 | Service cards | `stations/serviceSurface/useServiceCards.ts` | numeric Service id | `service` |
-| Package Tiers | `stations/tierSurface/usePackageTierCollection.ts` | string `occupant_id` | `tier` |
+| Package Tiers | `stations/tierSurface/useServiceTierCards.ts` | string `occupant_id` | `tier` |
 
-No adapter parses or converts identity. Package Family and Category status/notes come from the shared `evaluateModule` definitions. Tier cards use the same tier note generator as the drawer. Tier collection conditions may filter by Service or Package Family through Package relationship/Rate Sheet provenance; `slotId` and parent Service remain context only. An enabled empty collection renders `No tiers configured` plus `Create first tier`, which dispatches into existing Tier authority rather than mutating in presentation.
+No adapter parses or converts identity. Package Family and Category status/notes come from the shared `evaluateModule` definitions. Tier cards use the same tier note generator as the drawer.
 
 ## Binding and refresh
 
-`presentation/templateKits.tsx` registers presentation kits, including `TierCollectionKit`. `stations/dataSources.ts` registers reads. `stations/surfaceBindings.ts` pairs source, kit, actions, drawer, conditions, and order; Package capability definitions generate ordinary rows there. `StationPresentationShell.tsx` remains the one ordered loop. `StationSurfaceHost` forwards native identity/context and that wall’s refresh handle. `useRetainedCollection` keeps records visible during reload.
+`presentation/templateKits.tsx` registers the card grid and carousel. `stations/dataSources.ts` registers reads. `stations/surfaceBindings.ts` pairs source, kit, actions, drawer key, and numeric Home `order` declaratively; on Service Home the Package Family cards are order `0` and the Service Catalogue order `1`. `stations/StationPresentationShell.tsx` renders those ordered sections; `StationSurfaceHost` forwards the record id unchanged and passes that wall’s refresh handle to the drawer controller. `useRetainedCollection` keeps cards visible during a wall reload.
 
 ## Layout and style
 

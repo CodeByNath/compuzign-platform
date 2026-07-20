@@ -61,14 +61,6 @@ Screen placement and source ownership are separate:
 
 Package Family, Category, Service, and Tier compositions mount in both hosts. Neither host may fork a reduced copy. Generic shells must not branch on entity; registries select entity adapters, and adapters preserve native record identity.
 
-### Capability hosts
-
-A domain host may activate and order registered capability sections without acquiring their business authority. The host owns only its native identity/relationships, assignment configuration, and composition links. A capability registration may name a read source, template kit, drawer composition, supported owner types, order, availability, and authority key; it must not encode lifecycle rules or endpoint implementations.
-
-Assignments are valid only for owner types proven by current persistence. Read filters such as Service or Package Family do not become owners merely because they scope a collection. Enabling a capability stores only minimal host configuration and must not create empty domain records. Disabling presentation must preserve capability data. Register no future capability until its source, native identity, drawer composition, and mutation authority exist end to end.
-
-Capability sections use the existing ordered surface-binding and shared drawer systems. Presentation remains endpoint-free, native record identity stays separate from parent/mutation context, and successful mutations refresh the originating section rather than broadcasting globally.
-
 ## 6. Shared systems
 
 Shared code requires at least two genuine consumers, the same semantic responsibility, stable common behaviour, and no domain-authority leakage. Visual similarity and anticipated reuse do not qualify.

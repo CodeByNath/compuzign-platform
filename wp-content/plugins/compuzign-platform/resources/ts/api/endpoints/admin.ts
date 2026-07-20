@@ -8,8 +8,6 @@ import type {
   PackageManagerResponse,
   PackageManagerSavePayload,
   PackageManagerSaveResponse,
-  PackageCapabilitiesResponse,
-  PackageCapabilityAssignmentPayload,
   TierLifecycleResponse,
   TierArchiveResponse,
   BinRestoreResponse,
@@ -403,18 +401,6 @@ export function savePackageStationManager(
   );
 }
 
-// Package capability assignment boundary. Enabling a capability stores only
-// owner/configuration data; it does not call that capability's mutation routes.
-export function fetchPackageCapabilities(): Promise<PackageCapabilitiesResponse> {
-  return apiClient.get<PackageCapabilitiesResponse>('admin/package-station/capabilities');
-}
-
-export function savePackageCapabilityAssignment(
-  payload: PackageCapabilityAssignmentPayload,
-): Promise<PackageCapabilitiesResponse> {
-  return apiClient.put<PackageCapabilitiesResponse>('admin/package-station/capabilities', payload);
-}
-
 export function saveServicePackageStationTier(
   serviceId: number,
   tierId:    string,
@@ -558,3 +544,4 @@ export function acceptIntakeRequest(ref: string): Promise<AcceptIntakeResponse> 
 export function fetchSurfacePackages(): Promise<SurfacePackagesResponse> {
   return apiClient.get<SurfacePackagesResponse>('admin/surface-packages');
 }
+

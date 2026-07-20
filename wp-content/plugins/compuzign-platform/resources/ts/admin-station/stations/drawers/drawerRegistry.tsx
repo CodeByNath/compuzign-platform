@@ -18,7 +18,6 @@ import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawer
 import { CategoryDrawerHost } from '../serviceCategory/CategoryDrawerHost';
 import { ServiceDrawerHost } from '../serviceSurface/ServiceDrawerHost';
 import { TierDrawerHost } from '../tierSurface/TierDrawerHost';
-import { PackageCapabilityDrawerHost } from '../packageCapabilities/PackageCapabilityDrawerHost';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
 
 export type { DrawerMode, DrawerTemplateKey, DrawerContentProps, DrawerContent, DrawerTemplateRegistration } from './drawerTypes';
@@ -57,12 +56,6 @@ export const DRAWER_TEMPLATES: Record<DrawerTemplateKey, DrawerTemplateRegistrat
     title:          'Package Tier',
     supportedModes: ['view', 'edit'],
     content:        TierDrawerHost,
-  },
-  'package-capability': {
-    key:            'package-capability',
-    title:          'Package capabilities',
-    supportedModes: ['view', 'edit'],
-    content:        PackageCapabilityDrawerHost,
   },
 };
 

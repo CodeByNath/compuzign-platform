@@ -25,15 +25,20 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
  * kept PricingPreview.php separate: a structurally distinct concern gets its
  * own file rather than growing PackageSchema.php further).
  *
- * Storage location: a top-level `package_manager` key inside the independent
- * `cz_package_station` option owned by PackageRepository. It is not stored
- * under legacy `cz_package` post meta or Service post meta. Capability
- * assignments are additive Manager-owned composition configuration; their
- * registered systems retain their own persistence/lifecycle authority.
+ * Storage location (corrected in Phase B — see the Phase A audit): this is
+ * NOT stored under cz_package (that meta belongs to the legacy
+ * cz_surface_package post type, which ServiceTierStep/getPackageStation do
+ * not read). It is a top-level `package_manager` key on the Service post's
+ * `cz_service_package_station` meta — the live Package Station used
+ * everywhere else (tiers, popular_tier, bundle). Delegated from
+ * PackageStationController's station-default array and read/write paths, not
+ * from PackageSchema at all.
+ *
+
  * Scope: storage shape, deterministic provisional identity, pure in-memory
  * reconciliation against the Service inclusion/FAQ pools, atomic explicit-
  * decision commits, the pure read-model builder, and consumer projections.
- * Nothing here performs I/O; callers own fetching the option/pools and pass
+ * Nothing here performs I/O; callers own fetching postmeta/pools and pass
  * plain arrays in. There is no Manager-wide lifecycle or draft/revert flow.
  *
  * Presentation boundary (locked, corrected post-Phase-A-audit): this class
@@ -72,7 +77,7 @@ final class PackageManagerSchema
      * (Option A from the accepted Phase A audit: no write-on-read).
      *
      * @param  mixed $data
-     * @return array{sources: array<int, array>, groups: array<int, array>, category_groups: array<int, array>, capability_assignments: array<int, array>, items: array<int, array>, rate_sheet: array|null}
+     * @return array{sources: array<int, array>, groups: array<int, array>, category_groups: array<int, array>, items: array<int, array>, rate_sheet: array|null}
      */
     public static function sanitize(mixed $data): array
     {
@@ -101,23 +106,15 @@ final class PackageManagerSchema
             'sources' => $sources,
             'groups' => $groups,
             'category_groups' => $categoryGroups,
-            'capability_assignments' => PackageCapabilityAssignments::sanitize($data['capability_assignments'] ?? []),
             'items'  => self::sanitizeItems($data['items'] ?? [], $groupIds),
             'rate_sheet' => self::sanitizeRateSheet($data['rate_sheet'] ?? null),
         ];
     }
 
-    /** @return array{sources: array, groups: array, category_groups: array, capability_assignments: array, items: array, rate_sheet: null} */
+    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheet: null} */
     public static function defaultManager(): array
     {
-        return [
-            'sources' => [],
-            'groups' => [],
-            'category_groups' => [],
-            'capability_assignments' => [],
-            'items' => [],
-            'rate_sheet' => null,
-        ];
+        return ['sources' => [], 'groups' => [], 'category_groups' => [], 'items' => [], 'rate_sheet' => null];
     }
 
     /**
@@ -127,12 +124,7 @@ final class PackageManagerSchema
      */
     public static function hasConfiguration(array $storedManager): bool
     {
-        return !empty($storedManager['sources'])
-            || !empty($storedManager['groups'])
-            || !empty($storedManager['category_groups'])
-            || !empty($storedManager['capability_assignments'])
-            || !empty($storedManager['items'])
-            || !empty($storedManager['rate_sheet']);
+        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']);
     }
 
     /**
@@ -501,9 +493,6 @@ final class PackageManagerSchema
             // The group registry has its own station lifecycle endpoints; a
             // manager configuration commit never creates or removes groups.
             'category_groups' => $stored['category_groups'],
-            // Capability assignment has its own Package-owned endpoint; a
-            // relationship/rate-sheet commit never enables or disables it.
-            'capability_assignments' => $stored['capability_assignments'],
             'items' => $items,
             'rate_sheet' => $rateSheet,
         ]);
@@ -744,7 +733,6 @@ final class PackageManagerSchema
                 static fn(array $group): array => PackageCategoryGroups::projection($group),
                 is_array($storedManager['category_groups'] ?? null) ? $storedManager['category_groups'] : []
             ),
-            'capability_assignments' => PackageCapabilityAssignments::sanitize($storedManager['capability_assignments'] ?? []),
             'items'             => $outItems,
             'rate_sheet'        => $storedManager['rate_sheet'] ?? null,
             'projections'       => self::buildConsumerProjections($outItems, $platformStatus),

@@ -12,7 +12,7 @@ Stable UI/drawer identity is `occupant_id`; the resolved fixed `slotId` remains 
 - [useTierDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/tier/useTierDrawerController.ts) coordinates state with `useTierModuleEditing`, `useTierBinTravel`, and `tierDetailModel.ts`; presentation stays separate.
 - [tier.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/tier.ts), [tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/tier.tsx), and [TierOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/TierOverviewEditor.tsx) own the neutral manifest, shell bindings, and overview form.
 - [ServiceTierStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceTierStep.tsx) is only the Command Centre `StepContext → EntityDrawerHostBridge` adapter.
-- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/tierSurface/TierDrawerHost.tsx) is the Admin Station adapter. Existing records use string `occupant_id`; create-first receives Package owner identity plus a fixed slot and Service route as separate context.
+- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/tierSurface/TierDrawerHost.tsx) is the Admin Station adapter; it rejects non-string occupant ids.
 
 ## State and persistence
 
@@ -25,15 +25,9 @@ Stable UI/drawer identity is `occupant_id`; the resolved fixed `slotId` remains 
 
 Presentation calls no endpoints. Empty shells do not become cards. Fixed-slot ordering/restore consumers retain their slot keys.
 
-## Package capability adapter
-
-[usePackageTierCollection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/tierSurface/usePackageTierCollection.ts) is the reusable Package-owned collection source. It projects settled occupants unscoped or by proven Service/Package Family provenance, preserving each occupant object and resolved slot. [TierCollectionKit.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/tierSurface/TierCollectionKit.tsx) is endpoint-free presentation.
-
-Tier capability activation is lazy: it stores only a Package Manager assignment. The five slots remain logical read projections over `tiers: []`; enabling does not persist five empty records. The enabled empty state opens the mature drawer on the first authorable slot, and only existing Tier save/settle authority may mint `occupant_id`. Disabling the section does not mutate or delete occupants.
-
 ## Validation
 
-From the plugin root: `php tests/tier-occupant-compatibility.php`, `node scripts/tier-occupant-admin-contract.ts`, the bundled `scripts/package-capability-host-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-occupant-compatibility.php`, `node scripts/tier-occupant-admin-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

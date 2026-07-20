@@ -4,7 +4,7 @@
 
 Supplies reusable drawer navigation, schema-driven modules, status/notification presentation, inline editors, module actions, record lifecycle footers, and host bridges. Generic infrastructure owns no entity persistence.
 
-Command Centre `ActionShell` and Admin Station `AdminStationDrawer` are separate hosts. Package Family, Category, Service, and Tier drawer presentation lives in shared host-neutral compositions. Package capability assignment uses a thin Admin Station adapter in the same drawer shell; it is configuration, not a second entity/lifecycle drawer system.
+Command Centre `ActionShell` and Admin Station `AdminStationDrawer` are separate hosts. Package Family, Category, Service, and Tier drawer presentation lives in shared host-neutral compositions.
 
 ## Shared drawer kit
 
@@ -30,9 +30,7 @@ Notification rules live in [drawer-kit/utils/moduleNotifications/](../../wp-cont
 ## Host adapters
 
 - Command Centre: `components/admin/stations/{CategoryViewStep,ServiceViewStep,ServiceTierStep}.tsx` and existing Package Family editing in `components/admin/relations/serviceManagerDrawers.tsx` map `StepContext` onto the bridge.
-- Admin Station: adapters under `admin-station/stations/{packageFamily,serviceCategory,serviceSurface,tierSurface}/` resolve native ids and mount the same compositions inside one shell. `packageCapabilities/PackageCapabilityDrawerHost.tsx` edits Package-owned assignment state through that shell.
-
-Admin Station intents may carry opaque serialisable context separately from native identity. Tier cards open with `occupant_id`; Service route context and `slotId` remain context only. Create-first-Tier has no occupant yet, so the Package Manager owner id opens the adapter while the authorable fixed slot travels as mutation context into the mature Tier authority.
+- Admin Station: adapters under `admin-station/stations/{packageFamily,serviceCategory,serviceSurface,tierSurface}/` resolve native ids and mount the same compositions inside one shell.
 
 ## Styling
 

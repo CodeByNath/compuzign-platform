@@ -1,6 +1,6 @@
 # Admin Station Drawer
 
-The Admin Station has one entity-agnostic drawer shell. Package Family, Category, Service, Tier, and Package capability assignment adapters resolve through it; none creates another shell or imports Command Centre routing.
+The Admin Station has one entity-agnostic drawer shell. Package Family, Category, Service, and Tier provide registered compositions inside it; none creates another shell or imports Command Centre routing.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
@@ -9,7 +9,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 ```text
 card/carousel action with native record id
   → StationSurfaceHost resolves action intent + drawerTemplateKey
-  → AdminStationDrawerContext stores { key, recordId, opening mode, optional context }
+  → AdminStationDrawerContext stores { key, recordId, opening mode }
   → AdminStationDrawer resolves the declarative registry
   → entity host adapter resolves its own record
   → shared entity composition renders Overview / Connections + modules
@@ -21,15 +21,14 @@ The shell owns header, scrolling body, footer slot, backdrop/Escape/header close
 
 ## Authoritative files
 
-- `stations/drawers/drawerTypes.ts` — registered keys (`package-family | category | service | tier | package-capability`), opaque identity/context, opening mode, footer/guard bridge props.
-- `stations/drawers/drawerRegistry.tsx` — the declarative registrations plus load-time well-formedness guard.
+- `stations/drawers/drawerTypes.ts` — `DrawerTemplateKey` (`package-family | category | service | tier`), opaque `StationRecordId`, opening mode, footer/guard bridge props.
+- `stations/drawers/drawerRegistry.tsx` — the four declarative registrations plus load-time well-formedness guard.
 - `shell/drawer/AdminStationDrawerContext.tsx` — one open record and the originating wall refresh handle.
 - `shell/drawer/AdminStationDrawer.tsx` — the single shell and close path.
 - `stations/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
 - `stations/serviceCategory/CategoryDrawerHost.tsx` — numeric Category id adapter plus assigned-Service projection.
 - `stations/serviceSurface/ServiceDrawerHost.tsx` — numeric Service id adapter.
-- `stations/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter for existing records; create mode receives owner identity plus Service/slot mutation context.
-- `stations/packageCapabilities/PackageCapabilityDrawerHost.tsx` — Package-owned assignment adapter; no Tier lifecycle logic.
+- `stations/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
 
 ## Shared mature compositions
 
@@ -49,7 +48,6 @@ Category mutations stay in `useCategoryStation`; Package Family mutations stay i
 - Package Family: native string `group_id`.
 - Category and Service: native numeric ids.
 - Tier: stable string `occupant_id`, never the reassignable slot.
-- Tier creation: no occupant identity exists yet; owner identity opens the registered adapter and `slotId` remains mutation context until Tier authority creates an occupant.
 - No adapter parses, stringifies, or numerically coerces an id.
 - Compositions advance local records from mutation responses; `onSaved` refreshes only the wall that opened the drawer, avoiding body flashes.
 

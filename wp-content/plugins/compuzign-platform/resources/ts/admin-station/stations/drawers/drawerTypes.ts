@@ -6,7 +6,7 @@
 // zero-dependency identity type.
 
 import type { ComponentChildren } from 'preact';
-import type { StationIntentContext, StationRecordId } from '../recordIdentity';
+import type { StationRecordId } from '../recordIdentity';
 
 // Opening intent only. The composition always owns Overview / Connections and
 // module-level editing; `edit` means open directly into its primary module.
@@ -14,7 +14,7 @@ export type DrawerMode = 'view' | 'edit';
 
 // Registered drawer template keys. A string-literal union so a binding and an
 // intent can only name a template the registry actually defines.
-export type DrawerTemplateKey = 'package-family' | 'category' | 'service' | 'tier' | 'package-capability';
+export type DrawerTemplateKey = 'package-family' | 'category' | 'service' | 'tier';
 
 // What the shell hands a template's content: the record identity that drove the
 // intent — exactly as the card carried it — plus the active tab and a close
@@ -28,7 +28,6 @@ export type DrawerTemplateKey = 'package-family' | 'category' | 'service' | 'tie
 export interface DrawerContentProps {
   recordId: StationRecordId;
   mode:     DrawerMode;
-  context?: StationIntentContext;
   onClose:  () => void;
   onModeChange: (mode: DrawerMode) => void;
   // Call after a save that changed the record. It refreshes the wall this drawer

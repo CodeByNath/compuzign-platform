@@ -32,10 +32,3 @@
 // cycle, and it is fully erased at build.
 
 export type StationRecordId = string | number;
-
-// Opaque, serialisable parent/mutation context carried beside an identity.
-// Context never replaces recordId: an occupied Tier still dispatches its
-// occupant_id, while slotId and parent Service/Family context travel here.
-// A create intent has no Tier record yet, so it carries the native owner id as
-// recordId and the requested authoring slot in this separate context.
-export type StationIntentContext = Readonly<Record<string, string | number | boolean | null>>;

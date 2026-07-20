@@ -14,7 +14,7 @@ import type { ComponentChildren } from 'preact';
 import { useContext, useState, useMemo, useCallback, useRef } from 'preact/hooks';
 import type { ResolvedStationIntent } from '../../stations/StationSurfaceHost';
 import type { DrawerMode } from '../../stations/drawers/drawerTypes';
-import type { StationIntentContext, StationRecordId } from '../../stations/recordIdentity';
+import type { StationRecordId } from '../../stations/recordIdentity';
 
 // The open-drawer state. Null when nothing is open. The controller stores the
 // record id exactly as the intent delivered it — it is opaque here, never
@@ -23,8 +23,6 @@ export interface OpenDrawerState {
   drawerTemplateKey: string;
   recordId:          StationRecordId;
   mode:              DrawerMode;
-  intentId:          string;
-  context?:          StationIntentContext;
 }
 
 export interface AdminStationDrawerContextValue {
@@ -73,8 +71,6 @@ export function AdminStationDrawerProvider({ children }: { children: ComponentCh
       drawerTemplateKey: intent.drawerTemplateKey,
       recordId:          intent.recordId,
       mode:              toDrawerMode(intent.intent.mode),
-      intentId:          intent.intent.id,
-      context:           intent.context,
     });
   }, []);
 

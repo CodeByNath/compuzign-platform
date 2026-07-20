@@ -23,15 +23,15 @@ export interface HostServiceResult {
   refetch: () => void;
 }
 
-export function useHostService(preferredServiceId?: number): HostServiceResult {
+export function useHostService(): HostServiceResult {
   const { data, loading, error, refetch } = useApi(() => fetchAdminCatalog());
   const { data: packagesData } = useSurfacePackages();
 
   const service = useMemo(() => {
     const stations = data?.stations ?? [];
-    const preferredId = preferredServiceId ?? packagesData?.packages?.[0]?.service_refs?.[0];
+    const preferredId = packagesData?.packages?.[0]?.service_refs?.[0];
     return stations.find((s) => s.id === preferredId) ?? stations[0] ?? null;
-  }, [data, packagesData, preferredServiceId]);
+  }, [data, packagesData]);
 
   return { service, loading, error, refetch };
 }
