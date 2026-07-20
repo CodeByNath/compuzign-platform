@@ -3,7 +3,6 @@
 namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
-use CompuZign\Platform\Modules\SurfacePackages\Support\PackageToolRegistry;
 
 /**
  * PackageCategoryGroups — the Package Family station collection.
@@ -74,7 +73,6 @@ final class PackageCategoryGroups
                 'previous_platform_status' => $previous,
                 'module_status'            => ['overview' => $overview],
                 'overview_draft'           => $draft,
-                'tools'                    => self::sanitizeTools($group['tools'] ?? []),
                 'sort_order'               => count($out),
             ];
         }
@@ -120,7 +118,6 @@ final class PackageCategoryGroups
             'previous_platform_status' => null,
             'module_status'            => ['overview' => StationLifecycle::MODULE_PENDING],
             'overview_draft'           => null,
-            'tools'                    => [],
             'sort_order'               => count($groups),
         ];
 
@@ -144,62 +141,6 @@ final class PackageCategoryGroups
             static fn($group) => is_array($group) && ($group['group_id'] ?? null) === ($next['group_id'] ?? '') ? $next : $group,
             $groups
         ));
-    }
-
-    // ── Tools / Skills (Family-owned tool activation) ─────────────────────────
-
-    /**
-     * Normalise a group's `tools` map to `[toolKey => ['enabled' => bool]]`,
-     * keeping only registry-known keys. Activation ownership lives on the group
-     * row, so this is where a Family's tool assignments are shaped. Unknown keys
-     * and malformed values are dropped; a missing map sanitizes to `[]`.
-     *
-     * @return array<string, array{enabled: bool}>
-     */
-    public static function sanitizeTools(mixed $tools): array
-    {
-        if (!is_array($tools)) {
-            return [];
-        }
-        $out = [];
-        foreach ($tools as $key => $value) {
-            $toolKey = is_string($key) ? $key : '';
-            if ($toolKey === '' || !PackageToolRegistry::isKnown($toolKey)) {
-                continue;
-            }
-            $enabled = is_array($value) ? ($value['enabled'] ?? false) : $value;
-            $out[$toolKey] = ['enabled' => (bool) $enabled];
-        }
-        return $out;
-    }
-
-    /**
-     * Activate or deactivate one tool for one Package Family / Group — the sole
-     * tool-assignment mutation. It flips a boolean on the group row and writes
-     * nothing under `station.tiers`: activation is NOT tool data creation.
-     *
-     * Guards: the group and tool key must exist; only an available tool (one
-     * backed by real authority) may be enabled. Deactivation is always allowed
-     * and never deletes tool data — it only clears the assignment flag.
-     */
-    public static function setTool(array $groups, string $groupId, string $toolKey, bool $enabled): array
-    {
-        $group = self::find($groups, $groupId);
-        if ($group === null) {
-            throw new \InvalidArgumentException('Package Family not found.');
-        }
-        if (!PackageToolRegistry::isKnown($toolKey)) {
-            throw new \InvalidArgumentException('Unknown tool.');
-        }
-        if ($enabled && !PackageToolRegistry::isAvailable($toolKey)) {
-            throw new \InvalidArgumentException('This tool is not available yet.');
-        }
-
-        $tools = self::sanitizeTools($group['tools'] ?? []);
-        $tools[$toolKey] = ['enabled' => $enabled];
-        $group['tools'] = $tools;
-
-        return self::replace($groups, $group);
     }
 
     // ── Overview module (draft → settle/revert) ───────────────────────────────
@@ -352,7 +293,6 @@ final class PackageCategoryGroups
             'previous_platform_status' => $group['previous_platform_status'] ?? null,
             'module_status'            => ['overview' => (string) ($group['module_status']['overview'] ?? StationLifecycle::MODULE_PENDING)],
             'has_draft'                => $draft !== null,
-            'tools'                    => self::sanitizeTools($group['tools'] ?? []),
             'sort_order'               => (int) ($group['sort_order'] ?? 0),
             'assigned_service_count'   => (int) $dependents['services'],
             'dependents'               => $dependents,

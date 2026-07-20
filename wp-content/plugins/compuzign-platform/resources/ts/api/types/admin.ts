@@ -140,11 +140,6 @@ export interface PackageFamilyDependents {
   tier_selections: number;
 }
 
-// A Package Family / Group owns its Tool / Skill activations. The map is keyed
-// by tool key; a missing key means the tool was never activated for this owner.
-// Persisted on the group row (never a global singleton).
-export type PackageFamilyToolAssignments = Record<string, { enabled: boolean }>;
-
 export interface PackageFamilyItem {
   group_id:                 string;
   label:                    string;
@@ -156,7 +151,6 @@ export interface PackageFamilyItem {
   sort_order:               number;
   assigned_service_count:   number;
   dependents:               PackageFamilyDependents;
-  tools:                    PackageFamilyToolAssignments;
 }
 
 /** Package Family list row with Package-owned Service relationship identity. */

@@ -94,17 +94,11 @@ export function EntityDrawer<T extends DrawerTabId = DrawerBaseTabId>({
     else setInternalTab(nextTab);
   };
 
-  // Presence-driven tabs: an entity declares which canonical tabs it owns via
-  // its drawer placement keys. The renderer keeps the fixed order/labels.
-  const declared: Partial<Record<DrawerBaseTabId, ShellSlot[]>> = entity.placements.drawer ?? {};
-  const availableTabs = (['details', 'connections', 'settings'] as const)
-    .filter((id) => id in declared);
-
-  const slots: ShellSlot[] = declared[activeTab] ?? [];
+  const slots = entity.placements.drawer?.[activeTab] ?? [];
 
   return (
     <div class="cz-req-detail">
-      <DrawerTabs active={activeTab} available={availableTabs} onSelect={selectTab} />
+      <DrawerTabs active={activeTab} onSelect={selectTab} />
 
       {slots.map((slot) => (
         <PlacedShell

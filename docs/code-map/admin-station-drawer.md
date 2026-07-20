@@ -41,10 +41,6 @@ The shell adapters mount these host-neutral implementations from `resources/ts/e
 
 All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable. Command Centre mounts the same compositions through thin `StepContext → EntityDrawerHostBridge` adapters.
 
-### Canonical tab contract
-
-`drawer-kit/DrawerTabs.tsx` encodes the fixed canonical set/order/labels **Overview | Connections | Settings**; it is not per-entity configurable. Which tabs appear is *presence-driven*: `EntityDrawer` derives the available tabs from the entity's declared `placements.drawer` keys. Only Package Family declares `settings` (an empty placement rendered through `trailing.settings`), so only its drawer shows Settings → Tools / Skills via `entity-drawers/package-family/PackageFamilyToolsPanel.tsx`. That panel activates/deactivates Family-owned tools through `usePackageFamilyStation.setToolEnabled`; it owns no persistence and opens no nested drawer.
-
 Category mutations stay in `useCategoryStation`; Package Family mutations stay in `usePackageFamilyStation`; Service and Tier retain `useServiceStation` / `usePackageStation`. Presentation components call no endpoints.
 
 ## Identity and refresh invariants

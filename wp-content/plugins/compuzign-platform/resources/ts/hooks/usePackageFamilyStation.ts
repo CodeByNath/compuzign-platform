@@ -4,12 +4,10 @@ import {
   restorePackageFamily,
   revertPackageFamilyOverview,
   savePackageFamilyOverview,
-  setPackageFamilyTool,
   settlePackageFamilyOverview,
   updatePackageFamilyStatus,
 } from '@/api/endpoints/admin';
 import type { PackageFamilyItem } from '@/api/types/admin';
-import type { PackageToolKey } from '@/modules/packages/packageTools';
 import {
   evaluateModule,
   packageFamilyOverviewModule,
@@ -28,7 +26,6 @@ export function usePackageFamilyStation(
   const [family, setFamily] = useState(seed);
   const [statusSaving, setStatusSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [toolSaving, setToolSaving] = useState<PackageToolKey | null>(null);
 
   useEffect(() => setFamily(seed), [seed]);
 
@@ -128,24 +125,6 @@ export function usePackageFamilyStation(
     }
   }, [family.group_id, onMutationComplete, requireGroup]);
 
-  // Owner-specific tool activation. Writes a boolean on this Family's row and
-  // advances the local record from the response — the same targeted-refresh
-  // path as every other Family mutation. Never creates tool data.
-  const setToolEnabled = useCallback(async (toolKey: PackageToolKey, enabled: boolean) => {
-    setToolSaving(toolKey);
-    try {
-      const response = await setPackageFamilyTool(family.group_id, toolKey, enabled);
-      const group = requireGroup(
-        response,
-        enabled ? 'Could not activate the tool.' : 'Could not deactivate the tool.',
-      );
-      onMutationComplete?.();
-      return group;
-    } finally {
-      setToolSaving(null);
-    }
-  }, [family.group_id, onMutationComplete, requireGroup]);
-
   const deleteFamily = useCallback(async () => {
     setDeleting(true);
     try {
@@ -167,9 +146,7 @@ export function usePackageFamilyStation(
     hasDraft: family.has_draft,
     modules: { overview: overviewState, relationships: relationshipsState },
     relationshipData,
-    tools: family.tools ?? {},
-    loading: { status: statusSaving, deleting, tool: toolSaving },
-    setToolEnabled,
+    loading: { status: statusSaving, deleting },
     saveOverview,
     revertOverview,
     settleOverview,

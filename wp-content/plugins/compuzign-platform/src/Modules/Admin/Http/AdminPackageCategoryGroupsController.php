@@ -124,21 +124,6 @@ class AdminPackageCategoryGroupsController
             'args'                => ['gid' => ['required' => true, 'type' => 'string']],
         ]);
 
-        // ── Tools / Skills activation (Family-owned tool assignment) ──────────
-        // Activation is owner-specific: the {gid} Package Family owns the
-        // assignment. Enabling a tool writes one boolean on the group row and
-        // never creates tool data (no Tier occupant).
-        register_rest_route('compuzign/v1', '/admin/package-category-groups/(?P<gid>[a-z0-9_]+)/tools/(?P<tool>[a-z0-9_]+)', [
-            'methods'             => 'PUT',
-            'callback'            => [$this, 'setTool'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'gid'     => ['required' => true, 'type' => 'string'],
-                'tool'    => ['required' => true, 'type' => 'string'],
-                'enabled' => ['required' => true, 'type' => 'boolean'],
-            ],
-        ]);
-
         // ── Permanent delete (trashed only + dependency guard) ────────────────
         register_rest_route('compuzign/v1', '/admin/package-category-groups/(?P<gid>[a-z0-9_]+)', [
             'methods'             => 'DELETE',
@@ -242,21 +227,6 @@ class AdminPackageCategoryGroupsController
     {
         return $this->mutateGroup($request, fn(array $groups, string $gid): array => (
             PackageCategoryGroups::restore($groups, $gid)
-        ));
-    }
-
-    /**
-     * Activate / deactivate one Tool / Skill for one Package Family. The group
-     * owns the assignment (owner-specific activation); enabling writes a single
-     * boolean on the group row and creates no tool data. Registry and
-     * availability guards live in PackageCategoryGroups::setTool.
-     */
-    public function setTool(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $toolKey = sanitize_text_field((string) $request->get_param('tool'));
-        $enabled = (bool) $request->get_param('enabled');
-        return $this->mutateGroup($request, fn(array $groups, string $gid): array => (
-            PackageCategoryGroups::setTool($groups, $gid, $toolKey, $enabled)
         ));
     }
 

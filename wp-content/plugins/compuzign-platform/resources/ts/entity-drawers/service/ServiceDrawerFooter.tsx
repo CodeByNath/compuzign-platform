@@ -6,12 +6,9 @@
 // the drawer content are untouched.
 
 import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
-import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 
 interface ServiceDrawerFooterProps {
-  // Widened with the canonical tab contract; Service declares no Settings tab,
-  // so at runtime this is only ever 'details' | 'connections'.
-  tab: DrawerTabId;
+  tab: 'details' | 'connections';
   platformStatus: string;
   isNewNeverPublished: boolean;
   hasBeenPublished: boolean;

@@ -17,7 +17,7 @@ active station + placement
   → registered drawer adapter
 ```
 
-A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The **Package Station Home** (`stationId: 'packages'`) binds the Package Families wall (order `0`), so the previously empty `packages` destination now opens a real workstation whose first-class records are the Families; opening a Family leads to its drawer → Settings → Tools / Skills. The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
+A placement may contain several ordered walls, rendered by the one presentation shell. Each binding declares a numeric `order`; the resolver sorts by it (stable sort, so registration order breaks ties). Service Home presents Package Families (order `0`) followed by the Service Catalogue (order `1`). The former Service Category carousel, Service card wall, and Package Tier wall remain registered but unbound for later placements.
 
 ## Authoritative files
 
