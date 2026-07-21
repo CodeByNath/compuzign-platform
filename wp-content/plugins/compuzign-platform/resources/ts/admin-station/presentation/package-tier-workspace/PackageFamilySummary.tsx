@@ -1,16 +1,17 @@
-// Tier Workspace Engine — the read-only selected-Family summary (Row 2, left).
+// Tier Workspace Engine — the authoritative Family metrics band (beneath header).
 //
-// The wider lower panel. It shows the selected Package Family's authoritative
-// working scope and nothing more: its name, its description as a positioning
-// line, its status pill, and its three authoritative `dependents` counts. It
-// takes a Family SCOPE (never occupants) and derives its whole shape from the
-// pure buildFamilySummary model, so this component stays presentation-only and
-// the "which fields" decision lives in one tested place.
+// The compact context strip under the header: the selected Package Family's
+// resolved status beside its three authoritative `dependents` counts. It is the
+// slimmed successor to the former full-height summary panel — the large bottom
+// Family Summary is gone, but its authoritative capability is preserved here as
+// an optional band, never weakened into a card and never re-derived.
 //
-// Read-only by design (this phase): there is deliberately no Edit action here.
-// Package Family editing stays with the Package Families surface and the mature
-// Family drawer one wall up on this same Packages page — the Tier Workspace
-// binding owns only the Tier drawer, and no second-drawer routing is introduced.
+// It takes a Family SCOPE (never occupants) and derives its whole shape from the
+// pure buildFamilySummary model, so the "which fields" decision stays in one
+// tested place and no fabricated figure (estimated margin, demand score, "last
+// updated") can enter it. Read-only by design: Family editing stays with the
+// Package Families surface and the mature Family drawer, so this band introduces
+// no second-drawer routing.
 
 import type { ComponentType, VNode } from 'preact';
 import type { WorkspaceFamilyScope } from '../../stations/packageTierWorkspace/projection';
@@ -31,20 +32,11 @@ export function PackageFamilySummary({ family }: { family: WorkspaceFamilyScope 
   const summary = buildFamilySummary(family);
 
   return (
-    <section class="cz-tier-workspace__summary" aria-label={`${summary.name} working scope`}>
-      <p class="cz-tier-workspace__panel-title">Family Summary</p>
-
-      <header class="cz-tier-workspace__summary-head">
-        <div class="cz-tier-workspace__summary-identity">
-          <h4 class="cz-tier-workspace__summary-name">{summary.name}</h4>
-          {summary.positioning && (
-            <p class="cz-tier-workspace__summary-kind">{summary.positioning}</p>
-          )}
-        </div>
+    <section class="cz-tier-workspace__metrics" aria-label={`${summary.name} working scope`}>
+      <div class="cz-tier-workspace__metrics-status">
         <StationStatusPill status={summary.status} />
-      </header>
-
-      <div class="cz-tier-workspace__summary-metrics">
+      </div>
+      <div class="cz-tier-workspace__metrics-list">
         {summary.metrics.map((metric) => (
           <StationMetricBlock key={metric.id} metric={{ ...metric, icon: METRIC_ICONS[metric.id] }} />
         ))}

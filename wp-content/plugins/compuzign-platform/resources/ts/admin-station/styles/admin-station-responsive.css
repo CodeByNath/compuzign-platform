@@ -35,15 +35,15 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* Tier Workspace Engine — the lower split stacks (summary above the Family
-     selector) and the summary counts go from three across to one. Both are
-     hosted in this existing shell breakpoint rather than a new component
+  /* Tier Workspace Engine — the Focus body stacks (Tier tabs above the selected
+     Tier's detail) and the metrics band's three counts go to one column. Both
+     are hosted in this existing shell breakpoint rather than a new component
      boundary, matching the card grid above. */
-  .cz-tier-workspace__split {
+  .cz-tier-workspace__focus {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cz-tier-workspace__summary-metrics {
+  .cz-tier-workspace__metrics-list {
     grid-template-columns: minmax(0, 1fr);
   }
 

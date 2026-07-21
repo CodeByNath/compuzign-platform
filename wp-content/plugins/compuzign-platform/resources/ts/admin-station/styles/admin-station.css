@@ -1545,12 +1545,13 @@ button.cz-station-status-pill {
 
 /* ── Package Station Tier Workspace Engine ─────────────────────────────── */
 
-/* One cohesive Station-level engine: a concise header, the selected Family's
-   projected Tier occupants (Row 1, full width, through the shared card grid),
-   and a lower split row pairing the read-only Family summary with the Package
-   Family selector. Selection is transient view state; the surface writes
-   nothing. Everything here is drawn from the Admin Station tokens — no glow, no
-   second theme, no neon: the mockup's hierarchy in the station's own language. */
+/* One cohesive Station-level engine: a compact header pairing the Family scope
+   selector with the Focus/Grid view switch, an optional authoritative Family
+   metrics band, then the workspace body — vertical Tier tabs beside one selected
+   Tier's detail (Focus, the default) or the shared compact card grid (Grid).
+   Selection is transient view state; the surface writes nothing. Everything here
+   is drawn from the Admin Station tokens — no glow, no second theme, no neon:
+   an operational engine in the station's own language. */
 .cz-tier-workspace {
   display: flex;
   flex-direction: column;
@@ -1567,107 +1568,141 @@ button.cz-station-status-pill {
   line-height: var(--station-line-snug);
 }
 
-/* Lower split — the read-only summary (wider) beside the Family selector
-   (narrower), ~66% / ~33%. Both columns floor at 0 so neither panel can force
-   horizontal overflow; the grid stacks at the shell breakpoint
-   (admin-station-responsive.css). */
-.cz-tier-workspace__split {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+/* Header — the compact Family scope on the left, the Focus/Grid switch on the
+   right. Wraps rather than overflows on a narrow shell; the switch drops below
+   the scope and both stay reachable. */
+.cz-tier-workspace__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--station-card-gap);
-  align-items: start;
 }
 
-/* Shared panel language for the two lower panels — one elevated surface echoing
-   the card family, so summary and selector read as the same system. */
-.cz-tier-workspace__summary,
-.cz-tier-workspace__summary-empty,
-.cz-tier-workspace__nav {
+/* Compact Family scope — an inline "Package Family: …" native select. */
+.cz-tier-workspace__scope {
   display: flex;
-  flex-direction: column;
-  gap: var(--station-card-gap);
+  align-items: center;
+  gap: 8px;
   min-width: 0;
+}
+
+.cz-tier-workspace__scope-label {
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cz-tier-workspace__scope-select {
+  min-width: 0;
+  max-width: 100%;
+  height: var(--station-control-height);
+  padding: 0 var(--station-control-pad-x);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface);
+  color: var(--station-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cz-tier-workspace__scope-select:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+/* View switch — a two-option segmented control (Focus | Grid). A view mode of
+   the one tool, so it reads as one small control, not a set of tabs. */
+.cz-tier-workspace__viewswitch {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface);
+}
+
+.cz-tier-workspace__viewswitch-option {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: calc(var(--station-control-radius) - 2px);
+  background: transparent;
+  color: var(--station-text-muted);
+  font: inherit;
+  font-size: var(--station-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cz-tier-workspace__viewswitch-option:hover {
+  color: var(--station-text);
+}
+
+.cz-tier-workspace__viewswitch-option:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+.cz-tier-workspace__viewswitch-option[aria-pressed="true"] {
+  background: var(--station-accent-soft-bg);
+  color: var(--station-text);
+  box-shadow: inset 0 0 0 1px var(--station-accent-border);
+}
+
+/* Authoritative Family metrics band — the resolved status beside the three
+   `dependents` counts, on one elevated surface echoing the card family. */
+.cz-tier-workspace__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--station-card-gap);
   padding: var(--station-card-pad);
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface-elevated);
 }
 
-/* The no-selection placeholder fills the summary side so the split stays even. */
-.cz-tier-workspace__summary-empty {
-  align-items: center;
-  justify-content: center;
-  min-height: 132px;
-  text-align: center;
+.cz-tier-workspace__metrics-status {
+  flex: none;
 }
 
-/* Small uppercase eyebrow naming each lower panel (Family Summary / Package
-   Family), matching the station's other label treatments. */
-.cz-tier-workspace__panel-title {
-  margin: 0;
-  color: var(--station-text-muted);
-  font-size: var(--station-text-xs);
-  font-weight: 700;
-  letter-spacing: var(--station-tracking-wide);
-  text-transform: uppercase;
-}
-
-.cz-tier-workspace__summary-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--station-card-gap);
-}
-
-.cz-tier-workspace__summary-identity {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-/* Mirrors the card name/kind exactly, so the summary reads as the same family. */
-.cz-tier-workspace__summary-name {
-  margin: 0;
-  min-width: 0;
-  color: var(--station-text);
-  font-size: var(--station-text-xl);
-  font-weight: 700;
-  letter-spacing: var(--station-tracking-tight);
-  overflow-wrap: anywhere;
-}
-
-.cz-tier-workspace__summary-kind {
-  margin: 0;
-  min-width: 0;
-  color: var(--station-text-muted);
-  font-size: var(--station-text-sm);
-  line-height: var(--station-line-snug);
-  overflow-wrap: anywhere;
-}
-
-/* Three authoritative counts, laid out like the overview stat strip. */
-.cz-tier-workspace__summary-metrics {
+/* The three counts, laid out like the overview stat strip; floors at 0 so the
+   band never forces horizontal overflow. Stacks to one column at the shell
+   breakpoint (admin-station-responsive.css). */
+.cz-tier-workspace__metrics-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--station-card-gap);
+  flex: 1 1 320px;
+  min-width: 0;
 }
 
-/* Package Family selector — a real radiogroup rendered as a compact vertical
-   list of buttons (role=radio). The mark below is decorative; the semantics
-   live in each option's aria-checked. */
-.cz-tier-workspace__nav-list {
+/* Focus body — the vertical Tier tabs (fixed-ish left rail) beside the one
+   selected Tier's detail. Both columns floor at 0; stacks at the shell
+   breakpoint (admin-station-responsive.css). */
+.cz-tier-workspace__focus {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: var(--station-card-gap);
+  align-items: start;
+}
+
+/* Left rail — a real vertical tablist rendered as a compact list of buttons. */
+.cz-tier-workspace__tabs {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
 }
 
-.cz-tier-workspace__nav-option {
+.cz-tier-workspace__tab {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--station-card-gap);
+  flex-direction: column;
+  gap: 4px;
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--station-border);
@@ -1679,52 +1714,170 @@ button.cz-station-status-pill {
   cursor: pointer;
 }
 
-.cz-tier-workspace__nav-option:hover {
+.cz-tier-workspace__tab:hover {
   background: var(--station-hover-bg);
 }
 
-.cz-tier-workspace__nav-option:focus-visible {
+.cz-tier-workspace__tab:focus-visible {
   outline: 2px solid var(--station-focus-ring);
   outline-offset: 2px;
 }
 
-/* Selected option — the accent-outline treatment the station uses for an active
+/* Selected tab — the accent-outline treatment the station uses for an active
    pill, not a filled hero. */
-.cz-tier-workspace__nav-option--selected {
+.cz-tier-workspace__tab--selected {
   border-color: var(--station-accent-border);
   background: var(--station-accent-soft-bg);
 }
 
-.cz-tier-workspace__nav-option-body {
+.cz-tier-workspace__tab-head {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
 }
 
-.cz-tier-workspace__nav-option-name {
+.cz-tier-workspace__tab-name {
+  min-width: 0;
   font-size: var(--station-text-sm);
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 
-.cz-tier-workspace__nav-option-kind {
+/* Compact, non-interactive status chip inside a tab. Colour comes from the same
+   status tokens the shared pill uses; it is a chip rather than the interactive
+   StationStatusPill because a tab is itself a button (no button-in-button). */
+.cz-tier-workspace__tab-status {
+  flex: none;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--station-pill-radius);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cz-tier-workspace__tab-status[data-status="active"] {
+  background: var(--station-status-active-bg);
+  border-color: var(--station-status-active-border);
+  color: var(--station-status-active-fg);
+}
+
+.cz-tier-workspace__tab-status[data-status="disabled"] {
+  background: var(--station-status-inactive-bg);
+  border-color: var(--station-status-inactive-border);
+  color: var(--station-status-inactive-fg);
+}
+
+.cz-tier-workspace__tab-status[data-status="pending"] {
+  background: var(--station-status-pending-bg);
+  border-color: var(--station-status-pending-border);
+  color: var(--station-status-pending-fg);
+}
+
+.cz-tier-workspace__tab-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+/* Right — the one selected Tier's detail, an elevated panel echoing the card. */
+.cz-tier-workspace__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  min-width: 0;
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+}
+
+.cz-tier-workspace__detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--station-card-gap);
+}
+
+/* Mirrors the card medallion, so the detail reads as the same tier. */
+.cz-tier-workspace__detail-medallion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-nav-active-bg);
+  color: var(--station-nav-accent-strong);
+}
+
+.cz-tier-workspace__detail-glyph {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-tier-workspace__detail-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-inline-end: auto;
+}
+
+.cz-tier-workspace__detail-name {
+  margin: 0;
+  min-width: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-xl);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-tight);
   overflow-wrap: anywhere;
 }
 
-/* Decorative selection dot — accent-filled only on the checked option, absent
-   otherwise (no empty ring, so it reads as a selected list item, not a faked
-   radio input). The button's aria-checked remains the source of truth. */
-.cz-tier-workspace__nav-option-mark {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--station-pill-radius);
-  background: transparent;
+.cz-tier-workspace__detail-kind {
+  margin: 0;
+  min-width: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: var(--station-line-snug);
+  overflow-wrap: anywhere;
 }
 
-.cz-tier-workspace__nav-option--selected .cz-tier-workspace__nav-option-mark {
-  background: var(--station-accent);
+/* The price line, carried straight from the occupant card's description. */
+.cz-tier-workspace__detail-price {
+  margin: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+  font-weight: 600;
+}
+
+/* The authoritative metric rows — a vertical list separated by rules, matching
+   the card's metric repeater. */
+.cz-tier-workspace__detail-metrics {
+  display: flex;
+  flex-direction: column;
+}
+
+.cz-tier-workspace__detail-metrics > * {
+  padding-block: var(--station-metric-pad);
+}
+
+.cz-tier-workspace__detail-metrics > * + * {
+  border-top: 1px solid var(--station-card-divider);
+}
+
+/* The View/Edit control, anchored to the panel's bottom edge. */
+.cz-tier-workspace__detail-actions {
+  display: flex;
+  margin-top: auto;
+}
+
+.cz-tier-workspace__detail-actions .cz-station-split,
+.cz-tier-workspace__detail-actions .cz-station-split__primary {
+  flex: 1 1 auto;
 }

@@ -81,12 +81,16 @@ export const DEFAULT_HOME_STATION = 'services';
 // walls were retired from Home by removing binding rows only. The card, grid,
 // host, drawer shell, sources, and kits remain reusable.
 //
-// The Packages station is a full Package-domain workstation: it LEADS with the
-// Package Families presentation (order 0, the same Family cards + drawer the
-// Service home reuses) and then hosts its first real tool, the Tier tool (order
-// 1). A tool is one binding row here — station-level, never per-Family — so
-// future tools (Promotion, Bundle, Campaign) register as additional walls without
-// a shell edit. Promotions presentation stays intentionally absent until a real
+// The Packages station is a full Package-domain workstation, and its Tier tool
+// IS the workstation (order 0, the station's first and leading tool). The Tier
+// tool owns its own compact Package Family scope selector, so the large Package
+// Families card wall is intentionally NOT bound here — Family becomes working
+// scope inside the engine, not a competing wall above it. The Families wall, its
+// source, kit, and drawer remain registered (the Service home still leads with
+// them, and they stay available for a dedicated Family-management placement).
+// A tool is one binding row here — station-level, never per-Family — so future
+// tools (Promotion, Bundle, Campaign) register as additional walls without a
+// shell edit. Promotions presentation stays intentionally absent until a real
 // source and kit exist for it (the region shows its neutral empty state).
 export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
   {
@@ -120,33 +124,19 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     ],
   },
   // ── Packages station — the Package-domain workstation ──────────────────────
-  // The Package Families presentation leads, so the family groups are what a
-  // visitor meets first here too. Reuses the SAME source, kit, and drawer as the
-  // Service home — the family cards and their entity-editor drawer are unchanged.
-  {
-    stationId: 'packages',
-    surfaceId: 'package-families',
-    placement: 'presentation',
-    order: 0,
-    title: 'Package Families',
-    dataSourceKey: 'package-families',
-    templateKitKey: 'category-group-cards',
-    conditions: { scope: 'current' },
-    drawerTemplateKey: 'package-family',
-    actionIntents: [
-      { id: 'view', target: 'drawer', mode: 'view' },
-    ],
-  },
-  // The Tier tool — the station's first real tool, activated once at Station
-  // level by this row (no per-Family activation, no persistence). The tool owns
-  // its own Package Family selector; View/Edit dispatch the occupant_id into the
-  // mature Tier drawer, exactly as the Tier wall does. Edit is a tab inside that
-  // drawer, so both intents open the same composition.
+  // The Tier tool — the station's first real tool AND its leading wall (order 0),
+  // activated once at Station level by this row (no per-Family activation, no
+  // persistence). The large Package Families card wall is deliberately not bound
+  // here: the tool owns its own compact Family scope selector, so Family is
+  // working scope inside the engine rather than a wall above it. View/Edit
+  // dispatch the occupant_id into the mature Tier drawer, exactly as the Tier
+  // wall does. Edit is a tab inside that drawer, so both intents open the same
+  // composition.
   {
     stationId: 'packages',
     surfaceId: 'tier-tool',
     placement: 'presentation',
-    order: 1,
+    order: 0,
     // Wall heading for the engine section. Display copy only — the routing below
     // (dataSourceKey, templateKitKey, drawerTemplateKey, actionIntents) is
     // unchanged: this surface still owns only the Tier drawer.
