@@ -1661,12 +1661,9 @@ button.cz-station-status-pill {
    requires changing view mode. */
 .cz-tier-workspace__layout {
   display: grid;
-  grid-template-columns:
-    minmax(240px, 0.9fr)
-    minmax(500px, 2.2fr)
-    minmax(260px, 0.9fr);
+  grid-template-columns: minmax(240px, 0.9fr) minmax(500px, 1.5fr) minmax(260px, 1fr);
   gap: var(--station-card-gap);
-  align-items: start;
+  align-items: stretch;
   min-width: 0;
 }
 
