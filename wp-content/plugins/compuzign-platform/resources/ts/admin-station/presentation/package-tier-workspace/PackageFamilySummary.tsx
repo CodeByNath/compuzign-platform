@@ -1,10 +1,8 @@
-// Tier Workspace Engine — the authoritative Family metrics band (beneath header).
+// Tier Workspace Engine — the authoritative Family group summary.
 //
-// The compact context strip under the header: the selected Package Family's
-// resolved status beside its three authoritative `dependents` counts. It is the
-// slimmed successor to the former full-height summary panel — the large bottom
-// Family Summary is gone, but its authoritative capability is preserved here as
-// an optional band, never weakened into a card and never re-derived.
+// The selected Package Family's name, description, resolved status, and three
+// authoritative `dependents` counts in the right side of the workspace. It is a
+// read-only working-scope panel, never a Family editor or Tier owner.
 //
 // It takes a Family SCOPE (never occupants) and derives its whole shape from the
 // pure buildFamilySummary model, so the "which fields" decision stays in one
@@ -32,11 +30,17 @@ export function PackageFamilySummary({ family }: { family: WorkspaceFamilyScope 
   const summary = buildFamilySummary(family);
 
   return (
-    <section class="cz-tier-workspace__metrics" aria-label={`${summary.name} working scope`}>
-      <div class="cz-tier-workspace__metrics-status">
+    <section class="cz-tier-workspace__family-summary" aria-label={`${summary.name} summary`}>
+      <header class="cz-tier-workspace__family-head">
+        <div class="cz-tier-workspace__family-identity">
+          <h4 class="cz-tier-workspace__family-name">{summary.name}</h4>
+          {summary.positioning && (
+            <p class="cz-tier-workspace__family-description">{summary.positioning}</p>
+          )}
+        </div>
         <StationStatusPill status={summary.status} />
-      </div>
-      <div class="cz-tier-workspace__metrics-list">
+      </header>
+      <div class="cz-tier-workspace__family-metrics">
         {summary.metrics.map((metric) => (
           <StationMetricBlock key={metric.id} metric={{ ...metric, icon: METRIC_ICONS[metric.id] }} />
         ))}

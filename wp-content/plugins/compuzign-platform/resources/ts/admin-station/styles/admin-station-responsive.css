@@ -35,15 +35,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* Tier Workspace Engine — the Focus body stacks (Tier tabs above the selected
-     Tier's detail) and the metrics band's three counts go to one column. Both
-     are hosted in this existing shell breakpoint rather than a new component
-     boundary, matching the card grid above. */
+  /* Tier Workspace Engine — the primary workspace stacks above the Package
+     Family group, while Focus stacks Tier tabs above the selected Tier. Hosted
+     in this existing shell breakpoint rather than a component-only boundary. */
+  .cz-tier-workspace__layout,
   .cz-tier-workspace__focus {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cz-tier-workspace__metrics-list {
     grid-template-columns: minmax(0, 1fr);
   }
 

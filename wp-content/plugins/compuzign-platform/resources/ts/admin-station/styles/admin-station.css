@@ -1545,10 +1545,10 @@ button.cz-station-status-pill {
 
 /* ── Package Station Tier Workspace Engine ─────────────────────────────── */
 
-/* One cohesive Station-level engine: a compact header pairing the Family scope
-   selector with the Focus/Grid view switch, an optional authoritative Family
-   metrics band, then the workspace body — vertical Tier tabs beside one selected
-   Tier's detail (Focus, the default) or the shared compact card grid (Grid).
+/* One cohesive Station-level engine: a compact header with the Focus/Grid view
+   switch, then the workspace body. Focus reads as vertical Tier tabs, one
+   selected Tier detail, and the Package Family working-scope group; Grid keeps
+   the same Family group beside the shared compact card grid.
    Selection is transient view state; the surface writes nothing. Everything here
    is drawn from the Admin Station tokens — no glow, no second theme, no neon:
    an operational engine in the station's own language. */
@@ -1568,9 +1568,7 @@ button.cz-station-status-pill {
   line-height: var(--station-line-snug);
 }
 
-/* Header — the compact Family scope on the left, the Focus/Grid switch on the
-   right. Wraps rather than overflows on a narrow shell; the switch drops below
-   the scope and both stay reachable. */
+/* Header — one-line engine context and the Focus/Grid switch. */
 .cz-tier-workspace__header {
   display: flex;
   flex-wrap: wrap;
@@ -1579,10 +1577,11 @@ button.cz-station-status-pill {
   gap: var(--station-card-gap);
 }
 
-/* Compact Family scope — an inline "Package Family: …" native select. */
+/* Compact Family scope at the head of the right-side Family group. */
 .cz-tier-workspace__scope {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   min-width: 0;
 }
@@ -1593,11 +1592,11 @@ button.cz-station-status-pill {
   font-weight: 700;
   letter-spacing: var(--station-tracking-wide);
   text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .cz-tier-workspace__scope-select {
   min-width: 0;
+  width: 100%;
   max-width: 100%;
   height: var(--station-control-height);
   padding: 0 var(--station-control-pad-x);
@@ -1653,40 +1652,92 @@ button.cz-station-status-pill {
   box-shadow: inset 0 0 0 1px var(--station-accent-border);
 }
 
-/* Authoritative Family metrics band — the resolved status beside the three
-   `dependents` counts, on one elevated surface echoing the card family. */
-.cz-tier-workspace__metrics {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+/* Workspace composition — primary Tier workspace, then the Package Family
+   working-scope group. The Family remains visible in Grid so re-scoping never
+   requires changing view mode. */
+.cz-tier-workspace__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3.15fr) minmax(220px, 0.85fr);
   gap: var(--station-card-gap);
+  min-width: 0;
+  align-items: start;
+}
+
+.cz-tier-workspace__primary {
+  min-width: 0;
+}
+
+.cz-tier-workspace__family {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  min-width: 0;
   padding: var(--station-card-pad);
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface-elevated);
 }
 
-.cz-tier-workspace__metrics-status {
-  flex: none;
+.cz-tier-workspace__family-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  min-width: 0;
+  padding-top: var(--station-card-gap);
+  border-top: 1px solid var(--station-card-divider);
 }
 
-/* The three counts, laid out like the overview stat strip; floors at 0 so the
-   band never forces horizontal overflow. Stacks to one column at the shell
-   breakpoint (admin-station-responsive.css). */
-.cz-tier-workspace__metrics-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.cz-tier-workspace__family-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--station-card-gap);
-  flex: 1 1 320px;
   min-width: 0;
 }
 
-/* Focus body — the vertical Tier tabs (fixed-ish left rail) beside the one
-   selected Tier's detail. Both columns floor at 0; stacks at the shell
-   breakpoint (admin-station-responsive.css). */
+.cz-tier-workspace__family-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cz-tier-workspace__family-name {
+  margin: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-xl);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-tight);
+  overflow-wrap: anywhere;
+}
+
+.cz-tier-workspace__family-description {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: var(--station-line-snug);
+  overflow-wrap: anywhere;
+}
+
+.cz-tier-workspace__family-metrics {
+  display: flex;
+  flex-direction: column;
+}
+
+.cz-tier-workspace__family-metrics > * {
+  padding-block: var(--station-metric-pad);
+}
+
+.cz-tier-workspace__family-metrics > * + * {
+  border-top: 1px solid var(--station-card-divider);
+}
+
+/* Focus body — the vertical Tier tabs beside the one selected Tier's detail.
+   Together with the Family sibling above, this produces the requested reading
+   order: Tier tabs → focused Tier → Family group. */
 .cz-tier-workspace__focus {
   display: grid;
-  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  grid-template-columns: minmax(190px, 0.82fr) minmax(0, 2.18fr);
   gap: var(--station-card-gap);
   align-items: start;
 }
@@ -1697,6 +1748,15 @@ button.cz-station-status-pill {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+}
+
+.cz-tier-workspace__panel-label {
+  margin: 0 0 2px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
 }
 
 .cz-tier-workspace__tab {

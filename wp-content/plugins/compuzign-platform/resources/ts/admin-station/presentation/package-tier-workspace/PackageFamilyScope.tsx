@@ -1,13 +1,11 @@
-// Tier Workspace Engine — the compact Package Family scope control (header).
+// Tier Workspace Engine — the compact Package Family scope control.
 //
-// The engine's working scope in one compact line: "Package Family: KAIROS —
-// IaaS". A native <select> is the right primitive here — a single-choice scope
-// switch that stays out of the way, replacing the former full-height Family card
-// wall / vertical selector that dominated this view. Native semantics give it a
-// real label, keyboard support, and platform affordances for free.
+// The engine's working scope at the head of the right-side Family group. A native
+// <select> is the right primitive here: a single-choice transient scope switch
+// with real label and keyboard semantics.
 //
 // Choosing a Family is transient view state owned by the orchestrator: it
-// re-scopes the projected Tiers and the authoritative metrics band and writes
+// re-scopes the projected Tiers and the authoritative Family summary and writes
 // NOTHING. Family is scope, never Tier ownership.
 
 import type { VNode } from 'preact';
@@ -34,8 +32,7 @@ export function PackageFamilyScope({ families, selectedId, onSelect }: Props): V
         value={selectedId ?? ''}
         onChange={(event) => onSelect((event.currentTarget as HTMLSelectElement).value)}
       >
-        {/* Placeholder for the initial no-scope state; disabled so it can never
-            be chosen back to once a real Family is selected. */}
+        {/* The placeholder is reachable only for an empty Family collection. */}
         <option value="" disabled>Select a Package Family…</option>
         {families.map((family) => (
           <option key={family.id} value={family.id}>

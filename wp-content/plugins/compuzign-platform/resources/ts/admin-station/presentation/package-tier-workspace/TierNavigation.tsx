@@ -68,6 +68,7 @@ export function TierNavigation({ items, selectedId, onSelect }: Props): VNode {
       aria-orientation="vertical"
       aria-label="Package Tiers"
     >
+      <p class="cz-tier-workspace__panel-label">Package Tiers</p>
       {items.map((item, index) => {
         const selected = item.id === selectedId;
         // One tab stop: the selected tab, or the first when nothing is chosen

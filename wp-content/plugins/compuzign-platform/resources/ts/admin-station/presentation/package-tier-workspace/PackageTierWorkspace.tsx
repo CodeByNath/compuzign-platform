@@ -3,13 +3,15 @@
 // One cohesive Station-level engine, composed from small owned pieces:
 //
 //   Tier Workspace Engine
-//   ├── header
-//   │   ├── PackageFamilyScope  (compact Family scope selector — working scope)
-//   │   └── view switch         (Focus | Grid — a view mode, not a second tool)
-//   ├── PackageFamilySummary    (optional authoritative Family metrics band)
+//   ├── header + view switch     (Focus | Grid — a view mode, not a second tool)
 //   └── workspace body
-//       ├── Focus (default): TierNavigation (left tabs) + TierDetailPanel (right)
-//       └── Grid  (optional): the shared compact card grid
+//       ├── Focus (default)
+//       │   ├── TierNavigation   (left tabs)
+//       │   ├── TierDetailPanel  (one focused Tier)
+//       │   └── Family group     (scope selector + authoritative summary)
+//       └── Grid (optional)
+//           ├── shared compact card grid
+//           └── Family group     (the same transient scope)
 //
 // A template kit like any other (it receives a collection + an intent dispatcher
 // and fetches nothing), but a STATEFUL one: it owns three pieces of transient
@@ -18,8 +20,8 @@
 // NOTHING. Family is working scope, never Tier ownership; the selected Tier id is
 // transient UI state; `occupant_id` stays the identity dispatched to the drawer.
 //
-//   select a Package Family (header)
-//     → its authoritative metrics band + its projected Tier occupants
+//   select a Package Family (right-side Family group)
+//     → its authoritative summary + its projected Tier occupants
 //       → select a Tier (left tabs)  → its detail (right panel)
 //         → View / Edit dispatches the occupant_id to the mature Tier drawer
 //
@@ -47,9 +49,9 @@ import { TierDetailPanel } from './TierDetailPanel';
 // heading; this is the concise Station-level description beneath it.
 const ENGINE_DESCRIPTION = 'Station-level workspace for previewing and managing package tiers.';
 
-// The product's exact empty-state copy: one before a Family is chosen, and one
-// for a chosen Family that projects no Tier occupants.
-const NO_FAMILY_MESSAGE = 'Select a Package Family to view its Tier configuration.';
+// Empty-state copy: one for an empty authoritative Family read, and one for a
+// Family whose projection contains no Tier occupants.
+const NO_FAMILY_MESSAGE = 'No Package Families are currently available.';
 const NO_TIERS_MESSAGE  = 'No Tier selections are currently available for this Package Family.';
 
 /** The two view modes of the one Tier tool. Focus is the default. */
@@ -67,7 +69,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   // refresh (new items after a Tier save) keeps the same Family in scope without
   // storing a stale copy — and a Family that has disappeared falls back to none.
   const selectedFamily = useMemo(
-    () => families.find((family) => family.id === selectedFamilyId) ?? null,
+    () => families.find((family) => family.id === selectedFamilyId) ?? families[0] ?? null,
     [families, selectedFamilyId],
   );
 
@@ -92,17 +94,11 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
 
   return (
     <div class="cz-tier-workspace">
-      <p class="cz-tier-workspace__intro">{ENGINE_DESCRIPTION}</p>
-
-      {/* Header — compact Family scope on the left, the Focus/Grid switch on the
-          right (shown only once a Family is in scope, so it never toggles an
-          empty body). */}
+      {/* Header — the wall already supplies the engine title. The view switch is
+          the only engine-level control; Family selection belongs to the Family
+          group in the workspace composition below. */}
       <div class="cz-tier-workspace__header">
-        <PackageFamilyScope
-          families={families}
-          selectedId={selectedFamilyId}
-          onSelect={setSelectedFamilyId}
-        />
+        <p class="cz-tier-workspace__intro">{ENGINE_DESCRIPTION}</p>
         {selectedFamily !== null && occupants.length > 0 && (
           <div class="cz-tier-workspace__viewswitch" role="group" aria-label="Tier view">
             {(['focus', 'grid'] as const).map((mode) => (
@@ -120,33 +116,47 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
         )}
       </div>
 
-      {/* Optional authoritative Family metrics band, beneath the header. */}
-      {selectedFamily !== null && <PackageFamilySummary family={selectedFamily} />}
-
-      {/* Workspace body — the empty prompt, the Focus split, or the Grid. */}
+      {/* Workspace body — Focus reads left-to-right as Tier tabs, focused Tier,
+          then Family group. Grid is only another view of the same occupants and
+          keeps that Family group available; neither mode changes ownership. */}
       {selectedFamily === null ? (
         <p class="cz-station-empty">{NO_FAMILY_MESSAGE}</p>
-      ) : occupants.length === 0 ? (
-        <p class="cz-station-empty">{NO_TIERS_MESSAGE}</p>
-      ) : viewMode === 'grid' ? (
-        <CategoryGroupCardGrid
-          items={occupants}
-          onAction={(event) => onIntent(event.cardId, event.actionId)}
-          emptyMessage={NO_TIERS_MESSAGE}
-        />
       ) : (
-        <div class="cz-tier-workspace__focus">
-          <TierNavigation
-            items={occupants}
-            selectedId={selectedTier?.id ?? null}
-            onSelect={setSelectedTierId}
-          />
-          {selectedTier !== null && (
-            <TierDetailPanel
-              item={selectedTier}
-              onAction={(actionId) => onIntent(selectedTier.id, actionId)}
+        <div class="cz-tier-workspace__layout">
+          <div class="cz-tier-workspace__primary">
+            {occupants.length === 0 ? (
+              <p class="cz-station-empty">{NO_TIERS_MESSAGE}</p>
+            ) : viewMode === 'grid' ? (
+              <CategoryGroupCardGrid
+                items={occupants}
+                onAction={(event) => onIntent(event.cardId, event.actionId)}
+                emptyMessage={NO_TIERS_MESSAGE}
+              />
+            ) : (
+              <div class="cz-tier-workspace__focus">
+                <TierNavigation
+                  items={occupants}
+                  selectedId={selectedTier?.id ?? null}
+                  onSelect={setSelectedTierId}
+                />
+                {selectedTier !== null && (
+                  <TierDetailPanel
+                    item={selectedTier}
+                    onAction={(actionId) => onIntent(selectedTier.id, actionId)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          <aside class="cz-tier-workspace__family" aria-label="Package Family working scope">
+            <PackageFamilyScope
+              families={families}
+              selectedId={selectedFamily.id}
+              onSelect={setSelectedFamilyId}
             />
-          )}
+            <PackageFamilySummary family={selectedFamily} />
+          </aside>
         </div>
       )}
     </div>

@@ -5,8 +5,8 @@ The Admin Station uses scoped station tokens plus the shared drawer stylesheet. 
 ## Authoritative files
 
 - `resources/ts/admin-station/styles/admin-station-tokens.css` — light/dark station tokens.
-- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, Service Catalogue, carousel, Tier Workspace Engine, and Admin-only drawer overlay/header/footer-band chrome.
-- `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell/card/catalogue/Tier-workspace/drawer rules.
+- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, Service Catalogue, carousel, the Tier Workspace Engine's Tier Tabs → Focused Tier → Family Group composition, and Admin-only drawer overlay/header/footer-band chrome.
+- `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell/card/catalogue/Tier-workspace/drawer rules; the Tier workspace preserves that reading order when it stacks at the existing shell breakpoint.
 - `resources/css/modules/drawer-kit.css` — shared modules, status pills, notification panels, forms, inline editors, dialogs, module actions, and record footers. `.cz-admin-station`-scoped adaptations give shared compositions the newer Admin Station module/editor treatment while leaving Command Centre unchanged.
 
 `resources/ts/modules/admin-station.ts` emits `dist/css/admin-station.css`. Vite builds `drawer-kit.css` as its own stable entry; `Core/AssetLoader.php` registers it once and makes both page styles depend on it.
