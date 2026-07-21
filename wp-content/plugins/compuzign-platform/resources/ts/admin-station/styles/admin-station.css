@@ -1598,14 +1598,15 @@ button.cz-station-status-pill {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  height: var(--station-control-height);
-  padding: 0 var(--station-control-pad-x);
-  border: 1px solid var(--station-border);
+  height: 42px;
+  padding-inline: var(--station-control-pad-x);
+  border: 1px solid var(--station-accent-border);
   border-radius: var(--station-control-radius);
-  background: var(--station-surface);
+  background: var(--station-accent-soft-bg);
   color: var(--station-text);
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 
@@ -1652,19 +1653,56 @@ button.cz-station-status-pill {
   box-shadow: inset 0 0 0 1px var(--station-accent-border);
 }
 
-/* Workspace composition — primary Tier workspace, then the Package Family
-   working-scope group. The Family remains visible in Grid so re-scoping never
+/* Workspace composition — one three-column layout grid reading left to right as
+   Tier Tabs → focused Tier → Family group. The __primary and __focus wrappers are
+   structural only; display:contents flattens them so their contents become direct
+   items of THIS grid, producing that reading order without changing the React
+   hierarchy. The Family group stays present in Grid view too, so re-scoping never
    requires changing view mode. */
 .cz-tier-workspace__layout {
   display: grid;
-  grid-template-columns: minmax(0, 3.15fr) minmax(220px, 0.85fr);
+  grid-template-columns:
+    minmax(240px, 0.9fr)
+    minmax(500px, 2.2fr)
+    minmax(260px, 0.9fr);
   gap: var(--station-card-gap);
-  min-width: 0;
   align-items: start;
+  min-width: 0;
 }
 
-.cz-tier-workspace__primary {
-  min-width: 0;
+.cz-tier-workspace__primary,
+.cz-tier-workspace__focus {
+  display: contents;
+}
+
+.cz-tier-workspace__tabs {
+  grid-column: 1;
+}
+
+.cz-tier-workspace__detail {
+  grid-column: 2;
+}
+
+.cz-tier-workspace__family {
+  grid-column: 3;
+}
+
+/* Grid view and the empty-Tier message render directly inside __primary, so
+   under display:contents they are layout-grid items too. Hold them across the
+   primary area (columns 1–2), leaving the Family group in column 3. */
+.cz-tier-workspace__primary > .cz-cg-grid,
+.cz-tier-workspace__primary > .cz-station-empty {
+  grid-column: 1 / 3;
+}
+
+/* All three regions share one elevated-panel treatment so they read as equal
+   parts of a single engine, not a bare list beside two cards. */
+.cz-tier-workspace__tabs,
+.cz-tier-workspace__detail,
+.cz-tier-workspace__family {
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
 }
 
 .cz-tier-workspace__family {
@@ -1673,9 +1711,6 @@ button.cz-station-status-pill {
   gap: var(--station-card-gap);
   min-width: 0;
   padding: var(--station-card-pad);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface-elevated);
 }
 
 .cz-tier-workspace__family-summary {
@@ -1687,11 +1722,13 @@ button.cz-station-status-pill {
   border-top: 1px solid var(--station-card-divider);
 }
 
+/* Name and description stacked above the status pill rather than forced into a
+   narrow horizontal row with it. */
 .cz-tier-workspace__family-head {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--station-card-gap);
+  gap: 10px;
   min-width: 0;
 }
 
@@ -1711,17 +1748,25 @@ button.cz-station-status-pill {
   overflow-wrap: anywhere;
 }
 
+/* Clamp the positioning line so a long description never stretches the panel. */
 .cz-tier-workspace__family-description {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 0;
   color: var(--station-text-muted);
   font-size: var(--station-text-sm);
   line-height: var(--station-line-snug);
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
 }
 
 .cz-tier-workspace__family-metrics {
   display: flex;
   flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--station-card-divider);
 }
 
 .cz-tier-workspace__family-metrics > * {
@@ -1732,22 +1777,13 @@ button.cz-station-status-pill {
   border-top: 1px solid var(--station-card-divider);
 }
 
-/* Focus body — the vertical Tier tabs beside the one selected Tier's detail.
-   Together with the Family sibling above, this produces the requested reading
-   order: Tier tabs → focused Tier → Family group. */
-.cz-tier-workspace__focus {
-  display: grid;
-  grid-template-columns: minmax(190px, 0.82fr) minmax(0, 2.18fr);
-  gap: var(--station-card-gap);
-  align-items: start;
-}
-
 /* Left rail — a real vertical tablist rendered as a compact list of buttons. */
 .cz-tier-workspace__tabs {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
+  padding: var(--station-card-pad);
 }
 
 .cz-tier-workspace__panel-label {
@@ -1764,10 +1800,10 @@ button.cz-station-status-pill {
   flex-direction: column;
   gap: 4px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 14px;
   border: 1px solid var(--station-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-surface);
+  border-radius: var(--station-card-radius);
+  background: transparent;
   color: var(--station-text);
   font: inherit;
   text-align: start;
@@ -1786,8 +1822,9 @@ button.cz-station-status-pill {
 /* Selected tab — the accent-outline treatment the station uses for an active
    pill, not a filled hero. */
 .cz-tier-workspace__tab--selected {
-  border-color: var(--station-accent-border);
+  border-color: var(--station-accent);
   background: var(--station-accent-soft-bg);
+  box-shadow: inset 3px 0 0 var(--station-accent);
 }
 
 .cz-tier-workspace__tab-head {
@@ -1802,6 +1839,7 @@ button.cz-station-status-pill {
   min-width: 0;
   font-size: var(--station-text-sm);
   font-weight: 700;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
@@ -1840,27 +1878,33 @@ button.cz-station-status-pill {
   display: flex;
   flex-wrap: wrap;
   gap: 2px 10px;
+  margin-top: 3px;
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
   line-height: var(--station-line-snug);
 }
 
 /* Right — the one selected Tier's detail, an elevated panel echoing the card. */
+/* The focused Tier is the dominant panel: border/radius/background come from the
+   shared panel rule above; here it becomes an edge-to-edge stack of separated
+   regions (head, price, metrics, actions), each with its own padding and divider,
+   and fills the row height so it reads as the centre of the engine. */
 .cz-tier-workspace__detail {
   display: flex;
   flex-direction: column;
-  gap: var(--station-card-gap);
+  gap: 0;
   min-width: 0;
-  padding: var(--station-card-pad);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface-elevated);
+  min-height: 100%;
+  padding: 0;
+  overflow: hidden;
 }
 
 .cz-tier-workspace__detail-head {
   display: flex;
   align-items: flex-start;
   gap: var(--station-card-gap);
+  padding: 20px;
+  border-bottom: 1px solid var(--station-card-divider);
 }
 
 /* Mirrors the card medallion, so the detail reads as the same tier. */
@@ -1908,11 +1952,14 @@ button.cz-station-status-pill {
   overflow-wrap: anywhere;
 }
 
-/* The price line, carried straight from the occupant card's description. */
+/* The price line, carried straight from the occupant card's description, given
+   its own banded region below the header. */
 .cz-tier-workspace__detail-price {
   margin: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--station-card-divider);
   color: var(--station-text);
-  font-size: var(--station-text-sm);
+  font-size: var(--station-text-xl);
   font-weight: 600;
 }
 
@@ -1921,6 +1968,7 @@ button.cz-station-status-pill {
 .cz-tier-workspace__detail-metrics {
   display: flex;
   flex-direction: column;
+  padding-inline: 20px;
 }
 
 .cz-tier-workspace__detail-metrics > * {
@@ -1931,13 +1979,20 @@ button.cz-station-status-pill {
   border-top: 1px solid var(--station-card-divider);
 }
 
-/* The View/Edit control, anchored to the panel's bottom edge. */
+/* The View/Edit control, anchored to the panel's bottom edge in its own banded
+   region. */
 .cz-tier-workspace__detail-actions {
   display: flex;
   margin-top: auto;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--station-card-divider);
 }
 
 .cz-tier-workspace__detail-actions .cz-station-split,
 .cz-tier-workspace__detail-actions .cz-station-split__primary {
   flex: 1 1 auto;
+}
+
+.cz-tier-workspace__detail-actions .cz-station-split {
+  width: 100%;
 }

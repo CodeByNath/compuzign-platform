@@ -5,6 +5,32 @@
  * complete navigation source. The menu button, brand, and right-side controls
  * stay visible and accessible at every width. No bottom navigation is used. */
 
+/* Tier Workspace Engine — the three-column layout needs roughly 1020px for its
+   own minimums (240 + 500 + 260 plus gaps), so unlike the shell this component
+   earns an intermediate boundary. Below it, keep Tier Tabs beside the focused
+   Tier and drop the Family group to a full-width row beneath them, its scope and
+   summary side by side. The Grid view / empty message keep their base 1 / 3 span,
+   which is the full width of this two-column grid. */
+@media (max-width: 1100px) {
+  .cz-tier-workspace__layout {
+    grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr);
+  }
+
+  .cz-tier-workspace__tabs {
+    grid-column: 1;
+  }
+
+  .cz-tier-workspace__detail {
+    grid-column: 2;
+  }
+
+  .cz-tier-workspace__family {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  }
+}
+
 /* Home body gutters tighten at and below 767px. The breakpoint itself is a raw
    value because CSS custom properties are not valid in a media query prelude —
    the padding it applies is token-driven. */
@@ -35,12 +61,24 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* Tier Workspace Engine — the primary workspace stacks above the Package
-     Family group, while Focus stacks Tier tabs above the selected Tier. Hosted
-     in this existing shell breakpoint rather than a component-only boundary. */
-  .cz-tier-workspace__layout,
-  .cz-tier-workspace__focus {
+  /* Tier Workspace Engine — one column, preserving the desktop reading order:
+     Tier Tabs, then the focused Tier, then the Family group (reverted to a simple
+     vertical stack). The Grid view / empty message drop back to a single column
+     too, releasing the base 1 / 3 span. */
+  .cz-tier-workspace__layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cz-tier-workspace__tabs,
+  .cz-tier-workspace__detail,
+  .cz-tier-workspace__family,
+  .cz-tier-workspace__primary > .cz-cg-grid,
+  .cz-tier-workspace__primary > .cz-station-empty {
+    grid-column: 1;
+  }
+
+  .cz-tier-workspace__family {
+    display: flex;
   }
 
   .cz-service-stat:nth-child(odd) {

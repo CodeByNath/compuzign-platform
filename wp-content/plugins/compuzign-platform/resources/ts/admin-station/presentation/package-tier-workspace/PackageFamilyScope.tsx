@@ -35,8 +35,11 @@ export function PackageFamilyScope({ families, selectedId, onSelect }: Props): V
         {/* The placeholder is reachable only for an empty Family collection. */}
         <option value="" disabled>Select a Package Family…</option>
         {families.map((family) => (
+          // Name only: native <option> text cannot wrap, so a description here
+          // forces an oversized macOS dropdown. The description stays in the
+          // authoritative PackageFamilySummary beneath the selected Family.
           <option key={family.id} value={family.id}>
-            {family.description ? `${family.name} — ${family.description}` : family.name}
+            {family.name}
           </option>
         ))}
       </select>
