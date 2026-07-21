@@ -35,14 +35,16 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* Tier tool summary counts stack from three across to one, like the card grid
-     above — hosted in the same shell breakpoint rather than a new boundary. */
-  .cz-tier-workspace__summary-metrics {
+  /* Tier Workspace Engine — the lower split stacks (summary above the Family
+     selector) and the summary counts go from three across to one. Both are
+     hosted in this existing shell breakpoint rather than a new component
+     boundary, matching the card grid above. */
+  .cz-tier-workspace__split {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cz-tier-workspace__selector {
-    flex: 1 1 auto;
+  .cz-tier-workspace__summary-metrics {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .cz-service-stat:nth-child(odd) {

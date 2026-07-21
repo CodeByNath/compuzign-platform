@@ -147,7 +147,10 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     surfaceId: 'tier-tool',
     placement: 'presentation',
     order: 1,
-    title: 'Tier Tool',
+    // Wall heading for the engine section. Display copy only — the routing below
+    // (dataSourceKey, templateKitKey, drawerTemplateKey, actionIntents) is
+    // unchanged: this surface still owns only the Tier drawer.
+    title: 'Tier Workspace Engine',
     dataSourceKey: 'package-tier-workspace',
     templateKitKey: 'tier-workspace',
     conditions: { scope: 'current' },

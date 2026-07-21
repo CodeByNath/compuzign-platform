@@ -1,4 +1,13 @@
-// Package Station Tier tool — the Station-level Tier workspace kit.
+// Package Station Tier tool — the Tier Workspace Engine kit (orchestrator).
+//
+// One cohesive Station-level engine, composed from three small owned pieces:
+//
+//   Tier Workspace Engine
+//   ├── header intro       (the wall title carries the name; this is its blurb)
+//   ├── Row 1: Tier grid   (the selected Family's projected occupants, full width)
+//   └── Row 2: split
+//       ├── PackageFamilySummary     (read-only working scope — left, wider)
+//       └── PackageFamilyNavigation  (the real Family selector — right, narrower)
 //
 // A template kit like any other (it receives a collection + an intent dispatcher
 // and fetches nothing), but a STATEFUL one: it owns the selected Package Family,
@@ -7,9 +16,9 @@
 // writes NOTHING. It is working scope, never tool ownership and never Tier
 // persistence.
 //
-//   select a Package Family
-//     → its authoritative summary (Services / Rate Sheet rows / Tier selections)
-//       → the Tier occupants connected to it (the projected cards)
+//   select a Package Family (Row 2, right)
+//     → its authoritative summary (Row 2, left)
+//       → the Tier occupants connected to it (Row 1 cards)
 //         → View / Edit dispatches the occupant_id to the mature Tier drawer
 //
 // The data source (usePackageTierWorkspace) supplies every Family with its
@@ -22,42 +31,19 @@ import type { VNode } from 'preact';
 import type { TemplateKitProps } from '../templateKits';
 import type { PackageTierWorkspaceFamily } from '../../stations/packageTierWorkspace/projection';
 import { CategoryGroupCardGrid } from '../category-groups/CategoryGroupCardGrid';
-import { StationStatusPill } from '../StationStatusPill';
-import { StationMetricBlock } from '../StationMetricBlock';
-import { ServicesIcon, RateSheetIcon, TiersIcon } from '../../shell/icons';
+import { PackageFamilySummary } from './PackageFamilySummary';
+import { PackageFamilyNavigation } from './PackageFamilyNavigation';
 
-// The two empty states are the product's exact copy: one before a Family is
-// chosen, one for a chosen Family that projects no Tier occupants.
-const NO_FAMILY_MESSAGE = 'Select a Package Family to view its Tier configuration.';
-const NO_TIERS_MESSAGE  = 'No Tier selections are currently available for this Package Family.';
+// The engine's own copy. The wall title ("Tier Workspace Engine") is the
+// heading; this is the concise Station-level description beneath it.
+const ENGINE_DESCRIPTION = 'Station-level workspace for previewing and managing package tiers.';
 
-/** The selected-Family summary — authoritative counts, shown as-is. */
-function FamilyScopeSummary({ family }: { family: PackageTierWorkspaceFamily }): VNode {
-  return (
-    <section class="cz-tier-workspace__summary" aria-label={`${family.name} working scope`}>
-      <header class="cz-tier-workspace__summary-head">
-        <div class="cz-tier-workspace__summary-identity">
-          <h4 class="cz-tier-workspace__summary-name">{family.name}</h4>
-          {family.description && (
-            <p class="cz-tier-workspace__summary-kind">{family.description}</p>
-          )}
-        </div>
-        <StationStatusPill status={family.status} />
-      </header>
-      <div class="cz-tier-workspace__summary-metrics">
-        <StationMetricBlock
-          metric={{ id: 'services', label: 'Connected Services', value: family.dependents.services, icon: ServicesIcon }}
-        />
-        <StationMetricBlock
-          metric={{ id: 'rate-sheet-rows', label: 'Rate Sheet rows', value: family.dependents.rate_sheet_rows, icon: RateSheetIcon }}
-        />
-        <StationMetricBlock
-          metric={{ id: 'tier-selections', label: 'Tier selections', value: family.dependents.tier_selections, icon: TiersIcon }}
-        />
-      </div>
-    </section>
-  );
-}
+// The product's exact empty-state copy: one before a Family is chosen (for the
+// Tier row and the summary side), and one for a chosen Family that projects no
+// Tier occupants.
+const NO_FAMILY_TIERS_MESSAGE   = 'Select a Package Family to view its Tier configuration.';
+const NO_TIERS_MESSAGE          = 'No Tier selections are currently available for this Package Family.';
+const NO_FAMILY_SUMMARY_MESSAGE = 'Select a Package Family to see its working scope.';
 
 export function PackageTierWorkspace({ items, loading, error, onIntent }: TemplateKitProps): VNode {
   // The registry widens items to unknown[]; the binding guarantees the paired
@@ -74,7 +60,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   );
 
   if (loading) {
-    return <p class="cz-station-empty" aria-busy="true">Loading the Tier tool…</p>;
+    return <p class="cz-station-empty" aria-busy="true">Loading the Tier Workspace Engine…</p>;
   }
   if (error) {
     return <p class="cz-station-empty" role="alert">{error}</p>;
@@ -82,39 +68,33 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
 
   return (
     <div class="cz-tier-workspace">
-      <div class="cz-tier-workspace__bar">
-        <label class="cz-tier-workspace__selector">
-          <span class="cz-tier-workspace__selector-label">Package Family</span>
-          <select
-            class="cz-tier-workspace__select"
-            value={selectedFamilyId ?? ''}
-            onChange={(event) => {
-              const value = (event.currentTarget as HTMLSelectElement).value;
-              setSelectedFamilyId(value === '' ? null : value);
-            }}
-          >
-            <option value="">Select a Package Family…</option>
-            {families.map((family) => (
-              <option key={family.id} value={family.id}>
-                {family.description ? `${family.name} — ${family.description}` : family.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <p class="cz-tier-workspace__intro">{ENGINE_DESCRIPTION}</p>
 
+      {/* Row 1 — the selected Family's projected Tier occupants, full width,
+          through the shared card grid and the mature Tier-occupant card. */}
       {selected === null ? (
-        <p class="cz-station-empty">{NO_FAMILY_MESSAGE}</p>
+        <p class="cz-station-empty">{NO_FAMILY_TIERS_MESSAGE}</p>
       ) : (
-        <>
-          <FamilyScopeSummary family={selected} />
-          <CategoryGroupCardGrid
-            items={selected.occupants}
-            onAction={(event) => onIntent(event.cardId, event.actionId)}
-            emptyMessage={NO_TIERS_MESSAGE}
-          />
-        </>
+        <CategoryGroupCardGrid
+          items={selected.occupants}
+          onAction={(event) => onIntent(event.cardId, event.actionId)}
+          emptyMessage={NO_TIERS_MESSAGE}
+        />
       )}
+
+      {/* Row 2 — read-only Family summary beside the Family selector. */}
+      <div class="cz-tier-workspace__split">
+        {selected === null ? (
+          <p class="cz-station-empty cz-tier-workspace__summary-empty">{NO_FAMILY_SUMMARY_MESSAGE}</p>
+        ) : (
+          <PackageFamilySummary family={selected} />
+        )}
+        <PackageFamilyNavigation
+          families={families}
+          selectedId={selectedFamilyId}
+          onSelect={setSelectedFamilyId}
+        />
+      </div>
     </div>
   );
 }

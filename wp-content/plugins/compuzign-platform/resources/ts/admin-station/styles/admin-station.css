@@ -1543,12 +1543,14 @@ button.cz-station-status-pill {
   }
 }
 
-/* ── Package Station Tier tool ─────────────────────────────────────────── */
+/* ── Package Station Tier Workspace Engine ─────────────────────────────── */
 
-/* The Station-level Tier workspace: a Package Family selector, the selected
-   Family's authoritative summary, and the Tier occupants projected into its
-   scope (rendered through the shared card grid, whose own styles this reuses).
-   Selection is transient view state; the surface writes nothing. */
+/* One cohesive Station-level engine: a concise header, the selected Family's
+   projected Tier occupants (Row 1, full width, through the shared card grid),
+   and a lower split row pairing the read-only Family summary with the Package
+   Family selector. Selection is transient view state; the surface writes
+   nothing. Everything here is drawn from the Admin Station tokens — no glow, no
+   second theme, no neon: the mockup's hierarchy in the station's own language. */
 .cz-tier-workspace {
   display: flex;
   flex-direction: column;
@@ -1556,49 +1558,58 @@ button.cz-station-status-pill {
   min-width: 0;
 }
 
-.cz-tier-workspace__bar {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: var(--station-grid-gap);
+/* Engine header — the wall title carries the name; this is its one-line intro. */
+.cz-tier-workspace__intro {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: var(--station-line-snug);
 }
 
-.cz-tier-workspace__selector {
+/* Lower split — the read-only summary (wider) beside the Family selector
+   (narrower), ~66% / ~33%. Both columns floor at 0 so neither panel can force
+   horizontal overflow; the grid stacks at the shell breakpoint
+   (admin-station-responsive.css). */
+.cz-tier-workspace__split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--station-card-gap);
+  align-items: start;
+}
+
+/* Shared panel language for the two lower panels — one elevated surface echoing
+   the card family, so summary and selector read as the same system. */
+.cz-tier-workspace__summary,
+.cz-tier-workspace__summary-empty,
+.cz-tier-workspace__nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  flex: 0 1 320px;
+  gap: var(--station-card-gap);
   min-width: 0;
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
 }
 
-.cz-tier-workspace__selector-label {
+/* The no-selection placeholder fills the summary side so the split stays even. */
+.cz-tier-workspace__summary-empty {
+  align-items: center;
+  justify-content: center;
+  min-height: 132px;
+  text-align: center;
+}
+
+/* Small uppercase eyebrow naming each lower panel (Family Summary / Package
+   Family), matching the station's other label treatments. */
+.cz-tier-workspace__panel-title {
+  margin: 0;
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
   font-weight: 700;
   letter-spacing: var(--station-tracking-wide);
   text-transform: uppercase;
-}
-
-.cz-tier-workspace__select {
-  min-height: var(--station-control-height);
-  padding-inline: var(--station-control-pad-x);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-surface-elevated);
-  color: var(--station-text);
-  font: inherit;
-  font-size: var(--station-text-sm);
-}
-
-/* The selected-Family summary — one elevated surface echoing the card family. */
-.cz-tier-workspace__summary {
-  display: flex;
-  flex-direction: column;
-  gap: var(--station-card-gap);
-  padding: var(--station-card-pad);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface-elevated);
 }
 
 .cz-tier-workspace__summary-head {
@@ -1635,9 +1646,85 @@ button.cz-station-status-pill {
   overflow-wrap: anywhere;
 }
 
-/* Three authoritative counts, divided like the overview stat strip. */
+/* Three authoritative counts, laid out like the overview stat strip. */
 .cz-tier-workspace__summary-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--station-card-gap);
+}
+
+/* Package Family selector — a real radiogroup rendered as a compact vertical
+   list of buttons (role=radio). The mark below is decorative; the semantics
+   live in each option's aria-checked. */
+.cz-tier-workspace__nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cz-tier-workspace__nav-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-card-gap);
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface);
+  color: var(--station-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.cz-tier-workspace__nav-option:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-tier-workspace__nav-option:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Selected option — the accent-outline treatment the station uses for an active
+   pill, not a filled hero. */
+.cz-tier-workspace__nav-option--selected {
+  border-color: var(--station-accent-border);
+  background: var(--station-accent-soft-bg);
+}
+
+.cz-tier-workspace__nav-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cz-tier-workspace__nav-option-name {
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.cz-tier-workspace__nav-option-kind {
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  overflow-wrap: anywhere;
+}
+
+/* Decorative selection dot — accent-filled only on the checked option, absent
+   otherwise (no empty ring, so it reads as a selected list item, not a faked
+   radio input). The button's aria-checked remains the source of truth. */
+.cz-tier-workspace__nav-option-mark {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--station-pill-radius);
+  background: transparent;
+}
+
+.cz-tier-workspace__nav-option--selected .cz-tier-workspace__nav-option-mark {
+  background: var(--station-accent);
 }

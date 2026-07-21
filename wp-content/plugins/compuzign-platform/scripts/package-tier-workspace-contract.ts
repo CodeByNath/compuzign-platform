@@ -12,6 +12,7 @@ import {
   type WorkspaceFamilyScope,
   type WorkspaceOccupant,
 } from '../resources/ts/admin-station/stations/packageTierWorkspace/projection';
+import { buildFamilySummary } from '../resources/ts/admin-station/stations/packageTierWorkspace/familySummary';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Package Tier workspace contract: ${message}`);
@@ -92,5 +93,24 @@ check(kairos.occupants.every((o) => o.id.startsWith('occ_')), 'projected cards k
 
 // The authoritative summary is passed through untouched — never re-derived here.
 check(kairos.dependents.tier_selections === 2, 'the authoritative Family dependents summary is preserved as-is');
+
+// ── Family summary model ──────────────────────────────────────────────────────
+// The read-only summary panel shows the family's own fields only — name,
+// description-as-positioning, authoritative status, and exactly the three
+// authoritative dependents. This guards against a fabricated field (estimated
+// margin, demand score, "last updated") ever entering the summary.
+const summary = buildFamilySummary(families[0]); // KAIROS
+
+check(summary.name === 'KAIROS', 'summary carries the family name unchanged');
+check(summary.positioning === 'IaaS', 'summary positioning is the family description, shown as-is');
+check(summary.status === 'active', 'summary carries the authoritative family status');
+check(summary.metrics.length === 3, 'summary shows exactly three metrics — no invented figure is added');
+check(
+  summary.metrics.map((metric) => metric.id).join(',') === 'services,rate-sheet-rows,tier-selections',
+  'summary metrics are the three authoritative dependents, in order',
+);
+check(summary.metrics[0].value === 1, 'connected Services is dependents.services, passed through');
+check(summary.metrics[1].value === 1, 'Rate Sheet rows is dependents.rate_sheet_rows, passed through');
+check(summary.metrics[2].value === 2, 'Tier selections is dependents.tier_selections, never re-derived');
 
 console.log('Package Tier workspace contract checks passed.');
