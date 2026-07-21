@@ -5,8 +5,9 @@
 // old entity registry, the old station registry, the Station Manager
 // registry, relation providers, or any old admin navigation state.
 //
-// Destination pages are not built yet: selecting an item only updates the
-// active-destination state and the Body stays empty.
+// Navigation selects the active station. AdminStationBody resolves that station's
+// ordered presentation composition; some destination metadata remains declarative
+// or reserved.
 
 import type { ComponentType } from 'preact';
 import { ServicesIcon, PackagesIcon, PromotionsIcon } from '../shell/icons';
@@ -18,8 +19,8 @@ export interface StationNavItem {
   label: string;
   // Glyph from the Admin Station icon set (repository SVG icon system).
   icon: ComponentType<{ class?: string }>;
-  // Target / activation key. Reserved for future routing; selecting an item
-  // sets this as the active destination. No page is mounted yet.
+  // Target / activation key. Reserved for future routing; selecting an item sets
+  // this as the active destination for AdminStationBody to resolve.
   activationKey: string;
   // Whether the item appears as a Header pill.
   showInHeader: boolean;

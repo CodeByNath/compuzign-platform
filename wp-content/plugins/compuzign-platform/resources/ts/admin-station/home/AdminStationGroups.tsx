@@ -70,13 +70,9 @@ export function AdminStationGroups({ groups }: Props) {
   }, [groups, activeId]);
 
   // An empty collection renders no tablist: a tablist with no tab is invalid
-  // semantics, and the shell must not invent a default group to fill it.
+  // semantics, and an omitted optional region must add no empty-state copy.
   if (groups.length === 0) {
-    return (
-      <section class="cz-station-groups">
-        <p class="cz-station-empty">No station groups have been configured.</p>
-      </section>
-    );
+    return null;
   }
 
   return (

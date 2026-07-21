@@ -1,12 +1,12 @@
 // Admin Station Home — the shell contract.
 //
-// This is a station-agnostic template. The Home shell owns layout, bounded
-// presentation height, overflow, active-group state, and accessibility. It owns
-// no station business state and imports no station module: everything it renders
-// arrives through the two contracts below.
+// This is a station-agnostic template. The Home shell owns layout, active-group
+// selection, and accessibility. It owns no station business state and imports no
+// station module: everything it renders arrives through the two contracts below.
 //
-// No station is connected yet. Future stations supply a presentation and a group
-// collection; the shell renders whatever it is handed, in the supplied order.
+// Navigation selects the active station. AdminStationBody resolves that station's
+// ordered presentation composition; an optional group collection is rendered only
+// when supplied.
 
 import type { ComponentType, VNode } from 'preact';
 

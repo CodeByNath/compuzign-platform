@@ -61,8 +61,8 @@ export interface StationDestination {
 // navigation (Services / Packages / Promotions) to its landing destination. Each
 // lands in the body as a current-scope catalog (mode 'table'); archived,
 // presentation, and drawer destinations for these stations arrive as those
-// surfaces are built. stationId / surfaceId address lean registrations that do
-// not exist yet — declaration only, nothing mounts from these today.
+// surfaces are built. `stationId` selects the active station composition today;
+// the remaining destination metadata is declarative or reserved.
 export const STATION_DESTINATIONS: StationDestination[] = [
   { id: 'services',   stationId: 'services',   surfaceId: 'catalog', placement: 'body', mode: 'table', conditions: { scope: 'current' } },
   { id: 'packages',   stationId: 'packages',   surfaceId: 'catalog', placement: 'body', mode: 'table', conditions: { scope: 'current' } },

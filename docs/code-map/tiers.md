@@ -38,7 +38,7 @@ The Family is filter/scope only: it never owns Tier records, never gains a per-F
 
 ## Validation
 
-From the plugin root: `php tests/tier-occupant-compatibility.php`, `node scripts/tier-occupant-admin-contract.ts`, `node scripts/package-tier-workspace-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-occupant-compatibility.php`, `npm run contract:tier-occupant-admin`, `npm run contract:package-tier-workspace`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 
