@@ -36,7 +36,7 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 
 - [coordinator.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/coordinator.ts) owns provider-neutral state and validation.
 - [usePageManagerShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/usePageManagerShell.tsx) supplies the shared page footer and dirty-navigation adapter used by station hosts.
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package Station client state and mutations.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package Station client state and mutations, including the Rate Sheet commands (`updateRateSheetRow`, `initialiseRateSheet`, `createRateSheetGroup`) composed over the existing manager endpoint with pure transforms from [packageRateSheetRow.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/packageRateSheetRow.ts).
 - [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageFamilyStation.ts) is the Package Family client write boundary: overview save/revert/settle, publish, enable/disable, archive/trash/restore, delete, module state, and mutation notification.
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/tierOccupants.ts) projects occupants and resolves them to slots.
 
@@ -62,6 +62,7 @@ Adapts Package Station data into drafts, validation, saves, summaries, and conti
 ## Validation
 
 - [manager-coordinator-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/manager-coordinator-contract.ts)
+- [rate-sheet-row-command-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/rate-sheet-row-command-contract.ts)
 - [package-manager-schema.php](../../wp-content/plugins/compuzign-platform/tests/package-manager-schema.php)
 - [package-category-groups.php](../../wp-content/plugins/compuzign-platform/tests/package-category-groups.php)
 - [tier-occupant-admin-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/tier-occupant-admin-contract.ts)

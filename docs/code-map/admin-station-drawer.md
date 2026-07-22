@@ -1,6 +1,6 @@
 # Admin Station Drawer
 
-The Admin Station has one entity-agnostic drawer shell. Package Family, Category, Service, and Tier provide registered compositions inside it; none creates another shell or imports Command Centre routing.
+The Admin Station has one entity-agnostic drawer shell. Package Family, Category, Service, Tier, and Rate Sheet row provide registered record compositions inside it, and three registered creation surfaces (Package Family, Rate Sheet setup, Rate Sheet group) serve the Tier Workspace Settings tab; none creates another shell or imports Command Centre routing.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
@@ -21,23 +21,26 @@ The shell owns header, scrolling body, footer slot, backdrop/Escape/header close
 
 ## Authoritative files
 
-- `stations/drawers/drawerTypes.ts` — `DrawerTemplateKey` (`package-family | category | service | tier`), opaque `StationRecordId`, opening mode, footer/guard bridge props.
-- `stations/drawers/drawerRegistry.tsx` — the four declarative registrations plus load-time well-formedness guard.
+- `stations/drawers/drawerTypes.ts` — `DrawerTemplateKey` (`package-family | category | service | tier | rate-sheet-row` plus the `package-family-create | rate-sheet-setup | rate-sheet-group-create` creation keys), opaque `StationRecordId`, opening mode, footer/guard bridge props.
+- `stations/drawers/drawerRegistry.tsx` — the declarative registrations plus load-time well-formedness guard.
 - `shell/drawer/AdminStationDrawerContext.tsx` — one open record and the originating wall refresh handle.
 - `shell/drawer/AdminStationDrawer.tsx` — the single shell and close path.
-- `stations/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
+- `stations/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition. `PackageFamilyCreateDrawerHost.tsx` wires the creation endpoint command into the neutral create form.
 - `stations/serviceCategory/CategoryDrawerHost.tsx` — numeric Category id adapter plus assigned-Service projection.
 - `stations/serviceSurface/ServiceDrawerHost.tsx` — numeric Service id adapter.
 - `stations/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
+- `stations/packageTierWorkspace/RateSheetRowDrawerHost.tsx` — string Rate Sheet row `item_id` adapter; resolves exactly one sheet row plus relationship/group provenance and passes `usePackageStation.updateRateSheetRow` into the neutral composition. `RateSheetSetupDrawerHost.tsx` / `RateSheetGroupCreateDrawerHost.tsx` wire the station's `initialiseRateSheet` / `createRateSheetGroup` commands; creation surfaces ignore the dispatched recordId.
 
 ## Shared mature compositions
 
 The shell adapters mount these host-neutral implementations from `resources/ts/entity-drawers/`:
 
-- `package-family/PackageFamilyDrawerContent.tsx`
+- `package-family/PackageFamilyDrawerContent.tsx` (and `PackageFamilyCreateContent.tsx`)
 - `category/CategoryDrawerContent.tsx`
 - `service/ServiceDrawerContent.tsx`
 - `tier/TierDrawerContent.tsx`
+- `rate-sheet-row/RateSheetRowDrawerContent.tsx` — the recovered mature row editor: read-only provenance, editable unit price / per / quantity / group, dirty-guarded close, saved state without auto-close.
+- `rate-sheet/RateSheetSetupContent.tsx` and `rate-sheet/RateSheetGroupCreateContent.tsx` — singleton sheet initialisation and sheet-group creation forms.
 
 All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable. Command Centre mounts the same compositions through thin `StepContext → EntityDrawerHostBridge` adapters.
 
@@ -48,6 +51,7 @@ Category mutations stay in `useCategoryStation`; Package Family mutations stay i
 - Package Family: native string `group_id`.
 - Category and Service: native numeric ids.
 - Tier: stable string `occupant_id`, never the reassignable slot.
+- Rate Sheet row: the row's own string `item_id` — never a Tier `occupant_id`, slot id, or relationship `source_item_id`; guarded by [rate-sheet-row-drawer-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/rate-sheet-row-drawer-contract.ts).
 - No adapter parses, stringifies, or numerically coerces an id.
 - Compositions advance local records from mutation responses; `onSaved` refreshes only the wall that opened the drawer, avoiding body flashes.
 
@@ -59,7 +63,7 @@ Browser runtime remains unverified where no WordPress runtime is available.
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:rate-sheet-row-drawer`, and `npm run docs:check`.
 
 ## Related Code Maps
 

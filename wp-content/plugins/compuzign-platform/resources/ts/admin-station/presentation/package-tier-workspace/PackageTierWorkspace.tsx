@@ -44,6 +44,7 @@ import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierNavigation } from './TierNavigation';
 import { TierDetailPanel } from './TierDetailPanel';
+import { TierLowerWorkspace } from './TierLowerWorkspace';
 
 // The engine's own copy. The wall title ("Tier Workspace Engine") is the
 // heading; this is the concise Station-level description beneath it.
@@ -83,6 +84,14 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   const selectedTier = useMemo(
     () => occupants.find((occupant) => occupant.id === selectedTierId) ?? occupants[0] ?? null,
     [occupants, selectedTierId],
+  );
+
+  // The SAME focused Tier as its full workspace occupant (card + resolved
+  // selections) for the lower deck — one selection, two read shapes, never a
+  // second selection state.
+  const focusedOccupant = useMemo(
+    () => selectedFamily?.connected.find((occupant) => occupant.occupantId === selectedTier?.id) ?? null,
+    [selectedFamily, selectedTier],
   );
 
   if (loading) {
@@ -158,6 +167,17 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             <PackageFamilySummary family={selectedFamily} />
           </aside>
         </div>
+      )}
+
+      {/* The lower connected workspace (Details | Connections | Settings) —
+          the same focused Family and Tier, projected into the Rate Sheet deck.
+          Present in both view modes; it reads the one selection above. */}
+      {selectedFamily !== null && (
+        <TierLowerWorkspace
+          family={selectedFamily}
+          occupant={focusedOccupant}
+          onIntent={onIntent}
+        />
       )}
     </div>
   );

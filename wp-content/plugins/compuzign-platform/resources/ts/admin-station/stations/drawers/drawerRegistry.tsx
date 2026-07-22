@@ -15,9 +15,13 @@
 // value-import the content without a cycle back through it.
 
 import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawerContent';
+import { PackageFamilyCreateDrawerHost } from '../packageFamily/PackageFamilyCreateDrawerHost';
 import { CategoryDrawerHost } from '../serviceCategory/CategoryDrawerHost';
 import { ServiceDrawerHost } from '../serviceSurface/ServiceDrawerHost';
 import { TierDrawerHost } from '../tierSurface/TierDrawerHost';
+import { RateSheetRowDrawerHost } from '../packageTierWorkspace/RateSheetRowDrawerHost';
+import { RateSheetSetupDrawerHost } from '../packageTierWorkspace/RateSheetSetupDrawerHost';
+import { RateSheetGroupCreateDrawerHost } from '../packageTierWorkspace/RateSheetGroupCreateDrawerHost';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
 
 export type { DrawerMode, DrawerTemplateKey, DrawerContentProps, DrawerContent, DrawerTemplateRegistration } from './drawerTypes';
@@ -56,6 +60,37 @@ export const DRAWER_TEMPLATES: Record<DrawerTemplateKey, DrawerTemplateRegistrat
     title:          'Package Tier',
     supportedModes: ['view', 'edit'],
     content:        TierDrawerHost,
+  },
+  // One Rate Sheet row of the Package Station's singleton sheet, keyed by the
+  // row's own string item_id (never a Tier occupant_id or a relationship
+  // source_item_id). The recovered mature row editor behaviour, mounted through
+  // the Package-Station-owned host adapter.
+  'rate-sheet-row': {
+    key:            'rate-sheet-row',
+    title:          'Rate Sheet Row',
+    supportedModes: ['view', 'edit'],
+    content:        RateSheetRowDrawerHost,
+  },
+  // Creation surfaces (Tier Workspace Settings). Each names no existing record
+  // — the content ignores the dispatched recordId — and supports only 'edit'
+  // because a create form has no read-only tab.
+  'package-family-create': {
+    key:            'package-family-create',
+    title:          'New Package Family',
+    supportedModes: ['edit'],
+    content:        PackageFamilyCreateDrawerHost,
+  },
+  'rate-sheet-setup': {
+    key:            'rate-sheet-setup',
+    title:          'Rate Sheet Setup',
+    supportedModes: ['edit'],
+    content:        RateSheetSetupDrawerHost,
+  },
+  'rate-sheet-group-create': {
+    key:            'rate-sheet-group-create',
+    title:          'New Rate Sheet Group',
+    supportedModes: ['edit'],
+    content:        RateSheetGroupCreateDrawerHost,
   },
 };
 

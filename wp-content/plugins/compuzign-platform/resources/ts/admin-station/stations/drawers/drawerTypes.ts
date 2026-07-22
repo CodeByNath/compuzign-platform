@@ -13,8 +13,18 @@ import type { StationRecordId } from '../recordIdentity';
 export type DrawerMode = 'view' | 'edit';
 
 // Registered drawer template keys. A string-literal union so a binding and an
-// intent can only name a template the registry actually defines.
-export type DrawerTemplateKey = 'package-family' | 'category' | 'service' | 'tier';
+// intent can only name a template the registry actually defines. The
+// `-create` / `-setup` keys open creation surfaces: they name no existing
+// record, so their content ignores the dispatched recordId.
+export type DrawerTemplateKey =
+  | 'package-family'
+  | 'category'
+  | 'service'
+  | 'tier'
+  | 'rate-sheet-row'
+  | 'package-family-create'
+  | 'rate-sheet-setup'
+  | 'rate-sheet-group-create';
 
 // What the shell hands a template's content: the record identity that drove the
 // intent — exactly as the card carried it — plus the active tab and a close

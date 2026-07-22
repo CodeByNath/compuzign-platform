@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import {
   fetchServicePackageStation,
+  fetchPackageStationManager,
+  savePackageStationManager,
   saveServicePackageStationTierModule,
   revertServicePackageStationTierModule,
   settleServicePackageStationTier,
@@ -28,6 +30,8 @@ import type {
   OccupantBinEntry,
   TierModuleKey,
   TierRateSheetSelection,
+  PackageManagerReadModel,
+  PackageRateSheet,
 } from '@/api/types/admin';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
@@ -40,6 +44,17 @@ import {
 } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from './stationPrimitives';
+import {
+  applyRateSheetRowPatch,
+  appendRateSheetGroup,
+  initialRateSheet,
+  managerItemDecisions,
+} from './packageRateSheetRow';
+import type {
+  RateSheetRowPatch,
+  RateSheetCommandResult,
+  RateSheetTransformResult,
+} from './packageRateSheetRow';
 import { deriveTierOccupants, resolveTierOccupantSlot } from '@/entity-drawers/shared/tierOccupants';
 import type { TierOccupant } from '@/entity-drawers/shared/tierOccupants';
 import { relationshipDisplayLabel } from '@/entity-drawers/shared/rateSheetLabels';
@@ -163,6 +178,18 @@ export interface PackageStation {
   // saveTierFeatures/saveTierFaqs — these do not touch any tier draft themselves.
   createInclusion: (label: string) => Promise<InclusionItem | null>;
   createFaq:       (question: string, answer: string) => Promise<FaqItem | null>;
+  // ── Rate Sheet commands ───────────────────────────────────────────────────
+  // The smallest station-owned mutation seam over the EXISTING manager
+  // authority (POST …/package-station/manager). Each command loads fresh
+  // authoritative manager state (the station read carries no sources or
+  // relationship groups), transforms ONLY the Rate Sheet through the pure
+  // packageRateSheetRow module, resends sources / groups / persisted item
+  // decisions verbatim, saves atomically, and advances this hook's read model
+  // from the authoritative response. No silent fallback: every outcome is a
+  // typed RateSheetCommandResult.
+  updateRateSheetRow:   (rowId: string, patch: RateSheetRowPatch) => Promise<RateSheetCommandResult>;
+  initialiseRateSheet:  (title: string) => Promise<RateSheetCommandResult>;
+  createRateSheetGroup: (label: string) => Promise<RateSheetCommandResult>;
   refetch:          () => void;
 }
 
@@ -448,6 +475,72 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, onRefresh]);
 
+  // ── Rate Sheet commands (station-owned manager seam) ──────────────────────
+  // One round-trip shape for every Rate Sheet command: fresh manager load →
+  // pure transform of the sheet only → atomic complete-configuration save →
+  // advance rate_sheet + package_relationships from the authoritative response
+  // (tierView pricing and resolution recompute from them without a refetch).
+  const runRateSheetCommand = useCallback(async (
+    transform: (rateSheet: PackageRateSheet | null) => RateSheetTransformResult,
+  ): Promise<RateSheetCommandResult> => {
+    setSaving(true);
+    try {
+      let manager: PackageManagerReadModel;
+      try {
+        const load = await fetchPackageStationManager(serviceId);
+        if (!load.success) {
+          return { ok: false, code: 'load-failed', message: 'Could not load the Package Manager configuration.' };
+        }
+        manager = load.manager;
+      } catch {
+        return { ok: false, code: 'load-failed', message: 'Could not load the Package Manager configuration.' };
+      }
+
+      const transformed = transform(manager.rate_sheet);
+      if (!transformed.ok) return transformed;
+
+      try {
+        const res = await savePackageStationManager(serviceId, {
+          sources:        manager.sources,
+          groups:         manager.groups,
+          item_decisions: managerItemDecisions(manager.items),
+          rate_sheet:     transformed.rateSheet,
+        });
+        if (!res.success) {
+          return { ok: false, code: 'save-failed', message: res.message || 'Could not save the Rate Sheet change.' };
+        }
+        setDetail(prev => prev ? {
+          ...prev,
+          service: {
+            ...prev.service,
+            rate_sheet:            res.manager.rate_sheet,
+            package_relationships: res.manager.items,
+          },
+        } : prev);
+        onRefresh?.();
+        return { ok: true };
+      } catch {
+        return { ok: false, code: 'save-failed', message: 'Could not save the Rate Sheet change.' };
+      }
+    } finally { setSaving(false); }
+  }, [serviceId, onRefresh]);
+
+  const updateRateSheetRow = useCallback(
+    (rowId: string, patch: RateSheetRowPatch) =>
+      runRateSheetCommand((sheet) => applyRateSheetRowPatch(sheet, rowId, patch)),
+    [runRateSheetCommand],
+  );
+
+  const initialiseRateSheet = useCallback(
+    (title: string) => runRateSheetCommand((sheet) => initialRateSheet(sheet, title)),
+    [runRateSheetCommand],
+  );
+
+  const createRateSheetGroup = useCallback(
+    (label: string) => runRateSheetCommand((sheet) => appendRateSheetGroup(sheet, label)),
+    [runRateSheetCommand],
+  );
+
   const createFaq = useCallback(async (question: string, answer: string): Promise<FaqItem | null> => {
     setSaving(true);
     try {
@@ -492,6 +585,9 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     deleteBinEntry,
     createInclusion,
     createFaq,
+    updateRateSheetRow,
+    initialiseRateSheet,
+    createRateSheetGroup,
     refetch:        load,
   };
 }

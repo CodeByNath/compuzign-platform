@@ -21,6 +21,7 @@ import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { usePackageStation } from '@/hooks/usePackageStation';
 import { fetchPackageFamilies } from '@/api/endpoints/admin';
+import { relationshipDisplayLabel } from '@/entity-drawers/shared/rateSheetLabels';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
@@ -33,6 +34,7 @@ import {
   type WorkspaceFamilyScope,
   type WorkspaceOccupant,
 } from './projection';
+import type { WorkspaceStationContext } from './rateSheetProjection';
 
 export interface PackageTierWorkspaceResult {
   items:   PackageTierWorkspaceFamily[];
@@ -57,9 +59,10 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       pkg.service?.package_relationships ?? [],
     );
 
-    // The shared Tier occupants, each with the card the grid renders and the
-    // Services its selections resolve to. Empty shells are already absent from
-    // `tierOccupants`, so no placeholder occupant is ever created here.
+    // The shared Tier occupants, each with the card the grid renders, the
+    // Services its selections resolve to, and the resolved selections tierView
+    // computed (the lower deck's Details base). Empty shells are already absent
+    // from `tierOccupants`, so no placeholder occupant is ever created here.
     const occupants: WorkspaceOccupant[] = pkg.tierOccupants.map(({ occupantId, slotId }) => {
       const view = pkg.tierView(slotId);
       return {
@@ -69,8 +72,29 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
           (view?.detail.rate_sheet_items ?? []).map((selection) => selection.item_id),
           serviceByRateItem,
         ),
+        selections: view?.detail.rate_sheet_selections ?? [],
       };
     });
+
+    // The station-level read context the lower workspace consumes: the one Rate
+    // Sheet configuration, and each relationship with its display label and
+    // Service provenance already resolved (the same label rule tierView uses).
+    const station: WorkspaceStationContext = {
+      serviceId:    pkg.service?.id ?? null,
+      serviceTitle: pkg.service?.title ?? null,
+      rateSheet:    pkg.service?.rate_sheet ?? null,
+      relationships: (pkg.service?.package_relationships ?? []).map((item) => ({
+        item_id:              item.item_id,
+        source_type:          item.source_type,
+        source_id:            item.source_id,
+        label:                relationshipDisplayLabel(item),
+        missing:              item.missing,
+        disabled:             item.disabled,
+        source_service_id:    item.source_service_id ?? null,
+        source_service_title: item.source_service_title ?? null,
+        source_categories:    item.source_categories ?? [],
+      })),
+    };
 
     // Package Families as WORKING SCOPE: native id, authoritative summary, and the
     // authoritative Service relationship. Never a tier owner.
@@ -85,7 +109,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       }),
     );
 
-    return projectFamilyTierWorkspace(familyScopes, occupants);
+    return projectFamilyTierWorkspace(familyScopes, occupants, station);
   }, [
     families.data,
     pkg.service,
