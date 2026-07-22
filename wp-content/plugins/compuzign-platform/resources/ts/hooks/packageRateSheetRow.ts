@@ -132,6 +132,12 @@ export function applyRateSheetRowPatch(
  * existing sheet (the station models ONE Rate Sheet configuration, never a
  * catalogue of them) and requires a title, because the backend sanitizer drops
  * a fully-empty sheet back to null.
+ *
+ * The submitted shape carries no rows DELIBERATELY: row materialisation is the
+ * manager commit's own authority (PackageManagerSchema::commitConfiguration
+ * appends a row per live relationship item at the domain defaults), so the
+ * configured sheet the save returns already carries its connected rows.
+ * Restating that rule here would be a second implementation of it.
  */
 export function initialRateSheet(
   current: PackageRateSheet | null,

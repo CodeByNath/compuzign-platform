@@ -23,6 +23,7 @@ import { usePackageStation } from '@/hooks/usePackageStation';
 import { PACKAGE_RATE_SHEET_UNITS } from '@/api/types/admin';
 import type { PackageRateSheetUnit } from '@/api/types/admin';
 import { relationshipDisplayLabel } from '@/entity-drawers/shared/rateSheetLabels';
+import { deriveTierOccupants } from '@/entity-drawers/shared/tierOccupants';
 import { RateSheetRowDrawerContent } from '@/entity-drawers/rate-sheet-row/RateSheetRowDrawerContent';
 import type { RateSheetRowModel, RateSheetRowDraft } from '@/entity-drawers/rate-sheet-row/RateSheetRowDrawerContent';
 import { useHostService } from '../tierSurface/useHostService';
@@ -69,20 +70,34 @@ export function RateSheetRowDrawerHost({
     const relationship = (pkg.service.package_relationships ?? []).find(
       (item) => item.item_id === row.source_item_id,
     );
+    // The Tiers whose current draft-preferred selections include this row —
+    // authoritative connection state for the drawer's Connection Status module.
+    // Occupants are derived here from the stable station read (pkg.tierOccupants
+    // is a fresh array each hook render, which would churn this memo and reset
+    // the composition's draft on incidental re-renders).
+    const tierSelections = deriveTierOccupants(pkg.station?.tiers ?? {})
+      .map(({ occupantId, slotId }) => ({ occupantId, view: pkg.tierView(slotId) }))
+      .filter(({ view }) => (view?.detail.rate_sheet_items ?? []).some((selection) => selection.item_id === row.item_id))
+      .map(({ occupantId, view }) => ({ id: occupantId, label: view!.detail.label }));
     return {
-      itemId:       row.item_id,
-      sourceItemId: row.source_item_id,
-      optionLabel:  relationship ? relationshipDisplayLabel(relationship) : '(unresolved Rate Sheet item)',
-      serviceTitle: relationship?.source_service_title ?? null,
-      categories:   relationship?.source_categories ?? [],
-      unitPrice:    row.unit_price,
-      per:          row.per,
-      quantity:     row.quantity,
-      groupId:      row.group_id,
-      groups:       (rateSheet?.groups ?? []).map((group) => ({ id: group.group_id, label: group.label })),
-      units:        PACKAGE_RATE_SHEET_UNITS,
+      itemId:         row.item_id,
+      sourceItemId:   row.source_item_id,
+      optionLabel:    relationship ? relationshipDisplayLabel(relationship) : '(unresolved Rate Sheet item)',
+      sourceType:     relationship?.source_type ?? null,
+      serviceTitle:   relationship?.source_service_title ?? null,
+      categories:     relationship?.source_categories ?? [],
+      resolved:       !!relationship && !relationship.missing,
+      sourceDisabled: relationship?.disabled ?? false,
+      platformStatus: pkg.platformStatus,
+      unitPrice:      row.unit_price,
+      per:            row.per,
+      quantity:       row.quantity,
+      groupId:        row.group_id,
+      groups:         (rateSheet?.groups ?? []).map((group) => ({ id: group.group_id, label: group.label })),
+      units:          PACKAGE_RATE_SHEET_UNITS,
+      tierSelections,
     };
-  }, [recordId, pkg.detailLoaded, pkg.service]);
+  }, [recordId, pkg.detailLoaded, pkg.service, pkg.station, pkg.tierView, pkg.platformStatus]);
 
   if (model === 'invalid') {
     return <div class="cz-station-drawer__state">This Rate Sheet row identity is invalid.</div>;

@@ -224,6 +224,24 @@ export interface RateSheetConnectionsInput {
   familyRelatedServiceIds: readonly number[];
 }
 
+/** The Connections tab's row sections. Tier-selected resolved rows are counted
+ *  in the summary but never re-listed — the Details tab owns operating on them.
+ *  Connections lists only what explains coverage: rows that need attention and
+ *  rows the focused Tier does not select. */
+export interface ConnectionsRowPartition {
+  /** Unresolved rows — their priced relationship is gone; the sheet needs repair. */
+  attention: ConnectionsRow[];
+  /** Resolved rows the focused Tier does not currently select. */
+  unselected: ConnectionsRow[];
+}
+
+export function partitionConnectionsRows(rows: readonly ConnectionsRow[]): ConnectionsRowPartition {
+  return {
+    attention:  rows.filter((row) => !row.resolved),
+    unselected: rows.filter((row) => row.resolved && !row.tierSelected),
+  };
+}
+
 export function projectRateSheetConnections(input: RateSheetConnectionsInput): RateSheetConnectionsModel {
   const { station, tierSelections, familyRelatedServiceIds } = input;
   const sheet = station.rateSheet;
@@ -302,5 +320,120 @@ export function projectRateSheetConnections(input: RateSheetConnectionsInput): R
       rowCount: entry.rowCount,
     })),
     rows,
+  };
+}
+
+// ── Lower-deck state and Settings projections ────────────────────────────────
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+export interface WorkspaceEmptyState {
+  message: string;
+  /** The next valid action, spelled out. Null when the message stands alone. */
+  hint: string | null;
+}
+
+export interface TierDetailsStateInput {
+  hasOccupant: boolean;
+  sheetConfigured: boolean;
+  /** The focused Tier's projected Details row count (0 when no occupant). */
+  rowCount: number;
+  familyName: string;
+  tierName: string | null;
+}
+
+/**
+ * The Details tab's deliberate empty/first-use states. Returns null when rows
+ * exist and the list should render. Every state says what exists and names the
+ * next valid action — no dead "select a Tier" copy when there is nothing to
+ * select.
+ */
+export function resolveTierDetailsEmptyState(input: TierDetailsStateInput): WorkspaceEmptyState | null {
+  const { hasOccupant, sheetConfigured, rowCount, familyName, tierName } = input;
+
+  if (!hasOccupant) {
+    return {
+      message: `No Package Tiers are connected to ${familyName} yet.`,
+      hint: sheetConfigured
+        ? `A Tier projects here once one of its Rate Sheet selections is supplied by one of ${familyName}'s related Services. Selections are chosen in each Tier's drawer — switch the Family scope above to reach Tiers connected elsewhere.`
+        : 'Start under Settings: set up the station’s Rate Sheet, then choose each Tier’s selections from the Tier drawer.',
+    };
+  }
+  if (!sheetConfigured) {
+    return {
+      message: 'No Rate Sheet is configured for this Package Station yet.',
+      hint: `Set it up under Settings — ${tierName ?? 'this Tier'}'s selections resolve against the sheet's rows.`,
+    };
+  }
+  if (rowCount === 0) {
+    return {
+      message: `${tierName ?? 'This Tier'} has no Rate Sheet inclusion selections yet.`,
+      hint: `Open ${tierName ?? 'the Tier'} from the engine above and choose its included rows.`,
+    };
+  }
+  return null;
+}
+
+/** One Settings action row: real authority, complete flow, exact repository
+ *  naming. `id` is the surface-binding action intent the button dispatches. */
+export interface WorkspaceSettingsAction {
+  id: 'create-package-family' | 'setup-rate-sheet' | 'create-rate-sheet-group';
+  title: string;
+  buttonLabel: string;
+  description: string;
+}
+
+export interface WorkspaceSettingsModel {
+  sheetConfigured: boolean;
+  /** The Rate Sheet's honest current state, always shown. */
+  sheetStatusLine: string;
+  actions: WorkspaceSettingsAction[];
+}
+
+/**
+ * The Settings tab's action set, decided from the station's authoritative
+ * state alone:
+ *
+ *   Package Family    — always offered. Station-wide creation (the same
+ *                       endpoint authority as the mature create step); the
+ *                       entity is named "Package Family" exactly, never an
+ *                       invented alias.
+ *   Rate Sheet setup  — only while the singleton sheet is unconfigured.
+ *   Rate Sheet Group  — only once the sheet exists (sheet organisation,
+ *                       distinct from Package relationship groups).
+ */
+export function projectWorkspaceSettings(station: WorkspaceStationContext): WorkspaceSettingsModel {
+  const sheet = station.rateSheet;
+  const actions: WorkspaceSettingsAction[] = [
+    {
+      id: 'create-package-family',
+      title: 'Package Family',
+      buttonLabel: '+ Package Family',
+      description: 'Create a new Package Family. This is a station-wide action: the Family becomes available as working scope here, and its records are managed from the Package Families wall.',
+    },
+  ];
+  if (sheet === null) {
+    actions.push({
+      id: 'setup-rate-sheet',
+      title: 'Rate Sheet',
+      buttonLabel: '+ Rate Sheet',
+      description: 'Initialise the station’s one Rate Sheet. Setup connects the rows supplied by the station’s source Services, ready for pricing.',
+    });
+  } else {
+    actions.push({
+      id: 'create-rate-sheet-group',
+      title: 'Rate Sheet Group',
+      buttonLabel: '+ Rate Sheet Group',
+      description: `Add a group to organise the sheet’s rows (${plural(sheet.groups.length, 'group')} so far). Rows join a group from their row drawer.`,
+    });
+  }
+  return {
+    sheetConfigured: sheet !== null,
+    sheetStatusLine: sheet !== null
+      ? `“${sheet.title || 'Rate Sheet'}” is configured with ${plural(sheet.items.length, 'row')} and ${plural(sheet.groups.length, 'group')}. The station owns one Rate Sheet.`
+      : 'The station’s Rate Sheet is not configured yet.',
+    actions,
   };
 }

@@ -29,7 +29,7 @@ The shell owns header, scrolling body, footer slot, backdrop/Escape/header close
 - `stations/serviceCategory/CategoryDrawerHost.tsx` — numeric Category id adapter plus assigned-Service projection.
 - `stations/serviceSurface/ServiceDrawerHost.tsx` — numeric Service id adapter.
 - `stations/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
-- `stations/packageTierWorkspace/RateSheetRowDrawerHost.tsx` — string Rate Sheet row `item_id` adapter; resolves exactly one sheet row plus relationship/group provenance and passes `usePackageStation.updateRateSheetRow` into the neutral composition. `RateSheetSetupDrawerHost.tsx` / `RateSheetGroupCreateDrawerHost.tsx` wire the station's `initialiseRateSheet` / `createRateSheetGroup` commands; creation surfaces ignore the dispatched recordId.
+- `stations/packageTierWorkspace/RateSheetRowDrawerHost.tsx` — string Rate Sheet row `item_id` adapter; resolves exactly one sheet row plus relationship/group provenance, platform status, and the Tiers currently selecting the row, and passes `usePackageStation.updateRateSheetRow` into the neutral composition. `RateSheetSetupDrawerHost.tsx` supplies its own fresh sheet summary and the live eligible relationship rows alongside `initialiseRateSheet`; `RateSheetGroupCreateDrawerHost.tsx` wires `createRateSheetGroup`. Creation surfaces ignore the dispatched recordId.
 
 ## Shared mature compositions
 
@@ -39,8 +39,8 @@ The shell adapters mount these host-neutral implementations from `resources/ts/e
 - `category/CategoryDrawerContent.tsx`
 - `service/ServiceDrawerContent.tsx`
 - `tier/TierDrawerContent.tsx`
-- `rate-sheet-row/RateSheetRowDrawerContent.tsx` — the recovered mature row editor: read-only provenance, editable unit price / per / quantity / group, dirty-guarded close, saved state without auto-close.
-- `rate-sheet/RateSheetSetupContent.tsx` and `rate-sheet/RateSheetGroupCreateContent.tsx` — singleton sheet initialisation and sheet-group creation forms.
+- `rate-sheet-row/RateSheetRowDrawerContent.tsx` — a real `EntityDrawer` composition over the `RATE_SHEET_ROW_ENTITY` manifest (`schema/entities/rateSheetRow.ts` + `schema/bindings/rateSheetRow.tsx`): Overview places Row Overview + Commercial Terms read modules, Connections places Source & Provenance + Connection Status; only Commercial Terms edits (`editors/RateSheetRowEditor.tsx` — unit price / per / quantity / group), dirty-guarded close, saved state without auto-close.
+- `rate-sheet/RateSheetSetupContent.tsx` — the stage-driven singleton setup (pure `rateSheetSetupModel.ts`): form previews the eligible rows the manager commit materialises, success is an explicit in-drawer state, and a configured sheet yields a passive already-configured state so a stale wall button can never restart setup. `rate-sheet/RateSheetGroupCreateContent.tsx` — the sheet-group creation form.
 
 All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable. Command Centre mounts the same compositions through thin `StepContext → EntityDrawerHostBridge` adapters.
 
