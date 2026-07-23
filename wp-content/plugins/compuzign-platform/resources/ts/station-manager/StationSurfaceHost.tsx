@@ -13,10 +13,12 @@
 // swaps under a live instance.
 
 import type { VNode } from 'preact';
-import { DATA_SOURCES } from './dataSources';
-import { TEMPLATE_KITS } from '../presentation/templateKits';
-import { SURFACE_BINDINGS } from './surfaceBindings';
-import type { AdminStationSurfaceBinding, StationActionIntent } from './surfaceBindings';
+import { resolveDataSource } from './registry/dataSources';
+import { resolveTemplateKit } from './registry/templateKits';
+import type {
+  AdminStationSurfaceBinding,
+  StationActionIntent,
+} from './registry/surfaceBindings';
 import type { StationRecordId } from './recordIdentity';
 
 // A dispatched, resolved intent: the acted-on record's own id, the binding's
@@ -33,30 +35,6 @@ export interface ResolvedStationIntent {
   drawerTemplateKey?: string;
 }
 
-// Resolvability guard — runs once at load, here because this is the one module
-// where the bindings and both registries are in scope. A binding that names a
-// data source or template kit the registries do not define is a static authoring
-// error that would otherwise render nothing at runtime, so it fails loudly now.
-function assertBindingsResolvable(list: AdminStationSurfaceBinding[]): void {
-  const problems: string[] = [];
-  for (const b of list) {
-    const at = `${b.stationId}::${b.surfaceId}::${b.placement}`;
-    if (!(b.dataSourceKey in DATA_SOURCES)) {
-      problems.push(`${at} → unknown data source '${b.dataSourceKey}'`);
-    }
-    if (!(b.templateKitKey in TEMPLATE_KITS)) {
-      problems.push(`${at} → unknown template kit '${b.templateKitKey}'`);
-    }
-  }
-  if (problems.length) {
-    throw new Error(
-      `[AdminStation] surface binding(s) do not resolve: ${problems.join('; ')}.`,
-    );
-  }
-}
-
-assertBindingsResolvable(SURFACE_BINDINGS);
-
 interface Props {
   binding: AdminStationSurfaceBinding;
   // Dispatch carries the resolved intent plus THIS wall's own refresh handle, so
@@ -67,9 +45,9 @@ interface Props {
 }
 
 export function StationSurfaceHost({ binding, onDispatch }: Props): VNode {
-  const useDataSource = DATA_SOURCES[binding.dataSourceKey];
+  const useDataSource = resolveDataSource(binding.dataSourceKey);
   const { items, loading, error, refetch } = useDataSource();
-  const Kit = TEMPLATE_KITS[binding.templateKitKey];
+  const Kit = resolveTemplateKit(binding.templateKitKey);
 
   return (
     <Kit

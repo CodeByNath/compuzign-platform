@@ -18,7 +18,7 @@
 import { useMemo } from 'preact/hooks';
 import { usePackageStation } from '../../usePackageStation';
 import { useHostService } from './useHostService';
-import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
+import { useRetainedCollection } from '@/station-manager/useRetainedCollection';
 import { toTierOccupantCard } from './tierOccupantCard';
 import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
 

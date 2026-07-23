@@ -1,6 +1,6 @@
 # Admin Station Presentation Kits
 
-The Admin Station presentation layer contains the browse-first Service Catalogue, one entity-neutral card wall kit, and the compact Service Category carousel.
+The Admin Station presentation layer owns the entity-neutral card wall kit, presentation primitives, and compact Service Category carousel. Service and Package own their kits and consume Admin presentation capabilities where declared.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presentation/`
 
@@ -8,6 +8,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presenta
 
 - `category-groups/types.ts` — `CategoryGroupCardItem`: native `id`, identity copy, optional status/notifications, repeated metrics, and action descriptors.
 - `category-groups/CategoryGroupCard.tsx` / `CategoryGroupCardGrid.tsx` — pure presentation and collection states.
+- `category-groups/CategoryGroupCardsKit.tsx` — the Admin-owned registered card-wall template kit.
 - `StationMetricBlock.tsx` and `StationSplitAction.tsx` — repeated metric/action primitives.
 - `StationStatusPill.tsx` — disclosure-state adapter over the shared `drawer-kit/ui/ModuleStatusPill` and `ModuleNotificationPanel`; it defines no status mapping or note renderer.
 
@@ -42,7 +43,7 @@ No adapter parses or converts identity. Package Family and Category status/notes
 
 ## Binding and refresh
 
-`presentation/templateKits.tsx` registers the card grid and carousel. `stations/dataSources.ts` registers reads. `stations/surfaceBindings.ts` pairs source, kit, actions, drawer key, and numeric Home `order` declaratively; on Service Home the Package Family cards are order `0` and the Service Catalogue order `1`. `stations/StationPresentationShell.tsx` renders those ordered sections; `StationSurfaceHost` forwards the record id unchanged and passes that wall’s refresh handle to the drawer controller. `useRetainedCollection` keeps cards visible during a wall reload.
+`admin-station/register.ts` registers Admin's card grid and carousel capabilities and authors the presentation binding rows. `service-station/register.ts` and `package-station/register.ts` register their reads, kits, and drawers through Station Manager; on Service Home the Package Family cards remain order `0` and the Service Catalogue order `1`. `admin-station/presentation/StationPresentationShell.tsx` renders those ordered sections; `station-manager/StationSurfaceHost.tsx` forwards record ids unchanged, and `station-manager/useRetainedCollection.ts` keeps cards visible during a wall reload.
 
 ## Layout and style
 

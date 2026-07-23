@@ -14,9 +14,9 @@
 // (Package, Subscription, CRM, …) reuses this shell by adding rows there.
 
 import type { VNode } from 'preact';
-import { StationSurfaceHost } from './StationSurfaceHost';
-import type { ResolvedStationIntent } from './StationSurfaceHost';
-import { resolveSurfaceBindings } from './surfaceBindings';
+import { StationSurfaceHost } from '@/station-manager/StationSurfaceHost';
+import type { ResolvedStationIntent } from '@/station-manager/StationSurfaceHost';
+import { resolveSurfaceBindings } from '@/station-manager/registry/surfaceBindings';
 
 interface Props {
   stationId: string;

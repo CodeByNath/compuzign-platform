@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
-import type { TemplateKitProps } from '@/admin-station/presentation/templateKits';
+import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
 import { PILL_META } from '@/drawer-kit/schema/presentation';
 import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
 import {

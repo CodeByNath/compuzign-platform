@@ -21,8 +21,10 @@ The shell owns header, scrolling body, footer slot, backdrop/Escape/header close
 
 ## Authoritative files
 
-- `stations/drawers/drawerTypes.ts` — `DrawerTemplateKey` (`package-family | category | service | tier`), opaque `StationRecordId`, opening mode, footer/guard bridge props.
-- `stations/drawers/drawerRegistry.tsx` — the four declarative registrations plus load-time well-formedness guard.
+- `station-manager/drawerTypes.ts` — open string `DrawerTemplateKey`, opening mode, and footer/guard bridge props.
+- `station-manager/recordIdentity.ts` — opaque native `StationRecordId` contract.
+- `station-manager/registry/drawerTemplates.ts` — drawer registration/resolution; unknown keys preserve the shell's unresolved-drawer behavior.
+- `admin-station/register.ts`, `service-station/register.ts`, and `package-station/register.ts` — the owning Stations register Category, Service, Package Family, and Tier drawer contracts.
 - `shell/drawer/AdminStationDrawerContext.tsx` — one open record and the originating wall refresh handle.
 - `shell/drawer/AdminStationDrawer.tsx` — the single shell and close path.
 - `resources/ts/package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
@@ -32,14 +34,14 @@ The shell owns header, scrolling body, footer slot, backdrop/Escape/header close
 
 ## Shared mature compositions
 
-The shell adapters mount these host-neutral implementations from `resources/ts/entity-drawers/`:
+The shell adapters mount these owner-local host-neutral implementations:
 
-- `package-family/PackageFamilyDrawerContent.tsx`
-- `category/CategoryDrawerContent.tsx`
-- `service/ServiceDrawerContent.tsx`
-- `tier/TierDrawerContent.tsx`
+- `package-station/drawer/package-family/PackageFamilyDrawerContent.tsx`
+- `entity-drawers/category/CategoryDrawerContent.tsx`
+- `service-station/drawer/ServiceDrawerContent.tsx`
+- `package-station/drawer/tier/TierDrawerContent.tsx`
 
-All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable. Command Centre mounts the same compositions through thin `StepContext → EntityDrawerHostBridge` adapters.
+All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable.
 
 Category mutations stay in `useCategoryStation`; Package Family and Tier mutations stay in Package Station's `usePackageFamilyStation` / `usePackageStation`; Service retains `useServiceStation`. Presentation components call no endpoints.
 

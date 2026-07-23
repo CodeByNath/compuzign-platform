@@ -9,7 +9,7 @@
 import { useRef, useEffect } from 'preact/hooks';
 import type { RefObject } from 'preact';
 import { useAdminStation } from '../AdminStationContext';
-import { menuNavItems } from '../navigation/stationNavigation';
+import { menuNavItems } from '@/station-manager/registry/navigation';
 
 interface Props {
   open: boolean;
@@ -59,7 +59,7 @@ export function AdminStationSlideMenu({ open, onClose, onSelect, menuButtonRef }
         aria-label="Stations"
       >
         <nav class="cz-station-menu__nav">
-          {menuNavItems.map((item) => {
+          {menuNavItems().map((item) => {
             const Glyph = item.icon;
             const isActive = item.id === activeDestinationId;
             return (

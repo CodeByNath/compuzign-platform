@@ -1,5 +1,5 @@
 import type { ServiceCategoryCardItem } from '../../stations/serviceCategory/useServiceCategoryCards';
-import type { TemplateKitProps } from '../templateKits';
+import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
 import { PackagesIcon } from '../../shell/icons';
 import { StationStatusPill } from '../StationStatusPill';
 

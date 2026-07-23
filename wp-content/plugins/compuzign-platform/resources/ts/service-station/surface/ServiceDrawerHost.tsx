@@ -24,7 +24,7 @@ import {
   buildServiceItemForStationHandoff,
 } from '@/service-station/drawer/serviceSeed';
 import { fetchAdminCatalog } from '@/service-station';
-import type { DrawerContentProps } from '@/admin-station/stations/drawers/drawerTypes';
+import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 
 export function ServiceDrawerHost({
   recordId,

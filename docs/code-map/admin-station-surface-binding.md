@@ -2,7 +2,7 @@
 
 The dynamic station/placement → presentation projection engine. It composes live walls without shell-level entity branching.
 
-Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
+Roots: `wp-content/plugins/compuzign-platform/resources/ts/station-manager/` for coordination and `resources/ts/admin-station/register.ts` for presentation policy.
 
 ## Runtime chain
 
@@ -21,13 +21,15 @@ Bindings declare numeric `order`; the resolver uses a stable sort. Service Home 
 
 ## Authoritative files
 
-- `stations/surfaceBindings.ts` — declarative binding rows with numeric `order`, action intents, optional drawer key, structural guard, and the order-sorting resolver.
-- `stations/StationPresentationShell.tsx` — the one ordered section loop: resolves a station's presentation bindings, wraps each in the titled section chrome, and hosts it. Entity-agnostic.
-- `stations/dataSources.ts` — read-hook registry for the Service Catalogue, Package Families, Service Categories, Service cards, Tiers, and the Package Station Tier tool (`package-tier-workspace`, composing the Family, host-service, and Package Station reads).
-- `stations/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
-- `presentation/templateKits.tsx` — kit registry for the Service Catalogue, full card grids, compact Category carousel, and the stateful Tier tool (`tier-workspace`, which owns the selected Package Family like the Catalogue owns its filters).
-- `stations/StationSurfaceHost.tsx` — generic source/kit composer and resolvability guard.
-- `stations/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
+- `station-manager/registry/surfaceBindings.ts` — binding registration, stable order-sorted resolution, and default-home accessors.
+- `admin-station/register.ts` — Admin-authored binding rows, conditions, template/drawer keys, and default Home; it also registers Admin's own presentation capabilities.
+- `service-station/register.ts` and `package-station/register.ts` — peer-owned navigation, destinations, sources, kits, and drawers.
+- `admin-station/presentation/StationPresentationShell.tsx` — the ordered section loop and titled presentation chrome.
+- `station-manager/registry/{dataSources,templateKits}.ts` — source and kit registration/resolution contracts.
+- `station-manager/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
+- `station-manager/StationSurfaceHost.tsx` — generic resolver-backed source/kit composer.
+- `station-manager/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
+- `station-manager/registry/boot.ts` — locks registries and validates binding source/kit resolution before mount.
 - `shell/AdminStationBody.tsx` — activates the station, hands one presentation shell to the Home, and forwards intents to the drawer.
 
 ## Invariants

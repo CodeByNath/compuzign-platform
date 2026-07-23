@@ -21,13 +21,13 @@ Package Station and Promotion compatibility URLs remain Service-nested, but thei
 
 ## Frontend boundary
 
-[resources/ts/service-station/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/CLAUDE.md) owns Service contracts, endpoints, state, and pure derivations. Its catalogue summary includes settled browse copy, creation time, pool counts, and direct Service Category labels. It exposes no taxonomy-parent or Package Family fields. External consumers import its `index.ts`; modules inside its own graph import siblings to avoid cycles.
+[resources/ts/service-station/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/CLAUDE.md) owns Service contracts, endpoints, state, derivations, surfaces, presentation, and drawer composition. Its catalogue summary includes settled browse copy, creation time, pool counts, and direct Service Category labels. External consumers import its `index.ts`; `register.ts` is entry-only and registers Service capabilities with Station Manager.
 
 `service-station/surface/useServiceCatalogue.ts` and `serviceCatalogueAdapter.ts` own the Home read/projection. They join the Service summaries to the Package-owned multi-family relationship read from `package-station/surface/packageFamily/usePackageFamilyRelationships.ts`. The Home kit lives at `service-station/presentation/`; it renders current rows and uses the archived read only for its overview count.
 
-Host-neutral Service UI lives under [service-station/drawer/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/ServiceDrawerContent.tsx), with manifests/bindings/editors under `entity-drawers/schema/` and `entity-drawers/editors/`. The Admin Station adapter [ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx) mounts that one composition; it is not the UI authority.
+Host-neutral Service UI lives under [service-station/drawer/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/ServiceDrawerContent.tsx), including its manifests, bindings, and editors. The Service-owned [ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx) adapts that composition to the Manager drawer contract; the Admin drawer only hosts it.
 
-Entity-neutral transport, station primitives, drawer-kit presentation, and pool item contracts remain shared. Service consumes them and must not absorb them.
+Entity-neutral transport, station primitives, drawer-kit presentation, pool item contracts, and Station Manager host-engine contracts remain shared. Service's imports of Admin presentation primitives and icons are declared capability consumption, not transferred ownership.
 
 ## Contract baseline
 

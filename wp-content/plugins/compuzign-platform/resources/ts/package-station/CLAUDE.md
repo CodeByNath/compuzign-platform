@@ -15,10 +15,13 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `drawer/package-family/` and `drawer/tier/` — Package-owned drawer compositions, controllers, dialogs, and footer presentation.
 - `drawer/editors/` and `drawer/schema/` — Package-owned editors, entity manifests, and bindings.
 - `vocabulary.ts` — Package-owned Tier keys and labels.
+- `register.ts` — registers Package navigation, destination, sources, Tier workspace kit, and drawers with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
 
 ## Boundaries
 
 External consumers import only `index.ts`; the sole exception is a documented type-only import of `types.ts` where the public barrel would close a dependency cycle. Sibling files import `./types` / `./api` directly, never the barrel. Presentation must not call `api.ts`. Route ownership — not a Package-shaped name or URL — decides whether an endpoint belongs here. Service-scoped Package Station URLs use the Service id as navigation context only; Package Station retains persistence authority.
+
+Host-engine contracts and helpers come from `@/station-manager`. Imports from `@/admin-station/presentation/` and `@/admin-station/shell/icons` remain legal consumption of Admin Station presentation/control capabilities. `register.ts` remains an entry-only module and must not enter the public barrel.
 
 Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Tiers](../../../../../../docs/code-map/tiers.md), and [Rate Sheet](../../../../../../docs/code-map/rate-sheet.md).
 

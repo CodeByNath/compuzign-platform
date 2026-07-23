@@ -10,7 +10,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import type { RefObject } from 'preact';
 import { useAdminStation } from '../AdminStationContext';
-import { headerNavItems } from '../navigation/stationNavigation';
+import { headerNavItems } from '@/station-manager/registry/navigation';
 import { AdminStationDropdown } from './AdminStationDropdown';
 import { MenuIcon, SunIcon, MoonIcon, AppsIcon, UserIcon } from './icons';
 
@@ -84,7 +84,7 @@ export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSe
         <span class="cz-station-brand">CompuZign</span>
 
         <nav class="cz-station-header__nav" aria-label="Stations">
-          {headerNavItems.map((item) => {
+          {headerNavItems().map((item) => {
             const Glyph = item.icon;
             const isActive = item.id === activeDestinationId;
             return (

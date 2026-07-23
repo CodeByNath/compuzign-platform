@@ -36,7 +36,7 @@
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { TemplateKitProps } from '@/admin-station/presentation/templateKits';
+import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
 import type { PackageTierWorkspaceFamily } from '../../surface/packageTierWorkspace/projection';
 import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
 import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-groups/CategoryGroupCardGrid';

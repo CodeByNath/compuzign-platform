@@ -10,14 +10,14 @@ import { useContext, useState, useMemo, useCallback } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useStationTheme } from './theme/useStationTheme';
 import type { StationTheme } from './theme/useStationTheme';
-import { resolveDestination } from './navigation/destinations';
-import type { StationDestination } from './navigation/destinations';
+import { resolveDestination } from '@/station-manager/registry/destinations';
+import type { StationDestination } from '@/station-manager/registry/destinations';
 
 export interface AdminStationContextValue {
   theme: StationTheme;
   toggleTheme: () => void;
   activeDestinationId: string | null;
-  // activeDestinationId resolved through navigation/destinations.ts. Null when
+  // activeDestinationId resolved through Station Manager destinations. Null when
   // nothing is selected or the key is unmapped — the Body then falls back to
   // Home. Exposing it is the resolver seam, not a mounted surface.
   activeDestination: StationDestination | null;

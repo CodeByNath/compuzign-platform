@@ -9,7 +9,7 @@ import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { usePackageFamilyRelationships } from '@/package-station';
 import { fetchAdminCatalog } from '@/service-station';
-import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
+import { useRetainedCollection } from '@/station-manager/useRetainedCollection';
 import { toServiceCatalogueItem } from './serviceCatalogueAdapter';
 import type { ServiceCatalogueItem } from '@/service-station/presentation/types';
 

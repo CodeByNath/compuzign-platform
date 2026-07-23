@@ -24,7 +24,7 @@ import { usePackageStation } from '../../usePackageStation';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
-import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
+import { useRetainedCollection } from '@/station-manager/useRetainedCollection';
 import {
   buildRateItemServiceMap,
   occupantSupplyingServiceIds,

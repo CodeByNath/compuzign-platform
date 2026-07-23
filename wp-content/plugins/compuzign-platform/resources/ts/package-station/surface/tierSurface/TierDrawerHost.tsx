@@ -17,7 +17,7 @@ import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { TierDrawerContent } from '../../drawer/tier/TierDrawerContent';
 import { useHostService } from './useHostService';
-import type { DrawerContentProps } from '@/admin-station/stations/drawers/drawerTypes';
+import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 
 export function TierDrawerHost({
   recordId,

@@ -10,10 +10,13 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `api.ts` — the single implementation of Service-owned endpoint calls.
 - `useServiceStation.ts` — detail fetch, draft-preferred state, mutations, and lifecycle actions.
 - `derive.ts` — stateless module status, publish gate, Package summary, and modal projections.
+- `register.ts` — registers Service navigation, destination, sources, catalogue kit, and drawer with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
 
 ## Boundaries
 
 External consumers import only `index.ts`; sibling files import `./types` / `./api` directly, never the barrel. Presentation must not call `api.ts`. Route ownership — not a Service-shaped name or URL — decides whether an endpoint belongs here. Shared pool contracts remain in `api/types/pools.ts`.
+
+Host-engine contracts and helpers come from `@/station-manager`. Imports from `@/admin-station/presentation/` and `@/admin-station/shell/icons` are legal consumption of Admin Station presentation/control capabilities, not transitional coupling. `register.ts` remains an entry-only module and must not enter the public barrel.
 
 This peer now owns Service data (`.`), surface adapters (`surface/`), the catalogue presentation kit (`presentation/`), and the Service drawer, editors, and schema (`drawer/`). `serviceConnectionBinding` lives in `drawer/schema/bindings/service.tsx` and is exported through the public barrel; `serviceDrawerShared.ts` no longer exists. Service still consumes `resources/ts/entity-drawers/shared/drawerChrome.ts` and the shared module-notification framework in `resources/ts/drawer-kit/` transitionally.
 

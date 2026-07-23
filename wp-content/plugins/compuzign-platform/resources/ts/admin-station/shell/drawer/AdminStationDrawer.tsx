@@ -16,8 +16,8 @@ import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useAdminStationDrawer } from './AdminStationDrawerContext';
 import type { OpenDrawerState } from './AdminStationDrawerContext';
-import { resolveDrawerTemplate } from '../../stations/drawers/drawerRegistry';
-import type { DrawerMode } from '../../stations/drawers/drawerTypes';
+import { resolveDrawerTemplate } from '@/station-manager/registry/drawerTemplates';
+import type { DrawerMode } from '@/station-manager/drawerTypes';
 
 export function AdminStationDrawer() {
   const { open, close } = useAdminStationDrawer();

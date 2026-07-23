@@ -3,7 +3,7 @@
 // The Body decides WHICH station is live and wires drawer intents; everything
 // the presentation region shows arrives through ONE StationPresentationShell
 // for that station. The shell resolves the station's section bindings
-// (stations/surfaceBindings), already sorted by their declared order, and
+// (Station Manager surface bindings), already sorted by their declared order, and
 // renders each through the generic StationSurfaceHost:
 //
 //   station → presentation shell → ordered sections → source + kit per section
@@ -13,7 +13,7 @@
 // bindings name.
 //
 // Active station: the resolved nav destination's station, or the Service home
-// (DEFAULT_HOME_STATION) when nothing is selected. A station with no
+// (defaultHomeStation()) when nothing is selected. A station with no
 // presentation binding renders the shell's neutral empty state.
 //
 // Action intents open the shared drawer: the dispatch carries the record's own
@@ -24,8 +24,8 @@
 import { AdminStationHome } from '../home/AdminStationHome';
 import { useAdminStation } from '../AdminStationContext';
 import { useAdminStationDrawer } from './drawer/AdminStationDrawerContext';
-import { StationPresentationShell } from '../stations/StationPresentationShell';
-import { DEFAULT_HOME_STATION } from '../stations/surfaceBindings';
+import { StationPresentationShell } from '../presentation/StationPresentationShell';
+import { defaultHomeStation } from '@/station-manager/registry/surfaceBindings';
 
 export function AdminStationBody() {
   const { activeDestination } = useAdminStation();
@@ -33,7 +33,7 @@ export function AdminStationBody() {
 
   // The station whose presentation sections show: the active destination's
   // station, or the Service home landing surface when nothing is selected.
-  const stationId = activeDestination?.stationId ?? DEFAULT_HOME_STATION;
+  const stationId = activeDestination?.stationId ?? defaultHomeStation();
 
   return (
     <main class="cz-admin-station__body">

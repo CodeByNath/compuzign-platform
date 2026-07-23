@@ -25,12 +25,12 @@ Non-negotiable constraints: do not move Service under the Admin Station tree; do
 - **Misplacements:** `src/Modules/SurfacePackages/Http/PackageFamiliesController.php` (Package Family list + related-Service identity) lives in the Admin module but is Package-owned; it belongs to `SurfacePackages`. There is no Service controller left in the Admin module — Service is already extracted.
 - **Weight:** `src/Modules/Service/Http/ServiceController.php` is ~1128 lines carrying catalogue, detail, module drafts, settle/revert, lifecycle, and pool routes — above the responsibility-audit threshold and a legitimate split.
 
-### 2.2 Frontend — authority is misplaced under the Admin Station tree
+### 2.2 Frontend — authority is now peer-structured
 
-The Admin Station shell is a genuinely generic engine: a destination resolver, a surface-binding table, source/kit registries, a surface host, and a drawer registry that all resolve entities **by string key** and name no entity in the shell. That engine is the thin host/core the model calls for. The problem is **location and dependency direction**:
+Station Manager now owns the generic destination, surface-binding, source, kit, drawer, identity, retained-collection, and runtime-coordination mechanisms. Admin Station owns its shell and presentation policy; peers register their own capabilities before Manager finalization:
 
-- The engine's registries **value-import station internals** (`stations/dataSources.ts` imports the Service and Package read hooks; `presentation/templateKits.tsx` imports the Service catalogue and tier-workspace kits; `stations/drawers/drawerRegistry.tsx` imports the Service, Tier, Category, and Package-Family drawer hosts). Admin Station therefore *contains* the station implementations.
-- Service implementation is scattered across `resources/ts/service-station/` (data), `resources/ts/service-station/surface/` (adapters + drawer host), `resources/ts/service-station/presentation/` (kit), `resources/ts/service-station/drawer/` (drawer composition), `resources/ts/entity-drawers/editors/` (Service editors), `resources/ts/entity-drawers/schema/` (Service entity/binding/table), and `resources/ts/drawer-kit/utils/moduleNotifications/service.ts` (module DNA).
+- `resources/ts/station-manager/` imports no peer or Admin Station; `service-station/register.ts`, `package-station/register.ts`, and `admin-station/register.ts` push owned capabilities into its registries, while Admin authors binding rows by string key.
+- Service implementation is consolidated under `resources/ts/service-station/`; its Manager host-engine imports and Admin presentation/icon imports preserve coordinator and capability boundaries.
 - Package/Tier implementation is now consolidated under `resources/ts/package-station/`: surfaces in `surface/{packageFamily,tierSurface,packageTierWorkspace}/`, presentation in `presentation/package-tier-workspace/`, drawers in `drawer/{tier,package-family}/`, and state in `usePackageStation.ts` / `usePackageFamilyStation.ts`.
 
 ### 2.3 Already complete (do not redo)

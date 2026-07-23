@@ -17,6 +17,16 @@ import '../admin-station/styles/admin-station-responsive.css';
 
 import { registry } from '@/runtime/registry';
 import { AdminStation } from '@/admin-station/AdminStation';
+import { registerAdminStation, registerPresentationPolicy } from '@/admin-station/register';
+import { registerPackageStation } from '@/package-station/register';
+import { registerServiceStation } from '@/service-station/register';
+import { finalizeStationRegistry } from '@/station-manager/registry/boot';
+
+registerServiceStation();
+registerPackageStation();
+registerAdminStation();
+registerPresentationPolicy();
+finalizeStationRegistry();
 
 registry.register({
   id: 'admin-station',
