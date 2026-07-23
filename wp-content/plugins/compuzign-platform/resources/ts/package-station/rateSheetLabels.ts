@@ -3,7 +3,7 @@
 // Previously duplicated between usePackageStation.tierView and the tier
 // drawer's detail model.
 
-import type { PackageManagerItem } from '@/api/types/admin';
+import type { PackageManagerItem } from './types';
 
 export function relationshipDisplayLabel(item: PackageManagerItem): string {
   return item.decorated_label

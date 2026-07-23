@@ -32,7 +32,7 @@
 // Type-only across the tree: the backend row type is imported for its shape and
 // erased at build.
 
-import type { PackageFamilyItem } from '@/api/types/admin';
+import type { PackageFamilyItem } from '@/package-station';
 import { evaluateModule, packageFamilyOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { ViewIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '../../shell/icons';

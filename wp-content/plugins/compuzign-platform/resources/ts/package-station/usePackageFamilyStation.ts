@@ -6,8 +6,8 @@ import {
   savePackageFamilyOverview,
   settlePackageFamilyOverview,
   updatePackageFamilyStatus,
-} from '@/api/endpoints/admin';
-import type { PackageFamilyItem } from '@/api/types/admin';
+} from './api';
+import type { PackageFamilyItem } from './types';
 import {
   evaluateModule,
   packageFamilyOverviewModule,

@@ -13,7 +13,7 @@
 
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
-import type { PackageStationTierView } from '@/hooks/usePackageStation';
+import type { PackageStationTierView } from '@/package-station';
 import { TiersIcon, ViewIcon, PackagesIcon, RateSheetIcon } from '../../shell/icons';
 import type {
   CategoryGroupCardItem,

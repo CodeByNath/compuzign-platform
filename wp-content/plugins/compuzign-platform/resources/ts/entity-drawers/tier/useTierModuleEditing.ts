@@ -8,8 +8,7 @@
 // lifecycle and bin-travel actions report through the same channel.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { PackageStation } from '@/hooks/usePackageStation';
-import type { TierRateSheetSelection } from '@/api/types/admin';
+import type { PackageStation, TierRateSheetSelection } from '@/package-station';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
 

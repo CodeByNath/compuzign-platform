@@ -1,4 +1,4 @@
-import { deriveTierOccupants, resolveTierOccupantSlot } from '../resources/ts/entity-drawers/shared/tierOccupants';
+import { deriveTierOccupants, resolveTierOccupantSlot } from '../resources/ts/package-station/tierOccupants';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Tier occupant Admin contract: ${message}`);

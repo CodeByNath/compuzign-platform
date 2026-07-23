@@ -7,15 +7,14 @@
 // passes the results through unchanged, so presentation reads the same shapes
 // as before the split.
 
-import type { PackageStation } from '@/hooks/usePackageStation';
-import type { TierResolvedRateSheetSelection } from '@/api/types/admin';
+import type { PackageStation, TierResolvedRateSheetSelection } from '@/package-station';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type {
   TierOverviewShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
 } from '../schema/bindings/tier';
-import { relationshipDisplayLabel } from '../shared/rateSheetLabels';
+import { relationshipDisplayLabel } from '@/package-station';
 import { TIER_LABELS } from '../shared/serviceDrawerShared';
 import type { TierEditingSection } from './tierDrawerTypes';
 

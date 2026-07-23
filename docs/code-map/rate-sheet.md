@@ -10,7 +10,7 @@ The rate sheet is part of the single Package Station persisted by `PackageReposi
 
 ## Main Entry Points
 
-- [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/packages/evaluateTierPricing.ts) calculates Tier line totals and issues for missing, disabled, unresolved, or invalid-price selections. Use it when changing pricing validation or totals.
+- [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) calculates Tier line totals and issues for missing, disabled, unresolved, or invalid-price selections. Use it when changing pricing validation or totals.
 
 The manager Rate Sheet editing surface — source selection and onboarding, row editing, provenance filters, and the provider draft — was hosted in the retired Command Centre and has been removed. The Rate Sheet remains part of the Package Station; its editing surface is to be rebuilt in the Admin Station. Backend persistence/validation and pricing evaluation below are unchanged.
 

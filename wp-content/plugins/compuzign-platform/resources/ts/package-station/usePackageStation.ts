@@ -10,7 +10,7 @@ import {
   restoreServicePackageStationBinEntry,
   trashServicePackageStationBinEntry,
   deleteServicePackageStationBinEntry,
-} from '@/api/endpoints/admin';
+} from './api';
 // Service owns the inclusion/FAQ pools; the Package Station creates canonical
 // items through the Service boundary.
 import { createServiceInclusionPoolItem, createServiceFaqPoolItem } from '@/service-station';
@@ -28,7 +28,7 @@ import type {
   OccupantBinEntry,
   TierModuleKey,
   TierRateSheetSelection,
-} from '@/api/types/admin';
+} from './types';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
 import type { TierLike } from '@/drawer-kit/utils/moduleStatus';
@@ -39,10 +39,10 @@ import {
   tierFaqsModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
-import { patchTierModuleDraft } from './stationPrimitives';
-import { deriveTierOccupants, resolveTierOccupantSlot } from '@/entity-drawers/shared/tierOccupants';
-import type { TierOccupant } from '@/entity-drawers/shared/tierOccupants';
-import { relationshipDisplayLabel } from '@/entity-drawers/shared/rateSheetLabels';
+import { patchTierModuleDraft } from '@/hooks/stationPrimitives';
+import { deriveTierOccupants, resolveTierOccupantSlot } from './tierOccupants';
+import type { TierOccupant } from './tierOccupants';
+import { relationshipDisplayLabel } from './rateSheetLabels';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
 //

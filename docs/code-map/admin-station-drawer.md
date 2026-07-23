@@ -41,7 +41,7 @@ The shell adapters mount these host-neutral implementations from `resources/ts/e
 
 All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable. Command Centre mounts the same compositions through thin `StepContext → EntityDrawerHostBridge` adapters.
 
-Category mutations stay in `useCategoryStation`; Package Family mutations stay in `usePackageFamilyStation`; Service and Tier retain `useServiceStation` / `usePackageStation`. Presentation components call no endpoints.
+Category mutations stay in `useCategoryStation`; Package Family and Tier mutations stay in Package Station's `usePackageFamilyStation` / `usePackageStation`; Service retains `useServiceStation`. Presentation components call no endpoints.
 
 ## Identity and refresh invariants
 

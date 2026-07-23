@@ -15,7 +15,9 @@
  */
 
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
-import type { SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
+// Targets the station's './types' module, not its public barrel: usePackageStation
+// imports this file, so going through the barrel would close a cycle.
+import type { SurfacePackageSummary, PackageManagerItem } from '@/package-station/types';
 // Targets the station's './types' module, not its public barrel: useServiceStation
 // imports this file, so going through the barrel would close a cycle.
 import type { OverviewDraftData, ServiceSummary } from '@/service-station/types';

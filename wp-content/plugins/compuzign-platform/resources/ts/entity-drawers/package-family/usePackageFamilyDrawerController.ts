@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
-import { usePackageFamilyStation } from '@/hooks/usePackageFamilyStation';
-import type { PackageFamilyOverviewDraft } from '@/hooks/usePackageFamilyStation';
+import { usePackageFamilyStation } from '@/package-station';
+import type { PackageFamilyOverviewDraft } from '@/package-station';
 import {
   useAutoDismiss,
   useGuardedClose,

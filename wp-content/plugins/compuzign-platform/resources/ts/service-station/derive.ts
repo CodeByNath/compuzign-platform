@@ -7,7 +7,7 @@
 // never the station barrel (which would close a cycle through useServiceStation).
 
 import type { TierId } from '@/api/types/cost-builder';
-import type { SurfacePackageSummary } from '@/api/types/admin';
+import type { SurfacePackageSummary } from '@/package-station';
 import { resolvePackageStatus } from '@/drawer-kit/utils/moduleStatus';
 import type { ServiceInclusionItem, ServiceFaqItem } from './types';
 

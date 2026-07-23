@@ -1,6 +1,6 @@
 import fixture from '../tests/fixtures/tier-pricing-parity.json';
-import { evaluateTierPricing } from '../resources/ts/modules/packages/evaluateTierPricing';
-import type { PricingRateSheetItem, TierPricingSelection } from '../resources/ts/modules/packages/evaluateTierPricing';
+import { evaluateTierPricing } from '../resources/ts/package-station/evaluateTierPricing';
+import type { PricingRateSheetItem, TierPricingSelection } from '../resources/ts/package-station/evaluateTierPricing';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`TypeScript Tier pricing parity: ${message}`);

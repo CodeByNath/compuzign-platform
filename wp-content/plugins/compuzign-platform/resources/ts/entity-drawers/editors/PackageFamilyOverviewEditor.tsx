@@ -1,4 +1,4 @@
-import type { PackageFamilyOverviewDraft } from '@/hooks/usePackageFamilyStation';
+import type { PackageFamilyOverviewDraft } from '@/package-station';
 
 interface Props {
   draft: PackageFamilyOverviewDraft;

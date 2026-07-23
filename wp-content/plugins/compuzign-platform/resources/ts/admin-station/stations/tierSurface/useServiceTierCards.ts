@@ -16,7 +16,7 @@
 // they are absent from the wall exactly as they are absent from the manager grid.
 
 import { useMemo } from 'preact/hooks';
-import { usePackageStation } from '@/hooks/usePackageStation';
+import { usePackageStation } from '@/package-station';
 import { useHostService } from './useHostService';
 import { useRetainedCollection } from '../useRetainedCollection';
 import { toTierOccupantCard } from './tierOccupantCard';

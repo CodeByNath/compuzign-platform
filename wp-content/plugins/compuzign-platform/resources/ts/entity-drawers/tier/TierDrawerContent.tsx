@@ -21,7 +21,7 @@ import { TIER_ENTITY } from '../schema/entities/tier';
 import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
-import type { TierRateSheetSelection } from '@/api/types/admin';
+import type { TierRateSheetSelection } from '@/package-station';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import { TIER_KEYS, TIER_LABELS } from '../shared/serviceDrawerShared';
 import { useTierDrawerController } from './useTierDrawerController';

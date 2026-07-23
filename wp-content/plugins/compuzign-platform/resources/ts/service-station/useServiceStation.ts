@@ -43,7 +43,7 @@ import type {
   InclusionsDraft,
   FaqsDraft,
 } from './types';
-import type { SurfacePackageSummary } from '@/api/types/admin';
+import type { SurfacePackageSummary } from '@/package-station';
 import { resolveOverviewStatus } from '@/drawer-kit/utils/moduleStatus';
 import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/drawer-kit/utils/moduleNotifications';
 import type { NoteContext, ModuleState } from '@/drawer-kit/utils/moduleNotifications';

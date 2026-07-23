@@ -6,7 +6,7 @@
 // never does. Behaviour stays with usePackageStation and the engine (D1–D4);
 // everything here references existing presentation assets.
 
-import type { SurfaceTierDetail } from '@/api/types/admin';
+import type { SurfaceTierDetail } from '@/package-station';
 import {
   tierOverviewShell,
   tierFeaturesShell,

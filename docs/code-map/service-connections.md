@@ -10,7 +10,7 @@ The provider-neutral connection graph — a relation registry, a multi-provider 
 
 ## Where connections live now
 
-- **Package ↔ Service.** The Package Family drawer composes Services, Rate Sheet, and Tier dependency Connections. Composition: [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); client write boundary: [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageFamilyStation.ts) and [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts).
+- **Package ↔ Service.** The Package Family drawer composes Services, Rate Sheet, and Tier dependency Connections. Composition: [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); client write boundary: [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) and [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts).
 - **Category ↔ Service.** The Category drawer shows assigned-Service Connections as read-only projections; assignment stays Service-owned. See [Categories](categories.md).
 - **Promotion ↔ Package.** Promotions are Package Station children; see [Promotions](promotions.md).
 

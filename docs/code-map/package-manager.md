@@ -18,9 +18,9 @@ The Command Centre provider-neutral manager — its coordinator, Package provide
 
 ## State
 
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package Station client state and mutations.
-- [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageFamilyStation.ts) is the Package Family client write boundary: overview save/revert/settle, publish, enable/disable, archive/trash/restore, delete, module state, and mutation notification.
-- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/tierOccupants.ts) projects occupants and resolves them to slots.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package Station client state and mutations.
+- [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) is the Package Family client write boundary: overview save/revert/settle, publish, enable/disable, archive/trash/restore, delete, module state, and mutation notification.
+- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects occupants and resolves them to slots.
 
 ## Backend and Persistence
 

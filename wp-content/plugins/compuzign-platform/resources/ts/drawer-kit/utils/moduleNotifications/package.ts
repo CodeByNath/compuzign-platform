@@ -1,7 +1,9 @@
 // Package module rules — the Service drawer's Package Summary card and the
 // Package Station Manager's item/summary pair.
 
-import type { SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
+// Targets the station's './types' module, not its public barrel: usePackageStation
+// imports this file, so going through the barrel would close a cycle.
+import type { SurfacePackageSummary, PackageManagerItem } from '@/package-station/types';
 import {
   resolvePackageStatus,
   resolvePackageManagerItemStatus,

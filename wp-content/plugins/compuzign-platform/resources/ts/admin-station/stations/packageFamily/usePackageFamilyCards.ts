@@ -17,7 +17,7 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { fetchPackageFamilies } from '@/api/endpoints/admin';
+import { fetchPackageFamilies } from '@/package-station';
 import { toPackageFamilyCard } from './cardAdapter';
 import { useRetainedCollection } from '../useRetainedCollection';
 import type { CategoryGroupCardItem } from '../../presentation/category-groups/types';

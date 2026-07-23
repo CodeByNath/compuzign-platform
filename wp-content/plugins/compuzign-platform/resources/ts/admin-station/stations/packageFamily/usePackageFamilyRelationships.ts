@@ -5,7 +5,7 @@
 // Catalogue consumers receive native Family and Service identities unchanged.
 
 import { useMemo } from 'preact/hooks';
-import { fetchPackageFamilies } from '@/api/endpoints/admin';
+import { fetchPackageFamilies } from '@/package-station';
 import { useApi } from '@/hooks/useApi';
 import {
   toPackageFamilyRelationship,

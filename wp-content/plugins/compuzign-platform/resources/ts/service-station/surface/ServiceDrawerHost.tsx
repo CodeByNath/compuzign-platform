@@ -16,7 +16,7 @@
 import { useMemo, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
 import { useApi } from '@/hooks/useApi';
-import { useSurfacePackages } from '@/hooks/useSurfacePackages';
+import { useSurfacePackages } from '@/package-station';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { ServiceDrawerContent } from '@/service-station/drawer/ServiceDrawerContent';
 import {

@@ -33,10 +33,10 @@ Roots:
 ## Entity compositions
 
 - `entity-drawers/category/` — Category Overview, assigned-Service Connections, group membership, draft/publish/enable/archive/trash/restore/delete, dialogs and close guard.
-- `entity-drawers/package-family/` — Family Overview, Services/Rate Sheet/Tier dependency Connections, draft/revert/settle/publish and full lifecycle. `hooks/usePackageFamilyStation.ts` is the authoritative client write boundary. The Admin Station mounts this composition; creation remains its own first-level create form.
+- `entity-drawers/package-family/` — Family Overview, Services/Rate Sheet/Tier dependency Connections, draft/revert/settle/publish and full lifecycle. `package-station/usePackageFamilyStation.ts` is the authoritative client write boundary. The Admin Station mounts this composition; creation remains its own first-level create form.
 - `service-station/drawer/` — Overview, Included Features, FAQs, pricing Connections, lifecycle, guarded pending/new-draft exits. `useServiceDrawerController` coordinates the focused hooks `useServiceModuleEditing`, `useServiceLifecycle`, and `useServiceExitFlow`; its return contract is the drawer's public shape.
 - `entity-drawers/tier/` — tier cards, Overview/Features/FAQs, service Connections, occupant bin, restore conflicts, swap/retarget, publish and enable/disable. `useTierDrawerController` coordinates `useTierModuleEditing`, `useTierBinTravel`, and the pure `tierDetailModel.ts` (home of `slotOccupied`, re-exported by the controller).
-- `entity-drawers/shared/` — cross-entity coordination machinery: `drawerChrome.ts` (guarded close, lifecycle runner, auto-dismiss, outside-click dismiss — Service/Category/Package Family; Tier deliberately keeps `window.confirm`), `rateSheetLabels.ts`, `tierOccupants.ts`, `serviceDrawerShared.ts`.
+- `entity-drawers/shared/` — cross-entity coordination machinery: `drawerChrome.ts` (guarded close, lifecycle runner, auto-dismiss, outside-click dismiss — Service/Category/Package Family; Tier deliberately keeps `window.confirm`) and `serviceDrawerShared.ts`. Package-owned `rateSheetLabels.ts` and `tierOccupants.ts` live at the `package-station/` data boundary.
 - `entity-drawers/schema/` — shared manifests/bindings for the neutral drawer compositions.
 
 ## Bundle and style boundary

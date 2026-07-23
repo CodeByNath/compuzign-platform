@@ -22,7 +22,7 @@
 // and is unchanged by the composition split.
 
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { usePackageStation } from '@/hooks/usePackageStation';
+import { usePackageStation } from '@/package-station';
 import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
 import { serviceConnectionBinding } from '../shared/serviceDrawerShared';
 import { useAutoDismiss, useOutsideClickDismiss } from '../shared/drawerChrome';

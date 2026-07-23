@@ -5,7 +5,7 @@ import {
   toPackageFamilyRelationship,
   type PackageFamilyRelationship,
 } from '../resources/ts/admin-station/stations/packageFamily/relationships';
-import type { PackageFamilyListItem } from '../resources/ts/api/types/admin';
+import type { PackageFamilyListItem } from '../resources/ts/package-station';
 import {
   packageFamilyOptions,
   serviceMatchesCategory,
@@ -65,7 +65,7 @@ const serviceTypes = source('resources/ts/service-station/types.ts').split('// â
 const serviceController = source('src/Modules/Service/Http/ServiceController.php')
   .split('public function listServices')[1]
   .split('public function createService')[0];
-const packageController = source('src/Modules/Admin/Http/AdminPackageCategoryGroupsController.php');
+const packageController = source('src/Modules/SurfacePackages/Http/PackageFamiliesController.php');
 const packageRelationships = source('src/Modules/SurfacePackages/Support/PackageCategoryGroups.php')
   .split('public static function relatedServiceIds')[1]
   .split('public static function dependents')[0];

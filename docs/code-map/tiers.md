@@ -15,9 +15,9 @@ Stable UI/drawer identity is `occupant_id`; the resolved fixed `slotId` remains 
 
 ## State and persistence
 
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts) owns Package/Tier reads, module drafts, saves, settle, enable, popular, pool operations, and bin mutations.
-- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/tierOccupants.ts) projects settled occupants and resolves occupant ids back to slots.
-- [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/packages/evaluateTierPricing.ts) derives Rate Sheet totals/issues.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package/Tier reads, module drafts, saves, settle, enable, popular, pool operations, and bin mutations.
+- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects settled occupants and resolves occupant ids back to slots.
+- [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) derives Rate Sheet totals/issues.
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns Tier shape, sanitization, compatibility, and `occupant_id` projection.
 - [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`.
 - [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns module, status, popular, bin, and settle routes. New pool items write through Service-owned `ServicePools`.

@@ -19,8 +19,7 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { usePackageStation } from '@/hooks/usePackageStation';
-import { fetchPackageFamilies } from '@/api/endpoints/admin';
+import { fetchPackageFamilies, usePackageStation } from '@/package-station';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
