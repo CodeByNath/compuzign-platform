@@ -1,16 +1,9 @@
 // Rate Sheet row — the host-neutral drawer composition.
 //
-// The mature Rate Sheet row behaviour recovered as a REAL entity composition on
-// the shared drawer kit — the same EntityDrawer / shell / module system the
-// Package Family, Category, Service, and Tier drawers use, never a form of
-// disabled inputs:
-//
-//   Overview | Connections tabs (EntityDrawer + RATE_SHEET_ROW_ENTITY)
-//     Overview     → Row Overview + Commercial Terms read modules
-//     Connections  → Source & Provenance + Connection Status read modules
-//   Edit         → the Commercial Terms module alone switches to
-//                  InlineEditorShell (unit price / per / quantity / group);
-//                  sibling modules remain readable.
+// The mature Rate Sheet row editing behaviour (previously RateRowDrawerStep in
+// the Command Centre's serviceManagerDrawers), recovered as a neutral entity
+// composition: read-only provenance (source option, Service, Category), and the
+// four editable commercial fields (unit price, per, quantity, group).
 //
 // It knows NO host: no Admin Station shell, no StepContext, no surface binding,
 // no focused Family/Tier, no endpoint. It receives one resolved row model, an
@@ -18,33 +11,20 @@
 // EntityDrawerHostBridge — so the same composition can mount under any host
 // that satisfies the bridge.
 //
+//   view  → read-only fields + a record footer (Close / Edit row)
+//   edit  → InlineEditorShell over the four editable fields, dirty-tracked
+//
 // A successful save reports through bridge.onMutationComplete (the host
 // refreshes the wall the drawer was opened from — and only that wall), shows
-// the shared saved toast, and returns to read mode; the drawer stays open,
-// matching the established shared drawer behaviour. Close is guarded while an
-// edit is dirty (the same window.confirm guard the Tier composition keeps).
+// the shared saved toast, and returns to view; the drawer stays open, matching
+// the established shared drawer behaviour. Close is guarded while an edit is
+// dirty (the same window.confirm guard the Tier composition keeps).
 
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
-import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
-import type { ShellBinding } from '@/drawer-kit/schema/types';
-import {
-  evaluateModule,
-  rateSheetRowModule,
-  rateSheetRowCommercialModule,
-  rateSheetRowConnectionModule,
-} from '@/drawer-kit/utils/moduleNotifications';
-import type { RateSheetRowLike } from '@/drawer-kit/utils/moduleNotifications';
+import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { useAutoDismiss } from '../shared/drawerChrome';
-import { RATE_SHEET_ROW_ENTITY } from '../schema/entities/rateSheetRow';
-import type {
-  RateSheetRowOverviewShellData,
-  RateSheetRowCommercialShellData,
-  RateSheetRowProvenanceShellData,
-  RateSheetRowConnectionShellData,
-} from '../schema/bindings/rateSheetRow';
 
 /** The resolved Rate Sheet row as the host adapter supplies it. Identity and
  *  provenance fields are display-only here; the composition never mutates or
@@ -53,24 +33,14 @@ export interface RateSheetRowModel {
   itemId: string;
   sourceItemId: string;
   optionLabel: string;
-  /** The relationship's source type ('inclusion' | 'faq'), null when unresolved. */
-  sourceType: string | null;
   serviceTitle: string | null;
   categories: string[];
-  /** The priced relationship resolves to a live source. */
-  resolved: boolean;
-  /** The relationship is administratively disabled. */
-  sourceDisabled: boolean;
-  /** The station's platform status — drives the shared module lifecycle notes. */
-  platformStatus: string;
   unitPrice: number;
   per: string;
   quantity: number;
   groupId: string | null;
   groups: readonly { id: string; label: string }[];
   units: readonly string[];
-  /** The Tiers whose current selections include this row (occupant identity + label). */
-  tierSelections: readonly { id: string; label: string }[];
 }
 
 /** The only fields an edit may change — mirrors the station command's patch. */
@@ -107,11 +77,6 @@ function isSameDraft(a: RateSheetRowDraft, b: RateSheetRowDraft): boolean {
     && a.group_id === b.group_id;
 }
 
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  inclusion: 'Included Feature',
-  faq:       'Common Question',
-};
-
 export function RateSheetRowDrawerContent({
   model,
   initialEdit,
@@ -119,10 +84,8 @@ export function RateSheetRowDrawerContent({
   onSave,
   bridge,
 }: RateSheetRowDrawerContentProps): VNode {
-  const [tab, setTab] = useState<DrawerBaseTabId>('details');
   const [editing, setEditing] = useState(initialEdit);
   const [draft, setDraft] = useState<RateSheetRowDraft>(() => draftFromModel(model));
-  const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
 
@@ -146,12 +109,7 @@ export function RateSheetRowDrawerContent({
 
   useAutoDismiss(saveOk, () => setSaveOk(false), 4000);
 
-  const startEdit = () => {
-    setTab('details');
-    setEditing(true);
-  };
-
-  // Record footer in read mode only; InlineEditorShell owns the edit footer.
+  // Record footer in view mode only; InlineEditorShell owns the edit footer.
   useEffect(() => {
     if (editing) {
       bridge.setFooter(null);
@@ -161,7 +119,7 @@ export function RateSheetRowDrawerContent({
       <div class="cz-tf-footer">
         <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => bridge.close()}>Close</button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={startEdit}>Edit row</button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => setEditing(true)}>Edit row</button>
       </div>,
     );
     return () => bridge.setFooter(null);
@@ -188,95 +146,100 @@ export function RateSheetRowDrawerContent({
     ? model.groups.find((group) => group.id === model.groupId)?.label ?? 'Unknown group'
     : 'Ungrouped';
 
-  // One shared DNA evaluation per module axis — the same evaluateModule engine
-  // every drawer module uses (status + notes rendered by the shell frame).
-  const rowLike: RateSheetRowLike = {
-    resolved: model.resolved,
-    sourceDisabled: model.sourceDisabled,
-    unitPrice: model.unitPrice,
-    tierSelectionCount: model.tierSelections.length,
-  };
-  const noteCtx = { platformStatus: model.platformStatus, platformLabel: 'Package Station' };
+  const provenance = (
+    <>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Source option</label>
+        <input type="text" class="cz-tf-input" value={model.optionLabel} readOnly />
+      </div>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Service</label>
+        <input type="text" class="cz-tf-input" value={model.serviceTitle ?? '—'} readOnly />
+      </div>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Category</label>
+        <input type="text" class="cz-tf-input" value={model.categories.join(', ') || '—'} readOnly />
+      </div>
+    </>
+  );
 
-  const overviewBinding: ShellBinding<RateSheetRowOverviewShellData> = {
-    data: {
-      optionLabel: model.optionLabel,
-      sourceTypeLabel: model.sourceType !== null
-        ? SOURCE_TYPE_LABELS[model.sourceType] ?? model.sourceType
-        : 'Unknown source',
-      serviceTitle: model.serviceTitle,
-      groupLabel,
-    },
-    state: evaluateModule(rateSheetRowModule, rowLike, noteCtx),
-    hasDraft: false,
-    handlers: {},
-  };
-
-  const commercialBinding: ShellBinding<RateSheetRowCommercialShellData> = {
-    data: {
-      unitPriceLabel: `$${model.unitPrice.toFixed(2)}`,
-      per: model.per,
-      quantityLabel: String(model.quantity),
-      groupLabel,
-    },
-    state: evaluateModule(rateSheetRowCommercialModule, rowLike, noteCtx),
-    hasDraft: false,
-    handlers: { edit: startEdit },
-  };
-
-  const provenanceBinding: ShellBinding<RateSheetRowProvenanceShellData> = {
-    data: {
-      optionLabel: model.optionLabel,
-      serviceTitle: model.serviceTitle,
-      categoriesLabel: model.categories.join(', '),
-      referenceLabel: `${model.itemId} · ${model.sourceItemId}`,
-    },
-    state: evaluateModule(rateSheetRowModule, rowLike, noteCtx),
-    hasDraft: false,
-    handlers: {},
-  };
-
-  const connectionBinding: ShellBinding<RateSheetRowConnectionShellData> = {
-    data: {
-      resolutionLabel: model.resolved ? 'Resolved' : 'Unresolved',
-      availabilityLabel: model.sourceDisabled ? 'Source disabled' : model.resolved ? 'Available' : 'Source missing',
-      tierSelections: model.tierSelections.map((tier) => ({ id: tier.id, label: tier.label })),
-    },
-    state: evaluateModule(rateSheetRowConnectionModule, rowLike, noteCtx),
-    hasDraft: false,
-    handlers: {},
-  };
+  if (editing) {
+    return (
+      <InlineEditorShell
+        title="Rate Sheet Row"
+        onSave={handleSave}
+        onCancel={() => { setDraft(draftFromModel(model)); setSaveErr(null); setEditing(false); }}
+        saving={saving}
+        saveErr={saveErr}
+        isDirty={isDirty}
+        saveDisabled={!isDirty || !draftValid}
+      >
+        <div class="cz-tf-form">
+          {provenance}
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Unit price</label>
+            <input
+              type="number" min="0" step="0.01" class="cz-tf-input"
+              value={draft.unit_price}
+              onInput={(e) => setDraft({ ...draft, unit_price: Number((e.target as HTMLInputElement).value) })}
+            />
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Per</label>
+            <select
+              class="cz-tf-select" value={draft.per}
+              onChange={(e) => setDraft({ ...draft, per: (e.target as HTMLSelectElement).value })}
+            >
+              {model.units.map((unit) => <option value={unit} key={unit}>{unit}</option>)}
+            </select>
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Quantity</label>
+            <input
+              type="number" min="1" step="1" class="cz-tf-input"
+              value={draft.quantity}
+              onInput={(e) => setDraft({ ...draft, quantity: Number((e.target as HTMLInputElement).value) })}
+            />
+          </div>
+          <div class="cz-tf-field">
+            <label class="cz-tf-label">Group</label>
+            <select
+              class="cz-tf-select" value={draft.group_id ?? ''}
+              onChange={(e) => setDraft({ ...draft, group_id: (e.target as HTMLSelectElement).value || null })}
+            >
+              <option value="">Ungrouped</option>
+              {model.groups.map((group) => <option value={group.id} key={group.id}>{group.label}</option>)}
+            </select>
+          </div>
+          <p class="cz-tf-hint">Source option and provenance are resolved live and cannot be edited here.</p>
+        </div>
+      </InlineEditorShell>
+    );
+  }
 
   return (
-    <EntityDrawer
-      entity={RATE_SHEET_ROW_ENTITY}
-      tab={tab}
-      onSelectTab={setTab}
-      bindings={{
-        overview:   overviewBinding,
-        commercial: commercialBinding,
-        provenance: provenanceBinding,
-        connection: connectionBinding,
-      }}
-      openPanel={openPanel}
-      onTogglePanel={(module) => setOpenPanel((open) => (open === module ? null : module))}
-      editing={editing ? {
-        module: 'commercial',
-        session: {
-          draft,
-          patch: (patch) => setDraft((current) => ({ ...current, ...patch })),
-          replace: (next) => setDraft(next as RateSheetRowDraft),
-          onSave: handleSave,
-          onCancel: () => { setDraft(draftFromModel(model)); setSaveErr(null); setEditing(false); },
-          saving,
-          saveErr,
-          isDirty,
-          saveDisabled: !isDirty || !draftValid,
-          extras: { groups: model.groups, units: model.units },
-        },
-      } : null}
-    >
+    <div class="cz-tf-form">
       {saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
-    </EntityDrawer>
+      {provenance}
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Unit price</label>
+        <input type="text" class="cz-tf-input" value={`$${model.unitPrice.toFixed(2)}`} readOnly />
+      </div>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Per</label>
+        <input type="text" class="cz-tf-input" value={model.per} readOnly />
+      </div>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Quantity</label>
+        <input type="text" class="cz-tf-input" value={String(model.quantity)} readOnly />
+      </div>
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Group</label>
+        <input type="text" class="cz-tf-input" value={groupLabel} readOnly />
+      </div>
+      <p class="cz-tf-hint">
+        Row identity: <code>{model.itemId}</code> · source relationship: <code>{model.sourceItemId}</code>
+      </p>
+    </div>
   );
 }

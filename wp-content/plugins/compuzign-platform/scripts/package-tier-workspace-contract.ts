@@ -14,11 +14,8 @@ import {
 } from '../resources/ts/admin-station/stations/packageTierWorkspace/projection';
 import { buildFamilySummary } from '../resources/ts/admin-station/stations/packageTierWorkspace/familySummary';
 import {
-  partitionConnectionsRows,
   projectTierDetails,
   projectRateSheetConnections,
-  projectWorkspaceSettings,
-  resolveTierDetailsEmptyState,
   type WorkspaceResolvedSelection,
   type WorkspaceStationContext,
 } from '../resources/ts/admin-station/stations/packageTierWorkspace/rateSheetProjection';
@@ -229,74 +226,5 @@ const unconfigured = projectRateSheetConnections({
 });
 check(!unconfigured.configured && unconfigured.rows.length === 0 && unconfigured.title === null,
   'an unconfigured station projects an honest empty Connections model');
-
-// ── Connections coverage partition (Details vs Connections separation) ────────
-// Connections lists only what explains coverage: unresolved rows and rows the
-// focused Tier does not select. Tier-selected rows are Details' operating list
-// and are never re-listed by Connections.
-const coverage = projectRateSheetConnections({
-  station,
-  tierSelections: [{ item_id: 'rate_a', quantity: 1 }],
-  familyRelatedServiceIds: [10],
-});
-const partitioned = partitionConnectionsRows(coverage.rows);
-check(partitioned.attention.map((row) => row.recordId).join(',') === 'rate_ghost',
-  'the attention section holds exactly the unresolved rows');
-check(partitioned.unselected.map((row) => row.recordId).join(',') === 'rate_b,rate_faq',
-  'the unselected section holds exactly the resolved rows the Tier does not select');
-check(![...partitioned.attention, ...partitioned.unselected].some((row) => row.tierSelected),
-  'no Tier-selected row is ever re-listed by a Connections section');
-
-// ── Details empty and first-use states ────────────────────────────────────────
-// Every state names what exists and the next valid action; a populated Tier
-// resolves to null so the operating list renders.
-const noTiersNoSheet = resolveTierDetailsEmptyState({
-  hasOccupant: false, sheetConfigured: false, rowCount: 0, familyName: 'KAIROS', tierName: null,
-});
-check(!!noTiersNoSheet && noTiersNoSheet.message.includes('KAIROS')
-  && noTiersNoSheet.hint !== null && noTiersNoSheet.hint.includes('Settings'),
-  'no-Tier + no-sheet state names the Family and points at Rate Sheet setup');
-const noTiersWithSheet = resolveTierDetailsEmptyState({
-  hasOccupant: false, sheetConfigured: true, rowCount: 0, familyName: 'KAIROS', tierName: null,
-});
-check(!!noTiersWithSheet && noTiersWithSheet.hint !== null && noTiersWithSheet.hint.includes('Rate Sheet selections'),
-  'no-Tier state explains the projection rule once the sheet exists');
-const tierNoSheet = resolveTierDetailsEmptyState({
-  hasOccupant: true, sheetConfigured: false, rowCount: 0, familyName: 'KAIROS', tierName: 'Basic',
-});
-check(!!tierNoSheet && tierNoSheet.message.includes('No Rate Sheet')
-  && tierNoSheet.hint !== null && tierNoSheet.hint.includes('Settings'),
-  'a Tier without a sheet is told to set the sheet up under Settings');
-const tierNoRows = resolveTierDetailsEmptyState({
-  hasOccupant: true, sheetConfigured: true, rowCount: 0, familyName: 'KAIROS', tierName: 'Basic',
-});
-check(!!tierNoRows && tierNoRows.message.includes('Basic'),
-  'a Tier with no inclusion selections is named in its empty state');
-check(resolveTierDetailsEmptyState({
-  hasOccupant: true, sheetConfigured: true, rowCount: 3, familyName: 'KAIROS', tierName: 'Basic',
-}) === null, 'a populated Tier renders its rows, not an empty state');
-
-// ── Settings actions by authoritative state ───────────────────────────────────
-// Package Family creation is always offered (station-wide, exact repository
-// naming); Rate Sheet setup exists only while unconfigured; Rate Sheet Group
-// creation exists only once the sheet does. No other action may appear.
-const configuredSettings = projectWorkspaceSettings(station);
-check(configuredSettings.sheetConfigured
-  && configuredSettings.actions.map((action) => action.id).join(',') === 'create-package-family,create-rate-sheet-group',
-  'a configured sheet offers Package Family and Rate Sheet Group creation only');
-check(configuredSettings.sheetStatusLine.includes('MEP Rate Sheet'),
-  'the Settings status line reports the real configured sheet');
-const unconfiguredSettings = projectWorkspaceSettings({ ...station, rateSheet: null });
-check(!unconfiguredSettings.sheetConfigured
-  && unconfiguredSettings.actions.map((action) => action.id).join(',') === 'create-package-family,setup-rate-sheet',
-  'an unconfigured sheet offers Package Family creation and Rate Sheet setup only');
-const familyAction = configuredSettings.actions[0];
-check(familyAction.title === 'Package Family' && familyAction.buttonLabel === '+ Package Family',
-  'the Package Family action uses the exact repository entity name');
-for (const model of [configuredSettings, unconfiguredSettings]) {
-  check(!model.actions.some((action) =>
-    `${action.title} ${action.buttonLabel} ${action.description}`.includes('Family Group')),
-    'no Settings action calls a Package Family a "Family Group"');
-}
 
 console.log('Package Tier workspace contract checks passed.');

@@ -49,7 +49,7 @@ export function PackageFamilyCreateContent({ create, bridge }: PackageFamilyCrea
         <div class="cz-tf-footer__spacer" />
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={saving} onClick={() => bridge.close()}>Cancel</button>
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={saving || !name.trim()} onClick={() => void apply()}>
-          {saving ? 'Working…' : 'Create Package Family'}
+          {saving ? 'Working…' : 'Create Family'}
         </button>
       </div>,
     );

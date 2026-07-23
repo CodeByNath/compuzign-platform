@@ -50,8 +50,10 @@ import { TierLowerWorkspace } from './TierLowerWorkspace';
 // heading; this is the concise Station-level description beneath it.
 const ENGINE_DESCRIPTION = 'Station-level workspace for previewing and managing package tiers.';
 
-// Empty-state copy for a Family whose projection contains no Tier occupants.
-const NO_TIERS_MESSAGE = 'No Tier selections are currently available for this Package Family.';
+// Empty-state copy: one for an empty authoritative Family read, and one for a
+// Family whose projection contains no Tier occupants.
+const NO_FAMILY_MESSAGE = 'No Package Families are currently available.';
+const NO_TIERS_MESSAGE  = 'No Tier selections are currently available for this Package Family.';
 
 /** The two view modes of the one Tier tool. Focus is the default. */
 type ViewMode = 'focus' | 'grid';
@@ -125,28 +127,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
 
       {/* Workspace body — Focus reads left-to-right as Tier tabs, focused Tier,
           then Family group. Grid is only another view of the same occupants and
-          keeps that Family group available; neither mode changes ownership.
-
-          With no Package Family at all there is nothing to focus, so the whole
-          workspace becomes one deliberate first-use state whose single action
-          is the real, registered Package Family creation flow — the lower deck
-          (which needs a focused Family) is not mounted. */}
+          keeps that Family group available; neither mode changes ownership. */}
       {selectedFamily === null ? (
-        <div class="cz-tier-workspace__firstuse">
-          <p class="cz-tier-workspace__state-message">No Package Families exist yet.</p>
-          <p class="cz-tier-workspace__state-hint">
-            A Package Family is the working scope of this engine: it groups the
-            Services whose supplied content Tiers price. Create the first one to
-            begin; the Rate Sheet and Tier tools follow from there.
-          </p>
-          <button
-            type="button"
-            class="cz-tier-workspace__rs-btn cz-tier-workspace__rs-btn--primary"
-            onClick={() => onIntent('new', 'create-package-family')}
-          >
-            + Package Family
-          </button>
-        </div>
+        <p class="cz-station-empty">{NO_FAMILY_MESSAGE}</p>
       ) : (
         <div class="cz-tier-workspace__layout">
           <div class="cz-tier-workspace__primary">

@@ -10,40 +10,25 @@
 // Family/Tier selection, and constructs no mutation: every action dispatches a
 // record identity through `onIntent`, exactly like the engine above it.
 //
-// Responsibilities are deliberately distinct:
-//
-//   Details     — the focused Tier's OWN inclusion rows (pure
-//                 projectTierDetails): the compact operational list, with row
-//                 View / Edit dispatching each Rate Sheet row's own item_id to
-//                 the rate-sheet-row drawer.
-//   Connections — the station's ONE genuine Rate Sheet in its relationship
-//                 context (pure projectRateSheetConnections): coverage against
-//                 the focused Family and Tier, providers, groups, and only the
-//                 rows that explain coverage — unresolved rows and rows the
-//                 focused Tier does NOT select. Tier-selected rows are counted
-//                 here, operated on in Details.
-//   Settings    — the station-level creation actions (pure
-//                 projectWorkspaceSettings): Package Family (station-wide),
-//                 Rate Sheet setup (only while unconfigured), Rate Sheet Group
-//                 (only once the sheet exists). Creation names no existing
+//   Details     — the focused Tier's inclusion rows (pure projectTierDetails),
+//                 compact rows with View / Edit dispatching the Rate Sheet
+//                 row's OWN item_id to the rate-sheet-row drawer.
+//   Connections — the station's ONE genuine Rate Sheet projected against the
+//                 focused Family and Tier (pure projectRateSheetConnections),
+//                 with the same row actions.
+//   Settings    — the manager-level creation actions (Package Family, Rate
+//                 Sheet setup, Rate Sheet group), each dispatching to its
+//                 registered creation drawer. Creation names no existing
 //                 record, so these dispatch the stable 'new' sentinel.
-//
-// Every empty state names what exists and the next valid action (pure
-// resolveTierDetailsEmptyState) — never a dead instruction.
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { StationIntentDispatch } from '../templateKits';
 import type { PackageTierWorkspaceFamily, WorkspaceOccupant } from '../../stations/packageTierWorkspace/projection';
 import {
-  partitionConnectionsRows,
-  projectRateSheetConnections,
   projectTierDetails,
-  projectWorkspaceSettings,
-  resolveTierDetailsEmptyState,
-  type ConnectionsRow,
+  projectRateSheetConnections,
   type TierDetailsRow,
-  type WorkspaceEmptyState,
 } from '../../stations/packageTierWorkspace/rateSheetProjection';
 
 type LowerTab = 'details' | 'connections' | 'settings';
@@ -53,6 +38,10 @@ const LOWER_TABS: readonly { id: LowerTab; label: string }[] = [
   { id: 'connections', label: 'Connections' },
   { id: 'settings',    label: 'Settings' },
 ];
+
+const NO_TIER_MESSAGE = 'Select a Tier above to see its Rate Sheet details.';
+const NO_ROWS_MESSAGE = 'This Tier has no included Rate Sheet rows.';
+const NO_SHEET_MESSAGE = 'No Rate Sheet is configured for this Package Station yet. Set it up under Settings.';
 
 interface Props {
   family: PackageTierWorkspaceFamily;
@@ -72,48 +61,30 @@ export function TierLowerWorkspace({ family, occupant, onIntent }: Props): VNode
           {LOWER_TABS.map((entry) => (
             <button
               key={entry.id}
-              id={`cz-tier-lower-tab-${entry.id}`}
               type="button"
               role="tab"
               class="cz-tier-workspace__lower-tab"
               aria-selected={tab === entry.id}
-              aria-controls="cz-tier-lower-panel"
               onClick={() => setTab(entry.id)}
             >
               {entry.label}
             </button>
           ))}
         </div>
-        {/* The focused scope, restated so the deck is honest about what it
-            operates on in Grid view too. Read-only: selection lives above. */}
+        {/* The focused context, restated so the lower deck is honest about its
+            scope in Grid view too. Read-only: selection lives above. */}
         <p class="cz-tier-workspace__lower-context">
-          <span class="cz-tier-workspace__lower-context-label">Focused scope</span>
           {family.name}
-          {occupant !== null ? <> · {occupant.card.name}</> : <> · no Tier connected</>}
+          {occupant !== null && <> · {occupant.card.name}</>}
         </p>
       </div>
 
-      <div
-        id="cz-tier-lower-panel"
-        class="cz-tier-workspace__lower-body"
-        role="tabpanel"
-        aria-labelledby={`cz-tier-lower-tab-${tab}`}
-      >
+      <div class="cz-tier-workspace__lower-body" role="tabpanel">
         {tab === 'details' && <DetailsPanel family={family} occupant={occupant} onIntent={onIntent} />}
         {tab === 'connections' && <ConnectionsPanel family={family} occupant={occupant} onIntent={onIntent} />}
         {tab === 'settings' && <SettingsPanel family={family} onIntent={onIntent} />}
       </div>
     </section>
-  );
-}
-
-// One deliberate empty/first-use block: what exists, then the next valid action.
-function EmptyState({ state }: { state: WorkspaceEmptyState }): VNode {
-  return (
-    <div class="cz-tier-workspace__state">
-      <p class="cz-tier-workspace__state-message">{state.message}</p>
-      {state.hint !== null && <p class="cz-tier-workspace__state-hint">{state.hint}</p>}
-    </div>
   );
 }
 
@@ -153,14 +124,8 @@ function DetailsPanel({ family, occupant, onIntent }: Props): VNode {
     });
   }, [rows, search, category, status]);
 
-  const emptyState = resolveTierDetailsEmptyState({
-    hasOccupant: occupant !== null,
-    sheetConfigured: family.station.rateSheet !== null,
-    rowCount: rows.length,
-    familyName: family.name,
-    tierName: occupant?.card.name ?? null,
-  });
-  if (emptyState !== null) return <EmptyState state={emptyState} />;
+  if (occupant === null) return <p class="cz-station-empty">{NO_TIER_MESSAGE}</p>;
+  if (rows.length === 0) return <p class="cz-station-empty">{NO_ROWS_MESSAGE}</p>;
 
   return (
     <div class="cz-tier-workspace__rs">
@@ -256,18 +221,7 @@ function ConnectionsPanel({ family, occupant, onIntent }: Props): VNode {
     [family, occupant],
   );
 
-  const sections = useMemo(() => partitionConnectionsRows(model.rows), [model]);
-
-  if (!model.configured) {
-    return (
-      <EmptyState state={{
-        message: 'No Rate Sheet is configured for this Package Station yet.',
-        hint: 'Set it up under Settings — the station owns one Rate Sheet, and its rows connect the source Services to Tier pricing.',
-      }} />
-    );
-  }
-
-  const tierName = occupant?.card.name ?? null;
+  if (!model.configured) return <p class="cz-station-empty">{NO_SHEET_MESSAGE}</p>;
 
   return (
     <div class="cz-tier-workspace__rs">
@@ -281,7 +235,7 @@ function ConnectionsPanel({ family, occupant, onIntent }: Props): VNode {
         <dl class="cz-tier-workspace__rs-stats">
           <div><dt>Rows</dt><dd>{model.rowCount}</dd></div>
           <div><dt>Resolved</dt><dd>{model.resolvedCount} / {model.rowCount}</dd></div>
-          <div><dt>{tierName !== null ? `Selected by ${tierName}` : 'Selected by focused Tier'}</dt><dd>{model.tierSelectedCount}</dd></div>
+          <div><dt>Selected by this Tier</dt><dd>{model.tierSelectedCount}</dd></div>
           <div><dt>In {family.name} scope</dt><dd>{model.familyApplicableCount}</dd></div>
         </dl>
         {(model.groups.length > 0 || model.ungroupedCount > 0) && (
@@ -299,66 +253,14 @@ function ConnectionsPanel({ family, occupant, onIntent }: Props): VNode {
         )}
       </div>
 
-      {sections.attention.length > 0 && (
-        <ConnectionsSection
-          title="Needs attention"
-          hint="These rows price a relationship that no longer resolves."
-          rows={sections.attention}
-          onIntent={onIntent}
-        />
-      )}
-
-      {sections.unselected.length > 0 && (
-        <ConnectionsSection
-          title={tierName !== null ? `Not selected by ${tierName}` : 'Rows on the sheet'}
-          hint={tierName !== null
-            ? `Available sheet rows this Tier does not include — the coverage ${tierName} leaves out.`
-            : 'The sheet’s available rows. Focus a Tier above to see its coverage.'}
-          rows={sections.unselected}
-          onIntent={onIntent}
-        />
-      )}
-
-      {model.rowCount === 0 ? (
-        <p class="cz-tier-workspace__rs-meta">
-          The sheet has no rows yet. Rows connect automatically as source
-          Services supply content.
-        </p>
-      ) : sections.attention.length === 0 && sections.unselected.length === 0 && (
-        <p class="cz-tier-workspace__rs-meta">
-          {tierName !== null
-            ? `Every resolved sheet row is selected by ${tierName}; operate on them under Details.`
-            : 'Every sheet row is resolved.'}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// A coverage section lists rows for understanding, so it offers View only —
-// operating on a Tier's own rows stays in Details.
-function ConnectionsSection({ title, hint, rows, onIntent }: {
-  title: string;
-  hint: string;
-  rows: ConnectionsRow[];
-  onIntent: StationIntentDispatch;
-}): VNode {
-  return (
-    <div class="cz-tier-workspace__rs-section">
-      <div class="cz-tier-workspace__rs-section-head">
-        <h5 class="cz-tier-workspace__rs-section-title">{title} ({rows.length})</h5>
-        <p class="cz-tier-workspace__rs-meta">{hint}</p>
-      </div>
       <ul class="cz-tier-workspace__rs-rows">
-        {rows.map((row) => (
+        {model.rows.map((row) => (
           <li class="cz-tier-workspace__rs-row" key={row.recordId}>
             <div class="cz-tier-workspace__rs-main">
               <span class="cz-tier-workspace__rs-title">
                 {row.label}
                 {!row.resolved && <span class="cz-tier-workspace__rs-badge cz-tier-workspace__rs-badge--unresolved">Unresolved</span>}
-                {row.resolved && !row.inFamilyScope && (
-                  <span class="cz-tier-workspace__rs-badge cz-tier-workspace__rs-badge--scope">Outside Family scope</span>
-                )}
+                {row.tierSelected && <span class="cz-tier-workspace__rs-badge cz-tier-workspace__rs-badge--selected">Tier-selected</span>}
               </span>
               <span class="cz-tier-workspace__rs-meta">
                 {row.sourceType === 'inclusion' ? 'Feature' : row.sourceType === 'faq' ? 'Common Question' : 'Unknown source'}
@@ -372,6 +274,7 @@ function ConnectionsSection({ title, hint, rows, onIntent }: {
             </div>
             <div class="cz-tier-workspace__rs-actions">
               <button type="button" class="cz-tier-workspace__rs-btn" onClick={() => onIntent(row.recordId, 'rate-row-view')}>View</button>
+              <button type="button" class="cz-tier-workspace__rs-btn cz-tier-workspace__rs-btn--primary" onClick={() => onIntent(row.recordId, 'rate-row-edit')}>Edit</button>
             </div>
           </li>
         ))}
@@ -383,28 +286,64 @@ function ConnectionsSection({ title, hint, rows, onIntent }: {
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 function SettingsPanel({ family, onIntent }: Pick<Props, 'family' | 'onIntent'>): VNode {
-  const model = projectWorkspaceSettings(family.station);
+  const sheet = family.station.rateSheet;
 
   return (
-    <div class="cz-tier-workspace__rs">
-      <p class="cz-tier-workspace__rs-meta">{model.sheetStatusLine}</p>
-      <ul class="cz-tier-workspace__settings">
-        {model.actions.map((action) => (
-          <li class="cz-tier-workspace__settings-item" key={action.id}>
-            <div class="cz-tier-workspace__rs-main">
-              <span class="cz-tier-workspace__rs-title">{action.title}</span>
-              <span class="cz-tier-workspace__rs-meta">{action.description}</span>
-            </div>
-            <button
-              type="button"
-              class="cz-tier-workspace__rs-btn cz-tier-workspace__rs-btn--primary"
-              onClick={() => onIntent('new', action.id)}
-            >
-              {action.buttonLabel}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ul class="cz-tier-workspace__settings">
+      <li class="cz-tier-workspace__settings-item">
+        <div class="cz-tier-workspace__rs-main">
+          <span class="cz-tier-workspace__rs-title">Package Family</span>
+          <span class="cz-tier-workspace__rs-meta">Create a commercial Family group. Existing Families are managed from their own wall.</span>
+        </div>
+        <button
+          type="button"
+          class="cz-tier-workspace__rs-btn cz-tier-workspace__rs-btn--primary"
+          onClick={() => onIntent('new', 'create-package-family')}
+        >
+          + Family Group
+        </button>
+      </li>
+
+      <li class="cz-tier-workspace__settings-item">
+        <div class="cz-tier-workspace__rs-main">
+          <span class="cz-tier-workspace__rs-title">Rate Sheet</span>
+          <span class="cz-tier-workspace__rs-meta">
+            {sheet
+              ? `Configured — “${sheet.title || 'Rate Sheet'}” with ${sheet.items.length} row${sheet.items.length === 1 ? '' : 's'}. The station owns one Rate Sheet.`
+              : 'Not configured yet. Initialise the station’s one Rate Sheet.'}
+          </span>
+        </div>
+        {!sheet && (
+          <button
+            type="button"
+            class="cz-tier-workspace__rs-btn cz-tier-workspace__rs-btn--primary"
+            onClick={() => onIntent('new', 'setup-rate-sheet')}
+          >
+            + Rate Sheet
+          </button>
+        )}
+      </li>
+
+      {/* Named explicitly: a RATE SHEET group (sheet organisation), not a
+          Package relationship group and not a Package Family. Only offered once
+          the sheet exists. */}
+      {sheet && (
+        <li class="cz-tier-workspace__settings-item">
+          <div class="cz-tier-workspace__rs-main">
+            <span class="cz-tier-workspace__rs-title">Rate Sheet Group</span>
+            <span class="cz-tier-workspace__rs-meta">
+              Add a group to organise the sheet's rows ({sheet.groups.length} so far). Rows join a group from their row editor.
+            </span>
+          </div>
+          <button
+            type="button"
+            class="cz-tier-workspace__rs-btn cz-tier-workspace__rs-btn--primary"
+            onClick={() => onIntent('new', 'create-rate-sheet-group')}
+          >
+            + Rate Sheet Group
+          </button>
+        </li>
+      )}
+    </ul>
   );
 }
