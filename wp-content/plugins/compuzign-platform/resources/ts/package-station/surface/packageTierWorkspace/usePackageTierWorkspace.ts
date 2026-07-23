@@ -33,6 +33,7 @@ import {
   type WorkspaceFamilyScope,
   type WorkspaceOccupant,
 } from './projection';
+import { buildRateItemCategoryMap, projectTierDeck } from './deck';
 
 export interface PackageTierWorkspaceResult {
   items:   PackageTierWorkspaceFamily[];
@@ -50,15 +51,18 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
   const pkg = usePackageStation(host.service?.id ?? 0);
 
   const projected = useMemo<PackageTierWorkspaceFamily[]>(() => {
+    const rateItems     = pkg.service?.rate_sheet?.items ?? [];
+    const relationships = pkg.service?.package_relationships ?? [];
     // Resolve each Rate Sheet row to its supplying Service once, from the station
     // read model — the exact provenance the backend uses for `tier_selections`.
-    const serviceByRateItem = buildRateItemServiceMap(
-      pkg.service?.rate_sheet?.items ?? [],
-      pkg.service?.package_relationships ?? [],
-    );
+    const serviceByRateItem = buildRateItemServiceMap(rateItems, relationships);
+    // The same two-hop chain, reading `source_categories` — for the lower deck's
+    // Details lane. Built once here rather than per occupant.
+    const categoryByRateItem = buildRateItemCategoryMap(rateItems, relationships);
 
-    // The shared Tier occupants, each with the card the grid renders and the
-    // Services its selections resolve to. Empty shells are already absent from
+    // The shared Tier occupants, each with the card the grid renders, the Services
+    // its selections resolve to, and its lower deck (Details/Connections) derived
+    // from the SAME resolved view. Empty shells are already absent from
     // `tierOccupants`, so no placeholder occupant is ever created here.
     const occupants: WorkspaceOccupant[] = pkg.tierOccupants.map(({ occupantId, slotId }) => {
       const view = pkg.tierView(slotId);
@@ -68,6 +72,11 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         supplyingServiceIds: occupantSupplyingServiceIds(
           (view?.detail.rate_sheet_items ?? []).map((selection) => selection.item_id),
           serviceByRateItem,
+        ),
+        deck: projectTierDeck(
+          view?.detail.rate_sheet_selections ?? [],
+          categoryByRateItem,
+          pkg.service?.rate_sheet ?? null,
         ),
       };
     });

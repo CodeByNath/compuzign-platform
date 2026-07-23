@@ -13,8 +13,10 @@ Stable surface and drawer identity is `occupant_id` (string). The resolved fixed
 The workspace is Package-owned:
 
 - [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) composes Package Families, the host Service context, and Package Station state without adding persistence.
-- [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/projection.ts) scopes occupants to a Family through Rate Sheet source-Service provenance.
+- [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/projection.ts) scopes occupants to a Family through Rate Sheet source-Service provenance and carries each connected occupant's lower deck.
+- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) is the pure focused-Tier deck projection: the Tier's inclusion selections (Service category added via the same provenance chain) and its Rate Sheet-group connections. It re-reads the resolved view and derives no second price.
 - [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns transient Family, Tier, and Focus/Grid selection.
+- [TierLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx) presents the focused Tier's Details/Connections/Settings beneath the engine, scoped by the SAME selection and dispatching the SAME `onIntent` to the `tier` drawer. It adds no selector, no drawer, and no Rate Sheet editor; Settings tools with no registered contract render as unavailable.
 - [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) validates drawer identity and mounts the Package-owned drawer composition.
 
 A Package Family is working scope only. It never owns Tier records or gains a per-Family Tier store.

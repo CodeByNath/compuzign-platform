@@ -29,6 +29,12 @@
     display: grid;
     grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
   }
+
+  /* Lower-deck Settings tools follow the same three-across-to-two step as the
+     rest of the engine at this boundary. */
+  .cz-tier-deck__tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Home body gutters tighten at and below 767px. The breakpoint itself is a raw
@@ -79,6 +85,24 @@
 
   .cz-tier-workspace__family {
     display: flex;
+  }
+
+  /* Lower deck — filters, rows and tools all collapse to a single column, and the
+     mid-priority row fields (quantity / coverage) drop out, the same one-per-row
+     treatment the card grid takes at this boundary. */
+  .cz-tier-deck__toolbar,
+  .cz-tier-deck__row,
+  .cz-tier-deck__row--connection,
+  .cz-tier-deck__tools {
+    grid-template-columns: 1fr;
+  }
+
+  .cz-tier-deck__field--hide-sm {
+    display: none;
+  }
+
+  .cz-tier-deck__row-actions {
+    justify-content: flex-start;
   }
 
   .cz-service-stat:nth-child(odd) {

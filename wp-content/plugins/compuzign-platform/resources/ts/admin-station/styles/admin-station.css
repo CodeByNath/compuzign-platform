@@ -1993,3 +1993,372 @@ button.cz-station-status-pill {
 .cz-tier-workspace__detail-actions .cz-station-split {
   width: 100%;
 }
+
+/* ── Tier Workspace lower deck ─────────────────────────────────────────────────
+   The focused-Tier deck beneath the engine: a single elevated panel carrying a
+   context bar, a tab strip (Details | Connections | Settings), and the active
+   lane. It reads as one more region of the same engine, so it shares the engine's
+   panel treatment, tokens and status vocabulary rather than introducing its own. */
+.cz-tier-deck {
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+  overflow: hidden;
+}
+
+/* Context bar — which Tier is focused, and the reminder that the scope is the
+   engine's, not a second selector. */
+.cz-tier-deck__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-card-gap);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--station-card-divider);
+}
+
+.cz-tier-deck__context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cz-tier-deck__context-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-strong);
+}
+
+.cz-tier-deck__context-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-tier-deck__context-name {
+  margin: 0;
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-tier-deck__context-scope {
+  margin: 2px 0 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
+.cz-tier-deck__scope-note {
+  flex: none;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid var(--station-accent-border);
+  border-radius: var(--station-pill-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-strong);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+}
+
+/* Tab strip — underlined tabs, the mockup's Details | Connections | Settings. */
+.cz-tier-deck__tabs {
+  display: flex;
+  gap: 28px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--station-card-divider);
+}
+
+.cz-tier-deck__tab {
+  position: relative;
+  padding: 14px 0;
+  border: 0;
+  background: transparent;
+  color: var(--station-text-muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-tier-deck__tab:hover {
+  color: var(--station-text);
+}
+
+.cz-tier-deck__tab:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+.cz-tier-deck__tab--active {
+  color: var(--station-text);
+}
+
+.cz-tier-deck__tab--active::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--station-accent);
+}
+
+.cz-tier-deck__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+/* Lane header — title and one honest line about what the lane shows. */
+.cz-tier-deck__lane-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cz-tier-deck__lane-title {
+  margin: 0;
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-tier-deck__lane-note {
+  margin: 4px 0 0;
+  max-width: 76ch;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+/* Details toolbar — search plus the two real filters. */
+.cz-tier-deck__toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 0.6fr) minmax(150px, 0.6fr);
+  gap: 10px;
+}
+
+.cz-tier-deck__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cz-tier-deck__search-icon {
+  position: absolute;
+  inset-inline-start: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--station-text-muted);
+  pointer-events: none;
+}
+
+.cz-tier-deck__control {
+  width: 100%;
+  min-width: 0;
+  height: var(--station-control-height);
+  padding-inline: var(--station-control-pad-x);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface);
+  color: var(--station-text);
+  font: inherit;
+}
+
+.cz-tier-deck__control--search {
+  padding-inline-start: 36px;
+}
+
+.cz-tier-deck__control:focus-visible {
+  outline: none;
+  border-color: var(--station-accent-border);
+  box-shadow: 0 0 0 3px var(--station-accent-soft-bg);
+}
+
+.cz-tier-deck__control:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Row list — Details inclusions and Connections Rate Sheets share the grammar. */
+.cz-tier-deck__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cz-tier-deck__row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(80px, 0.5fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+}
+
+.cz-tier-deck__row--connection {
+  grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
+}
+
+.cz-tier-deck__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cz-tier-deck__identity-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-strong);
+}
+
+.cz-tier-deck__identity-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-tier-deck__identity-copy {
+  min-width: 0;
+}
+
+.cz-tier-deck__identity-name {
+  display: block;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-tier-deck__identity-ref {
+  display: block;
+  margin-top: 2px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
+.cz-tier-deck__field {
+  min-width: 0;
+  font-size: var(--station-text-sm);
+}
+
+.cz-tier-deck__field-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
+}
+
+.cz-tier-deck__money {
+  font-weight: 700;
+}
+
+.cz-tier-deck__status {
+  justify-self: start;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--station-pill-radius);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cz-tier-deck__status[data-status="active"] {
+  background: var(--station-status-active-bg);
+  border-color: var(--station-status-active-border);
+  color: var(--station-status-active-fg);
+}
+
+.cz-tier-deck__status[data-status="pending"] {
+  background: var(--station-status-pending-bg);
+  border-color: var(--station-status-pending-border);
+  color: var(--station-status-pending-fg);
+}
+
+.cz-tier-deck__row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Settings tools — one honest card per Package Manager tool. */
+.cz-tier-deck__tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.cz-tier-deck__tool {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+}
+
+.cz-tier-deck__tool-icon {
+  display: grid;
+  place-items: center;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  margin-bottom: 6px;
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-strong);
+}
+
+.cz-tier-deck__tool-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-tier-deck__tool-title {
+  margin: 0;
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-tier-deck__tool-body {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+.cz-tier-deck__tool-unavailable {
+  margin: 2px 0 0;
+  color: var(--station-status-pending-fg);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+.cz-tier-deck__tool-action {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 8px 14px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface-elevated);
+  color: var(--station-text-muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: not-allowed;
+}

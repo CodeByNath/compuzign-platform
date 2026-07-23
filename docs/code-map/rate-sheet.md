@@ -12,8 +12,9 @@ The Rate Sheet is part of the single `cz_package_station` record. Computed total
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) calculates line totals and reports unresolved, unavailable, invalid-option, invalid-quantity, and missing-price issues.
 - [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts) derives labels for Package-owned relationship projections.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) resolves a Tier's selections against the Package read model and owns Tier module saves.
+- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) groups a focused Tier's already-resolved selections into their Rate Sheet groups for the Tier workspace lower deck — a read-only view of existing rows, not a second projection, storage, or price.
 
-The former Command Centre Rate Sheet editor has been removed. This consolidation does not add or rebuild Rate Sheet feature UI. Any future editor belongs inside Package Station and must use the same contracts and persistence boundary.
+The former Command Centre Rate Sheet editor has been removed. This consolidation does not add or rebuild Rate Sheet feature UI. The Tier workspace lower deck reads connected Rate Sheet groups only and routes edits to the `tier` drawer; there is no standalone Rate Sheet-record drawer, and its Connections/Settings actions render as unavailable rather than fabricating one. Any future editor belongs inside Package Station and must use the same contracts and persistence boundary.
 
 ## Backend and runtime flow
 

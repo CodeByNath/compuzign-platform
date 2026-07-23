@@ -13,6 +13,13 @@ import {
   type WorkspaceOccupant,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/projection';
 import { buildFamilySummary } from '../resources/ts/package-station/surface/packageTierWorkspace/familySummary';
+import {
+  buildRateItemCategoryMap,
+  projectTierInclusions,
+  projectTierRateSheetConnections,
+  projectTierDeck,
+  type DeckSelection,
+} from '../resources/ts/package-station/surface/packageTierWorkspace/deck';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Package Tier workspace contract: ${message}`);
@@ -112,5 +119,95 @@ check(
 check(summary.metrics[0].value === 1, 'connected Services is dependents.services, passed through');
 check(summary.metrics[1].value === 1, 'Rate Sheet rows is dependents.rate_sheet_rows, passed through');
 check(summary.metrics[2].value === 2, 'Tier selections is dependents.tier_selections, never re-derived');
+
+// ── Focused-Tier lower deck ───────────────────────────────────────────────────
+// The deck re-reads the Tier's already-resolved selections; it invents no data
+// and no second price. These guard the three rules that matter: Details is the
+// inclusion selections with Service category added (nothing recomputed),
+// Connections is the resolved rows grouped by Rate Sheet group, and the deck is
+// carried on the Family keyed by occupant_id — Tier-owned data under a Family filter.
+
+// Category resolves via the SAME two-hop chain as Service scope, reading
+// source_categories; a relationship with no categories contributes nothing.
+const catRelationships = [
+  { item_id: 'rel_infra', source_categories: ['Cloud Infrastructure'] },
+  { item_id: 'rel_ops',   source_categories: ['Managed Services'] },
+  { item_id: 'rel_bare',  source_categories: [] },
+];
+const catRateItems = [
+  { item_id: 'rate_inc_a', source_item_id: 'rel_infra' },
+  { item_id: 'rate_inc_b', source_item_id: 'rel_ops' },
+  { item_id: 'rate_inc_d', source_item_id: 'rel_bare' }, // empty categories → none
+];
+const categoryByRateItem = buildRateItemCategoryMap(catRateItems, catRelationships);
+
+check(
+  JSON.stringify(categoryByRateItem.get('rate_inc_a')) === JSON.stringify(['Cloud Infrastructure']),
+  'a Rate Sheet row resolves to its relationship source categories',
+);
+check(!categoryByRateItem.has('rate_inc_d'), 'a relationship with no categories contributes none');
+
+// The focused Tier's resolved selections, exactly as tierView holds them.
+const deckSelections: DeckSelection[] = [
+  { item_id: 'rate_inc_a', source_type: 'inclusion', source_id: 'inc-1', quantity: 2, resolved: true,  label: 'Managed Cloud Foundation',    unit_price: 70,   per: 'Per month', line_total: 140,  group_id: 'grp_infra' },
+  { item_id: 'rate_inc_b', source_type: 'inclusion', source_id: 'inc-2', quantity: 1, resolved: true,  label: 'Business Cloud Operations',   unit_price: 208,  per: 'Per month', line_total: 208,  group_id: 'grp_infra' },
+  { item_id: 'rate_faq',   source_type: 'faq',       source_id: 'faq-1', quantity: 1, resolved: true,  label: 'Uptime FAQ',                  unit_price: 0,    per: 'Per month', line_total: 0,    group_id: 'grp_infra' },
+  { item_id: 'rate_inc_d', source_type: 'inclusion', source_id: 'inc-4', quantity: 3, resolved: true,  label: 'Standalone Add-on',           unit_price: 10,   per: 'Per item',  line_total: 30,   group_id: null },
+  { item_id: 'rate_inc_c', source_type: 'inclusion', source_id: 'inc-3', quantity: 1, resolved: false, label: '(unresolved Rate Sheet item)', unit_price: null, per: null,        line_total: null, group_id: null },
+];
+const deckRateSheet = { title: 'KAIROS Infrastructure Rates', groups: [{ group_id: 'grp_infra', label: 'Infrastructure', sort_order: 0 }] };
+
+// Details: only inclusion selections, in the Tier's own order — the FAQ row is not
+// an inclusion, and pricing/identity are carried through, never recomputed.
+const inclusions = projectTierInclusions(deckSelections, categoryByRateItem);
+check(inclusions.length === 4, 'Details shows the inclusion selections only (the FAQ selection is excluded)');
+check(
+  inclusions.map((row) => row.name).join('|') === 'Managed Cloud Foundation|Business Cloud Operations|Standalone Add-on|(unresolved Rate Sheet item)',
+  'inclusion rows keep the Tier selection order and their Service-resolved labels',
+);
+check(
+  inclusions[0].lineTotal === 140 && inclusions[0].unitPrice === 70 && inclusions[0].quantity === 2,
+  'the inclusion carries the Rate Sheet-derived pricing through unchanged',
+);
+check(
+  JSON.stringify(inclusions[0].categories) === JSON.stringify(['Cloud Infrastructure']),
+  'the inclusion carries its resolved Service category',
+);
+check(inclusions[3].resolved === false && inclusions[3].lineTotal === null, 'an unresolved selection stays unresolved with no fabricated price');
+
+// Connections: resolved rows grouped by Rate Sheet group; ungrouped rows fall under
+// the sheet title; unresolved rows connect nothing; counts are Tier aggregations.
+const connections = projectTierRateSheetConnections(deckSelections, deckRateSheet);
+check(connections.length === 2, 'Connections groups the resolved rows into their Rate Sheet groups (grouped + ungrouped)');
+check(
+  connections[0].groupId === 'grp_infra' && connections[0].title === 'Infrastructure' && connections[0].connectedRows === 3 && connections[0].coverage === 4,
+  'the grouped connection counts its resolved rows and summed quantity',
+);
+check(
+  connections[1].groupId === null && connections[1].title === 'KAIROS Infrastructure Rates' && connections[1].connectedRows === 1,
+  'ungrouped rows collapse into one connection titled by the Rate Sheet itself',
+);
+check(
+  projectTierRateSheetConnections(deckSelections.filter((s) => !s.resolved), deckRateSheet).length === 0,
+  'an unresolved-only Tier connects to no Rate Sheet',
+);
+
+// The whole deck: distinct sorted categories for the Details filter — never a
+// taxonomy the rows do not carry.
+const deck = projectTierDeck(deckSelections, categoryByRateItem, deckRateSheet);
+check(
+  JSON.stringify(deck.categories) === JSON.stringify(['Cloud Infrastructure', 'Managed Services']),
+  'the deck exposes exactly the distinct, sorted categories its inclusions carry',
+);
+
+// Carry-through: a connected occupant's deck lands on the Family keyed by
+// occupant_id; an occupant with no deck adds no entry (the earlier fixtures).
+const deckOccupant: WorkspaceOccupant = { occupantId: 'occ_deck', card: card('occ_deck'), supplyingServiceIds: [10], deck };
+const deckFamilies: WorkspaceFamilyScope[] = [
+  { id: 'KAIROS', name: 'KAIROS', description: 'IaaS', status: 'active', relatedServiceIds: [10], dependents: { services: 1, rate_sheet_rows: 1, tier_selections: 1 } },
+];
+const deckProjection = projectFamilyTierWorkspace(deckFamilies, [deckOccupant]);
+check(deckProjection[0].decks['occ_deck']?.inclusions.length === 4, 'a connected occupant\'s deck is carried on the Family, keyed by occupant_id');
+check(Object.keys(kairos.decks).length === 0, 'occupants projected without a deck add no deck entries');
 
 console.log('Package Tier workspace contract checks passed.');

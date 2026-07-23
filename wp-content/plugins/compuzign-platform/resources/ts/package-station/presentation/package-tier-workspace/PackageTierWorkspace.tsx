@@ -4,14 +4,21 @@
 //
 //   Tier Workspace Engine
 //   ├── header + view switch     (Focus | Grid — a view mode, not a second tool)
-//   └── workspace body
-//       ├── Focus (default)
-//       │   ├── TierNavigation   (left tabs)
-//       │   ├── TierDetailPanel  (one focused Tier)
-//       │   └── Family group     (scope selector + authoritative summary)
-//       └── Grid (optional)
-//           ├── shared compact card grid
-//           └── Family group     (the same transient scope)
+//   ├── workspace body
+//   │   ├── Focus (default)
+//   │   │   ├── TierNavigation   (left tabs)
+//   │   │   ├── TierDetailPanel  (one focused Tier)
+//   │   │   └── Family group     (scope selector + authoritative summary)
+//   │   └── Grid (optional)
+//   │       ├── shared compact card grid
+//   │       └── Family group     (the same transient scope)
+//   └── TierLowerDeck            (the focused Tier's Details | Connections | Settings)
+//
+// The lower deck reads the SAME transient Family + Tier selection; it adds no
+// selector and no drawer of its own. Its View / Edit reuse this kit's single
+// `onIntent`, keyed by the focused occupant_id, so they open the same registered
+// `tier` drawer the cards do. It reads the deck the data source already derived
+// (selectedFamily.decks[selectedTierId]); it fetches and computes nothing.
 //
 // A template kit like any other (it receives a collection + an intent dispatcher
 // and fetches nothing), but a STATEFUL one: it owns three pieces of transient
@@ -38,12 +45,14 @@ import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
 import type { PackageTierWorkspaceFamily } from '../../surface/packageTierWorkspace/projection';
+import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
 import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
 import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-groups/CategoryGroupCardGrid';
 import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierNavigation } from './TierNavigation';
 import { TierDetailPanel } from './TierDetailPanel';
+import { TierLowerDeck } from './TierLowerDeck';
 
 // The engine's own copy. The wall title ("Tier Workspace Engine") is the
 // heading; this is the concise Station-level description beneath it.
@@ -158,6 +167,20 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             <PackageFamilySummary family={selectedFamily} />
           </aside>
         </div>
+      )}
+
+      {/* Lower deck — the focused Tier's Details / Connections / Settings, scoped
+          by the SAME selected Family and Tier as the engine above. It shares this
+          orchestrator's transient selection and its single intent dispatcher, so a
+          row's View / Edit opens the same registered `tier` drawer keyed by the
+          focused occupant_id. Absent until a Family and a Tier are both focused. */}
+      {selectedFamily !== null && selectedTier !== null && (
+        <TierLowerDeck
+          familyName={selectedFamily.name}
+          tierName={selectedTier.name}
+          deck={selectedFamily.decks[selectedTier.id] ?? EMPTY_TIER_DECK}
+          onIntent={(actionId) => onIntent(selectedTier.id, actionId)}
+        />
       )}
     </div>
   );

@@ -22,6 +22,7 @@
 // identity (`occupant_id`) is preserved untouched; the Family id is scope only.
 
 import type { CategoryGroupCardItem, CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
+import type { TierDeck } from './deck';
 
 // Minimal shapes the projection needs from the Package Station read model. Kept
 // local and structural so the pure functions carry no dependency on the full API
@@ -47,6 +48,10 @@ export interface WorkspaceOccupant {
   card: CategoryGroupCardItem;
   // The Services this occupant's Rate Sheet selections resolve to (provenance).
   supplyingServiceIds: number[];
+  // The focused-Tier lower deck for this occupant (Details/Connections), derived
+  // by ./deck from the SAME resolved view the card is built from. Optional so the
+  // pure filter — and its contract fixtures — need not construct one.
+  deck?: TierDeck;
 }
 
 /** A Package Family as WORKING SCOPE: authoritative identity/summary, never owner. */
@@ -64,6 +69,11 @@ export interface WorkspaceFamilyScope {
 /** A Family projected with the Tier occupants connected to it (scope + result). */
 export interface PackageTierWorkspaceFamily extends WorkspaceFamilyScope {
   occupants: CategoryGroupCardItem[];
+  // The lower deck for each connected occupant, keyed by `occupant_id`. The kit
+  // reads `decks[selectedTierId]` for the Tier focused in the engine above. Only
+  // the Family's own connected occupants appear here — the deck is Tier-owned
+  // data scoped by the same Family filter, never a per-Family store.
+  decks: Record<string, TierDeck>;
 }
 
 /**
@@ -127,6 +137,10 @@ export function projectFamilyTierWorkspace(
     const connected = occupants.filter((occupant) =>
       occupant.supplyingServiceIds.some((serviceId) => related.has(serviceId)),
     );
-    return { ...family, occupants: connected.map((occupant) => occupant.card) };
+    const decks: Record<string, TierDeck> = {};
+    for (const occupant of connected) {
+      if (occupant.deck) decks[occupant.occupantId] = occupant.deck;
+    }
+    return { ...family, occupants: connected.map((occupant) => occupant.card), decks };
   });
 }
