@@ -5,6 +5,7 @@
   "scripts": {
     "build": "vite build",
     "contract:package-tier-workspace": "tsx scripts/package-tier-workspace-contract.ts",
+    "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",
     "contract:tier-occupant-admin": "tsx scripts/tier-occupant-admin-contract.ts",
     "docs:check": "node scripts/docs-check.mjs",
     "dev": "vite"

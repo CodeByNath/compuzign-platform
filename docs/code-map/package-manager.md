@@ -16,9 +16,10 @@ Admin Station is the presentation/control host. Its policy selects where registe
 - [api.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/api.ts) is the Package endpoint boundary.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package/Tier reads and mutations.
 - [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) owns Package Family lifecycle actions and derives its relationship-module state.
-- [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/register.ts) registers Package navigation, destinations, data sources, the Tier workspace kit, and Package drawers. It is boot-entry-only.
+- [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/register.ts) registers Package navigation, destinations, data sources (including the `rate-sheet-tool` controller source), the Tier workspace and Rate Sheet tool kits, and Package drawers. It is boot-entry-only.
+- [surface/rateSheetTool/](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/) and [presentation/rate-sheet-tool/](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/) — the Rate Sheet authoring surface (see [Rate Sheet](rate-sheet.md)). It reuses the manager read/save endpoints and IDs; it is not a second authority and adds no endpoint or storage.
 
-The retired Command Centre editor is not an alternative authority. No Rate Sheet feature surface is added by the Station Manager consolidation.
+The retired Command Centre editor is not an alternative authority. Rate Sheet authoring is provided by the Package Station Rate Sheet tool, which reuses the existing manager save contract and persistence boundary.
 
 ## Backend and persistence
 

@@ -10,12 +10,12 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `api.ts` — the single implementation of Package-owned endpoint calls.
 - `usePackageStation.ts`, `usePackageFamilyStation.ts`, and `useSurfacePackages.ts` — Package and Package Family state, mutations, and surface reads.
 - `tierOccupants.ts`, `rateSheetLabels.ts`, and `evaluateTierPricing.ts` — Package-owned pure projections, labels, and pricing evaluation.
-- `surface/packageFamily/`, `surface/tierSurface/`, and `surface/packageTierWorkspace/` — Package Family and Tier surface adapters plus the Tier workspace read/projection.
-- `presentation/package-tier-workspace/` — the Package-owned Tier workspace presentation kit.
+- `surface/packageFamily/`, `surface/tierSurface/`, `surface/packageTierWorkspace/`, and `surface/rateSheetTool/` — Package Family and Tier surface adapters, the Tier workspace read/projection, and the Rate Sheet tool's read/edit/save controller (reusing the Package Manager contract).
+- `presentation/package-tier-workspace/` and `presentation/rate-sheet-tool/` — the Package-owned Tier workspace and Rate Sheet authoring presentation kits.
 - `drawer/package-family/` and `drawer/tier/` — Package-owned drawer compositions, controllers, dialogs, and footer presentation.
 - `drawer/editors/` and `drawer/schema/` — Package-owned editors, entity manifests, and bindings.
 - `vocabulary.ts` — Package-owned Tier keys and labels.
-- `register.ts` — registers Package navigation, destination, sources, Tier workspace kit, and drawers with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
+- `register.ts` — registers Package navigation, destination, sources (including the `rate-sheet-tool` controller source), the Tier workspace and Rate Sheet tool kits, and drawers with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
 
 ## Boundaries
 

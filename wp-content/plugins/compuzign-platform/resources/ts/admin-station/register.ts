@@ -100,6 +100,20 @@ export function registerPresentationPolicy(): void {
         { id: 'edit', target: 'drawer', mode: 'edit' },
       ],
     },
+    {
+      // Package-owned Rate Sheet authoring surface, beside the Tier Workspace.
+      // It reads and saves through the surviving Package Manager contract via
+      // its own controller data source; it dispatches no drawer intent.
+      stationId: 'packages',
+      surfaceId: 'rate-sheet-tool',
+      placement: 'presentation',
+      order: 1,
+      title: 'Rate Sheet',
+      dataSourceKey: 'rate-sheet-tool',
+      templateKitKey: 'rate-sheet-tool',
+      conditions: { scope: 'current' },
+      actionIntents: [],
+    },
   ]);
 
   setDefaultHomeStation('services');

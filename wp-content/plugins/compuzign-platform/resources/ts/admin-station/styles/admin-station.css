@@ -2362,3 +2362,202 @@ button.cz-station-status-pill {
   font-weight: 700;
   cursor: not-allowed;
 }
+
+/* A tool that routes to a real destination reads as an accent action. */
+.cz-tier-deck__tool-action--live {
+  border-color: var(--station-accent-strong);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-strong);
+  cursor: pointer;
+}
+
+.cz-tier-deck__tool-action--live:hover {
+  background: var(--station-accent-strong);
+  color: var(--station-surface);
+}
+
+/* ── Rate Sheet authoring tool ───────────────────────────────────────────── */
+
+.cz-rate-sheet-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-rate-sheet-tool__note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+  line-height: var(--station-line-snug);
+}
+
+.cz-rate-sheet-tool__note-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-strong);
+}
+
+.cz-rate-sheet-tool__note-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-rate-sheet-tool__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-rate-sheet-tool__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.cz-rate-sheet-tool__field-label {
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-rate-sheet-tool__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cz-rate-sheet-tool__group-create,
+.cz-rate-sheet-tool__group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cz-rate-sheet-tool__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+}
+
+.cz-rate-sheet-tool__group-row .cz-tf-input {
+  max-width: 320px;
+}
+
+.cz-rate-sheet-tool__grid-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+}
+
+.cz-rate-sheet-tool__grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--station-text-sm);
+}
+
+.cz-rate-sheet-tool__grid th,
+.cz-rate-sheet-tool__grid td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--station-border);
+  vertical-align: middle;
+}
+
+.cz-rate-sheet-tool__grid th {
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  color: var(--station-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cz-rate-sheet-tool__grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cz-rate-sheet-tool__cell-name {
+  font-weight: 600;
+}
+
+.cz-rate-sheet-tool__grid .cz-tf-input,
+.cz-rate-sheet-tool__grid .cz-tf-select {
+  min-width: 88px;
+}
+
+.cz-rate-sheet-tool__footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cz-rate-sheet-tool__footer-spacer {
+  flex: 1 1 auto;
+}
+
+.cz-rate-sheet-tool__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+}
+
+.cz-rate-sheet-tool__picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cz-rate-sheet-tool__picker-note {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
+.cz-rate-sheet-tool__picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.cz-rate-sheet-tool__candidate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--station-text-sm);
+}
+
+.cz-rate-sheet-tool__candidate-tag {
+  margin-left: auto;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+}
+
+.cz-rate-sheet-tool__picker-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .cz-rate-sheet-tool__field {
+    max-width: none;
+  }
+}

@@ -14,7 +14,15 @@ The Rate Sheet is part of the single `cz_package_station` record. Computed total
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) resolves a Tier's selections against the Package read model and owns Tier module saves.
 - [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) groups a focused Tier's already-resolved selections into their Rate Sheet groups for the Tier workspace lower deck — a read-only view of existing rows, not a second projection, storage, or price.
 
-The former Command Centre Rate Sheet editor has been removed. This consolidation does not add or rebuild Rate Sheet feature UI. The Tier workspace lower deck reads connected Rate Sheet groups only and routes edits to the `tier` drawer; there is no standalone Rate Sheet-record drawer, and its Connections/Settings actions render as unavailable rather than fabricating one. Any future editor belongs inside Package Station and must use the same contracts and persistence boundary.
+### Rate Sheet authoring tool
+
+The Command Centre editor was removed in `34c8175`; the Rate Sheet authoring capability is now rebuilt as a first-class Package Station surface (registered beside the Tier Workspace, `rate-sheet-tool`), reusing the surviving Package Manager read/save contract, stored IDs, groups, and items — it adds no endpoint, storage, station, or drawer.
+
+- [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts) — pure `PackageManagerReadModel` ⇄ editor-value ⇄ `PackageManagerSavePayload` mapping, preserving each row's stored `item_id`/`source_item_id` and each group's `group_id`.
+- [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts) — the registered controller data source: reads through `fetchPackageStationManager`, saves through `savePackageStationManager`, addressed by the shared `useHostService` host id.
+- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — presentation only (title, source-Service picker, groups, priced grid); calls no endpoint. Connecting a Service persists it, and the backend `commitConfiguration` onboards its inclusions as priced rows on reload. New source rows keep the backend-computed canonical IDs; the tool never mints IDs.
+
+The Tier workspace lower deck reads connected Rate Sheet groups only and routes selection edits to the `tier` drawer; its Settings "Rate Sheets" card routes to the authoring tool above. Tier remains responsible only for selecting a Rate Sheet `item_id` and declaring its quantity; the price authority stays with the Rate Sheet.
 
 ## Backend and runtime flow
 

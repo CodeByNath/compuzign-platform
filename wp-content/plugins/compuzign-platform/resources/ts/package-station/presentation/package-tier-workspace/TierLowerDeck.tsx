@@ -30,6 +30,7 @@ import {
   SearchIcon,
   TiersIcon,
 } from '@/admin-station/shell/icons';
+import { RATE_SHEET_TOOL_ANCHOR } from '../rate-sheet-tool/RateSheetTool';
 
 // ── SECTION: contract ─────────────────────────────────────────────────────────
 
@@ -313,13 +314,31 @@ function ConnectionsLane({
 
 // ── SECTION: Settings lane ────────────────────────────────────────────────────
 //
-// The Package Manager tools the mockup places here. None has a registered create
-// action reachable from this wall — the Rate Sheet / Family / Group create drawers
-// do not exist in the current architecture — so each renders honestly as
-// unavailable rather than as a button that saves nothing. When a real registered
-// action lands, it replaces the `unavailable` note with a live control here.
+// The Package Manager tools the mockup places here. A tool that has a real
+// destination routes to it; a tool with no registered contract still renders
+// honestly as unavailable rather than as a button that saves nothing. The Rate
+// Sheet authoring surface now exists as a first-class Package Station wall, so
+// its card routes there (the registered `rate-sheet-tool` surface, anchored on
+// this same station body); its groups are authored inside that same tool.
 
-const SETTINGS_TOOLS = [
+interface SettingsTool {
+  id:    string;
+  icon:  typeof RateSheetIcon;
+  title: string;
+  body:  string;
+  // Exactly one of the two: a live route, or an honest unavailable note.
+  route?:       { label: string; onSelect: () => void };
+  unavailable?: string;
+}
+
+/** Bring the registered Rate Sheet authoring surface into view. Both walls live
+ *  on the same Packages station body, so routing is an in-page focus, not a
+ *  drawer intent (this deck's `onIntent` only ever addresses the Tier drawer). */
+function focusRateSheetTool(): void {
+  document.getElementById(RATE_SHEET_TOOL_ANCHOR)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+const SETTINGS_TOOLS: SettingsTool[] = [
   {
     id:    'family-groups',
     icon:  ServicesIcon,
@@ -331,17 +350,17 @@ const SETTINGS_TOOLS = [
     id:    'rate-sheets',
     icon:  RateSheetIcon,
     title: 'Rate Sheets',
-    body:  'Create the commercial pricing sources Package connections draw from.',
-    unavailable: 'No Rate Sheet editor is registered in the current admin build.',
+    body:  'Author the commercial pricing rows Package connections draw from.',
+    route: { label: 'Open Rate Sheet tool', onSelect: focusRateSheetTool },
   },
   {
     id:    'groups',
     icon:  AppsIcon,
     title: 'Groups',
-    body:  'Create reusable groups for organising Package inclusions.',
-    unavailable: 'No group editor is registered in the current admin build.',
+    body:  'Rate Sheet groups are created and maintained inside the Rate Sheet tool, alongside the priced rows they organise.',
+    route: { label: 'Open Rate Sheet tool', onSelect: focusRateSheetTool },
   },
-] as const;
+];
 
 function SettingsLane(): VNode {
   return (
@@ -350,7 +369,7 @@ function SettingsLane(): VNode {
         <div>
           <h4 class="cz-tier-deck__lane-title">Package Manager tools</h4>
           <p class="cz-tier-deck__lane-note">
-            Manager-owned configuration tools. Actions with no registered contract are shown as unavailable, not as mock buttons.
+            Manager-owned configuration tools. Tools route to their surface; those with no registered contract are shown as unavailable, not as mock buttons.
           </p>
         </div>
       </div>
@@ -363,10 +382,18 @@ function SettingsLane(): VNode {
               <span class="cz-tier-deck__tool-icon" aria-hidden="true"><Icon /></span>
               <h5 class="cz-tier-deck__tool-title">{tool.title}</h5>
               <p class="cz-tier-deck__tool-body">{tool.body}</p>
-              <p class="cz-tier-deck__tool-unavailable" role="note">{tool.unavailable}</p>
-              <button type="button" class="cz-tier-deck__tool-action" disabled aria-disabled="true">
-                Unavailable
-              </button>
+              {tool.route ? (
+                <button type="button" class="cz-tier-deck__tool-action cz-tier-deck__tool-action--live" onClick={tool.route.onSelect}>
+                  {tool.route.label}
+                </button>
+              ) : (
+                <>
+                  <p class="cz-tier-deck__tool-unavailable" role="note">{tool.unavailable}</p>
+                  <button type="button" class="cz-tier-deck__tool-action" disabled aria-disabled="true">
+                    Unavailable
+                  </button>
+                </>
+              )}
             </article>
           );
         })}
