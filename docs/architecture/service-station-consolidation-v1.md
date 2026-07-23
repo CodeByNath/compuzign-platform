@@ -116,3 +116,17 @@ Phases 2–7 fully establish Service Station as the reference peer and thin Admi
 - **Bundle-boundary discipline:** Service and Package stations are mounted by the same Admin Station bundle; peer→peer imports must stay type-only or public-contract to avoid pulling a whole station's renderer graph across a boundary unintentionally.
 - **Backend split (phase 2)** must keep route registration identical; the baseline test asserts 49 routes by path/method/permission/args, which is the safety net.
 - Category Station and Promotion Station remain under the Admin/entity-drawer trees after this effort; they are explicitly deferred, not endorsed, and follow the Service reference pattern later.
+
+## 8. Execution status
+
+**Complete — Service Station is a fully-consolidated top-level peer (the reference implementation).**
+
+- `bcaa973` — docs: blueprint.
+- `23eca6d` — refactor: split Service backend responsibilities. Service module lifecycle rules extracted to `src/Modules/Service/Support/ServiceModules.php`; `Http/ServiceController.php` reduced from 1128 → 994 lines. The audit found no coherent case for a wider controller split.
+- `76f2ff2` — refactor: Service contracts + data moved to the top-level peer `resources/ts/service-station/`; every importer repointed; stale re-export comments corrected.
+- `e9b1a26` — refactor: Service surface adapters and catalogue presentation moved into `service-station/surface/` and `service-station/presentation/`.
+- `f365d2e` — refactor: Service drawer, editors, and schema moved into `service-station/drawer/`.
+
+Every phase preserved runtime behaviour (byte-identical bundles; 49-route baseline intact) and was validated with tsc, build, PHP tests, PHP lint, docs:check, and the projection contract. Cleanup (blueprint phase 7) folded into each phase — no stale Service references remain; the only residue is untracked empty `components/admin/**` directories that Git does not record.
+
+**Sequencing update (supersedes §5 phase order for the remainder).** The host/core extraction + registration inversion (phase 6) is **re-sequenced to follow the Package Station peer**, not precede it. Reason: the Admin registries (`dataSources`, `templateKits`, `drawers/drawerRegistry`) statically enumerate both the Service peer and the still-local Package/Category pieces. A clean inversion — where each peer self-registers and the Admin host merely discovers — requires **all** stations to be peers; doing it while Package/Category remain under the Admin tree would introduce an asymmetric, throwaway hybrid mechanism. Revised order for the remainder: establish the Package Station peer, then extract `station-core` and invert registration for all peers at once, then the peer-model code-map/`ai-index` rewrite and coverage updates. Until the inversion lands, the Admin registries consume the Service peer through its public surface/presentation/drawer modules (`@/service-station/...`) — the implementation lives in the peer; the host references it.
