@@ -5,6 +5,7 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Http;
 use CompuZign\Platform\Modules\Admin\Support\PoolReferences;
 use CompuZign\Platform\Modules\Service\Support\ServicePools;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageStationSchema;
 
 /**
  * Package Station admin write/read endpoints — manager, tiers, occupant bin,
@@ -367,7 +368,7 @@ class PackageStationController
         $rawManager = is_array($station['package_manager'] ?? null)
             ? $station['package_manager']
             : $PMS::defaultManager();
-        $submittedSources = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($body['sources']);
+        $submittedSources = PackageStationSchema::sanitizeSourceRelationships($body['sources']);
         [$incPool, $faqPool] = $this->packages()->sourcePools($station, $submittedSources);
 
         try {

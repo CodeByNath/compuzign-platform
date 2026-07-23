@@ -14,7 +14,7 @@
  *         SECTION: COMMERCIAL_PROJECTION
  */
 
-namespace CompuZign\Platform\Modules\Packages\Support;
+namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 
 /**
  * Pure schema boundary for the independent active Package aggregate.

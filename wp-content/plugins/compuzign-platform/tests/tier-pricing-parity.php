@@ -1,8 +1,8 @@
 <?php
 
-require_once dirname(__DIR__) . '/src/Modules/Packages/Support/PackageStationSchema.php';
+require_once dirname(__DIR__) . '/src/Modules/SurfacePackages/Support/PackageStationSchema.php';
 
-use CompuZign\Platform\Modules\Packages\Support\PackageStationSchema as Schema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageStationSchema as Schema;
 
 $fixture = json_decode((string) file_get_contents(__DIR__ . '/fixtures/tier-pricing-parity.json'), true, 512, JSON_THROW_ON_ERROR);
 

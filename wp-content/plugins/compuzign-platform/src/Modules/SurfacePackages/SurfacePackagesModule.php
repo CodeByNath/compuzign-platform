@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Modules\SurfacePackages;
 
 use CompuZign\Platform\Core\Health;
+use CompuZign\Platform\Modules\SurfacePackages\Http\PackageFamiliesController;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
@@ -22,6 +23,7 @@ class SurfacePackagesModule
     public function register(): void
     {
         (new PackageSchema())->register();
+        (new PackageFamiliesController())->register();
         (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationReadController(new PackageRepository()))->register();
         (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(new PackageRepository()))->register();
 

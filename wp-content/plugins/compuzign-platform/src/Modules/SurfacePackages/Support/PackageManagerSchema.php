@@ -94,7 +94,7 @@ final class PackageManagerSchema
         // A source assignment must reference a live Package Family;
         // an unknown id is reassigned to null (unassigned), never dropped —
         // the same reassign-not-delete rule the decorative groups use.
-        $sources = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::sanitizeSourceRelationships($data['sources'] ?? []);
+        $sources = PackageStationSchema::sanitizeSourceRelationships($data['sources'] ?? []);
         foreach ($sources as &$source) {
             if ($source['category_group_id'] !== null && !isset($categoryGroupIds[$source['category_group_id']])) {
                 $source['category_group_id'] = null;
@@ -894,7 +894,7 @@ final class PackageManagerSchema
             fn(array $row): array => ['item_id' => $row['item_id'], 'quantity' => $row['quantity'], 'option_selections' => []],
             $rows
         );
-        $pricing = \CompuZign\Platform\Modules\Packages\Support\PackageStationSchema::evaluateTierPricing(
+        $pricing = PackageStationSchema::evaluateTierPricing(
             $pricingItems,
             $pricingSelections,
             false

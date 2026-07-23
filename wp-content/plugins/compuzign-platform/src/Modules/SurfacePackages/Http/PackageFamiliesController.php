@@ -1,6 +1,6 @@
 <?php
 
-namespace CompuZign\Platform\Modules\Admin\Http;
+namespace CompuZign\Platform\Modules\SurfacePackages\Http;
 
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
@@ -8,8 +8,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 
 /**
- * AdminPackageCategoryGroupsController — the Package Family station's
- * REST family.
+ * PackageFamiliesController — the Package Family station's REST family.
  *
  * Route grammar, lifecycle handling, and draft/settle/revert mechanics mirror
  * AdminCategoryGroupsController exactly; the differences are ownership and
@@ -23,7 +22,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
  * Transitions are computed by StationLifecycle (through
  * PackageCategoryGroups); this controller persists engine results only.
  */
-class AdminPackageCategoryGroupsController
+class PackageFamiliesController
 {
     private ?PackageRepository $packages = null;
 

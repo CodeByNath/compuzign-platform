@@ -5,10 +5,11 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 ## Ownership and entry points
 
 - `SurfacePackagesModule.php` — module wiring.
+- `Http/PackageFamiliesController.php` — Package Family lifecycle and relationship routes.
 - `Http/PackageStationReadController.php` — public read projection.
 - `Http/PackageStationController.php` — Package Manager, Tier, occupant-bin, and popular-Tier mutations.
 - `Repositories/PackageRepository.php` — `cz_package_station` persistence, request cache, relationships, Promotions, and legacy migration.
-- `Support/PackageManagerSchema.php`, `PackageSchema.php`, and `PackageCategoryGroups.php` — authoritative shape, readiness, occupant compatibility, and Package Family rules.
+- `Support/PackageManagerSchema.php`, `PackageStationSchema.php`, `PackageSchema.php`, and `PackageCategoryGroups.php` — authoritative shape, readiness, occupant compatibility, and Package Family rules.
 
 ## Boundaries
 
@@ -18,4 +19,4 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Rat
 
 ## Validation
 
-From the plugin root: `php tests/package-manager-schema.php`, `php tests/tier-occupant-compatibility.php`, `npx tsc --noEmit`, and `npm run docs:check`.
+From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, and `npm run docs:check`.

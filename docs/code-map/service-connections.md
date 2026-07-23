@@ -18,7 +18,7 @@ The provider-neutral connection graph — a relation registry, a multi-provider 
 
 - [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists Package source relationships in `cz_package_station`.
 - [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns the manager/tier/bin mutations.
-- [AdminPackageCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminPackageCategoryGroupsController.php) exposes each Package Family's related native Service IDs, resolved by Package-owned `PackageCategoryGroups::relatedServiceIds()`.
+- [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) exposes each Package Family's related native Service IDs, resolved by Package-owned `PackageCategoryGroups::relatedServiceIds()`.
 
 Source facts stay read-only in the drawer; grouping, ordering, and membership are the mutable relationship state, and they patch through the authoritative station.
 
