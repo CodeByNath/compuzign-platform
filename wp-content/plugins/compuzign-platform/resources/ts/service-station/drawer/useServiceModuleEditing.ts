@@ -13,8 +13,8 @@ import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { createServiceCategory, updateServiceCategory } from '@/api/endpoints/admin';
 import type { ServiceStation } from '@/service-station';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/service-station';
-import { initOverviewDraft } from '../editors/ServiceOverviewEditor';
-import { useAutoDismiss } from '../shared/drawerChrome';
+import { initOverviewDraft } from './editors/ServiceOverviewEditor';
+import { useAutoDismiss } from '@/entity-drawers/shared/drawerChrome';
 import type { ServiceEditingSection } from './serviceDrawerTypes';
 
 // ── Dirty checks — pure, no component state ──────────────────────────────────

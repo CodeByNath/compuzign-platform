@@ -28,11 +28,11 @@ import type {
   ServiceOverviewShellData,
   ServiceInclusionsShellData,
   ServiceFaqsShellData,
-} from '../schema/bindings/service';
+} from './schema/bindings/service';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
-import { decodeHtml } from '../shared/serviceDrawerShared';
-import { useOutsideClickDismiss } from '../shared/drawerChrome';
+import { decodeHtml } from '@/entity-drawers/shared/serviceDrawerShared';
+import { useOutsideClickDismiss } from '@/entity-drawers/shared/drawerChrome';
 import { useServiceModuleEditing } from './useServiceModuleEditing';
 import { useServiceLifecycle } from './useServiceLifecycle';
 import { useServiceExitFlow } from './useServiceExitFlow';

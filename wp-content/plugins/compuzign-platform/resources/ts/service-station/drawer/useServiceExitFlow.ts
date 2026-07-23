@@ -11,7 +11,7 @@ import { useCallback, useState } from 'preact/hooks';
 import type { ServiceStation } from '@/service-station';
 import type { OverviewDraft } from '@/service-station';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { useGuardedClose } from '../shared/drawerChrome';
+import { useGuardedClose } from '@/entity-drawers/shared/drawerChrome';
 import type { ServiceModuleEditing } from './useServiceModuleEditing';
 import type { ServiceExitDialog } from './serviceDrawerTypes';
 

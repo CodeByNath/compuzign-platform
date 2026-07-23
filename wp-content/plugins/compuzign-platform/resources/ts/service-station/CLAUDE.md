@@ -15,7 +15,7 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
 External consumers import only `index.ts`; sibling files import `./types` / `./api` directly, never the barrel. Presentation must not call `api.ts`. Route ownership — not a Service-shaped name or URL — decides whether an endpoint belongs here. Shared pool contracts remain in `api/types/pools.ts`.
 
-Service presentation, surface adapters, and the Service drawer are being consolidated into this peer in later phases; until then some live under `resources/ts/admin-station/` and `resources/ts/entity-drawers/service/`.
+This peer now owns Service data (`.`), surface adapters (`surface/`), the catalogue presentation kit (`presentation/`), and the Service drawer, editors, and schema (`drawer/`). It still consumes shared drawer helpers under `resources/ts/entity-drawers/shared/` and the shared module-notification framework in `resources/ts/drawer-kit/` transitionally.
 
 Read [Service Station](../../../../../../docs/code-map/service-station.md) and [Service Catalogue](../../../../../../docs/code-map/service-catalogue.md).
 

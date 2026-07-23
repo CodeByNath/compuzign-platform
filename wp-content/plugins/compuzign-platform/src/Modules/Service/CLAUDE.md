@@ -15,7 +15,7 @@ This module owns `cz_service` lifecycle, Service meta/drafts, category relations
 
 There is no pass-through repository; WordPress post/meta persistence remains cohesive here. Cost Builder exclusively owns `cz_service_pricing`. Core registrars own centralized post-type/taxonomy declaration. Shared lifecycle/capability/pool-reference infrastructure remains in `Admin/Support`. Service-nested Package/Promotion URLs do not transfer their ownership here. Nothing outside this module imports `ServiceController` internals.
 
-Frontend contracts/state live in `resources/ts/service-station/`; host-neutral UI lives in `resources/ts/entity-drawers/service/`.
+The Service frontend peer — contracts, state, presentation, and the Service drawer/editors/schema — lives at `resources/ts/service-station/`.
 
 Read [Service Station](../../../../../../docs/code-map/service-station.md) and [Service Catalogue](../../../../../../docs/code-map/service-catalogue.md).
 

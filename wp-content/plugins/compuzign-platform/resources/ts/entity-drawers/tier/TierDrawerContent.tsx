@@ -16,7 +16,7 @@ import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import { ModeProvider } from '@/drawer-kit/schema/modeContext';
 import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
-import { serviceOverviewShell } from '../schema/bindings/service';
+import { serviceOverviewShell } from '@/service-station/drawer/schema/bindings/service';
 import { TIER_ENTITY } from '../schema/entities/tier';
 import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';

@@ -18,11 +18,11 @@ import type { VNode } from 'preact';
 import { useApi } from '@/hooks/useApi';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { ServiceDrawerContent } from '@/entity-drawers/service/ServiceDrawerContent';
+import { ServiceDrawerContent } from '@/service-station/drawer/ServiceDrawerContent';
 import {
   normalizeAdminCategories,
   buildServiceItemForStationHandoff,
-} from '@/entity-drawers/service/serviceSeed';
+} from '@/service-station/drawer/serviceSeed';
 import { fetchAdminCatalog } from '@/service-station';
 import type { DrawerContentProps } from '@/admin-station/stations/drawers/drawerTypes';
 

@@ -12,9 +12,9 @@ The Admin Station is the sole host. [useServiceCatalogue.ts](../../wp-content/pl
 
 ## Shared Service drawer
 
-- [ServiceDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/service/ServiceDrawerContent.tsx) is the host-neutral composition for Overview, Features, FAQs, pricing Connections, module editing, dialogs, and footer.
-- [useServiceDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/service/useServiceDrawerController.ts) coordinates focused module-editing, lifecycle, and exit-flow hooks; it renders no JSX.
-- [service.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/service.ts), [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/service.tsx), and editors under `entity-drawers/editors/` own neutral manifests, bindings, and forms.
+- [ServiceDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/ServiceDrawerContent.tsx) is the host-neutral composition for Overview, Features, FAQs, pricing Connections, module editing, dialogs, and footer.
+- [useServiceDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/useServiceDrawerController.ts) coordinates focused module-editing, lifecycle, and exit-flow hooks; it renders no JSX.
+- [service.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/schema/entities/service.ts), [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/schema/bindings/service.tsx), and editors under `entity-drawers/editors/` own neutral manifests, bindings, and forms.
 - Admin Station mounts the same composition through [ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx).
 
 ## State, REST, and persistence
