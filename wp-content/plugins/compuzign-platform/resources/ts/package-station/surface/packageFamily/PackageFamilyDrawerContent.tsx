@@ -6,7 +6,7 @@ import { useMemo, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { PackageFamilyDrawerContent as SharedPackageFamilyDrawerContent } from '@/entity-drawers/package-family/PackageFamilyDrawerContent';
-import type { DrawerContentProps } from '../drawers/drawerTypes';
+import type { DrawerContentProps } from '@/admin-station/stations/drawers/drawerTypes';
 import { usePackageFamilyRecord } from './usePackageFamilyRecord';
 
 export function PackageFamilyDrawerContent({

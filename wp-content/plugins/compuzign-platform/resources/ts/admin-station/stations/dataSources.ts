@@ -10,12 +10,12 @@
 // Every source here is a pure read hook (fetch + map), so nothing from the old
 // admin UI tree is pulled in by registering it.
 
-import { usePackageFamilyCards } from './packageFamily';
+import { usePackageFamilyCards } from '@/package-station/surface/packageFamily';
 import { useServiceCategoryCards } from './serviceCategory/useServiceCategoryCards';
 import { useServiceCards } from '@/service-station/surface/useServiceCards';
 import { useServiceCatalogue } from '@/service-station/surface/useServiceCatalogue';
-import { useServiceTierCards } from './tierSurface/useServiceTierCards';
-import { usePackageTierWorkspace } from './packageTierWorkspace/usePackageTierWorkspace';
+import { useServiceTierCards } from '@/package-station/surface/tierSurface/useServiceTierCards';
+import { usePackageTierWorkspace } from '@/package-station/surface/packageTierWorkspace/usePackageTierWorkspace';
 import type { DataSourceKey } from './surfaceBindings';
 
 // The collection contract every data source returns and every template kit

@@ -14,7 +14,7 @@
 
 import { useCallback, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { CategoryGroupCardItem, CategoryGroupStatus } from '../category-groups/types';
+import type { CategoryGroupCardItem, CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
 
 interface Props {
   items: CategoryGroupCardItem[];

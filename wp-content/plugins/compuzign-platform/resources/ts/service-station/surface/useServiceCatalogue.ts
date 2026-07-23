@@ -7,7 +7,7 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { usePackageFamilyRelationships } from '@/admin-station/stations/packageFamily';
+import { usePackageFamilyRelationships } from '@/package-station';
 import { fetchAdminCatalog } from '@/service-station';
 import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
 import { toServiceCatalogueItem } from './serviceCatalogueAdapter';

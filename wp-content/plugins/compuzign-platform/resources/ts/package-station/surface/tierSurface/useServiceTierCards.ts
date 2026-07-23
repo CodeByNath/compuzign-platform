@@ -16,11 +16,11 @@
 // they are absent from the wall exactly as they are absent from the manager grid.
 
 import { useMemo } from 'preact/hooks';
-import { usePackageStation } from '@/package-station';
+import { usePackageStation } from '../../usePackageStation';
 import { useHostService } from './useHostService';
-import { useRetainedCollection } from '../useRetainedCollection';
+import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
 import { toTierOccupantCard } from './tierOccupantCard';
-import type { CategoryGroupCardItem } from '../../presentation/category-groups/types';
+import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
 
 export interface ServiceTierCardsResult {
   items:   CategoryGroupCardItem[];

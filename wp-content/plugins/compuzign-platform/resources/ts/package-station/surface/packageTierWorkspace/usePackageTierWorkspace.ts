@@ -19,11 +19,12 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { fetchPackageFamilies, usePackageStation } from '@/package-station';
+import { fetchPackageFamilies } from '../../api';
+import { usePackageStation } from '../../usePackageStation';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
-import { useRetainedCollection } from '../useRetainedCollection';
+import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
 import {
   buildRateItemServiceMap,
   occupantSupplyingServiceIds,

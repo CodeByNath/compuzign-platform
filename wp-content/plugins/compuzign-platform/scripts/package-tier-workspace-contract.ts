@@ -11,8 +11,8 @@ import {
   projectFamilyTierWorkspace,
   type WorkspaceFamilyScope,
   type WorkspaceOccupant,
-} from '../resources/ts/admin-station/stations/packageTierWorkspace/projection';
-import { buildFamilySummary } from '../resources/ts/admin-station/stations/packageTierWorkspace/familySummary';
+} from '../resources/ts/package-station/surface/packageTierWorkspace/projection';
+import { buildFamilySummary } from '../resources/ts/package-station/surface/packageTierWorkspace/familySummary';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Package Tier workspace contract: ${message}`);

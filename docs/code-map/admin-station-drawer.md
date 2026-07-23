@@ -25,10 +25,10 @@ The shell owns header, scrolling body, footer slot, backdrop/Escape/header close
 - `stations/drawers/drawerRegistry.tsx` — the four declarative registrations plus load-time well-formedness guard.
 - `shell/drawer/AdminStationDrawerContext.tsx` — one open record and the originating wall refresh handle.
 - `shell/drawer/AdminStationDrawer.tsx` — the single shell and close path.
-- `stations/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
+- `resources/ts/package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
 - `stations/serviceCategory/CategoryDrawerHost.tsx` — numeric Category id adapter plus assigned-Service projection.
 - `service-station/surface/ServiceDrawerHost.tsx` — numeric Service id adapter.
-- `stations/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
+- `resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
 
 ## Shared mature compositions
 

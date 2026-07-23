@@ -13,12 +13,12 @@
 
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
-import type { PackageStationTierView } from '@/package-station';
-import { TiersIcon, ViewIcon, PackagesIcon, RateSheetIcon } from '../../shell/icons';
+import type { PackageStationTierView } from '../../usePackageStation';
+import { TiersIcon, ViewIcon, PackagesIcon, RateSheetIcon } from '@/admin-station/shell/icons';
 import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
-} from '../../presentation/category-groups/types';
+} from '@/admin-station/presentation/category-groups/types';
 
 // The tier resolver returns a 5-state vocabulary; the card contract accepts four.
 // 'not-configured' is the never-touched shell, which reads as the dim pending

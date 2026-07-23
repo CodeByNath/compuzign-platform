@@ -21,24 +21,24 @@ Adapters project Package Family, Service, and Tier records into the same card co
 
 `service-station/presentation/ServiceCatalogue.tsx` is the Service-specific template kit used on Home. It renders four operational metrics, client-side search/status/direct-Category/Package-Family filters, creation-time/name sorting, the current-Service table, shared status pills, pagination, and native numeric View intents. Family options use native string Package Family IDs, and each row renders all related Family names as neutral labels rather than lifecycle pills. `types.ts` is its presentation contract.
 
-`service-station/surface/useServiceCatalogue.ts` reads current Services plus archived Services for the overview count, joins `stations/packageFamily/usePackageFamilyRelationships.ts`, and retains the collection through drawer-triggered refresh. `serviceCatalogueAdapter.ts` projects direct Service Categories plus multi-value Package Families without redefining status. Service Category Group taxonomy parents do not enter this flow. Archived Service records never render as Home rows or pills; their registered travel surfaces retain that responsibility.
+`service-station/surface/useServiceCatalogue.ts` reads current Services plus archived Services for the overview count, joins `package-station/surface/packageFamily/usePackageFamilyRelationships.ts`, and retains the collection through drawer-triggered refresh. `serviceCatalogueAdapter.ts` projects direct Service Categories plus multi-value Package Families without redefining status. Service Category Group taxonomy parents do not enter this flow. Archived Service records never render as Home rows or pills; their registered travel surfaces retain that responsibility.
 
 ## Sources and identity
 
 | Registered surface | Source | Native identity | Drawer |
 | --- | --- | --- | --- |
-| Package Families | `stations/packageFamily/usePackageFamilyCards.ts` | string `group_id` | `package-family` |
+| Package Families | `package-station/surface/packageFamily/usePackageFamilyCards.ts` | string `group_id` | `package-family` |
 | Service Categories | `stations/serviceCategory/useServiceCategoryCards.ts` | numeric Category id | `category` |
 | Service Catalogue | `service-station/surface/useServiceCatalogue.ts` | numeric Service id | `service` |
 | Service cards | `service-station/surface/useServiceCards.ts` | numeric Service id | `service` |
-| Package Tiers | `stations/tierSurface/useServiceTierCards.ts` | string `occupant_id` | `tier` |
-| Package Station Tier tool | `stations/packageTierWorkspace/usePackageTierWorkspace.ts` | string `occupant_id` | `tier` |
+| Package Tiers | `package-station/surface/tierSurface/useServiceTierCards.ts` | string `occupant_id` | `tier` |
+| Package Station Tier tool | `package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts` | string `occupant_id` | `tier` |
 
-No adapter parses or converts identity. Package Family and Category status/notes come from the shared `evaluateModule` definitions. Tier cards use the same tier note generator as the drawer, built by the shared `stations/tierSurface/tierOccupantCard.ts` — the one Tier-occupant card projection both the Tier wall and the Station-level Tier tool render, so they can never disagree.
+No adapter parses or converts identity. Package Family and Category status/notes come from the shared `evaluateModule` definitions. Tier cards use the same tier note generator as the drawer, built by the shared `package-station/surface/tierSurface/tierOccupantCard.ts` — the one Tier-occupant card projection both the Tier wall and the Station-level Tier tool render, so they can never disagree.
 
 ## Package Station Tier Workspace Engine
 
-`presentation/package-tier-workspace/` composes one Station-level engine from small owned pieces: `PackageTierWorkspace.tsx` (orchestrator + stateful kit owning the selected **Package Family** as transient view state; header, full-width Tier grid, lower split), `PackageFamilySummary.tsx` (the **read-only** summary from the pure `stations/packageTierWorkspace/familySummary.ts` model — name, positioning, status, and the three authoritative `dependents` counts — with **no Edit action**), and `PackageFamilyNavigation.tsx` (a real `radiogroup` Family selector). The `package-tier-workspace` source runs the pure `projection.ts` join over `fetchPackageFamilies()`, `useHostService`, and `usePackageStation`: a Tier occupant projects under a Family iff a Rate Sheet selection resolves (through `source_service_id`) to one of the Family's authoritative `related_service_ids` — the backend's `dependents.tier_selections` provenance. Row 1 renders occupants through the shared card grid and the mature `tierOccupantCard`; cards dispatch `occupant_id` into the shared `tier` drawer. Family editing stays on the Package Families wall and its `package-family` drawer — this binding owns only `tier`.
+`package-station/presentation/package-tier-workspace/` composes one Station-level engine from small owned pieces: `PackageTierWorkspace.tsx` (orchestrator + stateful kit owning the selected **Package Family** as transient view state; header, full-width Tier grid, lower split), `PackageFamilySummary.tsx` (the **read-only** summary from the pure `package-station/surface/packageTierWorkspace/familySummary.ts` model — name, positioning, status, and the three authoritative `dependents` counts — with **no Edit action**), and `PackageFamilyNavigation.tsx` (a real `radiogroup` Family selector). The `package-tier-workspace` source runs the pure `projection.ts` join over `fetchPackageFamilies()`, `useHostService`, and `usePackageStation`: a Tier occupant projects under a Family iff a Rate Sheet selection resolves (through `source_service_id`) to one of the Family's authoritative `related_service_ids` — the backend's `dependents.tier_selections` provenance. Row 1 renders occupants through the shared card grid and the mature `tierOccupantCard`; cards dispatch `occupant_id` into the shared `tier` drawer. Family editing stays on the Package Families wall and its `package-family` drawer — this binding owns only `tier`.
 
 ## Binding and refresh
 

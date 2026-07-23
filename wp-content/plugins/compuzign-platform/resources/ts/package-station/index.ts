@@ -33,3 +33,10 @@ export { useSurfacePackages } from './useSurfacePackages';
 
 // Package-owned display label shared with the Tier drawer composition.
 export { relationshipDisplayLabel } from './rateSheetLabels';
+
+// Package Family relationship projection shared with the Service catalogue.
+export {
+  packageFamiliesForService,
+  usePackageFamilyRelationships,
+} from './surface/packageFamily';
+export type { PackageFamilyRelationship } from './surface/packageFamily';

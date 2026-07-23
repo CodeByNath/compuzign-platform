@@ -4,7 +4,7 @@ import {
   packageFamiliesForService,
   toPackageFamilyRelationship,
   type PackageFamilyRelationship,
-} from '../resources/ts/admin-station/stations/packageFamily/relationships';
+} from '../resources/ts/package-station/surface/packageFamily/relationships';
 import type { PackageFamilyListItem } from '../resources/ts/package-station';
 import {
   packageFamilyOptions,

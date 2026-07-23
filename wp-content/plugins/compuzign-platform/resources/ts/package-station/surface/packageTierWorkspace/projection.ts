@@ -21,7 +21,7 @@
 // shared Package Station tier set — never per-Family ownership. The occupant's
 // identity (`occupant_id`) is preserved untouched; the Family id is scope only.
 
-import type { CategoryGroupCardItem, CategoryGroupStatus } from '../../presentation/category-groups/types';
+import type { CategoryGroupCardItem, CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
 
 // Minimal shapes the projection needs from the Package Station read model. Kept
 // local and structural so the pure functions carry no dependency on the full API

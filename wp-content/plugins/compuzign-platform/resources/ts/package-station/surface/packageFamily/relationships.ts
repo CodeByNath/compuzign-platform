@@ -1,4 +1,4 @@
-import type { PackageFamilyListItem } from '@/package-station';
+import type { PackageFamilyListItem } from '../../types';
 
 /** Package-owned relationship facts consumed by cross-station read adapters. */
 export interface PackageFamilyRelationship {

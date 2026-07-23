@@ -12,7 +12,7 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { useSurfacePackages } from '@/package-station';
+import { useSurfacePackages } from '../../useSurfacePackages';
 import { fetchAdminCatalog } from '@/service-station';
 import type { ServiceSummary } from '@/service-station';
 

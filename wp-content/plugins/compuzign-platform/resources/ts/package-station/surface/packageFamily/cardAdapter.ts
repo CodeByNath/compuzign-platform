@@ -32,14 +32,14 @@
 // Type-only across the tree: the backend row type is imported for its shape and
 // erased at build.
 
-import type { PackageFamilyItem } from '@/package-station';
+import type { PackageFamilyItem } from '../../types';
 import { evaluateModule, packageFamilyOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
-import { ViewIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '../../shell/icons';
+import { ViewIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '@/admin-station/shell/icons';
 import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
-} from '../../presentation/category-groups/types';
+} from '@/admin-station/presentation/category-groups/types';
 
 /**
  * Resolve a family list row into the card's 4-state status vocabulary.

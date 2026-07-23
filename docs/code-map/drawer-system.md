@@ -29,7 +29,8 @@ Notification rules live in [drawer-kit/utils/moduleNotifications/](../../wp-cont
 
 ## Host adapters
 
-- Admin Station: adapters under `admin-station/stations/{packageFamily,serviceCategory,serviceSurface,tierSurface}/` resolve native ids and mount the same compositions inside one shell.
+- Admin Station: adapters under `admin-station/stations/{serviceCategory,serviceSurface}/` resolve native ids and mount the same compositions inside one shell.
+- Package Station: adapters under `package-station/surface/{packageFamily,tierSurface}/` resolve native ids and mount the same compositions inside the Admin Station shell.
 
 ## Styling
 

@@ -13,10 +13,10 @@
 // fetches nothing. Identity is the card's own id; it is forwarded untouched.
 
 import type { VNode } from 'preact';
-import type { CategoryGroupCardItem } from '../category-groups/types';
-import { StationStatusPill } from '../StationStatusPill';
-import { StationMetricBlock } from '../StationMetricBlock';
-import { StationSplitAction } from '../StationSplitAction';
+import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
+import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
+import { StationMetricBlock } from '@/admin-station/presentation/StationMetricBlock';
+import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 
 interface Props {
   item: CategoryGroupCardItem;

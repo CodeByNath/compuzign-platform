@@ -14,7 +14,7 @@
 // status, and its three authoritative `dependents` counts, each passed through
 // as-is and never re-derived.
 
-import type { CategoryGroupStatus } from '../../presentation/category-groups/types';
+import type { CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
 import type { WorkspaceFamilyScope } from './projection';
 
 /** One summary count. `id` selects the presentation glyph; the value is authoritative. */

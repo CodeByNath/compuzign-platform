@@ -18,7 +18,7 @@ import type { TemplateKitKey } from '../stations/surfaceBindings';
 import type { StationRecordId } from '../stations/recordIdentity';
 import { ServiceCategoryCarousel } from './service-categories/ServiceCategoryCarousel';
 import { ServiceCatalogue } from '@/service-station/presentation/ServiceCatalogue';
-import { PackageTierWorkspace } from './package-tier-workspace/PackageTierWorkspace';
+import { PackageTierWorkspace } from '@/package-station/presentation/package-tier-workspace/PackageTierWorkspace';
 
 // The dispatch a kit emits: the acted-on record's native id and the action id
 // (matched against the binding's action intents by the host).

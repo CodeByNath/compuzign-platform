@@ -4,12 +4,14 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
 ## Ownership and entry points
 
-`resources/ts/package-station/` is the top-level Package peer's data boundary: it owns Package TypeScript contracts, endpoint implementations, station state, and pure derivations. It is not part of the Admin Station host, and other peers consume Package only through `index.ts`.
+`resources/ts/package-station/` is the top-level Package peer's data, surface, and presentation boundary: it owns Package TypeScript contracts, endpoint implementations, station state, pure derivations, surface adapters, and the Tier workspace presentation kit. It is not part of the Admin Station host, and other peers consume Package only through `index.ts`.
 
 - `types.ts` — Package contracts. Shared pool and Cost Builder contracts remain in `api/types/`; `PromotionTier` remains Promotion-owned in `api/types/admin.ts` and is imported type-only solely to preserve the existing `SurfacePackageSummary` contract.
 - `api.ts` — the single implementation of Package-owned endpoint calls.
 - `usePackageStation.ts`, `usePackageFamilyStation.ts`, and `useSurfacePackages.ts` — Package and Package Family state, mutations, and surface reads.
 - `tierOccupants.ts`, `rateSheetLabels.ts`, and `evaluateTierPricing.ts` — Package-owned pure projections, labels, and pricing evaluation.
+- `surface/packageFamily/`, `surface/tierSurface/`, and `surface/packageTierWorkspace/` — Package Family and Tier surface adapters plus the Tier workspace read/projection.
+- `presentation/package-tier-workspace/` — the Package-owned Tier workspace presentation kit.
 
 ## Boundaries
 

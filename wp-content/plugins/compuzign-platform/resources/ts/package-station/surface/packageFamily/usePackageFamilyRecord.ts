@@ -19,9 +19,9 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { fetchPackageFamilies } from '@/package-station';
-import type { PackageFamilyItem } from '@/package-station';
-import type { StationRecordId } from '../recordIdentity';
+import { fetchPackageFamilies } from '../../api';
+import type { PackageFamilyItem } from '../../types';
+import type { StationRecordId } from '@/admin-station/stations/recordIdentity';
 
 export interface PackageFamilyRecordResult {
   record:  PackageFamilyItem | null;

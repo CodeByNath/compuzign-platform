@@ -14,10 +14,10 @@
 // stay entity-agnostic. The contracts live in ./drawerTypes so this registry can
 // value-import the content without a cycle back through it.
 
-import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawerContent';
+import { PackageFamilyDrawerContent } from '@/package-station/surface/packageFamily/PackageFamilyDrawerContent';
 import { CategoryDrawerHost } from '../serviceCategory/CategoryDrawerHost';
 import { ServiceDrawerHost } from '@/service-station/surface/ServiceDrawerHost';
-import { TierDrawerHost } from '../tierSurface/TierDrawerHost';
+import { TierDrawerHost } from '@/package-station/surface/tierSurface/TierDrawerHost';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
 
 export type { DrawerMode, DrawerTemplateKey, DrawerContentProps, DrawerContent, DrawerTemplateRegistration } from './drawerTypes';

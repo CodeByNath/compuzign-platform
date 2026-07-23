@@ -12,11 +12,11 @@
 // no second-drawer routing.
 
 import type { ComponentType, VNode } from 'preact';
-import type { WorkspaceFamilyScope } from '../../stations/packageTierWorkspace/projection';
-import { buildFamilySummary, type FamilySummaryMetric } from '../../stations/packageTierWorkspace/familySummary';
-import { StationStatusPill } from '../StationStatusPill';
-import { StationMetricBlock } from '../StationMetricBlock';
-import { ServicesIcon, RateSheetIcon, TiersIcon } from '../../shell/icons';
+import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
+import { buildFamilySummary, type FamilySummaryMetric } from '../../surface/packageTierWorkspace/familySummary';
+import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
+import { StationMetricBlock } from '@/admin-station/presentation/StationMetricBlock';
+import { ServicesIcon, RateSheetIcon, TiersIcon } from '@/admin-station/shell/icons';
 
 // The glyph each authoritative metric shows. Presentation-only, keyed by the
 // pure model's metric id — the model itself carries no components.

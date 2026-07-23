@@ -36,10 +36,10 @@
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { TemplateKitProps } from '../templateKits';
-import type { PackageTierWorkspaceFamily } from '../../stations/packageTierWorkspace/projection';
-import type { CategoryGroupCardItem } from '../category-groups/types';
-import { CategoryGroupCardGrid } from '../category-groups/CategoryGroupCardGrid';
+import type { TemplateKitProps } from '@/admin-station/presentation/templateKits';
+import type { PackageTierWorkspaceFamily } from '../../surface/packageTierWorkspace/projection';
+import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
+import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-groups/CategoryGroupCardGrid';
 import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierNavigation } from './TierNavigation';
