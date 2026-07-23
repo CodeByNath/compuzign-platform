@@ -31,8 +31,7 @@ The intended station family is Service, Package, Promotion, Subscription, Bundle
 
 - `resources/ts/drawer-kit/` owns genuinely generic rendering and interaction primitives.
 - `resources/ts/entity-drawers/<entity>/` owns host-neutral entity composition and domain-specific drawer behaviour.
-- `resources/ts/admin-station/` owns Admin Station surfaces, registrations, adapters, and its one drawer shell.
-- `resources/ts/components/admin/` owns Command Centre routing and host adapters; it is not the shared drawer authority.
+- `resources/ts/admin-station/` owns the Admin Station surfaces, registrations, adapters, and its one drawer shell. It is the sole admin frontend host.
 - Authoritative station hooks, services, and controllers retain mutations and persistence. Screen placement never transfers that ownership.
 
 ## Navigation rule

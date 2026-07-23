@@ -12,7 +12,7 @@ The request-flow components own only the open modal, contact draft, review step,
 
 - [RequestFlowModal.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/RequestFlowModal.tsx) selects the request-flow variant and supplies modal overlay, close behavior, and context. Use it for flow routing or modal presentation.
 - [QuoteCartFlow.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteCartFlow.tsx) contains contact/review steps, validation, Back/Continue/Submit/Print actions, success/error states, reference generation, and submission. Use it for quote-request workflow and validation.
-- [RequestsStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/RequestsStation.tsx) renders request tables, filters/status, detail drawer, proposal preview, and intake acceptance actions. Use it for admin request review.
+- The admin request-review surface (tables, filters, detail drawer, proposal preview, intake acceptance) was hosted in the retired Command Centre and has been removed. The intake backend below is unchanged; the review surface is to be rebuilt in the Admin Station.
 
 ## UI and State
 
@@ -31,7 +31,7 @@ The request-flow components own only the open modal, contact draft, review step,
 
 ## Runtime Flow
 
-Cost Builder opens the modal with a cart snapshot. The flow validates contact data, submits through the public API, stores a request, and lets the admin station accept and manage intake.
+Cost Builder opens the modal with a cart snapshot. The flow validates contact data, submits through the public API, and stores a request. The stored intake records remain available through the backend for a future Admin Station review surface.
 
 ## Validation
 

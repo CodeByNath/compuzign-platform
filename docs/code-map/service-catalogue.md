@@ -2,16 +2,13 @@
 
 ## Purpose and ownership
 
-Provides Command Centre's family-first “Your Service Manager” dashboard, Service creation, Service drawer handoff, Package-owned connections, Commercial Groups, and Rate Sheet configuration.
+Provides the Admin Station's family-first Service Catalogue Home: Service browsing scoped by Package Family, Service creation, and Service drawer handoff.
 
 Service posts/taxonomy/meta remain Service authority. Package connections and commercial state remain Package-owned. UI composition does not transfer either boundary.
 
-## Command Centre host
+## Admin Station host
 
-- [ServiceCatalogStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCatalogStation.tsx) owns the dashboard host, catalogue freshness, creation actions, page dirty guard/footer, manager composition, and drawer launch.
-- [ServiceViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceViewStep.tsx) is only the `StepContext → EntityDrawerHostBridge` adapter. It does not own Service modules or lifecycle.
-- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) composes Family scope and Details/Connections/Settings provider workspaces.
-- [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) owns focused Package Family, connection, group, Rate Row, setup, and audit-only price drawers. Their callbacks patch the Package provider draft; page Save remains atomic.
+The Admin Station is the sole host. [useServiceCatalogue.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceSurface/useServiceCatalogue.ts) and [serviceCatalogueAdapter.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceSurface/serviceCatalogueAdapter.ts) own the family-first Home read and projection; the presentation kit lives at [presentation/service-catalogue/](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/presentation/service-catalogue/). Service creation and drawer handoff open the shared composition through the drawer host below. The former Command Centre "Your Service Manager" dashboard, its provider-neutral manager composition, and Rate Sheet / Commercial Group configuration have been removed.
 
 ## Shared Service drawer
 

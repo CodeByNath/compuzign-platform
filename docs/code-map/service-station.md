@@ -25,7 +25,7 @@ Package Station and Promotion compatibility URLs remain Service-nested, but thei
 
 `admin-station/stations/serviceSurface/useServiceCatalogue.ts` and `serviceCatalogueAdapter.ts` own the Home read/projection. They join the Service summaries to the Package-owned multi-family relationship read from `stations/packageFamily/usePackageFamilyRelationships.ts`. The Home kit lives at `admin-station/presentation/service-catalogue/`; it renders current rows and uses the archived read only for its overview count.
 
-Host-neutral Service UI lives under [entity-drawers/service/](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/service/ServiceDrawerContent.tsx), with manifests/bindings/editors under `entity-drawers/schema/` and `entity-drawers/editors/`. Command Centre and Admin Station adapters mount that one composition. `components/admin/stations/ServiceViewStep.tsx` is a thin compatibility host, not the UI authority.
+Host-neutral Service UI lives under [entity-drawers/service/](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/service/ServiceDrawerContent.tsx), with manifests/bindings/editors under `entity-drawers/schema/` and `entity-drawers/editors/`. The Admin Station adapter [ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceSurface/ServiceDrawerHost.tsx) mounts that one composition; it is not the UI authority.
 
 Entity-neutral transport, station primitives, drawer-kit presentation, and pool item contracts remain shared. Service consumes them and must not absorb them.
 

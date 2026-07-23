@@ -4,7 +4,7 @@
 
 Supplies reusable drawer navigation, schema-driven modules, status/notification presentation, inline editors, module actions, record lifecycle footers, and host bridges. Generic infrastructure owns no entity persistence.
 
-Command Centre `ActionShell` and Admin Station `AdminStationDrawer` are separate hosts. Package Family, Category, Service, and Tier drawer presentation lives in shared host-neutral compositions.
+The Admin Station `AdminStationDrawer` is the drawer host. Package Family, Category, Service, and Tier drawer presentation lives in shared host-neutral compositions.
 
 ## Shared drawer kit
 
@@ -29,12 +29,11 @@ Notification rules live in [drawer-kit/utils/moduleNotifications/](../../wp-cont
 
 ## Host adapters
 
-- Command Centre: `components/admin/stations/{CategoryViewStep,ServiceViewStep,ServiceTierStep}.tsx` and existing Package Family editing in `components/admin/relations/serviceManagerDrawers.tsx` map `StepContext` onto the bridge.
 - Admin Station: adapters under `admin-station/stations/{packageFamily,serviceCategory,serviceSurface,tierSurface}/` resolve native ids and mount the same compositions inside one shell.
 
 ## Styling
 
-`resources/css/modules/drawer-kit.css` is one build entry loaded by both pages. Admin Station adaptations are `.cz-admin-station` scoped, so Command Centre presentation remains intact.
+`resources/css/modules/drawer-kit.css` is one build entry the Admin Station enqueues. Admin Station adaptations are `.cz-admin-station` scoped.
 
 ## Validation
 

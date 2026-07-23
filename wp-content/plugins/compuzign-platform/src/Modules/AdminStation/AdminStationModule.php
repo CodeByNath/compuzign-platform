@@ -3,16 +3,14 @@
 namespace CompuZign\Platform\Modules\AdminStation;
 
 use CompuZign\Platform\Core\Health;
-use CompuZign\Platform\Modules\Admin\AdminRouter;
+use CompuZign\Platform\Core\PlatformAccess;
 
 /**
- * The new, independent administration environment.
+ * The independent administration environment and sole admin frontend host.
  *
  * This module owns only the mount point for the Admin Station frontend shell.
- * It shares nothing with the existing AdminModule beyond the platform manager
- * capability (a shared permission contract), and it does not touch the old
- * manager architecture. Business areas are rebuilt inside the Admin Station one
- * at a time; until then this renders an empty, ready platform landing.
+ * It gates access with the shared platform manager capability owned by
+ * Core\PlatformAccess, and it does not own persistence or domain authority.
  */
 class AdminStationModule
 {
@@ -33,7 +31,7 @@ class AdminStationModule
             wp_enqueue_style('compuzign-admin-station');
         }
 
-        if (!is_user_logged_in() || !current_user_can(AdminRouter::CAP)) {
+        if (!is_user_logged_in() || !current_user_can(PlatformAccess::CAP)) {
             return '<div class="cz-station-gate">The Admin Station is available to platform managers.</div>';
         }
 

@@ -23,6 +23,7 @@ final class Plugin
         }
         self::$booted = true;
 
+        (new PlatformAccess())->register();
         (new PostTypeRegistrar())->register();
         (new TaxonomyRegistrar())->register();
         (new MailService())->register();

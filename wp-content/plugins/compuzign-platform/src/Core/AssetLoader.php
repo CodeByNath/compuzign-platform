@@ -4,7 +4,7 @@ namespace CompuZign\Platform\Core;
 
 class AssetLoader
 {
-    private const MODULE_HANDLES = ['compuzign-homepage', 'compuzign-cost-builder', 'compuzign-admin', 'compuzign-admin-station'];
+    private const MODULE_HANDLES = ['compuzign-homepage', 'compuzign-cost-builder', 'compuzign-admin-station'];
 
     public function register(): void
     {
@@ -20,24 +20,7 @@ class AssetLoader
         $this->registerCostBuilderAssets();
         $this->registerHomepageAssets();
         $this->registerDrawerKitStyles();
-        $this->registerAdminAssets();
         $this->registerAdminStationAssets();
-        $this->enqueueAdminPageStyles();
-    }
-
-    /**
-     * Proactively enqueue admin.css on the Command Centre page so it lands in
-     * <head> via wp_head(), not late inside a shortcode callback after <head> closes.
-     * This covers both the branded login state and the authenticated app state.
-     */
-    private function enqueueAdminPageStyles(): void
-    {
-        if (!is_page(\CompuZign\Platform\Modules\Admin\AdminRouter::PAGE_SLUG)) {
-            return;
-        }
-        if (wp_style_is('compuzign-admin', 'registered')) {
-            wp_enqueue_style('compuzign-admin');
-        }
     }
 
     /**
@@ -70,13 +53,12 @@ class AssetLoader
     /**
      * The shared entity-drawer stylesheet.
      *
-     * Its rules were moved out of admin.css so BOTH administration environments
-     * can load them: the Command Centre and the Admin Station now mount the same
-     * four entity compositions. Registered once here and declared as a
-     * DEPENDENCY of both page stylesheets, which loads it exactly once and
-     * always before them — so each page's own sheet keeps the last word.
+     * Holds the host-neutral entity-drawer rules mounted by the Admin Station's
+     * entity compositions. Registered once here and declared as a DEPENDENCY of
+     * the Admin Station stylesheet, which loads it exactly once and always
+     * before it — so the page's own sheet keeps the last word.
      *
-     * Registered before the two callers so the handle exists when they name it.
+     * Registered before its caller so the handle exists when it names it.
      */
     private function registerDrawerKitStyles(): void
     {
@@ -179,32 +161,4 @@ class AssetLoader
         }
     }
 
-    private function registerAdminAssets(): void
-    {
-        $distPath = COMPUZIGN_DIST_PATH;
-        $distUrl  = COMPUZIGN_DIST_URL;
-
-        // CSS: register-only; admin shortcode enqueues when the page is an admin page.
-        if (file_exists($distPath . 'css/admin.css')) {
-            // Depends on the shared drawer kit, which holds the drawer rules
-            // that used to live in this sheet — so the Command Centre's total
-            // rule set is unchanged and the kit still loads first.
-            wp_register_style('compuzign-admin', $distUrl . 'css/admin.css', ['compuzign-drawer-kit'], filemtime($distPath . 'css/admin.css'));
-        }
-
-        // JS: register-only; admin shortcode enqueues after mount div is in the DOM.
-        if (file_exists($distPath . 'js/admin.js')) {
-            wp_register_script('compuzign-admin', $distUrl . 'js/admin.js', ['compuzign-config'], filemtime($distPath . 'js/admin.js'), true);
-
-            // Localize admin runtime config so window.CompuZignAdmin is available
-            // on the admin page. Outputs only when compuzign-admin is enqueued
-            // (i.e., only on /admin-command-centre via the shortcode).
-            // The nonce must be generated here — wp_create_nonce requires a
-            // loaded user context, which exists at wp_enqueue_scripts time.
-            wp_localize_script('compuzign-admin', 'CompuZignAdmin', [
-                'restUrl' => esc_url_raw(rest_url('compuzign/v1/')),
-                'nonce'   => wp_create_nonce('wp_rest'),
-            ]);
-        }
-    }
 }

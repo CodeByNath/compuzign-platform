@@ -4,27 +4,19 @@ The taxonomy grouping of Service Categories. **Not** a [Package Family](package-
 
 ## Purpose
 
-Provides the admin station for grouping Service Categories, editing group overview data, and navigating the group-to-category relationship.
+Owns grouping Service Categories, editing group overview data, and navigating the group-to-category relationship.
 
 ## Ownership
 
-The Service Category Group station owns group identity, overview draft state, lifecycle, and category membership. Individual Category stations own their own details and services; the group surface must hand off rather than duplicate those authorities.
+The Service Category Group owns group identity, overview draft state, lifecycle, and category membership. Individual Category stations own their own details and services; the group surface must hand off rather than duplicate those authorities.
 
-Group and Category are **two stations sharing one taxonomy** (`cz_service_category`), discriminated by the `station_role` meta (`'group'` | `'category'`); membership is term parentage. Identity is the `term_id` (`int`).
+Group and Category are **two roles sharing one taxonomy** (`cz_service_category`), discriminated by the `station_role` meta (`'group'` | `'category'`); membership is term parentage. Identity is the `term_id` (`int`).
 
-## Main Entry Points
+## Frontend
 
-- [ServiceCategoryGroupCatalogStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCategoryGroupCatalogStation.tsx) renders Group tables/filters, creates groups, assembles live Category handoff context, and opens canonical drawers. Use it for Group catalogue or creation changes.
-- [ServiceCategoryGroupViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCategoryGroupViewStep.tsx) contains the Details/Connections drawer, assigned-Category summary, overview editor, lifecycle footer, and publish/discard/exit dialogs. Use it for Group drawer, lifecycle, or Category navigation.
-- [serviceCategoryGroup.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/serviceCategoryGroup.ts) declares Group table/drawer placements. Use it when changing modules or viewpoints.
+The Group catalogue station, its Details/Connections drawer, overview editor, and schema table/shell bindings were hosted in the retired Command Centre and have been removed. The Admin Station carries only a shared Category Group **card** kit under `admin-station/presentation/category-groups/`, consumed by other stations for card rendering — not a full management station. Group management is to be rebuilt in the Admin Station; the client write boundary and backend authority below are unchanged.
 
-## UI and Drawers
-
-- [ServiceCategoryGroupOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/ServiceCategoryGroupOverviewEditor.tsx) renders Group name and description inputs. Use it for overview form behavior.
-- [serviceCategoryGroup.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/shells/bindings/serviceCategoryGroup.tsx) binds overview and assigned-Category summaries to shells. Use it for drawer presentation.
-- [serviceCategoryGroup.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/tables/serviceCategoryGroup.tsx) projects Group status, counts, and row actions. Use it for table presentation.
-
-## State and Providers
+## State
 
 - [useServiceCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceCategoryGroupStation.ts) owns draft-preferred Group state, module readiness, Category counts, saves/reverts, settle/publish, status, restore, and delete actions. Use it for Group state or mutations.
 
@@ -43,18 +35,13 @@ Code symbols are `ServiceCategoryGroup*` / `SERVICE_CATEGORY_GROUP_ENTITY`. **Pe
 
 | Concern | Marker | Contains | Read when... |
 | --- | --- | --- | --- |
-| Drawer model | `SECTION: CATEGORY_GROUP_DRAWER_MODEL` | Config and Category handoff | Changing drawer entry |
-| Overview | `SECTION: CATEGORY_GROUP_OVERVIEW` | Overview editing | Changing Group authoring |
-| Lifecycle | `SECTION: CATEGORY_GROUP_LIFECYCLE` | Publish, travel, close guards | Changing Group actions |
-| Connections | `SECTION: CATEGORY_GROUP_CONNECTIONS` | Assigned-Category transit | Changing Category navigation |
-| Render | `SECTION: CATEGORY_GROUP_RENDER` | Shell, footer, dialogs | Changing drawer UI |
 | Routes | `SECTION: CATEGORY_GROUP_ROUTES` | Group route registration | Changing endpoints |
 | Handlers | `SECTION: CATEGORY_GROUP_HANDLERS` | CRUD and lifecycle | Changing backend behavior |
 | Helpers | `SECTION: CATEGORY_GROUP_HELPERS` | Lookup and projection | Changing responses |
 
 ## Runtime Flow
 
-The station loads group summaries and opens the canonical schema-bound drawer. `ServiceCategoryGroupViewStep` builds the drawer config, derives assigned-category counts, binds the overview shell, owns its edit/dirty/close-guard state, and orchestrates publish/settle, enable/disable, archive, trash, and confirmation chrome through `useServiceCategoryGroupStation`. Category membership opens the authoritative Category drawer rather than creating a group-local model.
+`useServiceCategoryGroupStation` owns draft-preferred Group state, Category counts, saves/reverts, settle/publish, status, restore, and delete, driving mutations through the backend routes. Category membership resolves to the authoritative Category rather than a group-local model.
 
 Permanent delete is trashed-only and blocked (409, `assigned_count`) while child Categories remain; re-parenting is an explicit prior step.
 

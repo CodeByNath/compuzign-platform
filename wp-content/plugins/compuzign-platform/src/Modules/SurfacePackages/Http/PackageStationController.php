@@ -951,6 +951,6 @@ class PackageStationController
 
     public function requireAdmin(): bool
     {
-        return current_user_can(\CompuZign\Platform\Modules\Admin\AdminRouter::CAP);
+        return current_user_can(\CompuZign\Platform\Core\PlatformAccess::CAP);
     }
 }

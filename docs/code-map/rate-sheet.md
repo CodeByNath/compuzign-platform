@@ -6,14 +6,13 @@ Maintains the Package Station’s source service selections and resolves their t
 
 ## Ownership
 
-The rate sheet is part of the single Package Station persisted by `PackageRepository`. Package-manager drafts may edit source relationships, while the pricing evaluator derives results. It must not become a second service catalogue or persist computed totals as an independent authority.
+The rate sheet is part of the single Package Station persisted by `PackageRepository`. The pricing evaluator derives results from the persisted selections. It must not become a second service catalogue or persist computed totals as an independent authority.
 
 ## Main Entry Points
 
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/packages/evaluateTierPricing.ts) calculates Tier line totals and issues for missing, disabled, unresolved, or invalid-price selections. Use it when changing pricing validation or totals.
-- [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts) maps manager sources/groups into Rate Sheet drafts and persistence payloads. Use it when changing selection shape or save rules.
-- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) hosts the Rate Sheet only under Your Service Manager → Settings: read view, filters, save/validation, and source-preview draft. Packages consumes its results through Tiers but does not configure it. Setup and source onboarding remain in [PackageRateSheetEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetEditor.tsx).
-- [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) edits one Rate Sheet row. Source option and provenance are read-only; price, unit, quantity, and group patch the complete current Rate Sheet draft. Price Settings is explicitly audit-only.
+
+The manager Rate Sheet editing surface — source selection and onboarding, row editing, provenance filters, and the provider draft — was hosted in the retired Command Centre and has been removed. The Rate Sheet remains part of the Package Station; its editing surface is to be rebuilt in the Admin Station. Backend persistence/validation and pricing evaluation below are unchanged.
 
 ## Backend and Persistence
 
@@ -23,17 +22,12 @@ The rate sheet is part of the single Package Station persisted by `PackageReposi
 
 ## Runtime Flow
 
-The manager selects source services, the provider normalizes those selections, and tier pricing evaluation resolves source prices for each fixed tier. Package tiers consume the result; the public pricing builder later projects active package and service pricing.
-
-Under Your Service Manager → Settings, the read view filters rows by provenance via [PackageRateSheetFilters.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PackageRateSheetFilters.tsx). Its exported `assignmentByServiceId` map also scopes connection rows, and the Family Card scope seeds the Package Family filter. Provenance (`source_service_id`/title/categories) remains live read-model data and is never persisted on rows.
+The persisted source selections resolve through tier pricing evaluation into source prices for each fixed tier. Package tiers consume the result; the public pricing builder later projects active package and service pricing. Provenance (`source_service_id`/title/categories) remains live read-model data and is never persisted on rows.
 
 ## Internal File Navigation
 
 | Concern | Marker | Contains | Read when... |
 | --- | --- | --- | --- |
-| Editor | `SECTION: RATE_SHEET_EDITOR` | Sources, Groups, selections, filters | Changing manager UI |
-| Provider draft | `SECTION: RATE_SHEET_DRAFT` | Replacement and onboarding | Changing frontend shape |
-| Manager projection | `SECTION: RATE_SHEET_PROJECTION` | Tier reference projection | Changing Package read models |
 | Legacy schema | `SECTION: RATE_SHEET_SCHEMA` | Sanitization and validation | Tracing legacy data |
 | Tier pricing | `SECTION: TIER_PRICING` | Selections, totals, readiness | Changing evaluation |
 

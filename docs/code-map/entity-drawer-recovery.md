@@ -1,6 +1,6 @@
 # Entity Drawer Compositions
 
-The mature Package Family, Category, Service, and Tier drawers are host-neutral compositions shared by Command Centre and Admin Station.
+The mature Package Family, Category, Service, and Tier drawers are host-neutral compositions mounted by the Admin Station.
 
 Roots:
 
@@ -10,8 +10,8 @@ Roots:
 ## Layers
 
 ```text
-Command Centre ActionShell adapter       Admin Station shell adapter
-                 ↘                        ↙
+                 Admin Station shell adapter
+                             ↓
                    EntityDrawerHostBridge
                              ↓
                  entity DrawerContent composition
@@ -32,16 +32,16 @@ Command Centre ActionShell adapter       Admin Station shell adapter
 
 ## Entity compositions
 
-- `entity-drawers/category/` — Category Overview, assigned-Service Connections, group membership, draft/publish/enable/archive/trash/restore/delete, dialogs and close guard. `components/admin/stations/CategoryViewStep.tsx` is now a thin adapter.
-- `entity-drawers/package-family/` — Family Overview, Services/Rate Sheet/Tier dependency Connections, draft/revert/settle/publish and full lifecycle. `hooks/usePackageFamilyStation.ts` is the authoritative client write boundary. Existing Command Centre editing mounts this composition; creation remains its own first-level create form.
+- `entity-drawers/category/` — Category Overview, assigned-Service Connections, group membership, draft/publish/enable/archive/trash/restore/delete, dialogs and close guard.
+- `entity-drawers/package-family/` — Family Overview, Services/Rate Sheet/Tier dependency Connections, draft/revert/settle/publish and full lifecycle. `hooks/usePackageFamilyStation.ts` is the authoritative client write boundary. The Admin Station mounts this composition; creation remains its own first-level create form.
 - `entity-drawers/service/` — Overview, Included Features, FAQs, pricing Connections, lifecycle, guarded pending/new-draft exits. `useServiceDrawerController` coordinates the focused hooks `useServiceModuleEditing`, `useServiceLifecycle`, and `useServiceExitFlow`; its return contract is the drawer's public shape.
 - `entity-drawers/tier/` — tier cards, Overview/Features/FAQs, service Connections, occupant bin, restore conflicts, swap/retarget, publish and enable/disable. `useTierDrawerController` coordinates `useTierModuleEditing`, `useTierBinTravel`, and the pure `tierDetailModel.ts` (home of `slotOccupied`, re-exported by the controller).
 - `entity-drawers/shared/` — cross-entity coordination machinery: `drawerChrome.ts` (guarded close, lifecycle runner, auto-dismiss, outside-click dismiss — Service/Category/Package Family; Tier deliberately keeps `window.confirm`), `rateSheetLabels.ts`, `tierOccupants.ts`, `serviceDrawerShared.ts`.
-- `entity-drawers/schema/` — shared manifests/bindings. The Command Centre Category manifest extends the neutral drawer manifest with table/travel placements rather than duplicating drawer schema.
+- `entity-drawers/schema/` — shared manifests/bindings for the neutral drawer compositions.
 
 ## Bundle and style boundary
 
-Admin Station imports no `components/admin` module and no `StepContext`. Both JS entries import the same neutral modules, emitted as shared Rollup chunks. Both pages enqueue `resources/css/modules/drawer-kit.css`; Admin Station adaptations are root-scoped, preserving Command Centre styling.
+The Admin Station is the sole JS entry mounting these compositions and imports no `StepContext`. It enqueues `resources/css/modules/drawer-kit.css`; Admin Station adaptations are root-scoped.
 
 ## Identity
 

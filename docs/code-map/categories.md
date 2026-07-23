@@ -11,10 +11,7 @@ Category owns numeric identity, Overview draft/lifecycle, and optional Service C
 - [category.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/category.tsx) defines Category Overview and Assigned Services shells.
 - [category.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/category.ts) is the neutral drawer manifest.
 - [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/CategoryOverviewEditor.tsx) edits name, description, and structural group selection through the shared inline editor.
-- [CategoryViewStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/CategoryViewStep.tsx) is the thin Command Centre `StepContext → EntityDrawerHostBridge` adapter and config builder.
-- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) resolves a native numeric id plus assigned Services for Admin Station.
-
-The Command Centre [category entity manifest](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/category.ts) extends the neutral drawer manifest with table/travel schemas. Compatibility binding/editor files re-export the neutral implementations.
+- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell.
 
 ## Admin Station card flow
 

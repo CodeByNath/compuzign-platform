@@ -22,15 +22,14 @@ Current boundaries are:
 
 - `resources/ts/drawer-kit/` — generic renderer and interaction primitives;
 - `resources/ts/entity-drawers/<entity>/` — host-neutral entity compositions and entity-specific behaviour;
-- `resources/ts/admin-station/` — Admin Station shell, surfaces, registries, and adapters;
-- `resources/ts/components/admin/` — Command Centre routing and host adapters, plus domains not yet relocated.
+- `resources/ts/admin-station/` — Admin Station shell, surfaces, registries, and adapters; the sole admin frontend host.
 
 - [ ] Did generic kit code acquire entity branching, endpoint calls, or persistence knowledge?
 - [ ] Did entity composition move into a host shell or surface registry?
 - [ ] Did `AdminStationDrawer` or another shell branch on entity instead of resolving a registration?
 - [ ] Did a presentation component call an endpoint rather than an authoritative station/hook/service?
 - [ ] Was a mature drawer, inline editor, notification panel, status pill, or lifecycle footer duplicated to obtain different presentation?
-- [ ] Did Command Centre or Admin Station fork capability instead of mounting the host-neutral composition through `EntityDrawerHostBridge`?
+- [ ] Did a host fork capability instead of mounting the host-neutral composition through `EntityDrawerHostBridge`?
 - [ ] Was `StepContext` imported into `drawer-kit/`, `entity-drawers/`, or Admin Station?
 
 ## Capability and abstraction

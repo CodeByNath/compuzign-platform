@@ -279,9 +279,9 @@ export type StationId =
   | 'health'
   | 'bin';
 
-// The station registry itself (entries, groups, labels) lives in
-// components/admin/schema/stations.ts (Schema architecture S5). Only the
-// type-level contract stays here; StationSchema extends StationDef.
+// Type-level station contract. The concrete station registry (entries, groups,
+// labels) belonged to the retired Command Centre; only this shared contract
+// remains for consumers that describe a station.
 export interface StationDef {
   id:      StationId;
   label:   string;

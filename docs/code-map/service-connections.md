@@ -2,50 +2,29 @@
 
 ## Purpose
 
-Defines the provider-neutral graph used by a Service drawer to discover, display, and manage connected packages and promotions.
+Describes how a Service relates to the packages, promotions, and categories connected to it, and where that connection data is composed and persisted today.
 
-## Ownership
+## Status
 
-The relation registry owns provider discovery and the coordinator owns transient multi-provider drafts. Each provider owns its read model, validation, and save operation. The Service drawer only supplies station context; it must not implement provider-specific persistence.
+The provider-neutral connection graph — a relation registry, a multi-provider coordinator, and Package/Promotion/read-only providers — was a Command Centre frontend system and has been removed with the Command Centre. No second graph replaced it: connection composition now lives directly in the shared entity-drawer compositions, each backed by its authoritative station hook and controller. Persistence authority never moved.
 
-## Main Entry Points
+## Where connections live now
 
-- [registry.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/registry.ts) registers relation providers and resolves those applicable to a station scope. Use it when adding a provider or changing discovery rules.
-- [types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/types.ts) defines station scopes, connection descriptors, provider sections, summaries, and continuations. Use it when changing the provider contract.
-- [DynamicStationManager.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/DynamicStationManager.tsx) owns coordinator state, Family Card scope, Service Catalog Details / Connections / Settings composition, Rate Sheet forms, Save controls, and dirty-exit confirmation. The relations projection row carries optional `sourceServiceId` provenance so rows can scope by Package Family.
+- **Package ↔ Service.** The Package Family drawer composes Services, Rate Sheet, and Tier dependency Connections. Composition: [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); client write boundary: [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageFamilyStation.ts) and [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePackageStation.ts).
+- **Category ↔ Service.** The Category drawer shows assigned-Service Connections as read-only projections; assignment stays Service-owned. See [Categories](categories.md).
+- **Promotion ↔ Package.** Promotions are Package Station children; see [Promotions](promotions.md).
 
-## State and Providers
+## Persistence authority
 
-- [coordinator.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/coordinator.ts) owns read models, drafts, selection, dirty state, validation aggregation, and save results. Use it for provider-neutral state transitions.
-- [package.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/package.ts) supplies writable Package sections, Rate Sheet rules, summaries, and Tier continuations. Use it for Package connection behavior.
-- [serviceManagerDrawers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/serviceManagerDrawers.tsx) edits one connection or Commercial Group at a time. Source facts stay read-only; grouping, ordering, disabled state, decoration, and membership patch the current provider draft.
-- [promotion.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/promotion.ts) supplies Promotion cards, create/edit state, validation, saves, and drawer continuations. Use it for Promotion connection behavior.
-- [active-package-read-only.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/active-package-read-only.ts) exposes active Package projections without mutation methods. Use it for read-only consumers.
+- [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists Package source relationships in `cz_package_station`.
+- [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns the manager/tier/bin mutations.
+- [AdminPackageCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminPackageCategoryGroupsController.php) exposes each Package Family's related native Service IDs, resolved by Package-owned `PackageCategoryGroups::relatedServiceIds()`.
 
-## Internal File Navigation
-
-| Concern | Marker | Contains | Read when... |
-| --- | --- | --- | --- |
-| Coordination | `SECTION: MANAGER_COORDINATION` | Provider reads, drafts, validation, saves | Changing manager state |
-| Rate Sheet | `SECTION: RATE_SHEET_EDITOR` | Save/validation; editor in `PackageRateSheetEditor.tsx` | Changing Rate Sheet UI |
-| Services | `SECTION: SERVICE_WORKSPACE` | Assignments and Package Families | Changing Service connections |
-| Packages | `SECTION: PACKAGE_WORKSPACE` | Tiers, Connections relationships, Settings (Groups + Rate Sheet) | Changing Package workspace |
-| Promotions | `SECTION: PROMOTION_WORKSPACE` | Promotion provider surface | Changing Promotion workspace |
-| Render | `SECTION: MANAGER_RENDER` | Tabs, actions, guards, composition | Changing manager UI |
-| Package draft | `SECTION: PACKAGE_DRAFT` | Decisions and dirty comparison | Changing provider drafts |
-| Groups | `SECTION: PACKAGE_GROUPS` | Group lifecycle and ordering | Changing relationship Groups |
-| Service connections | `SECTION: SERVICE_CONNECTIONS` | Connect and Group assignment | Changing source assignment |
-| Provider | `SECTION: PACKAGE_PROVIDER` | Read, validate, save, continuations | Changing provider behavior |
-
-## Runtime Flow
-
-The sole Service-management host is [ServiceCatalogStation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/stations/ServiceCatalogStation.tsx). It stays mounted behind one AdminShell action while focused drawer callbacks patch its current provider draft. The full Station Manager drawer and nested portal overlay have been removed.
+Source facts stay read-only in the drawer; grouping, ordering, and membership are the mutable relationship state, and they patch through the authoritative station.
 
 ## Validation
 
-- [package-relation-provider-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/package-relation-provider-contract.ts)
-- [manager-coordinator-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/manager-coordinator-contract.ts)
-- [active-package-read-only-provider-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/active-package-read-only-provider-contract.ts)
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `php tests/package-category-groups.php`, and `npm run docs:check`.
 
 ## Related Code Maps
 
@@ -53,4 +32,4 @@ The sole Service-management host is [ServiceCatalogStation.tsx](../../wp-content
 
 ## Related History
 
-[Package Category Groups v1](../project-history/PackageCategoryGroups-v1.md) — the Package Category Group station hosted on this surface: assignment model and dependency guards.
+[Package Category Groups v1](../project-history/PackageCategoryGroups-v1.md) — the Package Category Group assignment model and dependency guards.

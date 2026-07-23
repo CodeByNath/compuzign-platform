@@ -6,20 +6,13 @@ Creates and manages promotions as child records of the Package Station, with ove
 
 ## Ownership
 
-The Package Station owns the promotions collection and `PackageRepository` persists it. A promotion provider owns manager draft adaptation; the focused promotion drawer owns its local edit session. Promotions must not be persisted as Service-owned metadata even though compatibility routes carry a service ID.
+The Package Station owns the promotions collection and `PackageRepository` persists it. The client write boundary owns draft adaptation and the local edit session. Promotions must not be persisted as Service-owned metadata even though compatibility routes carry a service ID.
 
-## Main Entry Points
+## Frontend
 
-- [PromotionManagerWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PromotionManagerWorkspace.tsx) renders Promotion cards, current/bin views, status summaries, and create/view/edit actions inside Station Manager. Use it for manager Promotion presentation and navigation.
-- [PromotionOverviewDrawerStep.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/PromotionOverviewDrawerStep.tsx) contains the focused Promotion drawer, overview form handoff, lifecycle footer, dirty/exit guards, and publish/discard/archive/trash confirmations. Use it for Promotion authoring and lifecycle UI.
-- [promotion.ts](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/relations/providers/promotion.ts) adapts promotion collections into manager read models, drafts, validation, saves, cards, and continuations. Use it for provider behavior.
+The Promotion manager, focused drawer, overview editor, and drawer manifest were hosted in the retired Command Centre and have been removed. Promotion authoring is to be rebuilt in the Admin Station; the client write boundary and backend authority below are unchanged.
 
-## UI and Drawers
-
-- [PromotionOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/editors/PromotionOverviewEditor.tsx) renders Promotion identity, offer, schedule, and display-context fields. Use it for overview form inputs and validation feedback.
-- [promotion.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/admin/schema/entities/promotion.tsx) declares Promotion drawer module placements. Use it when changing schema-rendered Promotion layout.
-
-## State and Providers
+## State
 
 - [usePromotionStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePromotionStation.ts) owns selected Promotion state, module evaluation, saves/reverts, publish/toggle, and travel actions. Use it for client lifecycle or mutation behavior.
 - [stationPrimitives.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/stationPrimitives.ts) provides shared loading/error mutation wrappers. Use it for cross-station action mechanics.
@@ -37,11 +30,10 @@ The Package Station owns the promotions collection and `PackageRepository` persi
 | Promotion schema | `SECTION: PROMOTION_SCHEMA` | Identity, drafts, lifecycle, sanitization | Changing Promotion data |
 | Promotion routes | `SECTION: PROMOTIONS ROUTES` | REST registration | Changing endpoints |
 | Promotion handlers | `SECTION: PROMOTIONS HANDLERS` | CRUD, modules, lifecycle | Changing backend behavior |
-| Promotion workspace | `SECTION: PROMOTION_WORKSPACE` | Manager presentation | Changing Promotion manager UI |
 
 ## Runtime Flow
 
-The relation registry exposes the promotion provider to a service-scoped manager. Saves target the Package Station collection; focused drawer operations settle, publish, toggle, archive, trash, restore, or permanently delete an occupant.
+`usePromotionStation` loads the Package Station promotions collection and drives mutations. Saves target that collection; lifecycle operations settle, publish, toggle, archive, trash, restore, or permanently delete an occupant.
 
 ## Validation
 
