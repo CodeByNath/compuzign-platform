@@ -98,21 +98,11 @@ export function registerPresentationPolicy(): void {
       actionIntents: [
         { id: 'view', target: 'drawer', mode: 'view' },
         { id: 'edit', target: 'drawer', mode: 'edit' },
+        // The lower-deck Settings cards open the Package-owned Rate Sheet drawer
+        // from this same surface. Its own drawer key overrides the binding's
+        // `tier`, so no second body surface renders beneath the workspace.
+        { id: 'rate-sheet', target: 'drawer', mode: 'edit', drawerTemplateKey: 'rate-sheet' },
       ],
-    },
-    {
-      // Package-owned Rate Sheet authoring surface, beside the Tier Workspace.
-      // It reads and saves through the surviving Package Manager contract via
-      // its own controller data source; it dispatches no drawer intent.
-      stationId: 'packages',
-      surfaceId: 'rate-sheet-tool',
-      placement: 'presentation',
-      order: 1,
-      title: 'Rate Sheet',
-      dataSourceKey: 'rate-sheet-tool',
-      templateKitKey: 'rate-sheet-tool',
-      conditions: { scope: 'current' },
-      actionIntents: [],
     },
   ]);
 

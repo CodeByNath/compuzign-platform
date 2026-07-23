@@ -1,37 +1,58 @@
-// Rate Sheet tool — the Package Station's Rate Sheet authoring surface.
+// Rate Sheet tool — the Package Station's Rate Sheet authoring drawer content.
 //
-// A first-class Package Station surface (registered beside the Tier Workspace),
-// NOT a drawer and NOT the retired Command Centre. It is the faithful rebuild of
-// the removed `PackageRateSheetEditor`: pick source Services, price the supplied
-// rows their inclusions onboard into, organise them into Rate Sheet groups, and
-// commit through the surviving Package Manager save contract.
+// The Package-owned content for the registered `rate-sheet` drawer template,
+// mounted by the generic Admin drawer shell (NOT a body surface, NOT the retired
+// Command Centre). It is the faithful rebuild of the removed `PackageRateSheetEditor`:
+// pick source Services, price the supplied rows their inclusions onboard into,
+// organise them into Rate Sheet groups, and commit through the surviving Package
+// Manager save contract.
 //
-// Presentation only. Every read, edit, and save lives on the controller the data
-// source (useRateSheetTool) supplies; this file calls no endpoint. Saved priced
-// rows become selectable by Tier occupants automatically — a Tier chooses a Rate
-// Sheet `item_id` and declares its quantity; the price authority stays here.
+// Presentation only. Every read, edit, and save lives on the controller the
+// Package-owned `useRateSheetTool` hook supplies; this file calls no endpoint.
+// Saved priced rows become selectable by Tier occupants automatically — a Tier
+// chooses a Rate Sheet `item_id` and declares its quantity; the price authority
+// stays here. Admin hosts the panel; Package owns the data.
 
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
+import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import type { PackageRateSheetUnit } from '../../types';
+import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 
-// The stable anchor the lower-deck Settings "Rate Sheets" card routes to.
-export const RATE_SHEET_TOOL_ANCHOR = 'cz-rate-sheet-tool';
+// ── SECTION: drawer content ───────────────────────────────────────────────────
 
-// ── SECTION: kit ──────────────────────────────────────────────────────────────
-
-/** Registered template kit. The data source yields the controller as its single
- *  item; this narrows it and renders the editor, honouring the shell's own
- *  loading/error chrome. */
-export function RateSheetToolKit({ items, loading, error }: TemplateKitProps): VNode {
+/** Registered `rate-sheet` drawer content. Reads the controller from the
+ *  Package-owned hook and renders the editor inside the shell's panel; the shell
+ *  supplies the "Rate Sheet" title and close chrome. `recordId`/`mode` are not
+ *  used — the tool is scoped to the Package Station's host Service, not a record. */
+export function RateSheetDrawerContent({ onSaved, setCloseGuard }: DrawerContentProps): VNode {
+  const { items, loading, error } = useRateSheetTool();
   const controller = items[0] as RateSheetToolController | undefined;
 
+  // Refresh the wall the drawer was opened from once a save completes, so the
+  // Tier engine's pricing reflects the new rows. Detected from the controller's
+  // own save lifecycle — no change to the preserved hook.
+  const savedRef = useRef(onSaved);
+  savedRef.current = onSaved;
+  const wasSaving = useRef(false);
+  useEffect(() => {
+    const saving = controller?.saving ?? false;
+    if (wasSaving.current && !saving && !controller?.saveError) savedRef.current();
+    wasSaving.current = saving;
+  }, [controller?.saving, controller?.saveError]);
+
+  // Guard the shell's own close paths (Escape / backdrop / header ×) against
+  // discarding unsaved edits. Content with no pending edit closes directly.
+  useEffect(() => {
+    if (!setCloseGuard) return;
+    setCloseGuard(() => !controller?.dirty || window.confirm('Discard unsaved Rate Sheet changes?'));
+    return () => setCloseGuard(null);
+  }, [setCloseGuard, controller?.dirty]);
+
   return (
-    <div id={RATE_SHEET_TOOL_ANCHOR} class="cz-rate-sheet-tool" aria-label="Rate Sheet authoring">
-      {/* The wall supplies the "Rate Sheet" heading; this is the concise intro. */}
+    <div class="cz-rate-sheet-tool" aria-label="Rate Sheet authoring">
       <p class="cz-rate-sheet-tool__note">
         <span class="cz-rate-sheet-tool__note-icon" aria-hidden="true"><RateSheetIcon /></span>
         Price the supplied rows Package Tiers select from. Connect source Services, set unit prices, and group the rows.

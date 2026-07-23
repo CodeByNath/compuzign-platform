@@ -30,7 +30,6 @@ import {
   SearchIcon,
   TiersIcon,
 } from '@/admin-station/shell/icons';
-import { RATE_SHEET_TOOL_ANCHOR } from '../rate-sheet-tool/RateSheetTool';
 
 // ── SECTION: contract ─────────────────────────────────────────────────────────
 
@@ -130,7 +129,7 @@ export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): 
       <div class="cz-tier-deck__panel" role="tabpanel">
         {tab === 'details'     && <DetailsLane deck={deck} onIntent={onIntent} />}
         {tab === 'connections' && <ConnectionsLane connections={deck.rateSheets} familyName={familyName} onIntent={onIntent} />}
-        {tab === 'settings'    && <SettingsLane />}
+        {tab === 'settings'    && <SettingsLane onOpenRateSheet={() => onIntent('rate-sheet')} />}
       </div>
     </section>
   );
@@ -317,25 +316,19 @@ function ConnectionsLane({
 // The Package Manager tools the mockup places here. A tool that has a real
 // destination routes to it; a tool with no registered contract still renders
 // honestly as unavailable rather than as a button that saves nothing. The Rate
-// Sheet authoring surface now exists as a first-class Package Station wall, so
-// its card routes there (the registered `rate-sheet-tool` surface, anchored on
-// this same station body); its groups are authored inside that same tool.
+// Sheet authoring tool now opens in the generic Admin drawer (the registered
+// `rate-sheet` drawer template), so both its card and the Groups card dispatch
+// the same `rate-sheet` intent — no editor renders inline beneath the workspace.
 
 interface SettingsTool {
   id:    string;
   icon:  typeof RateSheetIcon;
   title: string;
   body:  string;
-  // Exactly one of the two: a live route, or an honest unavailable note.
-  route?:       { label: string; onSelect: () => void };
+  // Exactly one of the two: an action label that opens the Rate Sheet drawer, or
+  // an honest unavailable note.
+  route?:       { label: string };
   unavailable?: string;
-}
-
-/** Bring the registered Rate Sheet authoring surface into view. Both walls live
- *  on the same Packages station body, so routing is an in-page focus, not a
- *  drawer intent (this deck's `onIntent` only ever addresses the Tier drawer). */
-function focusRateSheetTool(): void {
-  document.getElementById(RATE_SHEET_TOOL_ANCHOR)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 const SETTINGS_TOOLS: SettingsTool[] = [
@@ -351,25 +344,25 @@ const SETTINGS_TOOLS: SettingsTool[] = [
     icon:  RateSheetIcon,
     title: 'Rate Sheets',
     body:  'Author the commercial pricing rows Package connections draw from.',
-    route: { label: 'Open Rate Sheet tool', onSelect: focusRateSheetTool },
+    route: { label: 'Open Rate Sheet tool' },
   },
   {
     id:    'groups',
     icon:  AppsIcon,
     title: 'Groups',
     body:  'Rate Sheet groups are created and maintained inside the Rate Sheet tool, alongside the priced rows they organise.',
-    route: { label: 'Open Rate Sheet tool', onSelect: focusRateSheetTool },
+    route: { label: 'Open Rate Sheet tool' },
   },
 ];
 
-function SettingsLane(): VNode {
+function SettingsLane({ onOpenRateSheet }: { onOpenRateSheet: () => void }): VNode {
   return (
     <>
       <div class="cz-tier-deck__lane-head">
         <div>
           <h4 class="cz-tier-deck__lane-title">Package Manager tools</h4>
           <p class="cz-tier-deck__lane-note">
-            Manager-owned configuration tools. Tools route to their surface; those with no registered contract are shown as unavailable, not as mock buttons.
+            Manager-owned configuration tools. Tools open in their drawer; those with no registered contract are shown as unavailable, not as mock buttons.
           </p>
         </div>
       </div>
@@ -383,7 +376,7 @@ function SettingsLane(): VNode {
               <h5 class="cz-tier-deck__tool-title">{tool.title}</h5>
               <p class="cz-tier-deck__tool-body">{tool.body}</p>
               {tool.route ? (
-                <button type="button" class="cz-tier-deck__tool-action cz-tier-deck__tool-action--live" onClick={tool.route.onSelect}>
+                <button type="button" class="cz-tier-deck__tool-action cz-tier-deck__tool-action--live" onClick={onOpenRateSheet}>
                   {tool.route.label}
                 </button>
               ) : (

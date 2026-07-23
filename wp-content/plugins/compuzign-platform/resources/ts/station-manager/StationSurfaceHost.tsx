@@ -59,7 +59,9 @@ export function StationSurfaceHost({ binding, onDispatch }: Props): VNode {
         // An unmatched action dispatches nothing rather than guessing a target.
         if (intent) {
           onDispatch(
-            { recordId, intent, drawerTemplateKey: binding.drawerTemplateKey },
+            // An action intent may name its own drawer; otherwise the surface's
+            // own drawer template opens. The id is still passed through untouched.
+            { recordId, intent, drawerTemplateKey: intent.drawerTemplateKey ?? binding.drawerTemplateKey },
             refetch,
           );
         }

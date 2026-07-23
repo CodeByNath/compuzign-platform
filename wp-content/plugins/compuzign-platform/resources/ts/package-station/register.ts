@@ -5,11 +5,10 @@ import { registerDrawerTemplates } from '@/station-manager/registry/drawerTempla
 import { registerNavItems } from '@/station-manager/registry/navigation';
 import { registerTemplateKits } from '@/station-manager/registry/templateKits';
 import { PackageTierWorkspace } from './presentation/package-tier-workspace/PackageTierWorkspace';
-import { RateSheetToolKit } from './presentation/rate-sheet-tool/RateSheetTool';
+import { RateSheetDrawerContent } from './presentation/rate-sheet-tool/RateSheetTool';
 import { PackageFamilyDrawerContent } from './surface/packageFamily/PackageFamilyDrawerContent';
 import { usePackageFamilyCards } from './surface/packageFamily/usePackageFamilyCards';
 import { usePackageTierWorkspace } from './surface/packageTierWorkspace/usePackageTierWorkspace';
-import { useRateSheetTool } from './surface/rateSheetTool/useRateSheetTool';
 import { TierDrawerHost } from './surface/tierSurface/TierDrawerHost';
 import { useServiceTierCards } from './surface/tierSurface/useServiceTierCards';
 
@@ -41,12 +40,10 @@ export function registerPackageStation(): void {
     'package-families': usePackageFamilyCards,
     'service-tiers': useServiceTierCards,
     'package-tier-workspace': usePackageTierWorkspace,
-    'rate-sheet-tool': useRateSheetTool,
   });
 
   registerTemplateKits({
     'tier-workspace': PackageTierWorkspace,
-    'rate-sheet-tool': RateSheetToolKit,
   });
 
   registerDrawerTemplates([
@@ -61,6 +58,15 @@ export function registerPackageStation(): void {
       title: 'Package Tier',
       supportedModes: ['view', 'edit'],
       content: TierDrawerHost,
+    },
+    {
+      // Package-owned Rate Sheet authoring, mounted in the generic Admin drawer.
+      // Reuses `useRateSheetTool` and the Package Manager save contract; opened
+      // from the Tier workspace Settings cards via the `rate-sheet` action intent.
+      key: 'rate-sheet',
+      title: 'Rate Sheet',
+      supportedModes: ['edit'],
+      content: RateSheetDrawerContent,
     },
   ]);
 }

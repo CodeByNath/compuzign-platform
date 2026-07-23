@@ -1,22 +1,20 @@
-// Rate Sheet tool — the Package-owned read/edit/save controller and its data
-// source.
+// Rate Sheet tool — the Package-owned read/edit/save controller.
 //
-// The Package Station's Rate Sheet authoring surface binds to this hook. It is
-// the ONLY new state in the restoration: it reads the Package Manager through
-// the surviving `fetchPackageStationManager` contract, holds the flat editor
-// value the grid mutates, and commits through the surviving
+// The Package Station's Rate Sheet authoring drawer content consumes this hook.
+// It is the ONLY new state in the restoration: it reads the Package Manager
+// through the surviving `fetchPackageStationManager` contract, holds the flat
+// editor value the grid mutates, and commits through the surviving
 // `savePackageStationManager` contract. It adds no endpoint, no storage, and no
 // second identity — the pure mapping lives in ./rateSheetToolModel and the
 // authoritative reconciliation stays in PackageManagerSchema.
 //
 // The Package Station is addressed by a host-Service id (there is no standalone
 // manager route); `useHostService` supplies the same host the Tier workspace
-// uses, so both surfaces describe the one `cz_package_station` record.
+// uses, so both describe the one `cz_package_station` record.
 //
-// It is registered as a data source that yields a SINGLE item — the controller.
-// The registry has no save channel of its own, so the tool carries its read,
-// its draft, and its save together as one cohesive controller the kit renders;
-// the kit never touches api.ts.
+// It yields a collection whose SINGLE item is the controller: read, draft, and
+// save carried together so the presentation (the drawer content) renders it
+// without ever touching api.ts.
 
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import type { SurfaceCollection } from '@/station-manager/registry/dataSources';

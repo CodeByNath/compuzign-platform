@@ -10,6 +10,12 @@ export interface StationActionIntent {
   id: string;
   target: 'drawer';
   mode: string;
+  // Optional per-intent drawer override. When set, this intent opens the named
+  // registered drawer instead of the binding's own `drawerTemplateKey`, so one
+  // surface can dispatch to more than one registered drawer (e.g. a workspace
+  // whose cards open the entity drawer while a tool action opens another). It
+  // stays pure coordination: the coordinator still owns no entity, only routing.
+  drawerTemplateKey?: DrawerTemplateKey;
 }
 
 export interface AdminStationSurfaceBinding {
