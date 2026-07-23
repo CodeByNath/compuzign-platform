@@ -89,33 +89,6 @@
     border-block-start: 1px solid var(--station-border);
   }
 
-  /* Tier Workspace lower deck — the toolbar controls take full flexible rows,
-     the row count drops beneath them, and each compact row stacks its text,
-     figures, and actions vertically so nothing overflows and every action
-     stays reachable. */
-  .cz-tier-workspace__rs-toolbar > * {
-    flex: 1 1 160px;
-  }
-
-  .cz-tier-workspace__rs-count {
-    flex: 1 1 100%;
-    margin-inline-start: 0;
-  }
-
-  .cz-tier-workspace__rs-row,
-  .cz-tier-workspace__settings-item {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .cz-tier-workspace__rs-figures {
-    white-space: normal;
-  }
-
-  .cz-tier-workspace__rs-actions > .cz-tier-workspace__rs-btn {
-    flex: 1 1 auto;
-  }
-
   .cz-service-catalogue__toolbar > * {
     flex: 1 1 180px;
   }

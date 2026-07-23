@@ -22,7 +22,6 @@
 // identity (`occupant_id`) is preserved untouched; the Family id is scope only.
 
 import type { CategoryGroupCardItem, CategoryGroupStatus } from '../../presentation/category-groups/types';
-import type { WorkspaceResolvedSelection, WorkspaceStationContext } from './rateSheetProjection';
 
 // Minimal shapes the projection needs from the Package Station read model. Kept
 // local and structural so the pure functions carry no dependency on the full API
@@ -48,10 +47,6 @@ export interface WorkspaceOccupant {
   card: CategoryGroupCardItem;
   // The Services this occupant's Rate Sheet selections resolve to (provenance).
   supplyingServiceIds: number[];
-  // The occupant's resolved Rate Sheet selections, exactly as tierView computed
-  // them — the lower workspace's Details base. Each carries the Rate Sheet
-  // row's own item_id; nothing here re-keys or re-resolves them.
-  selections: WorkspaceResolvedSelection[];
 }
 
 /** A Package Family as WORKING SCOPE: authoritative identity/summary, never owner. */
@@ -69,14 +64,6 @@ export interface WorkspaceFamilyScope {
 /** A Family projected with the Tier occupants connected to it (scope + result). */
 export interface PackageTierWorkspaceFamily extends WorkspaceFamilyScope {
   occupants: CategoryGroupCardItem[];
-  // The SAME filter result as `occupants`, kept as full workspace occupants so
-  // the lower deck can read the focused occupant's resolved selections without
-  // a second derivation. `connected[i].card === occupants[i]` by construction.
-  connected: WorkspaceOccupant[];
-  // The station-level read context (one Rate Sheet, relationships, host
-  // Service). Identical by reference on every Family row — the sheet is the
-  // station's singleton configuration, never per-Family data.
-  station: WorkspaceStationContext;
 }
 
 /**
@@ -134,18 +121,12 @@ export function occupantSupplyingServiceIds(
 export function projectFamilyTierWorkspace(
   families: readonly WorkspaceFamilyScope[],
   occupants: readonly WorkspaceOccupant[],
-  station: WorkspaceStationContext,
 ): PackageTierWorkspaceFamily[] {
   return families.map((family) => {
     const related = new Set(family.relatedServiceIds);
     const connected = occupants.filter((occupant) =>
       occupant.supplyingServiceIds.some((serviceId) => related.has(serviceId)),
     );
-    return {
-      ...family,
-      occupants: connected.map((occupant) => occupant.card),
-      connected,
-      station,
-    };
+    return { ...family, occupants: connected.map((occupant) => occupant.card) };
   });
 }

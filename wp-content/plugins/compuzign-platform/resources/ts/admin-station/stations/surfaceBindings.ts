@@ -35,17 +35,10 @@ export type TemplateKitKey = 'category-group-cards' | 'service-category-carousel
 // goes. 'drawer' is the only target this phase declares; `mode` names the drawer
 // tab to open ('view' | 'edit'), kept a plain string so this contract stays
 // decoupled from the drawer registry's mode type.
-//
-// `drawerTemplateKey` (optional) lets ONE action open a different registered
-// drawer than the surface's default — a workspace surface whose rows carry more
-// than one record kind (the Tier tool's Tier cards vs its Rate Sheet rows)
-// declares that per action, still fully declaratively. Absent, the surface's
-// own drawerTemplateKey applies unchanged.
 export interface StationActionIntent {
   id: string;
   target: 'drawer';
   mode: string;
-  drawerTemplateKey?: DrawerTemplateKey;
 }
 
 // One bound surface — one "wall". A station may own several at the SAME
@@ -155,17 +148,6 @@ export const SURFACE_BINDINGS: AdminStationSurfaceBinding[] = [
     actionIntents: [
       { id: 'view', target: 'drawer', mode: 'view' },
       { id: 'edit', target: 'drawer', mode: 'edit' },
-      // Lower deck (Details | Connections): row actions dispatch the Rate
-      // Sheet row's OWN item_id into the rate-sheet-row drawer — never the
-      // Tier drawer. Declared per action via drawerTemplateKey.
-      { id: 'rate-row-view', target: 'drawer', mode: 'view', drawerTemplateKey: 'rate-sheet-row' },
-      { id: 'rate-row-edit', target: 'drawer', mode: 'edit', drawerTemplateKey: 'rate-sheet-row' },
-      // Lower deck (Settings): manager-level creation surfaces. Creation names
-      // no existing record; the kit dispatches the stable 'new' sentinel and
-      // the create drawers ignore it.
-      { id: 'create-package-family',   target: 'drawer', mode: 'edit', drawerTemplateKey: 'package-family-create' },
-      { id: 'setup-rate-sheet',        target: 'drawer', mode: 'edit', drawerTemplateKey: 'rate-sheet-setup' },
-      { id: 'create-rate-sheet-group', target: 'drawer', mode: 'edit', drawerTemplateKey: 'rate-sheet-group-create' },
     ],
   },
 ];

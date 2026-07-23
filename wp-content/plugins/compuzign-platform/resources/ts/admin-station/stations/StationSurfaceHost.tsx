@@ -81,9 +81,7 @@ export function StationSurfaceHost({ binding, onDispatch }: Props): VNode {
         // An unmatched action dispatches nothing rather than guessing a target.
         if (intent) {
           onDispatch(
-            // An action may declare its own drawer template (a multi-record
-            // surface); otherwise the surface's default applies.
-            { recordId, intent, drawerTemplateKey: intent.drawerTemplateKey ?? binding.drawerTemplateKey },
+            { recordId, intent, drawerTemplateKey: binding.drawerTemplateKey },
             refetch,
           );
         }
