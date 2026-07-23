@@ -16,7 +16,7 @@
 
 import { PackageFamilyDrawerContent } from '../packageFamily/PackageFamilyDrawerContent';
 import { CategoryDrawerHost } from '../serviceCategory/CategoryDrawerHost';
-import { ServiceDrawerHost } from '../serviceSurface/ServiceDrawerHost';
+import { ServiceDrawerHost } from '@/service-station/surface/ServiceDrawerHost';
 import { TierDrawerHost } from '../tierSurface/TierDrawerHost';
 import type { DrawerTemplateKey, DrawerTemplateRegistration } from './drawerTypes';
 

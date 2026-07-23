@@ -19,9 +19,9 @@ Adapters project Package Family, Service, and Tier records into the same card co
 
 ## Service Catalogue
 
-`presentation/service-catalogue/ServiceCatalogue.tsx` is the Service-specific template kit used on Home. It renders four operational metrics, client-side search/status/direct-Category/Package-Family filters, creation-time/name sorting, the current-Service table, shared status pills, pagination, and native numeric View intents. Family options use native string Package Family IDs, and each row renders all related Family names as neutral labels rather than lifecycle pills. `types.ts` is its presentation contract.
+`service-station/presentation/ServiceCatalogue.tsx` is the Service-specific template kit used on Home. It renders four operational metrics, client-side search/status/direct-Category/Package-Family filters, creation-time/name sorting, the current-Service table, shared status pills, pagination, and native numeric View intents. Family options use native string Package Family IDs, and each row renders all related Family names as neutral labels rather than lifecycle pills. `types.ts` is its presentation contract.
 
-`stations/serviceSurface/useServiceCatalogue.ts` reads current Services plus archived Services for the overview count, joins `stations/packageFamily/usePackageFamilyRelationships.ts`, and retains the collection through drawer-triggered refresh. `serviceCatalogueAdapter.ts` projects direct Service Categories plus multi-value Package Families without redefining status. Service Category Group taxonomy parents do not enter this flow. Archived Service records never render as Home rows or pills; their registered travel surfaces retain that responsibility.
+`service-station/surface/useServiceCatalogue.ts` reads current Services plus archived Services for the overview count, joins `stations/packageFamily/usePackageFamilyRelationships.ts`, and retains the collection through drawer-triggered refresh. `serviceCatalogueAdapter.ts` projects direct Service Categories plus multi-value Package Families without redefining status. Service Category Group taxonomy parents do not enter this flow. Archived Service records never render as Home rows or pills; their registered travel surfaces retain that responsibility.
 
 ## Sources and identity
 
@@ -29,8 +29,8 @@ Adapters project Package Family, Service, and Tier records into the same card co
 | --- | --- | --- | --- |
 | Package Families | `stations/packageFamily/usePackageFamilyCards.ts` | string `group_id` | `package-family` |
 | Service Categories | `stations/serviceCategory/useServiceCategoryCards.ts` | numeric Category id | `category` |
-| Service Catalogue | `stations/serviceSurface/useServiceCatalogue.ts` | numeric Service id | `service` |
-| Service cards | `stations/serviceSurface/useServiceCards.ts` | numeric Service id | `service` |
+| Service Catalogue | `service-station/surface/useServiceCatalogue.ts` | numeric Service id | `service` |
+| Service cards | `service-station/surface/useServiceCards.ts` | numeric Service id | `service` |
 | Package Tiers | `stations/tierSurface/useServiceTierCards.ts` | string `occupant_id` | `tier` |
 | Package Station Tier tool | `stations/packageTierWorkspace/usePackageTierWorkspace.ts` | string `occupant_id` | `tier` |
 

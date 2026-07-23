@@ -7,11 +7,11 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { usePackageFamilyRelationships } from '../packageFamily';
+import { usePackageFamilyRelationships } from '@/admin-station/stations/packageFamily';
 import { fetchAdminCatalog } from '@/service-station';
-import { useRetainedCollection } from '../useRetainedCollection';
+import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
 import { toServiceCatalogueItem } from './serviceCatalogueAdapter';
-import type { ServiceCatalogueItem } from '../../presentation/service-catalogue/types';
+import type { ServiceCatalogueItem } from '@/service-station/presentation/types';
 
 export interface ServiceCatalogueResult {
   items:   ServiceCatalogueItem[];

@@ -12,8 +12,8 @@
 
 import { usePackageFamilyCards } from './packageFamily';
 import { useServiceCategoryCards } from './serviceCategory/useServiceCategoryCards';
-import { useServiceCards } from './serviceSurface/useServiceCards';
-import { useServiceCatalogue } from './serviceSurface/useServiceCatalogue';
+import { useServiceCards } from '@/service-station/surface/useServiceCards';
+import { useServiceCatalogue } from '@/service-station/surface/useServiceCatalogue';
 import { useServiceTierCards } from './tierSurface/useServiceTierCards';
 import { usePackageTierWorkspace } from './packageTierWorkspace/usePackageTierWorkspace';
 import type { DataSourceKey } from './surfaceBindings';

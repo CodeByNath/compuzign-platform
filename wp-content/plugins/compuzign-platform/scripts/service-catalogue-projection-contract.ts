@@ -10,8 +10,8 @@ import {
   packageFamilyOptions,
   serviceMatchesCategory,
   serviceMatchesPackageFamily,
-} from '../resources/ts/admin-station/presentation/service-catalogue/model';
-import type { ServiceCatalogueItem } from '../resources/ts/admin-station/presentation/service-catalogue/types';
+} from '../resources/ts/service-station/presentation/model';
+import type { ServiceCatalogueItem } from '../resources/ts/service-station/presentation/types';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Service catalogue projection contract: ${message}`);
@@ -58,9 +58,9 @@ const options = packageFamilyOptions([service]);
 check(options.map((option) => option.value).join(',') === 'pcg_aptos,pcg_kairos', 'Family options use native string IDs and readable labels');
 
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
-const catalogue = source('resources/ts/admin-station/presentation/service-catalogue/ServiceCatalogue.tsx');
-const model = source('resources/ts/admin-station/presentation/service-catalogue/model.ts');
-const adapter = source('resources/ts/admin-station/stations/serviceSurface/serviceCatalogueAdapter.ts');
+const catalogue = source('resources/ts/service-station/presentation/ServiceCatalogue.tsx');
+const model = source('resources/ts/service-station/presentation/model.ts');
+const adapter = source('resources/ts/service-station/surface/serviceCatalogueAdapter.ts');
 const serviceTypes = source('resources/ts/service-station/types.ts').split('// ── DETAIL')[0];
 const serviceController = source('src/Modules/Service/Http/ServiceController.php')
   .split('public function listServices')[1]

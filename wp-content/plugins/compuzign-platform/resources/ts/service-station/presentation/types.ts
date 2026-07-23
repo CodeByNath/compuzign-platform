@@ -1,4 +1,4 @@
-import type { CategoryGroupStatus } from '../category-groups/types';
+import type { CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
 
 export interface ServiceCatalogueCategory {
   id:   number | null;

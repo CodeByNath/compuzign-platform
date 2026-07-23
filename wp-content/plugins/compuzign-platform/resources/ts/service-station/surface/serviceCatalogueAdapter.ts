@@ -9,10 +9,10 @@ import type { ServiceSummary } from '@/service-station';
 import {
   packageFamiliesForService,
   type PackageFamilyRelationship,
-} from '../packageFamily';
+} from '@/admin-station/stations/packageFamily';
 import { decodeHtml } from '@/utils/format';
 import { resolveServiceCardStatus } from './serviceCardAdapter';
-import type { ServiceCatalogueItem } from '../../presentation/service-catalogue/types';
+import type { ServiceCatalogueItem } from '@/service-station/presentation/types';
 
 export function toServiceCatalogueItem(
   summary: ServiceSummary,

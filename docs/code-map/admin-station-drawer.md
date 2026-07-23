@@ -27,7 +27,7 @@ The shell owns header, scrolling body, footer slot, backdrop/Escape/header close
 - `shell/drawer/AdminStationDrawer.tsx` — the single shell and close path.
 - `stations/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
 - `stations/serviceCategory/CategoryDrawerHost.tsx` — numeric Category id adapter plus assigned-Service projection.
-- `stations/serviceSurface/ServiceDrawerHost.tsx` — numeric Service id adapter.
+- `service-station/surface/ServiceDrawerHost.tsx` — numeric Service id adapter.
 - `stations/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
 
 ## Shared mature compositions

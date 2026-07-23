@@ -22,11 +22,11 @@
 import type { ServiceSummary } from '@/service-station';
 import { resolveStationStatus } from '@/drawer-kit/utils/moduleStatus';
 import { decodeHtml } from '@/utils/format';
-import { ServicesIcon, ViewIcon, TiersIcon, PackagesIcon } from '../../shell/icons';
+import { ServicesIcon, ViewIcon, TiersIcon, PackagesIcon } from '@/admin-station/shell/icons';
 import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
-} from '../../presentation/category-groups/types';
+} from '@/admin-station/presentation/category-groups/types';
 
 /**
  * Re-express the authoritative Service station status in the card's vocabulary.

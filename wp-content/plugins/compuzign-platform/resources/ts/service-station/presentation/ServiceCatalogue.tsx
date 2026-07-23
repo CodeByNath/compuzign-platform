@@ -1,15 +1,15 @@
 import { useId, useMemo, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
-import type { TemplateKitProps } from '../templateKits';
+import type { TemplateKitProps } from '@/admin-station/presentation/templateKits';
 import { PILL_META } from '@/drawer-kit/schema/presentation';
-import { StationStatusPill } from '../StationStatusPill';
+import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
 import {
   PackagesIcon,
   RateSheetIcon,
   SearchIcon,
   ServicesIcon,
   ViewIcon,
-} from '../../shell/icons';
+} from '@/admin-station/shell/icons';
 import {
   packageFamilyOptions,
   serviceMatchesCategory,

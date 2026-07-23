@@ -14,8 +14,8 @@ import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { fetchAdminCatalog } from '@/service-station';
 import { toServiceCard } from './serviceCardAdapter';
-import { useRetainedCollection } from '../useRetainedCollection';
-import type { CategoryGroupCardItem } from '../../presentation/category-groups/types';
+import { useRetainedCollection } from '@/admin-station/stations/useRetainedCollection';
+import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
 
 export interface ServiceCardsResult {
   items:   CategoryGroupCardItem[];

@@ -17,7 +17,7 @@ import type { CategoryGroupCardItem } from './category-groups/types';
 import type { TemplateKitKey } from '../stations/surfaceBindings';
 import type { StationRecordId } from '../stations/recordIdentity';
 import { ServiceCategoryCarousel } from './service-categories/ServiceCategoryCarousel';
-import { ServiceCatalogue } from './service-catalogue/ServiceCatalogue';
+import { ServiceCatalogue } from '@/service-station/presentation/ServiceCatalogue';
 import { PackageTierWorkspace } from './package-tier-workspace/PackageTierWorkspace';
 
 // The dispatch a kit emits: the acted-on record's native id and the action id
