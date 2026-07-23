@@ -7,7 +7,7 @@
 // state arrives at render time through ShellBinding, assembled by
 // ServiceTierStep from usePackageStation's evaluateModule results.
 
-import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '@/package-station';
+import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../../types';
 import type { InclusionItem } from '@/api/types/pools';
 import {
   tierOverviewModule,

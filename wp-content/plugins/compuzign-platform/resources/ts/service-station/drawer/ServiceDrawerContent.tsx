@@ -17,7 +17,7 @@ import { useEffect } from 'preact/hooks';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import { SERVICE_ENTITY } from './schema/entities/service';
-import { TIER_KEYS, TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
+import { TIER_KEYS, TIER_LABELS } from '@/package-station';
 import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/service-station';
 import { useServiceDrawerController } from './useServiceDrawerController';
 import { ServiceDrawerFooter } from './ServiceDrawerFooter';

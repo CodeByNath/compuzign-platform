@@ -14,7 +14,7 @@ The Admin Station **Packages** station is a full Package-domain workstation and 
 
 ## Frontend
 
-The Command Centre provider-neutral manager — its coordinator, Package provider, Rate Sheet editor, and drawer configs — has been removed. Package-domain UI is now the Admin Station Packages station: its data source is [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) and its presentation is detailed in [Tiers](tiers.md). Package Family editing mounts the shared [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx) with Overview/Connections, dependency counts, lifecycle, notifications, and dirty-close protection; only creation retains a focused form.
+The Command Centre provider-neutral manager — its coordinator, Package provider, Rate Sheet editor, and drawer configs — has been removed. Package-domain UI is now the Admin Station Packages station: its data source is [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) and its presentation is detailed in [Tiers](tiers.md). Package Family editing mounts the Package-owned [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/package-family/PackageFamilyDrawerContent.tsx) with Overview/Connections, dependency counts, lifecycle, notifications, and dirty-close protection; only creation retains a focused form.
 
 ## State
 

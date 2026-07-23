@@ -6,11 +6,12 @@ Describes how a Service relates to the packages, promotions, and categories conn
 
 ## Status
 
-The provider-neutral connection graph — a relation registry, a multi-provider coordinator, and Package/Promotion/read-only providers — was a Command Centre frontend system and has been removed with the Command Centre. No second graph replaced it: connection composition now lives directly in the shared entity-drawer compositions, each backed by its authoritative station hook and controller. Persistence authority never moved.
+The provider-neutral connection graph — a relation registry, a multi-provider coordinator, and Package/Promotion/read-only providers — was a Command Centre frontend system and has been removed with the Command Centre. No second graph replaced it: connection composition now lives directly in each owning Station's host-neutral drawer composition, backed by its authoritative station hook and controller. Persistence authority never moved.
 
 ## Where connections live now
 
-- **Package ↔ Service.** The Package Family drawer composes Services, Rate Sheet, and Tier dependency Connections. Composition: [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/package-family/PackageFamilyDrawerContent.tsx); client write boundary: [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) and [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts).
+- **Package ↔ Service.** The Package Family drawer composes Services, Rate Sheet, and Tier dependency Connections. Composition: [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/package-family/PackageFamilyDrawerContent.tsx); client write boundary: [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) and [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts).
+- **Tier ↔ Service.** Package's Tier drawer consumes Service's public `serviceConnectionBinding`, authored in [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/schema/bindings/service.tsx) and exported through the Service Station barrel.
 - **Category ↔ Service.** The Category drawer shows assigned-Service Connections as read-only projections; assignment stays Service-owned. See [Categories](categories.md).
 - **Promotion ↔ Package.** Promotions are Package Station children; see [Promotions](promotions.md).
 

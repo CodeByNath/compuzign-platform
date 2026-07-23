@@ -31,7 +31,7 @@ import type {
 } from './schema/bindings/service';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
-import { decodeHtml } from '@/entity-drawers/shared/serviceDrawerShared';
+import { decodeHtml } from '@/utils/format';
 import { useOutsideClickDismiss } from '@/entity-drawers/shared/drawerChrome';
 import { useServiceModuleEditing } from './useServiceModuleEditing';
 import { useServiceLifecycle } from './useServiceLifecycle';

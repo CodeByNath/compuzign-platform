@@ -1,4 +1,4 @@
-import type { TierOverviewDraft } from '@/package-station';
+import type { TierOverviewDraft } from '../../types';
 
 // Tier Overview module editor (extracted from ServiceTierStep in S3a — the
 // tier shells became bindings of the archetype shells and the editor is now

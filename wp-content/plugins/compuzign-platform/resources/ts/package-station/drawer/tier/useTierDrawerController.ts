@@ -22,10 +22,10 @@
 // and is unchanged by the composition split.
 
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { usePackageStation } from '@/package-station';
+import { usePackageStation } from '../../usePackageStation';
 import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
-import { serviceConnectionBinding } from '../shared/serviceDrawerShared';
-import { useAutoDismiss, useOutsideClickDismiss } from '../shared/drawerChrome';
+import { serviceConnectionBinding } from '@/service-station';
+import { useAutoDismiss, useOutsideClickDismiss } from '@/entity-drawers/shared/drawerChrome';
 import { useTierModuleEditing } from './useTierModuleEditing';
 import { useTierBinTravel } from './useTierBinTravel';
 import { buildTierDetail, buildTierFooterModel } from './tierDetailModel';

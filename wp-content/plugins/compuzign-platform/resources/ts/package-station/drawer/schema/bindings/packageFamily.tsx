@@ -1,4 +1,4 @@
-import type { PackageFamilyOverviewDraft } from '@/package-station';
+import type { PackageFamilyOverviewDraft } from '../../../usePackageFamilyStation';
 import {
   packageFamilyOverviewModule,
   packageFamilyRelationshipsModule,

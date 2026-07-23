@@ -6,13 +6,13 @@
 // never does. Behaviour stays with usePackageStation and the engine (D1–D4);
 // everything here references existing presentation assets.
 
-import type { SurfaceTierDetail } from '@/package-station';
+import type { SurfaceTierDetail } from '../../../types';
 import {
   tierOverviewShell,
   tierFeaturesShell,
   tierFaqsShell,
 } from '../bindings/tier';
-import { serviceOverviewShell } from '@/service-station/drawer/schema/bindings/service';
+import { serviceOverviewShell } from '@/service-station';
 import type { EntitySchema } from '@/drawer-kit/schema/types';
 
 export const TIER_ENTITY: EntitySchema = {

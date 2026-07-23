@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
-import { usePackageFamilyStation } from '@/package-station';
-import type { PackageFamilyOverviewDraft } from '@/package-station';
+import { usePackageFamilyStation } from '../../usePackageFamilyStation';
+import type { PackageFamilyOverviewDraft } from '../../usePackageFamilyStation';
 import {
   useAutoDismiss,
   useGuardedClose,
   useLifecycleRunner,
   useOutsideClickDismiss,
-} from '../shared/drawerChrome';
+} from '@/entity-drawers/shared/drawerChrome';
 import type {
   PackageFamilyOverviewShellData,
   PackageFamilyRelationshipsShellData,

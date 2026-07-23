@@ -101,3 +101,11 @@ export type {
   SettleModulesResult,
   PublishServiceResult,
 } from './useServiceStation';
+
+// ── Public presentation contracts ───────────────────────────────────────────
+
+export {
+  serviceOverviewShell,
+  serviceConnectionBinding,
+} from './drawer/schema/bindings/service';
+export type { ServiceOverviewShellData } from './drawer/schema/bindings/service';

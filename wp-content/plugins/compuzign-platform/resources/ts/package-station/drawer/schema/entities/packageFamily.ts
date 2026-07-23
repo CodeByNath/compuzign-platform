@@ -1,4 +1,4 @@
-import type { PackageFamilyItem } from '@/package-station';
+import type { PackageFamilyItem } from '../../../types';
 import type { EntitySchema } from '@/drawer-kit/schema/types';
 import {
   packageFamilyOverviewShell,

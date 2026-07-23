@@ -7,15 +7,16 @@
 // passes the results through unchanged, so presentation reads the same shapes
 // as before the split.
 
-import type { PackageStation, TierResolvedRateSheetSelection } from '@/package-station';
+import type { TierResolvedRateSheetSelection } from '../../types';
+import type { PackageStation } from '../../usePackageStation';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type {
   TierOverviewShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
 } from '../schema/bindings/tier';
-import { relationshipDisplayLabel } from '@/package-station';
-import { TIER_LABELS } from '../shared/serviceDrawerShared';
+import { relationshipDisplayLabel } from '../../rateSheetLabels';
+import { TIER_LABELS } from '../../vocabulary';
 import type { TierEditingSection } from './tierDrawerTypes';
 
 // Whether a shell holds SETTLED content (an occupant). Client-side heuristic over

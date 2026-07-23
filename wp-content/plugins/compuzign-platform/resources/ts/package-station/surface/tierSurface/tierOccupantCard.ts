@@ -12,7 +12,7 @@
 // after the station loads, so a stale card can never address the wrong shell.
 
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
-import { TIER_LABELS } from '@/entity-drawers/shared/serviceDrawerShared';
+import { TIER_LABELS } from '../../vocabulary';
 import type { PackageStationTierView } from '../../usePackageStation';
 import { TiersIcon, ViewIcon, PackagesIcon, RateSheetIcon } from '@/admin-station/shell/icons';
 import type {

@@ -31,7 +31,7 @@ The Admin Station shell is a genuinely generic engine: a destination resolver, a
 
 - The engine's registries **value-import station internals** (`stations/dataSources.ts` imports the Service and Package read hooks; `presentation/templateKits.tsx` imports the Service catalogue and tier-workspace kits; `stations/drawers/drawerRegistry.tsx` imports the Service, Tier, Category, and Package-Family drawer hosts). Admin Station therefore *contains* the station implementations.
 - Service implementation is scattered across `resources/ts/service-station/` (data), `resources/ts/service-station/surface/` (adapters + drawer host), `resources/ts/service-station/presentation/` (kit), `resources/ts/service-station/drawer/` (drawer composition), `resources/ts/entity-drawers/editors/` (Service editors), `resources/ts/entity-drawers/schema/` (Service entity/binding/table), and `resources/ts/drawer-kit/utils/moduleNotifications/service.ts` (module DNA).
-- Package/Tier implementation is likewise scattered under `resources/ts/package-station/surface/packageFamily/`, `resources/ts/package-station/surface/tierSurface/`, `resources/ts/package-station/surface/packageTierWorkspace/`, `resources/ts/package-station/presentation/package-tier-workspace/`, `resources/ts/entity-drawers/tier/`, `resources/ts/entity-drawers/package-family/`, and `resources/ts/package-station/usePackageStation.ts` / `usePackageFamilyStation.ts`.
+- Package/Tier implementation is now consolidated under `resources/ts/package-station/`: surfaces in `surface/{packageFamily,tierSurface,packageTierWorkspace}/`, presentation in `presentation/package-tier-workspace/`, drawers in `drawer/{tier,package-family}/`, and state in `usePackageStation.ts` / `usePackageFamilyStation.ts`.
 
 ### 2.3 Already complete (do not redo)
 
@@ -39,8 +39,8 @@ A prior effort extracted the Service **data/API boundary**. Service contracts, e
 
 ### 2.4 Cross-peer coupling (must be preserved as public-contract consumption)
 
-- Package Station's **Tier** drawer reuses Service's overview presentation: `entity-drawers/tier/TierDrawerContent.tsx` imports `serviceOverviewShell` from `service-station/drawer/schema/bindings/service.tsx`, and `entity-drawers/shared/serviceDrawerShared.ts` (exporting `serviceConnectionBinding`, `TIER_KEYS`, `TIER_LABELS`, `decodeHtml`) is consumed by Tier, the Service table, and `tierSurface`.
-- Under the peer model this is legal **peer→peer consumption through public contracts**: the Service overview shell is part of Service Station's public presentation contract; Package Station consumes it via the Service Station barrel. `TIER_KEYS`/`TIER_LABELS` are Package Station's tier vocabulary and move to Package Station. `decodeHtml` is generic and already re-exported from `resources/ts/utils/format.ts`.
+- Package Station's **Tier** drawer reuses Service's overview presentation: `package-station/drawer/tier/TierDrawerContent.tsx` consumes `serviceOverviewShell` and `serviceConnectionBinding` through the Service Station barrel; their implementation lives in `service-station/drawer/schema/bindings/service.tsx`.
+- Under the peer model this is legal **peer→peer consumption through public contracts**. `TIER_KEYS`/`TIER_LABELS` now live in `package-station/vocabulary.ts`; `decodeHtml` remains generic in `resources/ts/utils/format.ts`; `entity-drawers/shared/drawerChrome.ts` remains genuinely shared.
 - Service reads a Package/Surface summary (`SurfacePackageSummary`) for its drawer Connections tab. That is Service consuming Package Station's public contract — allowed, not a borrowed Service contract.
 
 ## 3. Ownership map (target)

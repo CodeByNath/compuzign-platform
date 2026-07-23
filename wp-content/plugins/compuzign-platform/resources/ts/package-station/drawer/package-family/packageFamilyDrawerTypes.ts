@@ -1,4 +1,4 @@
-import type { PackageFamilyItem } from '@/package-station';
+import type { PackageFamilyItem } from '../../types';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 

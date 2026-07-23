@@ -4,7 +4,7 @@
 // controller; every lifecycle call and conflict decision lives in the controller.
 
 import { TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
-import { TIER_KEYS, TIER_LABELS } from '../shared/serviceDrawerShared';
+import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
 import { slotOccupied } from './useTierDrawerController';
 import type { TierDrawerController } from './useTierDrawerController';
 

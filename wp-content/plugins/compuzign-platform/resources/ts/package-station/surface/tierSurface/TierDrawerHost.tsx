@@ -15,7 +15,7 @@
 import { useMemo, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { TierDrawerContent } from '@/entity-drawers/tier/TierDrawerContent';
+import { TierDrawerContent } from '../../drawer/tier/TierDrawerContent';
 import { useHostService } from './useHostService';
 import type { DrawerContentProps } from '@/admin-station/stations/drawers/drawerTypes';
 

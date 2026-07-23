@@ -6,7 +6,7 @@
 // authoritative usePackageStation.
 
 import { useState } from 'preact/hooks';
-import type { PackageStation } from '@/package-station';
+import type { PackageStation } from '../../usePackageStation';
 import { useInlineConfirm } from '@/hooks/useInlineConfirm';
 import type { TierBinPrompt } from './tierDrawerTypes';
 

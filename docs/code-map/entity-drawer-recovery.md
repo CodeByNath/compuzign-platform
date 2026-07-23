@@ -5,7 +5,9 @@ The mature Package Family, Category, Service, and Tier drawers are host-neutral 
 Roots:
 
 - `wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/` — generic renderer and interaction kit.
-- `wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/` — entity compositions, controllers, manifests, bindings, and editors.
+- `wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/` — Package Family and Tier compositions, controllers, manifests, bindings, and editors.
+- `wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/` — Service composition, controller, schema, and editors.
+- `wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/` — Category composition/schema and shared drawer chrome.
 
 ## Layers
 
@@ -33,11 +35,11 @@ Roots:
 ## Entity compositions
 
 - `entity-drawers/category/` — Category Overview, assigned-Service Connections, group membership, draft/publish/enable/archive/trash/restore/delete, dialogs and close guard.
-- `entity-drawers/package-family/` — Family Overview, Services/Rate Sheet/Tier dependency Connections, draft/revert/settle/publish and full lifecycle. `package-station/usePackageFamilyStation.ts` is the authoritative client write boundary. The Admin Station mounts this composition; creation remains its own first-level create form.
+- `package-station/drawer/package-family/` — Family Overview, Services/Rate Sheet/Tier dependency Connections, draft/revert/settle/publish and full lifecycle. `package-station/usePackageFamilyStation.ts` is the authoritative client write boundary. The Admin Station mounts this composition; creation remains its own first-level create form.
 - `service-station/drawer/` — Overview, Included Features, FAQs, pricing Connections, lifecycle, guarded pending/new-draft exits. `useServiceDrawerController` coordinates the focused hooks `useServiceModuleEditing`, `useServiceLifecycle`, and `useServiceExitFlow`; its return contract is the drawer's public shape.
-- `entity-drawers/tier/` — tier cards, Overview/Features/FAQs, service Connections, occupant bin, restore conflicts, swap/retarget, publish and enable/disable. `useTierDrawerController` coordinates `useTierModuleEditing`, `useTierBinTravel`, and the pure `tierDetailModel.ts` (home of `slotOccupied`, re-exported by the controller).
-- `entity-drawers/shared/` — cross-entity coordination machinery: `drawerChrome.ts` (guarded close, lifecycle runner, auto-dismiss, outside-click dismiss — Service/Category/Package Family; Tier deliberately keeps `window.confirm`) and `serviceDrawerShared.ts`. Package-owned `rateSheetLabels.ts` and `tierOccupants.ts` live at the `package-station/` data boundary.
-- `entity-drawers/schema/` — shared manifests/bindings for the neutral drawer compositions.
+- `package-station/drawer/tier/` — tier cards, Overview/Features/FAQs, Service Connections, occupant bin, restore conflicts, swap/retarget, publish and enable/disable. `useTierDrawerController` coordinates `useTierModuleEditing`, `useTierBinTravel`, and the pure `tierDetailModel.ts` (home of `slotOccupied`, re-exported by the controller).
+- `entity-drawers/shared/` — `drawerChrome.ts`, the remaining cross-entity coordination machinery for guarded close, lifecycle running, auto-dismiss, and outside-click dismissal.
+- Schema ownership follows the entity: Package manifests/bindings are under `package-station/drawer/schema/`, Service under `service-station/drawer/schema/`, and Category under `entity-drawers/schema/`.
 
 ## Bundle and style boundary
 
