@@ -10,7 +10,12 @@
  * LIFECYCLE_HANDLERS       Status, restore, permanent delete
  * POOL_HANDLERS            Immediate canonical inclusion/FAQ pool creation
  * AUTHORIZATION            Permission callback
- * MODULE_HELPERS           Draft marking, settle commit, completeness, pool guard
+ * MODULE_HELPERS           Cross-station pool-settle reference guard
+ *
+ * Service module lifecycle rules (draft marking, settle commit, activation
+ * status, completeness gates) live in Support\ServiceModules; this controller
+ * calls them. Storage keys and REST args live in Support\ServiceSchema; the
+ * pool write path is Support\ServicePools.
  *
  * Search: SECTION: SERVICE_ROUTES ... SECTION: MODULE_HELPERS
  *
@@ -39,6 +44,7 @@ use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Admin\Support\PoolReferences;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
+use CompuZign\Platform\Modules\Service\Support\ServiceModules;
 use CompuZign\Platform\Modules\Service\Support\ServicePools;
 use CompuZign\Platform\Modules\Service\Support\ServiceSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
@@ -282,9 +288,9 @@ class ServiceController
                 'platform_status'          => $platformStatus,
                 'previous_platform_status' => $meta['previous_platform_status'] ?? '',
                 'module_status'            => $meta['module_status'] ?? ServiceSchema::defaultModuleStatus(),
-                'has_drafts'               => $this->hasDraft($post->ID, 'overview')
-                                           || $this->hasDraft($post->ID, 'inclusions')
-                                           || $this->hasDraft($post->ID, 'faqs'),
+                'has_drafts'               => ServiceModules::hasDraft($post->ID, 'overview')
+                                           || ServiceModules::hasDraft($post->ID, 'inclusions')
+                                           || ServiceModules::hasDraft($post->ID, 'faqs'),
                 'inclusion_count'          => is_array($rawInclusions['inclusions'] ?? null) ? count($rawInclusions['inclusions']) : 0,
                 'faq_count'                => is_array($rawFaqs) ? count($rawFaqs) : 0,
             ];
@@ -442,7 +448,7 @@ class ServiceController
         ];
 
         update_post_meta($id, ServiceSchema::DRAFT_OVERVIEW, $draft);
-        $moduleStatus = $this->markModuleDraft($id, 'overview');
+        $moduleStatus = ServiceModules::markModuleDraft($id, 'overview');
 
         return rest_ensure_response([
             'success'       => true,
@@ -476,7 +482,7 @@ class ServiceController
 
         // Write to draft — canonical cz_service_inclusions untouched.
         update_post_meta($id, ServiceSchema::DRAFT_INCLUSIONS, $normalized);
-        $moduleStatus = $this->markModuleDraft($id, 'inclusions');
+        $moduleStatus = ServiceModules::markModuleDraft($id, 'inclusions');
 
         return rest_ensure_response([
             'success'       => true,
@@ -511,7 +517,7 @@ class ServiceController
 
         // Write to draft — canonical cz_service_faqs untouched.
         update_post_meta($id, ServiceSchema::DRAFT_FAQS, $normalized);
-        $moduleStatus = $this->markModuleDraft($id, 'faqs');
+        $moduleStatus = ServiceModules::markModuleDraft($id, 'faqs');
 
         return rest_ensure_response([
             'success'       => true,
@@ -537,7 +543,7 @@ class ServiceController
         // the pool, so removed-but-still-referenced items can be reported.
         $poolWarnings = $this->poolSettleWarnings($id, $module);
 
-        $moduleStatus = $this->settleModule($id, $module);
+        $moduleStatus = ServiceModules::settleModule($id, $module);
 
         // Re-fetch settled canonical data for this module.
         $freshPost  = get_post($id);
@@ -582,14 +588,14 @@ class ServiceController
         // before the commits run (the commit replaces the pool being compared).
         $poolWarnings = [];
         foreach (ServiceSchema::POOL_MODULES as $poolModule) {
-            if ($this->hasDraft($id, $poolModule)) {
+            if (ServiceModules::hasDraft($id, $poolModule)) {
                 $poolWarnings = array_merge($poolWarnings, $this->poolSettleWarnings($id, $poolModule));
             }
         }
 
         foreach (ServiceSchema::MODULES as $module) {
-            if ($this->hasDraft($id, $module)) {
-                $this->settleModule($id, $module);
+            if (ServiceModules::hasDraft($id, $module)) {
+                ServiceModules::settleModule($id, $module);
             }
         }
 
@@ -646,9 +652,9 @@ class ServiceController
         }
 
         $meta['module_status'][$module] = match ($module) {
-            'overview'   => $this->isOverviewComplete($post)  ? 'settled' : 'not-configured',
-            'inclusions' => $this->isInclusionsComplete($id)   ? 'settled' : 'not-configured',
-            'faqs'       => $this->isFaqsComplete($id)         ? 'settled' : 'not-configured',
+            'overview'   => ServiceModules::isOverviewComplete($post)  ? 'settled' : 'not-configured',
+            'inclusions' => ServiceModules::isInclusionsComplete($id)   ? 'settled' : 'not-configured',
+            'faqs'       => ServiceModules::isFaqsComplete($id)         ? 'settled' : 'not-configured',
             default      => 'not-configured',
         };
 
@@ -705,7 +711,7 @@ class ServiceController
 
         // On activation: drafts stay pending; modules without drafts resolved from canonical.
         if ($platformStatus === 'active') {
-            $meta['module_status'] = $this->resolveModuleStatusOnActivation($id, $post, $meta);
+            $meta['module_status'] = ServiceModules::resolveModuleStatusOnActivation($id, $post, $meta);
         }
 
         update_post_meta($id, ServiceSchema::META_KEY, $meta);
@@ -911,90 +917,6 @@ class ServiceController
     // ===================================================================
 
     /**
-     * Writing a draft always marks the module as 'pending', regardless of platform_status.
-     * Handles not-configured → pending transition on first save for inclusions/faqs.
-     */
-    private function markModuleDraft(int $id, string $module): array
-    {
-        $meta = get_post_meta($id, ServiceSchema::META_KEY, true);
-        $meta = is_array($meta) ? $meta : [];
-
-        if (!isset($meta['module_status']) || !is_array($meta['module_status'])) {
-            $meta['module_status'] = ServiceSchema::defaultModuleStatus();
-        }
-
-        $meta['module_status'][$module] = 'pending';
-        update_post_meta($id, ServiceSchema::META_KEY, $meta);
-
-        return $meta['module_status'];
-    }
-
-    /**
-     * Promotes one module's draft to canonical Active. Called by both per-module and bulk routes.
-     * Returns the updated module_status array.
-     */
-    private function settleModule(int $id, string $module): array
-    {
-        $meta = get_post_meta($id, ServiceSchema::META_KEY, true);
-        $meta = is_array($meta) ? $meta : [];
-        if (!isset($meta['module_status']) || !is_array($meta['module_status'])) {
-            $meta['module_status'] = ServiceSchema::defaultModuleStatus();
-        }
-
-        switch ($module) {
-            case 'overview':
-                $draft = get_post_meta($id, ServiceSchema::DRAFT_OVERVIEW, true);
-                if (!is_array($draft) || empty($draft)) break;
-
-                $post = get_post($id);
-                wp_update_post([
-                    'ID'           => $id,
-                    'post_title'   => $draft['title']   ?? ($post->post_title ?? ''),
-                    'post_excerpt' => $draft['excerpt']  ?? '',
-                    'post_content' => $draft['content']  ?? '',
-                ]);
-
-                $catIds = isset($draft['category_ids']) && is_array($draft['category_ids'])
-                          ? array_map('intval', $draft['category_ids'])
-                          : [];
-                wp_set_object_terms($id, $catIds, ServiceSchema::CATEGORY_TAXONOMY);
-
-                delete_post_meta($id, ServiceSchema::DRAFT_OVERVIEW);
-
-                $freshPost = get_post($id);
-                $meta['module_status']['overview'] = $this->isOverviewComplete($freshPost) ? 'settled' : 'not-configured';
-                break;
-
-            case 'inclusions':
-                $draft = get_post_meta($id, ServiceSchema::DRAFT_INCLUSIONS, true);
-                if (!is_array($draft)) break;
-
-                $existing = get_post_meta($id, ServiceSchema::META_INCLUSIONS, true);
-                $existing = is_array($existing) ? $existing : [];
-                update_post_meta($id, ServiceSchema::META_INCLUSIONS, [
-                    'inclusions'      => $draft,
-                    'tier_inclusions' => $existing['tier_inclusions'] ?? [],
-                ]);
-
-                delete_post_meta($id, ServiceSchema::DRAFT_INCLUSIONS);
-                $meta['module_status']['inclusions'] = $this->isInclusionsComplete($id) ? 'settled' : 'not-configured';
-                break;
-
-            case 'faqs':
-                $draft = get_post_meta($id, ServiceSchema::DRAFT_FAQS, true);
-                if (!is_array($draft)) break;
-
-                update_post_meta($id, ServiceSchema::META_FAQS, $draft);
-                delete_post_meta($id, ServiceSchema::DRAFT_FAQS);
-                $meta['module_status']['faqs'] = $this->isFaqsComplete($id) ? 'settled' : 'not-configured';
-                break;
-        }
-
-        update_post_meta($id, ServiceSchema::META_KEY, $meta);
-        return $meta['module_status'];
-    }
-
-    /**
      * B3 — non-blocking pool-settle guard. When settling would remove a pool item
      * still referenced anywhere in the station graph (tier occupants + drafts,
      * binned occupants, promotion instances of every status + drafts), report it
@@ -1069,60 +991,4 @@ class ServiceController
         return $warnings;
     }
 
-    /**
-     * On activation, drafts stay pending. Modules without drafts are resolved from canonical.
-     */
-    private function resolveModuleStatusOnActivation(int $id, \WP_Post $post, array $meta): array
-    {
-        return [
-            'overview'   => $this->hasDraft($id, 'overview')
-                            ? 'pending'
-                            : ($this->isOverviewComplete($post)  ? 'settled' : 'not-configured'),
-            'inclusions' => $this->hasDraft($id, 'inclusions')
-                            ? 'pending'
-                            : ($this->isInclusionsComplete($id)   ? 'settled' : 'not-configured'),
-            'faqs'       => $this->hasDraft($id, 'faqs')
-                            ? 'pending'
-                            : ($this->isFaqsComplete($id)         ? 'settled' : 'not-configured'),
-        ];
-    }
-
-    private function hasDraft(int $id, string $module): bool
-    {
-        $key = ServiceSchema::draftKey($module);
-        return $key !== null && !empty(get_post_meta($id, $key, true));
-    }
-
-    private function isOverviewComplete(\WP_Post $post): bool
-    {
-        // Overview completeness = title + category + content. Excerpt is intentionally
-        // NOT required — it is not collected in the current Overview workflow, so it must
-        // not block module settlement. Aligns with the frontend completeness gate.
-        if (trim($post->post_title) === '')   return false;
-        if (trim($post->post_content) === '')  return false;
-        $terms = wp_get_post_terms($post->ID, ServiceSchema::CATEGORY_TAXONOMY, ['fields' => 'ids']);
-        return !empty($terms);
-    }
-
-    private function isInclusionsComplete(int $id): bool
-    {
-        $raw        = get_post_meta($id, ServiceSchema::META_INCLUSIONS, true);
-        $inclusions = is_array($raw) ? ($raw['inclusions'] ?? []) : [];
-        if (empty($inclusions)) return false;
-        foreach ($inclusions as $inc) {
-            if (trim((string) ($inc['label'] ?? '')) === '') return false;
-        }
-        return true;
-    }
-
-    private function isFaqsComplete(int $id): bool
-    {
-        $faqs = get_post_meta($id, ServiceSchema::META_FAQS, true);
-        if (!is_array($faqs) || empty($faqs)) return false;
-        foreach ($faqs as $faq) {
-            if (trim((string) ($faq['question'] ?? '')) === '') return false;
-            if (trim((string) ($faq['answer']   ?? '')) === '') return false;
-        }
-        return true;
-    }
 }
