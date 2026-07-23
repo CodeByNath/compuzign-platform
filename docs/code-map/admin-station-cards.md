@@ -1,58 +1,42 @@
-# Admin Station Presentation Kits
+# Admin Station Presentation Tools
 
-The Admin Station presentation layer owns the entity-neutral card wall kit, presentation primitives, and compact Service Category carousel. Service and Package own their kits and consume Admin presentation capabilities where declared.
+Admin Station owns the reusable presentation tools rendered inside its host: the generic card-wall kit, Service Category carousel, status disclosure, metrics, split actions, and section shell. Service Station and Package Station own their domain-specific sources and kits and may consume these Admin capabilities.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presentation/`
 
-## General card kit
+## Admin-owned capabilities
 
-- `category-groups/types.ts` — `CategoryGroupCardItem`: native `id`, identity copy, optional status/notifications, repeated metrics, and action descriptors.
-- `category-groups/CategoryGroupCard.tsx` / `CategoryGroupCardGrid.tsx` — pure presentation and collection states.
-- `category-groups/CategoryGroupCardsKit.tsx` — the Admin-owned registered card-wall template kit.
-- `StationMetricBlock.tsx` and `StationSplitAction.tsx` — repeated metric/action primitives.
-- `StationStatusPill.tsx` — disclosure-state adapter over the shared `drawer-kit/ui/ModuleStatusPill` and `ModuleNotificationPanel`; it defines no status mapping or note renderer.
+- `category-groups/types.ts` defines `CategoryGroupCardItem` with native identity, display copy, optional status/notifications, metrics, and action descriptors.
+- `CategoryGroupCard.tsx` and `CategoryGroupCardGrid.tsx` are pure presentation and collection-state components.
+- `CategoryGroupCardsKit.tsx` adapts Station Manager's generic template-kit contract to that grid. It is registered as `category-group-cards` and is load-bearing for the Package Families wall.
+- `ServiceCategoryCarousel.tsx` is registered as `service-category-carousel`; it and the `service-categories` source are currently unbound.
+- `StationStatusPill.tsx` adapts shared module status/notification UI without defining domain status rules. `StationMetricBlock.tsx` and `StationSplitAction.tsx` provide repeated presentation patterns.
+- `StationPresentationShell.tsx` renders the ordered presentation bindings for one station and delegates each live surface to Station Manager.
 
-Adapters project Package Family, Service, and Tier records into the same card contract. Cards fetch nothing and dispatch `{ native recordId, actionId }`.
+These components fetch and save nothing. Kits receive `{ items, loading, error, onIntent }` and emit native record ids plus action ids.
 
-## Compact Category carousel
+## Current live presentations
 
-`presentation/service-categories/ServiceCategoryCarousel.tsx` renders Category Overview status/notes and assigned-Service count. Its View button dispatches the native numeric Category id. The `service-categories` surface binding resolves that action to the registered Category drawer and retains its own `refetch` for targeted mutation refresh.
+| Wall | Owning source / kit | Identity |
+| --- | --- | --- |
+| Package Families on Services | Package source + Admin `category-group-cards` kit | string `group_id` |
+| Service Catalogue on Services | Service source + Service `service-catalogue` kit | numeric Service id |
+| Tier Workspace on Packages | Package source + Package `tier-workspace` kit | string `occupant_id` for drawer actions |
 
-## Service Catalogue
+Service cards, standalone Service Tier cards, and Service Categories are registered but unbound. Promotions therefore has no presentation wall and renders the shell's neutral empty state.
 
-`service-station/presentation/ServiceCatalogue.tsx` is the Service-specific template kit used on Home. It renders four operational metrics, client-side search/status/direct-Category/Package-Family filters, creation-time/name sorting, the current-Service table, shared status pills, pagination, and native numeric View intents. Family options use native string Package Family IDs, and each row renders all related Family names as neutral labels rather than lifecycle pills. `types.ts` is its presentation contract.
+## Peer presentation
 
-`service-station/surface/useServiceCatalogue.ts` reads current Services plus archived Services for the overview count, joins `package-station/surface/packageFamily/usePackageFamilyRelationships.ts`, and retains the collection through drawer-triggered refresh. `serviceCatalogueAdapter.ts` projects direct Service Categories plus multi-value Package Families without redefining status. Service Category Group taxonomy parents do not enter this flow. Archived Service records never render as Home rows or pills; their registered travel surfaces retain that responsibility.
+`service-station/presentation/ServiceCatalogue.tsx` owns the searchable, filterable, paginated Service table and its Service projection. It consumes Admin status and icon capabilities but retains Service semantics.
 
-## Sources and identity
+`package-station/presentation/package-tier-workspace/` owns the Tier Workspace. Its source joins Package Families, host Service context, and Package Station data; Family selection is transient view state, the summary is read-only, and Tier actions preserve `occupant_id`. Package grouping, pricing, and drawer behavior remain Package-owned.
 
-| Registered surface | Source | Native identity | Drawer |
-| --- | --- | --- | --- |
-| Package Families | `package-station/surface/packageFamily/usePackageFamilyCards.ts` | string `group_id` | `package-family` |
-| Service Categories | `stations/serviceCategory/useServiceCategoryCards.ts` | numeric Category id | `category` |
-| Service Catalogue | `service-station/surface/useServiceCatalogue.ts` | numeric Service id | `service` |
-| Service cards | `service-station/surface/useServiceCards.ts` | numeric Service id | `service` |
-| Package Tiers | `package-station/surface/tierSurface/useServiceTierCards.ts` | string `occupant_id` | `tier` |
-| Package Station Tier tool | `package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts` | string `occupant_id` | `tier` |
+Package Family, Service, Category, and Tier adapters preserve their native ids; no presentation adapter substitutes a display key or converts identity. `station-manager/useRetainedCollection.ts` keeps the last successful collection visible during wall refetches. A drawer save invokes only the refetch handle supplied by the opening wall.
 
-No adapter parses or converts identity. Package Family and Category status/notes come from the shared `evaluateModule` definitions. Tier cards use the same tier note generator as the drawer, built by the shared `package-station/surface/tierSurface/tierOccupantCard.ts` — the one Tier-occupant card projection both the Tier wall and the Station-level Tier tool render, so they can never disagree.
+## Styling
 
-## Package Station Tier Workspace Engine
-
-`package-station/presentation/package-tier-workspace/` composes one Station-level engine from small owned pieces: `PackageTierWorkspace.tsx` (orchestrator + stateful kit owning the selected **Package Family** as transient view state; header, full-width Tier grid, lower split), `PackageFamilySummary.tsx` (the **read-only** summary from the pure `package-station/surface/packageTierWorkspace/familySummary.ts` model — name, positioning, status, and the three authoritative `dependents` counts — with **no Edit action**), and `PackageFamilyNavigation.tsx` (a real `radiogroup` Family selector). The `package-tier-workspace` source runs the pure `projection.ts` join over `fetchPackageFamilies()`, `useHostService`, and `usePackageStation`: a Tier occupant projects under a Family iff a Rate Sheet selection resolves (through `source_service_id`) to one of the Family's authoritative `related_service_ids` — the backend's `dependents.tier_selections` provenance. Row 1 renders occupants through the shared card grid and the mature `tierOccupantCard`; cards dispatch `occupant_id` into the shared `tier` drawer. Family editing stays on the Package Families wall and its `package-family` drawer — this binding owns only `tier`.
-
-## Binding and refresh
-
-`admin-station/register.ts` registers Admin's card grid and carousel capabilities and authors the presentation binding rows. `service-station/register.ts` and `package-station/register.ts` register their reads, kits, and drawers through Station Manager; on Service Home the Package Family cards remain order `0` and the Service Catalogue order `1`. `admin-station/presentation/StationPresentationShell.tsx` renders those ordered sections; `station-manager/StationSurfaceHost.tsx` forwards record ids unchanged, and `station-manager/useRetainedCollection.ts` keeps cards visible during a wall reload.
-
-## Layout and style
-
-The card grid is three across and becomes one across at the existing 767px shell breakpoint. The Category carousel is horizontal and shows six cards at desktop width. The Service Catalogue uses the same station breakpoints for its summary and responsive table. Styles live in `admin-station/styles/admin-station.css`; shared pill/panel component styling lives in `resources/css/modules/drawer-kit.css`.
-
-## Validation
-
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+Admin presentation styles live in `admin-station/styles/admin-station.css` and its responsive companion. Shared drawer-kit component styles live in `resources/css/modules/drawer-kit.css`.
 
 ## Related Code Maps
 
-[Admin Station Drawer](admin-station-drawer.md), [Surface Binding](admin-station-surface-binding.md), [Styles](admin-station-styles.md).
+[Station Manager](station-manager.md), [Admin Station](admin-station.md), [Surface Binding](admin-station-surface-binding.md), [Drawer](admin-station-drawer.md), [Service Catalogue](service-catalogue.md), and [Tiers](tiers.md).

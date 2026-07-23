@@ -1,46 +1,37 @@
 # Drawer and Station System
 
-## Purpose and ownership
+## Responsibility split
 
-Supplies reusable drawer navigation, schema-driven modules, status/notification presentation, inline editors, module actions, record lifecycle footers, and host bridges. Generic infrastructure owns no entity persistence.
+The drawer system separates coordination, hosting, rendering, and persistence:
 
-The Admin Station `AdminStationDrawer` is the drawer host. Package Family, Category, Service, and Tier drawer presentation lives in shared host-neutral compositions.
+- **Station Manager** owns the open drawer contract, registration/resolution, record identity, and intent coordination.
+- **Admin Station** owns the generic drawer shell and presentation/control chrome.
+- **Owning Stations** register drawer adapters and own their compositions, validation, lifecycle, and saves.
+- **Drawer Kit** supplies entity-neutral schema renderers and interaction primitives; it owns no records.
 
-## Shared drawer kit
+[drawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/drawerTypes.ts) defines `DrawerMode`, open string keys, and content props. [drawerTemplates.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/registry/drawerTemplates.ts) registers and resolves templates. [AdminStationDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/shell/drawer/AdminStationDrawer.tsx) hosts the resolved contract and delegates `recordId`, mode, close, footer, close guard, and originating-wall refresh.
 
-- [entityDrawerHost.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/entityDrawerHost.ts) — `EntityDrawerHostBridge`: close, footer slot, close guard, mutation notification.
-- [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityDrawer.tsx) — Overview/Connections tabs, schema placements, notification accordion, trailing content, and one optional module edit session. The edited module switches to `InlineEditorShell`; siblings remain readable.
-- [DrawerTabs.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/DrawerTabs.tsx) — fixed Overview/Connections vocabulary.
-- [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/InlineEditorShell.tsx) — Save/Cancel, dirty cancel confirmation, validation disable, loading/error states.
-- [ActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/ActionFooter.tsx) — module action descriptors.
-- [EntityActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityActionFooter.tsx) — the single record-footer renderer; [CanonicalEntityFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/CanonicalEntityFooter.tsx) maps canonical lifecycle states onto it.
-- [ModuleStatusPill.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/ui/ModuleStatusPill.tsx) and [ModuleNotificationPanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/ui/ModuleNotificationPanel.tsx) — shared drawer/card status and note renderers.
-- [types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/schema/types.ts) and `schema/{elements,shells}` — entity, shell, placement, binding, action, and edit-session contracts.
+## Shared Drawer Kit
 
-## Shared entity compositions
+- [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityDrawer.tsx) renders Overview/Connections placement, notifications, trailing content, and one module edit session.
+- [entityDrawerHost.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/entityDrawerHost.ts) defines the host-neutral close/footer/guard/mutation bridge.
+- [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/InlineEditorShell.tsx) owns Save/Cancel, dirty-cancel confirmation, validation, loading, and error chrome.
+- [EntityActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityActionFooter.tsx) and [CanonicalEntityFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/CanonicalEntityFooter.tsx) provide record-footer grammar and canonical lifecycle mapping.
+- [schema/types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/schema/types.ts) and `schema/{elements,shells}` define neutral entity, binding, placement, action, and edit-session contracts.
 
-`resources/ts/package-station/drawer/{package-family,tier}/` contains the Package compositions, controllers, footer/dialog presentation, and types; `package-station/drawer/schema/` and `drawer/editors/` own their manifests, bindings, and editors. `service-station/drawer/` owns the Service composition and schema. `entity-drawers/` retains Category composition/schema plus the genuinely shared drawer chrome.
+## Domain compositions and adapters
 
-The Service and Tier controllers are small coordinators composed from focused sibling hooks (Service: `useServiceModuleEditing` / `useServiceLifecycle` / `useServiceExitFlow`; Tier: `useTierModuleEditing` / `useTierBinTravel` plus the pure `tierDetailModel.ts`); their returned contracts are unchanged. [drawerChrome.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/drawerChrome.ts) remains the cross-entity coordination machinery (`useGuardedClose`, `useLifecycleRunner`, `useAutoDismiss`, `useOutsideClickDismiss` — used by Service, Category, and Package Family; Tier keeps its own `window.confirm` guard by design). Service owns `serviceConnectionBinding` in `service-station/drawer/schema/bindings/service.tsx`; Package owns `vocabulary.ts`, [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts), and [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts).
+- `package-station/drawer/{package-family,tier}/` and `drawer/{schema,editors}/` are Package-owned. Their registered adapters are [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx) and [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx).
+- `service-station/drawer/` is Service-owned; [ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx) is its registered adapter.
+- `entity-drawers/category/` and `entity-drawers/schema/` remain Category residue hosted through Admin Station's [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx).
+- [drawerChrome.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/drawerChrome.ts) remains genuinely shared close/lifecycle/dialog coordination.
 
-Controllers render no JSX. Presentation calls no endpoints. Package writes remain in Package Station's `usePackageFamilyStation` and `usePackageStation`; Category and Service writes remain in `useCategoryStation` and `useServiceStation`.
-
-Notification rules live in [drawer-kit/utils/moduleNotifications/](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleNotifications/index.ts), organised by domain (shared engine + service/package/tier/promotion/category/packageFamily rule files) behind an export-preserving barrel.
-
-## Host adapters
-
-- Admin Station: adapters under `admin-station/stations/{serviceCategory,serviceSurface}/` resolve native ids and mount the same compositions inside one shell.
-- Package Station: adapters under `package-station/surface/{packageFamily,tierSurface}/` resolve native ids and mount the same compositions inside the Admin Station shell.
-
-## Styling
-
-`resources/css/modules/drawer-kit.css` is one build entry the Admin Station enqueues. Admin Station adaptations are `.cz-admin-station` scoped.
+Controllers render no JSX; presentation calls no endpoints. Native identities pass through Station Manager unchanged: Package Family and Tier IDs are strings, Category and Service IDs are numeric.
 
 ## Validation
 
-- [mode-renderer-snapshot.mjs](../../wp-content/plugins/compuzign-platform/scripts/mode-renderer-snapshot.mjs)
-- [module-state-snapshot.mjs](../../wp-content/plugins/compuzign-platform/scripts/module-state-snapshot.mjs)
+Run `node scripts/mode-renderer-snapshot.mjs`, `node scripts/module-state-snapshot.mjs`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 
-[Admin Station Drawer](admin-station-drawer.md), [Entity Drawer Compositions](entity-drawer-recovery.md), [Lifecycle](lifecycle-system.md).
+[Station Manager](station-manager.md), [Admin Station Drawer](admin-station-drawer.md), [Entity Drawer Compositions](entity-drawer-recovery.md), and [Lifecycle](lifecycle-system.md).

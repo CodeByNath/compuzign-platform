@@ -1,46 +1,33 @@
 # Rate Sheet
 
-## Purpose
+## Purpose and ownership
 
-Maintains the Package Station’s source service selections and resolves their tier pricing into package totals and validation issues.
+Rate Sheets are Package Station supply and pricing configuration. Package Station owns their contracts, source relationships, grouping, validation, Tier selections, pricing derivation, API boundary, and persistence. Station Manager only coordinates registered surfaces; Admin Station only hosts registered presentation and authors placement policy. Neither owns Rate Sheet rules or data.
 
-## Ownership
+The Rate Sheet is part of the single `cz_package_station` record. Computed totals are derived results, not a second persisted authority. Services and their pool items remain Service-owned source facts.
 
-The rate sheet is part of the single Package Station persisted by `PackageRepository`. The pricing evaluator derives results from the persisted selections. It must not become a second service catalogue or persist computed totals as an independent authority.
+## Current implementation
 
-## Main Entry Points
+- [types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/types.ts) defines Rate Sheet rows, units, groups, and Tier selection contracts.
+- [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) calculates line totals and reports unresolved, unavailable, invalid-option, invalid-quantity, and missing-price issues.
+- [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts) derives labels for Package-owned relationship projections.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) resolves a Tier's selections against the Package read model and owns Tier module saves.
 
-- [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) calculates Tier line totals and issues for missing, disabled, unresolved, or invalid-price selections. Use it when changing pricing validation or totals.
+The former Command Centre Rate Sheet editor has been removed. This consolidation does not add or rebuild Rate Sheet feature UI. Any future editor belongs inside Package Station and must use the same contracts and persistence boundary.
 
-The manager Rate Sheet editing surface — source selection and onboarding, row editing, provenance filters, and the provider draft — was hosted in the retired Command Centre and has been removed. The Rate Sheet remains part of the Package Station; its editing surface is to be rebuilt in the Admin Station. Backend persistence/validation and pricing evaluation below are unchanged.
+## Backend and runtime flow
 
-## Backend and Persistence
+- [PackageManagerSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageManagerSchema.php) owns manager commits, source reconciliation, read projection, and Rate Sheet projection.
+- [PackageStationSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageStationSchema.php) sanitizes Rate Sheet shape and derives Tier pricing/commercial projections.
+- [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists the complete Package Station option.
+- [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) consumes active Service and Package pricing for public Cost Builder projection.
 
-- [PackageManagerSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageManagerSchema.php) constructs defaults and sanitizes source, group, and Rate Sheet arrays. Use it for persisted shape and backend readiness rules.
-- [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists the complete station option and resolves service/pool relationships. Use it for storage and compatibility migration.
-- [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) projects active catalogue and Package pricing for public consumption. Use it when Rate Sheet results reach the Cost Builder incorrectly.
-
-## Runtime Flow
-
-The persisted source selections resolve through tier pricing evaluation into source prices for each fixed tier. Package tiers consume the result; the public pricing builder later projects active package and service pricing. Provenance (`source_service_id`/title/categories) remains live read-model data and is never persisted on rows.
-
-## Internal File Navigation
-
-| Concern | Marker | Contains | Read when... |
-| --- | --- | --- | --- |
-| Legacy schema | `SECTION: RATE_SHEET_SCHEMA` | Sanitization and validation | Tracing legacy data |
-| Tier pricing | `SECTION: TIER_PRICING` | Selections, totals, readiness | Changing evaluation |
+Persisted Package source relationships resolve to Rate Sheet rows; Tier selections reference those rows and pricing evaluation derives totals and readiness. Live provenance such as `source_service_id`, titles, and categories remains read-model data and is not copied into selection rows.
 
 ## Validation
 
-- [tier-pricing-parity-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/tier-pricing-parity-contract.ts)
-- [tier-pricing-parity.php](../../wp-content/plugins/compuzign-platform/tests/tier-pricing-parity.php)
-- [tier-pricing-parity.json](../../wp-content/plugins/compuzign-platform/tests/fixtures/tier-pricing-parity.json)
+Run `npx tsx scripts/tier-pricing-parity-contract.ts`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 
-[Package Manager](package-manager.md), [Tiers](tiers.md), and [Cost Builder](cost-builder.md).
-
-## Related History
-
-[Package Category Groups v1](../project-history/PackageCategoryGroups-v1.md) — provenance-based Rate Sheet filtering and why group data stays out of the public pricing projection for now.
+[Package Station](package-station.md), [Package Manager](package-manager.md), [Tiers](tiers.md), and [Cost Builder](cost-builder.md).

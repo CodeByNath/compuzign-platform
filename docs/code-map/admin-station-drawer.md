@@ -1,68 +1,52 @@
 # Admin Station Drawer
 
-The Admin Station has one entity-agnostic drawer shell. Package Family, Category, Service, and Tier provide registered compositions inside it; none creates another shell or imports Command Centre routing.
+Admin Station owns one entity-agnostic drawer shell. Station Manager resolves drawer registrations; the owning Station supplies the record adapter, mature drawer composition, domain state, validation, and saves. Hosting a drawer never transfers authority to Admin Station or Station Manager.
 
-Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
+## Registration and runtime
 
-## Runtime chain
+`station-manager/drawerTypes.ts` defines the open string key, native record identity, opening mode, and shell/content bridge. `station-manager/registry/drawerTemplates.ts` registers contracts and rejects duplicate keys or empty supported-mode lists. Unknown keys intentionally resolve to `null`, allowing the shell to render its neutral unavailable state.
+
+Registration ownership is:
+
+| Key | Registrar | Host / composition owner |
+| --- | --- | --- |
+| `category` | Admin Station | retained Admin Category adapter / Category drawer |
+| `service` | Service Station | Service Station |
+| `package-family` | Package Station | Package Station |
+| `tier` | Package Station | Package Station |
+
+The runtime chain is:
 
 ```text
-card/carousel action with native record id
-  → StationSurfaceHost resolves action intent + drawerTemplateKey
-  → AdminStationDrawerContext stores { key, recordId, opening mode }
-  → AdminStationDrawer resolves the declarative registry
-  → entity host adapter resolves its own record
-  → shared entity composition renders Overview / Connections + modules
-  → successful mutation reports onSaved
-  → only the originating wall refetches
+kit action with native record id
+  → StationSurfaceHost resolves binding action intent
+  → AdminStationDrawerContext stores key, id, mode, and wall refetch
+  → AdminStationDrawer resolves the registered contract
+  → owning Station adapter resolves its record
+  → owning composition renders and mutates
+  → onSaved refreshes only the originating wall
 ```
 
-The shell owns header, scrolling body, footer slot, backdrop/Escape/header close, focus restore, scroll lock, and the close guard. It never switches on entity type.
+`shell/drawer/AdminStationDrawer.tsx` owns overlay chrome, header, scrolling body, optional record footer, backdrop/Escape/header close, close-guard handling, scroll lock, and focus restoration. It never switches on entity type. Unsupported requested modes clamp to the first mode supported by the registered contract.
 
-## Authoritative files
+`AdminStationDrawerContext.tsx` keeps one open drawer and preserves identity across mode changes. Closing clears both state and the originating-wall refetch handle; a late save then cannot refresh a wall the user has left.
 
-- `station-manager/drawerTypes.ts` — open string `DrawerTemplateKey`, opening mode, and footer/guard bridge props.
-- `station-manager/recordIdentity.ts` — opaque native `StationRecordId` contract.
-- `station-manager/registry/drawerTemplates.ts` — drawer registration/resolution; unknown keys preserve the shell's unresolved-drawer behavior.
-- `admin-station/register.ts`, `service-station/register.ts`, and `package-station/register.ts` — the owning Stations register Category, Service, Package Family, and Tier drawer contracts.
-- `shell/drawer/AdminStationDrawerContext.tsx` — one open record and the originating wall refresh handle.
-- `shell/drawer/AdminStationDrawer.tsx` — the single shell and close path.
-- `resources/ts/package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` — string `group_id` host adapter; resolves current/archive/trash projections and mounts the neutral composition.
-- `stations/serviceCategory/CategoryDrawerHost.tsx` — numeric Category id adapter plus assigned-Service projection.
-- `service-station/surface/ServiceDrawerHost.tsx` — numeric Service id adapter.
-- `resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx` — stable string `occupant_id` adapter; rejects foreign id shapes rather than coercing them.
+## Owning compositions
 
-## Shared mature compositions
+- `admin-station/stations/serviceCategory/CategoryDrawerHost.tsx` mounts the Category composition and uses numeric Category identity.
+- `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity.
+- `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id` and mounts the Package Family composition.
+- `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id` and rejects foreign identity shapes.
 
-The shell adapters mount these owner-local host-neutral implementations:
+The mature compositions remain under `entity-drawers/category/`, `service-station/drawer/`, and `package-station/drawer/{package-family,tier}/`. They use the shared `drawer-kit` renderer and module/editor/footer contracts. Category mutations remain in `useCategoryStation`; Service mutations remain in `useServiceStation`; Package Family and Tier mutations remain in Package Station hooks. Presentation components call no endpoints.
 
-- `package-station/drawer/package-family/PackageFamilyDrawerContent.tsx`
-- `entity-drawers/category/CategoryDrawerContent.tsx`
-- `service-station/drawer/ServiceDrawerContent.tsx`
-- `package-station/drawer/tier/TierDrawerContent.tsx`
+## Invariants
 
-All use `drawer-kit/EntityDrawer.tsx`, schema placements, `ModuleStatusPill`, `ModuleNotificationPanel`, `InlineEditorShell`, module `ActionFooter`, and the shared record-level `EntityActionFooter`/`CanonicalEntityFooter`. `EntityDrawer.editing` replaces only the active module with its editor; sibling modules remain readable.
-
-Category mutations stay in `useCategoryStation`; Package Family and Tier mutations stay in Package Station's `usePackageFamilyStation` / `usePackageStation`; Service retains `useServiceStation`. Presentation components call no endpoints.
-
-## Identity and refresh invariants
-
-- Package Family: native string `group_id`.
-- Category and Service: native numeric ids.
-- Tier: stable string `occupant_id`, never the reassignable slot.
-- No adapter parses, stringifies, or numerically coerces an id.
-- Compositions advance local records from mutation responses; `onSaved` refreshes only the wall that opened the drawer, avoiding body flashes.
-
-## Styling
-
-Both pages enqueue `dist/css/drawer-kit.css`. Shared component rules live in `resources/css/modules/drawer-kit.css`; `.cz-admin-station`-scoped host adaptations apply the newer shell/module/editor treatment without changing Command Centre. Admin-only overlay chrome remains in `admin-station/styles/admin-station.css`.
-
-Browser runtime remains unverified where no WordPress runtime is available.
-
-## Validation
-
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+- Record ids pass through without parsing, stringification, or numeric coercion.
+- The generic shell never saves domain data directly.
+- Drawer registrations are capabilities; Admin's surface policy chooses which key a bound action opens.
+- Module editing replaces only the active module; sibling modules remain readable.
 
 ## Related Code Maps
 
-[Entity Drawer Recovery](entity-drawer-recovery.md), [Cards](admin-station-cards.md), [Categories](categories.md), [Package Manager](package-manager.md), [Styles](admin-station-styles.md).
+[Station Manager](station-manager.md), [Admin Station](admin-station.md), [Cards](admin-station-cards.md), [Drawer System](drawer-system.md), [Entity Drawer Recovery](entity-drawer-recovery.md), and [Package Manager](package-manager.md).

@@ -1,51 +1,34 @@
 # Lifecycle and Module-State System
 
-## Purpose
-
-Normalizes platform lifecycle, per-module draft transitions, status presentation, notifications, settle/revert behavior, and station-hook mutation state.
-
 ## Ownership
 
-Backend station/controller boundaries own canonical lifecycle transitions and persisted drafts. Station hooks own request-scoped loading and mutation state. Presentation utilities derive pills and notifications only; they must not invent or persist lifecycle state.
+Each domain backend/controller owns canonical lifecycle transitions and persisted drafts. Its Station hook owns request-scoped loading, mutation state, and draft-preferred projections. Shared utilities derive status and notifications only; they never persist lifecycle state.
 
-## Main Entry Points
+Station Manager has no lifecycle rules or records. Registering a source, kit, or drawer makes a capability resolvable but does not move lifecycle authority. Admin Station hosts resolved presentation and retains Category/Promotion residue; it does not save Service or Package records.
 
-- [stationPrimitives.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/stationPrimitives.ts) provides shared mutation loading/error wrappers and result handling. Use it when changing cross-station action mechanics.
-- [moduleStatus.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleStatus.tsx) derives completeness, Service/Tier/Package/Promotion statuses, commercial summaries, catalogue buckets, and pills/dots. Use it for presentation-state rules, never persistence.
-- [moduleNotifications/](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleNotifications/index.ts) declares module evaluators, readiness rules, and contextual notification copy, organised by domain: `shared.ts` holds the generic engine (`ModuleNote`, `NoteContext`, `evaluateModule`); `service.ts`, `package.ts`, `tier.ts`, `promotion.ts`, `category.ts` (incl. Service Category Group), and `packageFamily.ts` hold each entity's rule group; `index.ts` re-exports everything, so consumers keep the `@/drawer-kit/utils/moduleNotifications` specifier. Use it for module validation and guidance panels; rule files derive state only and never render.
+## Shared mechanics and presentation
 
-`moduleStatus.tsx` is a presentation-policy module, not a lifecycle store. It centralizes completeness checks; Service, Tier, Package Manager, Promotion, and commercial-summary status resolution; status-dot/pill rendering; and Service catalogue filter/display status. It is depended on by station hooks, relation providers, notifications, table schemas, and large Service/Tier workspaces.
+- [stationPrimitives.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/stationPrimitives.ts) provides shared mutation loading/error wrappers and patch/result helpers.
+- [moduleStatus.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleStatus.tsx) derives completeness, entity/module states, commercial summaries, catalogue buckets, and status presentation. It is policy/derivation, not a store.
+- [moduleNotifications/](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/utils/moduleNotifications/index.ts) contains the generic evaluator plus Service, Package, Tier, Promotion, Category, and Package Family rule groups. Rules derive notes/readiness and render nothing.
+- [CanonicalEntityFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/CanonicalEntityFooter.tsx) maps canonical states into the shared record-footer grammar.
 
-## Internal File Navigation
+## Domain state boundaries
 
-| Concern | Marker | Contains | Read when... |
-| --- | --- | --- | --- |
-| Completeness | `SECTION: COMPLETENESS` | Overview field checks | Changing readiness inputs |
-| Module status | `SECTION: MODULE_STATUS` | Service/Tier/Package/Promotion resolvers | Changing status policy |
-| Commercial summary | `SECTION: COMMERCIAL_SUMMARY` | Catalogue commercial aggregation | Changing list summaries |
-| Presentation | `SECTION: STATUS_PRESENTATION` | Pills and dots | Changing status display |
-| Catalogue status | `SECTION: CATALOGUE_STATUS` | Filters, labels, row summaries | Changing catalogue states |
+- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns Service detail, module drafts, saves/reverts, settle/publish, and travel actions; [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts) holds pure projections.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package/Tier drafts, settle, enabled/popular state, pool operations, and occupant-bin travel.
+- [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) owns Package Family draft and lifecycle actions.
+- [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) and [useServiceCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceCategoryGroupStation.ts) own current Category residue state.
+- [usePromotionStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePromotionStation.ts) owns the current Promotion client lifecycle boundary; Promotion persistence remains in the Package repository.
 
-## State and Providers
+## Backend authority
 
-- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns Service detail fetch, module drafts, save/revert, settle/publish, and travel actions; its pure projections (list-module status, publish gate, package summary, publish-modal summaries) live in the sibling [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts). Use it for Service lifecycle state. It lives in the Service Station and is imported from `@/service-station`; the old `hooks/useServiceStation.ts` path is deleted.
-- [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns Category projection, readiness, draft, lifecycle, restore, and delete actions. Use it for Category state transitions.
-- [useServiceCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceCategoryGroupStation.ts) provides the equivalent Group lifecycle boundary. Use it for Service Category Group transitions.
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package/Tier drafts, settle, enable, bin travel, pool, and popular-tier actions. Use it for Package occupant state.
-- [usePromotionStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePromotionStation.ts) owns Promotion drafts, publish/toggle, and travel actions. Use it for Promotion state.
-
-## Backend and Persistence
-
-- [StationLifecycle.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/StationLifecycle.php) centralizes module transition defaults, draft/settled handling, status travel, and readiness helpers. Use it for shared backend lifecycle invariants.
-- [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php) applies lifecycle routes to Services. Tiers belong to [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) and Promotions to [PromotionsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Promotions/Http/PromotionsController.php). Use each for its own REST transitions.
-- [AdminCategoriesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoriesController.php) applies lifecycle and readiness rules to Categories. Use it for Category routes.
-- [AdminCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoryGroupsController.php) applies them to Groups. Use it for Group routes.
+[StationLifecycle.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/StationLifecycle.php) is shared transition/readiness infrastructure. Domain controllers apply it at their own REST boundaries: [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php), [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php), [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php), [PromotionsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Promotions/Http/PromotionsController.php), [AdminCategoriesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoriesController.php), and [AdminCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoryGroupsController.php).
 
 ## Validation
 
-- [module-state-snapshot.mjs](../../wp-content/plugins/compuzign-platform/scripts/module-state-snapshot.mjs)
-- [module-state.v1.json](../../wp-content/plugins/compuzign-platform/scripts/__snapshots__/module-state.v1.json)
+Run `node scripts/module-state-snapshot.mjs`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 
-[Drawer System](drawer-system.md), [Service Catalogue](service-catalogue.md), [Tiers](tiers.md), and [Promotions](promotions.md).
+[Station Manager](station-manager.md), [Drawer System](drawer-system.md), [Service Station](service-station.md), [Package Station](package-station.md), [Tiers](tiers.md), and [Promotions](promotions.md).

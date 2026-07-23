@@ -9,52 +9,41 @@
 5. Related Code Maps only when the source crosses a boundary
 6. Relevant [Project History](project-history/000-README.md) only when needed
 
-## Platform model
+## Peer Station model
 
-**Station Manager** is the shared platform pattern. Each station has two sibling surfaces:
+- [Station Manager](code-map/station-manager.md) is coordinator-only. It owns registration contracts/resolvers, ordering and availability coordination, boot/finalize, generic surface composition, native record-identity transport, and retained-collection infrastructure. It owns no presentation primitive, domain logic, persistence, pricing, lifecycle rule, or drawer editor.
+- [Service Station](code-map/service-station.md) is the Service peer and sole authority for Service data, IDs, lifecycle, validation, saves, catalogue presentation, and drawer composition.
+- [Package Station](code-map/package-station.md) is the Package peer and sole authority for Package Families, Rate Sheets, Sources, Relationships, Tiers, grouping, quantity, pricing, validation, saves, presentation, drawers, APIs, and persistence.
+- [Admin Station](code-map/admin-station.md) is a presentation/control Station and the thin frontend host. It owns shell chrome, icons, presentation tools, the generic drawer shell, and string-key presentation policy. Its drawer hosts the owning Station's registered contract; it never saves Service or Package data.
 
-- **Station Home** is the primary reading, browsing, monitoring, and showcase surface.
-- **Station Drawer** is the single first-level editing surface. A drawer may contain tabs for a larger entity family, but drawers never nest.
+Placement does not transfer authority. Peers register their own capabilities; Admin decides placement, order, conditions, kit selection, and the default Home through Station Manager. Peer imports of Admin presentation modules are legal capability consumption. Peer-to-peer domain consumption uses public barrels.
 
-Closing a drawer returns to the same Home state. Stations share this interaction pattern without sharing persistence authority.
+Each Station has sibling surfaces: **Station Home** for reading, browsing, monitoring, and showcase; and one first-level **Station Drawer** for editing. A drawer may use tabs but never nests another drawer. Closing returns to the same Home state. The shared interaction pattern does not create shared persistence authority.
 
-The intended station family is Service, Package, Promotion, Subscription, Bundle, and CRM. This is a platform direction, not an implementation claim: consult the current Code Maps and source to determine which stations and capabilities exist today.
+## Boot contract
 
-## Ownership rule
+The Admin Station entry synchronously registers Service, Package, Admin capabilities, and Admin presentation policy; finalizes Station Manager; then registers the mounted app. Peer `register.ts` modules are entry-only. No resolver runs at module scope or before successful finalization. See [Station Manager](code-map/station-manager.md) for the exact order and invariants.
 
-- Station placement does not transfer persistence authority.
-- Service Catalogue, Package Manager, Tiers, Cost Builder, and Quote Builder retain their established authorities.
-- UI composition and persistence ownership are separate concerns.
-- Source code remains authoritative when documentation conflicts.
+## Capability vocabulary and lifecycle
 
-## Drawer ownership
+- **Tool** — a user-facing operational system.
+- **Skill** — a reusable deterministic operation.
+- **AI capability** — a reasoning-backed operation.
+- **Connector** — an integration boundary.
 
-- `resources/ts/drawer-kit/` owns genuinely generic rendering and interaction primitives.
-- `resources/ts/entity-drawers/<entity>/` owns host-neutral entity composition and domain-specific drawer behaviour.
-- `resources/ts/admin-station/` owns the Admin Station surfaces, registrations, adapters, and its one drawer shell. It is the sole admin frontend host.
-- Authoritative station hooks, services, and controllers retain mutations and persistence. Screen placement never transfers that ownership.
+Capability lifecycle is **registered** with the platform → **available** to a Station → **activated** for an owning entity. Activation records are stored by the owning Station, never in generic shared business storage.
 
-## Navigation rule
+Only the registration/finalize system has current consumers. Tool identity, availability evaluation over `StationConditions`, per-entity activation, frontend permission granularity, and skill/AI-capability/connector registries are reserved documentation seams. Do not build them before a real consumer exists. Current permissions remain backend gates; current conditions carry `scope: 'current'` without an availability evaluator.
 
-- Read only the primary Code Map first.
-- Follow related maps only when implementation crosses that boundary.
-- Do not scan the whole repository before using maps and source markers.
-- Use Project History to understand completed architectural decisions; it is not mandatory reading for routine tasks.
+## Shared and presentation boundaries
 
-## Documentation roles
+- `resources/ts/drawer-kit/` owns generic rendering and interaction contracts, not entity authority.
+- `resources/ts/entity-drawers/` contains remaining host-neutral entity composition/shared chrome where documented by its Code Maps.
+- Admin-owned cards, grids, status primitives, icons, and generic drawer shell remain under `resources/ts/admin-station/`; visual reuse does not make them Manager-owned.
+- Source code is authoritative when documentation conflicts.
 
-- **AGENTS.md** — universal working rules.
-- **docs/ai-index.md** — platform orientation and read order.
-- **Code Maps** — current subsystem ownership, entry points, boundaries, and source markers.
-- **Architecture documents** — stable constraints or clearly labelled historical/superseded specifications; never current path navigation unless their status says so.
-- **Local CLAUDE.md files** — short local pointers or boundary notes only.
-- **Project History** — immutable completed milestones.
+## Documentation and validation
 
-When source moves, update imports, tests/contracts, affected Code Maps and local instructions, verify links/paths, and rebuild generated output when applicable. Do not rewrite historical milestone paths.
+Code Maps describe current ownership and entry points. Architecture documents preserve stable constraints or explicitly labelled specifications. Project History records completed milestones and is immutable. Local `CLAUDE.md` files contain local boundaries only.
 
-## Validation rule
-
-- Run focused validation during implementation.
-- Run complete relevant validation once before completion.
-- Use documented TypeScript, build, contract, Code Map link, and diff checks as applicable.
-- Do not run unrelated validation merely to satisfy a generic checklist.
+When source moves, update imports, tests/contracts, affected Code Maps and local instructions; verify canonical paths/links; and rebuild generated output when applicable. Run focused checks during implementation and the complete relevant validation once before completion.

@@ -151,6 +151,132 @@
             }
         },
         {
+            "route": "compuzign/v1/admin/package-category-groups",
+            "methods": "GET",
+            "callback": "listGroups",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_status": {
+                    "enum": [
+                        "archived",
+                        "trashed"
+                    ],
+                    "required": false,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-category-groups",
+            "methods": "POST",
+            "callback": "createGroup",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "description": {
+                    "required": false,
+                    "sanitize_callback": "sanitize_textarea_field",
+                    "type": "string"
+                },
+                "name": {
+                    "required": true,
+                    "sanitize_callback": "sanitize_text_field",
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-category-groups/(?P<gid>[a-z0-9_]+)",
+            "methods": "DELETE",
+            "callback": "permanentDeleteGroup",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "gid": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-category-groups/(?P<gid>[a-z0-9_]+)/overview",
+            "methods": "PUT",
+            "callback": "saveOverview",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "description": {
+                    "required": false,
+                    "sanitize_callback": "sanitize_textarea_field",
+                    "type": "string"
+                },
+                "gid": {
+                    "required": true,
+                    "type": "string"
+                },
+                "name": {
+                    "required": true,
+                    "sanitize_callback": "sanitize_text_field",
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-category-groups/(?P<gid>[a-z0-9_]+)/overview/revert",
+            "methods": "POST",
+            "callback": "revertOverview",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "gid": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-category-groups/(?P<gid>[a-z0-9_]+)/overview/settle",
+            "methods": "POST",
+            "callback": "settleOverview",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "gid": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-category-groups/(?P<gid>[a-z0-9_]+)/restore",
+            "methods": "POST",
+            "callback": "restoreGroup",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "gid": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-category-groups/(?P<gid>[a-z0-9_]+)/status",
+            "methods": "PATCH",
+            "callback": "updateStatus",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "gid": {
+                    "required": true,
+                    "type": "string"
+                },
+                "platform_status": {
+                    "enum": [
+                        "active",
+                        "disabled",
+                        "archived",
+                        "trashed"
+                    ],
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
             "route": "compuzign/v1/admin/service-categories",
             "methods": "POST",
             "callback": "createServiceCategory",

@@ -1,57 +1,46 @@
-# Admin Station Navigation & Destination Resolver
+# Admin Station Navigation and Destinations
 
-How the Admin Station turns a nav selection into a resolved destination. Part of the [Admin Station](admin-station.md) subsystem. There is **no URL router**: the front of the chain is an **activation key**, never a URL route. A router can later resolve into the same destination id without changing this engine.
+Station Manager coordinates navigation definitions and activation-key resolution. Admin Station renders the registered rows and stores the current selection; each Station registers its own navigation item and destination.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/station-manager/registry/`
 
-## Navigation source
+## Registration and boot
 
-- `navigation.ts` — the single registered navigation index driving both the Header pills and slide menu through `headerNavItems()` / `menuNavItems()`. Each `StationNavItem` keeps `id`, `label`, `icon`, `activationKey`, visibility flags, and `order`. Service, Package, and Admin register their own rows before finalization.
+`navigation.ts` defines `StationNavItem` and accepts rows through `registerNavItems()`. Each row includes identity, label, Admin-owned icon capability, activation key, header/menu visibility, and order. Service, Package, and Admin currently register `services` at 10, `packages` at 20, and `promotions` at 30.
 
-Selection flows `Header/SlideMenu onSelect(item.id)` → `AdminStationLayout.handleSelect` → context `navigate(id)`, which records `activeDestinationId`.
-
-## Destination resolver
-
-- `destinations.ts` — registers and resolves activation keys to `StationDestination`. `AdminStationContext` resolves `activeDestinationId` to `activeDestination`; the resolver selects identity/placement but renders nothing itself.
-
-Chain: `activation key → resolveDestination() → registration (stationId + surfaceId) → placement → mode → conditions / record id → shell region`.
+`destinations.ts` registers `StationDestination` records and resolves an activation key to:
 
 ```ts
-StationDestination = {
-  id; stationId; surfaceId;
-  placement: 'presentation' | 'body' | 'drawer';
-  mode: ShellMode;           // viewpoint (type-only import; see Boundary note)
-  conditions?: StationConditions;
-}
-StationConditions = { scope?; recordId?; categoryTermId?; relatedTo?: { entity; id } }
+{ id, stationId, surfaceId, placement, mode, conditions? }
 ```
 
-`resolveDestination(activation)` is a lookup in the finalized destination index, returning `null` for a null/unmapped key (the shell then falls back to Home). It holds **no entity logic**.
+All three current destinations declare `surfaceId: 'catalog'`, `placement: 'body'`, `mode: 'table'`, and `conditions.scope: 'current'`. They are navigation declarations; current visible content is composed independently from presentation bindings.
 
-The three peer registration files map their nav items to `placement: 'body'`, `mode: 'table'`, `conditions.scope: 'current'`, `surfaceId: 'catalog'` — declaration only, inert until projection exists.
+Registration rejects duplicate navigation ids, destination ids, and identical destination projections. `finalizeStationRegistry()` locks registration, builds stable order-sorted header and menu arrays, and asserts that every navigation activation key names a registered destination. Public navigation and destination resolvers throw before finalization. `resolveDestination()` returns `null` for a null or unmapped activation.
 
-## Invariants
+## Selection flow
 
-- **`stationId` values are registry-native** (`services`/`packages`/`promotions`), **not** old-registry ids (`service-catalog`/`package-manager`).
-- **Lean registrations + a separate resolver table.** The resolver selects registrations; it never branches on entity.
-- **`conditions` is not the runtime `MountCondition`.** `MountCondition` resolves *where* the app mounts in the DOM; `StationConditions` resolves *what data* a surface shows. Different axis — do not merge.
-- **Record identity stays native** — each entity keeps its own real id (`StationRecordId = string | number`: numeric term_id, string group_id), converted in neither direction and never a surrogate display key. See [Record identity](admin-station-cards.md#record-identity).
-- **Boundary note:** the one cross-tree reference is a type-only `import type { ShellMode }` from `drawer-kit/schema/types` — erased at build (verified: no `components/admin` runtime tokens in `admin-station.js`), the same sanctioned contract-crossing as `presentation/category-groups/types.ts` type-importing `ModuleNote`.
+```text
+header or slide-menu row
+  → AdminStationLayout.handleSelect(item.id)
+  → AdminStationContext.navigate(id)
+  → resolveDestination(activeDestinationId)
+  → AdminStationBody selects destination.stationId
+  → presentation bindings for that station
+```
 
-## Authoring guard
+With no selection or an unmapped key, the body uses the registered default home, `services`. Services renders Package Families followed by the Service Catalogue; Packages renders the Tier Workspace; Promotions currently renders the neutral no-presentation-content state.
 
-`registerDestinations()` throws on duplicate destination ids or fully-identical projections. `finalizeStationRegistry()` also asserts every navigation `activationKey` resolves before mount. The same surface at a different placement, mode, or scope remains deliberate.
+There is no URL router in this chain. An activation key is not a route. Destination resolution and surface-binding resolution are separate axes: the former chooses a station context; the latter chooses ordered live presentation surfaces.
 
-## Projection status
+## Boundaries
 
-The [Surface Binding](admin-station-surface-binding.md) table binds placement regions to data-source/template-kit keys and action intents—not a fixed `EntitySchema`. Services currently projects Package Family, Category, Service, and Tier presentation walls; actions open the shared [Admin Station Drawer](admin-station-drawer.md) with native identity, and saves refresh the originating wall. Destination-declared body tables remain unprojected.
-
-The axes remain distinct: `registry/destinations.ts` resolves a nav *activation* to a destination; `registry/surfaceBindings.ts` resolves a station *placement* to a live presentation surface. Peer `register.ts` files author definitions, while Admin's `registerPresentationPolicy()` authors binding rows.
-
-## Validation
-
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+- Registry-native station ids are `services`, `packages`, and `promotions`, not legacy app-registry identifiers.
+- `StationConditions` describes what a station surface addresses. It is distinct from the runtime registry's `MountCondition`, which decides where the app mounts.
+- `destinations.ts` has one sanctioned type-only dependency on `drawer-kit/schema/types` for `ShellMode`; Station Manager has no peer runtime imports.
+- Record ids remain native `string | number` values wherever conditions or intents carry them.
+- `register.ts` modules are imported only by the Admin Station entry, and no resolver runs at module scope.
 
 ## Related Code Maps
 
-[Admin Station](admin-station.md), [Admin Station Cards](admin-station-cards.md).
+[Station Manager](station-manager.md), [Admin Station](admin-station.md), [Surface Binding](admin-station-surface-binding.md), and [Admin Station Cards](admin-station-cards.md).

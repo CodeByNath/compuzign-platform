@@ -2,41 +2,37 @@
 
 ## Purpose and authority
 
-The ownership boundary for `cz_service`. WordPress Service posts, `cz_service_category` relationships, Service lifecycle, `cz_service_meta`, inclusions, FAQs, and their drafts belong here. The extraction was code centralization, not a data, route, payload, permission, or persistence migration.
+Service Station is the Service peer. It owns `cz_service` posts, direct `cz_service_category` relationships, Service meta and drafts, inclusion/FAQ pools, lifecycle, validation, endpoints, client state, catalogue presentation, and drawer editing. The consolidation changes code placement and registration, not routes, payloads, permissions, storage, or runtime behavior.
 
-Central post-type/taxonomy registrars declare entities but do not own their behaviour. Cost Builder separately owns `cz_service_pricing`; Service must not proxy it.
+Cost Builder separately owns `cz_service_pricing`. Package Station owns Package relationships, Package Families, Rate Sheets, and Tiers. A Service-shaped or Service-nested URL does not transfer authority.
+
+## Frontend peer
+
+[resources/ts/service-station/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/CLAUDE.md) is the public frontend boundary:
+
+- `types.ts` and `api.ts` own Service contracts and endpoint calls.
+- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns detail state, draft-preferred reads, mutations, and lifecycle actions; [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts) holds pure projections.
+- `surface/` owns catalogue/card adapters and the registered Service drawer adapter; `presentation/` owns the Service Catalogue kit.
+- `drawer/` owns the Service composition, controller hooks, schema, bindings, and editors.
+- [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/register.ts) registers Service navigation, destination, data sources, catalogue kit, and drawer with Station Manager. It is imported only by the admin-station bundle entry and is not public-barrel API.
+
+Station Manager supplies host-engine contracts and resolution only. Admin Station authors placement policy and hosts the resolved presentation/drawer. Service imports of Admin-owned icons and presentation primitives are legal capability consumption, not transferred ownership. Other peers consume Service through [index.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/index.ts).
 
 ## Backend
 
 [src/Modules/Service/](../../wp-content/plugins/compuzign-platform/src/Modules/Service/CLAUDE.md) is the backend owner:
 
-- `ServiceModule.php` wires the module from `Core/Plugin.php`.
-- `Http/ServiceController.php` owns 14 catalogue/detail/module/lifecycle/pool routes.
-- `Support/ServiceSchema.php` owns Service meta keys, module vocabulary, and REST argument definitions.
-- `Support/ServicePools.php` is the one public write contract for Service-owned inclusion/FAQ pools. Package Tier saves use it rather than writing Service meta directly.
+- `ServiceModule.php` wires the module.
+- [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php) owns 14 Service catalogue, detail, module, lifecycle, and pool routes.
+- [ServiceSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Support/ServiceSchema.php) owns Service keys, module vocabulary, sanitization, and REST arguments.
+- [ServicePools.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Support/ServicePools.php) is the public pool-write boundary used by Service and Package Tier saves.
 
-There is no Service repository because WordPress post/meta access remains cohesive in this boundary; a pass-through wrapper would add no authority.
-
-Package Station and Promotion compatibility URLs remain Service-nested, but their handlers/persistence belong to SurfacePackages and Promotions. Route path is not ownership.
-
-## Frontend boundary
-
-[resources/ts/service-station/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/CLAUDE.md) owns Service contracts, endpoints, state, derivations, surfaces, presentation, and drawer composition. Its catalogue summary includes settled browse copy, creation time, pool counts, and direct Service Category labels. External consumers import its `index.ts`; `register.ts` is entry-only and registers Service capabilities with Station Manager.
-
-`service-station/surface/useServiceCatalogue.ts` and `serviceCatalogueAdapter.ts` own the Home read/projection. They join the Service summaries to the Package-owned multi-family relationship read from `package-station/surface/packageFamily/usePackageFamilyRelationships.ts`. The Home kit lives at `service-station/presentation/`; it renders current rows and uses the archived read only for its overview count.
-
-Host-neutral Service UI lives under [service-station/drawer/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/ServiceDrawerContent.tsx), including its manifests, bindings, and editors. The Service-owned [ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx) adapts that composition to the Manager drawer contract; the Admin drawer only hosts it.
-
-Entity-neutral transport, station primitives, drawer-kit presentation, pool item contracts, and Station Manager host-engine contracts remain shared. Service's imports of Admin presentation primitives and icons are declared capability consumption, not transferred ownership.
+WordPress post/meta access stays cohesive here; there is no pass-through repository. Core post-type/taxonomy registrars declare entities but do not own behavior.
 
 ## Contract baseline
 
-[service-route-baseline.php](../../wp-content/plugins/compuzign-platform/tests/service-route-baseline.php) and its fixture record 49 route contracts. It checks paths, methods, permission callbacks, and args—not response bodies, handler bodies, module boot, PHP runtime integration, or browser behavior. TypeScript guards response shape.
-
-## Validation
-
-From the plugin root: `php tests/service-route-baseline.php`, bundle/run `scripts/service-catalogue-projection-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+[service-route-baseline.php](../../wp-content/plugins/compuzign-platform/tests/service-route-baseline.php) snapshots 57 combined route contracts after including `PackageFamiliesController`. It covers paths, methods, permission callbacks, and arguments, not handler bodies, responses, PHP integration, or browser behavior.
 
 ## Related Code Maps
 
-[Service Catalogue](service-catalogue.md), [Package Manager](package-manager.md), [Categories](categories.md), [Cost Builder](cost-builder.md), [Lifecycle](lifecycle-system.md), and [Drawer System](drawer-system.md).
+[Station Manager](station-manager.md), [Service Catalogue](service-catalogue.md), [Service Connections](service-connections.md), [Package Station](package-station.md), [Lifecycle](lifecycle-system.md), and [Drawer System](drawer-system.md).

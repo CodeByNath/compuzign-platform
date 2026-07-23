@@ -2,44 +2,37 @@
 
 ## Purpose and ownership
 
-Manages Package Station Tier occupants: overview/pricing, inclusions, FAQs, publish/enabled/popular state, and bin travel. The station owns fixed slots and occupant persistence. Service catalogue records supply inputs but do not own Tier configuration.
+Package Station owns Tier occupants, fixed slots, overview and pricing selections, inclusions, FAQs, publish/enabled/popular state, occupant-bin travel, validation, and persistence. Service catalogue records and Service-owned pools are inputs; neither Service Station, Admin Station, nor Station Manager owns Tier configuration.
 
-Stable UI/drawer identity is `occupant_id`; the resolved fixed `slotId` remains the mutation address. Never coerce or substitute one for the other.
+Stable surface and drawer identity is `occupant_id` (string). The resolved fixed `slotId` remains the mutation/storage address. Empty slots are not cards, and identities must not be coerced or substituted.
 
-## Shared Tier drawer
+## Registration and presentation
 
-- [TierDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerContent.tsx) owns host-neutral Package overview, Tier modules, Connections, bin presentation, dialogs, and footer.
-- [useTierDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/useTierDrawerController.ts) coordinates state with `useTierModuleEditing`, `useTierBinTravel`, and `tierDetailModel.ts`; presentation stays separate.
-- [tier.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/schema/entities/tier.ts), [tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/schema/bindings/tier.tsx), and [TierOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/editors/TierOverviewEditor.tsx) own the neutral manifest, shell bindings, and overview form.
-- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) is the Package Station adapter; it rejects non-string occupant ids and mounts the shared composition inside the one drawer shell.
+[register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/register.ts) registers the `package-tier-workspace` data source, `tier-workspace` template kit, and `tier` drawer contract with Station Manager. Admin Station authors the string-key presentation-policy binding for the Packages destination; its shell hosts the resolved kit and drawer without acquiring Tier authority.
 
-## State and persistence
+The workspace is Package-owned:
 
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package/Tier reads, module drafts, saves, settle, enable, popular, pool operations, and bin mutations.
-- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects settled occupants and resolves occupant ids back to slots.
-- [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) derives Rate Sheet totals/issues.
-- [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns Tier shape, sanitization, compatibility, and `occupant_id` projection.
-- [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`.
-- [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns module, status, popular, bin, and settle routes. New pool items write through Service-owned `ServicePools`.
+- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) composes Package Families, the host Service context, and Package Station state without adding persistence.
+- [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/projection.ts) scopes occupants to a Family through Rate Sheet source-Service provenance.
+- [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns transient Family, Tier, and Focus/Grid selection.
+- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) validates drawer identity and mounts the Package-owned drawer composition.
 
-Presentation calls no endpoints. Empty shells do not become cards. Fixed-slot ordering/restore consumers retain their slot keys.
+A Package Family is working scope only. It never owns Tier records or gains a per-Family Tier store.
 
-## Station-level Tier tool
+## Drawer, state, and persistence
 
-The **Package Station** hosts Tier as its first Station-level tool — activated once by a surface-binding row, never per-Family and never persisted (see [Surface Binding](admin-station-surface-binding.md)). Files under `resources/ts/package-station/surface/packageTierWorkspace/`:
+- [TierDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerContent.tsx) is the host-neutral composition.
+- [useTierDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/useTierDrawerController.ts) coordinates module editing, bin travel, dialogs, and footer state without rendering JSX.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns reads, drafts, saves, settle, status, pool operations, and bin mutations.
+- [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects occupants and resolves them back to slots.
+- [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns occupant compatibility and lifecycle shapes; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations; [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`.
 
-- [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/projection.ts) — the pure Family-scope join. A Tier occupant projects under a Package Family iff one of its Rate Sheet selections resolves (via `source_service_id`) to one of the Family's authoritative `related_service_ids` — the same provenance the backend uses for `dependents.tier_selections`. Guarded by [package-tier-workspace-contract.ts](../../wp-content/plugins/compuzign-platform/scripts/package-tier-workspace-contract.ts).
-- [familySummary.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/familySummary.ts) — the pure summary model: a Family scope → its name, description-as-positioning, authoritative status, and exactly the three authoritative `dependents` counts. Fixes the read-only summary's shape so no fabricated figure (estimated margin, demand score, "last updated") can enter it. Guarded by the same contract.
-- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) — the data source composing `fetchPackageFamilies`, `useHostService`, and `usePackageStation`. Adds no persistence.
-- [tierOccupantCard.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/tierOccupantCard.ts) — the one Tier-occupant card projection, shared with `useServiceTierCards`.
-- Kit: [`presentation/package-tier-workspace/`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/) composes the **Tier Workspace Engine** as small owned pieces — `PackageTierWorkspace.tsx` (orchestrator holding the transient selected-Family, selected-Tier, and Focus/Grid view-mode state), `TierNavigation.tsx` (the Focus view's left Tier `tablist`), `TierDetailPanel.tsx` (the one focused Tier, with the View/Edit action), and the right-side Family group formed by `PackageFamilyScope.tsx` (native Family `<select>`) plus `PackageFamilySummary.tsx` (name, description, status, and exactly three authoritative dependency counts; read-only, **no Edit action**). The large Package Families card wall is no longer bound to the Packages station; Family is scope inside the engine. Focus is the default and reads **Tier Tabs → Focused Tier → Family Group**; Grid reuses the shared card grid while keeping the same Family group available. The first authoritative Family is the initial transient scope. A later Family choice remains transient, Tier selection falls back to the first projected Tier unless the prior occupant still projects, and actions dispatch `occupant_id` into the shared `tier` drawer.
-
-The Family is filter/scope only: it never owns Tier records, never gains a per-Family store, and `occupant_id` stays the identity (`slotId` stays the mutation address). Tier persistence and lifecycle remain the single Package Station authority above.
+Presentation calls no endpoints. New inclusion/FAQ pool items go through Service Station's public write contract.
 
 ## Validation
 
-From the plugin root: `php tests/tier-occupant-compatibility.php`, `npm run contract:tier-occupant-admin`, `npm run contract:package-tier-workspace`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+Run `php tests/tier-occupant-compatibility.php`, `npx tsx scripts/tier-occupant-admin-contract.ts`, `npx tsx scripts/package-tier-workspace-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 
-[Package Manager](package-manager.md), [Rate Sheet](rate-sheet.md), [Drawer System](drawer-system.md), and [Lifecycle](lifecycle-system.md).
+[Package Station](package-station.md), [Package Manager](package-manager.md), [Rate Sheet](rate-sheet.md), [Drawer System](drawer-system.md), and [Lifecycle](lifecycle-system.md).

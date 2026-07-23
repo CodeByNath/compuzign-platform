@@ -1,43 +1,44 @@
 # Admin Station
 
-The Admin Station is an independent frontend administration host mounted by `[compuzign_admin_station]`. It owns shell chrome, presentation/control capabilities, presentation policy, and one entity-agnostic drawer shell. Station Manager coordinates navigation and surface resolution; domain Stations retain their capabilities and authority.
+Admin Station is the presentation and control Station mounted by `[compuzign_admin_station]`. It owns the visible administration shell, presentation tools, and display policy. It is also the thin host through which Station Manager composes capabilities registered by Service Station and Package Station; hosting does not transfer domain or persistence authority.
 
-Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
+Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/`
 
-## Boundary
+## Ownership
 
-Admin Station consumes Station Manager contracts and registered peer capabilities. It must not runtime-import `components/admin`, `StepContext`, Command Centre shells, relation hosts, or their registries. Shared placement never transfers persistence authority.
+- `presentation/` owns the station presentation shell, generic card-grid kit, Service Category carousel, status pill, metric, and split-action components. Peer imports of these modules are legal consumption of Admin presentation capabilities.
+- `shell/` owns layout and navigation chrome, icons, local controls, and the single entity-agnostic drawer shell.
+- `register.ts` registers Admin's own Promotions navigation/destination, Service Category source, presentation kits, and Category drawer. Its separate `registerPresentationPolicy()` declares all current surface bindings and the default home by string key.
+- `stations/serviceCategory/` is retained Admin residue until Service Categories are re-owned in a later increment.
+- `theme/`, `home/`, and `styles/` remain presentation concerns.
 
-It mounts only on its frontend shortcode page, not `/wp-admin/`.
+Admin Station does not own Service or Package data, validation, lifecycle, saves, or drawer compositions. It does not runtime-import the legacy `components/admin` tree, Command Centre shells, `StepContext`, or their registries.
 
-## Frontend shell
+## Boot and runtime
 
-- `AdminStation.tsx` — root providers and theme scope.
-- `AdminStationContext.tsx` — theme plus active destination state/resolution.
-- `shell/AdminStationLayout.tsx` — Header, Body, Footer, slide menu, and sibling drawer overlay.
-- `shell/AdminStationHeader.tsx`, `AdminStationSlideMenu.tsx`, `AdminStationDropdown.tsx` — shell navigation and local controls.
-- `shell/AdminStationBody.tsx` — resolves every presentation binding for the active station and dispatches card intents to the drawer controller. It contains no entity branch.
-- `shell/drawer/` — one shell/controller; owning Stations register drawer contracts through Station Manager. See [Admin Station Drawer](admin-station-drawer.md).
-- `register.ts` — Admin presentation/control registration plus string-key presentation policy.
-- `theme/useStationTheme.ts` — guarded localStorage theme persistence.
+`resources/ts/modules/admin-station.ts` is the only importer of peer `register.ts` files. It imports styles, calls Service, Package, and Admin registration, applies Admin presentation policy, finalizes Station Manager, and then registers the Preact app with the runtime mount registry.
 
-`resources/ts/modules/admin-station.ts` imports Service, Package, and Admin registration functions, applies Admin presentation policy, finalizes Station Manager, then mounts the app. It remains the only importer of peer `register.ts` files. `vite.config.ts` emits `dist/js/admin-station.js`, `dist/css/admin-station.css`, and the shared drawer stylesheet entry.
+The app flow is:
 
-## Backend
+```text
+registered navigation → resolved destination → active station
+  → Admin presentation shell → Station Manager surface host
+  → owning Station source + registered presentation kit
+  → native-record intent → Admin drawer shell
+  → owning Station drawer contract and save authority
+```
 
-- `src/Modules/AdminStation/AdminStationModule.php` — shortcode, capability gate, and health registration.
-- `app/modules/admin-station/templates/admin-station.php` — mount element.
-- `src/Core/AssetLoader.php` — Admin Station and shared drawer asset registration.
-- `src/Core/Plugin.php` — module boot.
+`AdminStationContext.tsx` holds only theme and selected destination state. `shell/AdminStationBody.tsx` selects the resolved station, falling back to Station Manager's default, and renders one `StationPresentationShell`. Successful drawer mutations refresh only the surface that opened the drawer.
 
-## Runtime flow
+## Backend and assets
 
-Station Manager resolves navigation and Admin-authored presentation bindings; its `StationSurfaceHost` composes the registered read source and kit. Native record intents resolve the owning Station's drawer contract inside the Admin shell. Successful mutations refresh only the originating wall.
+- `src/Modules/AdminStation/AdminStationModule.php` owns the shortcode, capability gate, and health registration.
+- `app/modules/admin-station/templates/admin-station.php` supplies the mount element.
+- `src/Core/AssetLoader.php` registers the Admin Station and shared drawer assets.
+- `vite.config.ts` emits the Admin Station JavaScript and CSS bundles.
 
-## Validation
-
-From `wp-content/plugins/compuzign-platform/`: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+The Station mounts only on its frontend shortcode page, not `/wp-admin/`.
 
 ## Related Code Maps
 
-[Navigation](admin-station-navigation.md), [Surface Binding](admin-station-surface-binding.md), [Home Shell](admin-station-home-shell.md), [Drawer](admin-station-drawer.md), [Styles](admin-station-styles.md), and [Cards](admin-station-cards.md).
+[Station Manager](station-manager.md), [Navigation](admin-station-navigation.md), [Surface Binding](admin-station-surface-binding.md), [Home Shell](admin-station-home-shell.md), [Drawer](admin-station-drawer.md), [Cards](admin-station-cards.md), and [Styles](admin-station-styles.md).

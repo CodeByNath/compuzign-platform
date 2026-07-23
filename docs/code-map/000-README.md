@@ -6,6 +6,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 
 ### Admin Station platform
 
+- [Station Manager](station-manager.md)
 - [Admin Station](admin-station.md)
 - [Admin Station Navigation & Resolver](admin-station-navigation.md)
 - [Admin Station Surface Binding](admin-station-surface-binding.md)
@@ -18,6 +19,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 
 ### Catalogue and commercial domains
 
+- [Package Station](package-station.md)
 - [Package Manager](package-manager.md)
 - [Service Catalogue](service-catalogue.md)
 - [Service Station](service-station.md)

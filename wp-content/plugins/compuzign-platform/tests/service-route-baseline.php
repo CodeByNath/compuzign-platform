@@ -78,6 +78,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 $controllers = [
     static fn() => new \CompuZign\Platform\Modules\Service\Http\ServiceController(),
     static fn() => new \CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController(),
+    static fn() => new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageFamiliesController(),
     static fn() => new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(
         new \CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository()
     ),

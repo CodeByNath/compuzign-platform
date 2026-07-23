@@ -2,35 +2,31 @@
 
 ## Purpose
 
-Describes how a Service relates to the packages, promotions, and categories connected to it, and where that connection data is composed and persisted today.
+Maps Service relationships to their current composition and persistence owners. There is no platform-wide relation registry: Station Manager registers and resolves surfaces and drawers, but it does not model, store, or mutate domain connections.
 
-## Status
+## Current connections
 
-The provider-neutral connection graph — a relation registry, a multi-provider coordinator, and Package/Promotion/read-only providers — was a Command Centre frontend system and has been removed with the Command Centre. No second graph replaced it: connection composition now lives directly in each owning Station's host-neutral drawer composition, backed by its authoritative station hook and controller. Persistence authority never moved.
+- **Package Family ↔ Service.** Package Station owns source relationships and native `related_service_ids`. [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/package-family/PackageFamilyDrawerContent.tsx) presents Service, Rate Sheet, and Tier dependency connections. [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) is the Package Family client write boundary.
+- **Tier ↔ Service.** The Package-owned Tier drawer consumes Service Station's public `serviceConnectionBinding`, authored in [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/schema/bindings/service.tsx) and exported from the Service barrel. Tier selection and persistence remain Package-owned; Service pool creation remains Service-owned.
+- **Category ↔ Service.** The Admin-residue Category drawer shows assigned-Service connections as a read-only projection. Service assignment remains Service-owned; see [Categories](categories.md).
+- **Promotion ↔ Package.** Promotion records share `cz_package_station` persistence, but Promotion ownership remains with the current Admin/Promotions residue and its routes remain in `Modules/Promotions`; Promotions are not Package Station children. See [Promotions](promotions.md).
 
-## Where connections live now
+Owning Station drawer compositions render these relationships. Station Manager carries only registered contracts and the opening record identity; Admin Station's drawer shell only hosts the resolved owner contract.
 
-- **Package ↔ Service.** The Package Family drawer composes Services, Rate Sheet, and Tier dependency Connections. Composition: [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/package-family/PackageFamilyDrawerContent.tsx); client write boundary: [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) and [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts).
-- **Tier ↔ Service.** Package's Tier drawer consumes Service's public `serviceConnectionBinding`, authored in [service.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/drawer/schema/bindings/service.tsx) and exported through the Service Station barrel.
-- **Category ↔ Service.** The Category drawer shows assigned-Service Connections as read-only projections; assignment stays Service-owned. See [Categories](categories.md).
-- **Promotion ↔ Package.** Promotions are Package Station children; see [Promotions](promotions.md).
+## Persistence boundaries
 
-## Persistence authority
+- [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists Package source relationships and commercial records in `cz_package_station`.
+- [PackageCategoryGroups.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageCategoryGroups.php) resolves Family membership and dependency guards.
+- [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) owns Package Family lifecycle routes and exposes the Package-owned relationship projection.
+- [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns Package Manager, Tier, and bin mutations.
+- [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php) owns Service relationships written through Service routes.
 
-- [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists Package source relationships in `cz_package_station`.
-- [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns the manager/tier/bin mutations.
-- [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) exposes each Package Family's related native Service IDs, resolved by Package-owned `PackageCategoryGroups::relatedServiceIds()`.
-
-Source facts stay read-only in the drawer; grouping, ordering, and membership are the mutable relationship state, and they patch through the authoritative station.
+Read-model facts such as source labels and provenance remain projections. Mutable grouping, ordering, membership, and Tier selections patch through their authoritative Station boundaries.
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `php tests/package-category-groups.php`, and `npm run docs:check`.
+Run `php tests/package-category-groups.php`, `npx tsx scripts/service-catalogue-projection-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 
-[Service Catalogue](service-catalogue.md), [Package Manager](package-manager.md), and [Promotions](promotions.md).
-
-## Related History
-
-[Package Category Groups v1](../project-history/PackageCategoryGroups-v1.md) — the Package Category Group assignment model and dependency guards.
+[Service Station](service-station.md), [Package Station](package-station.md), [Service Catalogue](service-catalogue.md), and [Package Manager](package-manager.md).

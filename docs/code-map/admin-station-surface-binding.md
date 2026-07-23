@@ -1,56 +1,51 @@
 # Admin Station Surface Binding
 
-The dynamic station/placement → presentation projection engine. It composes live walls without shell-level entity branching.
+Surface binding is the Station Manager coordination seam that maps a station placement to a registered read source, template kit, drawer contract, and action intents. Admin Station authors the display policy; domain Stations own and register the capabilities named by that policy.
 
-Roots: `wp-content/plugins/compuzign-platform/resources/ts/station-manager/` for coordination and `resources/ts/admin-station/register.ts` for presentation policy.
+Roots: `wp-content/plugins/compuzign-platform/resources/ts/station-manager/` and `resources/ts/admin-station/register.ts`.
 
-## Runtime chain
+## Registration and policy
+
+`station-manager/registry/surfaceBindings.ts` accepts binding rows, rejects duplicate `stationId::surfaceId::placement` keys, preserves registration order as the stable tie-breaker, and builds order-sorted placement indexes at finalization. It also stores the one default-home station id.
+
+`admin-station/register.ts::registerPresentationPolicy()` declares the current rows:
+
+| Station / surface | Order | Source | Kit | Drawer |
+| --- | ---: | --- | --- | --- |
+| `services/package-families` | 0 | `package-families` | `category-group-cards` | `package-family` |
+| `services/service-catalogue` | 1 | `service-catalogue` | `service-catalogue` | `service` |
+| `packages/tier-tool` | 0 | `package-tier-workspace` | `tier-workspace` | `tier` |
+
+All use `placement: 'presentation'` and `conditions.scope: 'current'`. The policy also sets `services` as the default home. These are string-key references: Admin does not import peer data or business implementations into its policy function.
+
+Service Categories, Service cards, and standalone Service Tier cards have registered sources, and the Category carousel is a registered kit, but none is currently bound to a presentation wall.
+
+## Finalization and rendering
+
+`station-manager/registry/boot.ts` locks every registry before mount. It verifies that each binding resolves to a registered data source and template kit; unresolved keys fail boot. Drawer resolvability intentionally retains the existing null behavior and is not asserted at finalize.
+
+At runtime:
 
 ```text
-active station + placement
-  → StationPresentationShell (one per Home)
-  → resolveSurfaceBindings() returns walls sorted by declared order
-  → StationSurfaceHost resolves dataSourceKey + templateKitKey
-  → read hook supplies { items, loading, error, refetch }
-  → kit emits native-identity actions
-  → shell dispatches intent + that wall's refetch handle
-  → registered drawer adapter
+active station + presentation placement
+  → resolveSurfaceBindings() in declared order
+  → Admin-owned StationPresentationShell
+  → StationSurfaceHost resolves the source hook and kit
+  → kit emits { native recordId, actionId }
+  → binding resolves the drawer intent
+  → Admin drawer shell hosts the owning Station's contract
 ```
 
-Bindings declare numeric `order`; the resolver uses a stable sort. Service Home presents Package Families (`0`) then the Service Catalogue (`1`). The **Packages** station is led by the Tier tool (`0`, wall title **Tier Workspace Engine**), registered once as `surfaceId: 'tier-tool'`, `dataSourceKey: 'package-tier-workspace'`, `templateKitKey: 'tier-workspace'`, and `drawerTemplateKey: 'tier'`. No Package Families card wall is bound here: the Tier tool owns its Family group (transient selector plus read-only authoritative summary), so Family is engine scope rather than a preceding wall. The Families source, kit, and drawer remain registered for Service Home. Tool availability is a station-level binding row, never per-Family or persisted; future tools add rows. The former Category carousel, Service cards, and Package Tier wall remain registered but unbound.
-
-## Authoritative files
-
-- `station-manager/registry/surfaceBindings.ts` — binding registration, stable order-sorted resolution, and default-home accessors.
-- `admin-station/register.ts` — Admin-authored binding rows, conditions, template/drawer keys, and default Home; it also registers Admin's own presentation capabilities.
-- `service-station/register.ts` and `package-station/register.ts` — peer-owned navigation, destinations, sources, kits, and drawers.
-- `admin-station/presentation/StationPresentationShell.tsx` — the ordered section loop and titled presentation chrome.
-- `station-manager/registry/{dataSources,templateKits}.ts` — source and kit registration/resolution contracts.
-- `station-manager/recordIdentity.ts` — zero-dependency `StationRecordId = string | number`.
-- `station-manager/StationSurfaceHost.tsx` — generic resolver-backed source/kit composer.
-- `station-manager/useRetainedCollection.ts` — wall-local stale-while-revalidate behavior.
-- `station-manager/registry/boot.ts` — locks registries and validates binding source/kit resolution before mount.
-- `shell/AdminStationBody.tsx` — activates the station, hands one presentation shell to the Home, and forwards intents to the drawer.
+`StationSurfaceHost` mounts with a key containing the data-source key so the selected hook stays stable for that mount. It passes record identity through without parsing or coercion. Its dispatch carries that wall's `refetch` handle; a successful save therefore refreshes only the originating wall.
 
 ## Invariants
 
-- The shell never branches on entity; adding a wall changes a binding plus a real source/kit registration.
-- Section sequence is the binding's declared `order`, never array position alone; the stable sort keeps registration order as the only tie-breaker.
-- The Home renders exactly one presentation shell per active station; sections are never separate competing presentation regions.
-- A source hook is stable per mounted host; the host key includes its `dataSourceKey`.
-- Refresh is structural and targeted: the opening wall supplies the only refetch handle invoked after mutation.
-- Record ids remain native. Package Family and Tier ids are strings; Category and Service ids are numbers. The host neither parses nor coerces them.
-- Bindings import no Command Centre runtime module.
-- Only surfaces with real sources and kits are bound. Registered but unbound sources remain reusable.
-
-## Drawer boundary
-
-`ResolvedStationIntent` carries the native `recordId`, resolved intent, and `drawerTemplateKey` into the shared [Admin Station Drawer](admin-station-drawer.md). Action-to-tab mapping lives in binding `actionIntents`; the deleted `categoryGroupDrawer.ts` seam must not return.
-
-## Validation
-
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+- Station Manager owns registration, ordering, lookup, finalization, and runtime composition—not UI or domain behavior.
+- Admin owns section chrome and display policy, not the capabilities named by peer keys.
+- A bound source and kit must exist before finalization. The Admin-owned `category-group-cards` kit is load-bearing for the Package Families wall.
+- Registered but unbound capabilities remain available without appearing on a wall.
+- Adding or reordering a wall changes policy and real registrations, never an entity branch in the shell.
 
 ## Related Code Maps
 
-[Admin Station](admin-station.md), [Navigation](admin-station-navigation.md), [Cards](admin-station-cards.md), and [Drawer](admin-station-drawer.md).
+[Station Manager](station-manager.md), [Admin Station](admin-station.md), [Navigation](admin-station-navigation.md), [Cards](admin-station-cards.md), and [Drawer](admin-station-drawer.md).
