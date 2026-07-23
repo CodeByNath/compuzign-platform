@@ -13,7 +13,7 @@ import {
 } from '@/api/endpoints/admin';
 // Service owns the inclusion/FAQ pools; the Package Station creates canonical
 // items through the Service boundary.
-import { createServiceInclusionPoolItem, createServiceFaqPoolItem } from '@/admin-station/stations/service';
+import { createServiceInclusionPoolItem, createServiceFaqPoolItem } from '@/service-station';
 import type {
   ServicePackageStationResponse,
   ServicePackageStationData,

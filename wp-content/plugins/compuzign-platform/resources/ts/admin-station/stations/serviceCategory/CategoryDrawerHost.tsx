@@ -8,7 +8,7 @@ import { fetchAdminCategories } from '@/api/endpoints/admin';
 import { useApi } from '@/hooks/useApi';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { CategoryDrawerContent } from '@/entity-drawers/category/CategoryDrawerContent';
-import { fetchAdminCatalog } from '../service';
+import { fetchAdminCatalog } from '@/service-station';
 import type { DrawerContentProps } from '../drawers/drawerTypes';
 
 export function CategoryDrawerHost({

@@ -61,7 +61,7 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf
 const catalogue = source('resources/ts/admin-station/presentation/service-catalogue/ServiceCatalogue.tsx');
 const model = source('resources/ts/admin-station/presentation/service-catalogue/model.ts');
 const adapter = source('resources/ts/admin-station/stations/serviceSurface/serviceCatalogueAdapter.ts');
-const serviceTypes = source('resources/ts/admin-station/stations/service/types.ts').split('// ── DETAIL')[0];
+const serviceTypes = source('resources/ts/service-station/types.ts').split('// ── DETAIL')[0];
 const serviceController = source('src/Modules/Service/Http/ServiceController.php')
   .split('public function listServices')[1]
   .split('public function createService')[0];

@@ -650,7 +650,7 @@ export interface AdminRequestsResponse {
 }
 
 // Service contracts are owned by the Service Station and are NOT re-exported
-// here. Import them from '@/admin-station/stations/service'.
+// here. Import them from '@/service-station'.
 
 // ── Category station (S6) ─────────────────────────────────────────────────────
 

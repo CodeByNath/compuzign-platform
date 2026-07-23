@@ -18,7 +18,7 @@ import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import { SERVICE_ENTITY } from '../schema/entities/service';
 import { TIER_KEYS, TIER_LABELS } from '../shared/serviceDrawerShared';
-import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
+import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/service-station';
 import { useServiceDrawerController } from './useServiceDrawerController';
 import { ServiceDrawerFooter } from './ServiceDrawerFooter';
 import { ServiceDrawerDialogs } from './ServiceDrawerDialogs';

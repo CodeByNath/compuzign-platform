@@ -11,7 +11,7 @@
  * without risking a cycle.
  *
  * SCOPE: only genuinely cross-station pool contracts belong here. Service
- * request/response payloads live in admin-station/stations/service/types.ts;
+ * request/response payloads live in service-station/types.ts;
  * Package- and Promotion-specific models stay in api/types/admin.ts.
  */
 

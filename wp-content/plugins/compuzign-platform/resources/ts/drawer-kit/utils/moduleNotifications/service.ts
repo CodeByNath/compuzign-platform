@@ -4,7 +4,7 @@
 import type { ServiceInclusion, ServiceFaq, ServiceItem } from '@/api/types/cost-builder';
 // Targets the station's './types' module, not its public barrel: useServiceStation
 // imports this file, so going through the barrel would close a cycle.
-import type { OverviewDraftData } from '@/admin-station/stations/service/types';
+import type { OverviewDraftData } from '@/service-station/types';
 import {
   checkOverviewCompleteness,
   checkOverviewCompletenessFromDraft,

@@ -5,7 +5,7 @@
 // relationships arrive separately from their Package-owned read boundary and
 // are joined here without transferring their authority to Service.
 
-import type { ServiceSummary } from '../service';
+import type { ServiceSummary } from '@/service-station';
 import {
   packageFamiliesForService,
   type PackageFamilyRelationship,

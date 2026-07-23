@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
-import type { OverviewDraft } from '@/admin-station/stations/service';
+import type { OverviewDraft } from '@/service-station';
 import { decodeHtml } from '@/utils/format';
 
 export function initOverviewDraft(service: ServiceItem): OverviewDraft {

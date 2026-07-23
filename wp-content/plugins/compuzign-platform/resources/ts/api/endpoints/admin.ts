@@ -43,7 +43,7 @@ import type {
 import type { InclusionItem } from '../types/pools';
 
 // Service endpoint functions are owned by the Service Station and are NOT
-// re-exported here. Import them from '@/admin-station/stations/service'.
+// re-exported here. Import them from '@/service-station'.
 
 export function fetchAdminOverview(): Promise<AdminOverview> {
   return apiClient.get<AdminOverview>('admin/overview');

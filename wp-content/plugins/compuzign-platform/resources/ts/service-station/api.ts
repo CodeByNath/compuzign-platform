@@ -1,10 +1,9 @@
 /*
  * Service Station — the endpoint functions for the cz_service entity.
  *
- * The authoritative implementations, moved verbatim from api/endpoints/admin.ts
- * when the frontend Service boundary was established; that file now re-exports
- * these and holds no Service implementation of its own. There is exactly one
- * implementation of each call.
+ * The authoritative implementations of the Service-owned endpoint calls.
+ * api/endpoints/admin.ts holds no Service implementation and does not re-export
+ * these; there is exactly one implementation of each call, here.
  *
  * OWNERSHIP TEST: a function belongs here iff it calls one of the 14 routes
  * owned by the backend Service module (src/Modules/Service ServiceController).

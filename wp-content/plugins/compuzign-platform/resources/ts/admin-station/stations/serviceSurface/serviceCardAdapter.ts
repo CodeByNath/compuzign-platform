@@ -19,7 +19,7 @@
 //   - Two actions: View and Edit. Both are real drawer tabs (the Service drawer
 //     registers both modes), so neither is a dead affordance.
 
-import type { ServiceSummary } from '../service';
+import type { ServiceSummary } from '@/service-station';
 import { resolveStationStatus } from '@/drawer-kit/utils/moduleStatus';
 import { decodeHtml } from '@/utils/format';
 import { ServicesIcon, ViewIcon, TiersIcon, PackagesIcon } from '../../shell/icons';

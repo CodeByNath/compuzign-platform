@@ -11,8 +11,8 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import { createServiceCategory, updateServiceCategory } from '@/api/endpoints/admin';
-import type { ServiceStation } from '@/admin-station/stations/service';
-import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/admin-station/stations/service';
+import type { ServiceStation } from '@/service-station';
+import type { OverviewDraft, InclusionsDraft, FaqsDraft } from '@/service-station';
 import { initOverviewDraft } from '../editors/ServiceOverviewEditor';
 import { useAutoDismiss } from '../shared/drawerChrome';
 import type { ServiceEditingSection } from './serviceDrawerTypes';

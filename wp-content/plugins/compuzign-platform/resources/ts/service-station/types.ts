@@ -2,18 +2,16 @@
  * Service Station — frontend contracts for the cz_service entity.
  *
  * The authoritative definitions of every Service-owned API and application
- * type. Moved verbatim from api/types/admin.ts when the frontend Service
- * boundary was established; that file now re-exports these for existing
- * consumers and holds no Service definitions of its own.
+ * type. api/types/admin.ts does not re-export or hold any Service definition —
+ * consumers import these from the Service Station barrel (index.ts).
  *
  * These mirror the backend module src/Modules/Service (ServiceController's 14
  * routes). Fields, optionality, and comments are unchanged — this is
  * relocation, not redesign.
  *
- * DELIBERATELY ZERO IMPORTS. api/types/admin.ts re-exports from this file, so
- * importing anything back from it would create a cycle. Keep this file
- * self-contained; if a Service type ever needs a shared shape, resolve the
- * shared type's ownership rather than importing the god module here.
+ * DELIBERATELY ZERO IMPORTS. Keep this file self-contained; if a Service type
+ * ever needs a shared shape, resolve the shared type's ownership rather than
+ * importing a cross-boundary module here.
  *
  * Organised by read/write boundary:
  *   CATALOGUE   list/Home summary data

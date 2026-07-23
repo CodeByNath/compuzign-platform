@@ -23,7 +23,7 @@
 
 import { useCallback, useRef, useState } from 'preact/hooks';
 import type { ServiceItem } from '@/api/types/cost-builder';
-import { useServiceStation } from '@/admin-station/stations/service';
+import { useServiceStation } from '@/service-station';
 import type {
   ServiceOverviewShellData,
   ServiceInclusionsShellData,

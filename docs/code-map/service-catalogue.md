@@ -19,7 +19,7 @@ The Admin Station is the sole host. [useServiceCatalogue.ts](../../wp-content/pl
 
 ## State, REST, and persistence
 
-- [stations/service/](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/index.ts) is the public typed frontend boundary. Its list response supplies the Service's direct Category, never the Category taxonomy parent. `useServiceStation.ts` owns fetch/mutation state; `derive.ts` owns pure projections.
+- [stations/service/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/index.ts) is the public typed frontend boundary. Its list response supplies the Service's direct Category, never the Category taxonomy parent. `useServiceStation.ts` owns fetch/mutation state; `derive.ts` owns pure projections.
 - [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php) owns Service routes and WordPress post/meta mutations.
 - [AdminPackageCategoryGroupsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminPackageCategoryGroupsController.php) exposes Package Family list rows with their related native Service IDs, resolved by Package-owned `PackageCategoryGroups::relatedServiceIds()` from source relationships.
 - [usePackageFamilyRelationships.ts](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/packageFamily/usePackageFamilyRelationships.ts) reads every Family lifecycle scope; `serviceCatalogueAdapter.ts` joins those relationships into `packageFamilies: Array<{ id: string; name: string }>` without moving Package authority into Service.

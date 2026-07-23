@@ -5,7 +5,7 @@
 // with the Station (StationLifecycle.php, useServiceStation, the module REST
 // endpoints); everything here is a reference to existing presentation assets.
 
-import type { ServiceSummary } from '@/admin-station/stations/service';
+import type { ServiceSummary } from '@/service-station';
 import {
   serviceOverviewShell,
   serviceInclusionsShell,

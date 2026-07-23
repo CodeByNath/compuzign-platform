@@ -6,11 +6,11 @@
  * read, write, or type a Service, and nothing else.
  *
  * It owns the Service contracts, the Service endpoint functions, and the
- * Service state layer. The neutral Service drawer composition lives in
- * entity-drawers and imports through this barrel; both hosts mount it through
- * adapters. The old compatibility re-exports in api/types/admin.ts and
- * api/endpoints/admin.ts, and the hooks/useServiceStation.ts forwarder, were
- * removed at the Phase 7 cutover.
+ * Service state layer. This is a top-level peer Station, not part of the Admin
+ * Station host: the Admin Station discovers and renders it through registries,
+ * and other peers consume it only through this barrel. Service contracts and
+ * endpoints are not re-exported from api/types/admin.ts or
+ * api/endpoints/admin.ts — this barrel is the single public boundary.
  *
  * INTERNAL IMPORTS: sibling files import from './types' / './api' directly,
  * never through this barrel — importing your own barrel invites cycles. The

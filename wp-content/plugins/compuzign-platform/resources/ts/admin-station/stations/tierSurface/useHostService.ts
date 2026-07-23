@@ -13,8 +13,8 @@
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { useSurfacePackages } from '@/hooks/useSurfacePackages';
-import { fetchAdminCatalog } from '../service';
-import type { ServiceSummary } from '../service';
+import { fetchAdminCatalog } from '@/service-station';
+import type { ServiceSummary } from '@/service-station';
 
 export interface HostServiceResult {
   service: ServiceSummary | null;

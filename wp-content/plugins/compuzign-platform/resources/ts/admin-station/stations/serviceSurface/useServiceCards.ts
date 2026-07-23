@@ -12,7 +12,7 @@
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
-import { fetchAdminCatalog } from '../service';
+import { fetchAdminCatalog } from '@/service-station';
 import { toServiceCard } from './serviceCardAdapter';
 import { useRetainedCollection } from '../useRetainedCollection';
 import type { CategoryGroupCardItem } from '../../presentation/category-groups/types';

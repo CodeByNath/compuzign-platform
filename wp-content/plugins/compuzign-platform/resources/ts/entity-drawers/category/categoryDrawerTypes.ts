@@ -1,5 +1,5 @@
 import type { CategoryStationItem } from '@/api/types/admin';
-import type { ServiceSummary } from '@/admin-station/stations/service';
+import type { ServiceSummary } from '@/service-station';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 

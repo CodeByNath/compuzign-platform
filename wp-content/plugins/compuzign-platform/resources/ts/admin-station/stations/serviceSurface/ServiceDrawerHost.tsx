@@ -23,7 +23,7 @@ import {
   normalizeAdminCategories,
   buildServiceItemForStationHandoff,
 } from '@/entity-drawers/service/serviceSeed';
-import { fetchAdminCatalog } from '../service';
+import { fetchAdminCatalog } from '@/service-station';
 import type { DrawerContentProps } from '../drawers/drawerTypes';
 
 export function ServiceDrawerHost({

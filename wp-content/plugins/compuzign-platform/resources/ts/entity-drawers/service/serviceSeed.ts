@@ -12,7 +12,7 @@
 // comes from there.
 
 import type { Category, ServiceItem, TierId, PricingTierData } from '@/api/types/cost-builder';
-import type { ServiceSummary } from '@/admin-station/stations/service';
+import type { ServiceSummary } from '@/service-station';
 
 // The lightweight category projection embedded in the Service catalogue
 // response. Entries with a null id are dropped — a category the picker cannot

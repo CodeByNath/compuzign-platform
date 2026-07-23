@@ -8,7 +8,7 @@
 // service manifest's placements (SERVICE_ENTITY.placements.table / .travel) —
 // this file is their definition home, the manifest is their address.
 
-import type { ServiceSummary } from '@/admin-station/stations/service';
+import type { ServiceSummary } from '@/service-station';
 import { ModuleStatusPill } from '@/drawer-kit/ui/ModuleStatusPill';
 import { stationStatusLabel } from '@/drawer-kit/utils/moduleStatus';
 import type { StationCommercialSummary } from '@/drawer-kit/utils/moduleStatus';

@@ -21,7 +21,7 @@ Package Station and Promotion compatibility URLs remain Service-nested, but thei
 
 ## Frontend boundary
 
-[resources/ts/admin-station/stations/service/](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/service/CLAUDE.md) owns Service contracts, endpoints, state, and pure derivations. Its catalogue summary includes settled browse copy, creation time, pool counts, and direct Service Category labels. It exposes no taxonomy-parent or Package Family fields. External consumers import its `index.ts`; modules inside its own graph import siblings to avoid cycles.
+[resources/ts/service-station/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/CLAUDE.md) owns Service contracts, endpoints, state, and pure derivations. Its catalogue summary includes settled browse copy, creation time, pool counts, and direct Service Category labels. It exposes no taxonomy-parent or Package Family fields. External consumers import its `index.ts`; modules inside its own graph import siblings to avoid cycles.
 
 `admin-station/stations/serviceSurface/useServiceCatalogue.ts` and `serviceCatalogueAdapter.ts` own the Home read/projection. They join the Service summaries to the Package-owned multi-family relationship read from `stations/packageFamily/usePackageFamilyRelationships.ts`. The Home kit lives at `admin-station/presentation/service-catalogue/`; it renders current rows and uses the archived read only for its overview count.
 

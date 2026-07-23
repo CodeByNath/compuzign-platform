@@ -8,8 +8,8 @@
 // it when a dialog resolves.
 
 import { useCallback, useState } from 'preact/hooks';
-import type { ServiceStation } from '@/admin-station/stations/service';
-import type { OverviewDraft } from '@/admin-station/stations/service';
+import type { ServiceStation } from '@/service-station';
+import type { OverviewDraft } from '@/service-station';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { useGuardedClose } from '../shared/drawerChrome';
 import type { ServiceModuleEditing } from './useServiceModuleEditing';

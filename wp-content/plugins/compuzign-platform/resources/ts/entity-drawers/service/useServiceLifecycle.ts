@@ -9,7 +9,7 @@
 
 import { useCallback } from 'preact/hooks';
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
-import type { ServiceStation } from '@/admin-station/stations/service';
+import type { ServiceStation } from '@/service-station';
 
 type SetService = (updater: (prev: ServiceItem) => ServiceItem) => void;
 

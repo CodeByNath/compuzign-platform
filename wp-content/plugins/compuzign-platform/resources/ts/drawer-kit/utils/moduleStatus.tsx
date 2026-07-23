@@ -18,7 +18,7 @@ import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary, PackageManagerItem } from '@/api/types/admin';
 // Targets the station's './types' module, not its public barrel: useServiceStation
 // imports this file, so going through the barrel would close a cycle.
-import type { OverviewDraftData, ServiceSummary } from '@/admin-station/stations/service/types';
+import type { OverviewDraftData, ServiceSummary } from '@/service-station/types';
 import {
   PILL_META,
   PRESENTATION_PILL,
