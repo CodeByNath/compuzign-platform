@@ -244,7 +244,8 @@ class PackageStationController
                 : ($detail['rate_sheet_items'] ?? []);
             $rateProjection = $PMS::projectTierRateSheet(
                 $serviceId, $rawManager, $effectiveSelections, $incPool,
-                $faqPool, (string) ($station['platform_status'] ?? 'disabled')
+                $faqPool, (string) ($station['platform_status'] ?? 'disabled'),
+                $detail['rate_sheet_id'] ?? null
             );
             $detail['rate_sheet_selections'] = $rateProjection['selections'];
             $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections);
@@ -290,7 +291,7 @@ class PackageStationController
                     $faqPool,
                     fn($i) => is_array($i) && !empty($i['question'])
                 )),
-                'rate_sheet' => $managerModel['rate_sheet'],
+                'rate_sheets' => $managerModel['rate_sheets'],
                 'package_relationships' => $managerModel['items'],
             ],
         ]);
@@ -354,15 +355,41 @@ class PackageStationController
         }
 
         $body = $request->get_json_params();
-        if (!is_array($body) || !isset($body['sources'], $body['groups'], $body['item_decisions']) || !array_key_exists('rate_sheet', $body)) {
+        // rate_sheets is a PARTIAL upsert set (may be empty) and rate_sheet_deletions
+        // an explicit id list — neither need enumerate the full inventory. Legacy
+        // clients may still send a singular rate_sheet; accept it as one upsert.
+        $hasRateSheets = array_key_exists('rate_sheets', $body ?? []) || array_key_exists('rate_sheet', $body ?? []);
+        if (!is_array($body) || !isset($body['sources'], $body['groups'], $body['item_decisions']) || !$hasRateSheets) {
             return rest_ensure_response([
                 'success' => false,
-                'message' => 'Sources, groups, item_decisions, and rate_sheet are required.',
+                'message' => 'Sources, groups, item_decisions, and rate_sheets are required.',
             ]);
         }
 
+        $submittedRateSheets = array_key_exists('rate_sheets', $body)
+            ? $body['rate_sheets']
+            : (is_array($body['rate_sheet'] ?? null) ? [$body['rate_sheet']] : []);
+        if (!is_array($submittedRateSheets)) {
+            return rest_ensure_response(['success' => false, 'message' => 'rate_sheets must be an array.']);
+        }
+        $rateSheetDeletions = is_array($body['rate_sheet_deletions'] ?? null) ? $body['rate_sheet_deletions'] : [];
+
         // First-time configuration bootstraps the independent station anchor.
         $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
+
+        // Delete guard (Refinement 2): a sheet still bound by any Tier occupant
+        // cannot be removed — archive it first. Deletion is only ever explicit.
+        $referenced = $this->rateSheetIdsReferencedByTiers($station);
+        foreach ($rateSheetDeletions as $deleteId) {
+            $deleteId = sanitize_text_field((string) $deleteId);
+            if ($deleteId !== '' && isset($referenced[$deleteId])) {
+                return rest_ensure_response([
+                    'success' => false,
+                    'code'    => 'rate_sheet_in_use',
+                    'message' => 'This Rate Sheet is still used by a Tier. Archive it or move those Tiers first.',
+                ]);
+            }
+        }
 
         $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
         $rawManager = is_array($station['package_manager'] ?? null)
@@ -378,8 +405,9 @@ class PackageStationController
                 $body['item_decisions'],
                 $incPool,
                 $faqPool,
-                $body['rate_sheet'],
-                $submittedSources
+                $submittedRateSheets,
+                $submittedSources,
+                $rateSheetDeletions
             );
         } catch (\InvalidArgumentException $e) {
             return rest_ensure_response(['success' => false, 'message' => $e->getMessage()]);
@@ -397,6 +425,31 @@ class PackageStationController
             'success' => true,
             'manager' => $readModel,
         ]);
+    }
+
+    /**
+     * Rate Sheet ids currently bound by a Tier occupant — a stored occupant
+     * with selections, or a pending features draft. A legacy occupant carrying
+     * selections but no id resolves against the migrated primary sheet, matching
+     * the read-time default. Feeds the manager save delete-guard.
+     *
+     * @return array<string, true>
+     */
+    private function rateSheetIdsReferencedByTiers(array $station): array
+    {
+        $primary = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::PRIMARY_RATE_SHEET_ID;
+        $referenced = [];
+        foreach (is_array($station['tiers'] ?? null) ? $station['tiers'] : [] as $slot) {
+            if (!is_array($slot)) { continue; }
+            $occupant      = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : [];
+            $draftFeatures = $slot['drafts']['features'] ?? null;
+            $hasSelections = (is_array($occupant['rate_sheet_items'] ?? null) && $occupant['rate_sheet_items'] !== [])
+                || (is_array($draftFeatures) && $draftFeatures !== []);
+            if (!$hasSelections) { continue; }
+            $id = trim((string) ($occupant['rate_sheet_id'] ?? ''));
+            $referenced[$id !== '' ? $id : $primary] = true;
+        }
+        return $referenced;
     }
 
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response

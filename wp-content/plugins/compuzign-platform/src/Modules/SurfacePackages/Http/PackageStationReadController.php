@@ -61,7 +61,8 @@ class PackageStationReadController
                     $extracted['rate_sheet_items'] ?? [],
                     $incPool,
                     $faqPool,
-                    $status
+                    $status,
+                    $extracted['rate_sheet_id'] ?? null
                 );
                 $summary['price'] = $projection['price'];
             }

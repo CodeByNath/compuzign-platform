@@ -87,7 +87,7 @@ final class PackageManagerSchema
      * (Option A from the accepted Phase A audit: no write-on-read).
      *
      * @param  mixed $data
-     * @return array{sources: array<int, array>, groups: array<int, array>, category_groups: array<int, array>, items: array<int, array>, rate_sheet: array|null}
+     * @return array{sources: array<int, array>, groups: array<int, array>, category_groups: array<int, array>, items: array<int, array>, rate_sheets: array<int, array>}
      */
     public static function sanitize(mixed $data): array
     {
@@ -117,17 +117,16 @@ final class PackageManagerSchema
             'groups' => $groups,
             'category_groups' => $categoryGroups,
             'items'  => self::sanitizeItems($data['items'] ?? [], $groupIds),
-            // Singular remains canonical during the migration window; rate_sheets[]
-            // is the identified sibling collection consumers move to in Phase 3.
-            'rate_sheet' => self::sanitizeRateSheet($data['rate_sheet'] ?? null),
+            // Identified sibling collection. The legacy singular `rate_sheet` is
+            // still accepted as a one-time migration source but never re-emitted.
             'rate_sheets' => self::sanitizeRateSheets($data['rate_sheets'] ?? null, $data['rate_sheet'] ?? null),
         ];
     }
 
-    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheet: null, rate_sheets: array} */
+    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheets: array} */
     public static function defaultManager(): array
     {
-        return ['sources' => [], 'groups' => [], 'category_groups' => [], 'items' => [], 'rate_sheet' => null, 'rate_sheets' => []];
+        return ['sources' => [], 'groups' => [], 'category_groups' => [], 'items' => [], 'rate_sheets' => []];
     }
 
     /**
@@ -137,7 +136,7 @@ final class PackageManagerSchema
      */
     public static function hasConfiguration(array $storedManager): bool
     {
-        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']) || !empty($storedManager['rate_sheets']);
+        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheets']);
     }
 
     /**
@@ -199,6 +198,41 @@ final class PackageManagerSchema
     }
 
     /**
+     * Canonical Rate Sheet row identity — a pure function of the supplying
+     * Manager item's source_item_id. The same source always maps to the same
+     * row id within a sheet; identical ids may recur across sheets, resolved
+     * only in the sheet the Tier's rate_sheet_id names.
+     */
+    public static function deriveRateItemId(string $sourceItemId): string
+    {
+        return 'rate_' . substr(hash('sha256', $sourceItemId), 0, 16);
+    }
+
+    /** Mint a fresh Rate Sheet identity. Write-path only (commitConfiguration). */
+    private static function mintRateSheetId(): string
+    {
+        return 'rs_' . bin2hex(random_bytes(6));
+    }
+
+    /**
+     * Select one sheet from the collection by id. Returns null for a null,
+     * empty, or unknown id — the caller resolves nothing rather than scanning
+     * other sheets (row identity is always (rate_sheet_id, item_id)).
+     *
+     * @param array<int, array> $rateSheets
+     */
+    public static function findRateSheet(array $rateSheets, ?string $rateSheetId): ?array
+    {
+        if ($rateSheetId === null || $rateSheetId === '') { return null; }
+        foreach ($rateSheets as $sheet) {
+            if (is_array($sheet) && (string) ($sheet['rate_sheet_id'] ?? '') === $rateSheetId) {
+                return $sheet;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Rate Sheet groups are catalogue-owned and deliberately separate from
      * relationship Groups. Option identity points at a canonical reconciled
      * Package Manager item; the Rate Sheet never copies source labels.
@@ -220,8 +254,13 @@ final class PackageManagerSchema
             if (!is_array($item)) {
                 continue;
             }
-            $itemId = sanitize_text_field((string) ($item['item_id'] ?? ''));
             $sourceItemId = sanitize_text_field((string) ($item['source_item_id'] ?? ''));
+            $itemId = sanitize_text_field((string) ($item['item_id'] ?? ''));
+            // A row curated by the Tool carries its source but no item_id; the
+            // canonical id is derived here (the backend mints, never the Tool).
+            if ($itemId === '' && $sourceItemId !== '') {
+                $itemId = self::deriveRateItemId($sourceItemId);
+            }
             if ($itemId === '' || $sourceItemId === '' || isset($seen[$itemId])) {
                 continue;
             }
@@ -423,8 +462,9 @@ final class PackageManagerSchema
         mixed $submittedDecisions,
         array $inclusionPool,
         array $faqPool,
-        mixed $submittedRateSheet = null,
-        mixed $submittedSources = null
+        mixed $submittedRateSheets = null,
+        mixed $submittedSources = null,
+        mixed $rateSheetDeletions = null
     ): array {
         if ($submittedSources === null) { $submittedSources = self::sanitize($storedManager)['sources']; }
         if (!is_array($submittedSources) || !is_array($submittedGroups) || !is_array($submittedDecisions)) {
@@ -527,35 +567,30 @@ final class PackageManagerSchema
             $items[] = $item;
         }
 
-        $rateSheet = self::sanitizeRateSheet($submittedRateSheet);
-        if ($rateSheet !== null) {
-            $configuredSources = array_column($rateSheet['items'], 'source_item_id');
-            foreach (array_keys($liveIds) as $sourceItemId) {
-                if (in_array($sourceItemId, $configuredSources, true)) { continue; }
-                $rateSheet['items'][] = [
-                    'item_id' => 'rate_' . substr(hash('sha256', $sourceItemId), 0, 16),
-                    'source_item_id' => $sourceItemId,
-                    'unit_price' => 0.0,
-                    'per' => 'Per item',
-                    'quantity' => 1,
-                    'group_id' => null,
-                    'sort_order' => count($rateSheet['items']),
-                ];
-            }
+        // Rate Sheets — partial upsert by id + explicit deletions. Independent
+        // curation: NO blanket auto-onboard of live sources; each sheet holds
+        // only the rows the admin curated. Sheets in neither list are preserved.
+        $sheetsById = [];
+        foreach ($stored['rate_sheets'] as $sheet) {
+            $sheetsById[$sheet['rate_sheet_id']] = $sheet;
         }
-        if ($rateSheet !== null) {
-            // Stale supplied-content rows are not useful catalogue entries.
-            // Drop them at the write boundary so legacy unresolved rows are
-            // permanently cleaned instead of blocking every later save.
-            $rateSheet['items'] = array_values(array_filter(
-                $rateSheet['items'],
-                static fn(array $rateItem): bool => isset($liveIds[$rateItem['source_item_id']])
-                    || isset($persistedById[$rateItem['source_item_id']])
-            ));
-            foreach ($rateSheet['items'] as $index => &$rateItem) {
-                $rateItem['sort_order'] = $index;
-            }
-            unset($rateItem);
+        foreach (is_array($submittedRateSheets) ? $submittedRateSheets : [] as $submitted) {
+            if (!is_array($submitted)) { continue; }
+            $core = self::sanitizeRateSheet($submitted);
+            if ($core === null) { continue; }
+            $id = sanitize_text_field((string) ($submitted['rate_sheet_id'] ?? ''));
+            if ($id === '') { $id = self::mintRateSheetId(); } // write-path mint
+            $sheetsById[$id] = self::reconcileRateSheetRows(
+                $id,
+                self::sanitizeRateSheetStatus($submitted['status'] ?? null),
+                $core,
+                $liveIds,
+                $persistedById
+            );
+        }
+        foreach (is_array($rateSheetDeletions) ? $rateSheetDeletions : [] as $deleteId) {
+            $deleteId = sanitize_text_field((string) $deleteId);
+            if ($deleteId !== '') { unset($sheetsById[$deleteId]); }
         }
 
         return self::sanitize([
@@ -565,8 +600,41 @@ final class PackageManagerSchema
             // manager configuration commit never creates or removes groups.
             'category_groups' => $stored['category_groups'],
             'items' => $items,
-            'rate_sheet' => $rateSheet,
+            'rate_sheets' => array_values($sheetsById),
         ]);
+    }
+
+    /**
+     * Reconcile one curated Rate Sheet at the write boundary. Stale supplied-
+     * content rows (source resolves in neither the live pool nor persisted
+     * items) are dropped so legacy unresolved rows are permanently cleaned;
+     * sort_order is re-indexed per sheet. Independent curation — this never
+     * onboards a source the admin did not add to this sheet.
+     */
+    private static function reconcileRateSheetRows(
+        string $rateSheetId,
+        string $status,
+        array $core,
+        array $liveIds,
+        array $persistedById
+    ): array {
+        $items = array_values(array_filter(
+            $core['items'],
+            static fn(array $rateItem): bool => isset($liveIds[$rateItem['source_item_id']])
+                || isset($persistedById[$rateItem['source_item_id']])
+        ));
+        foreach ($items as $index => &$rateItem) {
+            $rateItem['sort_order'] = $index;
+        }
+        unset($rateItem);
+
+        return [
+            'rate_sheet_id' => $rateSheetId,
+            'title'         => $core['title'],
+            'status'        => $status,
+            'groups'        => $core['groups'],
+            'items'         => $items,
+        ];
     }
 
     // ── Deterministic provisional identity ──────────────────────────────────
@@ -749,10 +817,15 @@ final class PackageManagerSchema
     ): array {
         $groups = $storedManager['groups'] ?? [];
         $items  = self::reconcileItems($storedManager['items'] ?? [], $inclusionPool, $faqPool);
-        $rateSheetSourceIds = array_fill_keys(array_values(array_filter(array_map(
-            fn(array $item): string => (string) ($item['source_item_id'] ?? ''),
-            is_array($storedManager['rate_sheet']['items'] ?? null) ? $storedManager['rate_sheet']['items'] : []
-        ))), true);
+        // A source used by ANY Rate Sheet is auto-settled for Tier consumption.
+        $rateSheetSourceItemIds = [];
+        foreach (is_array($storedManager['rate_sheets'] ?? null) ? $storedManager['rate_sheets'] : [] as $sheet) {
+            foreach (is_array($sheet['items'] ?? null) ? $sheet['items'] : [] as $rateItem) {
+                $sourceItemId = (string) ($rateItem['source_item_id'] ?? '');
+                if ($sourceItemId !== '') { $rateSheetSourceItemIds[$sourceItemId] = true; }
+            }
+        }
+        $rateSheetSourceIds = $rateSheetSourceItemIds;
 
         $outItems = [];
         foreach ($items as $item) {
@@ -805,7 +878,7 @@ final class PackageManagerSchema
                 is_array($storedManager['category_groups'] ?? null) ? $storedManager['category_groups'] : []
             ),
             'items'             => $outItems,
-            'rate_sheet'        => $storedManager['rate_sheet'] ?? null,
+            'rate_sheets'       => is_array($storedManager['rate_sheets'] ?? null) ? $storedManager['rate_sheets'] : [],
             'projections'       => self::buildConsumerProjections($outItems, $platformStatus),
         ];
     }
@@ -906,12 +979,17 @@ final class PackageManagerSchema
         mixed $selections,
         array $inclusionPool,
         array $faqPool,
-        string $platformStatus
+        string $platformStatus,
+        ?string $rateSheetId = null
     ): array {
         $manager = self::sanitize($storedManager);
         $model = self::buildReadModel($serviceId, $manager, $inclusionPool, $faqPool, $platformStatus);
+        // Row identity is (rate_sheet_id, item_id): resolve strictly within the
+        // sheet the Tier names. A null/unknown sheet resolves nothing.
+        $rateSheet = self::findRateSheet($manager['rate_sheets'] ?? [], $rateSheetId);
+        $rateSheetItemsList = is_array($rateSheet) ? ($rateSheet['items'] ?? []) : [];
         $rateItems = [];
-        foreach ($manager['rate_sheet']['items'] ?? [] as $item) {
+        foreach ($rateSheetItemsList as $item) {
             $rateItems[$item['item_id']] = $item;
         }
         $sources = [];
@@ -951,7 +1029,7 @@ final class PackageManagerSchema
             ];
         }
         $pricingItems = [];
-        foreach ($manager['rate_sheet']['items'] ?? [] as $rateItem) {
+        foreach ($rateSheetItemsList as $rateItem) {
             $source = $sources[$rateItem['source_item_id']] ?? null;
             if ($source === null || empty($source['connection_resolved'])) { continue; }
             $pricingItems[] = [

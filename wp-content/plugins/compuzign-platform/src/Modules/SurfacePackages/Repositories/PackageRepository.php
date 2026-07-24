@@ -194,7 +194,7 @@ class PackageRepository
             $score = count(is_array($manager['sources'] ?? null) ? $manager['sources'] : [])
                 + count(is_array($manager['items'] ?? null) ? $manager['items'] : [])
                 + count(is_array($station['tiers'] ?? null) ? $station['tiers'] : [])
-                + (!empty($manager['rate_sheet']) ? 1000 : 0);
+                + (!empty($manager['rate_sheet']) || !empty($manager['rate_sheets']) ? 1000 : 0);
             if ($score > $bestScore) {
                 $bestScore   = $score;
                 $bestId      = (int) $serviceId;
@@ -397,7 +397,8 @@ class PackageRepository
                     $extracted['rate_sheet_items'] ?? [],
                     $incPool,
                     $faqPool,
-                    (string) ($station['platform_status'] ?? 'disabled')
+                    (string) ($station['platform_status'] ?? 'disabled'),
+                    $extracted['rate_sheet_id'] ?? null
                 );
                 $extracted['price'] = $projection['price'];
                 $extracted['inclusions_override'] = array_map(

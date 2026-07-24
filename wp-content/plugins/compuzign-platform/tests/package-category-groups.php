@@ -170,8 +170,10 @@ $station = [
         'category_groups' => $manager['category_groups'],
         'groups' => [],
         'items' => [],
-        'rate_sheet' => [
+        'rate_sheets' => [[
+            'rate_sheet_id' => 'rs_primary',
             'title' => 'Catalogue',
+            'status' => 'active',
             'groups' => [],
             'items' => [[
                 'item_id' => $rateItemId,
@@ -179,9 +181,11 @@ $station = [
                 'unit_price' => 5.0, 'per' => 'Per item', 'quantity' => 1,
                 'group_id' => null, 'sort_order' => 0,
             ]],
-        ],
+        ]],
     ],
     'tiers' => [
+        // basic carries no rate_sheet_id — a legacy occupant defaults to the
+        // migrated primary sheet, matching the row above by (rate_sheet_id, item_id).
         'basic' => ['occupant' => ['rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 2]]]],
         'standard' => ['rate_sheet_items' => [['item_id' => 'unrelated', 'quantity' => 1]]],
     ],
@@ -190,6 +194,16 @@ $deps = PCG::dependents($station, $model['items'], 'pcg_kairos');
 assertSameValue(1, $deps['services'], 'assigned source counts as a dependent service');
 assertSameValue(1, $deps['rate_sheet_rows'], 'rate sheet rows supplied by member services count');
 assertSameValue(1, $deps['tier_selections'], 'tier selections referencing dependent rows count');
+
+// Refinement 3 — a Tier bound to a DIFFERENT sheet does not count against this
+// Family's rows, even when the item_id collides across sheets.
+$otherSheetStation = $station;
+$otherSheetStation['tiers']['premium'] = ['current_occupant' => [
+    'rate_sheet_id' => 'rs_other',
+    'rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 1]],
+]];
+$scopedDeps = PCG::dependents($otherSheetStation, $model['items'], 'pcg_kairos');
+assertSameValue(1, $scopedDeps['tier_selections'], 'a selection in another sheet is not counted against this sheet\'s rows');
 assertSameValue([10], PCG::relatedServiceIds($station, 'pcg_kairos'), 'Package Family read projection preserves native related Service IDs');
 
 $noDepGroup = PCG::dependents($station, $model['items'], 'pcg_other');

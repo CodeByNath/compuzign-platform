@@ -359,19 +359,27 @@ final class PackageCategoryGroups
             }
         }
 
+        // Rate rows supplied by the group's Services, gathered across ALL sheets
+        // and kept per sheet — row identity is (rate_sheet_id, item_id).
         $rateRows = 0;
-        $rateItemIds = [];
-        foreach (is_array($manager['rate_sheet']['items'] ?? null) ? $manager['rate_sheet']['items'] : [] as $row) {
-            if (is_array($row) && isset($memberItemIds[(string) ($row['source_item_id'] ?? '')])) {
-                $rateRows++;
-                $rateItemIds[(string) ($row['item_id'] ?? '')] = true;
+        $memberRowsBySheet = [];
+        foreach (is_array($manager['rate_sheets'] ?? null) ? $manager['rate_sheets'] : [] as $sheet) {
+            if (!is_array($sheet)) {
+                continue;
+            }
+            $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
+            foreach (is_array($sheet['items'] ?? null) ? $sheet['items'] : [] as $row) {
+                if (is_array($row) && isset($memberItemIds[(string) ($row['source_item_id'] ?? '')])) {
+                    $rateRows++;
+                    $memberRowsBySheet[$sheetId][(string) ($row['item_id'] ?? '')] = true;
+                }
             }
         }
 
         $tierSelections = 0;
         foreach (is_array($station['tiers'] ?? null) ? $station['tiers'] : [] as $tier) {
             if (is_array($tier)) {
-                $tierSelections += self::countTierSelections($tier, $rateItemIds);
+                $tierSelections += self::countTierSelections($tier, $memberRowsBySheet);
             }
         }
 
@@ -388,9 +396,9 @@ final class PackageCategoryGroups
      *
      * @param array<string, true> $rateItemIds
      */
-    private static function countTierSelections(array $tier, array $rateItemIds): int
+    private static function countTierSelections(array $tier, array $memberRowsBySheet): int
     {
-        if ($rateItemIds === []) {
+        if ($memberRowsBySheet === []) {
             return 0;
         }
         $count = 0;
@@ -399,14 +407,24 @@ final class PackageCategoryGroups
                 continue;
             }
             if ($key === 'rate_sheet_items') {
-                foreach ($value as $selection) {
-                    if (is_array($selection) && isset($rateItemIds[(string) ($selection['item_id'] ?? '')])) {
-                        $count++;
+                // Scope each selection group by its sibling rate_sheet_id. A
+                // legacy occupant with selections but no id resolves against the
+                // migrated primary sheet, matching the read-time default.
+                $sheetId = (string) ($tier['rate_sheet_id'] ?? '');
+                if ($sheetId === '' && $value !== []) {
+                    $sheetId = PackageManagerSchema::PRIMARY_RATE_SHEET_ID;
+                }
+                $memberRows = $memberRowsBySheet[$sheetId] ?? [];
+                if ($memberRows !== []) {
+                    foreach ($value as $selection) {
+                        if (is_array($selection) && isset($memberRows[(string) ($selection['item_id'] ?? '')])) {
+                            $count++;
+                        }
                     }
                 }
                 continue;
             }
-            $count += self::countTierSelections($value, $rateItemIds);
+            $count += self::countTierSelections($value, $memberRowsBySheet);
         }
         return $count;
     }

@@ -50,22 +50,38 @@ assertSameValue(false, $provisional['has_configuration'], 'provisional-only Mana
 assertSameValue('not-configured', itemBySource($provisional, 'inclusion', 'inc-a')['module_transition'], 'provisional item is not configured');
 assertSameValue('connected_unavailable', itemBySource($provisional, 'inclusion', 'inc-a')['operational_state'], 'unsettled connection resolves but is unavailable');
 
+$sourceIncA     = PMS::deriveItemId('inclusion', 'inc-a');
+$sourceIncA22   = PMS::deriveItemId('inclusion', 'service:22:inc-a');
+$multiSourcePool = [...$incPool, ['id' => 'service:22:inc-a', 'label' => 'Feature A from another Service']];
 $multiSource = PMS::commitConfiguration(
     $empty,
     [],
     [],
-    [...$incPool, ['id' => 'service:22:inc-a', 'label' => 'Feature A from another Service']],
+    $multiSourcePool,
     $faqPool,
-    ['title' => 'Commercial catalogue', 'groups' => [], 'items' => []],
+    [[
+        // One curated Rate Sheet (blank id → backend-minted). Independent
+        // curation: only the rows the admin added, never a blanket auto-onboard.
+        'title'  => 'Commercial catalogue',
+        'status' => 'active',
+        'groups' => [],
+        'items'  => [
+            ['source_item_id' => $sourceIncA,   'unit_price' => 0, 'per' => 'Per item', 'quantity' => 1],
+            ['source_item_id' => $sourceIncA22, 'unit_price' => 0, 'per' => 'Per item', 'quantity' => 1],
+        ],
+    ]],
     [
         ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 10],
         ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 22],
     ]
 );
 assertSameValue(2, count($multiSource['sources']), 'Package persists multiple source Services as supply relationships');
-assertSameValue(4, count($multiSource['rate_sheet']['items']), 'every item exposed by connected Services receives a Rate Sheet row automatically');
-assertSameValue('Per item', $multiSource['rate_sheet']['items'][0]['per'], 'automatic rows begin with safe commercial defaults');
-$secondServicePool = [...$incPool, ['id' => 'service:22:inc-a', 'label' => 'Feature A from another Service']];
+assertSameValue(1, count($multiSource['rate_sheets']), 'a curated Rate Sheet is created');
+assertSameValue(true, str_starts_with($multiSource['rate_sheets'][0]['rate_sheet_id'], 'rs_'), 'a new sheet receives a backend-minted id');
+assertSameValue(2, count($multiSource['rate_sheets'][0]['items']), 'only curated rows are stored — no blanket auto-onboard');
+assertSameValue('Per item', $multiSource['rate_sheets'][0]['items'][0]['per'], 'curated rows keep their commercial unit');
+assertSameValue(PMS::deriveRateItemId($sourceIncA), $multiSource['rate_sheets'][0]['items'][0]['item_id'], 'row identity derives from its source (backend mints, Tool sends blank)');
+$secondServicePool = $multiSourcePool;
 $commercialModel = PMS::buildReadModel(
     10,
     $multiSource,
@@ -73,8 +89,8 @@ $commercialModel = PMS::buildReadModel(
     array_map(fn(array $item): array => [...$item, '_source_available' => true], $faqPool),
     'active'
 );
-assertSameValue('settled', $commercialModel['items'][0]['module_transition'], 'Rate Sheet participation is the commercial relationship decision');
-assertSameValue(true, $commercialModel['items'][0]['available'], 'Rate Sheet supplied content is immediately available to Tier pricing');
+assertSameValue('settled', itemBySource($commercialModel, 'inclusion', 'inc-a')['module_transition'], 'Rate Sheet participation is the commercial relationship decision');
+assertSameValue(true, itemBySource($commercialModel, 'inclusion', 'inc-a')['available'], 'Rate Sheet supplied content is immediately available to Tier pricing');
 
 $multiSourceSavedAgain = PMS::commitConfiguration(
     $multiSource,
@@ -82,15 +98,16 @@ $multiSourceSavedAgain = PMS::commitConfiguration(
     [],
     $secondServicePool,
     $faqPool,
-    $multiSource['rate_sheet'],
+    $multiSource['rate_sheets'],
     $multiSource['sources']
 );
 assertSameValue($multiSource['sources'], $multiSourceSavedAgain['sources'], 'sequential save preserves both source relationships without emitting an implicit duplicate');
 assertSameValue(
-    array_column($multiSource['rate_sheet']['items'], 'source_item_id'),
-    array_column($multiSourceSavedAgain['rate_sheet']['items'], 'source_item_id'),
+    array_column($multiSource['rate_sheets'][0]['items'], 'source_item_id'),
+    array_column($multiSourceSavedAgain['rate_sheets'][0]['items'], 'source_item_id'),
     'sequential save preserves stable namespaced Rate Sheet source references'
 );
+assertSameValue(1, count($multiSourceSavedAgain['rate_sheets']), 'an unchanged sheet upserts in place rather than duplicating');
 
 $unavailablePool = [['id' => 'inc-a', 'label' => 'Feature A', '_source_available' => false]];
 $unavailableModel = PMS::buildReadModel(10, $empty, $unavailablePool, [], 'active');
@@ -217,8 +234,10 @@ $withRateSheet = PMS::commitConfiguration(
     [],
     $expandedPool,
     $faqPool,
-    [
+    [[
+        'rate_sheet_id' => 'rs_infra',
         'title' => 'Infrastructure',
+        'status' => 'active',
         'groups' => [['group_id' => 'compute', 'label' => 'Compute', 'sort_order' => 0]],
         'items' => [[
             'item_id' => 'rate-1',
@@ -229,51 +248,65 @@ $withRateSheet = PMS::commitConfiguration(
             'group_id' => 'compute',
             'sort_order' => 0,
         ]],
-    ]
+    ]]
 );
 $rateModel = PMS::buildReadModel(10, $withRateSheet, $expandedPool, $faqPool, 'active');
-assertSameValue('Infrastructure', $rateModel['rate_sheet']['title'], 'Rate Sheet is returned in the Manager read model');
-assertSameValue('compute', $rateModel['rate_sheet']['items'][0]['group_id'], 'Rate Sheet groups are persisted independently');
-assertSameValue('Per VM', $rateModel['rate_sheet']['items'][0]['per'], 'controlled Rate Sheet unit is preserved');
+assertSameValue('Infrastructure', $rateModel['rate_sheets'][0]['title'], 'Rate Sheet is returned in the Manager read model');
+assertSameValue('compute', $rateModel['rate_sheets'][0]['items'][0]['group_id'], 'Rate Sheet groups are persisted independently');
+assertSameValue('Per VM', $rateModel['rate_sheets'][0]['items'][0]['per'], 'controlled Rate Sheet unit is preserved');
 assertSameValue(true, $rateModel['has_configuration'], 'Rate Sheet alone contributes Manager configuration');
 
-// Phase 2 migration — the legacy singleton lifts into the identified rate_sheets[] collection.
-assertSameValue(1, count($withRateSheet['rate_sheets']), 'singleton Rate Sheet lifts into the rate_sheets[] collection');
-assertSameValue('rs_primary', $withRateSheet['rate_sheets'][0]['rate_sheet_id'], 'the migrated sheet takes the deterministic primary id');
-assertSameValue('active', $withRateSheet['rate_sheets'][0]['status'], 'the migrated sheet defaults to active status');
-assertSameValue('Infrastructure', $withRateSheet['rate_sheets'][0]['title'], 'the migrated sheet preserves its title');
+// Phase 2 migration — a legacy SINGULAR rate_sheet lifts into the identified collection.
+$legacyMigrated = PMS::sanitize(['rate_sheet' => [
+    'title' => 'Legacy', 'groups' => [],
+    'items' => [[
+        'item_id' => 'rate-legacy', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+        'unit_price' => 10, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null, 'sort_order' => 0,
+    ]],
+]]);
+assertSameValue(1, count($legacyMigrated['rate_sheets']), 'singleton Rate Sheet lifts into the rate_sheets[] collection');
+assertSameValue('rs_primary', $legacyMigrated['rate_sheets'][0]['rate_sheet_id'], 'the migrated sheet takes the deterministic primary id');
+assertSameValue('active', $legacyMigrated['rate_sheets'][0]['status'], 'the migrated sheet defaults to active status');
+assertSameValue('Legacy', $legacyMigrated['rate_sheets'][0]['title'], 'the migrated sheet preserves its title');
 // Refinement 1 — read-time sanitisation preserves ids and mints nothing.
-$reSanitised = PMS::sanitize($withRateSheet);
+$reSanitised = PMS::sanitize($legacyMigrated);
 assertSameValue('rs_primary', $reSanitised['rate_sheets'][0]['rate_sheet_id'], 'sanitising an already-migrated manager preserves the sheet id');
 assertSameValue(1, count($reSanitised['rate_sheets']), 'sanitisation neither duplicates nor drops identified sheets');
 $idlessRead = PMS::sanitize(['rate_sheets' => [['title' => 'No id', 'groups' => [], 'items' => []]]]);
 assertSameValue(0, count($idlessRead['rate_sheets']), 'an id-less sheet is dropped on the read path (write-path minting only)');
 
-$cleanedUnknownOption = PMS::commitConfiguration($ungrouped, [], [], $expandedPool, $faqPool, [
-        'title' => 'Invalid', 'groups' => [], 'items' => [[
+$cleanedUnknownOption = PMS::commitConfiguration($ungrouped, [], [], $expandedPool, $faqPool, [[
+        'rate_sheet_id' => 'rs_clean', 'title' => 'Invalid', 'status' => 'active', 'groups' => [], 'items' => [[
             'item_id' => 'rate-invalid', 'source_item_id' => 'unknown',
             'unit_price' => 1, 'per' => 'Per item', 'quantity' => 1,
             'group_id' => null, 'sort_order' => 0,
         ]],
-    ]);
+    ]]);
+$cleanedSheet = PMS::findRateSheet($cleanedUnknownOption['rate_sheets'], 'rs_clean');
 assertSameValue(
     false,
-    in_array('unknown', array_column($cleanedUnknownOption['rate_sheet']['items'], 'source_item_id'), true),
+    is_array($cleanedSheet) && in_array('unknown', array_column($cleanedSheet['items'], 'source_item_id'), true),
     'Rate Sheet removes unresolved supplied-content rows at the write boundary'
 );
 
 $tierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
     ['item_id' => 'rate-1', 'quantity' => 2],
-], $expandedPool, $faqPool, 'active');
+], $expandedPool, $faqPool, 'active', 'rs_infra');
 assertSameValue(72.0, $tierProjection['price'], 'Tier price is Rate Sheet unit price multiplied by Tier quantity');
 assertSameValue(true, $tierProjection['pricing']['complete'], 'authoritative pricing completes for available supply');
 assertSameValue(2, $tierProjection['selections'][0]['quantity'], 'Tier projection retains only the consuming quantity');
 assertSameValue('Decorated A', $tierProjection['selections'][0]['label'], 'Tier projection resolves the current Package relationship display label');
-$emptyTierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [], $expandedPool, $faqPool, 'active');
+// Refinement 3 — a selection resolves only within the sheet the Tier names.
+$wrongSheetProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
+    ['item_id' => 'rate-1', 'quantity' => 2],
+], $expandedPool, $faqPool, 'active', 'rs_does_not_exist');
+assertSameValue(null, $wrongSheetProjection['price'], 'a selection does not resolve against an unknown Rate Sheet');
+assertSameValue(false, $wrongSheetProjection['selections'][0]['resolved'], 'row identity is scoped by rate_sheet_id, never a bare item_id scan');
+$emptyTierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [], $expandedPool, $faqPool, 'active', 'rs_infra');
 assertSameValue(null, $emptyTierProjection['price'], 'Tier with no Rate Sheet selections has no legacy price fallback');
 $unresolvedTierProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
     ['item_id' => 'removed-rate-item', 'quantity' => 3],
-], $expandedPool, $faqPool, 'active');
+], $expandedPool, $faqPool, 'active', 'rs_infra');
 assertSameValue(false, $unresolvedTierProjection['selections'][0]['resolved'], 'removed Rate Sheet references remain visible as unresolved');
 assertSameValue(null, $unresolvedTierProjection['price'], 'unresolved references do not fabricate a Tier price');
 
@@ -281,7 +314,7 @@ assertSameValue(null, $unresolvedTierProjection['price'], 'unresolved references
 // only operational availability and authoritative pricing completeness change.
 $disabledProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
     ['item_id' => 'rate-1', 'quantity' => 2],
-], $expandedPool, $faqPool, 'disabled');
+], $expandedPool, $faqPool, 'disabled', 'rs_infra');
 assertSameValue(true, $disabledProjection['selections'][0]['resolved'], 'disabled supply remains resolved');
 assertSameValue(false, $disabledProjection['selections'][0]['available'], 'disabled supply is unavailable');
 assertSameValue('connected_unavailable', $disabledProjection['selections'][0]['operational_state'], 'disabled supply has explicit operational state');
@@ -289,13 +322,13 @@ assertSameValue(null, $disabledProjection['price'], 'disabled supply fails prici
 assertSameValue('unavailable_item', $disabledProjection['pricing']['unresolved'][0]['code'], 'disabled supply reaches authoritative pricing as unavailable');
 $reactivatedProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
     ['item_id' => 'rate-1', 'quantity' => 2],
-], $expandedPool, $faqPool, 'active');
+], $expandedPool, $faqPool, 'active', 'rs_infra');
 assertSameValue($tierProjection['selections'][0]['item_id'], $reactivatedProjection['selections'][0]['item_id'], 'reactivation preserves Rate Sheet identity');
 assertSameValue(72.0, $reactivatedProjection['price'], 'reactivation resumes pricing');
 
 $removedProjection = PMS::projectTierRateSheet(10, $withRateSheet, [
     ['item_id' => 'rate-1', 'quantity' => 2],
-], $withoutA, $faqPool, 'active');
+], $withoutA, $faqPool, 'active', 'rs_infra');
 assertSameValue(false, $removedProjection['selections'][0]['resolved'], 'removed source is genuinely unresolved');
 assertSameValue('source_missing', $removedProjection['selections'][0]['operational_state'], 'removed source is distinguished from switched-off supply');
 assertSameValue(null, $removedProjection['price'], 'removed source fails pricing closed');
