@@ -1,20 +1,17 @@
-// Rate Sheet tool — the Package-owned read/edit/save controller.
+// Rate Sheet tool — the Package-owned read/edit/save controller for the Rate
+// Sheet COLLECTION.
 //
-// The Package Station's Rate Sheet authoring drawer content consumes this hook.
-// It is the ONLY new state in the restoration: it reads the Package Manager
-// through the surviving `fetchPackageStationManager` contract, holds the flat
-// editor value the grid mutates, and commits through the surviving
-// `savePackageStationManager` contract. It adds no endpoint, no storage, and no
-// second identity — the pure mapping lives in ./rateSheetToolModel and the
-// authoritative reconciliation stays in PackageManagerSchema.
+// It reads the Package Manager through `fetchPackageStationManager`, holds a
+// working copy of every sheet the grid edits, and commits through
+// `savePackageStationManager` as a partial upsert set plus an explicit deletion
+// list. It adds no endpoint, no storage, and no id minting — the pure mapping
+// lives in ./rateSheetToolModel and the authoritative reconciliation stays in
+// PackageManagerSchema.
 //
 // The Package Station is addressed by a host-Service id (there is no standalone
 // manager route); `useHostService` supplies the same host the Tier workspace
-// uses, so both describe the one `cz_package_station` record.
-//
-// It yields a collection whose SINGLE item is the controller: read, draft, and
-// save carried together so the presentation (the drawer content) renders it
-// without ever touching api.ts.
+// uses, so both describe the one `cz_package_station` record. The hook yields a
+// collection whose SINGLE item is the controller.
 
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import type { SurfaceCollection } from '@/station-manager/registry/dataSources';
@@ -25,68 +22,97 @@ import { PACKAGE_RATE_SHEET_UNITS } from '../../types';
 import type { PackageManagerReadModel, PackageRateSheetUnit } from '../../types';
 import { useHostService } from '../tierSurface/useHostService';
 import {
-  EMPTY_RATE_SHEET_VALUE,
+  addEditorRow,
   buildManagerSavePayload,
   connectSourceServices,
   connectedServiceIds,
   createEditorGroup,
+  createEditorSheet,
   deleteEditorGroup,
+  duplicateEditorSheet,
   patchEditorRow,
   rateSheetOptions,
+  removeEditorRow,
   renameEditorGroup,
-  toRateSheetEditorValue,
+  toRateSheetEditorList,
 } from './rateSheetToolModel';
 import type { RateSheetEditorValue, RateSheetOption } from './rateSheetToolModel';
 
+/** A row in the Rate Sheet list. */
+export interface RateSheetListRow {
+  id:     string;         // '' for a not-yet-saved sheet
+  key:    string;         // grid-stable key (id, or new:index)
+  title:  string;
+  status: 'active' | 'archived';
+  rows:   number;
+  groups: number;
+}
+
 export interface RateSheetToolController {
   hostServiceId:        number | null;
-  configured:           boolean;
-  value:                RateSheetEditorValue;
+  // Collection.
+  list:                 RateSheetListRow[];
+  selectedKey:          string | null;
+  selected:             RateSheetEditorValue | null;
   options:              RateSheetOption[];
   units:                readonly PackageRateSheetUnit[];
   dirty:                boolean;
   saving:               boolean;
   saveError:            string | null;
   connectedServiceIds:  number[];
-  // Source-Service picker.
   catalog:              ServiceSummary[];
   catalogLoading:       boolean;
   catalogError:         string | null;
   loadCatalog:          () => void;
-  // Local edits (each marks the draft dirty; none persists until save).
+  // Collection actions (all local until save; delete/status persist on save).
+  openSheet:            (key: string) => void;
+  closeSheet:           () => void;
+  createSheet:          () => void;
+  duplicateSheet:       (key: string) => void;
+  setSheetStatus:       (key: string, status: 'active' | 'archived') => void;
+  deleteSheet:          (key: string) => void;
+  // Selected-sheet edits.
   setTitle:             (title: string) => void;
   createGroup:          (label: string) => void;
   renameGroup:          (groupId: string, label: string) => void;
   deleteGroup:          (groupId: string) => void;
+  addRow:               (optionId: string) => void;
+  removeRow:            (rowId: string) => void;
   setRowUnitPrice:      (rowId: string, unitPrice: number) => void;
   setRowPer:            (rowId: string, per: PackageRateSheetUnit) => void;
   setRowQuantity:       (rowId: string, quantity: number) => void;
   setRowGroup:          (rowId: string, groupId: string | null) => void;
-  // Persisting actions (both commit through the Package Manager save contract).
+  // Persisting actions.
   connectServices:      (serviceIds: number[]) => Promise<void>;
   save:                 () => Promise<void>;
   discard:              () => void;
 }
 
-/**
- * The registered data source. Yields the controller as its single item while
- * the host Service and Package Manager resolve; the kit renders it. Loading and
- * error mirror the underlying reads so the shell chrome behaves like every other
- * surface.
- */
+interface WorkingSheet extends RateSheetEditorValue {
+  key: string; // stable across a session even for a not-yet-saved sheet
+}
+
+let NEW_SHEET_SEQ = 0;
+
+function withKeys(values: RateSheetEditorValue[]): WorkingSheet[] {
+  return values.map((value, index) => ({ ...value, key: value.id !== '' ? value.id : `new:${index}:${NEW_SHEET_SEQ++}` }));
+}
+
 export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   const host = useHostService();
   const hostServiceId = host.service?.id ?? null;
 
-  const [readModel, setReadModel] = useState<PackageManagerReadModel | null>(null);
-  const [value, setValue]         = useState<RateSheetEditorValue>(EMPTY_RATE_SHEET_VALUE);
-  const [dirty, setDirty]         = useState(false);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+  const [readModel, setReadModel]   = useState<PackageManagerReadModel | null>(null);
+  const [sheets, setSheets]         = useState<WorkingSheet[]>([]);
+  const [deletions, setDeletions]   = useState<string[]>([]);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [dirty, setDirty]           = useState(false);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const [saving, setSaving]       = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving]         = useState(false);
+  const [saveError, setSaveError]   = useState<string | null>(null);
 
   const [catalog, setCatalog]             = useState<ServiceSummary[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -94,7 +120,8 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
 
   const applyReadModel = useCallback((next: PackageManagerReadModel) => {
     setReadModel(next);
-    setValue(toRateSheetEditorValue(next));
+    setSheets(withKeys(toRateSheetEditorList(next)));
+    setDeletions([]);
     setDirty(false);
   }, []);
 
@@ -106,27 +133,13 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     fetchPackageStationManager(hostServiceId)
       .then((response) => {
         if (cancelled) return;
-        if (!response.success) {
-          setError('Could not load the Package Manager.');
-          setReadModel(null);
-          return;
-        }
+        if (!response.success) { setError('Could not load the Package Manager.'); setReadModel(null); return; }
         applyReadModel(response.manager);
       })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the Package Manager.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the Package Manager.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [hostServiceId, reloadToken, applyReadModel]);
-
-  const edit = useCallback((next: RateSheetEditorValue) => {
-    setValue(next);
-    setDirty(true);
-    setSaveError(null);
-  }, []);
 
   const loadCatalog = useCallback(() => {
     setCatalogLoading(true);
@@ -137,23 +150,29 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       .finally(() => setCatalogLoading(false));
   }, []);
 
+  // Update the selected working sheet through a pure editor-value transform.
+  const editSelected = useCallback((transform: (value: RateSheetEditorValue) => RateSheetEditorValue) => {
+    setSheets((current) => current.map((sheet) =>
+      sheet.key === selectedKey ? { ...transform(sheet), key: sheet.key } : sheet));
+    setDirty(true);
+    setSaveError(null);
+  }, [selectedKey]);
+
   const persist = useCallback(
-    async (sources: PackageManagerReadModel['sources'], draft: RateSheetEditorValue) => {
+    async (nextSheets: WorkingSheet[], nextDeletions: string[], sources: PackageManagerReadModel['sources']) => {
       if (readModel == null || hostServiceId == null) return;
       setSaving(true);
       setSaveError(null);
       try {
         const response = await savePackageStationManager(
           hostServiceId,
-          buildManagerSavePayload(readModel, draft, sources),
+          buildManagerSavePayload(readModel, nextSheets, nextDeletions, sources),
         );
-        if (!response.success) {
-          setSaveError(response.message || 'Could not save the Rate Sheet.');
-          return;
-        }
+        if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return; }
         applyReadModel(response.manager);
+        setSelectedKey(null);
       } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'Could not save the Rate Sheet.');
+        setSaveError(err instanceof Error ? err.message : 'Could not save the Rate Sheets.');
       } finally {
         setSaving(false);
       }
@@ -161,10 +180,20 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     [readModel, hostServiceId, applyReadModel],
   );
 
+  const list = useMemo<RateSheetListRow[]>(
+    () => sheets.map((sheet) => ({
+      id: sheet.id, key: sheet.key, title: sheet.title, status: sheet.status,
+      rows: sheet.items.length, groups: sheet.groups.length,
+    })),
+    [sheets],
+  );
+  const selected = useMemo(() => sheets.find((sheet) => sheet.key === selectedKey) ?? null, [sheets, selectedKey]);
+
   const controller = useMemo<RateSheetToolController>(() => ({
     hostServiceId,
-    configured: (readModel?.rate_sheets.length ?? 0) > 0,
-    value,
+    list,
+    selectedKey,
+    selected,
     options: readModel ? rateSheetOptions(readModel) : [],
     units: PACKAGE_RATE_SHEET_UNITS,
     dirty,
@@ -175,35 +204,66 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     catalogLoading,
     catalogError,
     loadCatalog,
-    setTitle: (title) => edit({ ...value, title }),
-    createGroup: (label) => edit(createEditorGroup(value, label)),
-    renameGroup: (groupId, label) => edit(renameEditorGroup(value, groupId, label)),
-    deleteGroup: (groupId) => edit(deleteEditorGroup(value, groupId)),
-    setRowUnitPrice: (rowId, unitPrice) => edit(patchEditorRow(value, rowId, { unitPrice: Math.max(0, unitPrice) })),
-    setRowPer: (rowId, per) => edit(patchEditorRow(value, rowId, { per })),
-    setRowQuantity: (rowId, quantity) => edit(patchEditorRow(value, rowId, { quantity: Math.max(1, Math.trunc(quantity) || 1) })),
-    setRowGroup: (rowId, groupId) => edit(patchEditorRow(value, rowId, { groupId })),
+    openSheet: (key) => setSelectedKey(key),
+    closeSheet: () => setSelectedKey(null),
+    createSheet: () => {
+      const created: WorkingSheet = { ...createEditorSheet(), key: `new:create:${NEW_SHEET_SEQ++}` };
+      setSheets((current) => [...current, created]);
+      setSelectedKey(created.key);
+      setDirty(true);
+      setSaveError(null);
+    },
+    duplicateSheet: (key) => {
+      setSheets((current) => {
+        const source = current.find((sheet) => sheet.key === key);
+        if (!source) return current;
+        const copy: WorkingSheet = { ...duplicateEditorSheet(source), key: `new:dup:${NEW_SHEET_SEQ++}` };
+        setSelectedKey(copy.key);
+        return [...current, copy];
+      });
+      setDirty(true);
+      setSaveError(null);
+    },
+    setSheetStatus: (key, status) => {
+      setSheets((current) => current.map((sheet) => (sheet.key === key ? { ...sheet, status } : sheet)));
+      setDirty(true);
+      setSaveError(null);
+    },
+    deleteSheet: (key) => {
+      setSheets((current) => {
+        const target = current.find((sheet) => sheet.key === key);
+        if (target && target.id !== '') setDeletions((d) => (d.includes(target.id) ? d : [...d, target.id]));
+        return current.filter((sheet) => sheet.key !== key);
+      });
+      setSelectedKey((sel) => (sel === key ? null : sel));
+      setDirty(true);
+      setSaveError(null);
+    },
+    setTitle: (title) => editSelected((value) => ({ ...value, title })),
+    createGroup: (label) => editSelected((value) => createEditorGroup(value, label)),
+    renameGroup: (groupId, label) => editSelected((value) => renameEditorGroup(value, groupId, label)),
+    deleteGroup: (groupId) => editSelected((value) => deleteEditorGroup(value, groupId)),
+    addRow: (optionId) => {
+      const option = (readModel ? rateSheetOptions(readModel) : []).find((o) => o.id === optionId);
+      if (option) editSelected((value) => addEditorRow(value, option));
+    },
+    removeRow: (rowId) => editSelected((value) => removeEditorRow(value, rowId)),
+    setRowUnitPrice: (rowId, unitPrice) => editSelected((value) => patchEditorRow(value, rowId, { unitPrice: Math.max(0, unitPrice) })),
+    setRowPer: (rowId, per) => editSelected((value) => patchEditorRow(value, rowId, { per })),
+    setRowQuantity: (rowId, quantity) => editSelected((value) => patchEditorRow(value, rowId, { quantity: Math.max(1, Math.trunc(quantity) || 1) })),
+    setRowGroup: (rowId, groupId) => editSelected((value) => patchEditorRow(value, rowId, { groupId })),
     connectServices: async (serviceIds) => {
       if (readModel == null) return;
-      // Onboarding of a connected Service's inclusions happens on the backend
-      // only when a Rate Sheet exists — require a title first, matching the
-      // retired editor's create-then-configure order.
-      if (value.title.trim() === '' && value.items.length === 0 && value.groups.length === 0) {
-        setSaveError('Enter a Rate Sheet title before adding source Services.');
-        return;
-      }
-      await persist(connectSourceServices(readModel.sources, serviceIds), value);
+      await persist(sheets, deletions, connectSourceServices(readModel.sources, serviceIds));
     },
     save: async () => {
       if (readModel == null) return;
-      await persist(readModel.sources, value);
+      await persist(sheets, deletions, readModel.sources);
     },
-    discard: () => {
-      if (readModel) applyReadModel(readModel);
-    },
+    discard: () => { if (readModel) applyReadModel(readModel); setSelectedKey(null); },
   }), [
-    hostServiceId, readModel, value, dirty, saving, saveError,
-    catalog, catalogLoading, catalogError, loadCatalog, edit, persist, applyReadModel,
+    hostServiceId, list, selected, selectedKey, readModel, sheets, deletions, dirty, saving, saveError,
+    catalog, catalogLoading, catalogError, loadCatalog, editSelected, persist, applyReadModel,
   ]);
 
   const combinedLoading = host.loading || (hostServiceId != null && loading);

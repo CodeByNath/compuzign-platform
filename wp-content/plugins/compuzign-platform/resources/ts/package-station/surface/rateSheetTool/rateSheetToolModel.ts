@@ -1,18 +1,16 @@
 // Rate Sheet tool — the pure read-model ⇄ editor-value ⇄ save-payload mapping.
 //
-// This module holds NO state and performs NO I/O. It is the faithful port of
-// the mapping the retired Command Centre carried in `providers/package.ts`
-// (removed in 34c8175): how a `PackageManagerReadModel` projects into the
-// editor's flat value, how that value rebuilds a `PackageManagerSavePayload`,
-// and how a source-Service connection appends a `PackageSourceRelationship`.
+// This module holds NO state and performs NO I/O. It maps a
+// `PackageManagerReadModel` into a list of per-sheet editor values, rebuilds a
+// `PackageManagerSavePayload` (a partial upsert set + an explicit deletion list),
+// and appends a connected source-Service relationship.
 //
-// IT INVENTS NO IDS AND NO STORAGE. Every existing Rate Sheet row keeps its
-// stored `item_id` (`rate_…`) and `source_item_id` (`mgr_…`); groups keep their
-// stored `group_id` (`rate_group_…`). New source rows are onboarded by the
-// authoritative backend (`PackageManagerSchema::commitConfiguration`) on save,
-// so no canonical hashing is duplicated here. The save reuses the surviving
-// Package Manager contract verbatim; Tier remains responsible only for choosing
-// a Rate Sheet `item_id` and declaring its own quantity.
+// IT INVENTS NO IDS. Existing rows keep their stored `item_id` (`rate_…`) and
+// `source_item_id` (`mgr_…`); groups keep their `group_id` (`rate_group_…`);
+// sheets keep their `rate_sheet_id` (`rs_…`). A new sheet or a curated row is
+// sent with a BLANK id — the backend (`PackageManagerSchema::commitConfiguration`)
+// mints/derives it on save. Independent curation: a row exists in a sheet only
+// because the admin added it here; there is no blanket auto-onboard.
 
 import type {
   PackageManagerGroup,
@@ -21,14 +19,14 @@ import type {
   PackageManagerReadModel,
   PackageManagerSavePayload,
   PackageRateSheet,
+  PackageRateSheetStatus,
   PackageRateSheetUnit,
   PackageSourceRelationship,
 } from '../../types';
 
 // ── Editor value ────────────────────────────────────────────────────────────
-// The flat shape the grid edits, kept deliberately close to the retired
-// editor's `RateSheetEditorValue` so the presentation reads the same way. It is
-// a projection of the stored `rate_sheet`, never a second authority.
+// The flat shape the grid edits — a projection of one stored sheet, never a
+// second authority. A blank `id` marks a not-yet-persisted sheet.
 
 export interface RateSheetEditorGroup {
   id:    string;   // stored PackageManagerGroup.group_id
@@ -36,18 +34,20 @@ export interface RateSheetEditorGroup {
 }
 
 export interface RateSheetEditorRow {
-  id:             string;                // stored PackageRateSheetItem.item_id  (preserved)
-  optionId:       string;                // stored PackageRateSheetItem.source_item_id → manager item_id (preserved)
-  optionLabel:    string;                // Service-resolved supplied-content label (display only)
-  unitPrice:      number;
-  per:            PackageRateSheetUnit;
-  quantity:       number;
-  groupId:        string | null;
+  id:              string;               // stored PackageRateSheetItem.item_id (blank until saved)
+  optionId:        string;               // stored source_item_id → manager item_id (preserved)
+  optionLabel:     string;               // Service-resolved supplied-content label (display only)
+  unitPrice:       number;
+  per:             PackageRateSheetUnit;
+  quantity:        number;
+  groupId:         string | null;
   sourceAvailable: boolean;              // supplying source resolves and is not missing/disabled
 }
 
 export interface RateSheetEditorValue {
+  id:     string;                        // stored rate_sheet_id, blank until minted on save
   title:  string;
+  status: PackageRateSheetStatus;
   groups: RateSheetEditorGroup[];
   items:  RateSheetEditorRow[];
 }
@@ -58,7 +58,9 @@ export interface RateSheetOption {
   label: string;
 }
 
-export const EMPTY_RATE_SHEET_VALUE: RateSheetEditorValue = { title: '', groups: [], items: [] };
+export const EMPTY_RATE_SHEET_VALUE: RateSheetEditorValue = { id: '', title: '', status: 'active', groups: [], items: [] };
+
+const DEFAULT_UNIT: PackageRateSheetUnit = 'Per item';
 
 // ── Read-model projection ─────────────────────────────────────────────────────
 
@@ -75,24 +77,20 @@ function sourceAvailable(item: PackageManagerItem | undefined): boolean {
   return item !== undefined && item.available !== false && !item.missing;
 }
 
-/** Project the stored Rate Sheet into the flat editor value. Stale rows whose
- *  source no longer resolves are dropped from the grid, matching the provider's
- *  cleaning rule and the backend's write-boundary filter. */
-export function toRateSheetEditorValue(readModel: PackageManagerReadModel): RateSheetEditorValue {
-  // Phase 4 bridge: the Tool still edits the first sheet; Phase 5 makes it a
-  // collection. Kept singleton-equivalent so the drawer behaves unchanged.
-  const rateSheet = readModel.rate_sheets[0] ?? null;
-  if (!rateSheet) return { ...EMPTY_RATE_SHEET_VALUE };
-
-  const itemById = new Map(readModel.items.map((item) => [item.item_id, item]));
-  const labelById = new Map(readModel.items.map((item) => [item.item_id, packageItemLabel(item)]));
-
-  const groups = [...rateSheet.groups]
+/** Project one stored sheet into the flat editor value. Stale rows whose source
+ *  no longer resolves are dropped from the grid, matching the backend's
+ *  write-boundary filter. */
+function toEditorValue(
+  sheet: PackageRateSheet,
+  itemById: Map<string, PackageManagerItem>,
+  labelById: Map<string, string>,
+): RateSheetEditorValue {
+  const groups = [...sheet.groups]
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((group) => ({ id: group.group_id, label: group.label }));
   const groupIds = new Set(groups.map((group) => group.id));
 
-  const items = [...rateSheet.items]
+  const items = [...sheet.items]
     .sort((a, b) => a.sort_order - b.sort_order)
     .filter((item) => itemById.has(item.source_item_id))
     .map((item) => ({
@@ -106,7 +104,14 @@ export function toRateSheetEditorValue(readModel: PackageManagerReadModel): Rate
       sourceAvailable: sourceAvailable(itemById.get(item.source_item_id)),
     }));
 
-  return { title: rateSheet.title, groups, items };
+  return { id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status, groups, items };
+}
+
+/** Every stored sheet as an editor value, in stored order. */
+export function toRateSheetEditorList(readModel: PackageManagerReadModel): RateSheetEditorValue[] {
+  const itemById = new Map(readModel.items.map((item) => [item.item_id, item]));
+  const labelById = new Map(readModel.items.map((item) => [item.item_id, packageItemLabel(item)]));
+  return readModel.rate_sheets.map((sheet) => toEditorValue(sheet, itemById, labelById));
 }
 
 /** The manager relationships selectable as row sources (all connected items). */
@@ -115,9 +120,6 @@ export function rateSheetOptions(readModel: PackageManagerReadModel): RateSheetO
 }
 
 // ── Read-mode summary (pure) ──────────────────────────────────────────────────
-// Counts and coverage the drawer's View mode reads. A presentation projection of
-// the SAME editor value the grid edits — it derives no price, stores nothing,
-// and is never an input to a save.
 
 export interface RateSheetSummary {
   sources:     number;   // connected source Services
@@ -130,7 +132,7 @@ export interface RateSheetSummary {
   unavailable: number;   // rows whose supplying source no longer resolves
 }
 
-/** Row counts and pricing coverage for the Rate Sheet's read view. */
+/** Row counts and pricing coverage for one sheet's read view. */
 export function summariseRateSheet(
   value: RateSheetEditorValue,
   sourceServiceCount: number,
@@ -200,14 +202,58 @@ export function patchEditorRow(
   rowId: string,
   patch: Partial<Pick<RateSheetEditorRow, 'unitPrice' | 'per' | 'quantity' | 'groupId'>>,
 ): RateSheetEditorValue {
-  return { ...value, items: value.items.map((row) => (row.id === rowId ? { ...row, ...patch } : row)) };
+  return { ...value, items: value.items.map((row) => (rowKey(row) === rowId ? { ...row, ...patch } : row)) };
+}
+
+/** A grid-stable key for a row: its stored item_id, or its source id for a
+ *  not-yet-saved row (which has a blank item_id). */
+export function rowKey(row: RateSheetEditorRow): string {
+  return row.id !== '' ? row.id : `new:${row.optionId}`;
+}
+
+/** Add a curated row for a source option. One row per source per sheet: a source
+ *  already present is ignored. The id is blank — the backend derives it on save. */
+export function addEditorRow(
+  value: RateSheetEditorValue,
+  option: RateSheetOption,
+): RateSheetEditorValue {
+  if (value.items.some((row) => row.optionId === option.id)) return value;
+  const row: RateSheetEditorRow = {
+    id: '', optionId: option.id, optionLabel: option.label,
+    unitPrice: 0, per: DEFAULT_UNIT, quantity: 1, groupId: null, sourceAvailable: true,
+  };
+  return { ...value, items: [...value.items, row] };
+}
+
+export function removeEditorRow(value: RateSheetEditorValue, rowId: string): RateSheetEditorValue {
+  return { ...value, items: value.items.filter((row) => rowKey(row) !== rowId) };
+}
+
+// ── Collection mutations (pure) ────────────────────────────────────────────────
+
+/** A fresh, unsaved sheet. Blank id → the backend mints on save. */
+export function createEditorSheet(title = ''): RateSheetEditorValue {
+  return { id: '', title, status: 'active', groups: [], items: [] };
+}
+
+/** A copy of an existing sheet: same groups, rows, prices — a new (blank) id and
+ *  title. Rows keep their derived item ids (harmless: resolution is sheet-scoped
+ *  by the Tier's rate_sheet_id), so a duplicate prices the same supply anew. */
+export function duplicateEditorSheet(source: RateSheetEditorValue): RateSheetEditorValue {
+  return {
+    id:     '',
+    title:  source.title.trim() ? `Copy of ${source.title.trim()}` : 'Copy',
+    status: 'active',
+    groups: source.groups.map((group) => ({ ...group })),
+    items:  source.items.map((row) => ({ ...row })),
+  };
 }
 
 // ── Source-Service connection (pure) ──────────────────────────────────────────
 
-/** Append connected source Services to the relationship list, deduplicated on
- *  the same identity key the retired provider used. New inclusions become live
- *  pool sources on the next save, where the backend onboards their priced rows. */
+/** Append connected source Services to the relationship list, deduplicated. New
+ *  inclusions become selectable row sources on the next reload; the admin then
+ *  curates which of them a sheet prices. */
 export function connectSourceServices(
   sources: readonly PackageSourceRelationship[],
   serviceIds: readonly number[],
@@ -242,26 +288,45 @@ export function connectedServiceIds(sources: readonly PackageSourceRelationship[
 
 // ── Save payload ──────────────────────────────────────────────────────────────
 
+/** Map one editor value back to the stored sheet shape (ids preserved; blank
+ *  ids left for the backend to mint/derive). */
+function toStoredSheet(value: RateSheetEditorValue): PackageRateSheet {
+  return {
+    rate_sheet_id: value.id,
+    title:         value.title.trim(),
+    status:        value.status,
+    groups:        value.groups.map((group, index) => ({ group_id: group.id, label: group.label.trim(), sort_order: index })),
+    items:         value.items.map((row, index) => ({
+      item_id:        row.id,
+      source_item_id: row.optionId,
+      unit_price:     row.unitPrice,
+      per:            row.per,
+      quantity:       row.quantity,
+      group_id:       row.groupId,
+      sort_order:     index,
+    })),
+  };
+}
+
 /**
- * Rebuild the surviving `PackageManagerSavePayload` from the edited value.
+ * Rebuild the `PackageManagerSavePayload` from the edited collection.
  *
- *  - `sources`        pass through untouched (plus any just-connected Service).
- *  - `groups`         the Manager relationship groups, passed through unchanged —
- *                     the Rate Sheet tool never edits those (they have their own
- *                     station lifecycle; `commitConfiguration` re-asserts this).
+ *  - `sources`        pass through (plus any just-connected Service).
+ *  - `groups`         the Manager relationship groups, unchanged — the Rate Sheet
+ *                     tool never edits those.
  *  - `item_decisions` the referenced-and-already-configured relationships, so the
- *                     backend keeps them settled and consumable by Tiers. Only
- *                     rows referenced by the Rate Sheet, or already non-provisional,
- *                     are settled — provisional siblings stay provisional.
- *  - `rate_sheet`     the edited sheet, `sort_order` re-indexed by position; ids
- *                     preserved verbatim.
+ *                     backend keeps them settled and consumable by Tiers.
+ *  - `rate_sheets`    the upsert set (every non-deleted edited sheet). A wholly
+ *                     empty new sheet is dropped so it is not persisted.
+ *  - `rate_sheet_deletions` the ids explicitly removed (guarded server-side).
  */
 export function buildManagerSavePayload(
   readModel: PackageManagerReadModel,
-  value: RateSheetEditorValue,
+  sheets: readonly RateSheetEditorValue[],
+  deletions: readonly string[],
   sources: readonly PackageSourceRelationship[],
 ): PackageManagerSavePayload {
-  const referenced = new Set(value.items.map((row) => row.optionId));
+  const referenced = new Set(sheets.flatMap((sheet) => sheet.items.map((row) => row.optionId)));
 
   const itemDecisions: PackageManagerItemDecision[] = readModel.items
     .filter((item) => item.module_transition !== 'not-configured' || referenced.has(item.item_id))
@@ -277,33 +342,15 @@ export function buildManagerSavePayload(
 
   const groups: PackageManagerGroup[] = readModel.groups.map((group) => ({ ...group }));
 
-  // Phase 4 bridge: still an upsert of the first sheet. Its id/status are
-  // preserved (blank id → backend mints). Phase 5 sends the whole collection
-  // plus explicit rate_sheet_deletions.
-  const existing = readModel.rate_sheets[0] ?? null;
-  const rateSheet: PackageRateSheet = {
-    rate_sheet_id: existing?.rate_sheet_id ?? '',
-    title:  value.title.trim(),
-    status: existing?.status ?? 'active',
-    groups: value.groups.map((group, index) => ({ group_id: group.id, label: group.label.trim(), sort_order: index })),
-    items:  value.items.map((row, index) => ({
-      item_id:        row.id,
-      source_item_id: row.optionId,
-      unit_price:     row.unitPrice,
-      per:            row.per,
-      quantity:       row.quantity,
-      group_id:       row.groupId,
-      sort_order:     index,
-    })),
-  };
-  const isEmpty = rateSheet.title === '' && rateSheet.groups.length === 0 && rateSheet.items.length === 0;
+  const rateSheets = sheets
+    .map(toStoredSheet)
+    .filter((sheet) => !(sheet.rate_sheet_id === '' && sheet.title === '' && sheet.groups.length === 0 && sheet.items.length === 0));
 
   return {
     sources: sources.map((source) => ({ ...source })),
     groups,
     item_decisions: itemDecisions,
-    // A wholly empty sheet upserts nothing; deletion is always explicit.
-    rate_sheets: isEmpty ? [] : [rateSheet],
-    rate_sheet_deletions: [],
+    rate_sheets: rateSheets,
+    rate_sheet_deletions: [...deletions],
   };
 }
