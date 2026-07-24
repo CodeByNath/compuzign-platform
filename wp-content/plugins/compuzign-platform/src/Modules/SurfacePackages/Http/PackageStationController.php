@@ -649,6 +649,11 @@ class PackageStationController
                 'contact'       => $contact,
                 'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
             ];
+            // The Tier's bound Rate Sheet is edited alongside overview so a switch
+            // commits (clearing selections at settle) before new rows are chosen.
+            if (array_key_exists('rate_sheet_id', $body)) {
+                $draftValue['rate_sheet_id'] = sanitize_text_field((string) ($body['rate_sheet_id'] ?? ''));
+            }
         } elseif ($module === 'features') {
             $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs

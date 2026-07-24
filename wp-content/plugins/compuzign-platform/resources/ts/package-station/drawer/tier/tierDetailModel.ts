@@ -78,7 +78,9 @@ export function buildTierDetail(
 
   const relationshipLabels = new Map(svc.package_relationships.map((item) => [item.item_id, relationshipDisplayLabel(item)]));
   const relationshipsById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
-  const rateSheetCatalogue: TierResolvedRateSheetSelection[] = (svc.rate_sheet?.items ?? []).map((item) => ({
+  // The selectable rows are those of the sheet this Tier is bound to.
+  const boundSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === detail.rate_sheet_id) ?? null;
+  const rateSheetCatalogue: TierResolvedRateSheetSelection[] = (boundSheet?.items ?? []).map((item) => ({
     item_id: item.item_id,
     source_type: relationshipsById.get(item.source_item_id)?.source_type ?? null,
     source_id: relationshipsById.get(item.source_item_id)?.source_id ?? null,

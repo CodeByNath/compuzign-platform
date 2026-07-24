@@ -1191,11 +1191,27 @@ class PackageSchema
     {
         $history = [];
         $existingId = null;
+        $existingRateSheetId = null;
 
         if (self::isOccupantFormat($tierSlot)) {
             $history    = $tierSlot['history'] ?? [];
             $existingId = $tierSlot['current_occupant']['id'] ?? null;
+            $existingRateSheetId = self::normaliseRateSheetId($tierSlot['current_occupant']['rate_sheet_id'] ?? null);
         }
+
+        // The Tier's bound sheet: an explicit incoming id wins; when omitted the
+        // existing binding is kept.
+        $rateSheetId = array_key_exists('rate_sheet_id', $data)
+            ? self::normaliseRateSheetId($data['rate_sheet_id'])
+            : $existingRateSheetId;
+
+        // Refinement 4 — switching an already-bound occupant to a different sheet
+        // drops its selections so A's rows never carry into B. First configuration
+        // (no prior binding) keeps the incoming selections.
+        $switched = $existingRateSheetId !== null && $rateSheetId !== $existingRateSheetId;
+        $selections = $switched
+            ? []
+            : self::sanitizeTierRateSheetSelections($data['rate_sheet_items'] ?? []);
 
         return [
             'current_occupant' => [
@@ -1206,13 +1222,21 @@ class PackageSchema
                 'price'               => $data['price'] ?? null,
                 'contact'             => $data['contact'] ?? false,
                 'billing_cycle'       => $data['billing_cycle'] ?? null,
+                'rate_sheet_id'       => $rateSheetId,
                 'inclusions_override' => $data['inclusions_override'] ?? [],
-                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($data['rate_sheet_items'] ?? []),
+                'rate_sheet_items'    => $selections,
                 'features'            => $data['features'] ?? [],
                 'faq_refs'            => $data['faq_refs'] ?? [],
             ],
             'history' => $history,
         ];
+    }
+
+    /** Normalise a stored/inbound Rate Sheet id to a non-empty string or null. */
+    private static function normaliseRateSheetId(mixed $rateSheetId): ?string
+    {
+        $id = is_string($rateSheetId) ? trim($rateSheetId) : '';
+        return $id !== '' ? $id : null;
     }
 
     /**
@@ -1681,14 +1705,30 @@ class PackageSchema
 
         $ov = is_array($drafts['overview'] ?? null) ? $drafts['overview'] : [];
 
+        // The Tier's bound Rate Sheet: draft-preferred, occupant fallback.
+        $occRateSheetId   = self::normaliseRateSheetId($occ['rate_sheet_id'] ?? null);
+        $draftRateSheetId = array_key_exists('rate_sheet_id', $ov)
+            ? self::normaliseRateSheetId($ov['rate_sheet_id'])
+            : $occRateSheetId;
+        // Refinement 4 — switching an already-bound occupant to a different sheet
+        // clears its selections; picking new rows is a separate settle against the
+        // re-bound occupant. Non-switch settles keep the draft-preferred selections.
+        $switchingSheet = $occRateSheetId !== null && $draftRateSheetId !== $occRateSheetId;
+        $selections = $switchingSheet
+            ? []
+            : (is_array($drafts['features'] ?? null)
+                ? self::sanitizeTierRateSheetSelections($drafts['features'])
+                : self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []));
+
         $tierData = [
             'label'               => $ov['label']         ?? ($occ['label']         ?? ''),
             'ideal_for'           => $ov['ideal_for']     ?? ($occ['ideal_for']     ?? ''),
             'price'               => null,
             'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
             'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
+            'rate_sheet_id'       => $draftRateSheetId,
             'inclusions_override' => [],
-            'rate_sheet_items'    => is_array($drafts['features'] ?? null) ? self::sanitizeTierRateSheetSelections($drafts['features']) : self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
+            'rate_sheet_items'    => $selections,
             'features'            => $occ['features'] ?? [],
             'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
         ];

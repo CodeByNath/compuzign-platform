@@ -14,6 +14,7 @@ export interface BinnedOccupant {
   price?:               number | null;
   contact?:             boolean;
   billing_cycle?:       string | null;
+  rate_sheet_id?:       string | null;
   inclusions_override?: InclusionItem[];
   rate_sheet_items?: TierRateSheetSelection[];
   ideal_for?: string;
@@ -50,7 +51,7 @@ export interface ServicePackageStationResponse {
     title:      string;
     inclusions: InclusionItem[];
     faqs:       FaqItem[];
-    rate_sheet: PackageRateSheet | null;
+    rate_sheets: PackageRateSheet[];
     package_relationships: PackageManagerItem[];
   };
 }
@@ -173,8 +174,12 @@ export interface PackageRateSheetItem {
   sort_order: number;
 }
 
+export type PackageRateSheetStatus = 'active' | 'archived';
+
 export interface PackageRateSheet {
+  rate_sheet_id: string;
   title: string;
+  status: PackageRateSheetStatus;
   groups: PackageManagerGroup[];
   items: PackageRateSheetItem[];
 }
@@ -187,7 +192,7 @@ export interface PackageManagerReadModel {
   groups:            PackageManagerGroup[];
   category_groups:   PackageFamilyItem[];
   items:             PackageManagerItem[];
-  rate_sheet:        PackageRateSheet | null;
+  rate_sheets:       PackageRateSheet[];
   projections: {
     inclusions: PackageManagerProjectionInclusion[];
     faqs:       PackageManagerProjectionFaq[];
@@ -224,7 +229,11 @@ export interface PackageManagerSavePayload {
   sources:        PackageSourceRelationship[];
   groups:         PackageManagerGroup[];
   item_decisions: PackageManagerItemDecision[];
-  rate_sheet:     PackageRateSheet | null;
+  // Partial upsert set (only sheets being created/updated; may be empty) plus an
+  // explicit deletion list. Unmentioned stored sheets are preserved. A new sheet
+  // carries a blank rate_sheet_id — the backend mints it (the Tool never mints).
+  rate_sheets:          PackageRateSheet[];
+  rate_sheet_deletions: string[];
 }
 
 export type PackageManagerSaveResponse =
@@ -285,6 +294,9 @@ export interface SurfaceTierDetail {
   price: number | null;
   contact: boolean;
   billing_cycle: string | null;
+  // The Rate Sheet this occupant's selections resolve against. Null when the
+  // occupant is unbound (no selections). Switching it clears the selections.
+  rate_sheet_id: string | null;
   inclusions_override: InclusionItem[];
   rate_sheet_items: TierRateSheetSelection[];
   rate_sheet_selections: TierResolvedRateSheetSelection[];
@@ -308,6 +320,9 @@ export interface TierOverviewDraft {
   price: number | null;
   contact: boolean;
   billing_cycle: string;
+  // The occupant's bound Rate Sheet. Edited in the overview module so a switch
+  // commits (and clears selections) before new rows are chosen.
+  rate_sheet_id?: string | null;
 }
 
 export interface TierRateSheetSelection {

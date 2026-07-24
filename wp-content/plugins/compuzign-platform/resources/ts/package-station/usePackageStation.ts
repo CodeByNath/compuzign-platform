@@ -103,6 +103,8 @@ function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
     price:               ov ? ov.price         : slot.price,
     contact:             ov ? ov.contact       : slot.contact,
     billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
+    // A pending sheet switch lives on the overview draft; otherwise the settled binding.
+    rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
   };
@@ -194,7 +196,9 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
     if (!slot) return null;
 
     const dp = draftPreferredDetail(slot);
-    const rateSheet = detail?.service.rate_sheet;
+    // Row identity is (rate_sheet_id, item_id): resolve within the sheet this Tier
+    // is bound to, never a bare scan across sheets.
+    const rateSheet = (detail?.service.rate_sheets ?? []).find((s) => s.rate_sheet_id === dp.rate_sheet_id) ?? null;
     const sourceById = new Map((detail?.service.package_relationships ?? []).map((item) => [item.item_id, item]));
     const rateById = new Map((rateSheet?.items ?? []).map((item) => [item.item_id, item]));
     const resolvedSelections = dp.rate_sheet_items.map((selection) => {

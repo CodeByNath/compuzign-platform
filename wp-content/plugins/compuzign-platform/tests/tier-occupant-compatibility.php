@@ -52,4 +52,27 @@ check_tier_occupant($detail['label'] === 'Starter Cloud Updated', 'overview draf
 check_tier_occupant($detail['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2]], 'untouched Rate Sheet selections survive flat migration');
 check_tier_occupant(array_unique(array_values($settled['module_status'])) === ['settled'], 'publish settles every module exactly once');
 
+// Refinement 4 — the occupant stores its bound Rate Sheet, and switching sheets
+// clears its selections so A's rows never carry into B.
+$bound = Schema::upsertOccupant([], [
+    'label' => 'Bound', 'rate_sheet_id' => 'rs_a',
+    'rate_sheet_items' => [['item_id' => 'rate-vm', 'quantity' => 2]],
+], true);
+check_tier_occupant($bound['current_occupant']['rate_sheet_id'] === 'rs_a', 'a first-configured occupant keeps its incoming rate_sheet_id and selections');
+check_tier_occupant($bound['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2]], 'first configuration keeps the incoming selections');
+
+$switched = Schema::upsertOccupant($bound, [
+    'label' => 'Bound', 'rate_sheet_id' => 'rs_b',
+    'rate_sheet_items' => [['item_id' => 'rate-vm', 'quantity' => 2]],
+], true);
+check_tier_occupant($switched['current_occupant']['rate_sheet_id'] === 'rs_b', 'switching re-binds the occupant to the new sheet');
+check_tier_occupant($switched['current_occupant']['rate_sheet_items'] === [], 'switching an already-bound occupant clears its selections');
+check_tier_occupant($switched['current_occupant']['id'] === $bound['current_occupant']['id'], 'switching preserves the stable occupant id');
+
+$kept = Schema::upsertOccupant($bound, [
+    'label' => 'Bound', 'rate_sheet_id' => 'rs_a',
+    'rate_sheet_items' => [['item_id' => 'rate-vm', 'quantity' => 5]],
+], true);
+check_tier_occupant($kept['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 5]], 'editing selections without switching keeps them');
+
 echo "Tier occupant compatibility checks passed.\n";

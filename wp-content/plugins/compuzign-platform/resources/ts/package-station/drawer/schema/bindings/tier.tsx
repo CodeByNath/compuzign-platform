@@ -15,7 +15,7 @@ import {
   tierFaqsModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import { TierOverviewEditor } from '../../editors/TierOverviewEditor';
-import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
+import type { TierOverviewEditDraft, RateSheetPickerOption } from '../../editors/TierOverviewEditor';
 import { PoolInclusionsEditor } from '../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
@@ -90,6 +90,8 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       <TierOverviewEditor
         draft={s.draft as TierOverviewEditDraft}
         onChange={(patch) => s.patch?.(patch)}
+        rateSheets={(s.extras?.rateSheets ?? []) as RateSheetPickerOption[]}
+        hasSelections={!!s.extras?.hasSelections}
       />
     ),
   },

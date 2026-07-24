@@ -163,7 +163,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
 
   const controller = useMemo<RateSheetToolController>(() => ({
     hostServiceId,
-    configured: readModel?.rate_sheet != null,
+    configured: (readModel?.rate_sheets.length ?? 0) > 0,
     value,
     options: readModel ? rateSheetOptions(readModel) : [],
     units: PACKAGE_RATE_SHEET_UNITS,

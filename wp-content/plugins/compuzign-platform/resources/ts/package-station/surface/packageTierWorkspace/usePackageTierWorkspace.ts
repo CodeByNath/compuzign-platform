@@ -51,8 +51,11 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
   const pkg = usePackageStation(host.service?.id ?? 0);
 
   const projected = useMemo<PackageTierWorkspaceFamily[]>(() => {
-    const rateItems     = pkg.service?.rate_sheet?.items ?? [];
-    const relationships = pkg.service?.package_relationships ?? [];
+    const rateSheets    = pkg.service?.rate_sheets ?? [];
+    // Provenance maps span every sheet's rows; a row's supplying Service is the
+    // same regardless of which sheet prices it.
+    const rateItems     = rateSheets.flatMap((sheet) => sheet.items);
+    const relationships  = pkg.service?.package_relationships ?? [];
     // Resolve each Rate Sheet row to its supplying Service once, from the station
     // read model — the exact provenance the backend uses for `tier_selections`.
     const serviceByRateItem = buildRateItemServiceMap(rateItems, relationships);
@@ -76,7 +79,8 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         deck: projectTierDeck(
           view?.detail.rate_sheet_selections ?? [],
           categoryByRateItem,
-          pkg.service?.rate_sheet ?? null,
+          // The Tier's connections group under the sheet it is bound to.
+          rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
         ),
       };
     });

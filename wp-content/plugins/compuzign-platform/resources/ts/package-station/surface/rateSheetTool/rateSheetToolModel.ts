@@ -20,6 +20,7 @@ import type {
   PackageManagerItemDecision,
   PackageManagerReadModel,
   PackageManagerSavePayload,
+  PackageRateSheet,
   PackageRateSheetUnit,
   PackageSourceRelationship,
 } from '../../types';
@@ -78,7 +79,9 @@ function sourceAvailable(item: PackageManagerItem | undefined): boolean {
  *  source no longer resolves are dropped from the grid, matching the provider's
  *  cleaning rule and the backend's write-boundary filter. */
 export function toRateSheetEditorValue(readModel: PackageManagerReadModel): RateSheetEditorValue {
-  const rateSheet = readModel.rate_sheet;
+  // Phase 4 bridge: the Tool still edits the first sheet; Phase 5 makes it a
+  // collection. Kept singleton-equivalent so the drawer behaves unchanged.
+  const rateSheet = readModel.rate_sheets[0] ?? null;
   if (!rateSheet) return { ...EMPTY_RATE_SHEET_VALUE };
 
   const itemById = new Map(readModel.items.map((item) => [item.item_id, item]));
@@ -274,8 +277,14 @@ export function buildManagerSavePayload(
 
   const groups: PackageManagerGroup[] = readModel.groups.map((group) => ({ ...group }));
 
-  const rateSheet = {
+  // Phase 4 bridge: still an upsert of the first sheet. Its id/status are
+  // preserved (blank id → backend mints). Phase 5 sends the whole collection
+  // plus explicit rate_sheet_deletions.
+  const existing = readModel.rate_sheets[0] ?? null;
+  const rateSheet: PackageRateSheet = {
+    rate_sheet_id: existing?.rate_sheet_id ?? '',
     title:  value.title.trim(),
+    status: existing?.status ?? 'active',
     groups: value.groups.map((group, index) => ({ group_id: group.id, label: group.label.trim(), sort_order: index })),
     items:  value.items.map((row, index) => ({
       item_id:        row.id,
@@ -287,15 +296,14 @@ export function buildManagerSavePayload(
       sort_order:     index,
     })),
   };
+  const isEmpty = rateSheet.title === '' && rateSheet.groups.length === 0 && rateSheet.items.length === 0;
 
   return {
     sources: sources.map((source) => ({ ...source })),
     groups,
     item_decisions: itemDecisions,
-    // A wholly empty sheet is sent as null so the backend's own "null when
-    // empty" representation stays the single canonical no-configuration state.
-    rate_sheet: rateSheet.title === '' && rateSheet.groups.length === 0 && rateSheet.items.length === 0
-      ? null
-      : rateSheet,
+    // A wholly empty sheet upserts nothing; deletion is always explicit.
+    rate_sheets: isEmpty ? [] : [rateSheet],
+    rate_sheet_deletions: [],
   };
 }

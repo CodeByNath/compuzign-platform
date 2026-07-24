@@ -219,6 +219,12 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
 
   let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
+    // Selectable sheets: active ones plus the current binding (even if archived,
+    // so it still displays). Switching clears the Tier's selections at settle.
+    const boundId = detail.rate_sheet_id;
+    const rateSheetOptions = svc.rate_sheets
+      .filter((sheet) => sheet.status === 'active' || sheet.rate_sheet_id === boundId)
+      .map((sheet) => ({ id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status }));
     editing = {
       module: 'overview',
       session: {
@@ -230,6 +236,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
+        extras: { rateSheets: rateSheetOptions, hasSelections: detail.rate_sheet_items.length > 0 },
       },
     };
   } else if (c.editingSection === 'tier-inclusions' && c.featuresDraft) {

@@ -11,14 +11,41 @@ import type { TierOverviewDraft } from '../../types';
 
 export type TierOverviewEditDraft = TierOverviewDraft & { popular: boolean; popular_label: string };
 
-interface Props {
-  draft:    TierOverviewEditDraft;
-  onChange: (patch: Partial<TierOverviewEditDraft>) => void;
+export interface RateSheetPickerOption {
+  id:     string;
+  title:  string;
+  status: 'active' | 'archived';
 }
 
-export function TierOverviewEditor({ draft, onChange }: Props) {
+interface Props {
+  draft:         TierOverviewEditDraft;
+  onChange:      (patch: Partial<TierOverviewEditDraft>) => void;
+  rateSheets?:   RateSheetPickerOption[];
+  hasSelections?: boolean;
+}
+
+export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelections = false }: Props) {
+  // Switching the bound sheet clears this Tier's row selections (enforced at
+  // settle). Confirm first so the change is never silent.
+  const changeRateSheet = (next: string | null) => {
+    if (next === (draft.rate_sheet_id ?? null)) return;
+    if (hasSelections && !window.confirm('Switching Rate Sheet clears this tier\'s selected rows. Continue?')) return;
+    onChange({ rate_sheet_id: next });
+  };
   return (
     <div class="cz-tf-form">
+      <div class="cz-tf-field">
+        <label class="cz-tf-label">Rate Sheet</label>
+        <select class="cz-tf-select" value={draft.rate_sheet_id ?? ''}
+          onChange={(e) => changeRateSheet((e.target as HTMLSelectElement).value || null)}>
+          <option value="">Not bound</option>
+          {rateSheets.map((sheet) => (
+            <option key={sheet.id} value={sheet.id}>
+              {sheet.title || '(untitled)'}{sheet.status === 'archived' ? ' (archived)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
       <div class="cz-tf-field">
         <label class="cz-tf-label">Price</label>
         <input type="text" class="cz-tf-input" value={draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'} readOnly />
