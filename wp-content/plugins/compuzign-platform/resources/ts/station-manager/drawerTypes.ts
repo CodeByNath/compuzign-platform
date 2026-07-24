@@ -12,6 +12,14 @@ import type { StationRecordId } from './recordIdentity';
 // module-level editing; `edit` means open directly into its primary module.
 export type DrawerMode = 'view' | 'edit';
 
+// Declared panel size for a registered drawer. Coordination only: the key
+// travels with the registration and Admin Station's shell decides what each
+// size means in CSS. A template that declares none renders at `normal`, so
+// every existing registration is unchanged. The shell never branches on entity
+// or template key to pick a width — a drawer that needs more room says so in
+// its own registration, and the size stays generic Admin presentation.
+export type DrawerSize = 'normal' | 'wide' | 'extra-wide';
+
 // Registered drawer template keys are open so Stations can register their own
 // drawer contracts without changing the coordinator.
 export type DrawerTemplateKey = string;
@@ -57,5 +65,7 @@ export interface DrawerTemplateRegistration {
   // Neutral header title, entity-named in data (not by a shell branch).
   title:          string;
   supportedModes: DrawerMode[];
+  // Optional declared panel size. Omitted means `normal`.
+  size?:          DrawerSize;
   content:        DrawerContent;
 }

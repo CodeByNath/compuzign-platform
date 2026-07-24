@@ -18,9 +18,11 @@ The Rate Sheet is part of the single `cz_package_station` record. Computed total
 
 The Command Centre editor was removed in `34c8175`; the Rate Sheet authoring capability is now rebuilt as a Package-owned drawer (the registered `rate-sheet` drawer template) mounted in the generic Admin drawer shell — not a body surface and not the Command Centre. It reuses the surviving Package Manager read/save contract, stored IDs, groups, and items — it adds no endpoint, storage, or station.
 
-- [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts) — pure `PackageManagerReadModel` ⇄ editor-value ⇄ `PackageManagerSavePayload` mapping, preserving each row's stored `item_id`/`source_item_id` and each group's `group_id`.
+It follows the same mature view → edit flow as `package-family` and `tier`: `supportedModes: ['view', 'edit']`, opened at `view` by the `rate-sheet` intent. View renders through shared `ReadBlock` cards and publishes an `EntityActionFooter` (Close · Edit) via `setFooter`; Edit hands the controls to the shared `InlineEditorShell`, which owns Save/Cancel, the dirty-cancel confirm, and saving/error state — the record footer withdraws while editing, so there is one footer and one save at a time. The grid declares the generic `size: 'extra-wide'` key ([Admin Station Drawer](admin-station-drawer.md) owns the width); Package hard-codes no width.
+
+- [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts) — pure `PackageManagerReadModel` ⇄ editor-value ⇄ `PackageManagerSavePayload` mapping, preserving each row's stored `item_id`/`source_item_id` and each group's `group_id`. Also the View-mode projections `summariseRateSheet` (counts, pricing/grouping coverage) and `rateSheetRowsInGroup` — presentation only, never a second price or store.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts) — the Package-owned read/edit/save controller: reads through `fetchPackageStationManager`, saves through `savePackageStationManager`, addressed by the shared `useHostService` host id.
-- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — `RateSheetDrawerContent`, the presentation for the `rate-sheet` drawer (title, source-Service picker, groups, priced grid); calls no endpoint. Connecting a Service persists it, and the backend `commitConfiguration` onboards its inclusions as priced rows on reload. New source rows keep the backend-computed canonical IDs; the tool never mints IDs.
+- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — `RateSheetDrawerContent`: the read view (title, source Services, groups, priced rows, counts and coverage) and the edit authoring controls (source-Service picker, groups, priced grid). Calls no endpoint. Connecting a Service persists it, and the backend `commitConfiguration` onboards its inclusions as priced rows on reload. New source rows keep the backend-computed canonical IDs; the tool never mints IDs.
 
 The Tier workspace lower deck reads connected Rate Sheet groups only and routes selection edits to the `tier` drawer; its Settings "Rate Sheets" and "Groups" cards dispatch the `rate-sheet` action intent, which opens the authoring drawer through the Admin drawer host (the intent names its own `drawerTemplateKey`, so no editor renders inline). Tier remains responsible only for selecting a Rate Sheet `item_id` and declaring its quantity; the price authority stays with the Rate Sheet.
 
@@ -35,7 +37,7 @@ Persisted Package source relationships resolve to Rate Sheet rows; Tier selectio
 
 ## Validation
 
-Run `npx tsx scripts/tier-pricing-parity-contract.ts`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `npm run contract:rate-sheet-tool` (covers the read/save mapping and the View-mode summary/grouping projections), `npx tsx scripts/tier-pricing-parity-contract.ts`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 

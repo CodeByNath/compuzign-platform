@@ -111,6 +111,57 @@ export function rateSheetOptions(readModel: PackageManagerReadModel): RateSheetO
   return readModel.items.map((item) => ({ id: item.item_id, label: packageItemLabel(item) }));
 }
 
+// ── Read-mode summary (pure) ──────────────────────────────────────────────────
+// Counts and coverage the drawer's View mode reads. A presentation projection of
+// the SAME editor value the grid edits — it derives no price, stores nothing,
+// and is never an input to a save.
+
+export interface RateSheetSummary {
+  sources:     number;   // connected source Services
+  groups:      number;
+  rows:        number;
+  grouped:     number;   // rows assigned to a group
+  ungrouped:   number;
+  priced:      number;   // rows carrying a unit price above zero
+  unpriced:    number;   // rows still at zero — the coverage gap
+  unavailable: number;   // rows whose supplying source no longer resolves
+}
+
+/** Row counts and pricing coverage for the Rate Sheet's read view. */
+export function summariseRateSheet(
+  value: RateSheetEditorValue,
+  sourceServiceCount: number,
+): RateSheetSummary {
+  let grouped = 0;
+  let priced = 0;
+  let unavailable = 0;
+
+  for (const row of value.items) {
+    if (row.groupId !== null) grouped += 1;
+    if (row.unitPrice > 0) priced += 1;
+    if (!row.sourceAvailable) unavailable += 1;
+  }
+
+  return {
+    sources:     sourceServiceCount,
+    groups:      value.groups.length,
+    rows:        value.items.length,
+    grouped,
+    ungrouped:   value.items.length - grouped,
+    priced,
+    unpriced:    value.items.length - priced,
+    unavailable,
+  };
+}
+
+/** Rows belonging to a group, in grid order. `null` selects the ungrouped rows. */
+export function rateSheetRowsInGroup(
+  value: RateSheetEditorValue,
+  groupId: string | null,
+): RateSheetEditorRow[] {
+  return value.items.filter((row) => row.groupId === groupId);
+}
+
 // ── Editor-value mutations (pure) ─────────────────────────────────────────────
 
 /** Stored group-id grammar, identical to the retired editor's `rate_group_…`. */

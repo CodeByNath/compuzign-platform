@@ -4,16 +4,21 @@ Admin Station owns one entity-agnostic drawer shell. Station Manager resolves dr
 
 ## Registration and runtime
 
-`station-manager/drawerTypes.ts` defines the open string key, native record identity, opening mode, and shell/content bridge. `station-manager/registry/drawerTemplates.ts` registers contracts and rejects duplicate keys or empty supported-mode lists. Unknown keys intentionally resolve to `null`, allowing the shell to render its neutral unavailable state.
+`station-manager/drawerTypes.ts` defines the open string key, native record identity, opening mode, an optional declared panel `size`, and the shell/content bridge. `station-manager/registry/drawerTemplates.ts` registers contracts and rejects duplicate keys or empty supported-mode lists. Unknown keys intentionally resolve to `null`, allowing the shell to render its neutral unavailable state.
 
 Registration ownership is:
 
-| Key | Registrar | Host / composition owner |
-| --- | --- | --- |
-| `category` | Admin Station | retained Admin Category adapter / Category drawer |
-| `service` | Service Station | Service Station |
-| `package-family` | Package Station | Package Station |
-| `tier` | Package Station | Package Station |
+| Key | Registrar | Host / composition owner | Size |
+| --- | --- | --- | --- |
+| `category` | Admin Station | retained Admin Category adapter / Category drawer | normal |
+| `service` | Service Station | Service Station | normal |
+| `package-family` | Package Station | Package Station | normal |
+| `tier` | Package Station | Package Station | normal |
+| `rate-sheet` | Package Station | Package Station | extra-wide |
+
+## Drawer size
+
+`DrawerSize` is `'normal' | 'wide' | 'extra-wide'`, declared per registration via the optional `size` field (omitted means `normal`, so every prior registration is unchanged). `AdminStationDrawer` reads the resolved template's size and appends a `cz-station-drawer--{size}` modifier; Admin Station's `admin-station.css` maps each modifier to a width at `min-width: 720px` (and a further step for `extra-wide` at `1200px`). This is generic Admin presentation: the shell never branches on entity or template key to choose a width — a drawer that needs more room declares its own `size`. The base `max-width` and the `560px` full-width rule still apply, so a wide drawer yields to the viewport on small screens instead of clipping horizontally.
 
 The runtime chain is:
 

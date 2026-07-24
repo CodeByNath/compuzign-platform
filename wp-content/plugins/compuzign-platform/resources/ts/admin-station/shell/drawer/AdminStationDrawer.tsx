@@ -71,12 +71,17 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
 
   const template = resolveDrawerTemplate(open.drawerTemplateKey);
 
+  // The registered size, mapped to the shell's own width modifier. Generic
+  // presentation: the shell reads a declared key and never names a template —
+  // a drawer that needs more room declares `size` in its own registration.
+  const size = template?.size ?? 'normal';
+
   return (
     <div class="cz-station-drawer-layer">
       <div class="cz-station-drawer-backdrop" onClick={requestClose} />
       <aside
         ref={panelRef}
-        class="cz-station-drawer"
+        class={`cz-station-drawer${size === 'normal' ? '' : ` cz-station-drawer--${size}`}`}
         role="dialog"
         aria-modal="true"
         aria-label={template ? template.title : 'Drawer'}

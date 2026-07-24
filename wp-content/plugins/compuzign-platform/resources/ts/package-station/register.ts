@@ -63,9 +63,16 @@ export function registerPackageStation(): void {
       // Package-owned Rate Sheet authoring, mounted in the generic Admin drawer.
       // Reuses `useRateSheetTool` and the Package Manager save contract; opened
       // from the Tier workspace Settings cards via the `rate-sheet` action intent.
+      //
+      // A normal registered Package drawer, not a special one: it supports the
+      // same view → edit mode flow as `package-family` and `tier`, so it opens
+      // readable and switches to authoring through the shell's own mode control.
+      // The pricing grid needs more horizontal room than a record drawer, which
+      // it declares with the generic `size` key rather than any bespoke width.
       key: 'rate-sheet',
       title: 'Rate Sheet',
-      supportedModes: ['edit'],
+      supportedModes: ['view', 'edit'],
+      size: 'extra-wide',
       content: RateSheetDrawerContent,
     },
   ]);

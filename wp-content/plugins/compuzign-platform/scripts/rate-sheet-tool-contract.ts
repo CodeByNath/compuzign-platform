@@ -14,6 +14,8 @@ import {
   connectedServiceIds,
   createEditorGroup,
   deleteEditorGroup,
+  rateSheetRowsInGroup,
+  summariseRateSheet,
   toRateSheetEditorValue,
 } from '../resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel';
 import type {
@@ -108,5 +110,31 @@ check(JSON.stringify(connectedServiceIds(connected).sort()) === JSON.stringify([
 const emptyModel: PackageManagerReadModel = { ...readModel, items: [], rate_sheet: null };
 const emptyPayload = buildManagerSavePayload(emptyModel, { title: '', groups: [], items: [] }, emptyModel.sources);
 check(emptyPayload.rate_sheet === null, 'a wholly empty sheet saves rate_sheet as null');
+
+// ── Read-mode summary (drives the drawer's View mode) ─────────────────────────
+// The View mode's counts and coverage are a pure projection of the SAME editor
+// value the grid edits — never a second price or store. With one live row
+// (priced, grouped, available) surviving the read-model projection:
+const summary = summariseRateSheet(value, connectedServiceIds(readModel.sources).length);
+check(summary.rows === 1, 'the summary counts the live priced rows');
+check(summary.groups === 2, 'the summary counts the stored groups');
+check(summary.sources === 1, 'the summary counts the connected source Services');
+check(summary.priced === 1 && summary.unpriced === 0, 'a row with a non-zero unit price counts as priced');
+check(summary.grouped === 1 && summary.ungrouped === 0, 'a row assigned to a group counts as grouped');
+check(summary.unavailable === 0, 'a live row whose source resolves is not counted unavailable');
+
+// A row left at zero price and ungrouped moves the coverage counters, never the
+// row total — the View mode reports the gap without dropping the row.
+const gapValue = { ...value, items: [{ ...value.items[0], unitPrice: 0, groupId: null }] };
+const gapSummary = summariseRateSheet(gapValue, 0);
+check(gapSummary.priced === 0 && gapSummary.unpriced === 1, 'a zero-price row counts as unpriced coverage gap');
+check(gapSummary.grouped === 0 && gapSummary.ungrouped === 1, 'an ungrouped row counts toward the ungrouped total');
+check(gapSummary.sources === 0, 'the summary reports zero sources when none are connected');
+
+// Grouping read-back: a group lists exactly its assigned rows; `null` selects
+// the ungrouped rows. The same order the grid shows.
+check(rateSheetRowsInGroup(value, 'rate_group_1').length === 1, 'a group reads back exactly its assigned rows');
+check(rateSheetRowsInGroup(value, 'rate_group_0').length === 0, 'a group with no rows reads back empty');
+check(rateSheetRowsInGroup(gapValue, null).length === 1, 'passing null reads back the ungrouped rows');
 
 console.log('Rate Sheet tool contract checks passed.');

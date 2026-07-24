@@ -9,7 +9,7 @@ The drawer system separates coordination, hosting, rendering, and persistence:
 - **Owning Stations** register drawer adapters and own their compositions, validation, lifecycle, and saves.
 - **Drawer Kit** supplies entity-neutral schema renderers and interaction primitives; it owns no records.
 
-[drawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/drawerTypes.ts) defines `DrawerMode`, open string keys, and content props. [drawerTemplates.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/registry/drawerTemplates.ts) registers and resolves templates. [AdminStationDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/shell/drawer/AdminStationDrawer.tsx) hosts the resolved contract and delegates `recordId`, mode, close, footer, close guard, and originating-wall refresh.
+[drawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/drawerTypes.ts) defines `DrawerMode`, `DrawerSize`, open string keys, and content props. [drawerTemplates.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/registry/drawerTemplates.ts) registers and resolves templates. [AdminStationDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/shell/drawer/AdminStationDrawer.tsx) hosts the resolved contract, applies its declared `size` as a generic width modifier, and delegates `recordId`, mode, close, footer, close guard, and originating-wall refresh. See [Admin Station Drawer](admin-station-drawer.md) for the size capability.
 
 ## Shared Drawer Kit
 

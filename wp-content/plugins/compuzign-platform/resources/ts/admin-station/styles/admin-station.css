@@ -1066,6 +1066,22 @@ button.cz-station-status-pill {
   .cz-station-drawer { width: 560px; }
 }
 
+/* Registered drawer sizes — generic Admin Station presentation.
+   A drawer template declares `size` in its own registration and the shell maps
+   it to a width here; no rule names a template or an entity. Declared after the
+   720px base so an equal-specificity size modifier wins on source order.
+   Widths only: the base `max-width: calc(100vw - 48px)` still applies, and the
+   560px responsive rule still takes the panel full-width on phones, so a wide
+   drawer yields to the viewport instead of clipping horizontally. */
+@media (min-width: 720px) {
+  .cz-station-drawer--wide       { width: 720px; }
+  .cz-station-drawer--extra-wide { width: 860px; }
+}
+
+@media (min-width: 1200px) {
+  .cz-station-drawer--extra-wide { width: 1080px; }
+}
+
 /* ── Service Catalogue ─────────────────────────────────────────────────── */
 
 .cz-service-catalogue {
@@ -2377,38 +2393,11 @@ button.cz-station-status-pill {
 }
 
 /* ── Rate Sheet authoring tool ───────────────────────────────────────────── */
-
-.cz-rate-sheet-tool {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cz-rate-sheet-tool__note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--station-text-muted);
-  font-size: var(--station-text-sm);
-  line-height: var(--station-line-snug);
-}
-
-.cz-rate-sheet-tool__note-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: var(--station-card-icon-size);
-  height: var(--station-card-icon-size);
-  border-radius: var(--station-card-icon-radius);
-  background: var(--station-accent-soft-bg);
-  color: var(--station-accent-strong);
-}
-
-.cz-rate-sheet-tool__note-icon > svg {
-  width: var(--station-card-glyph-size);
-  height: var(--station-card-glyph-size);
-}
+/* The Rate Sheet is a registered drawer that follows the mature View/Edit flow.
+   View renders through the shared `drawerModule` read cards; Edit renders these
+   authoring controls inside the shared InlineEditorShell. The rules below style
+   only the authoring grid, groups, and source picker — the drawer shell, header,
+   footer, and read cards are owned by Admin Station and the drawer kit. */
 
 .cz-rate-sheet-tool__editor {
   display: flex;
@@ -2494,16 +2483,6 @@ button.cz-station-status-pill {
 .cz-rate-sheet-tool__grid .cz-tf-input,
 .cz-rate-sheet-tool__grid .cz-tf-select {
   min-width: 88px;
-}
-
-.cz-rate-sheet-tool__footer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cz-rate-sheet-tool__footer-spacer {
-  flex: 1 1 auto;
 }
 
 .cz-rate-sheet-tool__picker {

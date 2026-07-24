@@ -101,7 +101,7 @@ export function registerPresentationPolicy(): void {
         // The lower-deck Settings cards open the Package-owned Rate Sheet drawer
         // from this same surface. Its own drawer key overrides the binding's
         // `tier`, so no second body surface renders beneath the workspace.
-        { id: 'rate-sheet', target: 'drawer', mode: 'edit', drawerTemplateKey: 'rate-sheet' },
+        { id: 'rate-sheet', target: 'drawer', mode: 'view', drawerTemplateKey: 'rate-sheet' },
       ],
     },
   ]);

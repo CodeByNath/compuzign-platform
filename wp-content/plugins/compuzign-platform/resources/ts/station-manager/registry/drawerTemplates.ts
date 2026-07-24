@@ -4,6 +4,7 @@ import type { DrawerTemplateRegistration } from '../drawerTypes';
 
 export type {
   DrawerMode,
+  DrawerSize,
   DrawerTemplateKey,
   DrawerContentProps,
   DrawerContent,

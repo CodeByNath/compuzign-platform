@@ -7,74 +7,373 @@
 // organise them into Rate Sheet groups, and commit through the surviving Package
 // Manager save contract.
 //
+// It follows the SAME mature drawer flow as the Package Family, Tier, Service,
+// and Category drawers, and owns no drawer machinery of its own:
+//   - View / Edit is the registered drawer mode (`supportedModes: ['view','edit']`).
+//     The shell supplies `mode` and `onModeChange`; this file keeps no local mode
+//     state and builds no custom tabs.
+//   - View mode reads through the shared `ReadBlock` module cards and publishes
+//     the record footer with `EntityActionFooter` through the shell's `setFooter`.
+//   - Edit mode hands the authoring controls to the shared `InlineEditorShell`,
+//     which owns Save / Cancel, the dirty-cancel confirmation, the saving state,
+//     and the save error — so the record footer is withdrawn while it is open,
+//     exactly as the Package Family and Tier drawers do. There is one footer and
+//     one save button at any time.
+//
 // Presentation only. Every read, edit, and save lives on the controller the
 // Package-owned `useRateSheetTool` hook supplies; this file calls no endpoint.
 // Saved priced rows become selectable by Tier occupants automatically — a Tier
 // chooses a Rate Sheet `item_id` and declares its quantity; the price authority
 // stays here. Admin hosts the panel; Package owns the data.
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
+import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
+import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
+import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import type { PackageRateSheetUnit } from '../../types';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
+import { rateSheetRowsInGroup, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
+import type { RateSheetEditorRow } from '../../surface/rateSheetTool/rateSheetToolModel';
+
+// Unit prices carry cents (the grid steps by 0.01), so the shared `formatPrice`
+// — whole dollars, for Tier headline pricing — would misreport them here.
+const UNIT_PRICE_FORMAT = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+function formatUnitPrice(price: number): string {
+  return UNIT_PRICE_FORMAT.format(price);
+}
+
+function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
 
 // ── SECTION: drawer content ───────────────────────────────────────────────────
 
-/** Registered `rate-sheet` drawer content. Reads the controller from the
- *  Package-owned hook and renders the editor inside the shell's panel; the shell
- *  supplies the "Rate Sheet" title and close chrome. `recordId`/`mode` are not
- *  used — the tool is scoped to the Package Station's host Service, not a record. */
-export function RateSheetDrawerContent({ onSaved, setCloseGuard }: DrawerContentProps): VNode {
+/** Registered `rate-sheet` drawer content. Resolves the Package-owned controller
+ *  and hands it to the mode-routed body; the shell supplies the "Rate Sheet"
+ *  title, close chrome, and footer region. `recordId` is not used — the tool is
+ *  scoped to the Package Station's host Service, not to a record. */
+export function RateSheetDrawerContent(props: DrawerContentProps): VNode {
   const { items, loading, error } = useRateSheetTool();
   const controller = items[0] as RateSheetToolController | undefined;
 
+  if (loading) {
+    return <div class="cz-station-drawer__state" aria-busy="true">Loading the Rate Sheet…</div>;
+  }
+  if (error) {
+    return <div class="cz-station-drawer__state" role="alert">{error}</div>;
+  }
+  if (!controller) {
+    return (
+      <div class="cz-station-drawer__state">
+        The Package Station needs a host Service before its Rate Sheet can be authored.
+      </div>
+    );
+  }
+
+  return <RateSheetDrawerBody controller={controller} {...props} />;
+}
+
+// ── SECTION: mode routing, footer, and close guard ────────────────────────────
+
+function RateSheetDrawerBody({
+  controller,
+  mode,
+  onClose,
+  onModeChange,
+  onSaved,
+  setFooter,
+  setCloseGuard,
+}: DrawerContentProps & { controller: RateSheetToolController }): VNode {
+  const editing = mode === 'edit';
+  const { dirty, saving, saveError } = controller;
+
+  const savedRef = useRef(onSaved);          savedRef.current = onSaved;
+  const modeRef  = useRef(onModeChange);     modeRef.current  = onModeChange;
+
   // Refresh the wall the drawer was opened from once a save completes, so the
   // Tier engine's pricing reflects the new rows. Detected from the controller's
-  // own save lifecycle — no change to the preserved hook.
-  const savedRef = useRef(onSaved);
-  savedRef.current = onSaved;
+  // own save lifecycle — no change to the preserved hook. An explicit Save also
+  // returns the drawer to View, the way a saved module closes its editor in the
+  // mature drawers; connecting a source Service persists too, but stays in Edit
+  // because the author is still building the sheet.
+  const explicitSave = useRef(false);
   const wasSaving = useRef(false);
   useEffect(() => {
-    const saving = controller?.saving ?? false;
-    if (wasSaving.current && !saving && !controller?.saveError) savedRef.current();
+    if (wasSaving.current && !saving) {
+      const wasExplicit = explicitSave.current;
+      explicitSave.current = false;
+      if (!saveError) {
+        savedRef.current();
+        if (wasExplicit) modeRef.current('view');
+      }
+    }
     wasSaving.current = saving;
-  }, [controller?.saving, controller?.saveError]);
+  }, [saving, saveError]);
 
-  // Guard the shell's own close paths (Escape / backdrop / header ×) against
-  // discarding unsaved edits. Content with no pending edit closes directly.
+  // Guard the shell's own close paths (Escape / backdrop / header ×) and a tab
+  // away against discarding unsaved edits — the same guard grammar the Tier
+  // drawer uses. Content with no pending edit closes directly.
   useEffect(() => {
-    if (!setCloseGuard) return;
-    setCloseGuard(() => !controller?.dirty || window.confirm('Discard unsaved Rate Sheet changes?'));
-    return () => setCloseGuard(null);
-  }, [setCloseGuard, controller?.dirty]);
+    const protectNavigation = (event: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    setCloseGuard?.(dirty ? () => window.confirm('Discard unsaved Rate Sheet changes?') : null);
+    window.addEventListener('beforeunload', protectNavigation);
+    return () => {
+      setCloseGuard?.(null);
+      window.removeEventListener('beforeunload', protectNavigation);
+    };
+  }, [setCloseGuard, dirty]);
+
+  const requestEdit = useCallback(() => onModeChange('edit'), [onModeChange]);
+
+  const leaveEdit = useCallback(() => {
+    // Revert to the last saved read model, then hand the mode back to the shell.
+    controller.discard();
+    onModeChange('view');
+  }, [controller, onModeChange]);
+
+  const save = useCallback(async () => {
+    explicitSave.current = true;
+    await controller.save();
+  }, [controller]);
+
+  // The record footer. Withdrawn while the inline editor is open, because
+  // InlineEditorShell carries its own Cancel / Save — one footer, one save.
+  useEffect(() => {
+    if (!setFooter) return;
+    if (editing) {
+      setFooter(null);
+      return () => setFooter(null);
+    }
+    setFooter(
+      <EntityActionFooter
+        close={{ id: 'close', label: 'Close', onSelect: onClose }}
+        primary={{ id: 'edit', label: 'Edit Rate Sheet', onSelect: requestEdit }}
+      />,
+    );
+    return () => setFooter(null);
+  }, [setFooter, editing, onClose, requestEdit]);
+
+  if (editing) {
+    return (
+      <InlineEditorShell
+        title={controller.value.title.trim() || 'Rate Sheet'}
+        onSave={save}
+        onCancel={leaveEdit}
+        saving={saving}
+        saveErr={saveError}
+        isDirty={dirty}
+        saveDisabled={!dirty}
+      >
+        <RateSheetEditor controller={controller} />
+      </InlineEditorShell>
+    );
+  }
+
+  return <RateSheetView controller={controller} onEdit={requestEdit} />;
+}
+
+// ── SECTION: view mode ────────────────────────────────────────────────────────
+
+/** Read-only summary of the saved Rate Sheet: title, connected source Services,
+ *  groups, and the priced rows with their unit, unit price, default quantity,
+ *  and group assignment — plus row counts and pricing coverage. */
+function RateSheetView({
+  controller,
+  onEdit,
+}: {
+  controller: RateSheetToolController;
+  onEdit: () => void;
+}): VNode {
+  const { value, connectedServiceIds, catalog } = controller;
+  const summary = useMemo(
+    () => summariseRateSheet(value, connectedServiceIds.length),
+    [value, connectedServiceIds.length],
+  );
+
+  // Resolve connected source Services to their titles through the controller's
+  // existing catalogue read — the same call the Edit-mode picker makes, so the
+  // view names no new endpoint. Until it resolves, the id stands in.
+  const loadCatalog = controller.loadCatalog;
+  useEffect(() => { loadCatalog(); }, [loadCatalog]);
+
+  const serviceTitles = useMemo(() => {
+    const byId = new Map(catalog.map((service) => [service.id, service.title]));
+    return connectedServiceIds.map((id) => byId.get(id) ?? `Service #${id}`);
+  }, [catalog, connectedServiceIds]);
+
+  const editAction = [{ id: 'edit', label: 'Edit', onSelect: onEdit }];
 
   return (
-    <div class="cz-rate-sheet-tool" aria-label="Rate Sheet authoring">
-      <p class="cz-rate-sheet-tool__note">
-        <span class="cz-rate-sheet-tool__note-icon" aria-hidden="true"><RateSheetIcon /></span>
-        Price the supplied rows Package Tiers select from. Connect source Services, set unit prices, and group the rows.
-      </p>
+    <div class="cz-req-detail">
+      <ReadBlock
+        title={value.title.trim() || 'Untitled Rate Sheet'}
+        subtitle="Pricing and supply the Package Tiers select from."
+        icon={<RateSheetIcon />}
+        scopeClass="drawerOverview"
+        actions={editAction}
+      >
+        <div class="drawerModule__fields">
+          <div class="drawerModule__field">
+            <p class="drawerModule__label">Title</p>
+            <p class="drawerModule__value">{value.title.trim() || 'Not set'}</p>
+          </div>
+          <div class="drawerModule__field">
+            <p class="drawerModule__label">Supply</p>
+            <p class="drawerModule__value">
+              {plural(summary.rows, 'priced row')}{' · '}
+              {plural(summary.groups, 'group')}{' · '}
+              {plural(summary.sources, 'source Service')}
+            </p>
+          </div>
+          <div class="drawerModule__field">
+            <p class="drawerModule__label">Pricing coverage</p>
+            <p class="drawerModule__value">
+              {summary.rows === 0
+                ? 'No rows to price yet.'
+                : `${summary.priced} of ${summary.rows} priced${summary.unpriced > 0 ? ` · ${summary.unpriced} still at zero` : ''}`}
+            </p>
+          </div>
+          <div class="drawerModule__field">
+            <p class="drawerModule__label">Grouping</p>
+            <p class="drawerModule__value">
+              {summary.rows === 0
+                ? 'No rows to group yet.'
+                : `${summary.grouped} grouped · ${summary.ungrouped} ungrouped`}
+            </p>
+          </div>
+          {summary.unavailable > 0 && (
+            <div class="drawerModule__field">
+              <p class="drawerModule__label">Unavailable sources</p>
+              <p class="drawerModule__value">
+                {plural(summary.unavailable, 'row')} no longer resolve to a supplying Service.
+              </p>
+            </div>
+          )}
+        </div>
+      </ReadBlock>
 
-      {loading ? (
-        <p class="cz-station-empty" aria-busy="true">Loading the Rate Sheet…</p>
-      ) : error ? (
-        <p class="cz-station-empty" role="alert">{error}</p>
-      ) : !controller ? (
-        <p class="cz-station-empty">The Package Station needs a host Service before its Rate Sheet can be authored.</p>
-      ) : (
-        <RateSheetEditor controller={controller} />
-      )}
+      <ReadBlock
+        title="Source Services"
+        count={summary.sources}
+        subtitle="Connected Services whose inclusions supply the priced rows."
+        actions={editAction}
+      >
+        {serviceTitles.length === 0 ? (
+          <div class="drawerModule__empty">
+            <p class="drawerModule__empty-title">No source Services connected</p>
+            <p class="drawerModule__empty-copy">
+              Connect a Service in Edit to load its inclusions as priceable rows.
+            </p>
+          </div>
+        ) : (
+          <div class="cz-sc-inclusion-pool">
+            {serviceTitles.map((title) => <span key={title} class="cz-tf-chip">{title}</span>)}
+          </div>
+        )}
+      </ReadBlock>
+
+      <ReadBlock
+        title="Groups"
+        count={summary.groups}
+        subtitle="How the priced rows are organised for Tier selection."
+        actions={editAction}
+      >
+        {value.groups.length === 0 ? (
+          <div class="drawerModule__empty">
+            <p class="drawerModule__empty-title">No groups yet</p>
+            <p class="drawerModule__empty-copy">
+              Rows stay ungrouped until a group is created in Edit.
+            </p>
+          </div>
+        ) : (
+          <div class="drawerModule__fields">
+            {value.groups.map((group) => (
+              <div key={group.id} class="drawerModule__field">
+                <p class="drawerModule__label">{group.label || 'Untitled group'}</p>
+                <p class="drawerModule__value">
+                  {plural(rateSheetRowsInGroup(value, group.id).length, 'row')}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </ReadBlock>
+
+      <ReadBlock
+        title="Priced Rows"
+        count={summary.rows}
+        subtitle="Unit price, unit, default quantity, and group for each supplied row."
+        actions={editAction}
+      >
+        {value.items.length === 0 ? (
+          <div class="drawerModule__empty">
+            <p class="drawerModule__empty-title">No priced rows yet</p>
+            <p class="drawerModule__empty-copy">
+              Give the Rate Sheet a title, then add a source Service in Edit to load its
+              inclusions as priceable rows.
+            </p>
+          </div>
+        ) : (
+          <div class="cz-rate-sheet-tool__grid-wrap">
+            <table class="cz-rate-sheet-tool__grid">
+              <thead>
+                <tr>
+                  <th scope="col">Supplied content</th>
+                  <th scope="col">Unit Price</th>
+                  <th scope="col">Per</th>
+                  <th scope="col">Qty</th>
+                  <th scope="col">Group</th>
+                </tr>
+              </thead>
+              <tbody>
+                {value.items.map((row) => (
+                  <RateSheetViewRow
+                    key={row.id}
+                    row={row}
+                    groupLabel={value.groups.find((group) => group.id === row.groupId)?.label ?? null}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ReadBlock>
     </div>
+  );
+}
+
+function RateSheetViewRow({ row, groupLabel }: { row: RateSheetEditorRow; groupLabel: string | null }): VNode {
+  return (
+    <tr>
+      <td class="cz-rate-sheet-tool__cell-name">
+        {row.optionLabel}{row.sourceAvailable ? '' : ' — Unavailable'}
+      </td>
+      <td>{formatUnitPrice(row.unitPrice)}</td>
+      <td>{row.per}</td>
+      <td>{row.quantity}</td>
+      <td>{groupLabel ?? 'Ungrouped'}</td>
+    </tr>
   );
 }
 
 // ── SECTION: editor ───────────────────────────────────────────────────────────
 
 function RateSheetEditor({ controller }: { controller: RateSheetToolController }): VNode {
-  const { value, units, dirty, saving, saveError } = controller;
+  const { value, units } = controller;
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [groupLabel, setGroupLabel] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -240,28 +539,6 @@ function RateSheetEditor({ controller }: { controller: RateSheetToolController }
           </table>
         </div>
       )}
-
-      {saveError && <p class="cz-admin-error-msg" role="alert">{saveError}</p>}
-
-      <div class="cz-rate-sheet-tool__footer">
-        <div class="cz-rate-sheet-tool__footer-spacer" />
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--secondary"
-          onClick={controller.discard}
-          disabled={!dirty || saving}
-        >
-          Discard changes
-        </button>
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--primary"
-          onClick={controller.save}
-          disabled={!dirty || saving}
-        >
-          {saving ? 'Saving…' : 'Save Rate Sheet'}
-        </button>
-      </div>
     </div>
   );
 }
