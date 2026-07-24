@@ -66,6 +66,16 @@ final class PackageManagerSchema
     public const ALLOWED_SOURCE_TYPES       = ['inclusion', 'faq'];
     public const ALLOWED_MODULE_TRANSITIONS = ['not-configured', 'pending', 'settled'];
     public const OPERATIONAL_STATES         = ['connected_available', 'connected_unavailable', 'source_missing', 'ambiguous'];
+    public const ALLOWED_RATE_SHEET_STATUSES = ['active', 'archived'];
+
+    /**
+     * Deterministic identity assigned to the ONE legacy singleton Rate Sheet
+     * when it is lifted into the rate_sheets[] collection. This is the only
+     * id ever minted during read-time sanitisation; all other sheet ids are
+     * minted on the write path (commitConfiguration). Tier occupants that
+     * carry selections but no rate_sheet_id default to this id.
+     */
+    public const PRIMARY_RATE_SHEET_ID      = 'rs_primary';
 
     // ── Storage sanitizers ──────────────────────────────────────────────────
 
@@ -107,14 +117,17 @@ final class PackageManagerSchema
             'groups' => $groups,
             'category_groups' => $categoryGroups,
             'items'  => self::sanitizeItems($data['items'] ?? [], $groupIds),
+            // Singular remains canonical during the migration window; rate_sheets[]
+            // is the identified sibling collection consumers move to in Phase 3.
             'rate_sheet' => self::sanitizeRateSheet($data['rate_sheet'] ?? null),
+            'rate_sheets' => self::sanitizeRateSheets($data['rate_sheets'] ?? null, $data['rate_sheet'] ?? null),
         ];
     }
 
-    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheet: null} */
+    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheet: null, rate_sheets: array} */
     public static function defaultManager(): array
     {
-        return ['sources' => [], 'groups' => [], 'category_groups' => [], 'items' => [], 'rate_sheet' => null];
+        return ['sources' => [], 'groups' => [], 'category_groups' => [], 'items' => [], 'rate_sheet' => null, 'rate_sheets' => []];
     }
 
     /**
@@ -124,7 +137,65 @@ final class PackageManagerSchema
      */
     public static function hasConfiguration(array $storedManager): bool
     {
-        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']);
+        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet']) || !empty($storedManager['rate_sheets']);
+    }
+
+    /**
+     * The identified Rate Sheet collection. Each sheet is
+     * {rate_sheet_id, title, status, groups[], items[]} — the singular
+     * {title, groups, items} core wrapped with a stable id and lifecycle status.
+     *
+     * MIGRATION (Refinement 1): this NEVER mints an id. Sheets in $plural keep
+     * their stored rate_sheet_id and any that arrive id-less are dropped
+     * (id-less sheets only originate from the Tool's create/duplicate and are
+     * minted on the write path in commitConfiguration). When $plural is absent,
+     * the legacy singleton $legacySingle is lifted once to the deterministic
+     * PRIMARY_RATE_SHEET_ID — the single read-time id assignment.
+     *
+     * @return array<int, array{rate_sheet_id:string,title:string,status:string,groups:array,items:array}>
+     */
+    public static function sanitizeRateSheets(mixed $plural, mixed $legacySingle = null): array
+    {
+        $out  = [];
+        $seen = [];
+
+        if (is_array($plural)) {
+            foreach ($plural as $sheet) {
+                if (!is_array($sheet)) { continue; }
+                $id = sanitize_text_field((string) ($sheet['rate_sheet_id'] ?? ''));
+                if ($id === '' || isset($seen[$id])) { continue; }
+                $core = self::sanitizeRateSheet($sheet);
+                if ($core === null) { continue; }
+                $seen[$id] = true;
+                $out[] = [
+                    'rate_sheet_id' => $id,
+                    'title'         => $core['title'],
+                    'status'        => self::sanitizeRateSheetStatus($sheet['status'] ?? null),
+                    'groups'        => $core['groups'],
+                    'items'         => $core['items'],
+                ];
+            }
+            return $out;
+        }
+
+        // Legacy-singleton migration: one deterministic id assignment.
+        $core = self::sanitizeRateSheet($legacySingle);
+        if ($core !== null) {
+            $out[] = [
+                'rate_sheet_id' => self::PRIMARY_RATE_SHEET_ID,
+                'title'         => $core['title'],
+                'status'        => 'active',
+                'groups'        => $core['groups'],
+                'items'         => $core['items'],
+            ];
+        }
+        return $out;
+    }
+
+    private static function sanitizeRateSheetStatus(mixed $status): string
+    {
+        $status = sanitize_text_field((string) $status);
+        return in_array($status, self::ALLOWED_RATE_SHEET_STATUSES, true) ? $status : 'active';
     }
 
     /**

@@ -6,6 +6,10 @@ if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
 }
 
+// PackageSchema resolves an occupant's Rate Sheet identity via
+// PackageManagerSchema::PRIMARY_RATE_SHEET_ID (the migrated singleton default).
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageManagerSchema.php';
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageStationSchema.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageSchema.php';
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema as Schema;

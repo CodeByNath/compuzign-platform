@@ -1075,6 +1075,7 @@ class PackageSchema
                 'contact'             => (bool) ($occ['contact'] ?? false),
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
+                'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
@@ -1094,11 +1095,29 @@ class PackageSchema
             'contact'             => (bool) ($tier['contact'] ?? false),
             'billing_cycle'       => $tier['billing_cycle'] ?? null,
             'inclusions_override' => $tier['inclusions_override'] ?? [],
+            'rate_sheet_id'       => self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []),
             'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($tier['rate_sheet_items'] ?? []),
             'features'            => $tier['features'] ?? [],
             'faq_refs'            => $tier['faq_refs'] ?? [],
             'enabled'             => isset($tier['enabled']) ? (bool) $tier['enabled'] : true,
         ];
+    }
+
+    /**
+     * Resolve an occupant's Rate Sheet identity. A stored id is preserved
+     * verbatim; a legacy occupant that carries selections but no id defaults
+     * to the migrated PRIMARY_RATE_SHEET_ID (Refinement 1 pairing). An occupant
+     * with neither has no bound sheet.
+     */
+    private static function defaultRateSheetId(mixed $rateSheetId, mixed $selections): ?string
+    {
+        $id = is_string($rateSheetId) ? trim($rateSheetId) : '';
+        if ($id !== '') {
+            return $id;
+        }
+        return is_array($selections) && $selections !== []
+            ? PackageManagerSchema::PRIMARY_RATE_SHEET_ID
+            : null;
     }
 
     /**
@@ -1141,6 +1160,7 @@ class PackageSchema
                 'contact'             => $occ['contact'] ?? false,
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
+                'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
@@ -1148,8 +1168,13 @@ class PackageSchema
             ];
         }
 
-        // Phase 1 flat format — pass through; null for empty slots.
-        return empty($tier) ? null : $tier;
+        // Phase 1 flat format — pass through; null for empty slots. Carry a
+        // resolved rate_sheet_id so Cost Builder can scope pricing by sheet.
+        if (empty($tier)) {
+            return null;
+        }
+        $tier['rate_sheet_id'] = self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []);
+        return $tier;
     }
 
     /**
@@ -1222,7 +1247,7 @@ class PackageSchema
     {
         return [
             'occupant_id' => null, 'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
-            'billing_cycle' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
+            'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false,
         ];
     }

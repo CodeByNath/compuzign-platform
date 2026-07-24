@@ -237,6 +237,18 @@ assertSameValue('compute', $rateModel['rate_sheet']['items'][0]['group_id'], 'Ra
 assertSameValue('Per VM', $rateModel['rate_sheet']['items'][0]['per'], 'controlled Rate Sheet unit is preserved');
 assertSameValue(true, $rateModel['has_configuration'], 'Rate Sheet alone contributes Manager configuration');
 
+// Phase 2 migration — the legacy singleton lifts into the identified rate_sheets[] collection.
+assertSameValue(1, count($withRateSheet['rate_sheets']), 'singleton Rate Sheet lifts into the rate_sheets[] collection');
+assertSameValue('rs_primary', $withRateSheet['rate_sheets'][0]['rate_sheet_id'], 'the migrated sheet takes the deterministic primary id');
+assertSameValue('active', $withRateSheet['rate_sheets'][0]['status'], 'the migrated sheet defaults to active status');
+assertSameValue('Infrastructure', $withRateSheet['rate_sheets'][0]['title'], 'the migrated sheet preserves its title');
+// Refinement 1 — read-time sanitisation preserves ids and mints nothing.
+$reSanitised = PMS::sanitize($withRateSheet);
+assertSameValue('rs_primary', $reSanitised['rate_sheets'][0]['rate_sheet_id'], 'sanitising an already-migrated manager preserves the sheet id');
+assertSameValue(1, count($reSanitised['rate_sheets']), 'sanitisation neither duplicates nor drops identified sheets');
+$idlessRead = PMS::sanitize(['rate_sheets' => [['title' => 'No id', 'groups' => [], 'items' => []]]]);
+assertSameValue(0, count($idlessRead['rate_sheets']), 'an id-less sheet is dropped on the read path (write-path minting only)');
+
 $cleanedUnknownOption = PMS::commitConfiguration($ungrouped, [], [], $expandedPool, $faqPool, [
         'title' => 'Invalid', 'groups' => [], 'items' => [[
             'item_id' => 'rate-invalid', 'source_item_id' => 'unknown',
