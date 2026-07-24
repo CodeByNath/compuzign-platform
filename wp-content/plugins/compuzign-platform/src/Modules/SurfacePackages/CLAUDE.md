@@ -9,7 +9,7 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `Http/PackageStationReadController.php` — public read projection.
 - `Http/PackageStationController.php` — Package Manager, Tier, occupant-bin, and popular-Tier mutations.
 - `Repositories/PackageRepository.php` — `cz_package_station` persistence, request cache, relationships, Promotions, and legacy migration.
-- `Support/PackageManagerSchema.php`, `PackageStationSchema.php`, `PackageSchema.php`, and `PackageCategoryGroups.php` — authoritative shape, readiness, occupant compatibility, and Package Family rules.
+- `Support/PackageManagerSchema.php` (manager shape + the `rate_sheets[]` collection: migration, upsert/delete commit, per-Tier projection), `PackageSchema.php` (occupant compatibility, lifecycle, Tier↔Rate-Sheet binding + clear-on-switch), `PackageCategoryGroups.php` (Package Family rules), and `PackageStationSchema.php` (only the shared `sanitizeSourceRelationships` and `evaluateTierPricing` helpers — not the aggregate/shape authority).
 
 ## Boundaries
 

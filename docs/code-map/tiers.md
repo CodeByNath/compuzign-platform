@@ -6,6 +6,8 @@ Package Station owns Tier occupants, fixed slots, overview and pricing selection
 
 Stable surface and drawer identity is `occupant_id` (string). The resolved fixed `slotId` remains the mutation/storage address. Empty slots are not cards, and identities must not be coerced or substituted.
 
+An occupant binds to **one** Rate Sheet via `rate_sheet_id` (edited in its overview module, with a confirm-then-clear picker). Its `rate_sheet_items` resolve within that sheet only — row identity is `(rate_sheet_id, item_id)`. Switching an already-bound occupant to a different sheet clears its selections (`PackageSchema::upsertOccupant`/`settleTierSlot`); first configuration keeps them. A legacy occupant with selections but no id defaults to `rs_primary` at read time.
+
 ## Registration and presentation
 
 [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/register.ts) registers the `package-tier-workspace` data source, `tier-workspace` template kit, and `tier` drawer contract with Station Manager. Admin Station authors the string-key presentation-policy binding for the Packages destination; its shell hosts the resolved kit and drawer without acquiring Tier authority.
