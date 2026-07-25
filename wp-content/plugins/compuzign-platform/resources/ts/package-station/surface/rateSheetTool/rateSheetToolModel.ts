@@ -167,6 +167,22 @@ export function rateSheetRowsInGroup(
   return value.items.filter((row) => row.groupId === groupId);
 }
 
+/**
+ * The sheet's rows restricted to an allow-list of row keys, in grid order.
+ *
+ * The allow-list is matched against `rowKey` — the same address every editor
+ * mutation uses — so a scoped view and the edits made inside it agree on row
+ * identity. A Tier's selections carry stored `item_id`s, which equal `rowKey`
+ * for stored rows; an unsaved row keys as `new:…` and correctly never matches,
+ * because a Tier cannot have selected a row that was never persisted.
+ */
+export function rateSheetRowsWithKeys(
+  value: RateSheetEditorValue,
+  allowed: ReadonlySet<string>,
+): RateSheetEditorRow[] {
+  return value.items.filter((row) => allowed.has(rowKey(row)));
+}
+
 // ── Editor-value mutations (pure) ─────────────────────────────────────────────
 
 /** Stored group-id grammar, identical to the retired editor's `rate_group_…`. */

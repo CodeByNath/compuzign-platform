@@ -23,16 +23,12 @@ import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
-import type { PackageRateSheetUnit } from '../../types';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
-import { rateSheetRowsInGroup, rowKey, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
-import type { RateSheetEditorRow, RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
+import type { RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { RateSheetGridEditor, RateSheetGridRead, RateSheetGroupsEditor } from './rateSheetParts';
 
-const UNIT_PRICE_FORMAT = new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2,
-});
-const formatUnitPrice = (price: number): string => UNIT_PRICE_FORMAT.format(price);
 const plural = (count: number, singular: string, pluralForm = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralForm}`;
 
@@ -184,22 +180,7 @@ function RateSheetReadCard({
       {value.items.length === 0 ? (
         <div class="drawerModule__empty"><p class="drawerModule__empty-title">No priced rows yet</p></div>
       ) : (
-        <div class="cz-rate-sheet-tool__grid-wrap">
-          <table class="cz-rate-sheet-tool__grid">
-            <thead><tr><th scope="col">Supplied content</th><th scope="col">Unit Price</th><th scope="col">Per</th><th scope="col">Qty</th><th scope="col">Group</th></tr></thead>
-            <tbody>
-              {value.items.map((row) => (
-                <tr key={rowKey(row)}>
-                  <td class="cz-rate-sheet-tool__cell-name">{row.optionLabel}{row.sourceAvailable ? '' : ' — Unavailable'}</td>
-                  <td>{formatUnitPrice(row.unitPrice)}</td>
-                  <td>{row.per}</td>
-                  <td>{row.quantity}</td>
-                  <td>{value.groups.find((g) => g.id === row.groupId)?.label ?? 'Ungrouped'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RateSheetGridRead rows={value.items} groups={value.groups} />
       )}
     </ReadBlock>
   );
@@ -318,75 +299,15 @@ function RateSheetSheetEditor({ controller, value }: { controller: RateSheetTool
       )}
 
       {value.groups.length > 0 && (
-        <div class="cz-rate-sheet-tool__groups" aria-label="Rate Sheet groups">
-          {value.groups.map((group) => (
-            <div key={group.id} class="cz-rate-sheet-tool__group-row">
-              <input class="cz-tf-input" value={group.label} aria-label={`Group name for ${group.label}`}
-                onInput={(event) => controller.renameGroup(group.id, (event.currentTarget as HTMLInputElement).value)} />
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Delete group ${group.label}`} onClick={() => controller.deleteGroup(group.id)}>Delete</button>
-            </div>
-          ))}
-        </div>
+        <RateSheetGroupsEditor groups={value.groups} commands={controller} />
       )}
 
       {value.items.length === 0 ? (
         <p class="cz-station-empty">No priced rows yet. Use Add Row to price a connected source's supplied content.</p>
       ) : (
-        <div class="cz-rate-sheet-tool__grid-wrap">
-          <table class="cz-rate-sheet-tool__grid">
-            <thead><tr><th scope="col">Supplied content</th><th scope="col">Unit Price</th><th scope="col">Per</th><th scope="col">Qty</th><th scope="col">Group</th><th scope="col" aria-label="Remove"></th></tr></thead>
-            <tbody>
-              {value.items.map((row) => (
-                <RateSheetEditRow key={rowKey(row)} row={row} groups={value.groups} units={units} controller={controller} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RateSheetGridEditor rows={value.items} groups={value.groups} units={units} commands={controller} />
       )}
     </div>
-  );
-}
-
-function RateSheetEditRow({
-  row, groups, units, controller,
-}: {
-  row: RateSheetEditorRow;
-  groups: RateSheetEditorValue['groups'];
-  units: readonly PackageRateSheetUnit[];
-  controller: RateSheetToolController;
-}): VNode {
-  const key = rowKey(row);
-  const disabled = !row.sourceAvailable;
-  return (
-    <tr>
-      <td class="cz-rate-sheet-tool__cell-name">{row.optionLabel}{disabled ? ' — Unavailable' : ''}</td>
-      <td>
-        <input class="cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
-          aria-label={`Unit price for ${row.optionLabel}`}
-          onInput={(event) => controller.setRowUnitPrice(key, Number((event.currentTarget as HTMLInputElement).value))} />
-      </td>
-      <td>
-        <select class="cz-tf-select" value={row.per} disabled={disabled} aria-label={`Unit for ${row.optionLabel}`}
-          onChange={(event) => controller.setRowPer(key, (event.currentTarget as HTMLSelectElement).value as PackageRateSheetUnit)}>
-          {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-        </select>
-      </td>
-      <td>
-        <input class="cz-tf-input" type="number" min="1" step="1" value={row.quantity} disabled={disabled}
-          aria-label={`Quantity for ${row.optionLabel}`}
-          onInput={(event) => controller.setRowQuantity(key, Number((event.currentTarget as HTMLInputElement).value))} />
-      </td>
-      <td>
-        <select class="cz-tf-select" value={row.groupId ?? ''} disabled={disabled} aria-label={`Group for ${row.optionLabel}`}
-          onChange={(event) => { const next = (event.currentTarget as HTMLSelectElement).value; controller.setRowGroup(key, next === '' ? null : next); }}>
-          <option value="">Ungrouped</option>
-          {groups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
-        </select>
-      </td>
-      <td>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.optionLabel}`} onClick={() => controller.removeRow(key)}>Remove</button>
-      </td>
-    </tr>
   );
 }
 

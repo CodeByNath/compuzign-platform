@@ -20,6 +20,7 @@ import {
   duplicateEditorSheet,
   rateSheetOptions,
   rateSheetRowsInGroup,
+  rateSheetRowsWithKeys,
   removeEditorRow,
   rowKey,
   summariseRateSheet,
@@ -146,5 +147,25 @@ const summary = summariseRateSheet(value, connectedServiceIds(readModel.sources)
 check(summary.rows === 1 && summary.groups === 2 && summary.sources === 1, 'the summary counts live rows, stored groups, and connected sources');
 check(summary.priced === 1 && summary.grouped === 1 && summary.unavailable === 0, 'a priced, grouped, resolving row reports clean coverage');
 check(rateSheetRowsInGroup(value, 'rate_group_1').length === 1, 'a group reads back exactly its assigned rows');
+
+// ── Scoped row allow-list (the focused-Tier grid filter) ──────────────────────
+const storedKey = rowKey(value.items[0]);
+check(
+  rateSheetRowsWithKeys(value, new Set([storedKey])).length === 1,
+  'an allow-list of stored row keys reads back exactly those rows',
+);
+check(
+  rateSheetRowsWithKeys(value, new Set<string>()).length === 0,
+  'an empty allow-list scopes the grid to nothing rather than to everything',
+);
+check(
+  rateSheetRowsWithKeys(value, new Set(['rate_not_in_this_sheet'])).length === 0,
+  'an allow-list entry the sheet does not hold never widens the scope',
+);
+const withUnsaved = addEditorRow(value, { id: 'mgr_unsaved', label: 'Unsaved' });
+check(
+  rateSheetRowsWithKeys(withUnsaved, new Set(['mgr_unsaved'])).length === 0,
+  'a not-yet-persisted row is never matched by a stored selection id',
+);
 
 console.log('Rate Sheet tool contract checks passed.');
