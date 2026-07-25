@@ -7,6 +7,7 @@ import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { PackageFamilyDrawerContent as SharedPackageFamilyDrawerContent } from '../../drawer/package-family/PackageFamilyDrawerContent';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
+import { useAdminStation } from '@/admin-station/AdminStationContext';
 import { usePackageFamilyRecord } from './usePackageFamilyRecord';
 
 export function PackageFamilyDrawerContent({
@@ -17,6 +18,7 @@ export function PackageFamilyDrawerContent({
   setFooter,
   setCloseGuard,
 }: DrawerContentProps): VNode {
+  const { navigate } = useAdminStation();
   const { record, loading, error } = usePackageFamilyRecord(recordId);
 
   const closeRef = useRef(onClose); closeRef.current = onClose;
@@ -40,6 +42,7 @@ export function PackageFamilyDrawerContent({
       family={record}
       initialTab="details"
       initialEdit={mode === 'edit'}
+      onManageTierSystem={() => navigate('packages')}
       bridge={bridge}
     />
   );

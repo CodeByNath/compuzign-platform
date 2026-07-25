@@ -93,7 +93,7 @@ const CAPABILITY_ACTIONS: Record<string, ShellActionSchema> = {
     when: (binding) => !(binding.data as PackageFamilyCapabilitiesShellData).tier.enabled,
   },
   'open-tier-tool': {
-    id: 'open-tier-tool', label: 'Open Tier tool', intent: 'primary',
+    id: 'open-tier-tool', label: 'Manage Tier system', intent: 'primary',
     when: (binding) => (binding.data as PackageFamilyCapabilitiesShellData).tier.enabled,
   },
   'remove-tier-capability': {

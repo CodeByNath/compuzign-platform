@@ -217,6 +217,9 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   const td = c.tierDetail;
   if (!td) return null;
   const { detail, rateSheetCatalogue } = td;
+  const setupSlotLabel = props.initialTierId
+    ? TIER_LABELS[props.initialTierId as keyof typeof TIER_LABELS] ?? props.initialTierId
+    : null;
 
   let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
@@ -279,6 +282,21 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // identity so content edits do not remount; the resolved shell id addresses
   // all mutations.
   return (
+    <>
+    {setupSlotLabel && (
+      <div class="cz-req-detail cz-tier-drawer-setup" role="status">
+        <div class="drawerModule drawerModule--overview">
+          <h3>Configure {setupSlotLabel} Tier</h3>
+          <p>This fixed slot is empty. Complete its setup in the existing Tier modules below.</p>
+          <ol>
+            <li>Choose the Rate Sheet that supplies pricing rows.</li>
+            <li>Save the Tier overview.</li>
+            <li>Add included features and optional common questions.</li>
+            <li>Publish the Tier when it is ready.</li>
+          </ol>
+        </div>
+      </div>
+    )}
     <EntityDrawer
       key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}
       entity={TIER_ENTITY}
@@ -304,5 +322,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     >
       <TierDrawerDialogs c={c} />
     </EntityDrawer>
+    </>
   );
 }

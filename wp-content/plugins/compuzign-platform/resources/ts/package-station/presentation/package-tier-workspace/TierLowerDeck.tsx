@@ -54,6 +54,13 @@ interface Props {
   // orchestrator binds it to the occupant_id, so this deck never handles identity.
   onIntent:   (actionId: string) => void;
   onToolIntent: (actionId: string) => void;
+  onManageInstance: (instanceId: string) => void;
+  onTierAction: (
+    instanceId: string,
+    slotId: string,
+    occupantId: string | null,
+    actionId: 'view' | 'edit',
+  ) => void;
   onTabChange: (tab: DeckTab) => void;
 }
 
@@ -104,6 +111,8 @@ export function TierLowerDeck({
   settingsError,
   onIntent,
   onToolIntent,
+  onManageInstance,
+  onTierAction,
   onTabChange,
 }: Props): VNode {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -130,11 +139,17 @@ export function TierLowerDeck({
           <span class="cz-tier-deck__context-icon" aria-hidden="true"><TiersIcon /></span>
           <div>
             <h3 class="cz-tier-deck__context-name">{tierName}</h3>
-            <p class="cz-tier-deck__context-scope">Focused from {familyName}</p>
+            <p class="cz-tier-deck__context-scope">
+              {workspaceInstance ? `Focused from ${familyName}` : `Setting up ${familyName}`}
+            </p>
           </div>
         </div>
         <span class="cz-tier-deck__scope-note">
-          {hasFocusedTier ? 'Auto-scoped from the Tier Engine' : 'No focused Tier'}
+          {hasFocusedTier
+            ? 'Auto-scoped from the Tier Engine'
+            : workspaceInstance
+              ? 'No focused Tier'
+              : 'No Tier system assigned'}
         </span>
       </div>
 
@@ -180,6 +195,8 @@ export function TierLowerDeck({
             loading={settingsLoading}
             error={settingsError}
             onToolIntent={onToolIntent}
+            onManageInstance={onManageInstance}
+            onTierAction={onTierAction}
           />
         )}
       </div>

@@ -1,3 +1,13 @@
+// Tier Workspace Settings — guided Tier-system setup and maintenance.
+//
+// FILE INDEX
+//   CONTRACTS_AND_TOOL_LINKS — presentation inputs and registered tool actions.
+//   TIER_SYSTEM_STATE        — current peer/assignment/slot derivation and mutations.
+//   RELATIONSHIP_SETUP       — explicit create/assign/remove and setup progress.
+//   ACCESS_AND_FIXED_SLOTS   — system Rate Sheet access and drawer-bound slot actions.
+//   PACKAGE_TOOL_LINKS       — registered Package Manager destinations and inventory.
+//   INDEPENDENT_SYSTEMS      — advanced direct management of peer Tier systems.
+
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type {
@@ -20,6 +30,8 @@ import {
 } from '@/admin-station/shell/icons';
 import { TierRateSheetInventory } from './TierRateSheetInventory';
 
+// ── SECTION: CONTRACTS_AND_TOOL_LINKS ─────────────────────────────────────────
+
 interface Props {
   tool: TierInstancesToolState;
   family: WorkspaceFamilyScope | null;
@@ -30,6 +42,13 @@ interface Props {
   loading: boolean;
   error: string | null;
   onToolIntent: (actionId: string) => void;
+  onManageInstance: (instanceId: string) => void;
+  onTierAction: (
+    instanceId: string,
+    slotId: string,
+    occupantId: string | null,
+    actionId: 'view' | 'edit',
+  ) => void;
 }
 
 interface SettingsTool {
@@ -68,6 +87,8 @@ const SETTINGS_TOOLS: SettingsTool[] = [
   },
 ];
 
+// ── SECTION: TIER_SYSTEM_STATE ────────────────────────────────────────────────
+
 export function TierSystemSettings({
   tool,
   family,
@@ -78,10 +99,13 @@ export function TierSystemSettings({
   loading,
   error,
   onToolIntent,
+  onManageInstance,
+  onTierAction,
 }: Props): VNode {
   const [newTitle, setNewTitle] = useState('');
   const [directFamilyId, setDirectFamilyId] = useState('');
   const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const [createdInstanceTitle, setCreatedInstanceTitle] = useState<string | null>(null);
   const currentRecord = workspaceInstance
     ? tool.instances.find((instance) => instance.tier_instance_id === workspaceInstance.tier_instance_id) ?? null
     : null;
@@ -98,12 +122,20 @@ export function TierSystemSettings({
   const suggestedFamily = useMemo(() => currentRecord
     ? suggestConsumerForInstance(currentRecord, tool.families, tool.assignments)
     : null, [currentRecord, tool.assignments, tool.families]);
+  const currentSlots = currentRecord ? tierSlotStates(currentRecord) : [];
+  const configuredCount = currentSlots.filter((slot) => slot.occupied).length;
+  const firstEmptySlot = currentSlots.find((slot) => !slot.occupied) ?? null;
+  const firstConfiguredSlot = currentSlots.find((slot) => slot.occupied) ?? null;
+  const activeRateSheets = rateSheets.filter((sheet) => sheet.status === 'active');
 
   const createInstance = async () => {
     const title = newTitle.trim();
     if (!title) return;
     const created = await tool.createInstance(title);
-    if (created) setNewTitle('');
+    if (created) {
+      setNewTitle('');
+      setCreatedInstanceTitle(created.title);
+    }
   };
 
   const removeAssignment = async () => {
@@ -140,6 +172,7 @@ export function TierSystemSettings({
 
   return (
     <div class="cz-tier-settings">
+      {/* ── SECTION: RELATIONSHIP_SETUP ───────────────────────────────────── */}
       <section class="cz-tier-settings__section" aria-labelledby="tier-system-heading">
         <div class="cz-tier-deck__lane-head">
           <div>
@@ -151,48 +184,113 @@ export function TierSystemSettings({
         </div>
 
         {family && !assignedInstance ? (
-          <div class="cz-tier-settings__callout">
+          <div class="cz-tier-settings__callout cz-tier-settings__callout--setup">
             <span class="cz-tier-settings__callout-icon" aria-hidden="true"><TiersIcon /></span>
             <div class="cz-tier-settings__callout-copy">
-              <strong>{family.name} is complete without Tier capability.</strong>
-              <span>Attach an existing independent Tier system only when this Family needs one.</span>
+              <strong>No Tier system assigned</strong>
+              <span><strong>{family.name}</strong> is complete without tiers. Assign a Tier system only when this Family needs customer Tier choices.</span>
             </div>
-            <div class="cz-tier-settings__attach-list">
+            <div class="cz-tier-settings__setup-path">
+              <ol class="cz-tier-settings__steps">
+                <li><strong>Choose or create a Tier system.</strong><span>The system remains an independent Package record.</span></li>
+                <li><strong>Confirm the assignment.</strong><span>Assigning connects the two records without changing either one.</span></li>
+                <li><strong>Configure its Tier slots.</strong><span>Each configured Tier chooses a Rate Sheet and inclusions.</span></li>
+              </ol>
+
               {attachableRows.length === 0 ? (
-                <span class="cz-tier-settings__muted">No unassigned Tier systems are available.</span>
-              ) : attachableRows.map((row) => (
-                <div key={row.instanceId} class="cz-tier-settings__attach-row">
-                  <span>
-                    <strong>{row.title}</strong>
-                    <small>{row.occupantCount} configured · {row.binCount} in bin</small>
-                  </span>
-                  <button
-                    type="button"
-                    class="cz-tier-deck__button cz-tier-deck__button--secondary"
-                    disabled={tool.saving}
-                    onClick={() => { void tool.assignInstance(row.instanceId, family.id); }}
-                  >
-                    Add Tier capability
-                  </button>
+                <p class="cz-tier-settings__muted">There are no unassigned Tier systems available.</p>
+              ) : (
+                <div class="cz-tier-settings__attach-list" aria-label="Unassigned Tier systems">
+                  {attachableRows.map((row) => (
+                    <div key={row.instanceId} class="cz-tier-settings__attach-row">
+                      <span>
+                        <strong>{row.title}</strong>
+                        <small>{row.occupantCount} configured · {row.binCount} in bin</small>
+                      </span>
+                      <button
+                        type="button"
+                        class="cz-tier-deck__button cz-tier-deck__button--secondary"
+                        disabled={tool.saving}
+                        onClick={() => { void tool.assignInstance(row.instanceId, family.id); }}
+                      >
+                        Assign to {family.name}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              <div class="cz-tier-settings__inline-form cz-tier-settings__inline-form--create">
+                <label for="family-tier-instance-title">Create an independent Tier system</label>
+                <input
+                  id="family-tier-instance-title"
+                  class="cz-tier-deck__control"
+                  value={newTitle}
+                  placeholder={`${family.name} Tiers`}
+                  onInput={(event) => setNewTitle(event.currentTarget.value)}
+                />
+                <button
+                  type="button"
+                  class="cz-tier-deck__button cz-tier-deck__button--primary"
+                  disabled={tool.saving || !newTitle.trim()}
+                  onClick={() => { void createInstance(); }}
+                >
+                  Create Tier system
+                </button>
+                <small>Creation does not assign the new system. Confirm its assignment separately when it appears above.</small>
+              </div>
+              {createdInstanceTitle && (
+                <p class="cz-tier-settings__success" role="status">
+                  <strong>{createdInstanceTitle}</strong> was created as an independent system. Assign it to {family.name} above when ready.
+                </p>
+              )}
             </div>
           </div>
         ) : currentRecord && currentRow ? (
-          <div class="cz-tier-settings__callout">
+          <div class="cz-tier-settings__callout cz-tier-settings__callout--setup">
             <span class="cz-tier-settings__callout-icon" aria-hidden="true"><TiersIcon /></span>
             <div class="cz-tier-settings__callout-copy">
               <strong>{currentRecord.title}</strong>
-              <span>{currentRow.consumerName} · {currentRow.occupantCount} configured · {currentRow.binCount} in bin</span>
+              <span>
+                {family
+                  ? `${family.name} is assigned to this Tier system. The two records remain independent.`
+                  : 'This Tier system is unassigned and can be configured independently.'}
+              </span>
+              <span class="cz-tier-settings__progress">
+                {configuredCount === 0
+                  ? 'Setup required · 0 of 5 Tiers configured'
+                  : configuredCount === 5
+                    ? 'All 5 Tiers configured'
+                    : `${configuredCount} of 5 Tiers configured`}
+                {currentRow.binCount > 0 ? ` · ${currentRow.binCount} in bin` : ''}
+              </span>
             </div>
             <div class="cz-tier-settings__actions">
-              <button
-                type="button"
-                class="cz-tier-deck__button cz-tier-deck__button--secondary"
-                onClick={() => tool.selectInstance(currentRecord.tier_instance_id)}
-              >
-                Open Tier tool
-              </button>
+              {activeRateSheets.length === 0 ? (
+                <button
+                  type="button"
+                  class="cz-tier-deck__button cz-tier-deck__button--primary"
+                  onClick={() => onToolIntent('rate-sheet')}
+                >
+                  Open Rate Sheet tool
+                </button>
+              ) : firstEmptySlot ? (
+                <button
+                  type="button"
+                  class="cz-tier-deck__button cz-tier-deck__button--primary"
+                  onClick={() => onTierAction(currentRecord.tier_instance_id, firstEmptySlot.slotId, null, 'edit')}
+                >
+                  Configure {TIER_LABELS[firstEmptySlot.slotId] ?? firstEmptySlot.slotId} Tier
+                </button>
+              ) : firstConfiguredSlot ? (
+                <button
+                  type="button"
+                  class="cz-tier-deck__button cz-tier-deck__button--secondary"
+                  onClick={() => onManageInstance(currentRecord.tier_instance_id)}
+                >
+                  Review Tier workspace
+                </button>
+              ) : null}
               {assignedInstance && family && !confirmRemoval && (
                 <button
                   type="button"
@@ -205,10 +303,10 @@ export function TierSystemSettings({
               )}
             </div>
             {assignedInstance && family && confirmRemoval && (
-              <div class="cz-tier-settings__confirm" role="alert">
-                <p>Remove Tier capability from <strong>{family.name}</strong>? The Family and <strong>{currentRecord.title}</strong> will remain unchanged.</p>
-                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" onClick={() => setConfirmRemoval(false)}>Keep capability</button>
-                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--destructive" disabled={tool.saving} onClick={() => { void removeAssignment(); }}>Remove assignment</button>
+              <div class="cz-tier-settings__confirm" role="alertdialog" aria-modal="false" aria-label="Remove Tier assignment">
+                <p>Remove <strong>{currentRecord.title}</strong> from <strong>{family.name}</strong>? This removes only their assignment. The Package Family, Tier system, and configured Tiers will not be deleted.</p>
+                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" onClick={() => setConfirmRemoval(false)}>Cancel</button>
+                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--destructive" disabled={tool.saving} onClick={() => { void removeAssignment(); }}>Remove from {family.name}</button>
               </div>
             )}
             {!family && currentRow.consumerId === null && suggestedFamily && (
@@ -220,7 +318,7 @@ export function TierSystemSettings({
                   disabled={tool.saving}
                   onClick={() => { void tool.assignInstance(currentRecord.tier_instance_id, suggestedFamily.group_id); }}
                 >
-                  Add Tier capability to {suggestedFamily.label}
+                  Assign to {suggestedFamily.label}
                 </button>
               </div>
             )}
@@ -244,27 +342,35 @@ export function TierSystemSettings({
                   disabled={tool.saving || !directFamilyId}
                   onClick={() => { if (directFamilyId) void tool.assignInstance(currentRecord.tier_instance_id, directFamilyId); }}
                 >
-                  Add Tier capability
+                  Assign to Package Family
                 </button>
               </div>
             )}
           </div>
         ) : null}
 
+        {/* ── SECTION: ACCESS_AND_FIXED_SLOTS ─────────────────────────────── */}
         {currentRecord && (
           <div class="cz-tier-settings__configuration">
             <div>
-              <h5>Rate Sheet availability</h5>
-              {currentRecord.allowed_rate_sheet_ids.length === 0 ? (
+              <h5>Rate Sheet access</h5>
+              {activeRateSheets.length === 0 ? (
                 <>
-                  <p>All active Rate Sheets are available to this instance.</p>
+                  <p>A Rate Sheet is required before configuring Tier pricing and included features.</p>
+                  <button type="button" class="cz-tier-deck__button cz-tier-deck__button--primary" onClick={() => onToolIntent('rate-sheet')}>
+                    Open Rate Sheet tool
+                  </button>
+                </>
+              ) : currentRecord.allowed_rate_sheet_ids.length === 0 ? (
+                <>
+                  <p>This Tier system can use every active Rate Sheet. Each Tier chooses its own Rate Sheet when configured.</p>
                   <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" disabled={tool.saving || rateSheets.filter((sheet) => sheet.status === 'active').length === 0} onClick={startNarrowAvailability}>
-                    Select specific sheets
+                    Limit Rate Sheet access
                   </button>
                 </>
               ) : (
                 <>
-                  <p>Only the selected active Rate Sheets are available. At least one must remain selected.</p>
+                  <p>This Tier system can use only the selected active Rate Sheets. At least one must remain available.</p>
                   <div class="cz-tier-settings__checks">
                     {rateSheets.filter((sheet) => sheet.status === 'active').map((sheet) => (
                       <label key={sheet.rate_sheet_id}>
@@ -287,18 +393,36 @@ export function TierSystemSettings({
             <div>
               <h5>Fixed Tier slots</h5>
               <ul class="cz-tier-settings__slots">
-                {tierSlotStates(currentRecord).map((slot) => (
+                {currentSlots.map((slot) => {
+                  const occupantId = currentRecord.tiers[slot.slotId]?.current_occupant?.id ?? null;
+                  return (
                   <li key={slot.slotId}>
                     <span>{TIER_LABELS[slot.slotId] ?? slot.slotId}</span>
-                    <strong>{slot.occupied ? 'Configured' : 'Empty'}</strong>
+                    <span class="cz-tier-settings__slot-action">
+                      <strong>{slot.occupied ? 'Configured' : 'Empty'}</strong>
+                      <button
+                        type="button"
+                        class="cz-tier-deck__button cz-tier-deck__button--secondary"
+                        onClick={() => onTierAction(
+                          currentRecord.tier_instance_id,
+                          slot.slotId,
+                          occupantId,
+                          slot.occupied ? 'view' : 'edit',
+                        )}
+                      >
+                        {slot.occupied ? 'View' : 'Configure'}
+                      </button>
+                    </span>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           </div>
         )}
       </section>
 
+      {/* ── SECTION: PACKAGE_TOOL_LINKS ───────────────────────────────────── */}
       <section class="cz-tier-settings__section" aria-labelledby="package-tools-heading">
         <div class="cz-tier-deck__lane-head">
           <div>
@@ -325,9 +449,11 @@ export function TierSystemSettings({
 
       <TierRateSheetInventory inventory={inventory} loading={loading} error={error} />
 
+      {/* ── SECTION: INDEPENDENT_SYSTEMS ──────────────────────────────────── */}
       <details class="cz-tier-settings__advanced">
-        <summary>Advanced Tier system management</summary>
+        <summary>Independent Tier systems</summary>
         <div class="cz-tier-settings__advanced-body">
+          <p class="cz-tier-settings__muted">Create, configure, and manage Tier systems separately from Package Family assignments.</p>
           <div class="cz-tier-settings__inline-form">
             <label for="tier-instance-title">Create an independent Tier system</label>
             <input
@@ -349,7 +475,7 @@ export function TierSystemSettings({
                   <strong>{row.title}</strong>
                   <small>{row.consumerName} · {row.occupantCount} configured · {row.binCount} in bin</small>
                 </span>
-                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" onClick={() => tool.selectInstance(row.instanceId)}>Open</button>
+                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" onClick={() => onManageInstance(row.instanceId)}>Manage</button>
               </li>
             ))}
           </ul>

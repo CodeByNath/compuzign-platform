@@ -42,9 +42,14 @@
   }
 
   .cz-tier-settings__attach-list,
+  .cz-tier-settings__setup-path,
   .cz-tier-settings__actions,
   .cz-tier-settings__rate-sheet-scope {
     grid-column: 2;
+  }
+
+  .cz-tier-workspace__primary > .cz-tier-workspace__no-system {
+    grid-column: 1 / -1;
   }
 }
 
@@ -90,7 +95,8 @@
   .cz-tier-workspace__detail,
   .cz-tier-workspace__family,
   .cz-tier-workspace__primary > .cz-cg-grid,
-  .cz-tier-workspace__primary > .cz-station-empty {
+  .cz-tier-workspace__primary > .cz-station-empty,
+  .cz-tier-workspace__primary > .cz-tier-workspace__no-system {
     grid-column: 1;
   }
 
@@ -117,6 +123,7 @@
 
   .cz-tier-settings__callout-icon,
   .cz-tier-settings__attach-list,
+  .cz-tier-settings__setup-path,
   .cz-tier-settings__actions,
   .cz-tier-settings__rate-sheet-scope,
   .cz-tier-settings__confirm,
@@ -141,6 +148,11 @@
   .cz-tier-settings__attach-row .cz-tier-deck__button,
   .cz-tier-settings__instance-list .cz-tier-deck__button {
     align-self: flex-start;
+  }
+
+  .cz-tier-settings__slot-action {
+    align-items: flex-end;
+    flex-direction: column;
   }
 
   .cz-tier-deck__field--hide-sm {

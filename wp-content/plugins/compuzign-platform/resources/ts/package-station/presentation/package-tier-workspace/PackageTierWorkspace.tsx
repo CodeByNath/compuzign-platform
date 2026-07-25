@@ -2,7 +2,7 @@
 // assignment ledger; the instance panel remains available for direct operation
 // of valid unassigned instances without presenting them as Family-owned.
 
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
 import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-groups/CategoryGroupCardGrid';
@@ -12,6 +12,7 @@ import {
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
+import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
 import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierNavigation } from './TierNavigation';
@@ -27,14 +28,91 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('focus');
   const [deckTab, setDeckTab] = useState<DeckTab>('details');
+  const [navigationAnnouncement, setNavigationAnnouncement] = useState('');
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const lowerDeckRef = useRef<HTMLDivElement | null>(null);
+  const observedOpenRevision = useRef(0);
 
   const occupants = tool?.occupants ?? [];
   const slots = tool?.slots ?? [];
-  const selectedSlot = useMemo(
-    () => slots.find((slot) => slot.slotId === selectedSlotId) ?? slots[0] ?? null,
-    [selectedSlotId, slots],
-  );
   const instanceId = tool?.workspaceInstance?.tier_instance_id ?? null;
+  const selectedSlot = useMemo(
+    () => instanceId === null
+      ? null
+      : slots.find((slot) => slot.slotId === selectedSlotId) ?? slots[0] ?? null,
+    [instanceId, selectedSlotId, slots],
+  );
+
+  const focusWorkspace = (announcement: string) => {
+    setNavigationAnnouncement(announcement);
+    window.requestAnimationFrame(() => {
+      const target = workspaceRef.current;
+      if (!target) return;
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+      target.focus({ preventScroll: true });
+    });
+  };
+
+  const openTierSettings = () => {
+    setDeckTab('settings');
+    window.requestAnimationFrame(() => {
+      lowerDeckRef.current?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+      lowerDeckRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  const manageInstance = (targetInstanceId: string) => {
+    if (!tool) return;
+    const instance = tool.tierInstances.instances.find((candidate) =>
+      candidate.tier_instance_id === targetInstanceId,
+    );
+    const row = tool.tierInstances.rows.find((candidate) => candidate.instanceId === targetInstanceId);
+    const preferredSlot = instance
+      ? tierSlotStates(instance).find((slot) => slot.occupied)?.slotId ?? 'basic'
+      : 'basic';
+    tool.tierInstances.selectInstance(targetInstanceId);
+    setViewMode('focus');
+    setSelectedSlotId(preferredSlot);
+    setDeckTab('details');
+    focusWorkspace(
+      `Managing ${instance?.title ?? 'Tier system'}, ${row?.consumerName ?? 'Unassigned'}. ${row?.occupantCount ?? 0} of 5 Tiers configured.`,
+    );
+  };
+
+  const dispatchExplicitTierIntent = (
+    targetInstanceId: string,
+    slotId: string,
+    occupantId: string | null,
+    actionId: 'view' | 'edit',
+  ) => {
+    if (!tool) return;
+    tool.tierInstances.selectInstance(targetInstanceId);
+    setViewMode('focus');
+    setSelectedSlotId(slotId);
+    const recordId = occupantId
+      ? encodeTierDrawerRecordId(targetInstanceId, occupantId)
+      : encodeTierSlotDrawerRecordId(targetInstanceId, slotId);
+    onIntent(recordId, actionId);
+  };
+
+  // Family-drawer and post-create hand-offs must remain visible even when the
+  // requested instance was already selected. Identity selection alone is not a
+  // navigation affordance.
+  useEffect(() => {
+    if (!tool) return;
+    const revision = tool.tierInstances.openRequestRevision;
+    if (revision === 0 || revision === observedOpenRevision.current) return;
+    observedOpenRevision.current = revision;
+    const requestedId = tool.tierInstances.selectedInstanceId;
+    if (requestedId) manageInstance(requestedId);
+    // manageInstance intentionally reads the current model at the hand-off edge.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool?.tierInstances.openRequestRevision, tool?.tierInstances.selectedInstanceId]);
+
   const dispatchTierIntent = (slotId: string, occupantId: string | null, actionId: string) => {
     if (instanceId === null) return;
     const recordId = occupantId
@@ -71,7 +149,8 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   const showGrid = instanceId !== null && occupants.length > 0 && viewMode === 'grid';
 
   return (
-    <div class="cz-tier-workspace">
+    <div ref={workspaceRef} class="cz-tier-workspace" tabIndex={-1}>
+      <p class="cz-station-visually-hidden" aria-live="polite">{navigationAnnouncement}</p>
       <div class="cz-tier-workspace__header">
         <p class="cz-tier-workspace__intro">{ENGINE_DESCRIPTION}</p>
         {instanceId !== null && occupants.length > 0 && (
@@ -93,7 +172,23 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
 
       <div class="cz-tier-workspace__layout">
         <div class="cz-tier-workspace__primary">
-          {showGrid ? (
+          {instanceId === null && tool.selectedFamily ? (
+            <section class="cz-tier-workspace__detail cz-tier-workspace__no-system" aria-labelledby="no-tier-system-heading">
+              <div class="cz-tier-workspace__empty-focus">
+                <div class="cz-tier-workspace__empty-copy">
+                  <h4 id="no-tier-system-heading">No Tier system assigned</h4>
+                  <p><strong>{tool.selectedFamily.name}</strong> is complete without tiers. Assign a Tier system only when this Family needs customer Tier choices.</p>
+                </div>
+                <button
+                  type="button"
+                  class="cz-tier-deck__button cz-tier-deck__button--primary"
+                  onClick={openTierSettings}
+                >
+                  Set up Tier pricing
+                </button>
+              </div>
+            </section>
+          ) : showGrid ? (
             <CategoryGroupCardGrid
               items={occupants}
               onAction={(event) => {
@@ -119,7 +214,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
                     selectedSlot.occupantId,
                     actionId,
                   )}
-                  onOpenSettings={() => setDeckTab('settings')}
+                  onOpenSettings={openTierSettings}
                 />
               )}
             </div>
@@ -142,13 +237,14 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
         </aside>
       </div>
 
-      {(tool.selectedFamily !== null || tool.workspaceInstance !== null) && selectedSlot && (
+      {(tool.selectedFamily !== null || tool.workspaceInstance !== null) && (
+        <div ref={lowerDeckRef} tabIndex={-1}>
         <TierLowerDeck
           familyName={contextName}
-          tierName={selectedSlot.item?.name ?? `${selectedSlot.label} Tier`}
-          deck={selectedSlot.item ? tool.decks[selectedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
+          tierName={selectedSlot?.item?.name ?? (selectedSlot ? `${selectedSlot.label} Tier` : 'Tier setup')}
+          deck={selectedSlot?.item ? tool.decks[selectedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
           activeTab={deckTab}
-          hasFocusedTier={selectedSlot.item !== null}
+          hasFocusedTier={selectedSlot?.item !== null && selectedSlot !== null}
           tierTool={tool.tierInstances}
           family={tool.selectedFamily}
           assignedInstance={tool.assignedInstance}
@@ -157,17 +253,18 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           rateSheetInventory={tool.rateSheetInventory}
           settingsLoading={tool.settingsLoading}
           settingsError={tool.settingsError}
-          onIntent={(actionId) => dispatchTierIntent(
-            selectedSlot.slotId,
-            selectedSlot.occupantId,
-            actionId,
-          )}
+          onIntent={(actionId) => {
+            if (selectedSlot) dispatchTierIntent(selectedSlot.slotId, selectedSlot.occupantId, actionId);
+          }}
           onToolIntent={(actionId) => onIntent(
             actionId === 'create-package-family' ? 'new' : tool.selectedFamily?.id ?? instanceId ?? 'new',
             actionId,
           )}
+          onManageInstance={manageInstance}
+          onTierAction={dispatchExplicitTierIntent}
           onTabChange={setDeckTab}
         />
+        </div>
       )}
     </div>
   );

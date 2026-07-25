@@ -11,9 +11,10 @@ export type { PackageFamilyCreateDraft } from '../../surface/packageFamily/usePa
 export interface PackageFamilyCreateContentProps {
   commands: PackageFamilyCreateCommands;
   bridge: EntityDrawerHostBridge;
+  onManageTierSystem?: () => void;
 }
 
-export function PackageFamilyCreateContent({ commands, bridge }: PackageFamilyCreateContentProps) {
+export function PackageFamilyCreateContent({ commands, bridge, onManageTierSystem }: PackageFamilyCreateContentProps) {
   const [draft, setDraft] = useState<PackageFamilyCreateDraft>({ name: '', description: '' });
   const create = usePackageFamilyCreate(commands, bridge.onMutationComplete ?? (() => {}));
   const canSave = draft.name.trim().length > 0 && !create.saving;
@@ -43,8 +44,8 @@ export function PackageFamilyCreateContent({ commands, bridge }: PackageFamilyCr
     return (
       <div class="cz-drawer-actions">
         <button type="button" class="button" onClick={bridge.close}>Done</button>
-        <button type="button" class="button button-primary" onClick={() => { create.openTierTool(); bridge.close(); }}>
-          Open Tier tool
+        <button type="button" class="button button-primary" onClick={() => { create.openTierTool(); bridge.close(); onManageTierSystem?.(); }}>
+          Manage Tier system
         </button>
       </div>
     );
@@ -56,6 +57,7 @@ export function PackageFamilyCreateContent({ commands, bridge }: PackageFamilyCr
     create.saveFamily,
     create.addTierCapability,
     create.openTierTool,
+    onManageTierSystem,
     draft,
   ]);
 

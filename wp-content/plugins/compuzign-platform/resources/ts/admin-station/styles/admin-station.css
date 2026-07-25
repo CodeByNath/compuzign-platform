@@ -1708,6 +1708,10 @@ button.cz-station-status-pill {
   grid-column: 1 / 3;
 }
 
+.cz-tier-workspace__primary > .cz-tier-workspace__no-system {
+  grid-column: 1 / 3;
+}
+
 /* All three regions share one elevated-panel treatment so they read as equal
    parts of a single engine, not a bare list beside two cards. */
 .cz-tier-workspace__tabs,
@@ -2548,6 +2552,7 @@ button.cz-station-status-pill {
 }
 
 .cz-tier-settings__callout-copy,
+.cz-tier-settings__setup-path,
 .cz-tier-settings__attach-row > span,
 .cz-tier-settings__instance-list li > span,
 .cz-tier-settings__rate-sheet-name,
@@ -2556,6 +2561,49 @@ button.cz-station-status-pill {
   flex-direction: column;
   gap: 3px;
   min-width: 0;
+}
+
+.cz-tier-settings__setup-path {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cz-tier-settings__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-inline-start: 22px;
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+}
+
+.cz-tier-settings__steps li {
+  padding-inline-start: 4px;
+}
+
+.cz-tier-settings__steps span {
+  display: block;
+  margin-top: 2px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+.cz-tier-settings__progress {
+  color: var(--station-text) !important;
+  font-weight: 700;
+}
+
+.cz-tier-settings__success {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--station-status-active-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-status-active-bg);
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
 }
 
 .cz-tier-settings__callout-copy span,
@@ -2636,6 +2684,11 @@ button.cz-station-status-pill {
   grid-column: 1 / -1;
 }
 
+.cz-tier-settings__inline-form--create {
+  padding-top: 12px;
+  border-top: 1px solid var(--station-accent-border);
+}
+
 .cz-tier-settings__configuration {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2701,6 +2754,17 @@ button.cz-station-status-pill {
   font-size: var(--station-text-sm);
 }
 
+.cz-tier-settings__slot-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cz-tier-settings__slot-action .cz-tier-deck__button {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
 .cz-tier-settings__slots li:last-child {
   border-bottom: 0;
 }
@@ -2752,6 +2816,18 @@ button.cz-station-status-pill {
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface);
+}
+
+.cz-tier-drawer-setup {
+  margin-bottom: var(--cz-space-3);
+}
+
+.cz-tier-drawer-setup ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+  margin-bottom: 0;
+  padding-inline-start: 22px;
 }
 
 /* ── Rate Sheet authoring tool ───────────────────────────────────────────── */

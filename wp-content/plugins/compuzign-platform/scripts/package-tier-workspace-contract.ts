@@ -214,6 +214,33 @@ check(
     && workspacePresentation.includes('Configure the Tier system from Settings below.'),
   'the no-assignment state keeps the Tier shell and directs setup to Settings without declaring the Family incomplete',
 );
+check(
+  workspacePresentation.includes('No Tier system assigned')
+    && workspacePresentation.includes('Set up Tier pricing'),
+  'a Family without an assignment receives an honest setup surface instead of five implied Tier records',
+);
+check(
+  !workspacePresentation.includes('Open Tier tool')
+    && workspacePresentation.includes('Configure {TIER_LABELS[firstEmptySlot.slotId]')
+    && workspacePresentation.includes("slot.occupied ? 'view' : 'edit'"),
+  'workspace actions open the authoritative fixed-slot drawer and never offer a no-op Open Tier tool action',
+);
+check(
+  workspacePresentation.includes('Rate Sheet access')
+    && workspacePresentation.includes('Each Tier chooses its own Rate Sheet when configured.'),
+  'Rate Sheet access is distinguished from each Tier slot’s own Rate Sheet binding',
+);
+check(
+  workspacePresentation.includes('Creation does not assign the new system')
+    && workspacePresentation.includes('Confirm its assignment separately'),
+  'Family setup keeps instance creation and assignment as two explicit acts',
+);
+check(
+  workspacePresentation.includes('scrollIntoView')
+    && workspacePresentation.includes('aria-live="polite"')
+    && workspacePresentation.includes('openRequestRevision'),
+  'repeated Manage Tier system hand-offs remain visible through focus, scroll and a live announcement',
+);
 check(workspacePresentation.includes('<TierNavigation') && workspacePresentation.includes('<TierLowerDeck'), 'the Focus shell and lower deck remain mounted for empty states');
 check(!workspacePresentation.includes('TierInstancePanel'), 'the standalone raw Tier-instance panel is retired');
 check(!workspacePresentation.includes('drawerModule__'), 'workspace presentation never leaks drawer-only field classes');
@@ -264,5 +291,30 @@ const familySource = [
 for (const forbidden of ['usePackageStation', 'tierOccupants', 'TIER_ENTITY']) {
   check(!familySource.includes(forbidden), `Family surfaces do not import obsolete Tier authority ${forbidden}`);
 }
+const familyCapabilityBindingSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/schema/bindings/packageFamily.tsx',
+), 'utf8');
+check(
+  familyCapabilityBindingSource.includes("label: 'Manage Tier system'")
+    && !familyCapabilityBindingSource.includes("label: 'Open Tier tool'"),
+  'Family capability navigation names the visible management hand-off honestly',
+);
+check(
+  familySource.includes('onManageTierSystem')
+    && familySource.includes("navigate('packages')"),
+  'the Admin host adapter carries Manage Tier system into the Packages destination',
+);
+
+const tierDrawerSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx',
+), 'utf8');
+check(
+  tierDrawerSource.includes('Choose the Rate Sheet that supplies pricing rows.')
+    && tierDrawerSource.includes('Add included features and optional common questions.')
+    && tierDrawerSource.includes('Publish the Tier when it is ready.'),
+  'the existing empty-slot drawer explains its authoritative setup sequence',
+);
 
 console.log('Package Tier workspace contract checks passed.');

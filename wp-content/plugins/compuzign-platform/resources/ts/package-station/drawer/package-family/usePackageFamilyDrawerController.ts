@@ -26,6 +26,7 @@ export function usePackageFamilyDrawerController({
   family,
   initialTab,
   initialEdit,
+  onManageTierSystem,
   bridge,
 }: PackageFamilyDrawerContentProps) {
   const station = usePackageFamilyStation(family, bridge.onMutationComplete);
@@ -188,7 +189,12 @@ export function usePackageFamilyDrawerController({
     busy: capabilities.busy ?? capabilities.removeConfirm.busyId,
     handlers: {
       'add-tier-capability': async () => { await capabilities.addTier(); },
-      'open-tier-tool': () => { capabilities.openTier(); bridge.close(); },
+      'open-tier-tool': () => {
+        const instanceId = capabilities.instance?.tier_instance_id;
+        capabilities.openTier();
+        bridge.close();
+        if (instanceId) onManageTierSystem?.(instanceId);
+      },
       'remove-tier-capability': capabilities.requestRemoveTier,
     },
   };

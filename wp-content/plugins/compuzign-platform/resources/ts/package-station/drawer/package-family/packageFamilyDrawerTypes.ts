@@ -6,6 +6,7 @@ export interface PackageFamilyDrawerContentProps {
   family: PackageFamilyItem;
   initialTab?: DrawerTabId;
   initialEdit?: boolean;
+  onManageTierSystem?: (instanceId: string) => void;
   bridge: EntityDrawerHostBridge;
 }
 

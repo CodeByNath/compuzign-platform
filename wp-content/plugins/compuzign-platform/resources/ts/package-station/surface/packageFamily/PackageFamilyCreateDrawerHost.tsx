@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
+import { useAdminStation } from '@/admin-station/AdminStationContext';
 import {
   createPackageFamily,
   createTierAssignment,
@@ -15,6 +16,7 @@ export function PackageFamilyCreateDrawerHost({
   setFooter,
   setCloseGuard,
 }: DrawerContentProps): VNode {
+  const { navigate } = useAdminStation();
   const closeRef = useRef(onClose); closeRef.current = onClose;
   const footerRef = useRef(setFooter); footerRef.current = setFooter;
   const guardRef = useRef(setCloseGuard); guardRef.current = setCloseGuard;
@@ -33,5 +35,11 @@ export function PackageFamilyCreateDrawerHost({
     createTierAssignment,
   }), []);
 
-  return <PackageFamilyCreateContent commands={commands} bridge={bridge} />;
+  return (
+    <PackageFamilyCreateContent
+      commands={commands}
+      bridge={bridge}
+      onManageTierSystem={() => navigate('packages')}
+    />
+  );
 }
