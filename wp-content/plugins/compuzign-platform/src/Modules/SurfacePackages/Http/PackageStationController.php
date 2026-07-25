@@ -633,6 +633,7 @@ class PackageStationController
 
         $responseStation = [
             'platform_status' => $instanceStatus,
+            'allowed_rate_sheet_ids' => $instance['allowed_rate_sheet_ids'] ?? [],
             'tiers'           => $tiers,
             'popular_tier'    => $instance['popular_tier'] ?? null,
             'popular_label'   => $instance['popular_label'] ?? '',
@@ -931,6 +932,7 @@ class PackageStationController
 
         $responseStation = [
             'platform_status' => TierInstanceSchema::deriveInstanceStatus($instance),
+            'allowed_rate_sheet_ids' => $instance['allowed_rate_sheet_ids'] ?? [],
             'tiers' => $tiers,
             'popular_tier' => $instance['popular_tier'] ?? null,
             'popular_label' => $instance['popular_label'] ?? '',

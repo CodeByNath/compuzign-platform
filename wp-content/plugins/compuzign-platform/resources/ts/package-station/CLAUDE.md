@@ -10,7 +10,7 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `api.ts` — the single implementation of Package-owned endpoint calls.
 - `usePackageStation.ts`, `usePackageFamilyStation.ts`, and `useSurfacePackages.ts` — Package and Package Family state, mutations, and surface reads.
 - `tierOccupants.ts`, `rateSheetLabels.ts`, and `evaluateTierPricing.ts` — Package-owned pure projections, labels, and pricing evaluation.
-- `surface/packageFamily/`, `surface/tierSurface/`, `surface/packageTierWorkspace/`, and `surface/rateSheetTool/` — Package Family and Tier surface adapters, the Tier workspace read/projection, and the Rate Sheet tool's read/edit/save controller (reusing the Package Manager contract).
+- `surface/packageFamily/`, `surface/tierInstance/`, `surface/tierSurface/`, `surface/packageTierWorkspace/`, and `surface/rateSheetTool/` — Package Family adapters; Tier instance/assignment collection state and pure models; the selected-instance workspace/drawer adapters; and the Rate Sheet tool controller.
 - `presentation/package-tier-workspace/` and `presentation/rate-sheet-tool/` — the Package-owned Tier workspace presentation kit and the Rate Sheet authoring drawer content (the `rate-sheet` drawer template).
 - `drawer/package-family/` and `drawer/tier/` — Package-owned drawer compositions, controllers, dialogs, and footer presentation.
 - `drawer/editors/` and `drawer/schema/` — Package-owned editors, entity manifests, and bindings.
@@ -27,4 +27,4 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Tie
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

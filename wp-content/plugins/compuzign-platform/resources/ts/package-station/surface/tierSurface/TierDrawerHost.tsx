@@ -8,9 +8,10 @@
 // popular-tier and enable-disable actions, publish and the guarded exit all come
 // from that composition — none of it is reimplemented here.
 //
-// Identity: `recordId` is the occupant_id the card carried, a string. It is
-// passed straight through as `initialOccupantId`; the composition re-resolves
-// the fixed slot from it once the station loads. Nothing is converted.
+// Identity: instance-aware workspace dispatch wraps `(tier_instance_id,
+// occupant_id)` in a Package-owned routing token. This adapter unwraps it and
+// passes both native ids to the composition; legacy occupant-only dispatches
+// explicitly address `ti_primary`. The occupant id itself is never rewritten.
 
 import { useMemo, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
@@ -18,6 +19,8 @@ import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { TierDrawerContent } from '../../drawer/tier/TierDrawerContent';
 import { useHostService } from './useHostService';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
+import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
+import { decodeTierDrawerRecordId } from '../../drawer/tier/tierDrawerTypes';
 
 export function TierDrawerHost({
   recordId,
@@ -46,6 +49,10 @@ export function TierDrawerHost({
   if (typeof recordId !== 'string') {
     return <div class="cz-station-drawer__state">This tier identity is invalid.</div>;
   }
+  const target = decodeTierDrawerRecordId(recordId) ?? {
+    instanceId: PRIMARY_TIER_INSTANCE_ID,
+    occupantId: recordId,
+  };
 
   if (host.loading && !host.service) return <div class="cz-station-drawer__state">Loading package tiers…</div>;
   if (host.error)                    return <div class="cz-station-drawer__state">{host.error}</div>;
@@ -54,9 +61,10 @@ export function TierDrawerHost({
   return (
     <TierDrawerContent
       serviceId={host.service.id}
-      // The occupant id, exactly as the card carried it. The composition
-      // resolves the slot; this host never parses or re-keys it.
-      initialOccupantId={recordId}
+      tierInstanceId={target.instanceId}
+      // Native occupant id from the routing token. The composition resolves the
+      // fixed slot within target.instanceId; neither identity is re-keyed.
+      initialOccupantId={target.occupantId}
       // 'edit' opens straight into the tier's Overview editor once the occupant
       // resolves to its slot; 'view' leaves every module readable.
       initialTierSection={mode === 'edit' ? 'tier-overview' : undefined}

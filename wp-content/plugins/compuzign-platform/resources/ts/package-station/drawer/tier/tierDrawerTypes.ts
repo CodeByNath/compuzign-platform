@@ -1,7 +1,7 @@
 // Neutral Tier drawer contracts.
 //
 // Like the Service drawer, the Tier drawer composition is host-agnostic: it
-// receives the record inputs usePackageStation needs plus an
+// receives the instance and record inputs usePackageStation needs plus an
 // EntityDrawerHostBridge, and imports neither host. The Command Centre and Admin
 // Station adapters resolve these inputs from their respective routing state.
 
@@ -9,8 +9,10 @@ import type { ServiceItem } from '@/api/types/cost-builder';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 
 export interface TierDrawerContentProps {
-  // The package station is addressed by its parent service id (numeric).
+  // Service id is navigation context for the Package-owned endpoint.
   serviceId: number;
+  // Capability-instance identity is independent of the occupant/slot identity.
+  tierInstanceId: string;
   // Richer parent service (more than the station stub) for the Connections tab.
   service?: ServiceItem;
   // Return-to-Service navigation, wired to the service-overview connection View.
@@ -37,4 +39,19 @@ export interface TierBinPrompt {
   code:        'target_occupied' | 'origin_unknown' | 'pending_drafts';
   mode?:       'swap' | 'retarget';
   targetTier?: string;
+}
+
+const TIER_DRAWER_RECORD_PREFIX = 'tier-instance:';
+
+/** Package-owned routing token; the card itself keeps occupant_id identity. */
+export function encodeTierDrawerRecordId(instanceId: string, occupantId: string): string {
+  return `${TIER_DRAWER_RECORD_PREFIX}${instanceId}:${occupantId}`;
+}
+
+export function decodeTierDrawerRecordId(
+  recordId: string,
+): { instanceId: string; occupantId: string } | null {
+  if (!recordId.startsWith(TIER_DRAWER_RECORD_PREFIX)) return null;
+  const [instanceId, occupantId, ...extra] = recordId.slice(TIER_DRAWER_RECORD_PREFIX.length).split(':');
+  return instanceId && occupantId && extra.length === 0 ? { instanceId, occupantId } : null;
 }

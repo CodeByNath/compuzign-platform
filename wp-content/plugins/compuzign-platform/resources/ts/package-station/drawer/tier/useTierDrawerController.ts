@@ -23,7 +23,6 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { usePackageStation } from '../../usePackageStation';
-import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
 import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
 import { serviceConnectionBinding } from '@/service-station';
 import { useAutoDismiss, useOutsideClickDismiss } from '@/entity-drawers/shared/drawerChrome';
@@ -39,10 +38,10 @@ export { slotOccupied } from './tierDetailModel';
 export type TierControllerArgs = TierDrawerContentProps;
 
 export function useTierDrawerController({
-  serviceId, service: serviceItem, serviceBack, tierBack,
+  serviceId, tierInstanceId, service: serviceItem, serviceBack, tierBack,
   initialTierId, initialOccupantId, initialTierSection, bridge,
 }: TierControllerArgs) {
-  const pkg     = usePackageStation(serviceId, PRIMARY_TIER_INSTANCE_ID, bridge.onMutationComplete);
+  const pkg     = usePackageStation(serviceId, tierInstanceId, bridge.onMutationComplete);
   const station = pkg.station;
   const svc     = pkg.service;
 

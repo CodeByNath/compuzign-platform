@@ -33,6 +33,7 @@ export interface OccupantBinEntry {
 
 export interface ServicePackageStationData {
   tier_instance_id?: string;
+  allowed_rate_sheet_ids?: string[];
   platform_status: string;
   tiers:           Record<string, SurfaceTierDetail>;
   popular_tier:    string | null;
@@ -166,6 +167,33 @@ export interface TierInstanceSummary {
   readiness:              'ready' | 'not-ready';
   occupant_count:         number;
   bin_count:              number;
+}
+
+/** Stored instance shape returned by the Package-owned collection endpoint. */
+export interface TierInstanceRecord {
+  tier_instance_id:       string;
+  title:                  string;
+  status:                 TierInstanceStatus;
+  allowed_rate_sheet_ids: string[];
+  popular_tier:           string | null;
+  popular_label:          string;
+  tiers: Record<string, {
+    current_occupant?: BinnedOccupant | null;
+    history?: BinnedOccupant[];
+    drafts?: TierDrafts;
+    module_status?: Record<string, string>;
+  }>;
+  occupant_bin: OccupantBinEntry[];
+}
+
+export interface TierInstancesResponse {
+  success:        boolean;
+  tier_instances: TierInstanceRecord[];
+}
+
+export interface TierInstanceMutationResponse {
+  success:       boolean;
+  tier_instance: TierInstanceRecord;
 }
 
 export type TierAssignmentConsumerType = 'package_family';

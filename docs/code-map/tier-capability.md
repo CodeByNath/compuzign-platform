@@ -26,6 +26,12 @@ The scoped Service-navigation route family inserts `tier-instances/{instance}` b
 
 Instance deletion is blocked by assignments, occupants, bin entries, or drafts. Deleting an empty unassigned instance leaves every Family unchanged. The peer-isolation suite covers assignment removal, every Tier-instance mutation class, and both structural sanitisation boundaries.
 
+## Package-owned Tier Tool
+
+[`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) reads the instance and assignment collections separately, and exposes explicit create, assign, unassign, and allow-list mutations. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, counts, eligibility, all five slot states, allowed-sheet options, and the optional single-candidate migration suggestion without writing anything. Unassigned instances remain fully operable.
+
+[`TierInstancePanel.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierInstancePanel.tsx) is the Package-owned instance selector/configuration surface. Opening an instance reuses the existing Focus/Grid engine, lower deck, and `tier` drawer. Drawer routing carries both instance and occupant identities while the card retains its native `occ_…` id. No new drawer template or generic CRUD/ownership framework exists.
+
 ## Invariants
 
 - Five slot keys remain `basic`, `standard`, `premium`, `enterprise`, `ultimate` in that order.
@@ -38,4 +44,4 @@ Instance deletion is blocked by assignments, occupants, bin entries, or drafts. 
 
 ## Validation
 
-From the plugin root run `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `npm run contract:tier-instance-scope`, the pre-existing contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root run `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, the pre-existing contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

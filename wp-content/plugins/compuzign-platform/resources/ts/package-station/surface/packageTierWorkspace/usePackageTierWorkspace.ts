@@ -1,107 +1,76 @@
-// Package Tier workspace — the read boundary for the Station-level Tier tool.
-//
-// This is the data source the `packages` station's Tier tool binds to. It
-// composes three EXISTING authoritative reads and adds no persistence of its own:
-//
-//   • fetchPackageFamilies()      — the Package Family scope + authoritative
-//                                    `related_service_ids` and `dependents`.
-//   • useHostService()            — the single Package Station's host Service (the
-//                                    same rule the Tier wall and Command Centre use).
-//   • usePackageStation(hostId)   — the shared Tier occupants and the station's
-//                                    Rate Sheet rows / relationships used to
-//                                    resolve each occupant's supplying Services.
-//
-// It then runs the PURE Family-scope projection (./projection) and returns one
-// row per Family, each carrying its authoritative summary and the Tier occupant
-// cards connected to it. The selected Family lives in the KIT as transient state;
-// this source supplies every Family so switching selection needs no refetch and
-// writes nothing. `occupant_id` stays the card identity throughout.
+// Package-owned Tier Tool source. Phase 5 is instance-centric: it loads the
+// independent instance/assignment collections, then opens exactly one instance
+// through the established Package Station hook. Family workspace resolution is
+// added separately in Phase 7; Rate Sheet provenance never chooses an instance.
 
 import { useMemo } from 'preact/hooks';
-import { useApi } from '@/hooks/useApi';
-import { fetchPackageFamilies } from '../../api';
+import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
+import type { PackageRateSheet } from '../../types';
 import { usePackageStation } from '../../usePackageStation';
-import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
+import { useTierInstances } from '../tierInstance/useTierInstances';
+import type { TierInstancesToolState } from '../tierInstance/useTierInstances';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
-import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
-import { useRetainedCollection } from '@/station-manager/useRetainedCollection';
 import {
-  buildRateItemServiceMap,
-  occupantSupplyingServiceIds,
-  projectFamilyTierWorkspace,
-  type PackageTierWorkspaceFamily,
-  type WorkspaceFamilyScope,
-  type WorkspaceOccupant,
-} from './projection';
-import { buildRateItemCategoryMap, projectTierDeck } from './deck';
+  buildRateItemCategoryMap,
+  projectTierDeck,
+  type TierDeck,
+} from './deck';
+
+export interface PackageTierWorkspaceTool {
+  kind: 'tier-instance-tool';
+  tierInstances: TierInstancesToolState;
+  occupants: CategoryGroupCardItem[];
+  decks: Record<string, TierDeck>;
+  rateSheets: PackageRateSheet[];
+}
 
 export interface PackageTierWorkspaceResult {
-  items:   PackageTierWorkspaceFamily[];
+  items:   PackageTierWorkspaceTool[];
   loading: boolean;
   error:   string | null;
   refetch: () => void;
 }
 
 export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
-  const families = useApi(() => fetchPackageFamilies());
+  const tierInstances = useTierInstances();
   const host = useHostService();
-  // usePackageStation needs a numeric id; 0 is never a real service id, so the
-  // station holds its unloaded state until the host resolves — the same guard the
-  // Tier wall uses.
-  const pkg = usePackageStation(host.service?.id ?? 0, PRIMARY_TIER_INSTANCE_ID);
+  const pkg = usePackageStation(
+    host.service?.id ?? 0,
+    tierInstances.selectedInstanceId,
+  );
 
-  const projected = useMemo<PackageTierWorkspaceFamily[]>(() => {
-    const rateSheets    = pkg.service?.rate_sheets ?? [];
-    // Provenance maps span every sheet's rows; a row's supplying Service is the
-    // same regardless of which sheet prices it.
-    const rateItems     = rateSheets.flatMap((sheet) => sheet.items);
-    const relationships  = pkg.service?.package_relationships ?? [];
-    // Resolve each Rate Sheet row to its supplying Service once, from the station
-    // read model — the exact provenance the backend uses for `tier_selections`.
-    const serviceByRateItem = buildRateItemServiceMap(rateItems, relationships);
-    // The same two-hop chain, reading `source_categories` — for the lower deck's
-    // Details lane. Built once here rather than per occupant.
-    const categoryByRateItem = buildRateItemCategoryMap(rateItems, relationships);
-
-    // The shared Tier occupants, each with the card the grid renders, the Services
-    // its selections resolve to, and its lower deck (Details/Connections) derived
-    // from the SAME resolved view. Empty shells are already absent from
-    // `tierOccupants`, so no placeholder occupant is ever created here.
-    const occupants: WorkspaceOccupant[] = pkg.tierOccupants.map(({ occupantId, slotId }) => {
-      const view = pkg.tierView(slotId);
-      return {
-        occupantId,
-        card: toTierOccupantCard({ occupantId, slotId, view, platformStatus: pkg.platformStatus }),
-        supplyingServiceIds: occupantSupplyingServiceIds(
-          (view?.detail.rate_sheet_items ?? []).map((selection) => selection.item_id),
-          serviceByRateItem,
-        ),
-        deck: projectTierDeck(
-          view?.detail.rate_sheet_selections ?? [],
-          categoryByRateItem,
-          // The Tier's connections group under the sheet it is bound to.
-          rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
-        ),
-      };
-    });
-
-    // Package Families as WORKING SCOPE: native id, authoritative summary, and the
-    // authoritative Service relationship. Never a tier owner.
-    const familyScopes: WorkspaceFamilyScope[] = (families.data?.package_category_groups ?? []).map(
-      (family) => ({
-        id:                family.group_id,
-        name:              family.label,
-        description:       family.description,
-        status:            resolvePackageFamilyCardStatus(family),
-        relatedServiceIds: family.related_service_ids,
-        dependents:        family.dependents,
-      }),
+  const model = useMemo<PackageTierWorkspaceTool>(() => {
+    const rateSheets = pkg.service?.rate_sheets ?? [];
+    const relationships = pkg.service?.package_relationships ?? [];
+    const categoryByRateItem = buildRateItemCategoryMap(
+      rateSheets.flatMap((sheet) => sheet.items),
+      relationships,
     );
-
-    return projectFamilyTierWorkspace(familyScopes, occupants);
+    const decks: Record<string, TierDeck> = {};
+    const occupants = pkg.tierOccupants.map(({ occupantId, slotId }) => {
+      const view = pkg.tierView(slotId);
+      decks[occupantId] = projectTierDeck(
+        view?.detail.rate_sheet_selections ?? [],
+        categoryByRateItem,
+        rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
+      );
+      return toTierOccupantCard({
+        occupantId,
+        slotId,
+        view,
+        platformStatus: pkg.platformStatus,
+      });
+    });
+    return {
+      kind: 'tier-instance-tool',
+      tierInstances,
+      occupants,
+      decks,
+      rateSheets,
+    };
   }, [
-    families.data,
+    tierInstances,
     pkg.service,
     pkg.tierOccupants,
     pkg.tierView,
@@ -109,20 +78,14 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     pkg.detailLoaded,
   ]);
 
-  // Loading until the Families AND the host's Package Station have both resolved,
-  // so the kit never flashes a false "no Tier selections" state mid-load.
-  const loading  = families.loading || host.loading || (!!host.service && !pkg.detailLoaded);
-  const retained = useRetainedCollection(projected, loading);
-
+  const waitingForInstance = tierInstances.selectedInstanceId !== null && !!host.service && !pkg.detailLoaded;
   return {
-    items:   retained.items,
-    loading: retained.loading,
-    error:   families.error ?? host.error,
-    // A Tier drawer save refreshes THIS wall: reload the station (new occupant
-    // state) and the Families (their `tier_selections` dependents may change).
+    items: [model],
+    loading: tierInstances.loading || host.loading || waitingForInstance,
+    error: tierInstances.error ?? host.error,
     refetch: () => {
+      tierInstances.refetch();
       pkg.refetch();
-      families.refetch();
     },
   };
 }

@@ -20,7 +20,30 @@ import type {
   TierAssignmentDeleteResponse,
   TierAssignmentMutationResponse,
   TierAssignmentsResponse,
+  TierInstancesResponse,
+  TierInstanceMutationResponse,
 } from './types';
+
+export function fetchTierInstances(): Promise<TierInstancesResponse> {
+  return apiClient.get<TierInstancesResponse>('admin/package-station/tier-instances');
+}
+
+export function createTierInstance(payload: {
+  title: string;
+  allowed_rate_sheet_ids?: string[];
+}): Promise<TierInstanceMutationResponse> {
+  return apiClient.post<TierInstanceMutationResponse>('admin/package-station/tier-instances', payload);
+}
+
+export function updateTierInstance(
+  instanceId: string,
+  payload: { title?: string; allowed_rate_sheet_ids?: string[] },
+): Promise<TierInstanceMutationResponse> {
+  return apiClient.patch<TierInstanceMutationResponse>(
+    `admin/package-station/tier-instances/${instanceId}`,
+    payload,
+  );
+}
 
 export function fetchTierAssignments(): Promise<TierAssignmentsResponse> {
   return apiClient.get<TierAssignmentsResponse>('admin/package-station/tier-assignments');

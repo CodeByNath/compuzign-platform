@@ -29,6 +29,7 @@ import { TierDrawerFooter } from './TierDrawerFooter';
 import { TierBinList } from './TierBinList';
 import { TierDrawerDialogs } from './TierDrawerDialogs';
 import type { TierDrawerContentProps } from './tierDrawerTypes';
+import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 
 export function TierDrawerContent(props: TierDrawerContentProps) {
   const { bridge } = props;
@@ -222,8 +223,11 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     // Selectable sheets: active ones plus the current binding (even if archived,
     // so it still displays). Switching clears the Tier's selections at settle.
     const boundId = detail.rate_sheet_id;
-    const rateSheetOptions = svc.rate_sheets
-      .filter((sheet) => sheet.status === 'active' || sheet.rate_sheet_id === boundId)
+    const rateSheetOptions = selectableRateSheets(
+      svc.rate_sheets,
+      station.allowed_rate_sheet_ids ?? [],
+      boundId,
+    )
       .map((sheet) => ({ id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status }));
     editing = {
       module: 'overview',
