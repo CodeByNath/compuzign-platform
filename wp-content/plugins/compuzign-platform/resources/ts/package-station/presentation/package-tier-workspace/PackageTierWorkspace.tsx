@@ -1,6 +1,6 @@
-// Package-owned Tier Workspace Engine. Phase 5 selects an independent Tier
-// instance first, then reuses the existing Focus/Grid engine, lower deck, and
-// registered Tier drawer for that instance's occupants.
+// Package-owned Tier Workspace. Family scope resolves through the explicit
+// assignment ledger; the instance panel remains available for direct operation
+// of valid unassigned instances without presenting them as Family-owned.
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
@@ -10,15 +10,18 @@ import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-gro
 import type { PackageTierWorkspaceTool } from '../../surface/packageTierWorkspace/usePackageTierWorkspace';
 import { encodeTierDrawerRecordId } from '../../drawer/tier/tierDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
+import { PackageFamilyScope } from './PackageFamilyScope';
+import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierInstancePanel } from './TierInstancePanel';
 import { TierNavigation } from './TierNavigation';
 import { TierDetailPanel } from './TierDetailPanel';
 import { TierLowerDeck } from './TierLowerDeck';
 
 const ENGINE_DESCRIPTION = 'Package-owned workspace for managing independent Tier capability instances.';
-const NO_INSTANCES_MESSAGE = 'No Tier instances exist yet. Create one to configure the Tier capability.';
 const NO_FAMILY_MESSAGE = 'Create a Package Family to organise Services and optionally add Tier capability.';
-const NO_TIERS_MESSAGE = 'This Tier instance has no configured occupants. Its five fixed slots remain available in the instance panel.';
+const NO_CAPABILITY_MESSAGE = 'This Package Family does not use the Tier capability.';
+const NO_TIERS_MESSAGE = 'No Tier selections are currently available for this Package Family.';
+const NO_INSTANCE_OCCUPANTS_MESSAGE = 'This Tier instance has no configured occupants.';
 type ViewMode = 'focus' | 'grid';
 
 export function PackageTierWorkspace({ items, loading, error, onIntent }: TemplateKitProps): VNode {
@@ -31,7 +34,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     () => occupants.find((occupant) => occupant.id === selectedTierId) ?? occupants[0] ?? null,
     [occupants, selectedTierId],
   );
-  const instanceId = tool?.tierInstances.selectedInstanceId ?? null;
+  const instanceId = tool?.workspaceInstance?.tier_instance_id ?? null;
   const dispatchTierIntent = (occupantId: CategoryGroupCardItem['id'], actionId: string) => {
     if (instanceId === null || typeof occupantId !== 'string') return;
     onIntent(encodeTierDrawerRecordId(instanceId, occupantId), actionId);
@@ -44,11 +47,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     return <p class="cz-station-empty" role="alert">{error}</p>;
   }
 
-  const currentFamilies = tool.tierInstances.families.filter((family) =>
-    family.platform_status !== 'archived' && family.platform_status !== 'trashed',
-  );
-
-  if (currentFamilies.length === 0) {
+  if (tool.families.length === 0) {
     return (
       <div class="cz-tier-workspace">
         <div class="cz-tier-workspace__header">
@@ -63,6 +62,11 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       </div>
     );
   }
+
+  const noFamilyCapability = tool.selectedFamily !== null && tool.assignedInstance === null;
+  const contextName = tool.selectedFamily?.name
+    ?? (tool.workspaceInstance ? `Unassigned · ${tool.workspaceInstance.title}` : 'Unassigned');
+  const emptyTierMessage = tool.selectedFamily ? NO_TIERS_MESSAGE : NO_INSTANCE_OCCUPANTS_MESSAGE;
 
   return (
     <div class="cz-tier-workspace">
@@ -87,15 +91,27 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
 
       <div class="cz-tier-workspace__layout">
         <div class="cz-tier-workspace__primary">
-          {instanceId === null ? (
-            <p class="cz-station-empty">{NO_INSTANCES_MESSAGE}</p>
+          {noFamilyCapability ? (
+            <div class="cz-station-empty">
+              <p>{NO_CAPABILITY_MESSAGE}</p>
+              <button
+                type="button"
+                class="button button-primary"
+                disabled={tool.tierInstances.saving}
+                onClick={() => { void tool.addTierCapability(); }}
+              >
+                Add Tier capability
+              </button>
+            </div>
+          ) : instanceId === null ? (
+            <p class="cz-station-empty">Select a Package Family or Tier instance.</p>
           ) : occupants.length === 0 ? (
-            <p class="cz-station-empty">{NO_TIERS_MESSAGE}</p>
+            <p class="cz-station-empty">{emptyTierMessage}</p>
           ) : viewMode === 'grid' ? (
             <CategoryGroupCardGrid
               items={occupants}
               onAction={(event) => dispatchTierIntent(event.cardId, event.actionId)}
-              emptyMessage={NO_TIERS_MESSAGE}
+              emptyMessage={emptyTierMessage}
             />
           ) : (
             <div class="cz-tier-workspace__focus">
@@ -114,12 +130,27 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           )}
         </div>
 
-        <TierInstancePanel tool={tool.tierInstances} rateSheets={tool.rateSheets} />
+        <aside class="cz-tier-workspace__family" aria-label="Package Family working scope">
+          <PackageFamilyScope
+            families={tool.families}
+            selectedId={tool.selectedFamily?.id ?? null}
+            onSelect={tool.selectFamily}
+          />
+          {tool.selectedFamily ? (
+            <PackageFamilySummary family={tool.selectedFamily} />
+          ) : (
+            <p class="cz-station-empty">
+              Direct instance management. This instance is not being presented as a Family capability.
+            </p>
+          )}
+        </aside>
       </div>
+
+      <TierInstancePanel tool={tool.tierInstances} rateSheets={tool.rateSheets} />
 
       {instanceId !== null && selectedTier !== null && (
         <TierLowerDeck
-          familyName={tool.tierInstances.rows.find((row) => row.instanceId === instanceId)?.consumerName ?? 'Unassigned'}
+          familyName={contextName}
           tierName={selectedTier.name}
           deck={tool.decks[selectedTier.id] ?? EMPTY_TIER_DECK}
           onIntent={(actionId) => actionId === 'create-package-family'

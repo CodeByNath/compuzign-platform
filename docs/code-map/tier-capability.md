@@ -16,27 +16,27 @@ cz_package_station
 └─ tier_assignments[]
 ```
 
-The old `cz_package` meta schema on `cz_surface_package` is retired. The historical post type remains registered for queryability, but live Package and Tier state is stored only through `PackageRepository::OPTION_KEY` (`cz_package_station`).
-
 ## Mutation and compatibility state
 
 `TierInstanceSchema::liftLegacyStation` exposes an in-memory, idempotent `ti_primary` for a legacy station. It copies the Tier map and occupant bin verbatim, writes nothing during reads, and creates no assignment. `tier_instances[]` is canonical for every Tier and bin mutation. `TierInstanceSchema::withInstance` replaces exactly one peer, re-derives its readiness, and mirrors `ti_primary` to the temporary legacy Tier/bin/popular projections until compatibility retirement.
 
 The scoped Service-navigation route family inserts `tier-instances/{instance}` before `read`, `tiers`, `bin`, and `popular`. Every handler resolves the instance before resolving a slot or bin. The old unscoped routes remain temporary aliases to `ti_primary`; scoped response envelopes include `tier_instance_id`. `usePackageStation(serviceId, tierInstanceId, …)` owns the corresponding client state and holds an unloaded state when the instance id is `null`.
 
-Instance deletion is blocked by assignments, occupants, bin entries, or drafts. Deleting an empty unassigned instance leaves every Family unchanged. The peer-isolation suite covers assignment removal, every Tier-instance mutation class, every Family lifecycle mutation, and both structural sanitisation boundaries.
+Instance deletion is blocked by assignments, occupants, bin entries, or drafts. Peer-isolation tests cover both mutation directions and sanitisation boundaries.
 
 ## Package Family capability flow
 
-`PackageFamilyCreateContent.tsx` re-hosts the create composition. `createPackageFamily` completes first and refreshes the wall; its saved stage then offers an optional `createTierInstance` followed by `createTierAssignment`. Not now, Done, Escape, backdrop, and header close write nothing after the Family save. Assignment failure leaves the saved Family and valid unassigned instance intact and reports that state.
+`PackageFamilyCreateContent.tsx` saves and refreshes the Family before offering optional instance creation and assignment. Every decline/close route writes nothing further; partial failure preserves and reports both valid peers.
 
 `usePackageFamilyCapabilities.ts` reads the two peer collections separately. The Family drawer places its Capabilities shell after Connected Records on Connections. Capability absence is valid and never affects overview readiness. Its only capability actions are Add Tier capability, Remove Tier capability, and Open Tier tool. Remove deletes only the assignment behind inline confirmation.
 
 ## Package-owned Tier Tool
 
-[`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) reads the instance and assignment collections separately, and exposes explicit create, assign, unassign, and allow-list mutations. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, counts, eligibility, all five slot states, allowed-sheet options, and the optional single-candidate migration suggestion without writing anything. Unassigned instances remain fully operable.
+[`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) keeps peer collections and explicit mutations separate. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, eligibility, slots, sheet options, and the explicit migration suggestion. Unassigned instances remain operable.
 
 [`TierInstancePanel.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierInstancePanel.tsx) is the Package-owned instance selector/configuration surface. Opening an instance reuses the existing Focus/Grid engine, lower deck, and `tier` drawer. Drawer routing carries both instance and occupant identities while the card retains its native `occ_…` id. No new drawer template or generic CRUD/ownership framework exists.
+
+Family workspace scope uses `resolveFamilyTierAssignment`: exact `package_family` consumer match → assigned instance, with no Service/Rate Sheet inference or global fallback. No assignment is a neutral state with an explicit Add action. Once an instance is resolved, all its occupants project even without selections. Category provenance remains lower-deck enrichment only. Directly opened unassigned instances stay operable in a labelled non-Family mode.
 
 ## Invariants
 
@@ -50,4 +50,4 @@ Instance deletion is blocked by assignments, occupants, bin entries, or drafts. 
 
 ## Validation
 
-From the plugin root run `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-assignment-family-flow.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, the pre-existing contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+Run the Tier/assignment PHP tests, all TypeScript contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.

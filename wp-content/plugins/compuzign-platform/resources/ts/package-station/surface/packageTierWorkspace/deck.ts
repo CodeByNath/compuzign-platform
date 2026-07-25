@@ -17,17 +17,19 @@
 // IT INVENTS NO DATA AND NO SECOND PRICE. Every inclusion row is one of the
 // Tier's already-resolved `rate_sheet_selections` (usePackageStation.tierView),
 // re-read here — its label, resolution, unit price, per, quantity and line total
-// are carried through untouched. Category is the only field added, resolved from
-// the SAME provenance chain ./projection uses for Service scope: a Rate Sheet row
+// are carried through untouched. Category is the only field added: a Rate Sheet row
 // (`item_id`) → its priced relationship (`source_item_id`) → that relationship's
 // admin-read-model `source_categories`. Nothing is recomputed.
-
-import type { WorkspaceRateItem } from './projection';
 
 // ── Structural inputs ─────────────────────────────────────────────────────────
 // Kept local and structural (like ./projection) so the pure functions carry no
 // dependency on the full API types and the contract script can run them with
 // plain fixtures. The Package read model's real shapes satisfy these by width.
+
+export interface WorkspaceRateItem {
+  item_id: string;
+  source_item_id: string;
+}
 
 /** A resolved Tier selection, exactly as `tierView().detail.rate_sheet_selections` holds it. */
 export interface DeckSelection {
@@ -99,8 +101,8 @@ export const EMPTY_TIER_DECK: TierDeck = { inclusions: [], rateSheets: [], categ
 
 /**
  * Map each Rate Sheet row id → its source categories, via the relationship it
- * prices. This is the SAME two-hop chain buildRateItemServiceMap uses, reading
- * `source_categories` instead of `source_service_id`. A row whose relationship
+ * prices. This two-hop read enriches inclusion presentation with
+ * `source_categories`. A row whose relationship
  * carries no categories simply contributes none, so its inclusion shows no
  * category — the same silence the backend read model keeps.
  */

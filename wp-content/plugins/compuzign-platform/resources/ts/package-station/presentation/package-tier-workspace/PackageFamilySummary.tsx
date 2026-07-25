@@ -2,7 +2,7 @@
 //
 // The selected Package Family's name, description, resolved status, and three
 // authoritative `dependents` counts in the right side of the workspace. It is a
-// read-only working-scope panel, never a Family editor or Tier owner.
+// read-only Family panel, never an editor or Tier-instance owner.
 //
 // It takes a Family SCOPE (never occupants) and derives its whole shape from the
 // pure buildFamilySummary model, so the "which fields" decision stays in one

@@ -4,9 +4,9 @@
 // <select> is the right primitive here: a single-choice transient scope switch
 // with real label and keyboard semantics.
 //
-// Choosing a Family is transient view state owned by the orchestrator: it
-// re-scopes the projected Tiers and the authoritative Family summary and writes
-// NOTHING. Family is scope, never Tier ownership.
+// Choosing a Family is transient view state owned by the Package source: it
+// resolves the Family's explicit Tier assignment and writes nothing. The Family
+// and Tier instance remain independent peers.
 
 import type { VNode } from 'preact';
 

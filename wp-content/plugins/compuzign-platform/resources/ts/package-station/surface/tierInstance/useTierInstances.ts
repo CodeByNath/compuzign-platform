@@ -35,6 +35,8 @@ export interface TierInstancesToolState {
   loading: boolean;
   saving: boolean;
   error: string | null;
+  /** Increments for Package-owned Open Tier tool hand-offs, even when identity is unchanged. */
+  openRequestRevision: number;
   selectInstance: (instanceId: string) => void;
   createInstance: (title: string) => Promise<TierInstanceRecord | null>;
   updateInstance: (
@@ -54,6 +56,7 @@ export function useTierInstances(): TierInstancesToolState {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openRequestRevision, setOpenRequestRevision] = useState(0);
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
@@ -78,12 +81,15 @@ export function useTierInstances(): TierInstancesToolState {
           ...(trashedResponse.package_category_groups ?? []),
         ];
         setFamilies([...new Map(allFamilies.map((family) => [family.group_id, family])).values()]);
+        const requested = nextInstances.some((instance) => instance.tier_instance_id === requestedInstanceId)
+          ? requestedInstanceId
+          : null;
+        if (requested !== null) {
+          requestedInstanceId = null;
+          setOpenRequestRevision((value) => value + 1);
+        }
         setSelectedInstanceId((current) => {
-          if (nextInstances.some((instance) => instance.tier_instance_id === requestedInstanceId)) {
-            const requested = requestedInstanceId;
-            requestedInstanceId = null;
-            return requested;
-          }
+          if (requested !== null) return requested;
           return nextInstances.some((instance) => instance.tier_instance_id === current)
             ? current
             : nextInstances[0]?.tier_instance_id ?? null;
@@ -104,6 +110,7 @@ export function useTierInstances(): TierInstancesToolState {
     const open = (instanceId: string) => {
       requestedInstanceId = null;
       setSelectedInstanceId(instanceId);
+      setOpenRequestRevision((value) => value + 1);
     };
     openListeners.add(open);
     return () => { openListeners.delete(open); };
@@ -210,6 +217,7 @@ export function useTierInstances(): TierInstancesToolState {
     loading,
     saving,
     error,
+    openRequestRevision,
     selectInstance: setSelectedInstanceId,
     createInstance,
     updateInstance,

@@ -1,213 +1,220 @@
-// Contract: the Package Station Tier tool's Family-scope projection.
-//
-// Guards the one rule that must never drift — a Tier occupant is projected under
-// a Package Family purely as a FILTER, through the same Service-provenance chain
-// the backend uses for `dependents.tier_selections`, and the occupant keeps its
-// own `occupant_id` identity throughout. The Family is scope, never owner.
+// Contract: Package Family workspace scope resolves only through the explicit
+// tier_assignment peer edge. Rate Sheet provenance enriches presentation only.
 
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
-  buildRateItemServiceMap,
-  occupantSupplyingServiceIds,
-  projectFamilyTierWorkspace,
+  projectResolvedInstanceOccupants,
+  resolveFamilyTierAssignment,
+  summarizeTierInstance,
   type WorkspaceFamilyScope,
-  type WorkspaceOccupant,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/projection';
 import { buildFamilySummary } from '../resources/ts/package-station/surface/packageTierWorkspace/familySummary';
 import {
   buildRateItemCategoryMap,
+  projectTierDeck,
   projectTierInclusions,
   projectTierRateSheetConnections,
-  projectTierDeck,
   type DeckSelection,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/deck';
+import type {
+  TierAssignment,
+  TierInstanceRecord,
+} from '../resources/ts/package-station/types';
+import { TIER_KEYS } from '../resources/ts/package-station/vocabulary';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Package Tier workspace contract: ${message}`);
 }
 
-// A minimal card whose id IS the occupant id — the projection must carry it through.
-function card(occupantId: string) {
-  return { id: occupantId, key: occupantId, name: `Package ${occupantId}`, metrics: [], actions: [] };
+function family(id: string): WorkspaceFamilyScope {
+  return {
+    id,
+    name: id,
+    description: `${id} positioning`,
+    status: 'active',
+    dependents: { services: 1, rate_sheet_rows: 2, tier_selections: 3 },
+  };
 }
 
-// ── Provenance resolution ─────────────────────────────────────────────────────
-// Rate rows resolve to a supplying Service via the relationship they price; rows
-// with no provenance (null service) or no matching relationship resolve to none.
-const relationships = [
-  { item_id: 'rel_svc10', source_service_id: 10 },
-  { item_id: 'rel_svc20', source_service_id: 20 },
-  { item_id: 'rel_none',  source_service_id: null },
-];
-const rateItems = [
-  { item_id: 'rate_a', source_item_id: 'rel_svc10' },
-  { item_id: 'rate_b', source_item_id: 'rel_svc20' },
-  { item_id: 'rate_c', source_item_id: 'rel_none' },   // no provenance
-  { item_id: 'rate_d', source_item_id: 'rel_absent' }, // no such relationship
-];
-const rateItemServiceMap = buildRateItemServiceMap(rateItems, relationships);
+function instance(id: string, occupantId: string, withSelections = true): TierInstanceRecord {
+  return {
+    tier_instance_id: id,
+    title: `${id} Tiers`,
+    status: 'active',
+    allowed_rate_sheet_ids: [],
+    popular_tier: 'basic',
+    popular_label: 'Popular',
+    tiers: Object.fromEntries(TIER_KEYS.map((slotId) => [slotId, {
+      current_occupant: slotId === 'basic' ? {
+        id: occupantId,
+        platform_status: 'active',
+        rate_sheet_items: withSelections ? [{ item_id: 'rate_shared', quantity: 1 }] : [],
+      } : null,
+      history: [],
+      drafts: { overview: null, features: null, faqs: null },
+      module_status: {},
+    }])),
+    occupant_bin: [],
+  };
+}
 
-check(rateItemServiceMap.get('rate_a') === 10, 'rate row resolves to its supplying Service');
-check(rateItemServiceMap.get('rate_b') === 20, 'second rate row resolves independently');
-check(!rateItemServiceMap.has('rate_c'), 'a row without Service provenance resolves to nothing');
-check(!rateItemServiceMap.has('rate_d'), 'a row with no relationship resolves to nothing');
+const kairos = family('pcg_kairos');
+const aptos = family('pcg_aptos');
+const omnia = family('pcg_omnia');
+const kairosRecord = instance('ti_kairos', 'occ_kairos_basic');
+const aptosRecord = instance('ti_aptos', 'occ_aptos_basic');
+const emptySelectionRecord = instance('ti_empty_selection', 'occ_no_selections', false);
+const summaries = [kairosRecord, aptosRecord, emptySelectionRecord].map(summarizeTierInstance);
+const assignments: TierAssignment[] = [
+  {
+    assignment_id: 'tasg_kairos', consumer_type: 'package_family',
+    consumer_id: kairos.id, tier_instance_id: kairosRecord.tier_instance_id,
+  },
+  {
+    assignment_id: 'tasg_aptos', consumer_type: 'package_family',
+    consumer_id: aptos.id, tier_instance_id: aptosRecord.tier_instance_id,
+  },
+];
 
-// ── Occupant supplying Services ───────────────────────────────────────────────
 check(
-  JSON.stringify(occupantSupplyingServiceIds(['rate_a', 'rate_a', 'rate_b'], rateItemServiceMap)) === JSON.stringify([10, 20]),
-  'occupant Services are resolved and de-duplicated',
+  resolveFamilyTierAssignment(kairos, assignments, summaries)?.tier_instance_id === 'ti_kairos',
+  'KAIROS resolves only its exact assigned instance',
 );
 check(
-  occupantSupplyingServiceIds(['rate_c', 'rate_d'], rateItemServiceMap).length === 0,
-  'an occupant with only unresolved selections supplies no Services',
+  resolveFamilyTierAssignment(aptos, assignments, summaries)?.tier_instance_id === 'ti_aptos',
+  'APTOS resolves only its exact assigned instance',
 );
-
-// ── Family-scope projection ───────────────────────────────────────────────────
-const occupants: WorkspaceOccupant[] = [
-  { occupantId: 'occ_kairos', card: card('occ_kairos'), supplyingServiceIds: [10] },
-  { occupantId: 'occ_aptos',  card: card('occ_aptos'),  supplyingServiceIds: [20] },
-  { occupantId: 'occ_both',   card: card('occ_both'),   supplyingServiceIds: [10, 20] },
-  { occupantId: 'occ_orphan', card: card('occ_orphan'), supplyingServiceIds: [] },
-];
-const families: WorkspaceFamilyScope[] = [
-  { id: 'KAIROS', name: 'KAIROS', description: 'IaaS', status: 'active',   relatedServiceIds: [10], dependents: { services: 1, rate_sheet_rows: 1, tier_selections: 2 } },
-  { id: 'APTOS',  name: 'APTOS',  description: 'SaaS', status: 'active',   relatedServiceIds: [20], dependents: { services: 1, rate_sheet_rows: 1, tier_selections: 2 } },
-  { id: 'OMNIA',  name: 'OMNIA',  description: 'Tech', status: 'disabled', relatedServiceIds: [99], dependents: { services: 0, rate_sheet_rows: 0, tier_selections: 0 } },
-];
-
-const projection = projectFamilyTierWorkspace(families, occupants);
-const byId = new Map(projection.map((family) => [family.id, family]));
-
-check(projection.length === 3, 'every Family is projected, even with no connected occupant');
-
-const kairos = byId.get('KAIROS')!;
-check(kairos.occupants.map((o) => o.id).join(',') === 'occ_kairos,occ_both', 'KAIROS projects only its connected occupants');
-
-const aptos = byId.get('APTOS')!;
-check(aptos.occupants.map((o) => o.id).join(',') === 'occ_aptos,occ_both', 'APTOS projects its own connected occupants');
-
-// The shared occupant appears under BOTH families — it is filtered in, never owned.
 check(
-  kairos.occupants.some((o) => o.id === 'occ_both') && aptos.occupants.some((o) => o.id === 'occ_both'),
-  'a shared occupant is a filter result under multiple families, not owned by one',
+  resolveFamilyTierAssignment(omnia, assignments, summaries) === null,
+  'an unassigned Family resolves to the neutral null state',
+);
+check(
+  resolveFamilyTierAssignment(kairos, [{ ...assignments[0], tier_instance_id: 'ti_missing' }], summaries) === null,
+  'a dangling assignment fails closed instead of selecting another instance',
+);
+check(
+  resolveFamilyTierAssignment(kairos, [assignments[0], { ...assignments[0], assignment_id: 'tasg_duplicate', tier_instance_id: 'ti_aptos' }], summaries) === null,
+  'duplicate Family assignments fail closed instead of picking one',
 );
 
-const omnia = byId.get('OMNIA')!;
-check(omnia.occupants.length === 0, 'a Family with no connected occupant projects an empty list (its empty state)');
+const occupantsByInstance = new Map([
+  ['ti_kairos', [{ id: 'occ_kairos_basic', selections: ['rate_from_aptos_service'] }]],
+  ['ti_aptos', [{ id: 'occ_aptos_basic', selections: ['rate_from_kairos_service'] }]],
+  ['ti_empty_selection', [{ id: 'occ_no_selections', selections: [] as string[] }]],
+]);
+const kairosResolved = resolveFamilyTierAssignment(kairos, assignments, summaries)!;
+const aptosResolved = resolveFamilyTierAssignment(aptos, assignments, summaries)!;
+const kairosOccupants = projectResolvedInstanceOccupants(
+  kairosResolved,
+  occupantsByInstance.get(kairosResolved.tier_instance_id) ?? [],
+);
+const aptosOccupants = projectResolvedInstanceOccupants(
+  aptosResolved,
+  occupantsByInstance.get(aptosResolved.tier_instance_id) ?? [],
+);
+check(kairosOccupants.map((item) => item.id).join(',') === 'occ_kairos_basic', 'KAIROS projects its instance occupants only');
+check(aptosOccupants.map((item) => item.id).join(',') === 'occ_aptos_basic', 'APTOS projects its instance occupants only');
+check(
+  !kairosOccupants.some((left) => aptosOccupants.some((right) => right.id === left.id)),
+  'an occupant is never projected under two Families',
+);
+check(
+  kairosOccupants[0].selections[0] === 'rate_from_aptos_service'
+    && aptosOccupants[0].selections[0] === 'rate_from_kairos_service',
+  'Rate Sheet provenance has zero influence on Family assignment scope',
+);
+check(
+  kairosRecord.tiers.basic.current_occupant?.id !== aptosRecord.tiers.basic.current_occupant?.id,
+  'same-named slots in two instances preserve distinct occ_ identities',
+);
+const emptyAssignment: TierAssignment = {
+  assignment_id: 'tasg_empty', consumer_type: 'package_family',
+  consumer_id: omnia.id, tier_instance_id: emptySelectionRecord.tier_instance_id,
+};
+const emptyResolved = resolveFamilyTierAssignment(omnia, [...assignments, emptyAssignment], summaries);
+check(
+  projectResolvedInstanceOccupants(emptyResolved, occupantsByInstance.get('ti_empty_selection') ?? [])[0]?.id === 'occ_no_selections',
+  'an occupant with no Rate Sheet selections still projects under its assigned Family',
+);
+check(
+  projectResolvedInstanceOccupants(null, occupantsByInstance.get('ti_kairos') ?? []).length === 0,
+  'no assignment never leaks another Family instance occupants',
+);
 
-// Identity survives the projection: the projected card id is the occupant_id, and
-// changing the selected Family never changes an occupant's identity.
-check(kairos.occupants.every((o) => o.id.startsWith('occ_')), 'projected cards keep the native occupant_id as identity');
-
-// The authoritative summary is passed through untouched — never re-derived here.
-check(kairos.dependents.tier_selections === 2, 'the authoritative Family dependents summary is preserved as-is');
-
-// ── Family summary model ──────────────────────────────────────────────────────
-// The read-only summary panel shows the family's own fields only — name,
-// description-as-positioning, authoritative status, and exactly the three
-// authoritative dependents. This guards against a fabricated field (estimated
-// margin, demand score, "last updated") ever entering the summary.
-const summary = buildFamilySummary(families[0]); // KAIROS
-
-check(summary.name === 'KAIROS', 'summary carries the family name unchanged');
-check(summary.positioning === 'IaaS', 'summary positioning is the family description, shown as-is');
-check(summary.status === 'active', 'summary carries the authoritative family status');
-check(summary.metrics.length === 3, 'summary shows exactly three metrics — no invented figure is added');
+const summary = buildFamilySummary(kairos);
+check(summary.metrics.length === 3, 'Family summary keeps exactly three dependency metrics');
 check(
   summary.metrics.map((metric) => metric.id).join(',') === 'services,rate-sheet-rows,tier-selections',
-  'summary metrics are the three authoritative dependents, in order',
+  'capability use is not added to Family dependents',
 );
-check(summary.metrics[0].value === 1, 'connected Services is dependents.services, passed through');
-check(summary.metrics[1].value === 1, 'Rate Sheet rows is dependents.rate_sheet_rows, passed through');
-check(summary.metrics[2].value === 2, 'Tier selections is dependents.tier_selections, never re-derived');
 
-// ── Focused-Tier lower deck ───────────────────────────────────────────────────
-// The deck re-reads the Tier's already-resolved selections; it invents no data
-// and no second price. These guard the three rules that matter: Details is the
-// inclusion selections with Service category added (nothing recomputed),
-// Connections is the resolved rows grouped by Rate Sheet group, and the deck is
-// carried on the Family keyed by occupant_id — Tier-owned data under a Family filter.
-
-// Category resolves via the SAME two-hop chain as Service scope, reading
-// source_categories; a relationship with no categories contributes nothing.
-const catRelationships = [
-  { item_id: 'rel_infra', source_categories: ['Cloud Infrastructure'] },
-  { item_id: 'rel_ops',   source_categories: ['Managed Services'] },
-  { item_id: 'rel_bare',  source_categories: [] },
-];
-const catRateItems = [
-  { item_id: 'rate_inc_a', source_item_id: 'rel_infra' },
-  { item_id: 'rate_inc_b', source_item_id: 'rel_ops' },
-  { item_id: 'rate_inc_d', source_item_id: 'rel_bare' }, // empty categories → none
-];
-const categoryByRateItem = buildRateItemCategoryMap(catRateItems, catRelationships);
-
+// Category enrichment remains the same two-hop presentation projection.
+const categoryByRateItem = buildRateItemCategoryMap(
+  [
+    { item_id: 'rate_inc_a', source_item_id: 'rel_infra' },
+    { item_id: 'rate_inc_b', source_item_id: 'rel_ops' },
+  ],
+  [
+    { item_id: 'rel_infra', source_categories: ['Cloud Infrastructure'] },
+    { item_id: 'rel_ops', source_categories: ['Managed Services'] },
+  ],
+);
 check(
   JSON.stringify(categoryByRateItem.get('rate_inc_a')) === JSON.stringify(['Cloud Infrastructure']),
-  'a Rate Sheet row resolves to its relationship source categories',
+  'Service categories still enrich Rate Sheet inclusion rows',
 );
-check(!categoryByRateItem.has('rate_inc_d'), 'a relationship with no categories contributes none');
 
-// The focused Tier's resolved selections, exactly as tierView holds them.
 const deckSelections: DeckSelection[] = [
-  { item_id: 'rate_inc_a', source_type: 'inclusion', source_id: 'inc-1', quantity: 2, resolved: true,  label: 'Managed Cloud Foundation',    unit_price: 70,   per: 'Per month', line_total: 140,  group_id: 'grp_infra' },
-  { item_id: 'rate_inc_b', source_type: 'inclusion', source_id: 'inc-2', quantity: 1, resolved: true,  label: 'Business Cloud Operations',   unit_price: 208,  per: 'Per month', line_total: 208,  group_id: 'grp_infra' },
-  { item_id: 'rate_faq',   source_type: 'faq',       source_id: 'faq-1', quantity: 1, resolved: true,  label: 'Uptime FAQ',                  unit_price: 0,    per: 'Per month', line_total: 0,    group_id: 'grp_infra' },
-  { item_id: 'rate_inc_d', source_type: 'inclusion', source_id: 'inc-4', quantity: 3, resolved: true,  label: 'Standalone Add-on',           unit_price: 10,   per: 'Per item',  line_total: 30,   group_id: null },
-  { item_id: 'rate_inc_c', source_type: 'inclusion', source_id: 'inc-3', quantity: 1, resolved: false, label: '(unresolved Rate Sheet item)', unit_price: null, per: null,        line_total: null, group_id: null },
+  { item_id: 'rate_inc_a', source_type: 'inclusion', source_id: 'inc-1', quantity: 2, resolved: true, label: 'Cloud', unit_price: 70, per: 'Per month', line_total: 140, group_id: 'grp' },
+  { item_id: 'rate_inc_b', source_type: 'inclusion', source_id: 'inc-2', quantity: 1, resolved: true, label: 'Operations', unit_price: 208, per: 'Per month', line_total: 208, group_id: 'grp' },
+  { item_id: 'rate_faq', source_type: 'faq', source_id: 'faq-1', quantity: 1, resolved: true, label: 'FAQ', unit_price: 0, per: 'Per month', line_total: 0, group_id: 'grp' },
+  { item_id: 'rate_missing', source_type: 'inclusion', source_id: 'inc-3', quantity: 1, resolved: false, label: '(unresolved)', unit_price: null, per: null, line_total: null, group_id: null },
 ];
-const deckRateSheet = { title: 'KAIROS Infrastructure Rates', groups: [{ group_id: 'grp_infra', label: 'Infrastructure', sort_order: 0 }] };
-
-// Details: only inclusion selections, in the Tier's own order — the FAQ row is not
-// an inclusion, and pricing/identity are carried through, never recomputed.
+const rateSheet = { title: 'KAIROS Rates', groups: [{ group_id: 'grp', label: 'Infrastructure', sort_order: 0 }] };
 const inclusions = projectTierInclusions(deckSelections, categoryByRateItem);
-check(inclusions.length === 4, 'Details shows the inclusion selections only (the FAQ selection is excluded)');
-check(
-  inclusions.map((row) => row.name).join('|') === 'Managed Cloud Foundation|Business Cloud Operations|Standalone Add-on|(unresolved Rate Sheet item)',
-  'inclusion rows keep the Tier selection order and their Service-resolved labels',
-);
-check(
-  inclusions[0].lineTotal === 140 && inclusions[0].unitPrice === 70 && inclusions[0].quantity === 2,
-  'the inclusion carries the Rate Sheet-derived pricing through unchanged',
-);
-check(
-  JSON.stringify(inclusions[0].categories) === JSON.stringify(['Cloud Infrastructure']),
-  'the inclusion carries its resolved Service category',
-);
-check(inclusions[3].resolved === false && inclusions[3].lineTotal === null, 'an unresolved selection stays unresolved with no fabricated price');
+check(inclusions.length === 3 && inclusions[0].lineTotal === 140, 'lower-deck inclusion projection remains unchanged');
+const connections = projectTierRateSheetConnections(deckSelections, rateSheet);
+check(connections.length === 1 && connections[0].connectedRows === 3, 'lower-deck Rate Sheet grouping remains unchanged');
+const deck = projectTierDeck(deckSelections, categoryByRateItem, rateSheet);
+check(deck.categories.join(',') === 'Cloud Infrastructure,Managed Services', 'lower-deck category filter remains distinct and sorted');
 
-// Connections: resolved rows grouped by Rate Sheet group; ungrouped rows fall under
-// the sheet title; unresolved rows connect nothing; counts are Tier aggregations.
-const connections = projectTierRateSheetConnections(deckSelections, deckRateSheet);
-check(connections.length === 2, 'Connections groups the resolved rows into their Rate Sheet groups (grouped + ungrouped)');
+const root = resolve(import.meta.dirname, '..');
+const packageSource = sourceFiles(resolve(root, 'resources/ts/package-station'))
+  .filter((path) => /\.tsx?$/.test(path))
+  .map((path) => readFileSync(path, 'utf8')).join('\n');
+for (const forbidden of [
+  'buildRateItemServiceMap',
+  'occupantSupplyingServiceIds',
+  'supplyingServiceIds',
+  'projectFamilyTierWorkspace',
+]) {
+  check(!packageSource.includes(forbidden), `obsolete provenance symbol ${forbidden} is deleted`);
+}
+
+const workspacePresentation = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx',
+), 'utf8');
 check(
-  connections[0].groupId === 'grp_infra' && connections[0].title === 'Infrastructure' && connections[0].connectedRows === 3 && connections[0].coverage === 4,
-  'the grouped connection counts its resolved rows and summed quantity',
-);
-check(
-  connections[1].groupId === null && connections[1].title === 'KAIROS Infrastructure Rates' && connections[1].connectedRows === 1,
-  'ungrouped rows collapse into one connection titled by the Rate Sheet itself',
-);
-check(
-  projectTierRateSheetConnections(deckSelections.filter((s) => !s.resolved), deckRateSheet).length === 0,
-  'an unresolved-only Tier connects to no Rate Sheet',
+  workspacePresentation.includes('This Package Family does not use the Tier capability.')
+    && workspacePresentation.includes('Add Tier capability'),
+  'the no-assignment state is neutral and exposes only the explicit Add action',
 );
 
-// The whole deck: distinct sorted categories for the Details filter — never a
-// taxonomy the rows do not carry.
-const deck = projectTierDeck(deckSelections, categoryByRateItem, deckRateSheet);
-check(
-  JSON.stringify(deck.categories) === JSON.stringify(['Cloud Infrastructure', 'Managed Services']),
-  'the deck exposes exactly the distinct, sorted categories its inclusions carry',
-);
-
-// Carry-through: a connected occupant's deck lands on the Family keyed by
-// occupant_id; an occupant with no deck adds no entry (the earlier fixtures).
-const deckOccupant: WorkspaceOccupant = { occupantId: 'occ_deck', card: card('occ_deck'), supplyingServiceIds: [10], deck };
-const deckFamilies: WorkspaceFamilyScope[] = [
-  { id: 'KAIROS', name: 'KAIROS', description: 'IaaS', status: 'active', relatedServiceIds: [10], dependents: { services: 1, rate_sheet_rows: 1, tier_selections: 1 } },
-];
-const deckProjection = projectFamilyTierWorkspace(deckFamilies, [deckOccupant]);
-check(deckProjection[0].decks['occ_deck']?.inclusions.length === 4, 'a connected occupant\'s deck is carried on the Family, keyed by occupant_id');
-check(Object.keys(kairos.decks).length === 0, 'occupants projected without a deck add no deck entries');
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry) => {
+    const path = resolve(directory, entry);
+    return statSync(path).isDirectory() ? sourceFiles(path) : [path];
+  });
+}
+const familySource = [
+  resolve(root, 'resources/ts/package-station/drawer/package-family'),
+  resolve(root, 'resources/ts/package-station/surface/packageFamily'),
+].flatMap(sourceFiles).filter((path) => /\.tsx?$/.test(path))
+  .map((path) => readFileSync(path, 'utf8')).join('\n');
+for (const forbidden of ['usePackageStation', 'tierOccupants', 'TIER_ENTITY']) {
+  check(!familySource.includes(forbidden), `Family surfaces do not import obsolete Tier authority ${forbidden}`);
+}
 
 console.log('Package Tier workspace contract checks passed.');

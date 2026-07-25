@@ -1,7 +1,7 @@
 // Package Tier workspace — the pure Family-summary model.
 //
 // A companion to ./projection with the same discipline: given a Package Family
-// working scope, decide EXACTLY what the read-only summary panel shows — and
+// record, decide EXACTLY what the read-only summary panel shows — and
 // nothing else. It fetches nothing, renders nothing, and holds no state, so it
 // is testable in isolation (scripts/package-tier-workspace-contract.ts) and
 // cannot silently grow a fabricated field.

@@ -15,13 +15,13 @@ An occupant binds to **one** Rate Sheet via `rate_sheet_id` (edited in its overv
 The workspace is Package-owned:
 
 - [useTierInstances.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) owns instance/assignment collection state and their separate explicit mutations; [tierInstanceModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) holds pure list, eligibility, slot, suggestion, and Rate Sheet-option projections.
-- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) opens the selected instance through `usePackageStation` and projects its occupants/decks. Rate Sheet or Service provenance never selects an instance.
-- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) is the pure focused-Tier deck projection: the Tier's inclusion selections (Service category added via the same provenance chain) and its Rate Sheet-group connections. It re-reads the resolved view and derives no second price.
-- [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns transient Tier and Focus/Grid selection. [TierInstancePanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierInstancePanel.tsx) lists, creates, opens, assigns/unassigns, configures allowed sheets, and always shows the five fixed slots.
+- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) resolves a selected Family through its exact assignment and opens only that instance through `usePackageStation`. No assignment yields the neutral no-capability state. Explicitly opened unassigned instances use a labelled direct-management mode.
+- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) is the pure focused-Tier deck projection: inclusion selections enriched with Service categories and Rate Sheet-group connections. Category provenance affects presentation only, never Family scope.
+- [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns transient Tier and Focus/Grid selection and renders Family assignment states. [TierInstancePanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierInstancePanel.tsx) lists, creates, opens, assigns/unassigns, configures allowed sheets, and always shows the five fixed slots.
 - [TierLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx) presents the focused Tier's Details/Connections/Settings beneath the engine, scoped by the SAME selection and dispatching the SAME `onIntent` to the `tier` drawer. It adds no selector, no drawer, and no Rate Sheet editor; Settings tools with no registered contract render as unavailable.
 - [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) decodes the Package-owned `(tier_instance_id, occupant_id)` routing token and mounts the unchanged drawer composition. The occupant card id itself remains `occ_…`.
 
-A Package Family is working scope only. It never owns Tier records or gains a per-Family Tier store.
+A Package Family and Tier instance remain independent peers. Their assignment records capability use; neither peer stores or silently mutates the other.
 
 ## Drawer, state, and persistence
 
@@ -35,7 +35,7 @@ Presentation calls no endpoints. New inclusion/FAQ pool items go through Service
 
 ## Validation
 
-Run `php tests/tier-occupant-compatibility.php`, `npm run contract:tier-instance-tool`, `npx tsx scripts/tier-occupant-admin-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `php tests/tier-occupant-compatibility.php`, `npm run contract:package-tier-workspace`, `npm run contract:tier-instance-tool`, `npx tsx scripts/tier-occupant-admin-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 
