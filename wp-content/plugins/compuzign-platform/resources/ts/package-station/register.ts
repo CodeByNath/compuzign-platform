@@ -115,6 +115,7 @@ export function registerPackageStation(): void {
       key: 'tier-rate-sheet-group',
       title: 'Connected Group',
       supportedModes: ['view', 'edit'],
+      size: 'wide',
       content: TierRateSheetDrawerContent,
     },
   ]);
