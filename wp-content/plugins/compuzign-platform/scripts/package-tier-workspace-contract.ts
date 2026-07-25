@@ -15,7 +15,8 @@ import {
   buildRateItemCategoryMap,
   projectTierDeck,
   projectTierInclusions,
-  projectTierRateSheetConnections,
+  projectTierRateSheet,
+  projectTierRateSheetGroups,
   type DeckSelection,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/deck';
 import type {
@@ -181,13 +182,49 @@ const deckSelections: DeckSelection[] = [
   { item_id: 'rate_faq', source_type: 'faq', source_id: 'faq-1', quantity: 1, resolved: true, label: 'FAQ', unit_price: 0, per: 'Per month', line_total: 0, group_id: 'grp' },
   { item_id: 'rate_missing', source_type: 'inclusion', source_id: 'inc-3', quantity: 1, resolved: false, label: '(unresolved)', unit_price: null, per: null, line_total: null, group_id: null },
 ];
-const rateSheet = { title: 'KAIROS Rates', groups: [{ group_id: 'grp', label: 'Infrastructure', sort_order: 0 }] };
+const rateSheet = {
+  rate_sheet_id: 'rs_kairos',
+  title: 'KAIROS Rates',
+  status: 'active',
+  groups: [{ group_id: 'grp', label: 'Infrastructure', sort_order: 0 }],
+};
 const inclusions = projectTierInclusions(deckSelections, categoryByRateItem);
 check(inclusions.length === 3 && inclusions[0].lineTotal === 140, 'lower-deck inclusion projection remains unchanged');
-const connections = projectTierRateSheetConnections(deckSelections, rateSheet);
-check(connections.length === 1 && connections[0].connectedRows === 3, 'lower-deck Rate Sheet grouping remains unchanged');
+
+// Connections: every summary resolves through a stored identity, never a label.
+const groupConnections = projectTierRateSheetGroups(deckSelections, rateSheet);
+check(groupConnections.length === 1 && groupConnections[0].connectedRows === 3, 'lower-deck Rate Sheet grouping remains unchanged');
+check(
+  groupConnections[0].groupId === 'grp' && groupConnections[0].rateSheetId === 'rs_kairos',
+  'a group connection carries both stored ids a scoped group drawer needs to address it',
+);
+check(groupConnections[0].status === 'active', 'a group reports its parent sheet status rather than an invented one');
+check(
+  projectTierRateSheetGroups(deckSelections, null).length === 0,
+  'no bound Rate Sheet connects no groups',
+);
+check(
+  projectTierRateSheetGroups(
+    [{ ...deckSelections[0], group_id: 'grp_gone' }],
+    rateSheet,
+  ).length === 0,
+  'a selection naming a group the sheet no longer stores never mints a group identity',
+);
+
+const sheetConnection = projectTierRateSheet(deckSelections, rateSheet);
+check(
+  sheetConnection !== null && sheetConnection.rateSheetId === 'rs_kairos' && sheetConnection.status === 'active',
+  'the Rate Sheet connection carries the sheet\'s own stored identity and status',
+);
+check(
+  sheetConnection !== null && sheetConnection.connectedRows === 3 && sheetConnection.connectedInclusions === 2,
+  'the Rate Sheet connection counts the focused Tier\'s resolved rows and its inclusions separately',
+);
+check(projectTierRateSheet(deckSelections, null) === null, 'an unbound Tier reports no Rate Sheet connection');
+
 const deck = projectTierDeck(deckSelections, categoryByRateItem, rateSheet);
 check(deck.categories.join(',') === 'Cloud Infrastructure,Managed Services', 'lower-deck category filter remains distinct and sorted');
+check(deck.rateSheet !== null && deck.groups.length === 1, 'the deck carries the Rate Sheet and group connections it renders');
 
 const root = resolve(import.meta.dirname, '..');
 const packageSource = sourceFiles(resolve(root, 'resources/ts/package-station'))

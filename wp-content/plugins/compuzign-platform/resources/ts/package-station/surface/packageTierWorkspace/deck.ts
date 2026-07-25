@@ -5,8 +5,11 @@
 //
 //   Details      — the Tier's inclusion rows, resolved through Service identity
 //                  and priced from the Rate Sheet rows it selects.
-//   Connections  — the Rate Sheet(s) those selections draw from, grouped by the
-//                  Package Station's own Rate Sheet groups.
+//   Connections  — what the focused Tier is actually connected to: the Rate Sheet
+//                  it binds and the Rate Sheet groups its selections draw from,
+//                  each carrying its own stored identity and status. (The Package
+//                  Family connection is workspace-level, resolved through the
+//                  assignment ledger, and is not projected here.)
 //   Settings     — Package Manager tools (handled entirely in presentation; this
 //                  module derives no settings, since none are per-Tier data).
 //
@@ -51,9 +54,11 @@ export interface DeckCategoryRelationship {
   source_categories?: string[] | null;
 }
 
-/** The Package Station's single Rate Sheet, as the connections lane groups it. */
+/** The Rate Sheet the focused Tier is bound to, as the connections lane reads it. */
 export interface DeckRateSheet {
+  rate_sheet_id: string;
   title:  string;
+  status: string;
   groups: { group_id: string; label: string; sort_order: number }[];
 }
 
@@ -77,25 +82,55 @@ export interface DeckInclusion {
   resolved:   boolean;
 }
 
-/** One Rate Sheet connection in the Connections lane (one Rate Sheet group). */
-export interface DeckRateSheetConnection {
-  // The Rate Sheet group id, or null for rows the sheet leaves ungrouped. Used as
-  // the row's reference code and for stable keying.
-  groupId:       string | null;
-  title:         string;       // group label, or the Rate Sheet title when ungrouped
+/**
+ * One Rate Sheet GROUP the focused Tier connects to.
+ *
+ * Identity is the stored `group_id` inside its stored `rate_sheet_id` — the pair
+ * a group drawer needs to address it. Rows the sheet leaves ungrouped are NOT a
+ * group and produce no entry here; they are counted on the sheet connection
+ * below, so no group identity is fabricated for them.
+ *
+ * `status` is the group's PARENT SHEET status, carried through unchanged. A Rate
+ * Sheet group has no lifecycle of its own (`PackageManagerGroup` stores only
+ * `group_id`, `label`, `sort_order`), so the sheet's status is the only honest
+ * status a group row can report — it is inherited, never derived or invented.
+ */
+export interface DeckRateSheetGroupConnection {
+  rateSheetId:   string;
+  groupId:       string;
+  title:         string;       // stored group label
+  status:        string;       // inherited from the parent Rate Sheet
   connectedRows: number;       // resolved selections the focused Tier draws from this group
   coverage:      number;       // summed quantity the Tier commits across those rows
+}
+
+/**
+ * The Rate Sheet the focused Tier is bound to. A Tier occupant binds to exactly
+ * one sheet (`SurfaceTierDetail.rate_sheet_id`), so this is one connection or
+ * none — never a scan across sheets.
+ */
+export interface DeckRateSheetConnection {
+  rateSheetId:         string;
+  title:               string;
+  status:              string;   // the sheet's own stored status
+  connectedRows:       number;   // every resolved selection the Tier draws from the sheet
+  connectedInclusions: number;   // of those, the ones sourced from an inclusion
 }
 
 /** The focused Tier's whole lower deck. */
 export interface TierDeck {
   inclusions:  DeckInclusion[];
-  rateSheets:  DeckRateSheetConnection[];
+  // The one bound Rate Sheet, or null when the Tier binds none.
+  rateSheet:   DeckRateSheetConnection | null;
+  // Every group inside that sheet the Tier actually draws rows from.
+  groups:      DeckRateSheetGroupConnection[];
   // The distinct categories present across the inclusions, for the Details filter.
   categories:  string[];
 }
 
-export const EMPTY_TIER_DECK: TierDeck = { inclusions: [], rateSheets: [], categories: [] };
+export const EMPTY_TIER_DECK: TierDeck = {
+  inclusions: [], rateSheet: null, groups: [], categories: [],
+};
 
 // ── Category provenance ───────────────────────────────────────────────────────
 
@@ -156,44 +191,75 @@ export function projectTierInclusions(
 }
 
 /**
- * The Connections lane: the Rate Sheet groups the focused Tier's RESOLVED
- * selections draw from. Only resolved selections connect a Rate Sheet row (an
- * unresolved selection references no live row), so an unresolved-only Tier shows
- * no connections. Rows the sheet leaves ungrouped collapse into one entry titled
- * by the Rate Sheet itself. Counts are aggregations of the Tier's own selections,
- * never a re-derived price.
+ * The Connections lane, Groups section: the Rate Sheet groups the focused Tier's
+ * RESOLVED selections draw from. Only resolved selections connect a Rate Sheet
+ * row (an unresolved selection references no live row), so an unresolved-only
+ * Tier connects to no group.
+ *
+ * A group entry is produced only for a `group_id` the bound sheet actually
+ * stores. A selection carrying no group, or one naming a group the sheet no
+ * longer holds, contributes to the sheet connection but never mints a group
+ * identity here. Counts are aggregations of the Tier's own selections, never a
+ * re-derived price.
  */
-export function projectTierRateSheetConnections(
+export function projectTierRateSheetGroups(
   selections: readonly DeckSelection[],
   rateSheet: DeckRateSheet | null,
-): DeckRateSheetConnection[] {
-  const labelByGroup = new Map((rateSheet?.groups ?? []).map((group) => [group.group_id, group.label]));
-  const orderByGroup = new Map((rateSheet?.groups ?? []).map((group) => [group.group_id, group.sort_order]));
-  const sheetTitle = rateSheet?.title?.trim() || 'Rate Sheet';
+): DeckRateSheetGroupConnection[] {
+  if (rateSheet === null) return [];
+  const groupById = new Map(rateSheet.groups.map((group) => [group.group_id, group]));
 
-  // Bucket key '' is the ungrouped bucket; a real group_id keys its own bucket.
   const buckets = new Map<string, { connectedRows: number; coverage: number }>();
   for (const selection of selections) {
     if (!selection.resolved) continue;
-    const key = selection.group_id ?? '';
-    const bucket = buckets.get(key) ?? { connectedRows: 0, coverage: 0 };
+    const groupId = selection.group_id;
+    if (groupId === null || !groupById.has(groupId)) continue;
+    const bucket = buckets.get(groupId) ?? { connectedRows: 0, coverage: 0 };
     bucket.connectedRows += 1;
     bucket.coverage += selection.quantity;
-    buckets.set(key, bucket);
+    buckets.set(groupId, bucket);
   }
 
   return [...buckets.entries()]
-    .map(([key, bucket]) => ({
-      groupId:       key === '' ? null : key,
-      title:         key === '' ? sheetTitle : labelByGroup.get(key) ?? sheetTitle,
+    .map(([groupId, bucket]) => ({
+      rateSheetId:   rateSheet.rate_sheet_id,
+      groupId,
+      title:         groupById.get(groupId)!.label,
+      status:        rateSheet.status,
       connectedRows: bucket.connectedRows,
       coverage:      bucket.coverage,
     }))
     .sort((a, b) => {
-      const aOrder = a.groupId === null ? Number.MAX_SAFE_INTEGER : orderByGroup.get(a.groupId) ?? 0;
-      const bOrder = b.groupId === null ? Number.MAX_SAFE_INTEGER : orderByGroup.get(b.groupId) ?? 0;
+      const aOrder = groupById.get(a.groupId)!.sort_order;
+      const bOrder = groupById.get(b.groupId)!.sort_order;
       return aOrder - bOrder || a.title.localeCompare(b.title);
     });
+}
+
+/**
+ * The Connections lane, Rate Sheets section: the ONE sheet the focused Tier is
+ * bound to, with the volume of that Tier's own connection to it. Identity and
+ * status are the sheet's stored `rate_sheet_id` and `status`, carried through.
+ */
+export function projectTierRateSheet(
+  selections: readonly DeckSelection[],
+  rateSheet: DeckRateSheet | null,
+): DeckRateSheetConnection | null {
+  if (rateSheet === null) return null;
+  let connectedRows = 0;
+  let connectedInclusions = 0;
+  for (const selection of selections) {
+    if (!selection.resolved) continue;
+    connectedRows += 1;
+    if (selection.source_type === 'inclusion') connectedInclusions += 1;
+  }
+  return {
+    rateSheetId: rateSheet.rate_sheet_id,
+    title:       rateSheet.title.trim() || 'Untitled Rate Sheet',
+    status:      rateSheet.status,
+    connectedRows,
+    connectedInclusions,
+  };
 }
 
 /**
@@ -212,7 +278,8 @@ export function projectTierDeck(
   );
   return {
     inclusions,
-    rateSheets: projectTierRateSheetConnections(selections, rateSheet),
+    rateSheet: projectTierRateSheet(selections, rateSheet),
+    groups:    projectTierRateSheetGroups(selections, rateSheet),
     categories,
   };
 }

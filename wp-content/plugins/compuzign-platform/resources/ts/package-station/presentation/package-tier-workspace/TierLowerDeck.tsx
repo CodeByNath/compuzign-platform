@@ -28,7 +28,7 @@
 
 import { useMemo, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { TierDeck, DeckInclusion, DeckRateSheetConnection } from '../../surface/packageTierWorkspace/deck';
+import type { TierDeck, DeckInclusion, DeckRateSheetGroupConnection } from '../../surface/packageTierWorkspace/deck';
 import type { PackageRateSheet, TierInstanceSummary } from '../../types';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
@@ -193,7 +193,7 @@ export function TierLowerDeck({
         )}
         {activeTab === 'connections' && (
           <ConnectionsLane
-            connections={deck.rateSheets}
+            connections={deck.groups}
             familyName={familyName}
             hasFocusedTier={hasFocusedTier}
             onIntent={onIntent}
@@ -370,7 +370,7 @@ function ConnectionsLane({
   hasFocusedTier,
   onIntent,
 }: {
-  connections: DeckRateSheetConnection[];
+  connections: DeckRateSheetGroupConnection[];
   familyName:  string;
   hasFocusedTier: boolean;
   onIntent:    (actionId: string) => void;
@@ -393,12 +393,12 @@ function ConnectionsLane({
       ) : (
         <ul class="cz-tier-deck__list">
           {connections.map((connection) => (
-            <li key={connection.groupId ?? '__ungrouped__'} class="cz-tier-deck__row cz-tier-deck__row--connection">
+            <li key={connection.groupId} class="cz-tier-deck__row cz-tier-deck__row--connection">
               <div class="cz-tier-deck__identity">
                 <span class="cz-tier-deck__identity-icon" aria-hidden="true"><RateSheetIcon /></span>
                 <div class="cz-tier-deck__identity-copy">
                   <strong class="cz-tier-deck__identity-name">{connection.title}</strong>
-                  {connection.groupId && <small class="cz-tier-deck__identity-ref">{connection.groupId}</small>}
+                  <small class="cz-tier-deck__identity-ref">{connection.groupId}</small>
                 </div>
               </div>
               <div class="cz-tier-deck__field">
