@@ -11,6 +11,7 @@ import { PackageFamilyCreateDrawerHost } from './surface/packageFamily/PackageFa
 import { usePackageFamilyCards } from './surface/packageFamily/usePackageFamilyCards';
 import { usePackageTierWorkspace } from './surface/packageTierWorkspace/usePackageTierWorkspace';
 import { TierDrawerHost } from './surface/tierSurface/TierDrawerHost';
+import { TierInclusionDrawerHost } from './surface/tierSurface/TierInclusionDrawerHost';
 import { useServiceTierCards } from './surface/tierSurface/useServiceTierCards';
 
 export function registerPackageStation(): void {
@@ -65,6 +66,18 @@ export function registerPackageStation(): void {
       title: 'Package Tier',
       supportedModes: ['view', 'edit'],
       content: TierDrawerHost,
+    },
+    {
+      // One Tier's use of ONE Rate Sheet row, opened from the focused-Tier
+      // lower deck's inclusion rows. A sibling of `tier`, not a variant of it:
+      // the Tier drawer edits the whole Tier, this one edits the quantity that
+      // Tier commits to a single inclusion. Its own drawer key overrides the
+      // `tier-tool` binding's `tier`, the same per-intent override `rate-sheet`
+      // uses, so the row action no longer opens the Tier overview.
+      key: 'tier-inclusion',
+      title: 'Inclusion',
+      supportedModes: ['view', 'edit'],
+      content: TierInclusionDrawerHost,
     },
     {
       // Package-owned Rate Sheet authoring, mounted in the generic Admin drawer.

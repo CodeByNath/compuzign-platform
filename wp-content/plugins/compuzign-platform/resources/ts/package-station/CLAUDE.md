@@ -12,10 +12,10 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `tierOccupants.ts`, `rateSheetLabels.ts`, and `evaluateTierPricing.ts` — Package-owned pure projections, labels, and pricing evaluation.
 - `surface/packageFamily/`, `surface/tierInstance/`, `surface/tierSurface/`, `surface/packageTierWorkspace/`, and `surface/rateSheetTool/` — Package Family adapters; Tier instance/assignment state and pure models; exact Family-assignment workspace resolution, fixed-slot/Rate-Sheet inventory projections and instance-scoped drawer adapters; and the Rate Sheet tool controller.
 - `presentation/package-tier-workspace/` and `presentation/rate-sheet-tool/` — the Package-owned Tier workspace presentation kit (including its Settings-hosted Tier-system operations) and the Rate Sheet authoring drawer content (the `rate-sheet` drawer template).
-- `drawer/package-family/` and `drawer/tier/` — Package-owned drawer compositions, controllers, dialogs, and footer presentation.
+- `drawer/package-family/`, `drawer/tier/`, and `drawer/inclusion/` — Package-owned drawer compositions, controllers, dialogs, and footer presentation. `drawer/inclusion/` covers one Tier's use of one Rate Sheet row: it addresses `(tier_instance_id, slotId, item_id)`, resolves by stored id inside the slot's bound sheet only, and persists quantity through `usePackageStation.saveTierFeatures` — it owns no persistence of its own.
 - `drawer/editors/` and `drawer/schema/` — Package-owned editors, entity manifests, and bindings.
 - `vocabulary.ts` — Package-owned Tier keys and labels.
-- `register.ts` — registers Package navigation, destination, sources, the Tier workspace kit, and drawers (`package-family`, `package-family-create`, `tier`, `rate-sheet`) with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
+- `register.ts` — registers Package navigation, destination, sources, the Tier workspace kit, and drawers (`package-family`, `package-family-create`, `tier`, `tier-inclusion`, `rate-sheet`) with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
 
 ## Boundaries
 

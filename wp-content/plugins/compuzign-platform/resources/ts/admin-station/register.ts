@@ -103,6 +103,12 @@ export function registerPresentationPolicy(): void {
         // from this same surface. Its own drawer key overrides the binding's
         // `tier`, so no second body surface renders beneath the workspace.
         { id: 'rate-sheet', target: 'drawer', mode: 'view', drawerTemplateKey: 'rate-sheet' },
+        // The lower-deck Details rows address ONE inclusion, not the whole
+        // Tier, so they carry their own intents and their own drawer key. The
+        // binding's `view`/`edit` remain the Tier's, dispatched by the Tier
+        // cards and detail panel above the deck.
+        { id: 'view-inclusion', target: 'drawer', mode: 'view', drawerTemplateKey: 'tier-inclusion' },
+        { id: 'edit-inclusion', target: 'drawer', mode: 'edit', drawerTemplateKey: 'tier-inclusion' },
       ],
     },
   ]);

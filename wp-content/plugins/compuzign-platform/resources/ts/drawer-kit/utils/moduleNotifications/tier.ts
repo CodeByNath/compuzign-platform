@@ -64,6 +64,45 @@ export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
     count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
 };
 
+// One inclusion as a single Tier uses it — the module behind the Inclusion
+// drawer's Overview. Its truth is the selection's own resolution: a selection
+// whose Rate Sheet row and Service source both resolve is complete; one that
+// does not is an error, because the Tier is committing quantity and price to a
+// row that no longer exists. Deliberately NOT tierFeaturesModule: that module's
+// truth is a count across the whole module, which would misreport one row.
+export const tierInclusionModule: ModuleDefinition<{ resolved: boolean }> = {
+  key:      'tier-inclusion',
+  // A quantity change writes the Tier's features DRAFT; it is not published
+  // until the Tier settles. Surface the shared draft tail so the record never
+  // reads as live when a pending change is sitting behind it.
+  includeDraftInTail: true,
+  problems: ({ resolved }) => resolved
+    ? []
+    : [{
+        id:      'tier-inclusion.source.unresolved',
+        message: 'This inclusion no longer resolves to a live Rate Sheet row and Service source.',
+        type:    'error',
+      }],
+  resolveStatus: ({ resolved }, ctx) => !resolved
+    ? 'pending-full'
+    : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+};
+
+// One stored relationship of that inclusion (Service, Category, Rate Sheet).
+// An absent relationship is not an error and not a gap to fill from here: it is
+// simply unavailable, so it resolves to `disabled` — the Presentation Status
+// Contract's own vocabulary for an item that cannot be acted on — and carries
+// the read-only note. Nothing is fabricated to stand in for it.
+export const tierInclusionConnectionModule: ModuleDefinition<{ configured: boolean }> = {
+  key:         'tier-inclusion-connection',
+  emptyPrompt: 'Not configured.',
+  isEmpty:     ({ configured }) => !configured,
+  problems:    () => [],
+  resolveStatus: ({ configured }, ctx) => !configured
+    ? 'disabled'
+    : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+};
+
 export function getTierNotes(tier: TierLike | undefined, ctx: NoteContext): ModuleNote[] {
   return evaluateModuleNotes(tierModule, tier, ctx);
 }

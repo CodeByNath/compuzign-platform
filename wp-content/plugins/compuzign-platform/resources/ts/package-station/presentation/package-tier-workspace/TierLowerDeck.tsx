@@ -11,12 +11,20 @@
 //                  and Rate Sheet availability/current-use inventory.
 //
 // It is presentation-only: it receives derived workspace models plus intent
-// dispatchers and fetches nothing. Every
-// View/Edit forwards to the SAME registered `tier` drawer the engine uses, keyed
-// by the focused occupant_id the orchestrator supplies — the Package Station
-// boundary that owns Tier selections, quantities and Rate Sheet connections. No
-// standalone Rate Sheet or inclusion drawer exists to open, and this deck invents
-// none.
+// dispatchers and fetches nothing.
+//
+// Two intent scopes, deliberately separate:
+//   - Tier-scoped   (`onIntent`) — the Connections lane and anything about the
+//     focused Tier as a whole forwards to the registered `tier` drawer, keyed by
+//     the focused occupant_id the orchestrator supplies.
+//   - Inclusion-scoped (`onInclusionIntent`) — a Details row addresses ONE
+//     inclusion, so it forwards its own `item_id` (the Tier's Rate Sheet
+//     selection key) and the orchestrator routes it to the registered
+//     `tier-inclusion` drawer. The row never resolves anything itself and never
+//     passes a label as identity.
+//
+// Both land inside the Package Station boundary that owns Tier selections,
+// quantities and Rate Sheet connections. This deck still invents no drawer.
 
 import { useMemo, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
@@ -53,6 +61,10 @@ interface Props {
   // Dispatches a registered action id ('view' | 'edit') for the focused Tier. The
   // orchestrator binds it to the occupant_id, so this deck never handles identity.
   onIntent:   (actionId: string) => void;
+  // Dispatches a registered action id for ONE inclusion the focused Tier
+  // selects. `itemId` is the Tier's Rate Sheet selection key, carried straight
+  // from the row; the orchestrator scopes it to the instance and slot.
+  onInclusionIntent: (itemId: string, actionId: 'view' | 'edit') => void;
   onToolIntent: (actionId: string) => void;
   onManageInstance: (instanceId: string) => void;
   onTierAction: (
@@ -110,6 +122,7 @@ export function TierLowerDeck({
   settingsLoading,
   settingsError,
   onIntent,
+  onInclusionIntent,
   onToolIntent,
   onManageInstance,
   onTierAction,
@@ -175,7 +188,9 @@ export function TierLowerDeck({
       </div>
 
       <div class="cz-tier-deck__panel" role="tabpanel">
-        {activeTab === 'details' && <DetailsLane deck={deck} hasFocusedTier={hasFocusedTier} onIntent={onIntent} />}
+        {activeTab === 'details' && (
+          <DetailsLane deck={deck} hasFocusedTier={hasFocusedTier} onInclusionIntent={onInclusionIntent} />
+        )}
         {activeTab === 'connections' && (
           <ConnectionsLane
             connections={deck.rateSheets}
@@ -209,11 +224,11 @@ export function TierLowerDeck({
 function DetailsLane({
   deck,
   hasFocusedTier,
-  onIntent,
+  onInclusionIntent,
 }: {
   deck: TierDeck;
   hasFocusedTier: boolean;
-  onIntent: (actionId: string) => void;
+  onInclusionIntent: (itemId: string, actionId: 'view' | 'edit') => void;
 }): VNode {
   const [query, setQuery]       = useState('');
   const [category, setCategory] = useState('');
@@ -290,14 +305,23 @@ function DetailsLane({
         <p class="cz-station-empty">No focused inclusions match these filters.</p>
       ) : (
         <ul class="cz-tier-deck__list">
-          {rows.map((inclusion) => <InclusionRow key={inclusion.itemId} inclusion={inclusion} onIntent={onIntent} />)}
+          {rows.map((inclusion) => (
+            <InclusionRow
+              key={inclusion.itemId}
+              inclusion={inclusion}
+              onInclusionIntent={onInclusionIntent}
+            />
+          ))}
         </ul>
       )}
     </>
   );
 }
 
-function InclusionRow({ inclusion, onIntent }: { inclusion: DeckInclusion; onIntent: (actionId: string) => void }): VNode {
+function InclusionRow({ inclusion, onInclusionIntent }: {
+  inclusion: DeckInclusion;
+  onInclusionIntent: (itemId: string, actionId: 'view' | 'edit') => void;
+}): VNode {
   const meta = STATUS_META[inclusionStatus(inclusion)];
   const priceLine = inclusion.resolved
     ? `${money(inclusion.lineTotal)}${inclusion.per ? ` · ${inclusion.per}` : ''}`
@@ -326,7 +350,13 @@ function InclusionRow({ inclusion, onIntent }: { inclusion: DeckInclusion; onInt
       </div>
       <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>
       <div class="cz-tier-deck__row-actions">
-        <StationSplitAction actions={ROW_ACTIONS} controlLabel={inclusion.name} onAction={onIntent} />
+        {/* The row closes over its OWN selection key, so the dispatched intent
+            addresses this inclusion rather than the focused Tier. */}
+        <StationSplitAction
+          actions={ROW_ACTIONS}
+          controlLabel={inclusion.name}
+          onAction={(actionId) => onInclusionIntent(inclusion.itemId, actionId as 'view' | 'edit')}
+        />
       </div>
     </li>
   );

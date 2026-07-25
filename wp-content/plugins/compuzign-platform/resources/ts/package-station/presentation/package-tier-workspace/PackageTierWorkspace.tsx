@@ -11,6 +11,7 @@ import {
   encodeTierDrawerRecordId,
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
+import { encodeTierInclusionDrawerRecordId } from '../../drawer/inclusion/tierInclusionDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
 import { PackageFamilyScope } from './PackageFamilyScope';
@@ -119,6 +120,17 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       ? encodeTierDrawerRecordId(instanceId, occupantId)
       : encodeTierSlotDrawerRecordId(instanceId, slotId);
     onIntent(recordId, actionId);
+  };
+
+  // A Details-lane row addresses one inclusion inside the focused slot. The slot
+  // — not the occupant — is the address, because the slot is the key the Tier's
+  // features module already mutates; the row supplies its own item_id.
+  const dispatchInclusionIntent = (slotId: string, itemId: string, actionId: 'view' | 'edit') => {
+    if (instanceId === null) return;
+    onIntent(
+      encodeTierInclusionDrawerRecordId(instanceId, slotId, itemId),
+      actionId === 'edit' ? 'edit-inclusion' : 'view-inclusion',
+    );
   };
 
   if (loading || !tool) {
@@ -255,6 +267,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           settingsError={tool.settingsError}
           onIntent={(actionId) => {
             if (selectedSlot) dispatchTierIntent(selectedSlot.slotId, selectedSlot.occupantId, actionId);
+          }}
+          onInclusionIntent={(itemId, actionId) => {
+            if (selectedSlot) dispatchInclusionIntent(selectedSlot.slotId, itemId, actionId);
           }}
           onToolIntent={(actionId) => onIntent(
             actionId === 'create-package-family' ? 'new' : tool.selectedFamily?.id ?? instanceId ?? 'new',
