@@ -168,7 +168,7 @@ export function TierSystemSettings({
                   </span>
                   <button
                     type="button"
-                    class="cz-admin-btn cz-admin-btn--secondary"
+                    class="cz-tier-deck__button cz-tier-deck__button--secondary"
                     disabled={tool.saving}
                     onClick={() => { void tool.assignInstance(row.instanceId, family.id); }}
                   >
@@ -188,7 +188,7 @@ export function TierSystemSettings({
             <div class="cz-tier-settings__actions">
               <button
                 type="button"
-                class="cz-admin-btn cz-admin-btn--secondary"
+                class="cz-tier-deck__button cz-tier-deck__button--secondary"
                 onClick={() => tool.selectInstance(currentRecord.tier_instance_id)}
               >
                 Open Tier tool
@@ -196,7 +196,7 @@ export function TierSystemSettings({
               {assignedInstance && family && !confirmRemoval && (
                 <button
                   type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary"
+                  class="cz-tier-deck__button cz-tier-deck__button--secondary"
                   disabled={tool.saving}
                   onClick={() => setConfirmRemoval(true)}
                 >
@@ -207,8 +207,8 @@ export function TierSystemSettings({
             {assignedInstance && family && confirmRemoval && (
               <div class="cz-tier-settings__confirm" role="alert">
                 <p>Remove Tier capability from <strong>{family.name}</strong>? The Family and <strong>{currentRecord.title}</strong> will remain unchanged.</p>
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setConfirmRemoval(false)}>Keep capability</button>
-                <button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={tool.saving} onClick={() => { void removeAssignment(); }}>Remove assignment</button>
+                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" onClick={() => setConfirmRemoval(false)}>Keep capability</button>
+                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--destructive" disabled={tool.saving} onClick={() => { void removeAssignment(); }}>Remove assignment</button>
               </div>
             )}
             {!family && currentRow.consumerId === null && suggestedFamily && (
@@ -216,7 +216,7 @@ export function TierSystemSettings({
                 <span>Existing Tier selections suggest <strong>{suggestedFamily.label}</strong>. Confirming adds only the assignment.</span>
                 <button
                   type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary"
+                  class="cz-tier-deck__button cz-tier-deck__button--secondary"
                   disabled={tool.saving}
                   onClick={() => { void tool.assignInstance(currentRecord.tier_instance_id, suggestedFamily.group_id); }}
                 >
@@ -240,7 +240,7 @@ export function TierSystemSettings({
                 </select>
                 <button
                   type="button"
-                  class="cz-admin-btn cz-admin-btn--secondary"
+                  class="cz-tier-deck__button cz-tier-deck__button--secondary"
                   disabled={tool.saving || !directFamilyId}
                   onClick={() => { if (directFamilyId) void tool.assignInstance(currentRecord.tier_instance_id, directFamilyId); }}
                 >
@@ -258,7 +258,7 @@ export function TierSystemSettings({
               {currentRecord.allowed_rate_sheet_ids.length === 0 ? (
                 <>
                   <p>All active Rate Sheets are available to this instance.</p>
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={tool.saving || rateSheets.filter((sheet) => sheet.status === 'active').length === 0} onClick={startNarrowAvailability}>
+                  <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" disabled={tool.saving || rateSheets.filter((sheet) => sheet.status === 'active').length === 0} onClick={startNarrowAvailability}>
                     Select specific sheets
                   </button>
                 </>
@@ -278,7 +278,7 @@ export function TierSystemSettings({
                       </label>
                     ))}
                   </div>
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={tool.saving} onClick={() => { void tool.updateInstance(currentRecord.tier_instance_id, { allowed_rate_sheet_ids: [] }); }}>
+                  <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" disabled={tool.saving} onClick={() => { void tool.updateInstance(currentRecord.tier_instance_id, { allowed_rate_sheet_ids: [] }); }}>
                     Allow all active sheets
                   </button>
                 </>
@@ -337,7 +337,7 @@ export function TierSystemSettings({
               placeholder="Tier system title"
               onInput={(event) => setNewTitle(event.currentTarget.value)}
             />
-            <button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={tool.saving || !newTitle.trim()} onClick={() => { void createInstance(); }}>
+            <button type="button" class="cz-tier-deck__button cz-tier-deck__button--primary" disabled={tool.saving || !newTitle.trim()} onClick={() => { void createInstance(); }}>
               Create Tier system
             </button>
             <small>Creation does not assign the new system to a Family.</small>
@@ -349,7 +349,7 @@ export function TierSystemSettings({
                   <strong>{row.title}</strong>
                   <small>{row.consumerName} · {row.occupantCount} configured · {row.binCount} in bin</small>
                 </span>
-                <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => tool.selectInstance(row.instanceId)}>Open</button>
+                <button type="button" class="cz-tier-deck__button cz-tier-deck__button--secondary" onClick={() => tool.selectInstance(row.instanceId)}>Open</button>
               </li>
             ))}
           </ul>

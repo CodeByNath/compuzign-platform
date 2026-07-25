@@ -40,6 +40,11 @@
   --station-accent-strong: #7080ff;
   --station-accent-soft-bg: rgba(92, 110, 245, 0.12);
   --station-accent-border: rgba(92, 110, 245, 0.45);
+  /* Small accent text and filled actions require stronger contrast than the
+   * decorative accent itself provides on light surfaces. */
+  --station-accent-fg: #4654b8;
+  --station-action-bg: #4654b8;
+  --station-action-bg-hover: #39469f;
   /* Foreground on a filled accent surface. Theme-independent, because the
    * accent it sits on is. */
   --station-accent-on: #ffffff;
@@ -77,6 +82,7 @@
   --station-card-radius: 16px;
   --station-card-pad: 16px;
   --station-card-gap: 12px;
+  --station-card-bg: var(--station-surface-elevated);
   --station-card-icon-size: 44px;
   /* A rounded square, not a disc: the medallion reads as a plate behind the
    * glyph and sits square with the identity block beside it. */
@@ -118,6 +124,7 @@
   /* Type scale — card typography. */
   --station-text-xs: 11px;
   --station-text-sm: 13px;
+  --station-text-lg: 16px;
   --station-text-xl: 22px;
   --station-tracking-wide: 0.08em;
   --station-tracking-tight: -0.01em;
@@ -153,6 +160,10 @@
 }
 
 .cz-admin-station[data-station-theme='light'] {
+  color-scheme: light;
+  --station-accent-fg: #4654b8;
+  --station-action-bg: #4654b8;
+  --station-action-bg-hover: #39469f;
   --station-sidebar-bg: #f4f5f7;
   --station-header-bg: var(--station-sidebar-bg);
   --station-surface: var(--station-sidebar-bg);
@@ -179,6 +190,10 @@
 }
 
 .cz-admin-station[data-station-theme='dark'] {
+  color-scheme: dark;
+  --station-accent-fg: #93a0ff;
+  --station-action-bg: #4654b8;
+  --station-action-bg-hover: #39469f;
   --station-sidebar-bg: #15171c;
   --station-header-bg: var(--station-sidebar-bg);
   --station-surface: var(--station-sidebar-bg);

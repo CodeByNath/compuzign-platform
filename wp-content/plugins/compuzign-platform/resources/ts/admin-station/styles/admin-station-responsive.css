@@ -125,6 +125,24 @@
     grid-column: 1;
   }
 
+  .cz-tier-settings__attach-row,
+  .cz-tier-settings__instance-list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cz-tier-settings__attach-row > span,
+  .cz-tier-settings__instance-list li > span,
+  .cz-tier-settings__rate-sheet-name,
+  .cz-tier-settings__rate-sheet-scope > strong {
+    overflow-wrap: anywhere;
+  }
+
+  .cz-tier-settings__attach-row .cz-tier-deck__button,
+  .cz-tier-settings__instance-list .cz-tier-deck__button {
+    align-self: flex-start;
+  }
+
   .cz-tier-deck__field--hide-sm {
     display: none;
   }

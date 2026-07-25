@@ -2085,7 +2085,7 @@ button.cz-station-status-pill {
   height: var(--station-card-icon-size);
   border-radius: var(--station-card-icon-radius);
   background: var(--station-accent-soft-bg);
-  color: var(--station-accent-strong);
+  color: var(--station-accent-fg);
 }
 
 .cz-tier-deck__context-icon > svg {
@@ -2111,7 +2111,7 @@ button.cz-station-status-pill {
   border: 1px solid var(--station-accent-border);
   border-radius: var(--station-pill-radius);
   background: var(--station-accent-soft-bg);
-  color: var(--station-accent-strong);
+  color: var(--station-accent-fg);
   font-size: var(--station-text-xs);
   font-weight: 700;
 }
@@ -2232,8 +2232,79 @@ button.cz-station-status-pill {
 }
 
 .cz-tier-deck__control:disabled {
-  opacity: 0.55;
+  opacity: var(--station-disabled-opacity);
   cursor: not-allowed;
+}
+
+.cz-tier-deck__control::placeholder {
+  color: var(--station-text-muted);
+  opacity: 0.8;
+}
+
+.cz-tier-deck input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--station-accent);
+}
+
+/* Station-page actions must use the Station token family. Drawer-kit
+   `.cz-admin-btn` controls resolve through the separate dark --admin-* palette
+   and therefore must remain inside drawers. */
+.cz-tier-deck__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--station-grid-gap);
+  min-height: var(--station-control-height);
+  padding-inline: var(--station-control-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--station-control-radius);
+  font: inherit;
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+  line-height: var(--station-line-snug);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.cz-tier-deck__button--primary {
+  border-color: var(--station-action-bg);
+  background: var(--station-action-bg);
+  color: var(--station-accent-on);
+}
+
+.cz-tier-deck__button--primary:hover:not(:disabled) {
+  border-color: var(--station-action-bg-hover);
+  background: var(--station-action-bg-hover);
+}
+
+.cz-tier-deck__button--secondary {
+  border-color: var(--station-accent-border);
+  background: var(--station-surface-elevated);
+  color: var(--station-accent-fg);
+}
+
+.cz-tier-deck__button--secondary:hover:not(:disabled) {
+  border-color: var(--station-accent);
+  background: var(--station-accent-soft-bg);
+}
+
+.cz-tier-deck__button--destructive,
+.cz-tier-deck__button--destructive:hover:not(:disabled) {
+  border-color: var(--station-status-inactive-border);
+  background: var(--station-status-inactive-bg);
+  color: var(--station-status-inactive-fg);
+}
+
+.cz-tier-deck__button:disabled {
+  opacity: var(--station-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.cz-tier-deck__button:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
 }
 
 /* Row list — Details inclusions and Connections Rate Sheets share the grammar. */
@@ -2276,7 +2347,7 @@ button.cz-station-status-pill {
   height: var(--station-card-icon-size);
   border-radius: var(--station-card-icon-radius);
   background: var(--station-accent-soft-bg);
-  color: var(--station-accent-strong);
+  color: var(--station-accent-fg);
 }
 
 .cz-tier-deck__identity-icon > svg {
@@ -2374,7 +2445,7 @@ button.cz-station-status-pill {
   margin-bottom: 6px;
   border-radius: var(--station-card-icon-radius);
   background: var(--station-accent-soft-bg);
-  color: var(--station-accent-strong);
+  color: var(--station-accent-fg);
 }
 
 .cz-tier-deck__tool-icon > svg {
@@ -2417,15 +2488,21 @@ button.cz-station-status-pill {
 
 /* A tool that routes to a real destination reads as an accent action. */
 .cz-tier-deck__tool-action--live {
-  border-color: var(--station-accent-strong);
+  border-color: var(--station-accent-border);
   background: var(--station-accent-soft-bg);
-  color: var(--station-accent-strong);
+  color: var(--station-accent-fg);
   cursor: pointer;
 }
 
 .cz-tier-deck__tool-action--live:hover {
-  background: var(--station-accent-strong);
-  color: var(--station-surface);
+  border-color: var(--station-action-bg);
+  background: var(--station-action-bg);
+  color: var(--station-accent-on);
+}
+
+.cz-tier-deck__tool-action:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
 }
 
 /* Settings hosts Tier-system operations in the existing lower-deck lane. */
@@ -2461,7 +2538,7 @@ button.cz-station-status-pill {
   height: var(--station-card-icon-size);
   border-radius: var(--station-card-icon-radius);
   background: var(--station-surface-elevated);
-  color: var(--station-accent-strong);
+  color: var(--station-accent-fg);
 }
 
 .cz-tier-settings__callout-icon > svg {
@@ -2514,8 +2591,10 @@ button.cz-station-status-pill {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--station-accent-border);
+  padding: 12px;
+  border: 1px solid var(--station-status-inactive-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-status-inactive-bg);
 }
 
 .cz-tier-settings__suggestion {

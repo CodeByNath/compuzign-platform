@@ -51,7 +51,7 @@ export function TierDetailPanel({ slot, familyName, hasInstance, onAction, onOpe
           </div>
           <button
             type="button"
-            class="cz-admin-btn cz-admin-btn--primary"
+            class="cz-tier-deck__button cz-tier-deck__button--primary"
             onClick={() => hasInstance ? onAction('edit') : onOpenSettings()}
           >
             {hasInstance ? `Configure ${slot.label}` : 'Open Tier settings'}

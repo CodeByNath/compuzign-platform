@@ -217,6 +217,7 @@ check(
 check(workspacePresentation.includes('<TierNavigation') && workspacePresentation.includes('<TierLowerDeck'), 'the Focus shell and lower deck remain mounted for empty states');
 check(!workspacePresentation.includes('TierInstancePanel'), 'the standalone raw Tier-instance panel is retired');
 check(!workspacePresentation.includes('drawerModule__'), 'workspace presentation never leaks drawer-only field classes');
+check(!workspacePresentation.includes('cz-admin-btn'), 'workspace presentation never leaks drawer-kit button tokens');
 check(
   workspacePresentation.includes('Existing Tier selections suggest')
     && workspacePresentation.includes('Confirming adds only the assignment'),
