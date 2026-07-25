@@ -12,6 +12,10 @@ import {
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
 import { encodeTierInclusionDrawerRecordId } from '../../drawer/inclusion/tierInclusionDrawerTypes';
+import {
+  encodeTierRateSheetDrawerRecordId,
+  encodeTierRateSheetGroupDrawerRecordId,
+} from '../../drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
 import { PackageFamilyScope } from './PackageFamilyScope';
@@ -130,6 +134,37 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     onIntent(
       encodeTierInclusionDrawerRecordId(instanceId, slotId, itemId),
       actionId === 'edit' ? 'edit-inclusion' : 'view-inclusion',
+    );
+  };
+
+  // The Connections lane addresses what the focused Tier is connected TO. Each
+  // dispatcher forwards the connected record's OWN stored id and routes to the
+  // drawer that owns it — the mature Package Family drawer, or the Tier-scoped
+  // Rate Sheet drawers. None of them re-opens the Tier drawer, and none of them
+  // disturbs the focused Family or slot, so the workspace is unchanged when the
+  // drawer closes.
+  const dispatchFamilyIntent = (familyId: string, actionId: 'view' | 'edit') => {
+    onIntent(familyId, actionId === 'edit' ? 'edit-family' : 'view-family');
+  };
+
+  const dispatchGroupIntent = (
+    slotId: string,
+    rateSheetId: string,
+    groupId: string,
+    actionId: 'view' | 'edit',
+  ) => {
+    if (instanceId === null) return;
+    onIntent(
+      encodeTierRateSheetGroupDrawerRecordId(instanceId, slotId, rateSheetId, groupId),
+      actionId === 'edit' ? 'edit-connected-group' : 'view-connected-group',
+    );
+  };
+
+  const dispatchRateSheetIntent = (slotId: string, rateSheetId: string, actionId: 'view' | 'edit') => {
+    if (instanceId === null) return;
+    onIntent(
+      encodeTierRateSheetDrawerRecordId(instanceId, slotId, rateSheetId),
+      actionId === 'edit' ? 'edit-connected-rate-sheet' : 'view-connected-rate-sheet',
     );
   };
 
@@ -270,6 +305,13 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           }}
           onInclusionIntent={(itemId, actionId) => {
             if (selectedSlot) dispatchInclusionIntent(selectedSlot.slotId, itemId, actionId);
+          }}
+          onFamilyIntent={dispatchFamilyIntent}
+          onGroupIntent={(rateSheetId, groupId, actionId) => {
+            if (selectedSlot) dispatchGroupIntent(selectedSlot.slotId, rateSheetId, groupId, actionId);
+          }}
+          onRateSheetIntent={(rateSheetId, actionId) => {
+            if (selectedSlot) dispatchRateSheetIntent(selectedSlot.slotId, rateSheetId, actionId);
           }}
           onToolIntent={(actionId) => onIntent(
             actionId === 'create-package-family' ? 'new' : tool.selectedFamily?.id ?? instanceId ?? 'new',

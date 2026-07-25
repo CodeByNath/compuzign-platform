@@ -2337,6 +2337,21 @@ button.cz-station-status-pill {
   grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
 }
 
+/* A connection that does not exist keeps the row shape, with one wide
+   explanation in place of the two summary fields. */
+.cz-tier-deck__row--empty {
+  grid-template-columns: minmax(200px, 1.6fr) minmax(200px, 2.2fr) minmax(120px, 0.7fr) auto;
+}
+
+.cz-tier-deck__field--wide {
+  color: var(--station-text-muted);
+}
+
+/* The Connections lane stacks one section per connected record type. */
+.cz-tier-deck__connection-section + .cz-tier-deck__connection-section {
+  margin-top: 24px;
+}
+
 .cz-tier-deck__identity {
   display: flex;
   align-items: center;
@@ -2418,6 +2433,12 @@ button.cz-station-status-pill {
   background: var(--station-status-pending-bg);
   border-color: var(--station-status-pending-border);
   color: var(--station-status-pending-fg);
+}
+
+.cz-tier-deck__status[data-status="inactive"] {
+  background: var(--station-status-inactive-bg);
+  border-color: var(--station-status-inactive-border);
+  color: var(--station-status-inactive-fg);
 }
 
 .cz-tier-deck__row-actions {

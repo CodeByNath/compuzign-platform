@@ -422,4 +422,49 @@ check(
   'the existing empty-slot drawer explains its authoritative setup sequence',
 );
 
+// ── Connections lane composition ──────────────────────────────────────────────
+const lowerDeckSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx',
+), 'utf8');
+const connectionsLane = lowerDeckSource.slice(lowerDeckSource.indexOf('function ConnectionsLane'));
+for (const section of ['Family Group', 'Groups', 'Rate Sheets']) {
+  check(
+    connectionsLane.includes(`title="${section}"`),
+    `the Connections lane presents its ${section} section`,
+  );
+}
+check(
+  !connectionsLane.includes('onIntent') && !connectionsLane.includes('onInclusionIntent'),
+  'the Connections lane dispatches no Tier-scoped or inclusion-scoped intent, so no row re-opens the Tier drawer',
+);
+check(
+  connectionsLane.includes('onFamilyIntent(family.id')
+    && connectionsLane.includes('onGroupIntent(group.rateSheetId, group.groupId')
+    && connectionsLane.includes('onRateSheetIntent(rateSheet.rateSheetId'),
+  'every Connections row dispatches the connected record\'s own stored id, never its label',
+);
+check(
+  connectionsLane.includes('NotConfiguredRow') && connectionsLane.includes('DISABLED_ROW_ACTIONS'),
+  'a missing connection reports Not configured with its actions disabled rather than omitted',
+);
+
+const scopedDrawerSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/rate-sheet-tool/TierRateSheetDrawer.tsx',
+), 'utf8');
+check(
+  scopedDrawerSource.includes('RateSheetGridRead') && scopedDrawerSource.includes('RateSheetGridEditor'),
+  'the focused-Tier Rate Sheet drawer reuses the shared readable and editable grid',
+);
+check(
+  !scopedDrawerSource.includes('RateSheetSheetEditor') && !scopedDrawerSource.includes('RateSheetCollectionEditor'),
+  'the focused-Tier Rate Sheet drawer duplicates no Rate Sheet editor',
+);
+const sheetScopeBranch = scopedDrawerSource.slice(scopedDrawerSource.indexOf('// Rate Sheet scope:'));
+check(
+  !sheetScopeBranch.includes('RateSheetGroups'),
+  'the Rate Sheet scope shows only the grid — the Groups section belongs to the group scope',
+);
+
 console.log('Package Tier workspace contract checks passed.');
