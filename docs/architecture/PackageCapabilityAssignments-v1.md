@@ -752,11 +752,17 @@ Service id
 
 **PricingBuilder needs no change** — `overlayPackage` (299) and the popular-tier resolution (382–400) are untouched.
 
+**Consumer boundary.** Cost Builder is one downstream consumer of the Package-owned public projection; it does not resolve assignments, own Tier/Family rules, or become a general commercial authority. Its existing cart, quote-total and printable/PDF proposal calculations continue to operate on the resolved public payload and selected `QuoteItem` snapshots. Phase 8 may prevent an unresolved Service from offering new selections, but it must not move assignment, pricing, persistence, quote or PDF authority into Cost Builder or change established quote arithmetic.
+
 **Tests:** Service in assigned Family A → A's Tiers; Service in B → B's only, A's absent; no source relationship / null group / **no assignment** / unready instance / **archived Family** → fail closed; two assigned Families → fail closed; station `valid_until` past → nothing; two instances project independently; `(rate_sheet_id, item_id)` resolution preserved. `tests/tier-pricing-parity.php` and the TS parity contract must stay byte-identical.
 
 ---
 
 ## Phase 9 — Runtime acceptance, retirement, documentation
+
+> ### ⛔ PRE-PHASE GUIDANCE HOLD — customer-facing Cost / Price Builder
+>
+> **Do not start Phase 9 without explicit user guidance for the customer-facing Cost Builder / Price Builder experience.** Before any Phase 9 implementation, runtime acceptance, compatibility retirement or UI adjustment, review the live customer frontend with the user and agree the intended behaviour for assigned and unassigned Families, Tier presentation, comparison, selection, quote flow and hard-refresh persistence. Do not infer a redesign from the admin experience. Any guidance may refine presentation and acceptance only; it must preserve the settled peer-to-peer assignment architecture and Phase 8 fail-closed public projection.
 
 **Retirement** (only after Phase 8 ships and the instance shape is persisted): drop `tiers`/`occupant_bin`/`popular_*` from `defaultStation()`; prune the legacy keys in `liftLegacyStation` **on the write path only**; remove the nine legacy alias routes.
 
@@ -800,6 +806,10 @@ If no WordPress runtime is available, stop at Phase 8, report it unverified, and
 **Snapshot gate (retained).** A verified restorable production snapshot of `cz_package_station` must exist **before Phase 4 is deployed** — the first phase where mutations land in `tier_instances` and `git revert` alone no longer recovers them. Repeat before Phase 9.
 
 **Documentation.** Create `docs/code-map/tier-capability.md` (indexed once). Update `docs/code-map/tiers.md` (delete the provenance-filter line 18 and the "working scope only" line 24), `package-station.md`, `package-manager.md`, `rate-sheet.md`, `cost-builder.md`, `lifecycle-system.md`, `admin-station-surface-binding.md` (the new `scope` field), `station-manager.md` (the `scope` field + sentinel), plus `src/Modules/SurfacePackages/CLAUDE.md`, `resources/ts/package-station/CLAUDE.md`, `src/Modules/CostBuilder/CLAUDE.md`. Ask before creating a Project History record (`013-`).
+
+### Future reminder — dedicated legacy XLSX Import Station
+
+After the capability rollout and customer-facing guidance are settled, write a separate approved blueprint for a proper Import Station and retire import ownership from Cost Builder. The Station should own legacy XLSX upload, mapping, validation, dry-run/error reporting, provenance and explicit commits into the authoritative Service and Package Stations. Cost Builder must remain a read-only consumer of their public projections. This is a later milestone, not Phase 8 or Phase 9 work.
 
 ---
 
