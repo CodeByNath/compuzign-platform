@@ -10,9 +10,9 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 
 ## Main Entry Points
 
-- [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/cost-builder.ts) registers the Cost Builder component and mount condition with the runtime registry. Use it for module registration or mount behavior.
+- [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/cost-builder.ts) registers the component and mount condition.
 - [CostBuilderApp.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/CostBuilderApp.tsx) contains category/service navigation, quote-item ownership, persistence, service cards, pricing and promotion sections, summaries, mobile bar, comparison/FAQ areas, and request-modal launch. Use it for top-level Cost Builder state and composition.
-- [cost-builder.php](../../wp-content/plugins/compuzign-platform/app/modules/cost-builder/templates/cost-builder.php) provides the server-rendered mount target and page wrapper. Use it for PHP-side page structure.
+- [cost-builder.php](../../wp-content/plugins/compuzign-platform/app/modules/cost-builder/templates/cost-builder.php) provides the server-rendered mount target and wrapper.
 
 ## UI and State
 
@@ -28,6 +28,10 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 - [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) assembles categories, Services, Tiers, packages, promotions, bundles, and FAQs into the public response. Use it for projection and visibility/readiness rules.
 - [ServiceRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Repositories/ServiceRepository.php) reads active Service posts, taxonomy, metadata, and pricing inputs. Use it for catalogue persistence queries.
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/cost-builder.ts) exposes the typed public fetch. Use it for client response contracts.
+
+Package Station resolves overlays before they reach `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder is only a consumer; it owns no assignment or Package rule. Missing or ambiguous edges create no overlay and mark a covered Service unavailable, preventing legacy XLSX pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` remains unchanged.
+
+Fresh unavailable responses render the Service identity and `Currently this service is not available.`, with no selectable core Tier, bundle, promotion, comparison, or quote offer. Existing cart, quote-total and printable/PDF proposal calculations are unchanged. Local-cart snapshots are not reconciled in this phase; hard-refresh/repricing/removal policy is under the mandatory customer-guidance hold.
 
 ## Internal File Navigation
 
@@ -48,7 +52,7 @@ The runtime mounts the app, the hook fetches the public projection, and UI selec
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `php tests/tier-pricing-parity.php`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-instance-public-projection.php`, `php tests/tier-pricing-parity.php`, `npm run contract:cost-builder-isolation`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

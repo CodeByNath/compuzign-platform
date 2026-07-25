@@ -15,8 +15,13 @@ import { ComparePlans } from './ComparePlans';
 import { MobileQuoteBar } from './MobileQuoteBar';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 import type { QuoteItem } from './types';
+import type { ServiceItem } from '@/api/types/cost-builder';
 
 const QUOTE_SUMMARY_ID = 'cz-quote-summary';
+
+export function canSelectServiceOffers(service: Pick<ServiceItem, 'availability'>): boolean {
+  return service.availability.is_available;
+}
 
 export function CostBuilderApp() {
   const { data, loading, error, refetch } = useCostBuilder();
@@ -122,6 +127,7 @@ export function CostBuilderApp() {
   const activeService = services.find((s) => s.id === currentServiceId) ?? services[0] ?? null;
   const allServices = data.services_by_category.flatMap((g) => g.services);
   const hasQuote = quoteItems.length > 0;
+  const offersAvailable = activeService !== null && canSelectServiceOffers(activeService);
 
   const selectedPromoId = activeService
     ? (quoteItems.find((q) => q.serviceId === activeService.id && q.offer_type === 'promotion_tier')?.promotion_id ?? null)
@@ -151,22 +157,26 @@ export function CostBuilderApp() {
                 onAddToQuote={addToQuote}
                 onRemoveFromQuote={removeFromQuote}
               />
-              <RecommendedBundle
-                service={activeService}
-                isInQuote={quoteItems.some((q) => q.serviceId === -(activeService.id))}
-                onAdd={addToQuote}
-                onRemove={removeFromQuote}
-              />
-              {(activeService.promotion_tiers?.length ?? 0) > 0 && (
-                <PromotionSection
-                  promotions={activeService.promotion_tiers}
-                  serviceId={activeService.id}
-                  serviceTitle={decodeHtml(activeService.title)}
-                  categoryName={decodeHtml(activeService.categories[0]?.name ?? '')}
-                  selectedPromoId={selectedPromoId}
-                  onAdd={addToQuote}
-                  onRemove={removeFromQuote}
-                />
+              {offersAvailable && (
+                <>
+                  <RecommendedBundle
+                    service={activeService}
+                    isInQuote={quoteItems.some((q) => q.serviceId === -(activeService.id))}
+                    onAdd={addToQuote}
+                    onRemove={removeFromQuote}
+                  />
+                  {(activeService.promotion_tiers?.length ?? 0) > 0 && (
+                    <PromotionSection
+                      promotions={activeService.promotion_tiers}
+                      serviceId={activeService.id}
+                      serviceTitle={decodeHtml(activeService.title)}
+                      categoryName={decodeHtml(activeService.categories[0]?.name ?? '')}
+                      selectedPromoId={selectedPromoId}
+                      onAdd={addToQuote}
+                      onRemove={removeFromQuote}
+                    />
+                  )}
+                </>
               )}
             </>
           ) : (

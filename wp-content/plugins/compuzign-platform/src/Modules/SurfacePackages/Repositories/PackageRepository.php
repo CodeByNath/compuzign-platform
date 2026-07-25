@@ -18,6 +18,7 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Repositories;
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 
 /**
@@ -48,6 +49,9 @@ class PackageRepository
 
     /** Request-scope cache: false = not loaded, null = no station exists. */
     private array|null|false $stationCache = false;
+
+    /** Assignment-resolved public index, built at most once per request. */
+    private array|false $activePackageMapCache = false;
 
     // ── Storage authority ─────────────────────────────────────────────────────
 
@@ -161,6 +165,7 @@ class PackageRepository
         }
 
         $this->stationCache = $station;
+        $this->activePackageMapCache = false;
     }
 
     /** Fresh station shell for first-time configuration. */
@@ -490,78 +495,121 @@ class PackageRepository
      */
     public function findAllActiveIndexedByServiceId(): array
     {
+        if ($this->activePackageMapCache !== false) {
+            return $this->activePackageMapCache;
+        }
+
         $station = $this->loadStation();
         if ($station === null) {
-            return [];
+            return $this->activePackageMapCache = [];
         }
 
         // Visible iff active; empty status keeps legacy tolerance. Fail-closed.
         $pkgStatus = $station['platform_status'] ?? '';
         if ($pkgStatus !== '' && $pkgStatus !== 'active') {
-            return [];
+            return $this->activePackageMapCache = [];
         }
 
         // valid_from/valid_until are stored UTC.
         $now = current_time('mysql', true);
         if (!empty($station['valid_from']) && $station['valid_from'] > $now) {
-            return [];
+            return $this->activePackageMapCache = [];
         }
         if (!empty($station['valid_until']) && $station['valid_until'] < $now) {
-            return [];
+            return $this->activePackageMapCache = [];
         }
 
+        $rawManager = is_array($station['package_manager'] ?? null)
+            ? $station['package_manager']
+            : [];
         $manager = is_array($station['package_manager'] ?? null)
             ? PackageManagerSchema::sanitize($station['package_manager'])
             : PackageManagerSchema::defaultManager();
+        $instances = TierInstanceSchema::sanitizeInstances($station['tier_instances'] ?? []);
+        $consumerRegistry = [
+            'package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager),
+        ];
+        $assignments = TierAssignmentSchema::sanitizeAssignments(
+            $station['tier_assignments'] ?? [],
+            $consumerRegistry,
+            $instances
+        );
         [$incPool, $faqPool] = $this->sourcePools($station);
         $coveredServiceIds   = $this->coveredServiceIds($station);
         $hostId              = (int) ($station['legacy_host_service_id'] ?? 0);
-
-        // Flat tier interface for PricingBuilder; null slots (empty shells) omitted.
-        $flatTiers = [];
-        foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-            $extracted = PackageSchema::extractTierForCostBuilder($station['tiers'][$tierId] ?? []);
-            if ($extracted !== null) {
-                $projection = PackageManagerSchema::projectTierRateSheet(
-                    $hostId,
-                    $manager,
-                    $extracted['rate_sheet_items'] ?? [],
-                    $incPool,
-                    $faqPool,
-                    (string) ($station['platform_status'] ?? 'disabled'),
-                    $extracted['rate_sheet_id'] ?? null
-                );
-                $extracted['price'] = $projection['price'];
-                $extracted['inclusions_override'] = array_map(
-                    fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
-                    array_values(array_filter(
-                        $projection['selections'],
-                        fn(array $row): bool => $row['resolved'] && ($row['source_type'] ?? null) === 'inclusion'
-                    ))
-                );
-                $flatTiers[$tierId] = $extracted;
-            }
-        }
-        $station['tiers'] = $flatTiers;
-
-        // Promotions live on the station itself — Cost Builder reads them
-        // straight from the Package Station, never from Service postmeta.
-        $station['promotion_tiers'] = is_array($station['promotions'] ?? null)
-            ? $station['promotions']
+        $readModel = PackageManagerSchema::buildReadModel(
+            $hostId,
+            $manager,
+            $incPool,
+            $faqPool,
+            'active'
+        );
+        // Keep the original source rows for ambiguity detection. Sanitisation
+        // intentionally deduplicates identity, while a corrupt duplicate that
+        // points one Service at two Families must fail closed publicly.
+        $resolutionManager = $manager;
+        $resolutionManager['sources'] = is_array($rawManager['sources'] ?? null)
+            ? $rawManager['sources']
             : [];
 
         $map = [];
+        $projectedByInstanceId = [];
         foreach ($coveredServiceIds as $coveredServiceId) {
-            $map[$coveredServiceId] = $station;
+            $instance = TierInstanceSchema::resolveInstanceForService(
+                $coveredServiceId,
+                $resolutionManager,
+                $assignments,
+                $instances
+            );
+            if ($instance === null) {
+                continue;
+            }
+
+            $instanceId = (string) $instance['tier_instance_id'];
+            if (!isset($projectedByInstanceId[$instanceId])) {
+                $projected = $station;
+                $flatTiers = [];
+                foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+                    $extracted = PackageSchema::extractTierForCostBuilder($instance['tiers'][$tierId] ?? []);
+                    if ($extracted === null) {
+                        continue;
+                    }
+                    $rateProjection = PackageManagerSchema::projectTierRateSheetWith(
+                        $readModel,
+                        $extracted['rate_sheet_items'] ?? [],
+                        $extracted['rate_sheet_id'] ?? null
+                    );
+                    $extracted['price'] = $rateProjection['price'];
+                    $extracted['inclusions_override'] = array_map(
+                        static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
+                        array_values(array_filter(
+                            $rateProjection['selections'],
+                            static fn(array $row): bool => $row['resolved']
+                                && ($row['source_type'] ?? null) === 'inclusion'
+                        ))
+                    );
+                    $flatTiers[$tierId] = $extracted;
+                }
+                $projected['platform_status'] = 'active';
+                $projected['tiers'] = $flatTiers;
+                $projected['popular_tier'] = $instance['popular_tier'] ?? null;
+                $projected['popular_label'] = (string) ($instance['popular_label'] ?? '');
+                $projected['promotion_tiers'] = is_array($station['promotions'] ?? null)
+                    ? $station['promotions']
+                    : [];
+                $projectedByInstanceId[$instanceId] = $projected;
+            }
+
+            $map[$coveredServiceId] = $projectedByInstanceId[$instanceId];
         }
 
-        return $map;
+        return $this->activePackageMapCache = $map;
     }
 
     /**
-     * Service IDs whose package coverage is intentionally disabled, keyed by
-     * service ID for O(1) lookup. PricingBuilder uses this to suppress the
-     * legacy XLSX pricing fallback for those services.
+     * Covered Service IDs without a public-ready assigned instance, keyed by
+     * service ID for O(1) lookup. PricingBuilder uses this to suppress legacy
+     * XLSX fallback when a Package relationship exists but fails closed.
      *
      * @return array<int, true>  service_id => true
      */
@@ -572,15 +620,10 @@ class PackageRepository
             return [];
         }
 
-        if (($station['platform_status'] ?? '') !== 'disabled') {
-            return [];
-        }
-
         $set = [];
         foreach ($this->coveredServiceIds($station) as $serviceId) {
             $set[$serviceId] = true;
         }
-
-        return $set;
+        return array_diff_key($set, $this->findAllActiveIndexedByServiceId());
     }
 }

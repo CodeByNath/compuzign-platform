@@ -984,16 +984,33 @@ final class PackageManagerSchema
     ): array {
         $manager = self::sanitize($storedManager);
         $model = self::buildReadModel($serviceId, $manager, $inclusionPool, $faqPool, $platformStatus);
+        return self::projectTierRateSheetWith($model, $selections, $rateSheetId);
+    }
+
+    /**
+     * Resolve one Tier against an already-built Package Manager read model.
+     * Public and collection projections use this entry point so the source
+     * reconciliation model is built once per request, regardless of how many
+     * assigned instances or Tier slots are projected.
+     */
+    public static function projectTierRateSheetWith(
+        array $readModel,
+        mixed $selections,
+        ?string $rateSheetId = null
+    ): array {
         // Row identity is (rate_sheet_id, item_id): resolve strictly within the
         // sheet the Tier names. A null/unknown sheet resolves nothing.
-        $rateSheet = self::findRateSheet($manager['rate_sheets'] ?? [], $rateSheetId);
+        $rateSheet = self::findRateSheet(
+            is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
+            $rateSheetId
+        );
         $rateSheetItemsList = is_array($rateSheet) ? ($rateSheet['items'] ?? []) : [];
         $rateItems = [];
         foreach ($rateSheetItemsList as $item) {
             $rateItems[$item['item_id']] = $item;
         }
         $sources = [];
-        foreach ($model['items'] as $item) {
+        foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
             $sources[$item['item_id']] = $item;
         }
         $rows = [];

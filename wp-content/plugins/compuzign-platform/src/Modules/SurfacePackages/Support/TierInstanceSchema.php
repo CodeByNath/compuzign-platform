@@ -145,6 +145,82 @@ final class TierInstanceSchema
         return null;
     }
 
+    /**
+     * Resolve the one public-ready Tier instance related to a Service through
+     * its Package Family assignment. Every edge is explicit and peer-owned:
+     * Service source relationship -> active Family -> assignment -> instance.
+     * Ambiguous or incomplete relationships fail closed without a fallback.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function resolveInstanceForService(
+        int $serviceId,
+        array $manager,
+        array $assignments,
+        array $instances
+    ): ?array {
+        if ($serviceId < 1) {
+            return null;
+        }
+
+        $familyIds = [];
+        foreach (is_array($manager['sources'] ?? null) ? $manager['sources'] : [] as $source) {
+            if (!is_array($source)
+                || ($source['provider_key'] ?? null) !== 'service'
+                || ($source['entity_type'] ?? null) !== 'service'
+                || (int) ($source['entity_id'] ?? 0) !== $serviceId
+            ) {
+                continue;
+            }
+
+            $familyId = is_string($source['category_group_id'] ?? null)
+                ? trim($source['category_group_id'])
+                : '';
+            if ($familyId === '') {
+                return null;
+            }
+            $familyIds[$familyId] = true;
+        }
+
+        // A Service with no Family, or with conflicting Family relationships,
+        // cannot safely select a consumer's instance.
+        if (count($familyIds) !== 1) {
+            return null;
+        }
+        $familyId = (string) array_key_first($familyIds);
+        $families = is_array($manager['category_groups'] ?? null) ? $manager['category_groups'] : [];
+        $family = PackageCategoryGroups::find($families, $familyId);
+        if ($family === null || ($family['platform_status'] ?? null) !== StationLifecycle::STATUS_ACTIVE) {
+            return null;
+        }
+
+        $matches = [];
+        foreach ($assignments as $assignment) {
+            if (is_array($assignment)
+                && ($assignment['consumer_type'] ?? null) === 'package_family'
+                && ($assignment['consumer_id'] ?? null) === $familyId
+            ) {
+                $matches[] = $assignment;
+            }
+        }
+        if (count($matches) !== 1) {
+            return null;
+        }
+
+        $instanceId = is_string($matches[0]['tier_instance_id'] ?? null)
+            ? $matches[0]['tier_instance_id']
+            : '';
+        $instance = self::findInstance($instances, $instanceId);
+        if ($instance === null
+            || ($instance['status'] ?? null) !== StationLifecycle::STATUS_ACTIVE
+            || self::deriveInstanceStatus($instance) !== StationLifecycle::STATUS_ACTIVE
+        ) {
+            return null;
+        }
+
+        return $instance;
+    }
+
     /** @return array<int, array<string, mixed>> */
     public static function upsertInstance(array $instances, array $instance): array
     {

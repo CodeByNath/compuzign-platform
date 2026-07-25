@@ -23,6 +23,8 @@ The workspace is Package-owned:
 
 A Package Family and Tier instance remain independent peers. Their assignment records capability use; neither peer stores or silently mutates the other.
 
+Public consumption follows the exact assignment edge. Missing, inactive, unknown, or ambiguous resolution fails closed without `ti_primary`, another Family, or provenance fallback. One shared manager read model preserves `(rate_sheet_id, item_id)` resolution.
+
 ## Drawer, state, and persistence
 
 - [TierDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerContent.tsx) is the host-neutral composition.
@@ -35,7 +37,7 @@ Presentation calls no endpoints. New inclusion/FAQ pool items go through Service
 
 ## Validation
 
-Run `php tests/tier-occupant-compatibility.php`, `npm run contract:package-tier-workspace`, `npm run contract:tier-instance-tool`, `npx tsx scripts/tier-occupant-admin-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `php tests/tier-occupant-compatibility.php`, `php tests/tier-instance-public-projection.php`, `npm run contract:package-tier-workspace`, `npm run contract:tier-instance-tool`, `npx tsx scripts/tier-occupant-admin-contract.ts`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 

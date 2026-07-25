@@ -6,9 +6,9 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
 - `SurfacePackagesModule.php` — module wiring.
 - `Http/PackageFamiliesController.php` — Package Family lifecycle and relationship routes.
-- `Http/PackageStationReadController.php` — public read projection.
+- `Http/PackageStationReadController.php` — authenticated assigned-instance summary rows for admin consumers.
 - `Http/PackageStationController.php` — global Tier-instance/assignment collection routes plus instance-scoped Tier, occupant-bin, and popular-Tier mutations; legacy unscoped Tier paths temporarily alias `ti_primary`.
-- `Repositories/PackageRepository.php` — `cz_package_station` persistence, request cache, relationships, Promotions, legacy migration, and all-instance Rate Sheet usage guards.
+- `Repositories/PackageRepository.php` — `cz_package_station` persistence, request cache, relationships, Promotions, legacy migration, all-instance Rate Sheet usage guards, and assignment-resolved Cost Builder indexing.
 - `Support/TierInstanceSchema.php` (Package-owned Tier capability-instance envelope, with no consumer/Family fields), `TierAssignmentSchema.php` (the separate Package Family ↔ Tier Instance usage edge), `PackageManagerSchema.php` (manager shape + the `rate_sheets[]` collection: migration, upsert/delete commit, per-Tier projection), `PackageSchema.php` (occupant compatibility, lifecycle, Tier↔Rate-Sheet binding + clear-on-switch), `PackageCategoryGroups.php` (Package Family rules), and `PackageStationSchema.php` (only the shared `sanitizeSourceRelationships` and `evaluateTierPricing` helpers — not the aggregate/shape authority).
 
 ## Boundaries
@@ -19,4 +19,4 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Rat
 
 ## Validation
 
-From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-assignment-family-flow.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npx tsc --noEmit`, and `npm run docs:check`.
+From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-assignment-family-flow.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `php tests/tier-instance-public-projection.php`, `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npx tsc --noEmit`, and `npm run docs:check`.

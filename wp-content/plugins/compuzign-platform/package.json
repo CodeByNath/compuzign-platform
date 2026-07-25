@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "vite build",
+    "contract:cost-builder-isolation": "tsx scripts/cost-builder-isolation-contract.ts",
     "contract:package-family-capability": "tsx scripts/package-family-capability-contract.ts",
     "contract:package-tier-workspace": "tsx scripts/package-tier-workspace-contract.ts",
     "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",

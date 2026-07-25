@@ -13,10 +13,10 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
 ## Boundaries
 
-This module owns the public pricing projection and `cz_service_pricing`, not Service lifecycle or Package Station persistence. Package data comes from `SurfacePackages/Repositories/PackageRepository.php`. Do not duplicate admin lifecycle, request submission, public frontend state, or Package schemas here.
+This module owns the public pricing projection and `cz_service_pricing`, not Service lifecycle or Package Station persistence. Package data comes from `SurfacePackages/Repositories/PackageRepository.php` already indexed through active Family assignments; covered unresolved Services fail closed without legacy pricing. Do not duplicate admin lifecycle, request submission, public frontend state, or Package schemas here.
 
 Read [Cost Builder](../../../../../../docs/code-map/cost-builder.md), [Rate Sheet](../../../../../../docs/code-map/rate-sheet.md), and [Tiers](../../../../../../docs/code-map/tiers.md).
 
 ## Validation
 
-From the plugin root: `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-instance-public-projection.php`, `php tests/tier-pricing-parity.php`, `npm run contract:cost-builder-isolation`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

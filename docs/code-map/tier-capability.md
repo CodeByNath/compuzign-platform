@@ -24,21 +24,25 @@ Scoped Service-navigation routes insert `tier-instances/{instance}` before `read
 
 Instance deletion is blocked by assignments, occupants, bin entries, or drafts. Peer-isolation tests cover both mutation directions and sanitisation boundaries.
 
+## Public resolution
+
+`TierInstanceSchema::resolveInstanceForService` follows one exact edge chain: published Service source → active Package Family → assignment → ready Tier instance. Missing, null, inactive, unknown, or ambiguous edges fail closed; there is no `ti_primary`, provenance, or cross-Family fallback.
+
+`PackageRepository::findAllActiveIndexedByServiceId` builds the Package Manager read model once, projects each resolved instance independently, and indexes only its Family's Services for Cost Builder. Covered but unresolved Services enter the existing unavailable path so legacy pricing cannot leak through. `PackageStationReadController` emits one admin summary row per assigned instance with Family-scoped Service refs; unassigned instances emit no row. Temporary legacy storage and route aliases remain until the held retirement phase.
+
 ## Package Family capability flow
 
 `PackageFamilyCreateContent.tsx` saves the Family before optional instance creation and assignment. Decline/close writes nothing; partial failure preserves both peers.
 
-`usePackageFamilyCapabilities.ts` reads the two peer collections separately. The Family drawer places its Capabilities shell after Connected Records on Connections. Capability absence is valid and never affects overview readiness. Its only capability actions are Add Tier capability, Remove Tier capability, and Open Tier tool. Remove deletes only the assignment behind inline confirmation.
+`usePackageFamilyCapabilities.ts` reads both peer collections. Capability absence never affects readiness. Actions are Add, Remove, and Open Tier; confirmed removal deletes only the assignment.
 
 ## Package-owned Tier Tool
 
 [`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) keeps peer collections and explicit mutations separate. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, eligibility, slots, sheet options, and the explicit migration suggestion. Unassigned instances remain operable.
 
-[`TierSystemSettings.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) is the Package-owned instance configuration lane inside the workspace's existing Settings tab. It provides explicit attach/create/remove/open actions, clear allow-list semantics, all five fixed slots, and a collapsed advanced instance inventory. The old standalone instance slab is retired. Opening an occupied Tier carries instance plus occupant identity; opening an empty slot carries instance plus slot identity and lets the existing drawer mint an occupant only on authoritative save. No new drawer template or generic CRUD/ownership framework exists.
+[`TierSystemSettings.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) hosts explicit attach/create/remove/open and allow-list operations. Occupied drawer targets carry instance + occupant identity; empty targets carry instance + slot and mint only on save.
 
-Family workspace scope uses `resolveFamilyTierAssignment`: exact `package_family` consumer match → assigned instance, with no Service/Rate Sheet inference or global fallback. No assignment is a neutral shell whose action opens Settings without writing. The same five Tier tabs, focused compartment, and Details/Connections/Settings deck remain present. Settings offers eligible unassigned instances before independent creation; creation never auto-assigns. Directly opened unassigned instances stay operable in a labelled non-Family mode.
-
-The Settings Rate Sheet inventory loads through the existing Package Manager read endpoint independently of an instance-scoped Tier read. Availability follows each instance allow-list (empty means all active and is not exclusive); current users come from occupant `rate_sheet_id` bindings. Family names are joined only through `tier_assignments[]`.
+Workspace scope uses exact `resolveFamilyTierAssignment`, never provenance/global fallback. No assignment is a neutral, non-writing Settings state; direct unassigned-instance management remains operable. Rate Sheet inventory loads independently, applies the instance allow-list, derives users from occupant bindings, and joins Family names only through assignments.
 
 ## Invariants
 
@@ -49,7 +53,8 @@ The Settings Rate Sheet inventory loads through the existing Package Manager rea
 - Rate Sheet rows remain addressed by `(rate_sheet_id, item_id)`.
 - No consumer ownership is inferred from Service or Rate Sheet provenance.
 - The Package Station health check reports live legacy Tier data without a valid active-Family assignment; it never repairs or auto-assigns.
+- Public failure never borrows the global copy, another Family's instance, or legacy Service pricing.
 
 ## Validation
 
-Run the Tier/assignment PHP tests, all TypeScript contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run the Tier/assignment PHP tests including `php tests/tier-instance-public-projection.php`, all TypeScript contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
