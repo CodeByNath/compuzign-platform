@@ -26,6 +26,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Service Connections](service-connections.md)
 - [Rate Sheet](rate-sheet.md)
 - [Tiers](tiers.md)
+- [Tier Capability Instances and Assignments](tier-capability.md)
 - [Promotions](promotions.md)
 - [Categories](categories.md)
 - [Service Category Groups](category-groups.md)

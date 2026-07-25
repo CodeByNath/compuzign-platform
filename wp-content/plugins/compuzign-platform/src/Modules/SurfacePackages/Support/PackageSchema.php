@@ -3,14 +3,12 @@
 /*
  * FILE INDEX
  *
- * PACKAGE_SHAPE          Registration, defaults, and package sanitization
  * PROMOTION_SCHEMA       Promotion identity, drafts, lifecycle, and sanitization
  * TIER_OCCUPANTS         Tier slot normalization, summaries, and Cost Builder projection
  * TIER_LIFECYCLE         Tier drafts, status derivation, and settling
  * OCCUPANT_BIN           Archive, restore, trash, and permanent deletion
  *
- * Search: SECTION: PACKAGE_SHAPE
- *         SECTION: PROMOTION_SCHEMA
+ * Search: SECTION: PROMOTION_SCHEMA
  *         SECTION: TIER_OCCUPANTS
  *         SECTION: TIER_LIFECYCLE
  *         SECTION: OCCUPANT_BIN
@@ -18,24 +16,14 @@
 
 namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 
-/**
- * Registers and validates the cz_package post meta on cz_surface_package posts.
- *
- * Schema is intentionally kept private (show_in_rest = false) — surface packages
- * are admin-managed operational constructs, not public API resources.
- */
+/** Package-owned Promotion and Tier occupant/lifecycle rules. */
 class PackageSchema
 {
-    // ===================================================================
-    // SECTION: PACKAGE_SHAPE
-    // ===================================================================
     // Station-level lifecycle: derived from tier occupants (deriveStationStatus),
     // never archived — occupants travel to the bin, the station shell does not.
     // 'archived' retired at E2 (confirmed unreachable).
     public const ALLOWED_PLATFORM_STATUSES   = ['active', 'disabled'];
-    public const ALLOWED_TYPES               = ['tier_configuration', 'bundle', 'promotion', 'homepage_collection', 'campaign'];
     public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
-    public const ALLOWED_CONTEXTS            = ['cost-builder', 'homepage', 'pricing-page'];
     public const ALLOWED_PROMOTION_STATUSES  = ['draft', 'active', 'archived'];
     public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
 
@@ -52,215 +40,6 @@ class PackageSchema
     // the transition endpoints (C3) own all status writes.
     public const PROMOTION_MODULES           = ['overview', 'features', 'faqs'];
 
-    public function register(): void
-    {
-        add_action('init', [$this, 'registerPostMeta']);
-    }
-
-    public function registerPostMeta(): void
-    {
-        register_post_meta('cz_surface_package', 'cz_package', [
-            'type'              => 'object',
-            'single'            => true,
-            'default'           => $this->defaultPackage(),
-            'show_in_rest'      => false,
-            'sanitize_callback' => [self::class, 'sanitize'],
-        ]);
-    }
-
-    /**
-     * Sanitise and validate inbound cz_package data.
-     * Returns a fully-shaped array regardless of input quality.
-     *
-     * @param  mixed $data
-     * @return array<string, mixed>
-     */
-    public static function sanitize(mixed $data): array
-    {
-        if (!is_array($data)) {
-            $data = [];
-        }
-
-        $rawStatus       = sanitize_text_field((string) ($data['platform_status'] ?? ''));
-        $platformStatus  = in_array($rawStatus, self::ALLOWED_PLATFORM_STATUSES, true) ? $rawStatus : 'disabled';
-
-        return [
-            'platform_status'    => $platformStatus,
-            'package_type'       => self::sanitizeType($data['package_type'] ?? ''),
-            'service_refs'       => self::sanitizeServiceRefs($data['service_refs'] ?? []),
-            'tiers'              => self::sanitizeTiers($data['tiers'] ?? []),
-            'promotion_tiers'    => self::sanitizePromotionTiers($data['promotion_tiers'] ?? []),
-            'popular_tier'       => self::sanitizePopularTier($data['popular_tier'] ?? ''),
-            'popular_label'      => self::sanitizePopularLabel($data['popular_label'] ?? ''),
-            'faq_refs'           => self::sanitizeFaqRefs($data['faq_refs'] ?? []),
-            'sort_position'      => (int) ($data['sort_position'] ?? 0),
-            'display_contexts'   => self::sanitizeContexts($data['display_contexts'] ?? []),
-            'bundle'             => self::sanitizeBundle($data['bundle'] ?? []),
-            'valid_from'         => self::sanitizeDatetime($data['valid_from'] ?? null),
-            'valid_until'        => self::sanitizeDatetime($data['valid_until'] ?? null),
-            'migration_complete' => (bool) ($data['migration_complete'] ?? false),
-        ];
-    }
-
-    /** @return array<string, mixed> */
-    public function defaultPackage(): array
-    {
-        return [
-            'platform_status'    => 'disabled',
-            'package_type'       => 'tier_configuration',
-            'service_refs'       => [],
-            'tiers'              => array_fill_keys(
-                self::ALLOWED_TIERS,
-                [
-                    'label'               => '',
-                    'price'               => null,
-                    'billing_cycle'       => null,
-                    'inclusions_override' => [],
-                    'features'            => [],
-                    'faq_refs'            => [],
-                    'enabled'             => true,
-                ]
-            ),
-            'promotion_tiers'    => [],
-            'popular_tier'       => null,
-            'popular_label'      => '',
-            'faq_refs'           => [],
-            'sort_position'      => 0,
-            'display_contexts'   => ['cost-builder'],
-            'bundle'             => ['title' => '', 'description' => '', 'price' => null],
-            'valid_from'         => null,
-            'valid_until'        => null,
-            'migration_complete' => false,
-        ];
-    }
-
-    // ── Private sanitizers ────────────────────────────────────────────────────
-
-    private static function sanitizeType(mixed $type): string
-    {
-        $type = sanitize_text_field((string) $type);
-        return in_array($type, self::ALLOWED_TYPES, true) ? $type : 'tier_configuration';
-    }
-
-    /**
-     * @param  mixed $refs
-     * @return int[]
-     */
-    private static function sanitizeServiceRefs(mixed $refs): array
-    {
-        if (!is_array($refs)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($refs as $ref) {
-            $id = absint($ref);
-            if ($id > 0) {
-                $clean[] = $id;
-            }
-        }
-
-        return array_values(array_unique($clean));
-    }
-
-    /**
-     * @param  mixed $tiers
-     * @return array<string, array<string, mixed>>
-     */
-    private static function sanitizeTiers(mixed $tiers): array
-    {
-        if (!is_array($tiers)) {
-            $tiers = [];
-        }
-
-        $out = [];
-
-        foreach (self::ALLOWED_TIERS as $tierId) {
-            $src = $tiers[$tierId] ?? [];
-
-            // label: admin display override for the canonical tier title.
-            $label = sanitize_text_field((string) ($src['label'] ?? ''));
-
-            // price: numeric or null. null means "not configured in this package".
-            $price = null;
-            if (isset($src['price']) && $src['price'] !== null && $src['price'] !== '') {
-                $price = (float) $src['price'];
-            }
-
-            // billing_cycle: string or null (null = inherit from canonical service record)
-            $billingCycle = null;
-            if (!empty($src['billing_cycle'])) {
-                $billingCycle = sanitize_text_field((string) $src['billing_cycle']);
-            }
-
-            // inclusions_override: explicit [{id, label}] pairs. Empty = use canonical inclusions.
-            $inclusions = [];
-            if (isset($src['inclusions_override']) && is_array($src['inclusions_override'])) {
-                foreach ($src['inclusions_override'] as $inc) {
-                    if (!is_array($inc)) {
-                        continue;
-                    }
-                    $incId    = sanitize_text_field((string) ($inc['id'] ?? ''));
-                    $incLabel = sanitize_text_field((string) ($inc['label'] ?? ''));
-                    if ($incId !== '' && $incLabel !== '') {
-                        $inclusions[] = ['id' => $incId, 'label' => $incLabel];
-                    }
-                }
-            }
-
-            // features: flat string list (transitional; prefer inclusions_override)
-            $features = [];
-            if (isset($src['features']) && is_array($src['features'])) {
-                $features = array_values(array_filter(
-                    array_map('sanitize_text_field', array_map('strval', $src['features'])),
-                    fn($f) => $f !== ''
-                ));
-            }
-
-            // faq_refs: IDs of canonical FAQs selected for this tier.
-            $tierFaqRefs = [];
-            if (isset($src['faq_refs']) && is_array($src['faq_refs'])) {
-                foreach ($src['faq_refs'] as $ref) {
-                    $ref = sanitize_text_field((string) $ref);
-                    if ($ref !== '') {
-                        $tierFaqRefs[] = $ref;
-                    }
-                }
-                $tierFaqRefs = array_values(array_unique($tierFaqRefs));
-            }
-
-            // enabled: false removes the tier from Cost Builder output entirely.
-            $enabled = isset($src['enabled']) ? (bool) $src['enabled'] : true;
-
-            // contact: true means "contact/no fixed price"; overlays price as null in PricingBuilder.
-            $contact = (bool) ($src['contact'] ?? false);
-
-            $out[$tierId] = [
-                'label'               => $label,
-                'price'               => $price,
-                'contact'             => $contact,
-                'billing_cycle'       => $billingCycle,
-                'inclusions_override' => $inclusions,
-                'features'            => $features,
-                'faq_refs'            => $tierFaqRefs,
-                'enabled'             => $enabled,
-            ];
-        }
-
-        return $out;
-    }
-
-    private static function sanitizePopularTier(mixed $tier): ?string
-    {
-        $tier = sanitize_text_field((string) $tier);
-        return in_array($tier, self::ALLOWED_TIERS, true) ? $tier : null;
-    }
-
-    private static function sanitizePopularLabel(mixed $label): string
-    {
-        return sanitize_text_field((string) $label);
-    }
-
     public static function sanitizeTierRateSheetSelections(mixed $items): array
     {
         if (!is_array($items)) { return []; }
@@ -276,74 +55,7 @@ class PackageSchema
         return $out;
     }
 
-    /**
-     * FAQ IDs selected from the canonical cz_service_faqs pool.
-     * Empty = all canonical FAQs apply (current PricingBuilder behaviour).
-     *
-     * @param  mixed $refs
-     * @return string[]
-     */
-    private static function sanitizeFaqRefs(mixed $refs): array
-    {
-        if (!is_array($refs)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($refs as $ref) {
-            $id = sanitize_text_field((string) $ref);
-            if ($id !== '') {
-                $clean[] = $id;
-            }
-        }
-
-        return array_values(array_unique($clean));
-    }
-
-    /**
-     * @param  mixed $contexts
-     * @return string[]
-     */
-    private static function sanitizeContexts(mixed $contexts): array
-    {
-        if (!is_array($contexts)) {
-            return ['cost-builder'];
-        }
-
-        $clean = [];
-        foreach ($contexts as $ctx) {
-            $ctx = sanitize_text_field((string) $ctx);
-            if (in_array($ctx, self::ALLOWED_CONTEXTS, true)) {
-                $clean[] = $ctx;
-            }
-        }
-
-        return !empty($clean) ? array_values(array_unique($clean)) : ['cost-builder'];
-    }
-
-    /**
-     * @param  mixed $bundle
-     * @return array{title: string, description: string, price: float|null}
-     */
-    private static function sanitizeBundle(mixed $bundle): array
-    {
-        if (!is_array($bundle)) {
-            $bundle = [];
-        }
-
-        $price = null;
-        if (isset($bundle['price']) && $bundle['price'] !== null && $bundle['price'] !== '') {
-            $price = (float) $bundle['price'];
-        }
-
-        return [
-            'title'       => sanitize_text_field((string) ($bundle['title'] ?? '')),
-            'description' => sanitize_textarea_field((string) ($bundle['description'] ?? '')),
-            'price'       => $price,
-        ];
-    }
-
-    private static function sanitizeDatetime(mixed $raw): ?string
+    private static function sanitizePromotionDatetime(mixed $raw): ?string
     {
         if ($raw === null || $raw === '') {
             return null;
@@ -930,8 +642,8 @@ class PackageSchema
         $badge         = sanitize_text_field((string) ($src['badge'] ?? ''));
         $campaignLabel = sanitize_text_field((string) ($src['campaign_label'] ?? ''));
 
-        $startsAt = self::sanitizeDatetime($src['starts_at'] ?? null);
-        $endsAt   = self::sanitizeDatetime($src['ends_at'] ?? null);
+        $startsAt = self::sanitizePromotionDatetime($src['starts_at'] ?? null);
+        $endsAt   = self::sanitizePromotionDatetime($src['ends_at'] ?? null);
 
         $priority   = (int) ($src['priority'] ?? 0);
         $isFeatured = (bool) ($src['is_featured'] ?? false);

@@ -7,6 +7,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Http\PackageFamiliesController;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 
 /**
  * Surface Packages module.
@@ -22,7 +23,6 @@ class SurfacePackagesModule
 {
     public function register(): void
     {
-        (new PackageSchema())->register();
         (new PackageFamiliesController())->register();
         (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationReadController(new PackageRepository()))->register();
         (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(new PackageRepository()))->register();
@@ -47,6 +47,7 @@ class SurfacePackagesModule
             // Manager must sanitize cleanly; a throw here means corrupt storage.
             try {
                 PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+                TierInstanceSchema::sanitizeInstances($station['tier_instances'] ?? []);
             } catch (\Throwable) {
                 return false;
             }

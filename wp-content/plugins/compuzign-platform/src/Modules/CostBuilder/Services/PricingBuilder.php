@@ -268,8 +268,8 @@ class PricingBuilder
     //      not before. The pre-overlay availability check uses legacy inclusions
     //      which are empty for admin-created services (not XLSX imports).
     //
-    //   4. Unconfigured admin placeholder tiers (billing_cycle = null, saved by
-    //      PackageSchema::sanitizeTiers defaults) must never reach Cost Builder.
+    //   4. Unconfigured admin placeholder tiers (billing_cycle = null) must
+    //      never reach Cost Builder.
     //
     //   5. Disabled packages (platform_status = disabled) are invisible to this builder
     //      via PackageRepository::findAllActiveIndexedByServiceId(). Disabled

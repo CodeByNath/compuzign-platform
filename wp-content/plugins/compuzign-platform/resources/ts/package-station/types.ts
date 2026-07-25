@@ -148,6 +148,21 @@ export interface PackageFamilyDeleteResponse {
   deleted: string;
 }
 
+export type TierInstanceStatus = 'draft' | 'active' | 'disabled' | 'archived' | 'trashed';
+
+/** Package-owned Tier capability instance. Consumer use is a separate assignment. */
+export interface TierInstanceSummary {
+  tier_instance_id:       string;
+  title:                  string;
+  status:                 TierInstanceStatus;
+  allowed_rate_sheet_ids: string[];
+  popular_tier:           string | null;
+  popular_label:          string;
+  readiness:              'ready' | 'not-ready';
+  occupant_count:         number;
+  bin_count:              number;
+}
+
 export interface PackageManagerProjectionInclusion {
   id:    string;
   label: string;
