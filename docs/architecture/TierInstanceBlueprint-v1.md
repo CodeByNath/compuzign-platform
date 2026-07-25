@@ -1,6 +1,12 @@
 # Tier Capability — Repository Audit and Phased Implementation Blueprint
 
-**Status:** Audit + plan only. Nothing implemented, edited, or committed.
+**Status:** Superseded
+**Superseded by:** [PackageCapabilityAssignments-v1.md](PackageCapabilityAssignments-v1.md)
+
+> **Retained deliberately.** This document records the **rejected consumer-field design** — `consumer_type` / `consumer_id` stored on each Tier instance — so it is not rediscovered and re-proposed later. That shape makes Tier a property of the Family, breaks optional use, prevents an instance from being shared or unassigned honestly, and forces every future capability to repeat the pair on its own schema. The accepted model relates the two peers through an explicit `tier_assignments[]` ledger instead.
+>
+> Its **Part 1 audit remains factually accurate** and is carried forward; only the ownership model was replaced. Do not implement from this document.
+
 **Audit date:** 2026-07-25
 **Tree:** `main` @ `0ffe12f`, working tree clean at audit start.
 **Method:** AGENTS.md read order — `AGENTS.md` → `docs/ai-index.md` → Code Maps (tiers, package-station, package-manager, rate-sheet, cost-builder, lifecycle-system, station-manager, admin-station) → Project History 003/011/012 → architecture (`platform-architecture-standards-v1.md`, `CommercialModel-v1.md`, `TierModuleL5MigrationSpec-v1.md`) → authoritative source.
