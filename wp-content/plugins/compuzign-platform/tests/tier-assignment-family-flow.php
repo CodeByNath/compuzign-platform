@@ -43,6 +43,7 @@ if (!class_exists('WP_REST_Request')) {
     {
         public function __construct(private array $params = []) {}
         public function get_param(string $key): mixed { return $this->params[$key] ?? null; }
+        public function get_json_params(): array { return $this->params; }
     }
 }
 if (!class_exists('WP_REST_Response')) {
@@ -83,22 +84,49 @@ $published = (new PackageFamiliesController())->updateStatus(new WP_REST_Request
 ]));
 check_family_flow($published->get_data()['group']['platform_status'] === 'active', 'Family publishes without capability');
 
+// A second Family is never assigned at any point. It remains independently
+// valid through publish and can complete its full lifecycle and deletion with
+// no Tier instance or assignment writes.
+$instanceCountBefore = count($familyFlowOption['tier_instances'] ?? []);
+$assignmentBytesBefore = serialize($familyFlowOption['tier_assignments'] ?? []);
+$unassignedCreated = (new PackageFamiliesController())->createGroup(new WP_REST_Request([
+    'name' => 'OMNIA scenario', 'description' => 'Intentionally has no Tier assignment.',
+]));
+$unassignedId = $unassignedCreated->get_data()['group']['group_id'];
+(new PackageFamiliesController())->settleOverview(new WP_REST_Request(['gid' => $unassignedId]));
+$unassignedPublished = (new PackageFamiliesController())->updateStatus(new WP_REST_Request([
+    'gid' => $unassignedId, 'platform_status' => 'active',
+]));
+check_family_flow($unassignedPublished->get_status() === 200, 'never-assigned Family publishes normally');
+(new PackageFamiliesController())->updateStatus(new WP_REST_Request([
+    'gid' => $unassignedId, 'platform_status' => 'archived',
+]));
+(new PackageFamiliesController())->updateStatus(new WP_REST_Request([
+    'gid' => $unassignedId, 'platform_status' => 'trashed',
+]));
+$unassignedDeleted = (new PackageFamiliesController())->permanentDeleteGroup(new WP_REST_Request(['gid' => $unassignedId]));
+check_family_flow($unassignedDeleted->get_status() === 200, 'never-assigned Family deletes normally');
+check_family_flow(count($familyFlowOption['tier_instances'] ?? []) === $instanceCountBefore, 'never-assigned Family lifecycle writes no Tier instance');
+check_family_flow(serialize($familyFlowOption['tier_assignments'] ?? []) === $assignmentBytesBefore, 'never-assigned Family lifecycle writes no assignment');
+
 $rawFamilyBefore = PackageCategoryGroups::find(
     $familyFlowOption['package_manager']['category_groups'],
     $familyId
 );
-$primary = array_values(array_filter(
-    $familyFlowOption['tier_instances'],
-    static fn(array $instance): bool => ($instance['tier_instance_id'] ?? '') === 'ti_primary'
-))[0];
 $familyBytes = serialize($rawFamilyBefore);
-$instanceBytes = serialize($primary);
 
 $stationController = new PackageStationController(new PackageRepository());
+$instanceCreated = $stationController->createTierInstance(new WP_REST_Request([
+    'title' => 'KAIROS scenario Tiers',
+]));
+check_family_flow($instanceCreated->get_status() === 200, 'Tier instance is created as a separate explicit act');
+$instance = $instanceCreated->get_data()['tier_instance'];
+$instanceId = $instance['tier_instance_id'];
+$instanceBytes = serialize($instance);
 $assigned = $stationController->createTierAssignment(new WP_REST_Request([
     'consumer_type' => 'package_family',
     'consumer_id' => $familyId,
-    'tier_instance_id' => 'ti_primary',
+    'tier_instance_id' => $instanceId,
 ]));
 check_family_flow($assigned->get_status() === 200, 'Family can explicitly use an existing Tier instance');
 $assignmentId = $assigned->get_data()['assignment']['assignment_id'];
@@ -115,11 +143,11 @@ check_family_flow(
     serialize(PackageCategoryGroups::find($familyFlowOption['package_manager']['category_groups'], $familyId)) === $familyBytes,
     'removing leaves the Family byte-identical'
 );
-$primaryAfter = array_values(array_filter(
+$instanceAfter = array_values(array_filter(
     $familyFlowOption['tier_instances'],
-    static fn(array $instance): bool => ($instance['tier_instance_id'] ?? '') === 'ti_primary'
+    static fn(array $candidate): bool => ($candidate['tier_instance_id'] ?? '') === $instanceId
 ))[0];
-check_family_flow(serialize($primaryAfter) === $instanceBytes, 'assign and remove leave the instance byte-identical');
+check_family_flow(serialize($instanceAfter) === $instanceBytes, 'assign and remove leave the instance byte-identical');
 
 $sanitized = PackageCategoryGroups::sanitizeAll([[
     ...$rawFamilyBefore,
@@ -133,7 +161,7 @@ foreach (array_keys($sanitized) as $key) {
 
 // Reassign only to prove the capability guard. Family lifecycle remains independent.
 $assignedAgain = (new PackageStationController(new PackageRepository()))->createTierAssignment(new WP_REST_Request([
-    'consumer_type' => 'package_family', 'consumer_id' => $familyId, 'tier_instance_id' => 'ti_primary',
+    'consumer_type' => 'package_family', 'consumer_id' => $familyId, 'tier_instance_id' => $instanceId,
 ]));
 $assignmentId = $assignedAgain->get_data()['assignment']['assignment_id'];
 (new PackageFamiliesController())->updateStatus(new WP_REST_Request([

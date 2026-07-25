@@ -86,8 +86,7 @@ function guard_instance(string $id): array
 function guard_station(array $instance, array $assignments = []): array
 {
     return [
-        'platform_status' => 'disabled', 'tiers' => [], 'occupant_bin' => [],
-        'popular_tier' => null, 'popular_label' => '',
+        'platform_status' => 'disabled',
         'tier_instances' => [$instance], 'tier_assignments' => $assignments,
         'promotions' => [], 'package_manager' => PackageManagerSchema::defaultManager(),
         'legacy_host_service_id' => 0,
@@ -128,9 +127,18 @@ $allowed = $base;
 $allowed['allowed_rate_sheet_ids'] = ['rs_allowed'];
 check_tier_guard(isset($repository->rateSheetIdsInUse(guard_station($allowed))['rs_allowed']), 'allowed-sheet configuration is protected');
 
-$legacy = guard_station($base);
-$legacy['tiers']['basic'] = ['current_occupant' => ['id' => 'occ_legacy']];
-check_tier_guard(isset($repository->rateSheetIdsInUse($legacy)['rs_primary']), 'legacy missing binding protects rs_primary');
+$staleMirror = guard_station($base);
+$staleMirror['tiers']['basic'] = ['current_occupant' => ['id' => 'occ_legacy']];
+$staleMirror['occupant_bin'] = [[
+    'bin_id' => 'bin_legacy', 'origin_tier' => 'basic', 'status' => 'archived',
+    'previous_enabled' => true, 'displaced_at' => null,
+    'occupant' => ['id' => 'occ_legacy_bin', 'rate_sheet_id' => 'rs_legacy'],
+]];
+check_tier_guard(
+    !isset($repository->rateSheetIdsInUse($staleMirror)['rs_primary'])
+        && !isset($repository->rateSheetIdsInUse($staleMirror)['rs_legacy']),
+    'retired top-level Tier mirrors are not dependency authority'
+);
 check_tier_guard($repository->rateSheetInstanceIdsInUse(guard_station($allowed), 'rs_allowed') === ['ti_scan'], 'archive diagnostics name every using instance');
 
 // Archiving a sheet bound anywhere fails before Manager persistence and names instances.

@@ -1,6 +1,6 @@
-// Contract: every Tier lifecycle operation is scoped by tier_instance_id before
-// slot or bin resolution. The old URLs remain only as ti_primary aliases for
-// the compatibility window.
+// Contract: every Tier lifecycle operation requires tier_instance_id before
+// slot or bin resolution. The unscoped ti_primary compatibility aliases are
+// retired; no missing identity may silently select an instance.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -25,10 +25,15 @@ check(
   controller.includes("?P<instance>[a-z0-9_]+") && controller.includes("$this->tierInstanceContext($request)"),
   'the scoped route family and common instance-first resolver remain registered',
 );
+const contextStart = controller.indexOf('private function tierInstanceContext');
+const contextEnd = controller.indexOf('private function persistTierInstance', contextStart);
+const contextBody = contextStart >= 0 && contextEnd > contextStart
+  ? controller.slice(contextStart, contextEnd)
+  : '';
 check(
-  controller.includes("TierInstanceSchema::PRIMARY_INSTANCE_ID")
-    && controller.includes("$request->get_param('instance')"),
-  'a missing route instance aliases explicitly to ti_primary',
+  contextBody.includes("$request->get_param('instance')")
+    && !contextBody.includes('TierInstanceSchema::PRIMARY_INSTANCE_ID'),
+  'the common resolver requires the route identity and has no ti_primary fallback',
 );
 
 const scopedFragments = [
@@ -49,6 +54,14 @@ for (const fragment of scopedFragments) {
     api.includes(`package-station/tier-instances/\${tierInstanceId}${fragment}`),
     `API operation ${fragment} includes tierInstanceId in its route`,
   );
+}
+
+for (const legacyFragment of [
+  'package-station/tiers/',
+  'package-station/bin/',
+  'package-station/popular',
+]) {
+  check(!api.includes(legacyFragment), `retired unscoped API fragment ${legacyFragment} is absent`);
 }
 
 check(

@@ -16,6 +16,14 @@ final class TierInstanceSchema
     public const PRIMARY_INSTANCE_ID = 'ti_primary';
     public const ALLOWED_STATUSES = StationLifecycle::STATUSES;
 
+    /** @var string[] */
+    private const LEGACY_STATION_KEYS = [
+        'tiers',
+        'occupant_bin',
+        'popular_tier',
+        'popular_label',
+    ];
+
     /** @return array<int, array<string, mixed>> */
     public static function defaultInstances(): array
     {
@@ -26,32 +34,56 @@ final class TierInstanceSchema
      * Lift the legacy global Tier set into one deterministic instance in memory.
      * Occupant, bin, slot, lifecycle, and Rate Sheet data is copied verbatim;
      * this function never sanitises, mints, infers an assignment, or writes.
+     * A canonical station with no instances and no legacy keys stays empty.
+     * On the repository write path, lifting completes before the obsolete
+     * projection is pruned from the value prepared for the atomic option write.
      *
      * @param array<string, mixed> $station
      * @return array<string, mixed>
      */
-    public static function liftLegacyStation(array $station): array
+    public static function liftLegacyStation(array $station, bool $forWrite = false): array
     {
-        if (is_array($station['tier_instances'] ?? null) && $station['tier_instances'] !== []) {
+        $hasInstances = is_array($station['tier_instances'] ?? null)
+            && $station['tier_instances'] !== [];
+        $hasLegacyProjection = false;
+        foreach (self::LEGACY_STATION_KEYS as $key) {
+            if (array_key_exists($key, $station)) {
+                $hasLegacyProjection = true;
+                break;
+            }
+        }
+
+        if (!$hasInstances && !$hasLegacyProjection) {
             return $station;
         }
 
-        $legacyTiers = is_array($station['tiers'] ?? null) && $station['tiers'] !== []
-            ? $station['tiers']
-            : self::emptyTierMap();
+        if (!$hasInstances) {
+            $legacyTiers = is_array($station['tiers'] ?? null) && $station['tiers'] !== []
+                ? $station['tiers']
+                : self::emptyTierMap();
 
-        $station['tier_instances'] = [[
-            'tier_instance_id'       => self::PRIMARY_INSTANCE_ID,
-            'title'                  => 'Primary Tier Set',
-            'status'                 => $station['platform_status'] ?? 'disabled',
-            'allowed_rate_sheet_ids' => [],
-            'popular_tier'           => $station['popular_tier'] ?? null,
-            'popular_label'          => $station['popular_label'] ?? '',
-            'tiers'                  => $legacyTiers,
-            'occupant_bin'           => is_array($station['occupant_bin'] ?? null)
-                ? $station['occupant_bin']
-                : [],
-        ]];
+            $station['tier_instances'] = [[
+                'tier_instance_id'       => self::PRIMARY_INSTANCE_ID,
+                'title'                  => 'Primary Tier Set',
+                'status'                 => $station['platform_status'] ?? 'disabled',
+                'allowed_rate_sheet_ids' => [],
+                'popular_tier'           => $station['popular_tier'] ?? null,
+                'popular_label'          => $station['popular_label'] ?? '',
+                'tiers'                  => $legacyTiers,
+                'occupant_bin'           => is_array($station['occupant_bin'] ?? null)
+                    ? $station['occupant_bin']
+                    : [],
+            ]];
+        }
+
+        if ($forWrite
+            && is_array($station['tier_instances'] ?? null)
+            && $station['tier_instances'] !== []
+        ) {
+            foreach (self::LEGACY_STATION_KEYS as $key) {
+                unset($station[$key]);
+            }
+        }
 
         return $station;
     }
@@ -250,8 +282,7 @@ final class TierInstanceSchema
     }
 
     /**
-     * Replace one instance without touching its peers. The primary instance is
-     * mirrored to the temporary legacy keys until compatibility retirement.
+     * Replace one instance without touching its peers.
      *
      * @param array<string, mixed> $station
      * @param array<string, mixed> $instance
@@ -276,13 +307,6 @@ final class TierInstanceSchema
             return $station;
         }
         $station['tier_instances'] = array_values($instances);
-
-        if ($instanceId === self::PRIMARY_INSTANCE_ID) {
-            $station['tiers'] = $instance['tiers'] ?? self::emptyTierMap();
-            $station['occupant_bin'] = $instance['occupant_bin'] ?? [];
-            $station['popular_tier'] = $instance['popular_tier'] ?? null;
-            $station['popular_label'] = $instance['popular_label'] ?? '';
-        }
 
         return $station;
     }

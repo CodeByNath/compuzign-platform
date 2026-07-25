@@ -164,6 +164,12 @@ assertSameValue(null, $bareModel['items'][0]['source_service_id'], 'provenance i
 // ── Dependency counting across the station ────────────────────────────────────
 
 $rateItemId = 'rate_dep_row';
+$tierSlots = [
+    // A migrated canonical occupant may still have no explicit binding; its
+    // preserved selection resolves against the migrated primary sheet.
+    'basic' => ['occupant' => ['rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 2]]]],
+    'standard' => ['rate_sheet_items' => [['item_id' => 'unrelated', 'quantity' => 1]]],
+];
 $station = [
     'package_manager' => [
         'sources' => $manager['sources'],
@@ -183,32 +189,31 @@ $station = [
             ]],
         ]],
     ],
-    'tiers' => [
-        // basic carries no rate_sheet_id — a legacy occupant defaults to the
-        // migrated primary sheet, matching the row above by (rate_sheet_id, item_id).
-        'basic' => ['occupant' => ['rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 2]]]],
-        'standard' => ['rate_sheet_items' => [['item_id' => 'unrelated', 'quantity' => 1]]],
-    ],
+    'tier_instances' => [[
+        'tier_instance_id' => 'ti_primary',
+        'tiers' => $tierSlots,
+    ]],
 ];
 $deps = PCG::dependents($station, $model['items'], 'pcg_kairos');
 assertSameValue(1, $deps['services'], 'assigned source counts as a dependent service');
 assertSameValue(1, $deps['rate_sheet_rows'], 'rate sheet rows supplied by member services count');
 assertSameValue(1, $deps['tier_selections'], 'tier selections referencing dependent rows count');
 
-// Canonical cutover scans tier_instances[] and ignores the mirrored top-level
-// tiers projection. Two real instances count twice; the mirror never adds a third.
+// Canonical dependency scans count every real instance exactly once. A stale
+// retired top-level mirror is never treated as authority.
 $canonicalStation = $station;
-$canonicalStation['tier_instances'] = [
-    'ti_primary' => ['tiers' => $station['tiers']],
-    'ti_secondary' => ['tiers' => ['basic' => $station['tiers']['basic']]],
+$canonicalStation['tier_instances'][] = [
+    'tier_instance_id' => 'ti_secondary',
+    'tiers' => ['basic' => $tierSlots['basic']],
 ];
+$canonicalStation['tiers'] = $tierSlots;
 $canonicalDeps = PCG::dependents($canonicalStation, $model['items'], 'pcg_kairos');
 assertSameValue(2, $canonicalDeps['tier_selections'], 'canonical dependency counts scan each instance once and never double-count the primary mirror');
 
 // Refinement 3 — a Tier bound to a DIFFERENT sheet does not count against this
 // Family's rows, even when the item_id collides across sheets.
 $otherSheetStation = $station;
-$otherSheetStation['tiers']['premium'] = ['current_occupant' => [
+$otherSheetStation['tier_instances'][0]['tiers']['premium'] = ['current_occupant' => [
     'rate_sheet_id' => 'rs_other',
     'rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 1]],
 ]];

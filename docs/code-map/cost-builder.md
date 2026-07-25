@@ -31,7 +31,7 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 
 Package Station resolves overlays before they reach `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder is only a consumer; it owns no assignment or Package rule. Missing or ambiguous edges create no overlay and mark a covered Service unavailable, preventing legacy XLSX pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` remains unchanged.
 
-Fresh unavailable responses render the Service identity and `Currently this service is not available.`, with no selectable core Tier, bundle, promotion, comparison, or quote offer. Existing cart, quote-total and printable/PDF proposal calculations are unchanged. Local-cart snapshots are not reconciled in this phase; hard-refresh/repricing/removal policy is under the mandatory customer-guidance hold.
+Fresh unavailable responses render the Service identity and `Currently this service is not available.`, with no selectable core Tier, bundle, promotion, comparison, or quote offer. Existing cart, quote-total and printable/PDF proposal calculations are unchanged. Phase 9 intentionally leaves established local-cart snapshot, hard-refresh, repricing, and removal behavior unchanged; it adds no Cost Builder redesign or Package authority.
 
 ## Internal File Navigation
 
@@ -52,7 +52,7 @@ The runtime mounts the app, the hook fetches the public projection, and UI selec
 
 ## Validation
 
-From the plugin root: `php tests/tier-instance-public-projection.php`, `php tests/tier-pricing-parity.php`, `npm run contract:cost-builder-isolation`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-pricing-parity.php`, `npm run contract:cost-builder-isolation`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

@@ -8,8 +8,6 @@ use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
-use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
-use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 
 /**
  * Surface Packages module.
@@ -50,37 +48,9 @@ class SurfacePackagesModule
             try {
                 PackageManagerSchema::sanitize($station['package_manager'] ?? []);
                 $lifted = TierInstanceSchema::liftLegacyStation($station);
-                $instances = TierInstanceSchema::sanitizeInstances($lifted['tier_instances'] ?? []);
-                $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
-                $familyRegistry = TierAssignmentSchema::consumerRegistryFor('package_family', $manager);
-                $assignments = TierAssignmentSchema::sanitizeAssignments(
-                    $station['tier_assignments'] ?? [],
-                    ['package_family' => $familyRegistry],
-                    $instances
-                );
+                TierInstanceSchema::sanitizeInstances($lifted['tier_instances'] ?? []);
             } catch (\Throwable) {
                 return false;
-            }
-
-            // Reports the cutover state only. It never assigns, mints, repairs,
-            // or persists. Live legacy Tiers require one resolvable assignment
-            // to an existing active Family before the public projection cutover.
-            $hasLiveLegacyTiers = TierInstanceSchema::deriveStationStatusFromInstances($instances) === 'active';
-            if ($hasLiveLegacyTiers) {
-                $resolvable = false;
-                foreach ($assignments as $assignment) {
-                    $family = PackageCategoryGroups::find(
-                        $manager['category_groups'],
-                        (string) $assignment['consumer_id']
-                    );
-                    if (is_array($family) && ($family['platform_status'] ?? null) === 'active') {
-                        $resolvable = true;
-                        break;
-                    }
-                }
-                if (!$resolvable) {
-                    return false;
-                }
             }
 
             return true;

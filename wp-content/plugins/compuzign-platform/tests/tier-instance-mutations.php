@@ -213,19 +213,15 @@ $unknown = mutation_controller()->savePackageStationTierModule(new WP_REST_Reque
 check_tier_mutation(($unknown->get_data()['code'] ?? null) === 'unknown_tier_instance', 'unknown instance is reported explicitly');
 check_tier_mutation(serialize($tierMutationOption) === $beforeStation, 'unknown instance leaves station bytes unchanged');
 
-// Legacy alias behaviour is identical to explicitly scoped ti_primary.
-$base = mutation_station();
-$tierMutationOption = $base;
-$legacy = mutation_controller()->setPackageStationPopular(new WP_REST_Request(
-    ['id' => 77], ['tier_id' => 'basic', 'label' => 'Alias']
-))->get_data();
-$legacyStation = $tierMutationOption;
-$tierMutationOption = $base;
-$scoped = mutation_controller()->setPackageStationPopular(new WP_REST_Request(
-    ['id' => 77, 'instance' => 'ti_primary'], ['tier_id' => 'basic', 'label' => 'Alias']
-))->get_data();
-unset($scoped['tier_instance_id']);
-check_tier_mutation($legacy === $scoped, 'legacy response equals the ti_primary scoped response apart from additive identity');
-check_tier_mutation($tierMutationOption === $legacyStation, 'legacy alias persists exactly the ti_primary scoped mutation');
+// Alias retirement: an omitted instance is invalid and must never fall through
+// to ti_primary or write any station bytes.
+$tierMutationOption = mutation_station();
+$beforeStation = serialize($tierMutationOption);
+$missing = mutation_controller()->setPackageStationPopular(new WP_REST_Request(
+    ['id' => 77], ['tier_id' => 'basic', 'label' => 'Must not write']
+));
+check_tier_mutation($missing->get_status() === 404, 'missing Tier instance identity returns the established not-found response');
+check_tier_mutation(($missing->get_data()['code'] ?? null) === 'unknown_tier_instance', 'missing Tier instance identity cannot alias and uses the established error code');
+check_tier_mutation(serialize($tierMutationOption) === $beforeStation, 'missing Tier instance identity leaves station bytes unchanged');
 
 echo "Tier instance mutation checks passed.\n";

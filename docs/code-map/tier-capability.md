@@ -2,11 +2,11 @@
 
 ## Ownership and canonical shape
 
-Package Station owns Tier instances and the explicit relationships recording which Package Family uses one. Family and instance are independent peers; removing their relationship leaves both intact.
+Package Station owns Tier instances and explicit Package Family usage relationships. Family and instance are independent peers; removing their relationship preserves both.
 
-[`TierInstanceSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) defines stable `ti_…` identity, title, status, Rate Sheet allow-list, popular-Tier configuration, five-slot map, and occupant bin. It contains no consumer, Family, Group, or assignment fields. [`PackageSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) retains occupant lifecycle and Promotion rules.
+[`TierInstanceSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) defines stable `ti_…` identity, title, status, Rate Sheet allow-list, popular configuration, five slots, and occupant bin, with no consumer, Family, Group, or assignment fields. [`PackageSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) retains occupant lifecycle and Promotion rules.
 
-[`TierAssignmentSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierAssignmentSchema.php) owns the removable edge containing only `assignment_id`, `consumer_type`, `consumer_id`, and `tier_instance_id`. Consumers are exactly `package_family`; each peer appears at most once. `admin/package-station/tier-assignments` lists, creates, and deletes rows. Assignment blocks Family permanent deletion; archive/trash leave it dormant.
+[`TierAssignmentSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierAssignmentSchema.php) owns removable rows containing only `assignment_id`, `consumer_type`, `consumer_id`, and `tier_instance_id`. Consumers are exactly `package_family`; each peer appears once at most. `admin/package-station/tier-assignments` lists, creates, and deletes them. Assignment blocks permanent Family deletion; archive/trash leave it dormant.
 
 ```text
 cz_package_station
@@ -16,33 +16,33 @@ cz_package_station
 └─ tier_assignments[]
 ```
 
-## Mutation and compatibility state
+## Migration and mutation state
 
-`TierInstanceSchema::liftLegacyStation` exposes in-memory `ti_primary`, copying Tier/bin data without read writes or assignment. `tier_instances[]` is mutation-canonical. `withInstance` replaces one peer and temporarily mirrors `ti_primary` to legacy projections.
+`TierInstanceSchema::liftLegacyStation` exposes old top-level Tier/bin/popular data as in-memory `ti_primary` without writing or assigning. `tier_instances[]` is mutation-canonical. Each `saveStation` mutation lifts before removing legacy keys; read-time load bridges never perform retirement.
 
-Scoped Service-navigation routes insert `tier-instances/{instance}` before `read`, `tiers`, `bin`, and `popular`; handlers resolve instance first. Temporary unscoped aliases address `ti_primary`. `usePackageStation(serviceId, tierInstanceId, …)` stays unloaded when the instance id is `null`.
+Service-navigation routes place `tier-instances/{instance}` before `read`, `tiers`, `bin`, and `popular`; handlers resolve it first. No unscoped Tier route remains. `usePackageStation(serviceId, tierInstanceId, …)` stays unloaded for `null`.
 
-Instance deletion is blocked by assignments, occupants, bin entries, or drafts. Peer-isolation tests cover both mutation directions and sanitisation boundaries.
+Assignments, occupants, bin entries, or drafts block instance deletion. Peer-isolation tests cover both mutation directions and sanitisation.
 
 ## Public resolution
 
-`TierInstanceSchema::resolveInstanceForService` follows one exact edge chain: published Service source → active Package Family → assignment → ready Tier instance. Missing, null, inactive, unknown, or ambiguous edges fail closed; there is no `ti_primary`, provenance, or cross-Family fallback.
+`TierInstanceSchema::resolveInstanceForService` follows published Service source → active Family → assignment → ready instance. Missing, null, inactive, unknown, or ambiguous edges fail closed without `ti_primary`, provenance, or cross-Family fallback.
 
-`PackageRepository::findAllActiveIndexedByServiceId` builds the Package Manager read model once, projects each resolved instance independently, and indexes only its Family's Services for Cost Builder. Covered but unresolved Services enter the existing unavailable path so legacy pricing cannot leak through. `PackageStationReadController` emits one admin summary row per assigned instance with Family-scoped Service refs; unassigned instances emit no row. Temporary legacy storage and route aliases remain until the held retirement phase.
+`PackageRepository::findAllActiveIndexedByServiceId` builds one manager read model, projects resolved instances independently, and indexes only their Family's Services for Cost Builder. Covered unresolved Services enter the unavailable path, preventing legacy-price leakage. `PackageStationReadController` emits one Family-scoped admin row per assigned instance and none for unassigned instances.
 
 ## Package Family capability flow
 
-`PackageFamilyCreateContent.tsx` saves the Family before optional instance creation and assignment. Decline/close writes nothing; partial failure preserves both peers.
+`PackageFamilyCreateContent.tsx` saves the Family before optional instance creation/assignment. Decline/close writes nothing; partial failure preserves both peers.
 
-`usePackageFamilyCapabilities.ts` reads both peer collections. Capability absence never affects readiness. Actions are Add, Remove, and Open Tier; confirmed removal deletes only the assignment.
+`usePackageFamilyCapabilities.ts` reads both peer collections. Absence never affects readiness. Add, Remove, and Open Tier are explicit; confirmed removal deletes only the assignment.
 
 ## Package-owned Tier Tool
 
-[`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) keeps peer collections and explicit mutations separate. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, eligibility, slots, sheet options, and the explicit migration suggestion. Unassigned instances remain operable.
+[`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) separates peer collections and mutations. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, eligibility, slots, sheet options, and migration suggestion. Unassigned instances remain operable.
 
-[`TierSystemSettings.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) hosts guided but still-separate create/assign/remove operations, system Rate Sheet access, and direct fixed-slot configuration through the existing drawer. A Family without an assignment shows no fabricated slot shell; an assigned empty instance reports setup progress and its next slot action. Occupied drawer targets carry instance + occupant identity; empty targets carry instance + slot and mint only on save. Repeated Package-owned management hand-offs scroll/focus the selected workspace instead of silently reselecting it.
+[`TierSystemSettings.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) hosts separate create/assign/remove operations, system Rate Sheet access, and fixed-slot drawer configuration. An unassigned Family has no fabricated slots; an assigned empty instance reports progress and next action. Drawer targets use instance + occupant or instance + slot, minting only on save. Repeated hand-offs scroll/focus the workspace.
 
-Workspace scope uses exact `resolveFamilyTierAssignment`, never provenance/global fallback. No assignment is a neutral, non-writing Settings state; direct unassigned-instance management remains operable. Rate Sheet inventory loads independently, applies the instance allow-list, derives users from occupant bindings, and joins Family names only through assignments.
+Workspace scope uses exact `resolveFamilyTierAssignment`, never provenance/global fallback. No assignment is neutral and non-writing; direct unassigned-instance management remains operable. Sheet inventory loads independently, applies the instance allow-list, derives occupant users, and joins Family names only through assignments.
 
 ## Invariants
 
@@ -52,9 +52,11 @@ Workspace scope uses exact `resolveFamilyTierAssignment`, never provenance/globa
 - Promotions stay station-scoped.
 - Rate Sheet rows remain addressed by `(rate_sheet_id, item_id)`.
 - No consumer ownership is inferred from Service or Rate Sheet provenance.
-- The Package Station health check reports live legacy Tier data without a valid active-Family assignment; it never repairs or auto-assigns.
+- Health structurally validates the manager and read-lifted instances without writing, repairing, assigning, or minting.
 - Public failure never borrows the global copy, another Family's instance, or legacy Service pricing.
+- `saveStation` mutation writes contain no top-level `tiers`, `occupant_bin`, `popular_tier`, or `popular_label`, and Tier routes are instance-scoped.
+- `tests/tier-capability-invariants.php` executes the cross-phase migration, identity, peer-isolation, lifecycle, resolution, projection, and retirement matrix.
 
 ## Validation
 
-Run the Tier/assignment PHP tests including `php tests/tier-instance-public-projection.php`, all TypeScript contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `php tests/tier-capability-invariants.php`, the focused Tier/assignment PHP tests and TypeScript contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.

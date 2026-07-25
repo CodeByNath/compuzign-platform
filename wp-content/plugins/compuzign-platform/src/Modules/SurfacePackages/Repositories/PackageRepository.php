@@ -24,11 +24,11 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 /**
  * Single authority for Package Station storage.
  *
- * The station (package_manager, rate sheet, tiers, promotions, occupant bin,
- * status) lives in one WP option — COMPUZIGN option `cz_package_station` — fully
- * independent of any cz_service post. Deleting or disconnecting a Service
- * can no longer destroy commercial data; missing sources degrade to the
- * source_missing operational state at read time.
+ * The station (Package Manager, Tier instances and assignments, Promotions,
+ * and aggregate status) lives in one WP option — COMPUZIGN option
+ * `cz_package_station` — fully independent of any cz_service post. Deleting or
+ * disconnecting a Service can no longer destroy commercial data; missing
+ * sources degrade to the source_missing operational state at read time.
  *
  * Cutover compatibility (temporary, in loadStation()): when the option is
  * absent, the station is migrated once from the legacy Service-hosted
@@ -111,7 +111,9 @@ class PackageRepository
      * (cz_service_promotion_station). The first load after cutover copies the
      * richest migrated Service-hosted collection into the station, once. The
      * legacy meta is left in place untouched (read-only safety net); nothing
-     * reads it after this runs.
+     * reads it after this runs. This established load-time bridge deliberately
+     * bypasses saveStation: routing it through the Tier canonical write boundary
+     * would prune legacy Tier keys during a read rather than a real mutation.
      */
     private function ensurePromotions(array $station): array
     {
@@ -150,6 +152,10 @@ class PackageRepository
     /** Persist the station atomically to its independent anchor. */
     public function saveStation(array $station): void
     {
+        // The read path exposes a legacy-only station without writing. Its first
+        // real mutation lifts the Tier data before pruning the obsolete top-level
+        // projection from this one atomic persistence candidate.
+        $station = TierInstanceSchema::liftLegacyStation($station, true);
         $updated = update_option(self::OPTION_KEY, $station, false);
 
         // WordPress also returns false when the value is already unchanged, so
@@ -173,14 +179,10 @@ class PackageRepository
     {
         return [
             'platform_status'         => 'disabled',
-            'tiers'                   => [],
             'tier_instances'          => TierInstanceSchema::defaultInstances(),
             'tier_assignments'        => [],
-            'popular_tier'            => null,
-            'popular_label'           => '',
             'sort_position'           => 0,
             'bundle'                  => ['title' => '', 'description' => '', 'price' => null],
-            'occupant_bin'            => [],
             'promotions'              => [],
             'package_manager'         => PackageManagerSchema::defaultManager(),
             'legacy_host_service_id'  => 0,
@@ -189,8 +191,7 @@ class PackageRepository
 
     /**
      * Every Rate Sheet identity protected by any instance lifecycle envelope.
-     * The legacy copy is scanned during the compatibility window as a safety
-     * net; duplicate discoveries collapse into the returned id set.
+     * Duplicate discoveries collapse into the returned id set.
      *
      * @return array<string, true>
      */
@@ -203,13 +204,6 @@ class PackageRepository
                 $this->collectRateSheetIdsFromInstance($instance, $used);
             }
         }
-
-        // Temporary compatibility copy. It is retired only after runtime gate.
-        $this->collectRateSheetIdsFromInstance([
-            'tiers' => is_array($station['tiers'] ?? null) ? $station['tiers'] : [],
-            'occupant_bin' => is_array($station['occupant_bin'] ?? null) ? $station['occupant_bin'] : [],
-            'allowed_rate_sheet_ids' => [],
-        ], $used);
 
         return $used;
     }
@@ -303,7 +297,10 @@ class PackageRepository
     /**
      * Cutover bridge — copies the richest legacy Service-hosted station into
      * the option, once. The legacy meta is left in place untouched (read-only
-     * safety net); nothing reads it after this migration runs.
+     * safety net); nothing reads it after this migration runs. The raw copy is
+     * intentionally persisted before the in-memory Tier lift, so this read-time
+     * import cannot also perform Phase 9 compatibility retirement. The first
+     * real mutation passes through saveStation and canonicalises atomically.
      */
     private function migrateFromLegacyServiceMeta(): ?array
     {

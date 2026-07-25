@@ -19,4 +19,4 @@ Read [Cost Builder](../../../../../../docs/code-map/cost-builder.md), [Rate Shee
 
 ## Validation
 
-From the plugin root: `php tests/tier-instance-public-projection.php`, `php tests/tier-pricing-parity.php`, `npm run contract:cost-builder-isolation`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-pricing-parity.php`, `npm run contract:cost-builder-isolation`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

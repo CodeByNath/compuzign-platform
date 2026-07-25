@@ -576,66 +576,6 @@
             }
         },
         {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station",
-            "methods": "GET",
-            "callback": "getPackageStation",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)",
-            "methods": "DELETE",
-            "callback": "deletePackageStationBinEntry",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "bin": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                },
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/restore",
-            "methods": "POST",
-            "callback": "restorePackageStationBinEntry",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "bin": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                },
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/trash",
-            "methods": "POST",
-            "callback": "trashPackageStationBinEntry",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "bin": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                },
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                }
-            }
-        },
-        {
             "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/manager",
             "methods": "GET",
             "callback": "getPackageStationManager",
@@ -651,18 +591,6 @@
             "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/manager",
             "methods": "POST",
             "callback": "savePackageStationManager",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/popular",
-            "methods": "POST",
-            "callback": "setPackageStationPopular",
             "permission_callback": "requireAdmin",
             "args": {
                 "id": {
@@ -1060,110 +988,6 @@
                 "instance": {
                     "required": true,
                     "type": "string"
-                },
-                "tier": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)",
-            "methods": "POST",
-            "callback": "savePackageStationTier",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                },
-                "tier": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/archive",
-            "methods": "POST",
-            "callback": "archivePackageStationTierOccupant",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                },
-                "tier": {
-                    "required": true,
-                    "type": "string"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/enabled",
-            "methods": "POST",
-            "callback": "setPackageStationTierEnabled",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                },
-                "tier": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>[a-z]+)",
-            "methods": "POST",
-            "callback": "savePackageStationTierModule",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                },
-                "module": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                },
-                "tier": {
-                    "required": true,
-                    "validate_callback": "<closure>"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs)/revert",
-            "methods": "POST",
-            "callback": "revertPackageStationTierModule",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                },
-                "module": {
-                    "required": true,
-                    "type": "string"
-                },
-                "tier": {
-                    "required": true,
-                    "type": "string"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tiers/(?P<tier>[a-z]+)/settle",
-            "methods": "POST",
-            "callback": "settlePackageStationTier",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
                 },
                 "tier": {
                     "required": true,

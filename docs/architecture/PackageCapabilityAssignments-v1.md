@@ -480,7 +480,7 @@ Landing it in Phase 3 lets the team watch this turn green before Phase 8 is sche
 
 **Files:** `PackageStationController.php` (re-scope all Tier/bin handlers), `TierInstanceSchema.php` (`withInstance`), `PackageRepository.php` (`rateSheetIdsInUse`), `api.ts` / `usePackageStation.ts` / `types.ts` (thread `tierInstanceId`), `tests/tier-instance-mutations.php`, `tests/tier-instance-guards.php`, `scripts/tier-instance-scope-contract.ts`.
 
-**Routes.** Every Tier/bin route gains `tier-instances/(?P<instance>[a-z0-9_]+)/` before `tiers/…` / `bin/…` / `popular`. The nine legacy unscoped routes stay one release and **alias to `ti_primary`**, removed in Phase 9.
+**Routes.** Every Tier/bin route gains `tier-instances/(?P<instance>[a-z0-9_]+)/` before `tiers/…` / `bin/…` / `popular`. The 11 legacy unscoped routes stay one release and **alias to `ti_primary`**, removed in Phase 9.
 
 **Mandatory handler order**
 
@@ -764,7 +764,7 @@ Service id
 >
 > **Do not start Phase 9 without explicit user guidance for the customer-facing Cost Builder / Price Builder experience.** Before any Phase 9 implementation, runtime acceptance, compatibility retirement or UI adjustment, review the live customer frontend with the user and agree the intended behaviour for assigned and unassigned Families, Tier presentation, comparison, selection, quote flow and hard-refresh persistence. Do not infer a redesign from the admin experience. Any guidance may refine presentation and acceptance only; it must preserve the settled peer-to-peer assignment architecture and Phase 8 fail-closed public projection.
 
-**Retirement** (only after Phase 8 ships and the instance shape is persisted): drop `tiers`/`occupant_bin`/`popular_*` from `defaultStation()`; prune the legacy keys in `liftLegacyStation` **on the write path only**; remove the nine legacy alias routes.
+**Retirement** (only after Phase 8 ships and the instance shape is persisted): drop `tiers`/`occupant_bin`/`popular_*` from `defaultStation()`; prune the legacy keys in `liftLegacyStation` **on the write path only**; remove the 11 legacy alias routes.
 
 **Invariant matrix** — `tests/tier-capability-invariants.php`:
 

@@ -165,7 +165,9 @@ check_tier_assignment($deletedAssignment->get_status() === 200, 'assignment DELE
 $deletedFamily = (new PackageFamiliesController())->permanentDeleteGroup(new WP_REST_Request(['gid' => 'pcg_a']));
 check_tier_assignment($deletedFamily->get_status() === 200, 'guard-clean Family deletion succeeds');
 
-// Read-only D1 health assertion: live Tiers require an active resolved Family.
+// The temporary D1 cutover sentinel retired with the legacy global projection.
+// Permanent health validates station shape only: an unassigned canonical
+// instance is legitimate, and the check remains strictly read-only.
 $activeFamily = PackageCategoryGroups::sanitizeAll([
     ['group_id' => 'pcg_health', 'label' => 'Health', 'platform_status' => 'active'],
 ]);
@@ -179,21 +181,21 @@ $activeInstance = [
     'occupant_bin' => [],
 ];
 $tierAssignmentOption = [
-    'platform_status' => 'active', 'tiers' => $activeInstance['tiers'], 'occupant_bin' => [],
+    'platform_status' => 'active',
     'tier_instances' => [$activeInstance], 'tier_assignments' => [], 'promotions' => [],
     'package_manager' => PackageManagerSchema::sanitize(['category_groups' => $activeFamily]),
 ];
 $tierAssignmentWrites = 0;
 (new SurfacePackagesModule())->register();
-check_tier_assignment(Health::run()['package_station'] === false, 'health reports live unassigned cutover state');
+check_tier_assignment(Health::run()['package_station'] === true, 'canonical unassigned instance is a healthy supported state');
 $tierAssignmentOption['tier_assignments'] = Schema::assign(
     [], 'package_family', 'pcg_health', 'ti_primary', ['pcg_health' => true], [$activeInstance]
 );
-check_tier_assignment(Health::run()['package_station'] === true, 'health passes once the active Family assignment resolves');
+check_tier_assignment(Health::run()['package_station'] === true, 'valid assignment remains healthy');
 $tierAssignmentOption['package_manager']['category_groups'] = PackageCategoryGroups::applyStatus(
     $activeFamily, 'pcg_health', StationLifecycle::STATUS_ARCHIVED
 );
-check_tier_assignment(Health::run()['package_station'] === false, 'dormant archived-Family assignment does not satisfy cutover health');
+check_tier_assignment(Health::run()['package_station'] === true, 'dormant archived-Family assignment is valid stored state');
 check_tier_assignment($tierAssignmentWrites === 0, 'health never mutates or auto-assigns');
 
 echo "Tier assignment schema checks passed.\n";

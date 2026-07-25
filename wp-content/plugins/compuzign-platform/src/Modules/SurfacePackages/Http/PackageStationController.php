@@ -19,11 +19,11 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
  * the Service post. That data now lives in independent option storage
  * (PackageRepository — cz_package_station); the handlers followed their data.
  *
- * Existing Tier/Manager URLs remain Service-scoped compatibility paths
- * (/admin/services/{id}/package-station/...), where {id} is navigation context
- * only. The assignment collection uses a Package-global admin path because it
- * relates two Package-owned peers and needs no Service context. Every read/write
- * goes through PackageRepository. See
+ * Tier-instance and Manager URLs remain Service-scoped navigation paths, where
+ * {id} supplies source-pool context only. Every Tier read or mutation also
+ * requires its canonical instance identity. The assignment collection uses a
+ * Package-global admin path because it relates two Package-owned peers and
+ * needs no Service context. Every read/write goes through PackageRepository. See
  * docs/code-map/service-station.md.
  *
  * Promotions are a child collection of the Package Station and are owned by
@@ -184,13 +184,6 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
         ]);
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station', [
-            'methods'             => 'GET',
-            'callback'            => [$this, 'getPackageStation'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
-        ]);
-
         // Package Station Manager — operational-facts-only read model.
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/manager', [
             'methods'             => 'GET',
@@ -208,124 +201,6 @@ class PackageStationController
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
 
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'savePackageStationTier'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'   => ['required' => true, 'type' => 'integer'],
-                'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
-            ],
-        ]);
-
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/enabled', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'setPackageStationTierEnabled'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'   => ['required' => true, 'type' => 'integer'],
-                'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
-            ],
-        ]);
-
-        // Phase 2 — P3: per-module tier draft save. Persists a draft and marks the
-        // module pending; does not commit current_occupant. Additive to the atomic
-        // save route above, which stays live. Not called by the frontend until P5.
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>[a-z]+)', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'savePackageStationTierModule'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'     => ['required' => true, 'type' => 'integer'],
-                'tier'   => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
-                'module' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::TIER_MODULES, true)],
-            ],
-        ]);
-
-        // Phase 2 — P3: settle a tier. Commits the draft-preferred state into
-        // current_occupant, clears drafts, marks all modules settled.
-        // ── Tier occupant archive (engine D2) ─────────────────────────────────
-        // The shell never travels; the settled occupant moves into occupant_bin.
-        // Pending drafts block the move unless discard_drafts: true is confirmed.
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/archive', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'archivePackageStationTierOccupant'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'   => ['required' => true, 'type' => 'integer'],
-                'tier' => ['required' => true, 'type' => 'string'],
-            ],
-        ]);
-
-        // ── Occupant bin travel (engine D3) ───────────────────────────────────
-        // Restore returns a binned occupant to its origin shell when empty;
-        // an occupied origin demands an explicit mode (swap displaces the
-        // current content into the bin — one atomic meta write; retarget picks
-        // an empty shell). Trash/delete legality comes from StationLifecycle;
-        // DELETE is the only remover (parity with the promotion C3 routes).
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/restore', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'restorePackageStationBinEntry'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'  => ['required' => true, 'type' => 'integer'],
-                'bin' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
-            ],
-        ]);
-
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)/trash', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'trashPackageStationBinEntry'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'  => ['required' => true, 'type' => 'integer'],
-                'bin' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
-            ],
-        ]);
-
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/bin/(?P<bin>[a-z0-9_]+)', [
-            'methods'             => 'DELETE',
-            'callback'            => [$this, 'deletePackageStationBinEntry'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'  => ['required' => true, 'type' => 'integer'],
-                'bin' => ['required' => true, 'validate_callback' => fn($v) => strlen((string) $v) > 0],
-            ],
-        ]);
-
-        // ── Per-module tier revert (engine D1) ────────────────────────────────
-        // Discard one module's pending draft; module_status re-derives from the
-        // settled occupant. Counterpart of the promotion module revert route.
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs)/revert', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'revertPackageStationTierModule'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'     => ['required' => true, 'type' => 'integer'],
-                'tier'   => ['required' => true, 'type' => 'string'],
-                'module' => ['required' => true, 'type' => 'string'],
-            ],
-        ]);
-
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/tiers/(?P<tier>[a-z]+)/settle', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'settlePackageStationTier'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'   => ['required' => true, 'type' => 'integer'],
-                'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
-            ],
-        ]);
-
-        // Phase 2 — P5: station-level popular tier selection. `popular_tier` is a
-        // package-module concern, not part of the per-tier overview draft, so it
-        // gets its own station-level write (body: { tier_id: string|null, label }).
-        register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/popular', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'setPackageStationPopular'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => ['id' => ['required' => true, 'type' => 'integer']],
-        ]);
     }
 
     // ===================================================================
@@ -534,18 +409,6 @@ class PackageStationController
             }
         }
 
-        if ($instanceId === TierInstanceSchema::PRIMARY_INSTANCE_ID) {
-            $station = TierInstanceSchema::withInstance($station, $instanceId, [
-                'tier_instance_id' => $instanceId,
-                'title' => $instance['title'] ?? '',
-                'status' => 'disabled',
-                'allowed_rate_sheet_ids' => [],
-                'popular_tier' => null,
-                'popular_label' => '',
-                'tiers' => TierInstanceSchema::emptyTierMap(),
-                'occupant_bin' => [],
-            ]);
-        }
         $station['tier_instances'] = TierInstanceSchema::removeInstance($station['tier_instances'], $instanceId);
         $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances($station['tier_instances']);
         $this->packages()->saveStation($station);
@@ -641,9 +504,7 @@ class PackageStationController
             'bundle'          => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
             'occupant_bin'    => $instance['occupant_bin'],
         ];
-        if ($request->get_param('instance') !== null) {
-            $responseStation['tier_instance_id'] = $instanceId;
-        }
+        $responseStation['tier_instance_id'] = $instanceId;
 
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'    => true,
@@ -940,9 +801,7 @@ class PackageStationController
             'bundle' => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
             'occupant_bin' => $instance['occupant_bin'] ?? [],
         ];
-        if ($request->get_param('instance') !== null) {
-            $responseStation['tier_instance_id'] = $instanceId;
-        }
+        $responseStation['tier_instance_id'] = $instanceId;
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'              => true,
             'station'              => $responseStation,
@@ -1408,10 +1267,10 @@ class PackageStationController
     /** @return array{0:array,1:string,2:array}|\WP_REST_Response */
     private function tierInstanceContext(\WP_REST_Request $request): array|\WP_REST_Response
     {
-        $rawInstanceId = $request->get_param('instance');
-        $instanceId = $rawInstanceId === null
-            ? TierInstanceSchema::PRIMARY_INSTANCE_ID
-            : sanitize_text_field((string) $rawInstanceId);
+        $instanceId = sanitize_text_field((string) $request->get_param('instance'));
+        if ($instanceId === '') {
+            return $this->unknownTierInstanceResponse();
+        }
         $station = $this->packages()->loadStation();
         if (!is_array($station) || $station === []) {
             return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
@@ -1445,9 +1304,7 @@ class PackageStationController
     /** @param array<string, mixed> $payload @return array<string, mixed> */
     private function instanceResponseEnvelope(\WP_REST_Request $request, string $instanceId, array $payload): array
     {
-        if ($request->get_param('instance') !== null) {
-            $payload['tier_instance_id'] = $instanceId;
-        }
+        $payload['tier_instance_id'] = $instanceId;
         return $payload;
     }
 
