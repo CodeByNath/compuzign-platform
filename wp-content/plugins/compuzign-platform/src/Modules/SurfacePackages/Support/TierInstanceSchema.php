@@ -173,6 +173,44 @@ final class TierInstanceSchema
         ));
     }
 
+    /**
+     * Replace one instance without touching its peers. The primary instance is
+     * mirrored to the temporary legacy keys until compatibility retirement.
+     *
+     * @param array<string, mixed> $station
+     * @param array<string, mixed> $instance
+     * @return array<string, mixed>
+     */
+    public static function withInstance(array $station, string $instanceId, array $instance): array
+    {
+        unset($instance['platform_status']);
+        $instance['tier_instance_id'] = $instanceId;
+        $instance['status'] = self::deriveInstanceStatus($instance);
+
+        $found = false;
+        $instances = is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [];
+        foreach ($instances as $index => $existing) {
+            if (is_array($existing) && ($existing['tier_instance_id'] ?? null) === $instanceId) {
+                $instances[$index] = $instance;
+                $found = true;
+                break;
+            }
+        }
+        if (!$found) {
+            return $station;
+        }
+        $station['tier_instances'] = array_values($instances);
+
+        if ($instanceId === self::PRIMARY_INSTANCE_ID) {
+            $station['tiers'] = $instance['tiers'] ?? self::emptyTierMap();
+            $station['occupant_bin'] = $instance['occupant_bin'] ?? [];
+            $station['popular_tier'] = $instance['popular_tier'] ?? null;
+            $station['popular_label'] = $instance['popular_label'] ?? '';
+        }
+
+        return $station;
+    }
+
     /** @return array<string, array<mixed>> */
     public static function emptyTierMap(): array
     {

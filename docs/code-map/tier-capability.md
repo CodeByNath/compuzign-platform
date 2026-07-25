@@ -18,9 +18,13 @@ cz_package_station
 
 The old `cz_package` meta schema on `cz_surface_package` is retired. The historical post type remains registered for queryability, but live Package and Tier state is stored only through `PackageRepository::OPTION_KEY` (`cz_package_station`).
 
-## Phase state
+## Mutation and compatibility state
 
-`TierInstanceSchema::liftLegacyStation` exposes an in-memory, idempotent `ti_primary` for a legacy station. It copies the Tier map and occupant bin verbatim, preserves the legacy keys as the compatibility authority, writes nothing during reads, and creates no assignment. The lifted shape persists only through a later mutation's normal `PackageRepository::saveStation` path. Existing global Tier endpoint responses remain unchanged until mutation scoping lands.
+`TierInstanceSchema::liftLegacyStation` exposes an in-memory, idempotent `ti_primary` for a legacy station. It copies the Tier map and occupant bin verbatim, writes nothing during reads, and creates no assignment. `tier_instances[]` is canonical for every Tier and bin mutation. `TierInstanceSchema::withInstance` replaces exactly one peer, re-derives its readiness, and mirrors `ti_primary` to the temporary legacy Tier/bin/popular projections until compatibility retirement.
+
+The scoped Service-navigation route family inserts `tier-instances/{instance}` before `read`, `tiers`, `bin`, and `popular`. Every handler resolves the instance before resolving a slot or bin. The old unscoped routes remain temporary aliases to `ti_primary`; scoped response envelopes include `tier_instance_id`. `usePackageStation(serviceId, tierInstanceId, …)` owns the corresponding client state and holds an unloaded state when the instance id is `null`.
+
+Instance deletion is blocked by assignments, occupants, bin entries, or drafts. Deleting an empty unassigned instance leaves every Family unchanged. The peer-isolation suite covers assignment removal, every Tier-instance mutation class, and both structural sanitisation boundaries.
 
 ## Invariants
 
@@ -34,4 +38,4 @@ The old `cz_package` meta schema on `cz_surface_package` is retired. The histori
 
 ## Validation
 
-From the plugin root run `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/package-capability-peer-isolation.php`, the pre-existing PHP contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root run `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `npm run contract:tier-instance-scope`, the pre-existing contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

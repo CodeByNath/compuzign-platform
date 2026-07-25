@@ -96,8 +96,13 @@ export function permanentDeletePackageFamily(groupId: string): Promise<PackageFa
 }
 
 // Phase 2 — Service Station-owned Package Station tier management.
-export function fetchServicePackageStation(serviceId: number): Promise<ServicePackageStationResponse> {
-  return apiClient.get<ServicePackageStationResponse>(`admin/services/${serviceId}/package-station`);
+export function fetchServicePackageStation(
+  serviceId: number,
+  tierInstanceId: string,
+): Promise<ServicePackageStationResponse> {
+  return apiClient.get<ServicePackageStationResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/read`,
+  );
 }
 
 // Package relation provider — operational read model plus atomic explicit-
@@ -118,22 +123,24 @@ export function savePackageStationManager(
 
 export function saveServicePackageStationTier(
   serviceId: number,
+  tierInstanceId: string,
   tierId:    string,
   payload:   TierSavePayload,
 ): Promise<ServiceTierSaveResponse> {
   return apiClient.post<ServiceTierSaveResponse>(
-    `admin/services/${serviceId}/package-station/tiers/${tierId}`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}`,
     payload,
   );
 }
 
 export function setServicePackageStationTierEnabled(
   serviceId: number,
+  tierInstanceId: string,
   tierId:    string,
   enabled:   boolean,
-): Promise<{ success: boolean; tier_id: string; enabled: boolean }> {
+): Promise<{ success: boolean; tier_instance_id?: string; tier_id: string; enabled: boolean }> {
   return apiClient.post(
-    `admin/services/${serviceId}/package-station/tiers/${tierId}/enabled`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/enabled`,
     { enabled },
   );
 }
@@ -142,12 +149,13 @@ export function setServicePackageStationTierEnabled(
 // the module pending without touching the settled occupant. Consumed by usePackageStation.
 export function saveServicePackageStationTierModule(
   serviceId: number,
+  tierInstanceId: string,
   tierId:    string,
   module:    TierModuleKey,
   payload:   TierModuleSavePayload,
 ): Promise<TierLifecycleResponse> {
   return apiClient.post<TierLifecycleResponse>(
-    `admin/services/${serviceId}/package-station/tiers/${tierId}/modules/${module}`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/modules/${module}`,
     payload,
   );
 }
@@ -156,11 +164,12 @@ export function saveServicePackageStationTierModule(
 // re-derives from the settled occupant. Counterpart of revertServicePromotionModule.
 export function revertServicePackageStationTierModule(
   serviceId: number,
+  tierInstanceId: string,
   tierId:    string,
   module:    TierModuleKey,
 ): Promise<TierLifecycleResponse> {
   return apiClient.post<TierLifecycleResponse>(
-    `admin/services/${serviceId}/package-station/tiers/${tierId}/modules/${module}/revert`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/modules/${module}/revert`,
     {},
   );
 }
@@ -169,10 +178,11 @@ export function revertServicePackageStationTierModule(
 // occupant, clear drafts, mark all modules settled.
 export function settleServicePackageStationTier(
   serviceId: number,
+  tierInstanceId: string,
   tierId:    string,
 ): Promise<TierLifecycleResponse> {
   return apiClient.post<TierLifecycleResponse>(
-    `admin/services/${serviceId}/package-station/tiers/${tierId}/settle`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/settle`,
     {},
   );
 }
@@ -182,11 +192,12 @@ export function settleServicePackageStationTier(
 // (the failure carries code: pending_drafts so the UI confirms first).
 export function archiveServicePackageStationTierOccupant(
   serviceId:     number,
+  tierInstanceId: string,
   tierId:        string,
   discardDrafts: boolean = false,
 ): Promise<TierArchiveResponse> {
   return apiClient.post<TierArchiveResponse>(
-    `admin/services/${serviceId}/package-station/tiers/${tierId}/archive`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/archive`,
     { discard_drafts: discardDrafts },
   );
 }
@@ -197,11 +208,12 @@ export function archiveServicePackageStationTierOccupant(
 // occupants land disabled.
 export function restoreServicePackageStationBinEntry(
   serviceId: number,
+  tierInstanceId: string,
   binId:     string,
   opts:      { mode?: 'swap' | 'retarget'; targetTier?: string; discardDrafts?: boolean } = {},
 ): Promise<BinRestoreResponse> {
   return apiClient.post<BinRestoreResponse>(
-    `admin/services/${serviceId}/package-station/bin/${binId}/restore`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/bin/${binId}/restore`,
     {
       ...(opts.mode ? { mode: opts.mode } : {}),
       ...(opts.targetTier ? { target_tier: opts.targetTier } : {}),
@@ -212,10 +224,11 @@ export function restoreServicePackageStationBinEntry(
 
 export function trashServicePackageStationBinEntry(
   serviceId: number,
+  tierInstanceId: string,
   binId:     string,
 ): Promise<BinTrashResponse> {
   return apiClient.post<BinTrashResponse>(
-    `admin/services/${serviceId}/package-station/bin/${binId}/trash`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/bin/${binId}/trash`,
     {},
   );
 }
@@ -223,10 +236,11 @@ export function trashServicePackageStationBinEntry(
 // Trashed-only; the sole operation that removes an occupant_bin entry.
 export function deleteServicePackageStationBinEntry(
   serviceId: number,
+  tierInstanceId: string,
   binId:     string,
 ): Promise<BinDeleteResponse> {
   return apiClient.delete<BinDeleteResponse>(
-    `admin/services/${serviceId}/package-station/bin/${binId}`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/bin/${binId}`,
   );
 }
 
@@ -235,11 +249,12 @@ export function deleteServicePackageStationBinEntry(
 // its own station-level write. A null tierId clears the selection.
 export function setServicePackageStationPopular(
   serviceId: number,
+  tierInstanceId: string,
   tierId:    string | null,
   label:     string,
-): Promise<{ success: boolean; popular_tier: string | null; popular_label: string }> {
+): Promise<{ success: boolean; tier_instance_id?: string; popular_tier: string | null; popular_label: string }> {
   return apiClient.post(
-    `admin/services/${serviceId}/package-station/popular`,
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/popular`,
     { tier_id: tierId, label },
   );
 }

@@ -21,6 +21,7 @@ import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
 import { fetchPackageFamilies } from '../../api';
 import { usePackageStation } from '../../usePackageStation';
+import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
@@ -48,7 +49,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
   // usePackageStation needs a numeric id; 0 is never a real service id, so the
   // station holds its unloaded state until the host resolves — the same guard the
   // Tier wall uses.
-  const pkg = usePackageStation(host.service?.id ?? 0);
+  const pkg = usePackageStation(host.service?.id ?? 0, PRIMARY_TIER_INSTANCE_ID);
 
   const projected = useMemo<PackageTierWorkspaceFamily[]>(() => {
     const rateSheets    = pkg.service?.rate_sheets ?? [];

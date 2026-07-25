@@ -170,6 +170,119 @@ class PackageRepository
     }
 
     /**
+     * Every Rate Sheet identity protected by any instance lifecycle envelope.
+     * The legacy copy is scanned during the compatibility window as a safety
+     * net; duplicate discoveries collapse into the returned id set.
+     *
+     * @return array<string, true>
+     */
+    public function rateSheetIdsInUse(array $station): array
+    {
+        $used = [];
+        $instances = is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [];
+        foreach ($instances as $instance) {
+            if (is_array($instance)) {
+                $this->collectRateSheetIdsFromInstance($instance, $used);
+            }
+        }
+
+        // Temporary compatibility copy. It is retired only after runtime gate.
+        $this->collectRateSheetIdsFromInstance([
+            'tiers' => is_array($station['tiers'] ?? null) ? $station['tiers'] : [],
+            'occupant_bin' => is_array($station['occupant_bin'] ?? null) ? $station['occupant_bin'] : [],
+            'allowed_rate_sheet_ids' => [],
+        ], $used);
+
+        return $used;
+    }
+
+    /** @return string[] */
+    public function rateSheetInstanceIdsInUse(array $station, string $rateSheetId): array
+    {
+        $instanceIds = [];
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) {
+                continue;
+            }
+            $used = [];
+            $this->collectRateSheetIdsFromInstance($instance, $used);
+            if (isset($used[$rateSheetId])) {
+                $id = (string) ($instance['tier_instance_id'] ?? '');
+                if ($id !== '') {
+                    $instanceIds[] = $id;
+                }
+            }
+        }
+        return array_values(array_unique($instanceIds));
+    }
+
+    /** @param array<string, true> $used */
+    private function collectRateSheetIdsFromInstance(array $instance, array &$used): void
+    {
+        $primary = PackageManagerSchema::PRIMARY_RATE_SHEET_ID;
+        foreach (is_array($instance['allowed_rate_sheet_ids'] ?? null) ? $instance['allowed_rate_sheet_ids'] : [] as $rawId) {
+            $id = is_scalar($rawId) ? trim((string) $rawId) : '';
+            if ($id !== '') {
+                $used[$id] = true;
+            }
+        }
+
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+            if (!is_array($slot)) {
+                continue;
+            }
+            $occupant = is_array($slot['current_occupant'] ?? null)
+                ? $slot['current_occupant']
+                : (array_key_exists('current_occupant', $slot) ? [] : $slot);
+            $occupantId = $this->resolvedRateSheetId($occupant, $primary);
+            if ($occupantId !== null) {
+                $used[$occupantId] = true;
+            }
+
+            $overview = is_array($slot['drafts']['overview'] ?? null) ? $slot['drafts']['overview'] : null;
+            if ($overview !== null) {
+                $overviewId = trim((string) ($overview['rate_sheet_id'] ?? ''));
+                $used[$overviewId !== '' ? $overviewId : $primary] = true;
+            }
+
+            $features = $slot['drafts']['features'] ?? null;
+            if (is_array($features) && $features !== []) {
+                $bound = $overview !== null && array_key_exists('rate_sheet_id', $overview)
+                    ? trim((string) ($overview['rate_sheet_id'] ?? ''))
+                    : ($occupantId ?? '');
+                $used[$bound !== '' ? $bound : $primary] = true;
+            }
+
+            foreach (is_array($slot['history'] ?? null) ? $slot['history'] : [] as $historical) {
+                if (!is_array($historical)) {
+                    continue;
+                }
+                $historicalId = $this->resolvedRateSheetId($historical, $primary);
+                if ($historicalId !== null) {
+                    $used[$historicalId] = true;
+                }
+            }
+        }
+
+        foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+            $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : [];
+            $id = $this->resolvedRateSheetId($occupant, $primary);
+            if ($id !== null) {
+                $used[$id] = true;
+            }
+        }
+    }
+
+    private function resolvedRateSheetId(array $record, string $primary): ?string
+    {
+        $id = trim((string) ($record['rate_sheet_id'] ?? ''));
+        if ($id !== '') {
+            return $id;
+        }
+        return $record !== [] ? $primary : null;
+    }
+
+    /**
      * Cutover bridge — copies the richest legacy Service-hosted station into
      * the option, once. The legacy meta is left in place untouched (read-only
      * safety net); nothing reads it after this migration runs.

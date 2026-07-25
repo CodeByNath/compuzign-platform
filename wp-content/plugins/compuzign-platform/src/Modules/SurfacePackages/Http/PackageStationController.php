@@ -8,6 +8,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageStationSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 
 /**
  * Package Station admin write/read endpoints — manager, tiers, occupant bin,
@@ -32,6 +33,14 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
  * ServicePools is imported from Service\Support: the tier save path may carry
  * new_inclusions/new_faqs, which must be written through the Service-owned pool
  * contract rather than by touching cz_service_* meta here.
+ *
+ * File index (stable section markers below):
+ * - ROUTE_REGISTRATION — Package global and Service-navigation REST contracts.
+ * - ASSIGNMENT_LEDGER — create/list/remove peer relationships.
+ * - TIER_INSTANCE_COLLECTION — independent instance CRUD and deletion guards.
+ * - PACKAGE_READ_AND_MANAGER — selected-instance read plus Manager configuration.
+ * - TIER_MUTATIONS — selected-instance slot lifecycle and popular state.
+ * - INSTANCE_CONTEXT — instance-first resolution and one-instance persistence.
  */
 class PackageStationController
 {
@@ -59,6 +68,9 @@ class PackageStationController
 
     public function registerRoutes(): void
     {
+        // ===================================================================
+        // SECTION: ROUTE_REGISTRATION
+        // ===================================================================
         register_rest_route('compuzign/v1', '/admin/package-station/tier-assignments', [
             'methods'             => 'GET',
             'callback'            => [$this, 'listTierAssignments'],
@@ -81,6 +93,95 @@ class PackageStationController
             'callback'            => [$this, 'deleteTierAssignment'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ['assignment' => ['required' => true, 'type' => 'string']],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-instances', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'listTierInstances'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-instances', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createTierInstance'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['title' => ['required' => true, 'type' => 'string']],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-instances/(?P<instance>[a-z0-9_]+)', [
+            'methods'             => 'PATCH',
+            'callback'            => [$this, 'updateTierInstance'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['instance' => ['required' => true, 'type' => 'string']],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-instances/(?P<instance>[a-z0-9_]+)', [
+            'methods'             => 'DELETE',
+            'callback'            => [$this, 'deleteTierInstance'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['instance' => ['required' => true, 'type' => 'string']],
+        ]);
+
+        $instanceBase = '/admin/services/(?P<id>\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)';
+        $instanceArgs = [
+            'id'       => ['required' => true, 'type' => 'integer'],
+            'instance' => ['required' => true, 'type' => 'string'],
+        ];
+        register_rest_route('compuzign/v1', $instanceBase . '/read', [
+            'methods' => 'GET', 'callback' => [$this, 'getPackageStation'],
+            'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)', [
+            'methods' => 'POST', 'callback' => [$this, 'savePackageStationTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)]],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/enabled', [
+            'methods' => 'POST', 'callback' => [$this, 'setPackageStationTierEnabled'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)]],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/modules/(?P<module>[a-z]+)', [
+            'methods' => 'POST', 'callback' => [$this, 'savePackageStationTierModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs,
+                'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)],
+                'module' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::TIER_MODULES, true)],
+            ],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/archive', [
+            'methods' => 'POST', 'callback' => [$this, 'archivePackageStationTierOccupant'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/bin/(?P<bin>[a-z0-9_]+)/restore', [
+            'methods' => 'POST', 'callback' => [$this, 'restorePackageStationBinEntry'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/bin/(?P<bin>[a-z0-9_]+)/trash', [
+            'methods' => 'POST', 'callback' => [$this, 'trashPackageStationBinEntry'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/bin/(?P<bin>[a-z0-9_]+)', [
+            'methods' => 'DELETE', 'callback' => [$this, 'deletePackageStationBinEntry'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs)/revert', [
+            'methods' => 'POST', 'callback' => [$this, 'revertPackageStationTierModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/settle', [
+            'methods' => 'POST', 'callback' => [$this, 'settlePackageStationTier'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)]],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/popular', [
+            'methods' => 'POST', 'callback' => [$this, 'setPackageStationPopular'],
+            'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
         ]);
 
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station', [
@@ -227,6 +328,10 @@ class PackageStationController
         ]);
     }
 
+    // ===================================================================
+    // SECTION: ASSIGNMENT_LEDGER
+    // ===================================================================
+
     public function listTierAssignments(\WP_REST_Request $request): \WP_REST_Response
     {
         [$station, $manager, $instances] = $this->assignmentState();
@@ -312,6 +417,150 @@ class PackageStationController
         return [$station, $manager, $instances];
     }
 
+    // ===================================================================
+    // SECTION: TIER_INSTANCE_COLLECTION
+    // ===================================================================
+
+    public function listTierInstances(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
+        return rest_ensure_response([
+            'success' => true,
+            'tier_instances' => TierInstanceSchema::sanitizeInstances($station['tier_instances'] ?? []),
+        ]);
+    }
+
+    public function createTierInstance(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
+        $title = sanitize_text_field((string) $request->get_param('title'));
+        if ($title === '') {
+            return new \WP_REST_Response([
+                'success' => false, 'code' => 'title_required',
+                'message' => 'Tier instance title is required.',
+            ], 422);
+        }
+        $body = $request->get_json_params();
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $instance = [
+            'tier_instance_id' => TierInstanceSchema::mintInstanceId(),
+            'title' => $title,
+            'status' => 'disabled',
+            'allowed_rate_sheet_ids' => TierInstanceSchema::sanitizeAllowedRateSheetIds(
+                is_array($body) ? ($body['allowed_rate_sheet_ids'] ?? []) : [],
+                $manager['rate_sheets']
+            ),
+            'popular_tier' => null,
+            'popular_label' => '',
+            'tiers' => TierInstanceSchema::emptyTierMap(),
+            'occupant_bin' => [],
+        ];
+        $instances = TierInstanceSchema::upsertInstance($station['tier_instances'] ?? [], $instance);
+        $instance = TierInstanceSchema::findInstance($instances, $instance['tier_instance_id']);
+        $station['tier_instances'] = $instances;
+        $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances($instances);
+        $this->packages()->saveStation($station);
+        return rest_ensure_response(['success' => true, 'tier_instance' => $instance]);
+    }
+
+    public function updateTierInstance(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $instanceId = sanitize_text_field((string) $request->get_param('instance'));
+        $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
+        if ($instance === null) {
+            return $this->unknownTierInstanceResponse();
+        }
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            $body = [];
+        }
+        if (array_key_exists('title', $body)) {
+            $title = sanitize_text_field((string) $body['title']);
+            if ($title === '') {
+                return new \WP_REST_Response([
+                    'success' => false, 'code' => 'title_required',
+                    'message' => 'Tier instance title is required.',
+                ], 422);
+            }
+            $instance['title'] = $title;
+        }
+        if (array_key_exists('allowed_rate_sheet_ids', $body)) {
+            $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+            $instance['allowed_rate_sheet_ids'] = TierInstanceSchema::sanitizeAllowedRateSheetIds(
+                $body['allowed_rate_sheet_ids'],
+                $manager['rate_sheets']
+            );
+        }
+        $station = TierInstanceSchema::withInstance($station, $instanceId, $instance);
+        $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances($station['tier_instances']);
+        $this->packages()->saveStation($station);
+        return rest_ensure_response([
+            'success' => true,
+            'tier_instance' => TierInstanceSchema::findInstance($station['tier_instances'], $instanceId),
+        ]);
+    }
+
+    public function deleteTierInstance(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $instanceId = sanitize_text_field((string) $request->get_param('instance'));
+        $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
+        if ($instance === null) {
+            return $this->unknownTierInstanceResponse();
+        }
+        if (TierAssignmentSchema::findForInstance($station['tier_assignments'] ?? [], $instanceId) !== null) {
+            return $this->instanceDeleteGuardResponse('instance_in_use', 'Remove the Tier assignment first.');
+        }
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+            if (!is_array($slot)) {
+                continue;
+            }
+            $hasOccupant = array_key_exists('current_occupant', $slot)
+                ? is_array($slot['current_occupant'] ?? null) && $slot['current_occupant'] !== []
+                : array_diff_key($slot, ['drafts' => true, 'module_status' => true]) !== [];
+            if ($hasOccupant) {
+                return $this->instanceDeleteGuardResponse('instance_has_occupants', 'Remove or archive every occupant first.');
+            }
+        }
+        if (is_array($instance['occupant_bin'] ?? null) && $instance['occupant_bin'] !== []) {
+            return $this->instanceDeleteGuardResponse('instance_has_bin_entries', 'Empty the occupant bin first.');
+        }
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+            foreach (is_array($slot['drafts'] ?? null) ? $slot['drafts'] : [] as $draft) {
+                if ($draft !== null) {
+                    return $this->instanceDeleteGuardResponse('instance_has_drafts', 'Discard every Tier draft first.');
+                }
+            }
+        }
+
+        if ($instanceId === TierInstanceSchema::PRIMARY_INSTANCE_ID) {
+            $station = TierInstanceSchema::withInstance($station, $instanceId, [
+                'tier_instance_id' => $instanceId,
+                'title' => $instance['title'] ?? '',
+                'status' => 'disabled',
+                'allowed_rate_sheet_ids' => [],
+                'popular_tier' => null,
+                'popular_label' => '',
+                'tiers' => TierInstanceSchema::emptyTierMap(),
+                'occupant_bin' => [],
+            ]);
+        }
+        $station['tier_instances'] = TierInstanceSchema::removeInstance($station['tier_instances'], $instanceId);
+        $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances($station['tier_instances']);
+        $this->packages()->saveStation($station);
+        return rest_ensure_response(['success' => true, 'deleted' => $instanceId]);
+    }
+
+    private function instanceDeleteGuardResponse(string $code, string $message): \WP_REST_Response
+    {
+        return new \WP_REST_Response(['success' => false, 'code' => $code, 'message' => $message], 409);
+    }
+
+    // ===================================================================
+    // SECTION: PACKAGE_READ_AND_MANAGER
+    // ===================================================================
+
     public function getPackageStation(\WP_REST_Request $request): \WP_REST_Response
     {
         $serviceId = (int) $request->get_param('id');
@@ -320,23 +569,25 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
+        $instanceStatus = TierInstanceSchema::deriveInstanceStatus($instance);
 
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
         $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
         $sanitizedManager = $PMS::sanitize($rawManager);
         [$incPool, $faqPool] = $this->packages()->sourcePools($station, $sanitizedManager['sources']);
-        $managerModel = $PMS::buildReadModel($serviceId, $sanitizedManager, $incPool, $faqPool, (string) ($station['platform_status'] ?? 'disabled'));
+        $managerModel = $PMS::buildReadModel($serviceId, $sanitizedManager, $incPool, $faqPool, $instanceStatus);
         $tiers = [];
         foreach ($PS::ALLOWED_TIERS as $tierId) {
             // P3 additive read exposure: settled detail (unchanged 8 fields) plus the
             // raw drafts + module_status, returned SEPARATELY. No server-side merge —
             // the hook derives draft-preferred client-side (parity with useServiceStation).
-            $slot   = $PS::ensureTierLifecycle($station['tiers'][$tierId] ?? []);
+            $slot   = $PS::ensureTierLifecycle($instance['tiers'][$tierId] ?? []);
             $detail = $PS::normaliseTierSlot($slot);
             $detail['drafts']        = $slot['drafts'];
             $detail['module_status'] = $slot['module_status'];
@@ -356,7 +607,7 @@ class PackageStationController
                 : ($detail['rate_sheet_items'] ?? []);
             $rateProjection = $PMS::projectTierRateSheet(
                 $serviceId, $rawManager, $effectiveSelections, $incPool,
-                $faqPool, (string) ($station['platform_status'] ?? 'disabled'),
+                $faqPool, $instanceStatus,
                 $detail['rate_sheet_id'] ?? null
             );
             $detail['rate_sheet_selections'] = $rateProjection['selections'];
@@ -378,20 +629,25 @@ class PackageStationController
         }
 
         // D2 additive read exposure: the occupant bin (lazy-normalised; [] pre-D2).
-        $station = $PS::ensureOccupantBin($station);
+        $instance = $PS::ensureOccupantBin($instance);
 
-        return rest_ensure_response([
+        $responseStation = [
+            'platform_status' => $instanceStatus,
+            'tiers'           => $tiers,
+            'popular_tier'    => $instance['popular_tier'] ?? null,
+            'popular_label'   => $instance['popular_label'] ?? '',
+            'sort_position'   => (int) ($station['sort_position'] ?? 0),
+            'bundle'          => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
+            'occupant_bin'    => $instance['occupant_bin'],
+        ];
+        if ($request->get_param('instance') !== null) {
+            $responseStation['tier_instance_id'] = $instanceId;
+        }
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'    => true,
             'service_id' => $serviceId,
-            'station'    => [
-                'platform_status' => $station['platform_status'] ?? 'disabled',
-                'tiers'           => $tiers,
-                'popular_tier'    => $station['popular_tier'] ?? null,
-                'popular_label'   => $station['popular_label'] ?? '',
-                'sort_position'   => (int) ($station['sort_position'] ?? 0),
-                'bundle'          => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
-                'occupant_bin'    => $station['occupant_bin'],
-            ],
+            'station'    => $responseStation,
             'service' => [
                 'id'         => $serviceId,
                 'title'      => $post->post_title,
@@ -406,7 +662,7 @@ class PackageStationController
                 'rate_sheets' => $managerModel['rate_sheets'],
                 'package_relationships' => $managerModel['items'],
             ],
-        ]);
+        ]));
     }
 
     /**
@@ -489,9 +745,14 @@ class PackageStationController
         // First-time configuration bootstraps the independent station anchor.
         $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
 
-        // Delete guard (Refinement 2): a sheet still bound by any Tier occupant
-        // cannot be removed — archive it first. Deletion is only ever explicit.
-        $referenced = $this->rateSheetIdsReferencedByTiers($station);
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+        $rawManager = is_array($station['package_manager'] ?? null)
+            ? $station['package_manager']
+            : $PMS::defaultManager();
+        $storedManager = $PMS::sanitize($rawManager);
+
+        // Delete/archive guards traverse every instance lifecycle envelope.
+        $referenced = $this->packages()->rateSheetIdsInUse($station);
         foreach ($rateSheetDeletions as $deleteId) {
             $deleteId = sanitize_text_field((string) $deleteId);
             if ($deleteId !== '' && isset($referenced[$deleteId])) {
@@ -503,10 +764,27 @@ class PackageStationController
             }
         }
 
-        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
-        $rawManager = is_array($station['package_manager'] ?? null)
-            ? $station['package_manager']
-            : $PMS::defaultManager();
+        foreach ($submittedRateSheets as $submittedRateSheet) {
+            if (!is_array($submittedRateSheet)) {
+                continue;
+            }
+            $sheetId = sanitize_text_field((string) ($submittedRateSheet['rate_sheet_id'] ?? ''));
+            $nextStatus = sanitize_text_field((string) ($submittedRateSheet['status'] ?? 'active'));
+            $storedSheet = $PMS::findRateSheet($storedManager['rate_sheets'], $sheetId);
+            if ($sheetId !== ''
+                && $nextStatus === 'archived'
+                && ($storedSheet['status'] ?? null) !== 'archived'
+                && isset($referenced[$sheetId])
+            ) {
+                return rest_ensure_response([
+                    'success' => false,
+                    'code' => 'rate_sheet_in_use_archive',
+                    'message' => 'This Rate Sheet is still bound by a Tier instance.',
+                    'tier_instance_ids' => $this->packages()->rateSheetInstanceIdsInUse($station, $sheetId),
+                ]);
+            }
+        }
+
         $submittedSources = PackageStationSchema::sanitizeSourceRelationships($body['sources']);
         [$incPool, $faqPool] = $this->packages()->sourcePools($station, $submittedSources);
 
@@ -539,30 +817,9 @@ class PackageStationController
         ]);
     }
 
-    /**
-     * Rate Sheet ids currently bound by a Tier occupant — a stored occupant
-     * with selections, or a pending features draft. A legacy occupant carrying
-     * selections but no id resolves against the migrated primary sheet, matching
-     * the read-time default. Feeds the manager save delete-guard.
-     *
-     * @return array<string, true>
-     */
-    private function rateSheetIdsReferencedByTiers(array $station): array
-    {
-        $primary = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::PRIMARY_RATE_SHEET_ID;
-        $referenced = [];
-        foreach (is_array($station['tiers'] ?? null) ? $station['tiers'] : [] as $slot) {
-            if (!is_array($slot)) { continue; }
-            $occupant      = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : [];
-            $draftFeatures = $slot['drafts']['features'] ?? null;
-            $hasSelections = (is_array($occupant['rate_sheet_items'] ?? null) && $occupant['rate_sheet_items'] !== [])
-                || (is_array($draftFeatures) && $draftFeatures !== []);
-            if (!$hasSelections) { continue; }
-            $id = trim((string) ($occupant['rate_sheet_id'] ?? ''));
-            $referenced[$id !== '' ? $id : $primary] = true;
-        }
-        return $referenced;
-    }
+    // ===================================================================
+    // SECTION: TIER_MUTATIONS
+    // ===================================================================
 
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -579,10 +836,11 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Invalid request body.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
         // Add new inclusions/FAQs to the canonical pools of the service whose
         // items resolve unprefixed (the station's legacy host), so the stored
@@ -592,7 +850,7 @@ class PackageStationController
         $addedFaqRefs    = ServicePools::addFaqs($poolServiceId, $body['new_faqs'] ?? []);
 
         $existingDetail = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot(
-            $station['tiers'][$tierId] ?? []
+            $instance['tiers'][$tierId] ?? []
         );
 
         // Inclusions
@@ -646,9 +904,9 @@ class PackageStationController
         // carries the lifecycle layer with no pending drafts and every module settled.
         // Additive/inert (no read path consumes it yet); response shape is unchanged
         // because it is built from normaliseTierSlot, which ignores these keys.
-        $station['tiers'][$tierId] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::commitTierLifecycle(
+        $instance['tiers'][$tierId] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::commitTierLifecycle(
             \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::upsertOccupant(
-                $station['tiers'][$tierId] ?? ['current_occupant' => null, 'history' => []],
+                $instance['tiers'][$tierId] ?? ['current_occupant' => null, 'history' => []],
                 $tierData,
                 $enabled
             )
@@ -656,27 +914,39 @@ class PackageStationController
 
         if (array_key_exists('popular', $body)) {
             if ((bool) $body['popular']) {
-                $station['popular_tier']  = $tierId;
-                $station['popular_label'] = sanitize_text_field((string) ($body['popular_label'] ?? ''));
-            } elseif (($station['popular_tier'] ?? null) === $tierId) {
-                $station['popular_tier'] = null;
+                $instance['popular_tier']  = $tierId;
+                $instance['popular_label'] = sanitize_text_field((string) ($body['popular_label'] ?? ''));
+            } elseif (($instance['popular_tier'] ?? null) === $tierId) {
+                $instance['popular_tier'] = null;
             }
         }
 
-        $station['platform_status'] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::deriveStationStatus($station);
-        $this->packages()->saveStation($station);
+        $station = $this->persistTierInstance($station, $instanceId, $instance);
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'], $instanceId) ?? $instance;
 
         $tiers = [];
         foreach (\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS as $tid) {
-            $tiers[$tid] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot($station['tiers'][$tid] ?? []);
+            $tiers[$tid] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot($instance['tiers'][$tid] ?? []);
         }
 
-        return rest_ensure_response([
+        $responseStation = [
+            'platform_status' => TierInstanceSchema::deriveInstanceStatus($instance),
+            'tiers' => $tiers,
+            'popular_tier' => $instance['popular_tier'] ?? null,
+            'popular_label' => $instance['popular_label'] ?? '',
+            'sort_position' => (int) ($station['sort_position'] ?? 0),
+            'bundle' => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
+            'occupant_bin' => $instance['occupant_bin'] ?? [],
+        ];
+        if ($request->get_param('instance') !== null) {
+            $responseStation['tier_instance_id'] = $instanceId;
+        }
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'              => true,
-            'station'              => array_merge($station, ['tiers' => $tiers]),
+            'station'              => $responseStation,
             'new_inclusions_added' => count($addedInclusions),
             'new_faqs_added'       => count($addedFaqRefs),
-        ]);
+        ]));
     }
 
     public function setPackageStationTierEnabled(\WP_REST_Request $request): \WP_REST_Response
@@ -692,28 +962,30 @@ class PackageStationController
         $body    = $request->get_json_params();
         $enabled = isset($body['enabled']) ? (bool) $body['enabled'] : true;
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
-        $tierSlot = $station['tiers'][$tierId] ?? [];
+        $tierSlot = $instance['tiers'][$tierId] ?? [];
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
 
         if ($PS::isOccupantFormat($tierSlot)) {
             if (!empty($tierSlot['current_occupant'])) {
-                $station['tiers'][$tierId]['current_occupant']['platform_status'] = $enabled ? 'active' : 'disabled';
+                $instance['tiers'][$tierId]['current_occupant']['platform_status'] = $enabled ? 'active' : 'disabled';
             }
         } else {
             if (!empty($tierSlot)) {
-                $station['tiers'][$tierId]['enabled'] = $enabled;
+                $instance['tiers'][$tierId]['enabled'] = $enabled;
             }
         }
 
-        $station['platform_status'] = $PS::deriveStationStatus($station);
-        $this->packages()->saveStation($station);
+        $this->persistTierInstance($station, $instanceId, $instance);
 
-        return rest_ensure_response(['success' => true, 'tier_id' => $tierId, 'enabled' => $enabled]);
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success' => true, 'tier_id' => $tierId, 'enabled' => $enabled,
+        ]));
     }
 
     /**
@@ -738,15 +1010,16 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
         $body = $request->get_json_params();
         if (!is_array($body)) { $body = []; }
 
-        $slot = $PS::ensureTierLifecycle($station['tiers'][$tierId] ?? []);
+        $slot = $PS::ensureTierLifecycle($instance['tiers'][$tierId] ?? []);
 
         if ($module === 'overview') {
             $contact = !empty($body['contact']);
@@ -780,17 +1053,17 @@ class PackageStationController
 
         $slot['drafts'][$module]        = $draftValue;
         $slot['module_status'][$module] = 'pending';
-        $station['tiers'][$tierId]      = $slot;
-        $this->packages()->saveStation($station);
+        $instance['tiers'][$tierId] = $slot;
+        $this->persistTierInstance($station, $instanceId, $instance);
 
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'       => true,
             'tier_id'       => $tierId,
             'module'        => $module,
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
-        ]);
+        ]));
     }
 
     /**
@@ -811,16 +1084,17 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
         $body          = $request->get_json_params();
         $discardDrafts = is_array($body) && !empty($body['discard_drafts']);
 
         $result = $PS::archiveTierOccupant(
-            $station,
+            $instance,
             $tierId,
             $discardDrafts,
             $PS::generateBinId(),
@@ -837,10 +1111,10 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        $this->packages()->saveStation($result['station']);
+        $station = $this->persistTierInstance($station, $instanceId, $result['station']);
 
         $slot = $result['station']['tiers'][$tierId];
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'         => true,
             'tier_id'         => $tierId,
             'tier'            => $PS::normaliseTierSlot($slot),
@@ -848,8 +1122,8 @@ class PackageStationController
             'module_status'   => $slot['module_status'],
             'bin_entry'       => $result['entry'],
             'occupant_bin'    => $result['station']['occupant_bin'],
-            'platform_status' => $result['station']['platform_status'] ?? 'disabled',
-        ]);
+            'platform_status' => TierInstanceSchema::deriveInstanceStatus($result['station']),
+        ]));
     }
 
     /**
@@ -871,10 +1145,11 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
         $body          = $request->get_json_params();
         $mode          = is_array($body) && isset($body['mode']) ? sanitize_key((string) $body['mode']) : '';
@@ -882,7 +1157,7 @@ class PackageStationController
         $discardDrafts = is_array($body) && !empty($body['discard_drafts']);
 
         $result = $PS::restoreBinnedOccupant(
-            $station,
+            $instance,
             $binId,
             $mode === '' ? null : $mode,
             $targetTier === '' ? null : $targetTier,
@@ -906,11 +1181,11 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        $this->packages()->saveStation($result['station']);
+        $station = $this->persistTierInstance($station, $instanceId, $result['station']);
 
         $tierId = $result['tier_id'];
         $slot   = $result['station']['tiers'][$tierId];
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'         => true,
             'bin_id'          => $binId,
             'tier_id'         => $tierId,
@@ -919,8 +1194,8 @@ class PackageStationController
             'module_status'   => $slot['module_status'],
             'displaced_entry' => $result['displaced'],
             'occupant_bin'    => $result['station']['occupant_bin'],
-            'platform_status' => $result['station']['platform_status'] ?? 'disabled',
-        ]);
+            'platform_status' => TierInstanceSchema::deriveInstanceStatus($result['station']),
+        ]));
     }
 
     /** Engine D3 — trash a bin entry (archived → trashed, engine-validated). */
@@ -935,12 +1210,13 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
-        $result = $PS::trashBinnedOccupant($station, $binId);
+        $result = $PS::trashBinnedOccupant($instance, $binId);
         if (isset($result['error'])) {
             $message = match ($result['error']) {
                 'unknown_bin_entry' => 'Bin entry not found.',
@@ -950,14 +1226,14 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        $this->packages()->saveStation($result['station']);
+        $this->persistTierInstance($station, $instanceId, $result['station']);
 
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'      => true,
             'bin_id'       => $binId,
             'bin_entry'    => $result['entry'],
             'occupant_bin' => $result['station']['occupant_bin'],
-        ]);
+        ]));
     }
 
     /**
@@ -975,12 +1251,13 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
-        $result = $PS::deleteBinnedOccupant($station, $binId);
+        $result = $PS::deleteBinnedOccupant($instance, $binId);
         if (isset($result['error'])) {
             $message = match ($result['error']) {
                 'unknown_bin_entry' => 'Bin entry not found.',
@@ -990,14 +1267,14 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
         }
 
-        $this->packages()->saveStation($result['station']);
+        $this->persistTierInstance($station, $instanceId, $result['station']);
 
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'      => true,
             'bin_id'       => $binId,
             'deleted'      => true,
             'occupant_bin' => $result['station']['occupant_bin'],
-        ]);
+        ]));
     }
 
     /**
@@ -1020,27 +1297,28 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Unknown tier.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
-        $slot = $PS::revertTierModuleDraft($station['tiers'][$tierId] ?? [], $module);
+        $slot = $PS::revertTierModuleDraft($instance['tiers'][$tierId] ?? [], $module);
         if ($slot === null) {
             return rest_ensure_response(['success' => false, 'message' => 'Invalid module.']);
         }
 
-        $station['tiers'][$tierId] = $slot;
-        $this->packages()->saveStation($station);
+        $instance['tiers'][$tierId] = $slot;
+        $this->persistTierInstance($station, $instanceId, $instance);
 
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'       => true,
             'tier_id'       => $tierId,
             'module'        => $module,
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
-        ]);
+        ]));
     }
 
     /**
@@ -1059,24 +1337,24 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
-        $slot = $PS::settleTierSlot($station['tiers'][$tierId] ?? []);
-        $station['tiers'][$tierId]  = $slot;
-        $station['platform_status'] = $PS::deriveStationStatus($station);
-        $this->packages()->saveStation($station);
+        $slot = $PS::settleTierSlot($instance['tiers'][$tierId] ?? []);
+        $instance['tiers'][$tierId] = $slot;
+        $this->persistTierInstance($station, $instanceId, $instance);
 
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'       => true,
             'tier_id'       => $tierId,
-            'platform_status' => $station['platform_status'],
+            'platform_status' => TierInstanceSchema::deriveInstanceStatus($instance),
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
-        ]);
+        ]));
     }
 
     /**
@@ -1094,30 +1372,81 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
         }
 
-        $station = $this->packages()->loadStation();
-        if (!is_array($station) || empty($station)) {
-            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
         }
+        [$station, $instanceId, $instance] = $context;
 
         $body   = $request->get_json_params();
         if (!is_array($body)) { $body = []; }
         $tierId = sanitize_key((string) ($body['tier_id'] ?? ''));
 
         if ($tierId !== '' && in_array($tierId, $PS::ALLOWED_TIERS, true)) {
-            $station['popular_tier']  = $tierId;
-            $station['popular_label'] = sanitize_text_field((string) ($body['label'] ?? ''));
+            $instance['popular_tier']  = $tierId;
+            $instance['popular_label'] = sanitize_text_field((string) ($body['label'] ?? ''));
         } else {
-            $station['popular_tier']  = null;
-            $station['popular_label'] = '';
+            $instance['popular_tier']  = null;
+            $instance['popular_label'] = '';
         }
 
-        $this->packages()->saveStation($station);
+        $this->persistTierInstance($station, $instanceId, $instance);
 
-        return rest_ensure_response([
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'       => true,
-            'popular_tier'  => $station['popular_tier'],
-            'popular_label' => $station['popular_label'],
-        ]);
+            'popular_tier'  => $instance['popular_tier'],
+            'popular_label' => $instance['popular_label'],
+        ]));
+    }
+
+    // ===================================================================
+    // SECTION: INSTANCE_CONTEXT
+    // ===================================================================
+
+    /** @return array{0:array,1:string,2:array}|\WP_REST_Response */
+    private function tierInstanceContext(\WP_REST_Request $request): array|\WP_REST_Response
+    {
+        $rawInstanceId = $request->get_param('instance');
+        $instanceId = $rawInstanceId === null
+            ? TierInstanceSchema::PRIMARY_INSTANCE_ID
+            : sanitize_text_field((string) $rawInstanceId);
+        $station = $this->packages()->loadStation();
+        if (!is_array($station) || $station === []) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
+        if ($instance === null) {
+            return $this->unknownTierInstanceResponse();
+        }
+        return [$station, $instanceId, $instance];
+    }
+
+    private function persistTierInstance(array $station, string $instanceId, array $instance): array
+    {
+        $station = TierInstanceSchema::withInstance($station, $instanceId, $instance);
+        $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances(
+            $station['tier_instances'] ?? []
+        );
+        $this->packages()->saveStation($station);
+        return $station;
+    }
+
+    private function unknownTierInstanceResponse(): \WP_REST_Response
+    {
+        return new \WP_REST_Response([
+            'success' => false,
+            'code' => 'unknown_tier_instance',
+            'message' => 'Tier instance not found.',
+        ], 404);
+    }
+
+    /** @param array<string, mixed> $payload @return array<string, mixed> */
+    private function instanceResponseEnvelope(\WP_REST_Request $request, string $instanceId, array $payload): array
+    {
+        if ($request->get_param('instance') !== null) {
+            $payload['tier_instance_id'] = $instanceId;
+        }
+        return $payload;
     }
 
     public function requireAdmin(): bool

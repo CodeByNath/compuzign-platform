@@ -2,7 +2,7 @@
 
 ## Purpose and ownership
 
-Package Station owns Tier occupants, fixed slots, overview and pricing selections, inclusions, FAQs, publish/enabled/popular state, occupant-bin travel, validation, and persistence. Service catalogue records and Service-owned pools are inputs; neither Service Station, Admin Station, nor Station Manager owns Tier configuration.
+Package Station owns Tier instances, occupants, fixed slots, overview and pricing selections, inclusions, FAQs, publish/enabled/popular state, occupant-bin travel, validation, and persistence. Service catalogue records and Service-owned pools are inputs; neither Service Station, Admin Station, nor Station Manager owns Tier configuration. Each operation resolves a `tier_instance_id` before its fixed slot; the address is `(tier_instance_id, slotId)`.
 
 Stable surface and drawer identity is `occupant_id` (string). The resolved fixed `slotId` remains the mutation/storage address. Empty slots are not cards, and identities must not be coerced or substituted.
 
@@ -27,7 +27,7 @@ A Package Family is working scope only. It never owns Tier records or gains a pe
 
 - [TierDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerContent.tsx) is the host-neutral composition.
 - [useTierDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/useTierDrawerController.ts) coordinates module editing, bin travel, dialogs, and footer state without rendering JSX.
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns reads, drafts, saves, settle, status, pool operations, and bin mutations.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns instance-scoped reads, drafts, saves, settle, status, pool operations, and bin mutations. Its second positional argument is the instance id; `null` performs no Tier read or mutation.
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects occupants and resolves them back to slots.
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns occupant compatibility and lifecycle shapes; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations; [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`.
 

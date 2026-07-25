@@ -168,18 +168,27 @@ export interface PackageStation {
   refetch:          () => void;
 }
 
-export function usePackageStation(serviceId: number, onRefresh?: () => void): PackageStation {
+export function usePackageStation(
+  serviceId: number,
+  tierInstanceId: string | null,
+  onRefresh?: () => void,
+): PackageStation {
   const [detail, setDetail]             = useState<NormDetail | null>(null);
   const [detailLoaded, setDetailLoaded] = useState(false);
   const [saving, setSaving]             = useState(false);
 
   const load = useCallback(() => {
+    if (serviceId <= 0 || tierInstanceId === null) {
+      setDetail(null);
+      setDetailLoaded(true);
+      return;
+    }
     setDetailLoaded(false);
-    fetchServicePackageStation(serviceId)
+    fetchServicePackageStation(serviceId, tierInstanceId)
       .then(res => setDetail(res.success ? normDetail(res) : null))
       .catch(() => setDetail(null))
       .finally(() => setDetailLoaded(true));
-  }, [serviceId]);
+  }, [serviceId, tierInstanceId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -271,45 +280,50 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
   }, []);
 
   const saveTierOverview = useCallback(async (tierId: string, draft: TierOverviewDraft) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await saveServicePackageStationTierModule(serviceId, tierId, 'overview', draft);
+      const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'overview', draft);
       if (res.success) { patchModule(tierId, 'overview', res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchModule]);
+  }, [serviceId, tierInstanceId, onRefresh, patchModule]);
 
   const saveTierFeatures = useCallback(async (tierId: string, refs: TierRateSheetSelection[]) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await saveServicePackageStationTierModule(serviceId, tierId, 'features', { rate_sheet_items: refs });
+      const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'features', { rate_sheet_items: refs });
       if (res.success) { patchModule(tierId, 'features', res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchModule]);
+  }, [serviceId, tierInstanceId, onRefresh, patchModule]);
 
   const saveTierFaqs = useCallback(async (tierId: string, refs: string[]) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await saveServicePackageStationTierModule(serviceId, tierId, 'faqs', { faq_refs: refs });
+      const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'faqs', { faq_refs: refs });
       if (res.success) { patchModule(tierId, 'faqs', res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchModule]);
+  }, [serviceId, tierInstanceId, onRefresh, patchModule]);
 
   const revertTierModule = useCallback(async (tierId: string, module: TierModuleKey) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await revertServicePackageStationTierModule(serviceId, tierId, module);
+      const res = await revertServicePackageStationTierModule(serviceId, tierInstanceId, tierId, module);
       if (res.success) { patchModule(tierId, module, res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchModule]);
+  }, [serviceId, tierInstanceId, onRefresh, patchModule]);
 
   const settleTier = useCallback(async (tierId: string) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await settleServicePackageStationTier(serviceId, tierId);
+      const res = await settleServicePackageStationTier(serviceId, tierInstanceId, tierId);
       if (res.success) {
         setDetail(prev => prev ? {
           ...prev,
@@ -326,13 +340,14 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
       }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh]);
+  }, [serviceId, tierInstanceId, onRefresh]);
 
   // Station-level popular tier — patches station.popular_tier/label in place.
   const setPopularTier = useCallback(async (tierId: string | null, label: string) => {
+    if (tierInstanceId === null) return false;
     setSaving(true);
     try {
-      const res = await setServicePackageStationPopular(serviceId, tierId, label);
+      const res = await setServicePackageStationPopular(serviceId, tierInstanceId, tierId, label);
       if (res.success) {
         setDetail(prev => prev ? {
           ...prev,
@@ -342,12 +357,13 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
       }
       return res.success;
     } catch { return false; } finally { setSaving(false); }
-  }, [serviceId, onRefresh]);
+  }, [serviceId, tierInstanceId, onRefresh]);
 
   const toggleTierEnabled = useCallback(async (tierId: string, enabled: boolean) => {
+    if (tierInstanceId === null) return false;
     setSaving(true);
     try {
-      const res = await setServicePackageStationTierEnabled(serviceId, tierId, enabled);
+      const res = await setServicePackageStationTierEnabled(serviceId, tierInstanceId, tierId, enabled);
       if (res.success) {
         setDetail(prev => {
           if (!prev) return prev;
@@ -362,7 +378,7 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
       }
       return res.success;
     } catch { return false; } finally { setSaving(false); }
-  }, [serviceId, onRefresh]);
+  }, [serviceId, tierInstanceId, onRefresh]);
 
   // ── Occupant travel (engine D2–D4) ────────────────────────────────────────
 
@@ -395,43 +411,47 @@ export function usePackageStation(serviceId: number, onRefresh?: () => void): Pa
   }, []);
 
   const archiveTier = useCallback(async (tierId: string, discardDrafts = false) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await archiveServicePackageStationTierOccupant(serviceId, tierId, discardDrafts);
+      const res = await archiveServicePackageStationTierOccupant(serviceId, tierInstanceId, tierId, discardDrafts);
       if (res.success) { patchTravel(res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchTravel]);
+  }, [serviceId, tierInstanceId, onRefresh, patchTravel]);
 
   const restoreOccupant = useCallback(async (
     binId: string,
     opts: { mode?: 'swap' | 'retarget'; targetTier?: string; discardDrafts?: boolean } = {},
   ) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await restoreServicePackageStationBinEntry(serviceId, binId, opts);
+      const res = await restoreServicePackageStationBinEntry(serviceId, tierInstanceId, binId, opts);
       if (res.success) { patchTravel(res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchTravel]);
+  }, [serviceId, tierInstanceId, onRefresh, patchTravel]);
 
   const trashBinEntry = useCallback(async (binId: string) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await trashServicePackageStationBinEntry(serviceId, binId);
+      const res = await trashServicePackageStationBinEntry(serviceId, tierInstanceId, binId);
       if (res.success) { patchBin(res.occupant_bin); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchBin]);
+  }, [serviceId, tierInstanceId, onRefresh, patchBin]);
 
   const deleteBinEntry = useCallback(async (binId: string) => {
+    if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await deleteServicePackageStationBinEntry(serviceId, binId);
+      const res = await deleteServicePackageStationBinEntry(serviceId, tierInstanceId, binId);
       if (res.success) { patchBin(res.occupant_bin); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
-  }, [serviceId, onRefresh, patchBin]);
+  }, [serviceId, tierInstanceId, onRefresh, patchBin]);
 
   const createInclusion = useCallback(async (label: string): Promise<InclusionItem | null> => {
     setSaving(true);

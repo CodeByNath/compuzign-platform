@@ -16,7 +16,7 @@ Station Manager has no lifecycle rules or records. Registering a source, kit, or
 ## Domain state boundaries
 
 - [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns Service detail, module drafts, saves/reverts, settle/publish, and travel actions; [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts) holds pure projections.
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package/Tier drafts, settle, enabled/popular state, pool operations, and occupant-bin travel.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns one selected Tier instance's drafts, settle, enabled/popular state, pool operations, and occupant-bin travel. Instance identity is its second positional argument; `null` holds the same unloaded state as a missing Service navigation context.
 - [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) owns Package Family draft and lifecycle actions.
 - [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) and [useServiceCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceCategoryGroupStation.ts) own current Category residue state.
 - [usePromotionStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePromotionStation.ts) owns the current Promotion client lifecycle boundary; Promotion persistence remains in the Package repository.

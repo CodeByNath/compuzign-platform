@@ -32,6 +32,7 @@ export interface OccupantBinEntry {
 }
 
 export interface ServicePackageStationData {
+  tier_instance_id?: string;
   platform_status: string;
   tiers:           Record<string, SurfaceTierDetail>;
   popular_tier:    string | null;
@@ -44,6 +45,7 @@ export interface ServicePackageStationData {
 
 export interface ServicePackageStationResponse {
   success:    boolean;
+  tier_instance_id?: string;
   service_id: number;
   station:    ServicePackageStationData;
   service: {
@@ -58,6 +60,7 @@ export interface ServicePackageStationResponse {
 
 export interface ServiceTierSaveResponse {
   success:              boolean;
+  tier_instance_id?:    string;
   station:              ServicePackageStationData;
   new_inclusions_added: number;
   new_faqs_added:       number;
@@ -398,6 +401,7 @@ export type TierModuleSavePayload =
 // are the full updated maps for the tier.
 export interface TierLifecycleResponse {
   success:       boolean;
+  tier_instance_id?: string;
   tier_id:       string;
   platform_status?: string;
   module?:       TierModuleKey;
@@ -411,6 +415,7 @@ export interface TierLifecycleResponse {
 // emptied shell plus the updated bin and re-derived station status.
 export interface TierArchiveResponse {
   success:          boolean;
+  tier_instance_id?: string;
   message?:         string;
   code?:            string;
   tier_id?:         string;
@@ -428,6 +433,7 @@ export interface TierArchiveResponse {
 // displaced entry now in the bin.
 export interface BinRestoreResponse {
   success:          boolean;
+  tier_instance_id?: string;
   message?:         string;
   code?:            string;
   bin_id?:          string;
@@ -442,6 +448,7 @@ export interface BinRestoreResponse {
 
 export interface BinTrashResponse {
   success:       boolean;
+  tier_instance_id?: string;
   message?:      string;
   code?:         string;
   bin_id?:       string;
@@ -451,6 +458,7 @@ export interface BinTrashResponse {
 
 export interface BinDeleteResponse {
   success:       boolean;
+  tier_instance_id?: string;
   message?:      string;
   code?:         string;
   bin_id?:       string;

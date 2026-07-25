@@ -17,6 +17,7 @@
 
 import { useMemo } from 'preact/hooks';
 import { usePackageStation } from '../../usePackageStation';
+import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
 import { useHostService } from './useHostService';
 import { useRetainedCollection } from '@/station-manager/useRetainedCollection';
 import { toTierOccupantCard } from './tierOccupantCard';
@@ -33,7 +34,7 @@ export function useServiceTierCards(): ServiceTierCardsResult {
   const host = useHostService();
   // usePackageStation needs a numeric id; 0 is never a real service id, so the
   // station simply holds its unloaded state until the host resolves.
-  const pkg = usePackageStation(host.service?.id ?? 0);
+  const pkg = usePackageStation(host.service?.id ?? 0, PRIMARY_TIER_INSTANCE_ID);
 
   const projected = useMemo<CategoryGroupCardItem[]>(() => {
     if (!host.service || !pkg.detailLoaded) return [];
