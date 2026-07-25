@@ -23,7 +23,7 @@ Imports from Admin presentation/icons are legal capability consumption. Station 
 
 ## Backend authority
 
-[PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) owns `cz_package_station` persistence. [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php), [PackageStationReadController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationReadController.php), and [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) own Package reads/mutations. `Support/` owns Package schemas, Family lifecycle/guards, and manager shape.
+[PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) owns `cz_package_station` persistence. [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php), [PackageStationReadController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationReadController.php), and [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) own Package reads/mutations. `Support/` owns Package schemas, Family lifecycle/guards, manager shape, Tier instances, and the separate Tier assignment ledger. See [Tier Capability](tier-capability.md).
 
 The Package Manager is Package-internal supply configuration, not the platform Station Manager.
 

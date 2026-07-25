@@ -29,6 +29,8 @@ The retired Command Centre editor is not an alternative authority. Rate Sheet au
 - [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns manager, Tier, bin, and popular-Tier routes.
 - [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) owns Package Family lifecycle routes and exposes Package-owned related Service IDs.
 
+Tier capability use is not a Family readiness dependency. `PackageCategoryGroups::tierAssignmentCount` exposes it separately, while permanent deletion consults the Package-owned `tier_assignments[]` ledger before the unchanged three-key commercial `dependents()` guard.
+
 Service-scoped Package URLs use the Service ID as navigation context, never as Package storage ownership. Promotion records share Package-owned persistence while their current REST handlers remain in `Modules/Promotions`.
 
 ## Validation

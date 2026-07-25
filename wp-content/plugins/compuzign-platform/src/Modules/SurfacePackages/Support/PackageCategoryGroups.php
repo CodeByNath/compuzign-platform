@@ -91,6 +91,21 @@ final class PackageCategoryGroups
         return $set;
     }
 
+    /** Capability use is displayed separately and never becomes readiness. */
+    public static function tierAssignmentCount(array $assignments, string $groupId): int
+    {
+        $count = 0;
+        foreach ($assignments as $assignment) {
+            if (is_array($assignment)
+                && ($assignment['consumer_type'] ?? null) === 'package_family'
+                && ($assignment['consumer_id'] ?? null) === $groupId
+            ) {
+                $count++;
+            }
+        }
+        return $count;
+    }
+
     /**
      * Station create — born disabled with the overview module pending, exactly
      * matching the Service Category Group taxonomy station's create semantics.

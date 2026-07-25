@@ -6,6 +6,8 @@ use CompuZign\Platform\Modules\Admin\Support\PoolReferences;
 use CompuZign\Platform\Modules\Service\Support\ServicePools;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageStationSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 
 /**
  * Package Station admin write/read endpoints — manager, tiers, occupant bin,
@@ -16,10 +18,11 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageStationSchema;
  * the Service post. That data now lives in independent option storage
  * (PackageRepository — cz_package_station); the handlers followed their data.
  *
- * The URLs are deliberately UNCHANGED and remain Service-scoped
- * (/admin/services/{id}/package-station/...). Route path is not code ownership:
- * {id} is navigation context only — it never owns or selects storage. Every
- * read/write goes through PackageRepository. See
+ * Existing Tier/Manager URLs remain Service-scoped compatibility paths
+ * (/admin/services/{id}/package-station/...), where {id} is navigation context
+ * only. The assignment collection uses a Package-global admin path because it
+ * relates two Package-owned peers and needs no Service context. Every read/write
+ * goes through PackageRepository. See
  * docs/code-map/service-station.md.
  *
  * Promotions are a child collection of the Package Station and are owned by
@@ -56,6 +59,30 @@ class PackageStationController
 
     public function registerRoutes(): void
     {
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-assignments', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'listTierAssignments'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-assignments', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'createTierAssignment'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'consumer_type'   => ['required' => true, 'type' => 'string'],
+                'consumer_id'     => ['required' => true, 'type' => 'string'],
+                'tier_instance_id' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-assignments/(?P<assignment>[a-z0-9_]+)', [
+            'methods'             => 'DELETE',
+            'callback'            => [$this, 'deleteTierAssignment'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['assignment' => ['required' => true, 'type' => 'string']],
+        ]);
+
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getPackageStation'],
@@ -198,6 +225,91 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ['id' => ['required' => true, 'type' => 'integer']],
         ]);
+    }
+
+    public function listTierAssignments(\WP_REST_Request $request): \WP_REST_Response
+    {
+        [$station, $manager, $instances] = $this->assignmentState();
+        $assignments = TierAssignmentSchema::sanitizeAssignments(
+            $station['tier_assignments'] ?? [],
+            ['package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager)],
+            $instances
+        );
+        return rest_ensure_response(['success' => true, 'tier_assignments' => $assignments]);
+    }
+
+    public function createTierAssignment(\WP_REST_Request $request): \WP_REST_Response
+    {
+        [$station, $manager, $instances] = $this->assignmentState();
+        $type = sanitize_text_field((string) $request->get_param('consumer_type'));
+        $consumerId = sanitize_text_field((string) $request->get_param('consumer_id'));
+        $instanceId = sanitize_text_field((string) $request->get_param('tier_instance_id'));
+        $registry = TierAssignmentSchema::consumerRegistryFor($type, $manager);
+        $assignments = TierAssignmentSchema::sanitizeAssignments(
+            $station['tier_assignments'] ?? [],
+            ['package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager)],
+            $instances
+        );
+
+        try {
+            $assignments = TierAssignmentSchema::assign(
+                $assignments, $type, $consumerId, $instanceId, $registry, $instances
+            );
+        } catch (\RuntimeException $e) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => $e->getMessage(),
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        $station['tier_assignments'] = $assignments;
+        $this->packages()->saveStation($station);
+        return rest_ensure_response([
+            'success' => true,
+            'assignment' => TierAssignmentSchema::findForConsumer($assignments, $type, $consumerId),
+            'tier_assignments' => $assignments,
+        ]);
+    }
+
+    public function deleteTierAssignment(\WP_REST_Request $request): \WP_REST_Response
+    {
+        [$station, $manager, $instances] = $this->assignmentState();
+        $assignmentId = sanitize_text_field((string) $request->get_param('assignment'));
+        $assignments = TierAssignmentSchema::sanitizeAssignments(
+            $station['tier_assignments'] ?? [],
+            ['package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager)],
+            $instances
+        );
+        try {
+            $assignments = TierAssignmentSchema::unassign($assignments, $assignmentId);
+        } catch (\RuntimeException $e) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code' => $e->getMessage(),
+                'message' => $e->getMessage(),
+            ], 404);
+        }
+
+        $station['tier_assignments'] = $assignments;
+        $this->packages()->saveStation($station);
+        return rest_ensure_response([
+            'success' => true,
+            'deleted' => $assignmentId,
+            'tier_assignments' => $assignments,
+        ]);
+    }
+
+    /** @return array{0:array,1:array,2:array} */
+    private function assignmentState(): array
+    {
+        $station = $this->packages()->loadStation();
+        if (!is_array($station) || $station === []) {
+            $station = $this->packages()->defaultStation();
+        }
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $instances = is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [];
+        return [$station, $manager, $instances];
     }
 
     public function getPackageStation(\WP_REST_Request $request): \WP_REST_Response

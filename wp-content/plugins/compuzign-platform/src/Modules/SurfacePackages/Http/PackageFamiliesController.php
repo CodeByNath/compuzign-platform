@@ -6,6 +6,7 @@ use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 
 /**
  * PackageFamiliesController — the Package Family station's REST family.
@@ -16,8 +17,8 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
  *   - the station collection lives inside the Package Station option
  *     (`cz_package_station` → package_manager.category_groups) via
  *     PackageRepository — Package-owned, never taxonomy terms
- *   - the delete guard counts commercial dependents (connected Services,
- *     Rate Sheet rows, Tier selections), not child category terms
+ *   - permanent deletion first rejects a Tier assignment, then checks the
+ *     unchanged commercial dependents (Services, Rate Sheet rows, selections)
  *
  * Transitions are computed by StationLifecycle (through
  * PackageCategoryGroups); this controller persists engine results only.
@@ -145,6 +146,10 @@ class PackageFamiliesController
         foreach ($manager['category_groups'] as $group) {
             $dependents = PackageCategoryGroups::dependents($station, $readModelItems, (string) $group['group_id']);
             $projection = PackageCategoryGroups::projection($group, $dependents);
+            $projection['tier_assignment_count'] = PackageCategoryGroups::tierAssignmentCount(
+                $station['tier_assignments'] ?? [],
+                (string) $group['group_id']
+            );
             $projection['related_service_ids'] = PackageCategoryGroups::relatedServiceIds(
                 $station,
                 (string) $group['group_id']
@@ -243,6 +248,18 @@ class PackageFamiliesController
         $group = PackageCategoryGroups::find($manager['category_groups'], $gid);
         if ($group === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Package Family not found.'], 404);
+        }
+
+        if (TierAssignmentSchema::findForConsumer(
+            $station['tier_assignments'] ?? [],
+            'package_family',
+            $gid
+        ) !== null) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'code'    => 'family_in_use_by_capability',
+                'message' => 'This Package Family uses the Tier capability. Remove it first.',
+            ], 409);
         }
 
         $dependents = PackageCategoryGroups::dependents($station, $this->readModelItems($station, $manager), $gid);
@@ -352,9 +369,17 @@ class PackageFamiliesController
         }
         $dependents = PackageCategoryGroups::dependents($station, $this->readModelItems($station, $manager), $gid);
 
+        $tierAssignmentCount = PackageCategoryGroups::tierAssignmentCount(
+            $station['tier_assignments'] ?? [],
+            $gid
+        );
+
         return rest_ensure_response([
             'success' => true,
-            'group'   => PackageCategoryGroups::projection($group, $dependents),
+            'group'   => [
+                ...PackageCategoryGroups::projection($group, $dependents),
+                'tier_assignment_count' => $tierAssignmentCount,
+            ],
         ]);
     }
 }

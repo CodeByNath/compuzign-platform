@@ -157,6 +157,7 @@ class PackageRepository
             'platform_status'         => 'disabled',
             'tiers'                   => [],
             'tier_instances'          => TierInstanceSchema::defaultInstances(),
+            'tier_assignments'        => [],
             'popular_tier'            => null,
             'popular_label'           => '',
             'sort_position'           => 0,

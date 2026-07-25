@@ -17,7 +17,28 @@ import type {
   PackageFamilyMutationResponse,
   SurfacePackagesResponse,
   TierSavePayload,
+  TierAssignmentDeleteResponse,
+  TierAssignmentMutationResponse,
+  TierAssignmentsResponse,
 } from './types';
+
+export function fetchTierAssignments(): Promise<TierAssignmentsResponse> {
+  return apiClient.get<TierAssignmentsResponse>('admin/package-station/tier-assignments');
+}
+
+export function createTierAssignment(payload: {
+  consumer_type: 'package_family';
+  consumer_id: string;
+  tier_instance_id: string;
+}): Promise<TierAssignmentMutationResponse> {
+  return apiClient.post<TierAssignmentMutationResponse>('admin/package-station/tier-assignments', payload);
+}
+
+export function deleteTierAssignment(assignmentId: string): Promise<TierAssignmentDeleteResponse> {
+  return apiClient.delete<TierAssignmentDeleteResponse>(
+    `admin/package-station/tier-assignments/${assignmentId}`,
+  );
+}
 
 // The /admin/package-category-groups family — the Package-owned commercial
 // bucket station (e.g. KAIROS). Same route grammar as the taxonomy Category

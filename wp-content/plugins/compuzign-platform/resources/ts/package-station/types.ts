@@ -123,6 +123,8 @@ export interface PackageFamilyItem {
   sort_order:               number;
   assigned_service_count:   number;
   dependents:               PackageFamilyDependents;
+  /** Capability use is not a readiness/dependency metric. */
+  tier_assignment_count?:   number;
 }
 
 /** Package Family list row with Package-owned Service relationship identity. */
@@ -161,6 +163,28 @@ export interface TierInstanceSummary {
   readiness:              'ready' | 'not-ready';
   occupant_count:         number;
   bin_count:              number;
+}
+
+export type TierAssignmentConsumerType = 'package_family';
+
+export interface TierAssignment {
+  assignment_id:    string;
+  consumer_type:    TierAssignmentConsumerType;
+  consumer_id:      string;
+  tier_instance_id: string;
+}
+
+export interface TierAssignmentsResponse {
+  success:          boolean;
+  tier_assignments: TierAssignment[];
+}
+
+export interface TierAssignmentMutationResponse extends TierAssignmentsResponse {
+  assignment: TierAssignment | null;
+}
+
+export interface TierAssignmentDeleteResponse extends TierAssignmentsResponse {
+  deleted: string;
 }
 
 export interface PackageManagerProjectionInclusion {

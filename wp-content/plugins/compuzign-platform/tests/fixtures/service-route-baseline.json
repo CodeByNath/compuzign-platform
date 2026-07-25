@@ -277,6 +277,45 @@
             }
         },
         {
+            "route": "compuzign/v1/admin/package-station/tier-assignments",
+            "methods": "GET",
+            "callback": "listTierAssignments",
+            "permission_callback": "requireAdmin",
+            "args": []
+        },
+        {
+            "route": "compuzign/v1/admin/package-station/tier-assignments",
+            "methods": "POST",
+            "callback": "createTierAssignment",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "consumer_id": {
+                    "required": true,
+                    "type": "string"
+                },
+                "consumer_type": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier_instance_id": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-station/tier-assignments/(?P<assignment>[a-z0-9_]+)",
+            "methods": "DELETE",
+            "callback": "deleteTierAssignment",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "assignment": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
             "route": "compuzign/v1/admin/service-categories",
             "methods": "POST",
             "callback": "createServiceCategory",
