@@ -109,6 +109,17 @@ export function registerPresentationPolicy(): void {
         // cards and detail panel above the deck.
         { id: 'view-inclusion', target: 'drawer', mode: 'view', drawerTemplateKey: 'tier-inclusion' },
         { id: 'edit-inclusion', target: 'drawer', mode: 'edit', drawerTemplateKey: 'tier-inclusion' },
+        // The lower-deck Connections lane addresses what the focused Tier is
+        // connected TO — its Package Family, its Rate Sheet groups, and its Rate
+        // Sheet — so each section carries its own intents and its own drawer key.
+        // The Family sections reuse the mature `package-family` drawer rather
+        // than introducing a second Family editor; none of these open `tier`.
+        { id: 'view-family', target: 'drawer', mode: 'view', drawerTemplateKey: 'package-family' },
+        { id: 'edit-family', target: 'drawer', mode: 'edit', drawerTemplateKey: 'package-family' },
+        { id: 'view-connected-group', target: 'drawer', mode: 'view', drawerTemplateKey: 'tier-rate-sheet-group' },
+        { id: 'edit-connected-group', target: 'drawer', mode: 'edit', drawerTemplateKey: 'tier-rate-sheet-group' },
+        { id: 'view-connected-rate-sheet', target: 'drawer', mode: 'view', drawerTemplateKey: 'tier-rate-sheet' },
+        { id: 'edit-connected-rate-sheet', target: 'drawer', mode: 'edit', drawerTemplateKey: 'tier-rate-sheet' },
       ],
     },
   ]);

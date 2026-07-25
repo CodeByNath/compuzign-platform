@@ -6,6 +6,7 @@ import { registerNavItems } from '@/station-manager/registry/navigation';
 import { registerTemplateKits } from '@/station-manager/registry/templateKits';
 import { PackageTierWorkspace } from './presentation/package-tier-workspace/PackageTierWorkspace';
 import { RateSheetDrawerContent } from './presentation/rate-sheet-tool/RateSheetTool';
+import { TierRateSheetDrawerContent } from './presentation/rate-sheet-tool/TierRateSheetDrawer';
 import { PackageFamilyDrawerContent } from './surface/packageFamily/PackageFamilyDrawerContent';
 import { PackageFamilyCreateDrawerHost } from './surface/packageFamily/PackageFamilyCreateDrawerHost';
 import { usePackageFamilyCards } from './surface/packageFamily/usePackageFamilyCards';
@@ -94,6 +95,27 @@ export function registerPackageStation(): void {
       supportedModes: ['view', 'edit'],
       size: 'extra-wide',
       content: RateSheetDrawerContent,
+    },
+    {
+      // ONE Tier's connection to ONE Rate Sheet, opened from the focused-Tier
+      // Connections lane. Siblings of `rate-sheet`, addressed by
+      // (tier_instance_id, slotId, rate_sheet_id[, group_id]): the sheet scope
+      // shows only the grid filtered to that Tier's connected rows, the group
+      // scope only the addressed group. Their own drawer keys override the
+      // `tier-tool` binding's `tier`, so no Connections action opens the Tier
+      // drawer. Both mount the same content, which reads the scope from the
+      // routing token.
+      key: 'tier-rate-sheet',
+      title: 'Connected Rate Sheet',
+      supportedModes: ['view', 'edit'],
+      size: 'extra-wide',
+      content: TierRateSheetDrawerContent,
+    },
+    {
+      key: 'tier-rate-sheet-group',
+      title: 'Connected Group',
+      supportedModes: ['view', 'edit'],
+      content: TierRateSheetDrawerContent,
     },
   ]);
 }

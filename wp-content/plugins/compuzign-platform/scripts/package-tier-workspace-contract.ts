@@ -19,6 +19,11 @@ import {
   projectTierRateSheetGroups,
   type DeckSelection,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/deck';
+import {
+  decodeTierRateSheetDrawerRecordId,
+  encodeTierRateSheetDrawerRecordId,
+  encodeTierRateSheetGroupDrawerRecordId,
+} from '../resources/ts/package-station/drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import type {
   TierAssignment,
   TierInstanceRecord,
@@ -225,6 +230,69 @@ check(projectTierRateSheet(deckSelections, null) === null, 'an unbound Tier repo
 const deck = projectTierDeck(deckSelections, categoryByRateItem, rateSheet);
 check(deck.categories.join(',') === 'Cloud Infrastructure,Managed Services', 'lower-deck category filter remains distinct and sorted');
 check(deck.rateSheet !== null && deck.groups.length === 1, 'the deck carries the Rate Sheet and group connections it renders');
+
+// ── Connections routing tokens ────────────────────────────────────────────────
+// Every Connections action addresses its target by the identities Package
+// Station stores, and a malformed address resolves to nothing rather than to a
+// default instance, slot, or sheet.
+const sheetToken = encodeTierRateSheetDrawerRecordId('ti_kairos', 'basic', 'rs_kairos');
+const sheetTarget = decodeTierRateSheetDrawerRecordId(sheetToken);
+check(
+  sheetTarget !== null
+    && sheetTarget.instanceId === 'ti_kairos'
+    && sheetTarget.slotId === 'basic'
+    && sheetTarget.rateSheetId === 'rs_kairos'
+    && sheetTarget.scope.kind === 'sheet',
+  'the Rate Sheet connection token round-trips instance, slot, and stored sheet id',
+);
+const groupToken = encodeTierRateSheetGroupDrawerRecordId('ti_kairos', 'premium', 'rs_kairos', 'rate_group_1');
+const groupTarget = decodeTierRateSheetDrawerRecordId(groupToken);
+check(
+  groupTarget !== null
+    && groupTarget.rateSheetId === 'rs_kairos'
+    && groupTarget.scope.kind === 'group'
+    && groupTarget.scope.groupId === 'rate_group_1',
+  'the group connection token round-trips the stored group id inside its stored sheet',
+);
+check(
+  decodeTierRateSheetDrawerRecordId(groupToken)?.scope.kind === 'group'
+    && decodeTierRateSheetDrawerRecordId(sheetToken)?.scope.kind === 'sheet',
+  'the group grammar is never mistaken for the sheet grammar',
+);
+for (const malformed of [
+  'tier-rate-sheet:ti_kairos:not-a-slot:rs_kairos',
+  'tier-rate-sheet:ti_kairos:basic:',
+  'tier-rate-sheet:ti_kairos:basic:rs_kairos:extra',
+  'tier-rate-sheet-group:ti_kairos:basic:rs_kairos',
+  'tier-rate-sheet-group::basic:rs_kairos:rate_group_1',
+  'occ_kairos_basic',
+]) {
+  check(
+    decodeTierRateSheetDrawerRecordId(malformed) === null,
+    `a malformed connection address resolves to nothing: ${malformed}`,
+  );
+}
+
+// The Connections lane never re-opens the Tier drawer: every Connections intent
+// declares its own drawer key, and none of them is `tier`.
+const adminRegister = readFileSync(
+  resolve(import.meta.dirname, '..', 'resources/ts/admin-station/register.ts'),
+  'utf8',
+);
+for (const [intentId, templateKey] of [
+  ['view-family', 'package-family'],
+  ['edit-family', 'package-family'],
+  ['view-connected-group', 'tier-rate-sheet-group'],
+  ['edit-connected-group', 'tier-rate-sheet-group'],
+  ['view-connected-rate-sheet', 'tier-rate-sheet'],
+  ['edit-connected-rate-sheet', 'tier-rate-sheet'],
+]) {
+  const declaration = new RegExp(`id: '${intentId}'[^}]*drawerTemplateKey: '${templateKey}'`);
+  check(
+    declaration.test(adminRegister),
+    `the ${intentId} Connections intent routes to the ${templateKey} drawer, never to the Tier drawer`,
+  );
+}
 
 const root = resolve(import.meta.dirname, '..');
 const packageSource = sourceFiles(resolve(root, 'resources/ts/package-station'))
