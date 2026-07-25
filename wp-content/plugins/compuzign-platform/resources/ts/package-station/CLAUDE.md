@@ -15,7 +15,7 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `drawer/package-family/` and `drawer/tier/` — Package-owned drawer compositions, controllers, dialogs, and footer presentation.
 - `drawer/editors/` and `drawer/schema/` — Package-owned editors, entity manifests, and bindings.
 - `vocabulary.ts` — Package-owned Tier keys and labels.
-- `register.ts` — registers Package navigation, destination, sources, the Tier workspace kit, and drawers (`package-family`, `tier`, `rate-sheet`) with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
+- `register.ts` — registers Package navigation, destination, sources, the Tier workspace kit, and drawers (`package-family`, `package-family-create`, `tier`, `rate-sheet`) with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
 
 ## Boundaries
 
@@ -27,4 +27,4 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Tie
 
 ## Validation
 
-From the plugin root: `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

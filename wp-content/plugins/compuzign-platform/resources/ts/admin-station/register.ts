@@ -98,6 +98,7 @@ export function registerPresentationPolicy(): void {
       actionIntents: [
         { id: 'view', target: 'drawer', mode: 'view' },
         { id: 'edit', target: 'drawer', mode: 'edit' },
+        { id: 'create-package-family', target: 'drawer', mode: 'edit', drawerTemplateKey: 'package-family-create' },
         // The lower-deck Settings cards open the Package-owned Rate Sheet drawer
         // from this same surface. Its own drawer key overrides the binding's
         // `tier`, so no second body surface renders beneath the workspace.

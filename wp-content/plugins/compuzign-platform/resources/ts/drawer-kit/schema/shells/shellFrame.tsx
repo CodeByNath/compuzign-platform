@@ -40,9 +40,9 @@ export interface ShellProps<T = unknown> {
   footer?: string[];
 }
 
-// Connections is a read-only relational viewpoint with a View-only footer
-// (§7, locked — encoded here in the renderer, never a schema knob). Every
-// other read viewpoint renders the schema's own Footer Group.
+// Existing related-record shells keep their View-only connections footer.
+// A relationship shell without a `view` action (for example a capability
+// relationship owned by the open record) uses its own declared actions.
 const CONNECTIONS_FOOTER = ['view'];
 
 // Footer Group × Action Group × ShellBinding.handlers → ActionFooter
@@ -51,9 +51,9 @@ const CONNECTIONS_FOOTER = ['view'];
 // hook / step (a schema declares intent only). An action is disabled while
 // it is the one in flight (`binding.busy`) or when no handler was delivered.
 function resolveFooterActions<T>(schema: ShellSchema<T>, binding: ShellBinding<T>, mode: ShellMode, footer?: string[]): FooterAction[] {
-  // Precedence: the connections View-only override (locked, untouched by
-  // v1.2) → the placed slot's footer re-selection → the schema's Footer Group.
-  const ids = mode === 'connections' ? CONNECTIONS_FOOTER : (footer ?? schema.footer.actions);
+  const ids = mode === 'connections' && schema.actions.view
+    ? CONNECTIONS_FOOTER
+    : (footer ?? schema.footer.actions);
   return ids
     .map((id) => schema.actions[id])
     .filter((a): a is ShellActionSchema => !!a && (!a.when || a.when(binding as ShellBinding)))

@@ -15,6 +15,15 @@ import type {
 } from '../../types';
 import { eligibleConsumers, tierInstanceRows } from './tierInstanceModel';
 
+let requestedInstanceId: string | null = null;
+const openListeners = new Set<(instanceId: string) => void>();
+
+/** Package-owned hand-off used by Family capability actions; no host rule. */
+export function requestTierInstanceOpen(instanceId: string): void {
+  requestedInstanceId = instanceId;
+  for (const listener of openListeners) listener(instanceId);
+}
+
 export interface TierInstancesToolState {
   instances: TierInstanceRecord[];
   assignments: TierAssignment[];
@@ -69,11 +78,16 @@ export function useTierInstances(): TierInstancesToolState {
           ...(trashedResponse.package_category_groups ?? []),
         ];
         setFamilies([...new Map(allFamilies.map((family) => [family.group_id, family])).values()]);
-        setSelectedInstanceId((current) =>
-          nextInstances.some((instance) => instance.tier_instance_id === current)
+        setSelectedInstanceId((current) => {
+          if (nextInstances.some((instance) => instance.tier_instance_id === requestedInstanceId)) {
+            const requested = requestedInstanceId;
+            requestedInstanceId = null;
+            return requested;
+          }
+          return nextInstances.some((instance) => instance.tier_instance_id === current)
             ? current
-            : nextInstances[0]?.tier_instance_id ?? null,
-        );
+            : nextInstances[0]?.tier_instance_id ?? null;
+        });
       })
       .catch((cause) => {
         if (!active) return;
@@ -85,6 +99,15 @@ export function useTierInstances(): TierInstancesToolState {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [revision]);
+
+  useEffect(() => {
+    const open = (instanceId: string) => {
+      requestedInstanceId = null;
+      setSelectedInstanceId(instanceId);
+    };
+    openListeners.add(open);
+    return () => { openListeners.delete(open); };
+  }, []);
 
   const refetch = useCallback(() => setRevision((value) => value + 1), []);
   const selectedInstance = useMemo(

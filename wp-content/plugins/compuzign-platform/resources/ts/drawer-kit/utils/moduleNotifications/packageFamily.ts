@@ -40,3 +40,15 @@ export const packageFamilyRelationshipsModule: ModuleDefinition<PackageFamilyRel
   problems:    () => [],
   resolveStatus: (_relationships, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
 };
+
+export interface PackageFamilyCapabilitiesLike {
+  tier: { enabled: boolean };
+}
+
+/** Capability absence is valid; only the Family platform lifecycle drives status. */
+export const packageFamilyCapabilitiesModule: ModuleDefinition<PackageFamilyCapabilitiesLike> = {
+  key:         'package-family-capabilities',
+  isEmpty:     () => false,
+  problems:    () => [],
+  resolveStatus: (_capabilities, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
+};

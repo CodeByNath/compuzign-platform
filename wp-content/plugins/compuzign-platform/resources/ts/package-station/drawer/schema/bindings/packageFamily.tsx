@@ -1,6 +1,7 @@
 import type { PackageFamilyOverviewDraft } from '../../../usePackageFamilyStation';
 import {
   packageFamilyOverviewModule,
+  packageFamilyCapabilitiesModule,
   packageFamilyRelationshipsModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
@@ -79,4 +80,53 @@ export const packageFamilyRelationshipsShell: ShellSchema<PackageFamilyRelations
   ],
   footer: { actions: [] },
   actions: {},
+};
+
+export interface PackageFamilyCapabilitiesShellData {
+  tier: { enabled: false }
+    | { enabled: true; instanceId: string; instanceTitle: string; readiness: string };
+}
+
+const CAPABILITY_ACTIONS: Record<string, ShellActionSchema> = {
+  'add-tier-capability': {
+    id: 'add-tier-capability', label: 'Add Tier capability', intent: 'primary',
+    when: (binding) => !(binding.data as PackageFamilyCapabilitiesShellData).tier.enabled,
+  },
+  'open-tier-tool': {
+    id: 'open-tier-tool', label: 'Open Tier tool', intent: 'primary',
+    when: (binding) => (binding.data as PackageFamilyCapabilitiesShellData).tier.enabled,
+  },
+  'remove-tier-capability': {
+    id: 'remove-tier-capability', label: 'Remove Tier capability', intent: 'danger',
+    when: (binding) => (binding.data as PackageFamilyCapabilitiesShellData).tier.enabled,
+  },
+};
+
+export const packageFamilyCapabilitiesShell: ShellSchema<PackageFamilyCapabilitiesShellData> = {
+  archetype: 'overview',
+  dna: packageFamilyCapabilitiesModule,
+  header: {
+    title: 'Capabilities',
+    subtitle: 'Optional Package capabilities used by this Family.',
+    icon: 'package',
+    scopeClass: 'drawerOverview',
+  },
+  content: [
+    {
+      id: 'tier-capability', element: 'text', label: 'Tier capability',
+      bind: (data): TextValue => ({ value: data.tier.enabled ? 'Enabled' : 'Not enabled' }),
+    },
+    {
+      id: 'tier-instance', element: 'text', label: 'Tier instance',
+      when: (data) => data.tier.enabled,
+      bind: (data): TextValue => ({ value: data.tier.enabled ? data.tier.instanceTitle : '' }),
+    },
+    {
+      id: 'tier-readiness', element: 'text', label: 'Readiness',
+      when: (data) => data.tier.enabled,
+      bind: (data): TextValue => ({ value: data.tier.enabled ? data.tier.readiness : '' }),
+    },
+  ],
+  footer: { actions: ['add-tier-capability', 'open-tier-tool', 'remove-tier-capability'] },
+  actions: CAPABILITY_ACTIONS,
 };

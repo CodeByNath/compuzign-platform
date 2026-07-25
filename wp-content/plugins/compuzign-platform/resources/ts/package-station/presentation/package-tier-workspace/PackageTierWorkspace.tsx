@@ -17,6 +17,7 @@ import { TierLowerDeck } from './TierLowerDeck';
 
 const ENGINE_DESCRIPTION = 'Package-owned workspace for managing independent Tier capability instances.';
 const NO_INSTANCES_MESSAGE = 'No Tier instances exist yet. Create one to configure the Tier capability.';
+const NO_FAMILY_MESSAGE = 'Create a Package Family to organise Services and optionally add Tier capability.';
 const NO_TIERS_MESSAGE = 'This Tier instance has no configured occupants. Its five fixed slots remain available in the instance panel.';
 type ViewMode = 'focus' | 'grid';
 
@@ -41,6 +42,26 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   }
   if (error) {
     return <p class="cz-station-empty" role="alert">{error}</p>;
+  }
+
+  const currentFamilies = tool.tierInstances.families.filter((family) =>
+    family.platform_status !== 'archived' && family.platform_status !== 'trashed',
+  );
+
+  if (currentFamilies.length === 0) {
+    return (
+      <div class="cz-tier-workspace">
+        <div class="cz-tier-workspace__header">
+          <p class="cz-tier-workspace__intro">{ENGINE_DESCRIPTION}</p>
+        </div>
+        <div class="cz-tier-workspace__primary">
+          <p class="cz-station-empty">{NO_FAMILY_MESSAGE}</p>
+          <button type="button" class="button button-primary" onClick={() => onIntent('new', 'create-package-family')}>
+            Create Package Family
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -101,7 +122,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           familyName={tool.tierInstances.rows.find((row) => row.instanceId === instanceId)?.consumerName ?? 'Unassigned'}
           tierName={selectedTier.name}
           deck={tool.decks[selectedTier.id] ?? EMPTY_TIER_DECK}
-          onIntent={(actionId) => dispatchTierIntent(selectedTier.id, actionId)}
+          onIntent={(actionId) => actionId === 'create-package-family'
+            ? onIntent('new', actionId)
+            : dispatchTierIntent(selectedTier.id, actionId)}
         />
       )}
     </div>

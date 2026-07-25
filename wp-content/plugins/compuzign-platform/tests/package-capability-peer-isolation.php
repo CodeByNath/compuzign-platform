@@ -129,6 +129,31 @@ $peerInstance['allowed_rate_sheet_ids'] = ['rs_peer', 'rs_secondary'];
 $peerInstance['title'] = 'Renamed peer Tiers';
 $storePeer($peerInstance, 'allowed sheets and title change');
 
+// P3 — every Family mutation is independent of the assigned Tier instance.
+$familyGroups = [$family];
+$peerInstanceBytes = serialize($peerInstance);
+$assertInstanceAfter = static function (string $operation) use (&$peerInstance, $peerInstanceBytes): void {
+    check_peer_isolation(serialize($peerInstance) === $peerInstanceBytes, "P3 {$operation} leaves the Tier instance byte-identical");
+};
+$familyGroups = PackageCategoryGroups::saveOverviewDraft($familyGroups, 'pcg_peer', 'Peer Draft', 'Draft description');
+$assertInstanceAfter('overview draft save');
+$familyGroups = PackageCategoryGroups::revertOverview($familyGroups, 'pcg_peer');
+$assertInstanceAfter('overview revert');
+$familyGroups = PackageCategoryGroups::saveOverviewDraft($familyGroups, 'pcg_peer', 'Peer Settled', 'Settled description');
+$assertInstanceAfter('second overview draft save');
+$familyGroups = PackageCategoryGroups::settleOverview($familyGroups, 'pcg_peer');
+$assertInstanceAfter('overview settle');
+$familyGroups = PackageCategoryGroups::applyStatus($familyGroups, 'pcg_peer', 'active');
+$assertInstanceAfter('publish');
+$familyGroups = PackageCategoryGroups::applyStatus($familyGroups, 'pcg_peer', 'disabled');
+$assertInstanceAfter('status change');
+$familyGroups = PackageCategoryGroups::applyStatus($familyGroups, 'pcg_peer', 'archived');
+$assertInstanceAfter('archive');
+$familyGroups = PackageCategoryGroups::applyStatus($familyGroups, 'pcg_peer', 'trashed');
+$assertInstanceAfter('trash');
+$familyGroups = PackageCategoryGroups::restore($familyGroups, 'pcg_peer');
+$assertInstanceAfter('restore');
+
 $familyWithForbiddenInput = PackageCategoryGroups::sanitizeAll([[
     ...$family,
     'tier_instance_id' => 'ti_illegal',

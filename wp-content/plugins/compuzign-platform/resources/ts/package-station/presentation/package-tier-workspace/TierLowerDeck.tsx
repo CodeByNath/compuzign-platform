@@ -129,7 +129,7 @@ export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): 
       <div class="cz-tier-deck__panel" role="tabpanel">
         {tab === 'details'     && <DetailsLane deck={deck} onIntent={onIntent} />}
         {tab === 'connections' && <ConnectionsLane connections={deck.rateSheets} familyName={familyName} onIntent={onIntent} />}
-        {tab === 'settings'    && <SettingsLane onOpenRateSheet={() => onIntent('rate-sheet')} />}
+        {tab === 'settings'    && <SettingsLane onIntent={onIntent} />}
       </div>
     </section>
   );
@@ -325,9 +325,9 @@ interface SettingsTool {
   icon:  typeof RateSheetIcon;
   title: string;
   body:  string;
-  // Exactly one of the two: an action label that opens the Rate Sheet drawer, or
+  // Exactly one of the two: a registered Package-owned action, or
   // an honest unavailable note.
-  route?:       { label: string };
+  route?:       { label: string; actionId: string };
   unavailable?: string;
 }
 
@@ -337,25 +337,25 @@ const SETTINGS_TOOLS: SettingsTool[] = [
     icon:  ServicesIcon,
     title: 'Family Groups',
     body:  'Create and maintain Package Family working scopes.',
-    unavailable: 'Package Families are edited from the Services workspace; no creation action is registered here.',
+    route: { label: 'Create Package Family', actionId: 'create-package-family' },
   },
   {
     id:    'rate-sheets',
     icon:  RateSheetIcon,
     title: 'Rate Sheets',
     body:  'Author the commercial pricing rows Package connections draw from.',
-    route: { label: 'Open Rate Sheet tool' },
+    route: { label: 'Open Rate Sheet tool', actionId: 'rate-sheet' },
   },
   {
     id:    'groups',
     icon:  AppsIcon,
     title: 'Groups',
     body:  'Rate Sheet groups are created and maintained inside the Rate Sheet tool, alongside the priced rows they organise.',
-    route: { label: 'Open Rate Sheet tool' },
+    route: { label: 'Open Rate Sheet tool', actionId: 'rate-sheet' },
   },
 ];
 
-function SettingsLane({ onOpenRateSheet }: { onOpenRateSheet: () => void }): VNode {
+function SettingsLane({ onIntent }: { onIntent: (actionId: string) => void }): VNode {
   return (
     <>
       <div class="cz-tier-deck__lane-head">
@@ -376,7 +376,7 @@ function SettingsLane({ onOpenRateSheet }: { onOpenRateSheet: () => void }): VNo
               <h5 class="cz-tier-deck__tool-title">{tool.title}</h5>
               <p class="cz-tier-deck__tool-body">{tool.body}</p>
               {tool.route ? (
-                <button type="button" class="cz-tier-deck__tool-action cz-tier-deck__tool-action--live" onClick={onOpenRateSheet}>
+                <button type="button" class="cz-tier-deck__tool-action cz-tier-deck__tool-action--live" onClick={() => onIntent(tool.route!.actionId)}>
                   {tool.route.label}
                 </button>
               ) : (

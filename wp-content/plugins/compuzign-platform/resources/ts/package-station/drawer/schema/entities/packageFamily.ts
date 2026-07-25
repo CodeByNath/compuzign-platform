@@ -2,6 +2,7 @@ import type { PackageFamilyItem } from '../../../types';
 import type { EntitySchema } from '@/drawer-kit/schema/types';
 import {
   packageFamilyOverviewShell,
+  packageFamilyCapabilitiesShell,
   packageFamilyRelationshipsShell,
 } from '../bindings/packageFamily';
 
@@ -19,6 +20,7 @@ export const PACKAGE_FAMILY_ENTITY: EntitySchema = {
   shells: {
     overview: packageFamilyOverviewShell,
     relationships: packageFamilyRelationshipsShell,
+    capabilities: packageFamilyCapabilitiesShell,
   },
   actions: {
     archive: { id: 'archive', label: 'Archive', intent: 'secondary' },
@@ -32,7 +34,10 @@ export const PACKAGE_FAMILY_ENTITY: EntitySchema = {
   placements: {
     drawer: {
       details: [{ module: 'overview', mode: 'details' }],
-      connections: [{ module: 'relationships', mode: 'connections' }],
+      connections: [
+        { module: 'relationships', mode: 'connections' },
+        { module: 'capabilities', mode: 'connections' },
+      ],
     },
   },
 };

@@ -13,6 +13,7 @@ Registration ownership is:
 | `category` | Admin Station | retained Admin Category adapter / Category drawer | normal |
 | `service` | Service Station | Service Station | normal |
 | `package-family` | Package Station | Package Station | normal |
+| `package-family-create` | Package Station | Package Station | normal |
 | `tier` | Package Station | Package Station | normal |
 | `rate-sheet` | Package Station | Package Station | extra-wide |
 
@@ -41,6 +42,7 @@ kit action with native record id
 - `admin-station/stations/serviceCategory/CategoryDrawerHost.tsx` mounts the Category composition and uses numeric Category identity.
 - `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity.
 - `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id` and mounts the Package Family composition.
+- `package-station/surface/packageFamily/PackageFamilyCreateDrawerHost.tsx` ignores the stable `new` sentinel, injects Package-owned mutations, and mounts the recovered create composition.
 - `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id` and rejects foreign identity shapes.
 
 The mature compositions remain under `entity-drawers/category/`, `service-station/drawer/`, and `package-station/drawer/{package-family,tier}/`. They use the shared `drawer-kit` renderer and module/editor/footer contracts. Category mutations remain in `useCategoryStation`; Service mutations remain in `useServiceStation`; Package Family and Tier mutations remain in Package Station hooks. Presentation components call no endpoints.

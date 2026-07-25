@@ -10,9 +10,12 @@ import {
   useOutsideClickDismiss,
 } from '@/entity-drawers/shared/drawerChrome';
 import type {
+  PackageFamilyCapabilitiesShellData,
   PackageFamilyOverviewShellData,
   PackageFamilyRelationshipsShellData,
 } from '../schema/bindings/packageFamily';
+import { evaluateModule, packageFamilyCapabilitiesModule } from '@/drawer-kit/utils/moduleNotifications';
+import { usePackageFamilyCapabilities } from '../../surface/packageFamily/usePackageFamilyCapabilities';
 import type {
   PackageFamilyConfirmDialog,
   PackageFamilyDrawerContentProps,
@@ -26,6 +29,7 @@ export function usePackageFamilyDrawerController({
   bridge,
 }: PackageFamilyDrawerContentProps) {
   const station = usePackageFamilyStation(family, bridge.onMutationComplete);
+  const capabilities = usePackageFamilyCapabilities(station.family, bridge.onMutationComplete);
   const [tab, setTab] = useState<DrawerTabId>(initialTab ?? 'details');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PackageFamilyOverviewDraft | null>(null);
@@ -172,6 +176,23 @@ export function usePackageFamilyDrawerController({
     handlers: {},
   };
 
+  const capabilitiesBinding: ShellBinding<PackageFamilyCapabilitiesShellData> = {
+    data: capabilities.data,
+    state: capabilities.loading
+      ? { status: 'loading', notes: [] }
+      : evaluateModule(packageFamilyCapabilitiesModule, capabilities.data, {
+          platformStatus: station.platformStatus,
+          platformLabel: 'Package Family',
+        }),
+    hasDraft: false,
+    busy: capabilities.busy ?? capabilities.removeConfirm.busyId,
+    handlers: {
+      'add-tier-capability': async () => { await capabilities.addTier(); },
+      'open-tier-tool': () => { capabilities.openTier(); bridge.close(); },
+      'remove-tier-capability': capabilities.requestRemoveTier,
+    },
+  };
+
   const dependentsSummary = [
     `${station.relationshipData.services} Services`,
     `${station.relationshipData.rateSheetRows} Rate Sheet rows`,
@@ -203,6 +224,8 @@ export function usePackageFamilyDrawerController({
     canPublish,
     overviewBinding,
     relationshipsBinding,
+    capabilitiesBinding,
+    capabilities,
     dependentsSummary,
     saveOverview,
     cancelEdit,

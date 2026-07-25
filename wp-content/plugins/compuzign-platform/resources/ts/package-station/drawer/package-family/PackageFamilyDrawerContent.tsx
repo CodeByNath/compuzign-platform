@@ -52,7 +52,11 @@ export function PackageFamilyDrawerContent(props: PackageFamilyDrawerContentProp
         entity={PACKAGE_FAMILY_ENTITY}
         tab={c.tab}
         onSelectTab={c.selectTab}
-        bindings={{ overview: c.overviewBinding, relationships: c.relationshipsBinding }}
+        bindings={{
+          overview: c.overviewBinding,
+          relationships: c.relationshipsBinding,
+          capabilities: c.capabilitiesBinding,
+        }}
         openPanel={c.openPanel}
         onTogglePanel={(module) => c.setOpenPanel((open) => open === module ? null : module)}
         editing={c.editing && c.draft ? {
@@ -72,6 +76,21 @@ export function PackageFamilyDrawerContent(props: PackageFamilyDrawerContentProp
       >
         {c.saveOk && <div class="cz-admin-ok-msg">Changes saved.</div>}
         {c.actionError && !c.confirmDialog && <div class="cz-admin-error-msg" role="alert">{c.actionError}</div>}
+        {c.capabilities.error && <div class="cz-admin-error-msg" role="alert">{c.capabilities.error}</div>}
+        {c.capabilities.removeConfirm.pendingId && (
+          <div class="cz-sc-table__confirm" role="alertdialog" aria-label="Remove Tier capability">
+            <span class="cz-sc-table__confirm-label">Remove Tier capability? The Tier instance will remain unchanged.</span>
+            <button type="button" class="button" onClick={c.capabilities.removeConfirm.cancel}>Cancel</button>
+            <button
+              type="button"
+              class="button button-primary"
+              disabled={c.capabilities.removeConfirm.busyId !== null}
+              onClick={() => void c.capabilities.confirmRemoveTier()}
+            >
+              {c.capabilities.removeConfirm.busyId !== null ? 'Removing…' : 'Confirm'}
+            </button>
+          </div>
+        )}
       </EntityDrawer>
 
       <PackageFamilyDrawerDialogs controller={c} />
