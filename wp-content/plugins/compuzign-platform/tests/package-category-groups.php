@@ -195,6 +195,16 @@ assertSameValue(1, $deps['services'], 'assigned source counts as a dependent ser
 assertSameValue(1, $deps['rate_sheet_rows'], 'rate sheet rows supplied by member services count');
 assertSameValue(1, $deps['tier_selections'], 'tier selections referencing dependent rows count');
 
+// Canonical cutover scans tier_instances[] and ignores the mirrored top-level
+// tiers projection. Two real instances count twice; the mirror never adds a third.
+$canonicalStation = $station;
+$canonicalStation['tier_instances'] = [
+    'ti_primary' => ['tiers' => $station['tiers']],
+    'ti_secondary' => ['tiers' => ['basic' => $station['tiers']['basic']]],
+];
+$canonicalDeps = PCG::dependents($canonicalStation, $model['items'], 'pcg_kairos');
+assertSameValue(2, $canonicalDeps['tier_selections'], 'canonical dependency counts scan each instance once and never double-count the primary mirror');
+
 // Refinement 3 — a Tier bound to a DIFFERENT sheet does not count against this
 // Family's rows, even when the item_id collides across sheets.
 $otherSheetStation = $station;

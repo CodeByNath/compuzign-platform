@@ -35,6 +35,17 @@
   .cz-tier-deck__tools {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .cz-tier-settings__callout,
+  .cz-tier-settings__rate-sheet {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .cz-tier-settings__attach-list,
+  .cz-tier-settings__actions,
+  .cz-tier-settings__rate-sheet-scope {
+    grid-column: 2;
+  }
 }
 
 /* Home body gutters tighten at and below 767px. The breakpoint itself is a raw
@@ -95,6 +106,23 @@
   .cz-tier-deck__row--connection,
   .cz-tier-deck__tools {
     grid-template-columns: 1fr;
+  }
+
+  .cz-tier-settings__callout,
+  .cz-tier-settings__configuration,
+  .cz-tier-settings__rate-sheet,
+  .cz-tier-settings__inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .cz-tier-settings__callout-icon,
+  .cz-tier-settings__attach-list,
+  .cz-tier-settings__actions,
+  .cz-tier-settings__rate-sheet-scope,
+  .cz-tier-settings__confirm,
+  .cz-tier-settings__suggestion,
+  .cz-tier-settings__inline-form small {
+    grid-column: 1;
   }
 
   .cz-tier-deck__field--hide-sm {

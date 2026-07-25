@@ -4,12 +4,15 @@ import {
   eligibleConsumers,
   selectableRateSheets,
   suggestConsumerForInstance,
+  tierRateSheetInventory,
   tierInstanceRows,
   tierSlotStates,
 } from '../resources/ts/package-station/surface/tierInstance/tierInstanceModel';
 import {
   decodeTierDrawerRecordId,
+  decodeTierSlotDrawerRecordId,
   encodeTierDrawerRecordId,
+  encodeTierSlotDrawerRecordId,
 } from '../resources/ts/package-station/drawer/tier/tierDrawerTypes';
 import { TIER_KEYS } from '../resources/ts/package-station/vocabulary';
 import type {
@@ -132,5 +135,33 @@ check(
   'drawer routing carries the instance id without changing the occupant id',
 );
 check(decodeTierDrawerRecordId('occ_a') === null, 'legacy occupant-only identity remains distinguishable');
+
+const slotRoutingToken = encodeTierSlotDrawerRecordId('ti_unassigned', 'basic');
+check(
+  JSON.stringify(decodeTierSlotDrawerRecordId(slotRoutingToken)) === JSON.stringify({ instanceId: 'ti_unassigned', slotId: 'basic' }),
+  'empty-slot routing carries instance and fixed slot identity without an occupant id',
+);
+check(decodeTierSlotDrawerRecordId(encodeTierSlotDrawerRecordId('ti_unassigned', 'custom')) === null, 'non-fixed slots are rejected');
+check(decodeTierDrawerRecordId(slotRoutingToken) === null, 'slot routing can never be mistaken for occupant routing');
+
+const sharedA = instance('ti_shared_a', ['occ_shared_a']);
+const sharedB = instance('ti_shared_b', ['occ_shared_b']);
+sharedA.tiers.basic.current_occupant!.rate_sheet_id = 'rs_a';
+sharedB.tiers.basic.current_occupant!.rate_sheet_id = 'rs_a';
+const sharedAssignments: TierAssignment[] = [
+  { assignment_id: 'tasg_shared_a', consumer_type: 'package_family', consumer_id: 'kairos', tier_instance_id: 'ti_shared_a' },
+  { assignment_id: 'tasg_shared_b', consumer_type: 'package_family', consumer_id: 'aptos', tier_instance_id: 'ti_shared_b' },
+];
+const inventory = tierRateSheetInventory(sheets, [sharedA, sharedB], sharedAssignments, families);
+const sharedSheet = inventory.find((sheet) => sheet.rateSheetId === 'rs_a')!;
+check(sharedSheet.availableTo.length === 2 && sharedSheet.usedBy.length === 2, 'a Rate Sheet may be available to and used by multiple instances');
+check(
+  sharedSheet.usedBy.map((scope) => scope.familyName).join(',') === 'KAIROS,APTOS',
+  'Rate Sheet users receive Family labels only through explicit assignments',
+);
+check(
+  sharedSheet.usedBy.every((scope) => scope.slotIds.join(',') === 'basic'),
+  'current usage reports the exact fixed slots bound to the sheet',
+);
 
 console.log('Tier instance tool contract passed.');

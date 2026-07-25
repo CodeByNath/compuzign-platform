@@ -4,13 +4,16 @@
 // their assignment row; it never consults Service or Rate Sheet provenance and
 // never treats either peer as storage owned by the other.
 
-import type { CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
+import type {
+  CategoryGroupCardItem,
+  CategoryGroupStatus,
+} from '@/admin-station/presentation/category-groups/types';
 import type {
   TierAssignment,
   TierInstanceRecord,
   TierInstanceSummary,
 } from '../../types';
-import { TIER_KEYS } from '../../vocabulary';
+import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
 
 /** Package Family fields used by the workspace and its authoritative summary. */
 export interface WorkspaceFamilyScope {
@@ -19,6 +22,33 @@ export interface WorkspaceFamilyScope {
   description: string;
   status: CategoryGroupStatus;
   dependents: { services: number; rate_sheet_rows: number; tier_selections: number };
+}
+
+/** One fixed Tier slot in the workspace. Empty slots have no occupant identity. */
+export interface WorkspaceTierSlot {
+  slotId: string;
+  label: string;
+  occupantId: string | null;
+  item: CategoryGroupCardItem | null;
+}
+
+/**
+ * Project the immutable five-slot shell without manufacturing occupant records.
+ * The input contains real occupant cards only; missing entries remain empty.
+ */
+export function projectWorkspaceTierSlots(
+  occupants: readonly { slotId: string; occupantId: string; item: CategoryGroupCardItem }[],
+): WorkspaceTierSlot[] {
+  const occupantBySlot = new Map(occupants.map((occupant) => [occupant.slotId, occupant]));
+  return TIER_KEYS.map((slotId) => {
+    const occupant = occupantBySlot.get(slotId) ?? null;
+    return {
+      slotId,
+      label: TIER_LABELS[slotId] ?? slotId,
+      occupantId: occupant?.occupantId ?? null,
+      item: occupant?.item ?? null,
+    };
+  });
 }
 
 /** Pure full-record → list-summary projection for assignment resolution. */

@@ -392,9 +392,24 @@ final class PackageCategoryGroups
         }
 
         $tierSelections = 0;
-        foreach (is_array($station['tiers'] ?? null) ? $station['tiers'] : [] as $tier) {
-            if (is_array($tier)) {
-                $tierSelections += self::countTierSelections($tier, $memberRowsBySheet);
+        if (array_key_exists('tier_instances', $station)) {
+            // Canonical cutover: scan each independent instance exactly once.
+            // The legacy top-level tiers map may mirror ti_primary temporarily
+            // and must never be counted as a second Tier set.
+            foreach (is_array($station['tier_instances']) ? $station['tier_instances'] : [] as $instance) {
+                foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $tier) {
+                    if (is_array($tier)) {
+                        $tierSelections += self::countTierSelections($tier, $memberRowsBySheet);
+                    }
+                }
+            }
+        } else {
+            // Pre-cutover compatibility for callers that have not yet passed
+            // through TierInstanceSchema migration.
+            foreach (is_array($station['tiers'] ?? null) ? $station['tiers'] : [] as $tier) {
+                if (is_array($tier)) {
+                    $tierSelections += self::countTierSelections($tier, $memberRowsBySheet);
+                }
             }
         }
 

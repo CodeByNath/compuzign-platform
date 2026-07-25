@@ -42,6 +42,8 @@ export interface TierBinPrompt {
 }
 
 const TIER_DRAWER_RECORD_PREFIX = 'tier-instance:';
+const TIER_SLOT_DRAWER_RECORD_PREFIX = 'tier-slot:';
+const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate']);
 
 /** Package-owned routing token; the card itself keeps occupant_id identity. */
 export function encodeTierDrawerRecordId(instanceId: string, occupantId: string): string {
@@ -54,4 +56,19 @@ export function decodeTierDrawerRecordId(
   if (!recordId.startsWith(TIER_DRAWER_RECORD_PREFIX)) return null;
   const [instanceId, occupantId, ...extra] = recordId.slice(TIER_DRAWER_RECORD_PREFIX.length).split(':');
   return instanceId && occupantId && extra.length === 0 ? { instanceId, occupantId } : null;
+}
+
+/** Empty-slot route. Slot identity must never be encoded as occupant identity. */
+export function encodeTierSlotDrawerRecordId(instanceId: string, slotId: string): string {
+  return `${TIER_SLOT_DRAWER_RECORD_PREFIX}${instanceId}:${slotId}`;
+}
+
+export function decodeTierSlotDrawerRecordId(
+  recordId: string,
+): { instanceId: string; slotId: string } | null {
+  if (!recordId.startsWith(TIER_SLOT_DRAWER_RECORD_PREFIX)) return null;
+  const [instanceId, slotId, ...extra] = recordId.slice(TIER_SLOT_DRAWER_RECORD_PREFIX.length).split(':');
+  return instanceId && FIXED_TIER_SLOTS.has(slotId) && extra.length === 0
+    ? { instanceId, slotId }
+    : null;
 }

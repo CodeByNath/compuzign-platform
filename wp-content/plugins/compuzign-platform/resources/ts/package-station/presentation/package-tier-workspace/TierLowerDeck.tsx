@@ -7,11 +7,11 @@
 //   Details      — the Tier's inclusion rows: Service-owned identity/category and
 //                  Rate Sheet-derived pricing, filterable by search/category/status.
 //   Connections  — the Rate Sheet groups those selections draw from.
-//   Settings     — the Package Manager tools, each shown honestly (available ones
-//                  reuse their real action; the rest render as plainly unavailable).
+//   Settings     — explicit Tier-system operations, the Package Manager tools,
+//                  and Rate Sheet availability/current-use inventory.
 //
-// It is presentation-only: it receives the derived `TierDeck` (see surface/
-// packageTierWorkspace/deck) plus one intent dispatcher and fetches nothing. Every
+// It is presentation-only: it receives derived workspace models plus intent
+// dispatchers and fetches nothing. Every
 // View/Edit forwards to the SAME registered `tier` drawer the engine uses, keyed
 // by the focused occupant_id the orchestrator supplies — the Package Station
 // boundary that owns Tier selections, quantities and Rate Sheet connections. No
@@ -21,15 +21,18 @@
 import { useMemo, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { TierDeck, DeckInclusion, DeckRateSheetConnection } from '../../surface/packageTierWorkspace/deck';
+import type { PackageRateSheet, TierInstanceSummary } from '../../types';
+import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
+import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
+import type { TierRateSheetInventoryRow } from '../../surface/tierInstance/tierInstanceModel';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import {
   PackagesIcon,
   RateSheetIcon,
-  ServicesIcon,
-  AppsIcon,
   SearchIcon,
   TiersIcon,
 } from '@/admin-station/shell/icons';
+import { TierSystemSettings } from './TierSystemSettings';
 
 // ── SECTION: contract ─────────────────────────────────────────────────────────
 
@@ -37,12 +40,24 @@ interface Props {
   familyName: string;
   tierName:   string;
   deck:       TierDeck;
+  activeTab:  DeckTab;
+  hasFocusedTier: boolean;
+  tierTool: TierInstancesToolState;
+  family: WorkspaceFamilyScope | null;
+  assignedInstance: TierInstanceSummary | null;
+  workspaceInstance: TierInstanceSummary | null;
+  rateSheets: PackageRateSheet[];
+  rateSheetInventory: TierRateSheetInventoryRow[];
+  settingsLoading: boolean;
+  settingsError: string | null;
   // Dispatches a registered action id ('view' | 'edit') for the focused Tier. The
   // orchestrator binds it to the occupant_id, so this deck never handles identity.
   onIntent:   (actionId: string) => void;
+  onToolIntent: (actionId: string) => void;
+  onTabChange: (tab: DeckTab) => void;
 }
 
-type DeckTab = 'details' | 'connections' | 'settings';
+export type DeckTab = 'details' | 'connections' | 'settings';
 
 const TABS: { id: DeckTab; label: string }[] = [
   { id: 'details',     label: 'Details' },
@@ -73,8 +88,24 @@ const ROW_ACTIONS = [
 
 // ── SECTION: shell ────────────────────────────────────────────────────────────
 
-export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): VNode {
-  const [tab, setTab] = useState<DeckTab>('details');
+export function TierLowerDeck({
+  familyName,
+  tierName,
+  deck,
+  activeTab,
+  hasFocusedTier,
+  tierTool,
+  family,
+  assignedInstance,
+  workspaceInstance,
+  rateSheets,
+  rateSheetInventory,
+  settingsLoading,
+  settingsError,
+  onIntent,
+  onToolIntent,
+  onTabChange,
+}: Props): VNode {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Arrow/Home/End move focus and selection together — the WAI-ARIA tab pattern,
@@ -87,7 +118,7 @@ export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): 
     else if (event.key === 'End') next = TABS.length - 1;
     if (next !== null) {
       event.preventDefault();
-      setTab(TABS[next].id);
+      onTabChange(TABS[next].id);
       tabRefs.current[next]?.focus();
     }
   };
@@ -102,12 +133,14 @@ export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): 
             <p class="cz-tier-deck__context-scope">Focused from {familyName}</p>
           </div>
         </div>
-        <span class="cz-tier-deck__scope-note">Auto-scoped from the Tier Engine</span>
+        <span class="cz-tier-deck__scope-note">
+          {hasFocusedTier ? 'Auto-scoped from the Tier Engine' : 'No focused Tier'}
+        </span>
       </div>
 
       <div class="cz-tier-deck__tabs" role="tablist" aria-label="Focused Tier sections">
         {TABS.map((entry, index) => {
-          const selected = tab === entry.id;
+          const selected = activeTab === entry.id;
           return (
             <button
               key={entry.id}
@@ -117,7 +150,7 @@ export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): 
               aria-selected={selected}
               tabIndex={selected ? 0 : -1}
               class={`cz-tier-deck__tab${selected ? ' cz-tier-deck__tab--active' : ''}`}
-              onClick={() => setTab(entry.id)}
+              onClick={() => onTabChange(entry.id)}
               onKeyDown={(event) => onTabKeyDown(event, index)}
             >
               {entry.label}
@@ -127,9 +160,28 @@ export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): 
       </div>
 
       <div class="cz-tier-deck__panel" role="tabpanel">
-        {tab === 'details'     && <DetailsLane deck={deck} onIntent={onIntent} />}
-        {tab === 'connections' && <ConnectionsLane connections={deck.rateSheets} familyName={familyName} onIntent={onIntent} />}
-        {tab === 'settings'    && <SettingsLane onIntent={onIntent} />}
+        {activeTab === 'details' && <DetailsLane deck={deck} hasFocusedTier={hasFocusedTier} onIntent={onIntent} />}
+        {activeTab === 'connections' && (
+          <ConnectionsLane
+            connections={deck.rateSheets}
+            familyName={familyName}
+            hasFocusedTier={hasFocusedTier}
+            onIntent={onIntent}
+          />
+        )}
+        {activeTab === 'settings' && (
+          <TierSystemSettings
+            tool={tierTool}
+            family={family}
+            assignedInstance={assignedInstance}
+            workspaceInstance={workspaceInstance}
+            rateSheets={rateSheets}
+            inventory={rateSheetInventory}
+            loading={settingsLoading}
+            error={settingsError}
+            onToolIntent={onToolIntent}
+          />
+        )}
       </div>
     </section>
   );
@@ -137,7 +189,15 @@ export function TierLowerDeck({ familyName, tierName, deck, onIntent }: Props): 
 
 // ── SECTION: Details lane ─────────────────────────────────────────────────────
 
-function DetailsLane({ deck, onIntent }: { deck: TierDeck; onIntent: (actionId: string) => void }): VNode {
+function DetailsLane({
+  deck,
+  hasFocusedTier,
+  onIntent,
+}: {
+  deck: TierDeck;
+  hasFocusedTier: boolean;
+  onIntent: (actionId: string) => void;
+}): VNode {
   const [query, setQuery]       = useState('');
   const [category, setCategory] = useState('');
   const [status, setStatus]     = useState('');
@@ -171,7 +231,7 @@ function DetailsLane({ deck, onIntent }: { deck: TierDeck; onIntent: (actionId: 
         </div>
       </div>
 
-      <div class="cz-tier-deck__toolbar">
+      {hasFocusedTier && <div class="cz-tier-deck__toolbar">
         <span class="cz-tier-deck__search">
           <SearchIcon class="cz-tier-deck__search-icon" />
           <input
@@ -203,9 +263,11 @@ function DetailsLane({ deck, onIntent }: { deck: TierDeck; onIntent: (actionId: 
           <option value="">All statuses</option>
           {statuses.map((token) => <option key={token} value={token}>{STATUS_META[token].label}</option>)}
         </select>
-      </div>
+      </div>}
 
-      {deck.inclusions.length === 0 ? (
+      {!hasFocusedTier ? (
+        <p class="cz-station-empty">Focus a configured Tier to see its inclusions. Tier setup remains available in Settings.</p>
+      ) : deck.inclusions.length === 0 ? (
         <p class="cz-station-empty">This Tier selects no inclusions.</p>
       ) : rows.length === 0 ? (
         <p class="cz-station-empty">No focused inclusions match these filters.</p>
@@ -258,10 +320,12 @@ function InclusionRow({ inclusion, onIntent }: { inclusion: DeckInclusion; onInt
 function ConnectionsLane({
   connections,
   familyName,
+  hasFocusedTier,
   onIntent,
 }: {
   connections: DeckRateSheetConnection[];
   familyName:  string;
+  hasFocusedTier: boolean;
   onIntent:    (actionId: string) => void;
 }): VNode {
   return (
@@ -275,7 +339,9 @@ function ConnectionsLane({
         </div>
       </div>
 
-      {connections.length === 0 ? (
+      {!hasFocusedTier ? (
+        <p class="cz-station-empty">Focus a configured Tier to see its current connections. Available Rate Sheets and their users remain visible in Settings.</p>
+      ) : connections.length === 0 ? (
         <p class="cz-station-empty">This Tier connects to no Rate Sheet rows.</p>
       ) : (
         <ul class="cz-tier-deck__list">
@@ -307,90 +373,6 @@ function ConnectionsLane({
           ))}
         </ul>
       )}
-    </>
-  );
-}
-
-// ── SECTION: Settings lane ────────────────────────────────────────────────────
-//
-// The Package Manager tools the mockup places here. A tool that has a real
-// destination routes to it; a tool with no registered contract still renders
-// honestly as unavailable rather than as a button that saves nothing. The Rate
-// Sheet authoring tool now opens in the generic Admin drawer (the registered
-// `rate-sheet` drawer template), so both its card and the Groups card dispatch
-// the same `rate-sheet` intent — no editor renders inline beneath the workspace.
-
-interface SettingsTool {
-  id:    string;
-  icon:  typeof RateSheetIcon;
-  title: string;
-  body:  string;
-  // Exactly one of the two: a registered Package-owned action, or
-  // an honest unavailable note.
-  route?:       { label: string; actionId: string };
-  unavailable?: string;
-}
-
-const SETTINGS_TOOLS: SettingsTool[] = [
-  {
-    id:    'family-groups',
-    icon:  ServicesIcon,
-    title: 'Family Groups',
-    body:  'Create and maintain Package Family working scopes.',
-    route: { label: 'Create Package Family', actionId: 'create-package-family' },
-  },
-  {
-    id:    'rate-sheets',
-    icon:  RateSheetIcon,
-    title: 'Rate Sheets',
-    body:  'Author the commercial pricing rows Package connections draw from.',
-    route: { label: 'Open Rate Sheet tool', actionId: 'rate-sheet' },
-  },
-  {
-    id:    'groups',
-    icon:  AppsIcon,
-    title: 'Groups',
-    body:  'Rate Sheet groups are created and maintained inside the Rate Sheet tool, alongside the priced rows they organise.',
-    route: { label: 'Open Rate Sheet tool', actionId: 'rate-sheet' },
-  },
-];
-
-function SettingsLane({ onIntent }: { onIntent: (actionId: string) => void }): VNode {
-  return (
-    <>
-      <div class="cz-tier-deck__lane-head">
-        <div>
-          <h4 class="cz-tier-deck__lane-title">Package Manager tools</h4>
-          <p class="cz-tier-deck__lane-note">
-            Manager-owned configuration tools. Tools open in their drawer; those with no registered contract are shown as unavailable, not as mock buttons.
-          </p>
-        </div>
-      </div>
-
-      <div class="cz-tier-deck__tools">
-        {SETTINGS_TOOLS.map((tool) => {
-          const Icon = tool.icon;
-          return (
-            <article key={tool.id} class="cz-tier-deck__tool">
-              <span class="cz-tier-deck__tool-icon" aria-hidden="true"><Icon /></span>
-              <h5 class="cz-tier-deck__tool-title">{tool.title}</h5>
-              <p class="cz-tier-deck__tool-body">{tool.body}</p>
-              {tool.route ? (
-                <button type="button" class="cz-tier-deck__tool-action cz-tier-deck__tool-action--live" onClick={() => onIntent(tool.route!.actionId)}>
-                  {tool.route.label}
-                </button>
-              ) : (
-                <>
-                  <p class="cz-tier-deck__tool-unavailable" role="note">{tool.unavailable}</p>
-                  <button type="button" class="cz-tier-deck__tool-action" disabled aria-disabled="true">
-                    Unavailable
-                  </button>
-                </>
-              )}
-            </article>
-          );
-        })}
-      </div>
     </>
   );
 }

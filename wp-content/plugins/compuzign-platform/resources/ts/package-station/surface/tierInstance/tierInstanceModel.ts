@@ -27,6 +27,23 @@ export interface TierSlotState {
   occupantId: string | null;
 }
 
+export interface TierRateSheetScope {
+  instanceId: string;
+  instanceTitle: string;
+  familyName: string;
+  slotIds: string[];
+}
+
+export interface TierRateSheetInventoryRow {
+  rateSheetId: string;
+  title: string;
+  status: PackageRateSheet['status'];
+  groupCount: number;
+  rowCount: number;
+  availableTo: TierRateSheetScope[];
+  usedBy: TierRateSheetScope[];
+}
+
 function assignmentForInstance(
   assignments: readonly TierAssignment[],
   instanceId: string,
@@ -98,6 +115,64 @@ export function tierSlotStates(instance: TierInstanceRecord): TierSlotState[] {
       slotId,
       occupied: occupant !== null,
       occupantId: occupant?.id ?? null,
+    };
+  });
+}
+
+/**
+ * Project Rate Sheet availability and current use across independent instances.
+ * Family labels are joined only through tier_assignments[]; Rate Sheet or
+ * Service provenance never creates a capability relationship.
+ */
+export function tierRateSheetInventory(
+  rateSheets: readonly PackageRateSheet[],
+  instances: readonly TierInstanceRecord[],
+  assignments: readonly TierAssignment[],
+  families: readonly PackageFamilyListItem[],
+): TierRateSheetInventoryRow[] {
+  const familyById = new Map(families.map((family) => [family.group_id, family]));
+  const assignmentByInstance = new Map(assignments.map((assignment) => [
+    assignment.tier_instance_id,
+    assignment,
+  ]));
+  const familyName = (instanceId: string): string => {
+    const assignment = assignmentByInstance.get(instanceId);
+    return assignment ? familyById.get(assignment.consumer_id)?.label ?? 'Unknown Family' : 'Unassigned';
+  };
+
+  return rateSheets.map((sheet) => {
+    const availableTo = instances
+      .filter((instance) => (
+        instance.allowed_rate_sheet_ids.includes(sheet.rate_sheet_id)
+        || (sheet.status === 'active' && instance.allowed_rate_sheet_ids.length === 0)
+      ))
+      .map((instance) => ({
+        instanceId: instance.tier_instance_id,
+        instanceTitle: instance.title,
+        familyName: familyName(instance.tier_instance_id),
+        slotIds: [],
+      }));
+
+    const usedBy = instances.flatMap((instance) => {
+      const slotIds = TIER_KEYS.filter((slotId) =>
+        instance.tiers[slotId]?.current_occupant?.rate_sheet_id === sheet.rate_sheet_id,
+      );
+      return slotIds.length === 0 ? [] : [{
+        instanceId: instance.tier_instance_id,
+        instanceTitle: instance.title,
+        familyName: familyName(instance.tier_instance_id),
+        slotIds,
+      }];
+    });
+
+    return {
+      rateSheetId: sheet.rate_sheet_id,
+      title: sheet.title,
+      status: sheet.status,
+      groupCount: sheet.groups.length,
+      rowCount: sheet.items.length,
+      availableTo,
+      usedBy,
     };
   });
 }

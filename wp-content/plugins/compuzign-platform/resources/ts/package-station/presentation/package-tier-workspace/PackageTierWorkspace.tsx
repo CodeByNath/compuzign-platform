@@ -5,39 +5,42 @@
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
-import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
 import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-groups/CategoryGroupCardGrid';
 import type { PackageTierWorkspaceTool } from '../../surface/packageTierWorkspace/usePackageTierWorkspace';
-import { encodeTierDrawerRecordId } from '../../drawer/tier/tierDrawerTypes';
+import {
+  encodeTierDrawerRecordId,
+  encodeTierSlotDrawerRecordId,
+} from '../../drawer/tier/tierDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
 import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
-import { TierInstancePanel } from './TierInstancePanel';
 import { TierNavigation } from './TierNavigation';
 import { TierDetailPanel } from './TierDetailPanel';
-import { TierLowerDeck } from './TierLowerDeck';
+import { TierLowerDeck, type DeckTab } from './TierLowerDeck';
 
 const ENGINE_DESCRIPTION = 'Package-owned workspace for managing independent Tier capability instances.';
 const NO_FAMILY_MESSAGE = 'Create a Package Family to organise Services and optionally add Tier capability.';
-const NO_CAPABILITY_MESSAGE = 'This Package Family does not use the Tier capability.';
-const NO_TIERS_MESSAGE = 'No Tier selections are currently available for this Package Family.';
-const NO_INSTANCE_OCCUPANTS_MESSAGE = 'This Tier instance has no configured occupants.';
 type ViewMode = 'focus' | 'grid';
 
 export function PackageTierWorkspace({ items, loading, error, onIntent }: TemplateKitProps): VNode {
   const tool = (items as PackageTierWorkspaceTool[])[0] ?? null;
-  const [selectedTierId, setSelectedTierId] = useState<CategoryGroupCardItem['id'] | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('focus');
+  const [deckTab, setDeckTab] = useState<DeckTab>('details');
 
   const occupants = tool?.occupants ?? [];
-  const selectedTier = useMemo(
-    () => occupants.find((occupant) => occupant.id === selectedTierId) ?? occupants[0] ?? null,
-    [occupants, selectedTierId],
+  const slots = tool?.slots ?? [];
+  const selectedSlot = useMemo(
+    () => slots.find((slot) => slot.slotId === selectedSlotId) ?? slots[0] ?? null,
+    [selectedSlotId, slots],
   );
   const instanceId = tool?.workspaceInstance?.tier_instance_id ?? null;
-  const dispatchTierIntent = (occupantId: CategoryGroupCardItem['id'], actionId: string) => {
-    if (instanceId === null || typeof occupantId !== 'string') return;
-    onIntent(encodeTierDrawerRecordId(instanceId, occupantId), actionId);
+  const dispatchTierIntent = (slotId: string, occupantId: string | null, actionId: string) => {
+    if (instanceId === null) return;
+    const recordId = occupantId
+      ? encodeTierDrawerRecordId(instanceId, occupantId)
+      : encodeTierSlotDrawerRecordId(instanceId, slotId);
+    onIntent(recordId, actionId);
   };
 
   if (loading || !tool) {
@@ -63,10 +66,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     );
   }
 
-  const noFamilyCapability = tool.selectedFamily !== null && tool.assignedInstance === null;
   const contextName = tool.selectedFamily?.name
     ?? (tool.workspaceInstance ? `Unassigned · ${tool.workspaceInstance.title}` : 'Unassigned');
-  const emptyTierMessage = tool.selectedFamily ? NO_TIERS_MESSAGE : NO_INSTANCE_OCCUPANTS_MESSAGE;
+  const showGrid = instanceId !== null && occupants.length > 0 && viewMode === 'grid';
 
   return (
     <div class="cz-tier-workspace">
@@ -91,39 +93,33 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
 
       <div class="cz-tier-workspace__layout">
         <div class="cz-tier-workspace__primary">
-          {noFamilyCapability ? (
-            <div class="cz-station-empty">
-              <p>{NO_CAPABILITY_MESSAGE}</p>
-              <button
-                type="button"
-                class="button button-primary"
-                disabled={tool.tierInstances.saving}
-                onClick={() => { void tool.addTierCapability(); }}
-              >
-                Add Tier capability
-              </button>
-            </div>
-          ) : instanceId === null ? (
-            <p class="cz-station-empty">Select a Package Family or Tier instance.</p>
-          ) : occupants.length === 0 ? (
-            <p class="cz-station-empty">{emptyTierMessage}</p>
-          ) : viewMode === 'grid' ? (
+          {showGrid ? (
             <CategoryGroupCardGrid
               items={occupants}
-              onAction={(event) => dispatchTierIntent(event.cardId, event.actionId)}
-              emptyMessage={emptyTierMessage}
+              onAction={(event) => {
+                const slot = slots.find((candidate) => candidate.occupantId === event.cardId);
+                if (slot) dispatchTierIntent(slot.slotId, slot.occupantId, event.actionId);
+              }}
+              emptyMessage="No Tier occupants are configured."
             />
           ) : (
             <div class="cz-tier-workspace__focus">
               <TierNavigation
-                items={occupants}
-                selectedId={selectedTier?.id ?? null}
-                onSelect={setSelectedTierId}
+                slots={slots}
+                selectedId={selectedSlot?.slotId ?? null}
+                onSelect={setSelectedSlotId}
               />
-              {selectedTier && (
+              {selectedSlot && (
                 <TierDetailPanel
-                  item={selectedTier}
-                  onAction={(actionId) => dispatchTierIntent(selectedTier.id, actionId)}
+                  slot={selectedSlot}
+                  familyName={tool.selectedFamily?.name ?? null}
+                  hasInstance={instanceId !== null}
+                  onAction={(actionId) => dispatchTierIntent(
+                    selectedSlot.slotId,
+                    selectedSlot.occupantId,
+                    actionId,
+                  )}
+                  onOpenSettings={() => setDeckTab('settings')}
                 />
               )}
             </div>
@@ -146,16 +142,31 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
         </aside>
       </div>
 
-      <TierInstancePanel tool={tool.tierInstances} rateSheets={tool.rateSheets} />
-
-      {instanceId !== null && selectedTier !== null && (
+      {(tool.selectedFamily !== null || tool.workspaceInstance !== null) && selectedSlot && (
         <TierLowerDeck
           familyName={contextName}
-          tierName={selectedTier.name}
-          deck={tool.decks[selectedTier.id] ?? EMPTY_TIER_DECK}
-          onIntent={(actionId) => actionId === 'create-package-family'
-            ? onIntent('new', actionId)
-            : dispatchTierIntent(selectedTier.id, actionId)}
+          tierName={selectedSlot.item?.name ?? `${selectedSlot.label} Tier`}
+          deck={selectedSlot.item ? tool.decks[selectedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
+          activeTab={deckTab}
+          hasFocusedTier={selectedSlot.item !== null}
+          tierTool={tool.tierInstances}
+          family={tool.selectedFamily}
+          assignedInstance={tool.assignedInstance}
+          workspaceInstance={tool.workspaceInstance}
+          rateSheets={tool.rateSheets}
+          rateSheetInventory={tool.rateSheetInventory}
+          settingsLoading={tool.settingsLoading}
+          settingsError={tool.settingsError}
+          onIntent={(actionId) => dispatchTierIntent(
+            selectedSlot.slotId,
+            selectedSlot.occupantId,
+            actionId,
+          )}
+          onToolIntent={(actionId) => onIntent(
+            actionId === 'create-package-family' ? 'new' : tool.selectedFamily?.id ?? instanceId ?? 'new',
+            actionId,
+          )}
+          onTabChange={setDeckTab}
         />
       )}
     </div>

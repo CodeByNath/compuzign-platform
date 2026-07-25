@@ -4,7 +4,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
-import type { PackageRateSheet, TierInstanceSummary } from '../../types';
+import { fetchPackageStationManager } from '../../api';
+import type {
+  PackageManagerReadModel,
+  PackageRateSheet,
+  TierInstanceSummary,
+} from '../../types';
 import { usePackageStation } from '../../usePackageStation';
 import { useTierInstances } from '../tierInstance/useTierInstances';
 import type { TierInstancesToolState } from '../tierInstance/useTierInstances';
@@ -13,15 +18,21 @@ import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
 import {
   projectResolvedInstanceOccupants,
+  projectWorkspaceTierSlots,
   resolveFamilyTierAssignment,
   summarizeTierInstance,
   type WorkspaceFamilyScope,
+  type WorkspaceTierSlot,
 } from './projection';
 import {
   buildRateItemCategoryMap,
   projectTierDeck,
   type TierDeck,
 } from './deck';
+import {
+  tierRateSheetInventory,
+  type TierRateSheetInventoryRow,
+} from '../tierInstance/tierInstanceModel';
 
 export interface PackageTierWorkspaceTool {
   kind: 'tier-instance-tool';
@@ -31,10 +42,13 @@ export interface PackageTierWorkspaceTool {
   assignedInstance: TierInstanceSummary | null;
   workspaceInstance: TierInstanceSummary | null;
   occupants: CategoryGroupCardItem[];
+  slots: WorkspaceTierSlot[];
   decks: Record<string, TierDeck>;
   rateSheets: PackageRateSheet[];
+  rateSheetInventory: TierRateSheetInventoryRow[];
+  settingsLoading: boolean;
+  settingsError: string | null;
   selectFamily: (familyId: string) => void;
-  addTierCapability: () => Promise<boolean>;
 }
 
 export interface PackageTierWorkspaceResult {
@@ -49,10 +63,10 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
   const host = useHostService();
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [directInstanceId, setDirectInstanceId] = useState<string | null>(null);
-  const [pendingCapability, setPendingCapability] = useState<{
-    familyId: string;
-    instanceId: string;
-  } | null>(null);
+  const [manager, setManager] = useState<PackageManagerReadModel | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [managerRevision, setManagerRevision] = useState(0);
 
   const summaries = useMemo(
     () => tierInstances.instances.map(summarizeTierInstance),
@@ -84,6 +98,33 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     workspaceInstance?.tier_instance_id ?? null,
   );
 
+  // Settings needs the Package Manager inventory even when a Family has no Tier
+  // assignment. Keep that read independent from the instance-scoped Tier read.
+  useEffect(() => {
+    const serviceId = host.service?.id ?? 0;
+    if (serviceId <= 0) {
+      setManager(null);
+      setSettingsLoading(false);
+      return;
+    }
+    let active = true;
+    setManager(null);
+    setSettingsLoading(true);
+    setSettingsError(null);
+    fetchPackageStationManager(serviceId)
+      .then((response) => {
+        if (!active) return;
+        setManager(response.success ? response.manager : null);
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setManager(null);
+        setSettingsError(cause instanceof Error ? cause.message : 'Unable to load Package Manager settings.');
+      })
+      .finally(() => { if (active) setSettingsLoading(false); });
+    return () => { active = false; };
+  }, [host.service?.id, managerRevision]);
+
   const selectFamily = useCallback((familyId: string) => {
     setSelectedFamilyId(familyId);
     setDirectInstanceId(null);
@@ -113,19 +154,12 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     showInstanceScope(instanceId);
   }, [showInstanceScope, tierInstances]);
 
-  const createInstanceForTool = useCallback(async (title: string) => {
-    const instance = await tierInstances.createInstance(title);
-    if (instance) showInstanceScope(instance.tier_instance_id);
-    return instance;
-  }, [showInstanceScope, tierInstances]);
-
   const workspaceTierInstances = useMemo<TierInstancesToolState>(() => ({
     ...tierInstances,
     selectInstance,
-    createInstance: createInstanceForTool,
-  }), [createInstanceForTool, selectInstance, tierInstances]);
+  }), [selectInstance, tierInstances]);
 
-  // Align the instance panel once the first Family collection resolves. Later
+  // Align the workspace instance once the first Family collection resolves. Later
   // selections are explicit and handled by selectFamily/selectInstance.
   const initialAlignmentDone = useRef(false);
   useEffect(() => {
@@ -160,35 +194,15 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     }
   }, [directInstanceId, families, tierInstances.assignments]);
 
-  const addTierCapability = useCallback(async (): Promise<boolean> => {
-    if (!selectedFamily || assignedInstance) return false;
-    let instanceId = pendingCapability?.familyId === selectedFamily.id
-      ? pendingCapability.instanceId
-      : null;
-    if (instanceId === null) {
-      const instance = await tierInstances.createInstance(`${selectedFamily.name} Tiers`);
-      if (!instance) return false;
-      instanceId = instance.tier_instance_id;
-      setPendingCapability({ familyId: selectedFamily.id, instanceId });
-    }
-    const assigned = await tierInstances.assignInstance(instanceId, selectedFamily.id);
-    if (assigned) {
-      setPendingCapability(null);
-      setSelectedFamilyId(selectedFamily.id);
-      setDirectInstanceId(null);
-    }
-    return assigned;
-  }, [assignedInstance, pendingCapability, selectedFamily, tierInstances]);
-
   const model = useMemo<PackageTierWorkspaceTool>(() => {
-    const rateSheets = pkg.service?.rate_sheets ?? [];
-    const relationships = pkg.service?.package_relationships ?? [];
+    const rateSheets = manager?.rate_sheets ?? pkg.service?.rate_sheets ?? [];
+    const relationships = manager?.items ?? pkg.service?.package_relationships ?? [];
     const categoryByRateItem = buildRateItemCategoryMap(
       rateSheets.flatMap((sheet) => sheet.items),
       relationships,
     );
     const decks: Record<string, TierDeck> = {};
-    const occupants = projectResolvedInstanceOccupants(
+    const resolvedOccupants = projectResolvedInstanceOccupants(
       workspaceInstance,
       pkg.tierOccupants.map(({ occupantId, slotId }) => {
         const view = pkg.tierView(slotId);
@@ -197,14 +211,19 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
           categoryByRateItem,
           rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
         );
-        return toTierOccupantCard({
+        return {
           occupantId,
           slotId,
-          view,
-          platformStatus: pkg.platformStatus,
-        });
+          item: toTierOccupantCard({
+            occupantId,
+            slotId,
+            view,
+            platformStatus: pkg.platformStatus,
+          }),
+        };
       }),
     );
+    const occupants = resolvedOccupants.map((occupant) => occupant.item);
     return {
       kind: 'tier-instance-tool',
       tierInstances: workspaceTierInstances,
@@ -213,10 +232,18 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       assignedInstance,
       workspaceInstance,
       occupants,
+      slots: projectWorkspaceTierSlots(resolvedOccupants),
       decks,
       rateSheets,
+      rateSheetInventory: tierRateSheetInventory(
+        rateSheets,
+        tierInstances.instances,
+        tierInstances.assignments,
+        tierInstances.families,
+      ),
+      settingsLoading,
+      settingsError,
       selectFamily,
-      addTierCapability,
     };
   }, [
     assignedInstance,
@@ -226,11 +253,16 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     pkg.tierView,
     pkg.platformStatus,
     pkg.detailLoaded,
+    manager,
     selectFamily,
     selectedFamily,
+    settingsError,
+    settingsLoading,
+    tierInstances.assignments,
+    tierInstances.families,
+    tierInstances.instances,
     workspaceInstance,
     workspaceTierInstances,
-    addTierCapability,
   ]);
 
   const waitingForInstance = workspaceInstance !== null && !!host.service && !pkg.detailLoaded;
@@ -241,6 +273,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     refetch: () => {
       tierInstances.refetch();
       pkg.refetch();
+      setManagerRevision((value) => value + 1);
     },
   };
 }

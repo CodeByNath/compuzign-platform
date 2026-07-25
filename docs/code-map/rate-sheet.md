@@ -13,6 +13,7 @@ Rate Sheets are an identified sibling collection — `package_manager.rate_sheet
 - [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts) derives labels for Package-owned relationship projections.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) resolves a Tier's selections against the Package read model and owns Tier module saves.
 - [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) groups a focused Tier's resolved selections for the read-only lower deck; it adds no storage or price.
+- [tierInstanceModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) projects the Settings inventory of available sheets and current Tier users across instances. Availability is non-exclusive; current use comes from occupant bindings, and Family labels join only through explicit Tier assignments.
 
 ### Rate Sheet authoring tool
 
@@ -24,7 +25,7 @@ It is a **collection manager**, not a singleton editor: View lists the sheets; E
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts) — the collection controller. Edits are local; one Save commits the batch via `savePackageStationManager`; Cancel reverts. Addressed by the shared `useHostService` host id.
 - [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — View list and Edit collection editor. It calls no endpoint and mints no IDs; rows are added explicitly.
 
-A Tier occupant binds to **one** sheet via `rate_sheet_id` and selects that sheet's rows by `item_id` + quantity; switching sheets clears the selections. Row identity is always `(rate_sheet_id, item_id)` — never a cross-sheet scan. The lower deck reads the bound sheet's groups and routes edits to the `tier` drawer; price authority stays with the Rate Sheet.
+A Tier occupant binds to **one** sheet via `rate_sheet_id` and selects that sheet's rows by `item_id` + quantity; switching sheets clears the selections. Row identity is always `(rate_sheet_id, item_id)` — never a cross-sheet scan. The lower deck reads the bound sheet's groups and routes edits to the `tier` drawer; its Settings lane also shows all available sheets and their current instance/Family users. Price authority stays with the Rate Sheet.
 
 ## Backend and runtime flow
 

@@ -146,8 +146,21 @@ class PackageRepository
     /** Persist the station atomically to its independent anchor. */
     public function saveStation(array $station): void
     {
+        $updated = update_option(self::OPTION_KEY, $station, false);
+
+        // WordPress also returns false when the value is already unchanged, so
+        // false alone is not a persistence failure. Read the option back and
+        // compare the exact serialized value before deciding. Keep the previous
+        // request cache untouched until persistence has been confirmed; otherwise
+        // a failed write could still be returned to the caller as if it succeeded.
+        if (!$updated) {
+            $persisted = get_option(self::OPTION_KEY, null);
+            if (serialize($persisted) !== serialize($station)) {
+                throw new \RuntimeException('package_station_persistence_failed');
+            }
+        }
+
         $this->stationCache = $station;
-        update_option(self::OPTION_KEY, $station, false);
     }
 
     /** Fresh station shell for first-time configuration. */

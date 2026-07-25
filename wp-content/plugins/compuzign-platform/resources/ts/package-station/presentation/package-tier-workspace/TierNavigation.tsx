@@ -14,12 +14,13 @@
 
 import { useCallback, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { CategoryGroupCardItem, CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
+import type { CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
+import type { WorkspaceTierSlot } from '../../surface/packageTierWorkspace/projection';
 
 interface Props {
-  items: CategoryGroupCardItem[];
-  selectedId: CategoryGroupCardItem['id'] | null;
-  onSelect: (id: CategoryGroupCardItem['id']) => void;
+  slots: WorkspaceTierSlot[];
+  selectedId: string | null;
+  onSelect: (slotId: string) => void;
 }
 
 // The card's 4-state vocabulary collapses to the three the compact chip shows —
@@ -33,7 +34,7 @@ const STATUS_META: Record<CategoryGroupStatus, { label: string; token: string }>
   'pending-full': { label: 'Pending',  token: 'pending' },
 };
 
-export function TierNavigation({ items, selectedId, onSelect }: Props): VNode {
+export function TierNavigation({ slots, selectedId, onSelect }: Props): VNode {
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Arrow/Home/End move focus AND selection together — the tablist pattern where
@@ -41,24 +42,24 @@ export function TierNavigation({ items, selectedId, onSelect }: Props): VNode {
   // control is forgiving of either mental model in a vertical list.
   const handleKeyDown = useCallback(
     (event: KeyboardEvent, index: number) => {
-      if (items.length === 0) return;
+      if (slots.length === 0) return;
       let next: number | null = null;
       if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-        next = (index + 1) % items.length;
+        next = (index + 1) % slots.length;
       } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-        next = (index - 1 + items.length) % items.length;
+        next = (index - 1 + slots.length) % slots.length;
       } else if (event.key === 'Home') {
         next = 0;
       } else if (event.key === 'End') {
-        next = items.length - 1;
+        next = slots.length - 1;
       }
       if (next !== null) {
         event.preventDefault();
-        onSelect(items[next].id);
+        onSelect(slots[next].slotId);
         optionRefs.current[next]?.focus();
       }
     },
-    [items, onSelect],
+    [onSelect, slots],
   );
 
   return (
@@ -69,37 +70,41 @@ export function TierNavigation({ items, selectedId, onSelect }: Props): VNode {
       aria-label="Package Tiers"
     >
       <p class="cz-tier-workspace__panel-label">Package Tiers</p>
-      {items.map((item, index) => {
-        const selected = item.id === selectedId;
+      {slots.map((slot, index) => {
+        const item = slot.item;
+        const selected = slot.slotId === selectedId;
         // One tab stop: the selected tab, or the first when nothing is chosen
         // yet, so the strip is entered once and then navigated by arrow keys.
         const isTabStop = selected || (selectedId === null && index === 0);
-        const status = item.status ? STATUS_META[item.status] : null;
-        const feature = item.metrics[0];
+        const status = item?.status ? STATUS_META[item.status] : null;
+        const feature = item?.metrics[0];
         return (
           <button
-            key={item.id}
+            key={slot.slotId}
             ref={(el) => { optionRefs.current[index] = el; }}
             type="button"
             role="tab"
             aria-selected={selected}
             tabIndex={isTabStop ? 0 : -1}
             class={`cz-tier-workspace__tab${selected ? ' cz-tier-workspace__tab--selected' : ''}`}
-            onClick={() => onSelect(item.id)}
+            onClick={() => onSelect(slot.slotId)}
             onKeyDown={(event) => handleKeyDown(event, index)}
           >
             <span class="cz-tier-workspace__tab-head">
-              <span class="cz-tier-workspace__tab-name">{item.name}</span>
+              <span class="cz-tier-workspace__tab-name">{item?.name ?? `${slot.label} Tier`}</span>
               {status && (
                 <span class="cz-tier-workspace__tab-status" data-status={status.token}>
                   {status.label}
                 </span>
               )}
+              {!item && (
+                <span class="cz-tier-workspace__tab-status" data-status="empty">Empty</span>
+              )}
             </span>
             <span class="cz-tier-workspace__tab-meta">
-              {item.description && (
+              {item?.description ? (
                 <span class="cz-tier-workspace__tab-price">{item.description}</span>
-              )}
+              ) : <span class="cz-tier-workspace__tab-price">Not configured</span>}
               {feature && (
                 <span class="cz-tier-workspace__tab-count">
                   {feature.value} {feature.label.toLowerCase()}

@@ -14,16 +14,52 @@
 
 import type { VNode } from 'preact';
 import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
+import type { WorkspaceTierSlot } from '../../surface/packageTierWorkspace/projection';
 import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
 import { StationMetricBlock } from '@/admin-station/presentation/StationMetricBlock';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 
 interface Props {
-  item: CategoryGroupCardItem;
+  slot: WorkspaceTierSlot;
+  familyName: string | null;
+  hasInstance: boolean;
   onAction: (actionId: string) => void;
+  onOpenSettings: () => void;
 }
 
-export function TierDetailPanel({ item, onAction }: Props): VNode {
+export function TierDetailPanel({ slot, familyName, hasInstance, onAction, onOpenSettings }: Props): VNode {
+  const item: CategoryGroupCardItem | null = slot.item;
+  if (!item) {
+    const title = `${slot.label} Tier`;
+    return (
+      <section class="cz-tier-workspace__detail" role="tabpanel" aria-label={`${title} detail`}>
+        <header class="cz-tier-workspace__detail-head">
+          <div class="cz-tier-workspace__detail-identity">
+            <h4 class="cz-tier-workspace__detail-name">{title}</h4>
+            <p class="cz-tier-workspace__detail-kind">Fixed Tier slot</p>
+          </div>
+          <span class="cz-tier-workspace__tab-status" data-status="empty">Empty</span>
+        </header>
+        <div class="cz-tier-workspace__empty-focus">
+          <div class="cz-tier-workspace__empty-copy">
+            <h5>{hasInstance ? 'This Tier is ready to configure.' : 'Tier capability is optional.'}</h5>
+            <p>
+              {hasInstance
+                ? `Configure the ${slot.label} slot in the existing Tier tool.`
+                : `${familyName ?? 'This Package Family'} is complete without a Tier assignment. Configure the Tier system from Settings below.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--primary"
+            onClick={() => hasInstance ? onAction('edit') : onOpenSettings()}
+          >
+            {hasInstance ? `Configure ${slot.label}` : 'Open Tier settings'}
+          </button>
+        </div>
+      </section>
+    );
+  }
   const Icon = item.icon;
 
   return (

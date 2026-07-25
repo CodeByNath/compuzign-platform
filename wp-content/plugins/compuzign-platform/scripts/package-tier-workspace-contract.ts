@@ -5,6 +5,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   projectResolvedInstanceOccupants,
+  projectWorkspaceTierSlots,
   resolveFamilyTierAssignment,
   summarizeTierInstance,
   type WorkspaceFamilyScope,
@@ -142,6 +143,15 @@ check(
   'no assignment never leaks another Family instance occupants',
 );
 
+const fixedSlots = projectWorkspaceTierSlots([{
+  slotId: 'basic',
+  occupantId: 'occ_kairos_basic',
+  item: { id: 'occ_kairos_basic', name: 'Starter' } as never,
+}]);
+check(fixedSlots.map((slot) => slot.slotId).join(',') === TIER_KEYS.join(','), 'Focus shell always projects the five fixed slots in canonical order');
+check(fixedSlots[0].occupantId === 'occ_kairos_basic', 'occupied slots preserve the real occupant identity');
+check(fixedSlots.slice(1).every((slot) => slot.occupantId === null && slot.item === null), 'empty slots never receive fabricated occupant identities');
+
 const summary = buildFamilySummary(kairos);
 check(summary.metrics.length === 3, 'Family summary keeps exactly three dependency metrics');
 check(
@@ -192,15 +202,32 @@ for (const forbidden of [
   check(!packageSource.includes(forbidden), `obsolete provenance symbol ${forbidden} is deleted`);
 }
 
-const workspacePresentation = readFileSync(resolve(
+const workspacePresentationDirectory = resolve(
   root,
-  'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx',
-), 'utf8');
-check(
-  workspacePresentation.includes('This Package Family does not use the Tier capability.')
-    && workspacePresentation.includes('Add Tier capability'),
-  'the no-assignment state is neutral and exposes only the explicit Add action',
+  'resources/ts/package-station/presentation/package-tier-workspace',
 );
+const workspacePresentation = sourceFiles(workspacePresentationDirectory)
+  .filter((path) => /\.tsx?$/.test(path))
+  .map((path) => readFileSync(path, 'utf8')).join('\n');
+check(
+  workspacePresentation.includes('is complete without a Tier assignment')
+    && workspacePresentation.includes('Configure the Tier system from Settings below.'),
+  'the no-assignment state keeps the Tier shell and directs setup to Settings without declaring the Family incomplete',
+);
+check(workspacePresentation.includes('<TierNavigation') && workspacePresentation.includes('<TierLowerDeck'), 'the Focus shell and lower deck remain mounted for empty states');
+check(!workspacePresentation.includes('TierInstancePanel'), 'the standalone raw Tier-instance panel is retired');
+check(!workspacePresentation.includes('drawerModule__'), 'workspace presentation never leaks drawer-only field classes');
+check(
+  workspacePresentation.includes('Existing Tier selections suggest')
+    && workspacePresentation.includes('Confirming adds only the assignment'),
+  'migration suggestions remain explicit assignment actions inside Settings',
+);
+const workspaceHook = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts',
+), 'utf8');
+check(workspaceHook.includes('fetchPackageStationManager'), 'Rate Sheet settings load independently from an assigned Tier instance');
+check(!workspaceHook.includes('addTierCapability'), 'the workspace never auto-creates and assigns a Tier instance');
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {

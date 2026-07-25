@@ -10,8 +10,8 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `api.ts` — the single implementation of Package-owned endpoint calls.
 - `usePackageStation.ts`, `usePackageFamilyStation.ts`, and `useSurfacePackages.ts` — Package and Package Family state, mutations, and surface reads.
 - `tierOccupants.ts`, `rateSheetLabels.ts`, and `evaluateTierPricing.ts` — Package-owned pure projections, labels, and pricing evaluation.
-- `surface/packageFamily/`, `surface/tierInstance/`, `surface/tierSurface/`, `surface/packageTierWorkspace/`, and `surface/rateSheetTool/` — Package Family adapters; Tier instance/assignment state and pure models; exact Family-assignment workspace resolution and instance-scoped drawer adapters; and the Rate Sheet tool controller.
-- `presentation/package-tier-workspace/` and `presentation/rate-sheet-tool/` — the Package-owned Tier workspace presentation kit and the Rate Sheet authoring drawer content (the `rate-sheet` drawer template).
+- `surface/packageFamily/`, `surface/tierInstance/`, `surface/tierSurface/`, `surface/packageTierWorkspace/`, and `surface/rateSheetTool/` — Package Family adapters; Tier instance/assignment state and pure models; exact Family-assignment workspace resolution, fixed-slot/Rate-Sheet inventory projections and instance-scoped drawer adapters; and the Rate Sheet tool controller.
+- `presentation/package-tier-workspace/` and `presentation/rate-sheet-tool/` — the Package-owned Tier workspace presentation kit (including its Settings-hosted Tier-system operations) and the Rate Sheet authoring drawer content (the `rate-sheet` drawer template).
 - `drawer/package-family/` and `drawer/tier/` — Package-owned drawer compositions, controllers, dialogs, and footer presentation.
 - `drawer/editors/` and `drawer/schema/` — Package-owned editors, entity manifests, and bindings.
 - `vocabulary.ts` — Package-owned Tier keys and labels.

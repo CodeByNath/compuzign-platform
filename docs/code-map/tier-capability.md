@@ -2,11 +2,11 @@
 
 ## Ownership and canonical shape
 
-Package Station owns Tier capability instances and the explicit relationships that record which Package Family uses an instance. A Package Family and a Tier instance are independent peers; neither sanitiser can represent the other, and removing their relationship leaves both records intact.
+Package Station owns Tier instances and the explicit relationships recording which Package Family uses one. Family and instance are independent peers; removing their relationship leaves both intact.
 
-[`TierInstanceSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) defines the focused instance envelope: stable `ti_…` identity, title, status, Rate Sheet allow-list, popular-Tier configuration, the unchanged five-slot Tier map, and that instance's occupant bin. It deliberately contains no consumer, Family, Group, or assignment fields. [`PackageSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) remains the authority for the established occupant, draft, module-state, bin, and Promotion rules.
+[`TierInstanceSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) defines stable `ti_…` identity, title, status, Rate Sheet allow-list, popular-Tier configuration, five-slot map, and occupant bin. It contains no consumer, Family, Group, or assignment fields. [`PackageSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) retains occupant lifecycle and Promotion rules.
 
-[`TierAssignmentSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierAssignmentSchema.php) owns the removable usage edge. Its rows contain only derived `assignment_id`, `consumer_type`, `consumer_id`, and `tier_instance_id`. The current consumer vocabulary is exactly `package_family`; one Family and one instance may each appear in at most one row. Invalid join rows are dropped during sanitation. The global admin route family at `admin/package-station/tier-assignments` lists, creates, and deletes these rows. Family permanent deletion is blocked while a row exists; archive and trash leave it dormant.
+[`TierAssignmentSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierAssignmentSchema.php) owns the removable edge containing only `assignment_id`, `consumer_type`, `consumer_id`, and `tier_instance_id`. Consumers are exactly `package_family`; each peer appears at most once. `admin/package-station/tier-assignments` lists, creates, and deletes rows. Assignment blocks Family permanent deletion; archive/trash leave it dormant.
 
 ```text
 cz_package_station
@@ -18,15 +18,15 @@ cz_package_station
 
 ## Mutation and compatibility state
 
-`TierInstanceSchema::liftLegacyStation` exposes an in-memory, idempotent `ti_primary` for a legacy station. It copies the Tier map and occupant bin verbatim, writes nothing during reads, and creates no assignment. `tier_instances[]` is canonical for every Tier and bin mutation. `TierInstanceSchema::withInstance` replaces exactly one peer, re-derives its readiness, and mirrors `ti_primary` to the temporary legacy Tier/bin/popular projections until compatibility retirement.
+`TierInstanceSchema::liftLegacyStation` exposes in-memory `ti_primary`, copying Tier/bin data without read writes or assignment. `tier_instances[]` is mutation-canonical. `withInstance` replaces one peer and temporarily mirrors `ti_primary` to legacy projections.
 
-The scoped Service-navigation route family inserts `tier-instances/{instance}` before `read`, `tiers`, `bin`, and `popular`. Every handler resolves the instance before resolving a slot or bin. The old unscoped routes remain temporary aliases to `ti_primary`; scoped response envelopes include `tier_instance_id`. `usePackageStation(serviceId, tierInstanceId, …)` owns the corresponding client state and holds an unloaded state when the instance id is `null`.
+Scoped Service-navigation routes insert `tier-instances/{instance}` before `read`, `tiers`, `bin`, and `popular`; handlers resolve instance first. Temporary unscoped aliases address `ti_primary`. `usePackageStation(serviceId, tierInstanceId, …)` stays unloaded when the instance id is `null`.
 
 Instance deletion is blocked by assignments, occupants, bin entries, or drafts. Peer-isolation tests cover both mutation directions and sanitisation boundaries.
 
 ## Package Family capability flow
 
-`PackageFamilyCreateContent.tsx` saves and refreshes the Family before offering optional instance creation and assignment. Every decline/close route writes nothing further; partial failure preserves and reports both valid peers.
+`PackageFamilyCreateContent.tsx` saves the Family before optional instance creation and assignment. Decline/close writes nothing; partial failure preserves both peers.
 
 `usePackageFamilyCapabilities.ts` reads the two peer collections separately. The Family drawer places its Capabilities shell after Connected Records on Connections. Capability absence is valid and never affects overview readiness. Its only capability actions are Add Tier capability, Remove Tier capability, and Open Tier tool. Remove deletes only the assignment behind inline confirmation.
 
@@ -34,9 +34,11 @@ Instance deletion is blocked by assignments, occupants, bin entries, or drafts. 
 
 [`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) keeps peer collections and explicit mutations separate. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, eligibility, slots, sheet options, and the explicit migration suggestion. Unassigned instances remain operable.
 
-[`TierInstancePanel.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierInstancePanel.tsx) is the Package-owned instance selector/configuration surface. Opening an instance reuses the existing Focus/Grid engine, lower deck, and `tier` drawer. Drawer routing carries both instance and occupant identities while the card retains its native `occ_…` id. No new drawer template or generic CRUD/ownership framework exists.
+[`TierSystemSettings.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) is the Package-owned instance configuration lane inside the workspace's existing Settings tab. It provides explicit attach/create/remove/open actions, clear allow-list semantics, all five fixed slots, and a collapsed advanced instance inventory. The old standalone instance slab is retired. Opening an occupied Tier carries instance plus occupant identity; opening an empty slot carries instance plus slot identity and lets the existing drawer mint an occupant only on authoritative save. No new drawer template or generic CRUD/ownership framework exists.
 
-Family workspace scope uses `resolveFamilyTierAssignment`: exact `package_family` consumer match → assigned instance, with no Service/Rate Sheet inference or global fallback. No assignment is a neutral state with an explicit Add action. Once an instance is resolved, all its occupants project even without selections. Category provenance remains lower-deck enrichment only. Directly opened unassigned instances stay operable in a labelled non-Family mode.
+Family workspace scope uses `resolveFamilyTierAssignment`: exact `package_family` consumer match → assigned instance, with no Service/Rate Sheet inference or global fallback. No assignment is a neutral shell whose action opens Settings without writing. The same five Tier tabs, focused compartment, and Details/Connections/Settings deck remain present. Settings offers eligible unassigned instances before independent creation; creation never auto-assigns. Directly opened unassigned instances stay operable in a labelled non-Family mode.
+
+The Settings Rate Sheet inventory loads through the existing Package Manager read endpoint independently of an instance-scoped Tier read. Availability follows each instance allow-list (empty means all active and is not exclusive); current users come from occupant `rate_sheet_id` bindings. Family names are joined only through `tier_assignments[]`.
 
 ## Invariants
 

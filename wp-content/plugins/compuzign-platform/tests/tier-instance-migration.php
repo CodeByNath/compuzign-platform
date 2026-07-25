@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $tierInstanceMigrationOption = null;
 $tierInstanceMigrationWrites = 0;
+$tierInstanceMigrationRejectWrites = false;
 
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
@@ -18,8 +19,11 @@ if (!function_exists('get_option')) {
 if (!function_exists('update_option')) {
     function update_option(string $key, mixed $value, bool $autoload = false): bool
     {
-        global $tierInstanceMigrationWrites, $tierInstanceMigrationOption;
+        global $tierInstanceMigrationWrites, $tierInstanceMigrationOption, $tierInstanceMigrationRejectWrites;
         $tierInstanceMigrationWrites++;
+        if ($tierInstanceMigrationRejectWrites) {
+            return false;
+        }
         $tierInstanceMigrationOption = $value;
         return true;
     }
@@ -115,6 +119,28 @@ check_tier_migration(($loadedOnce['tier_instances'][0]['tier_instance_id'] ?? nu
 check_tier_migration($loadedTwice === $loadedOnce, 'request cache returns the same lifted shape');
 check_tier_migration($tierInstanceMigrationWrites === 0, 'read-time lift performs no option write');
 check_tier_migration(!array_key_exists('tier_instances', $tierInstanceMigrationOption), 'stored legacy option remains untouched');
+
+// A failed option write must never update the request cache or return as a
+// successful mutation. WordPress also returns false for an unchanged value, so
+// saveStation distinguishes the two cases by exact read-back.
+$desired = $loadedOnce;
+$desired['popular_label'] = 'Must not be cached';
+$tierInstanceMigrationRejectWrites = true;
+$failure = null;
+try {
+    $repository->saveStation($desired);
+} catch (RuntimeException $e) {
+    $failure = $e->getMessage();
+}
+check_tier_migration($failure === 'package_station_persistence_failed', 'failed persistence throws the exact repository error');
+check_tier_migration($repository->loadStation() === $loadedOnce, 'failed persistence leaves the prior request cache untouched');
+check_tier_migration($tierInstanceMigrationOption === $legacy, 'failed persistence leaves the stored option untouched');
+
+$tierInstanceMigrationOption = $loadedOnce;
+$unchangedRepository = new PackageRepository();
+$unchangedRepository->saveStation($loadedOnce);
+check_tier_migration($unchangedRepository->loadStation() === $loadedOnce, 'false update with an exact read-back is accepted as unchanged');
+$tierInstanceMigrationRejectWrites = false;
 
 $fresh = (new PackageRepository())->defaultStation();
 check_tier_migration($fresh['tier_instances'] === [], 'fresh station declares the canonical empty collection');
