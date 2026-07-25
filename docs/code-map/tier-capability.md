@@ -18,7 +18,7 @@ The old `cz_package` meta schema on `cz_surface_package` is retired. The histori
 
 ## Phase state
 
-Phase 1 defines and validates the instance schema only. No read or mutation path consumes `tier_instances[]` yet, and existing global Tier endpoint responses remain unchanged. Migration, assignment authority, instance-scoped mutations, explicit Family resolution, and public fail-closed projection land in their ordered phases.
+`TierInstanceSchema::liftLegacyStation` exposes an in-memory, idempotent `ti_primary` for a legacy station. It copies the Tier map and occupant bin verbatim, preserves the legacy keys as the compatibility authority, writes nothing during reads, and creates no assignment. The lifted shape persists only through a later mutation's normal `PackageRepository::saveStation` path. Existing global Tier endpoint responses remain unchanged until mutation scoping lands.
 
 ## Invariants
 
@@ -31,4 +31,4 @@ Phase 1 defines and validates the instance schema only. No read or mutation path
 
 ## Validation
 
-From the plugin root run `php tests/tier-instance-schema.php`, the pre-existing PHP contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root run `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, the pre-existing PHP contracts, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

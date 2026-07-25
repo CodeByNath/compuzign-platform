@@ -22,6 +22,40 @@ final class TierInstanceSchema
         return [];
     }
 
+    /**
+     * Lift the legacy global Tier set into one deterministic instance in memory.
+     * Occupant, bin, slot, lifecycle, and Rate Sheet data is copied verbatim;
+     * this function never sanitises, mints, infers an assignment, or writes.
+     *
+     * @param array<string, mixed> $station
+     * @return array<string, mixed>
+     */
+    public static function liftLegacyStation(array $station): array
+    {
+        if (is_array($station['tier_instances'] ?? null) && $station['tier_instances'] !== []) {
+            return $station;
+        }
+
+        $legacyTiers = is_array($station['tiers'] ?? null) && $station['tiers'] !== []
+            ? $station['tiers']
+            : self::emptyTierMap();
+
+        $station['tier_instances'] = [[
+            'tier_instance_id'       => self::PRIMARY_INSTANCE_ID,
+            'title'                  => 'Primary Tier Set',
+            'status'                 => $station['platform_status'] ?? 'disabled',
+            'allowed_rate_sheet_ids' => [],
+            'popular_tier'           => $station['popular_tier'] ?? null,
+            'popular_label'          => $station['popular_label'] ?? '',
+            'tiers'                  => $legacyTiers,
+            'occupant_bin'           => is_array($station['occupant_bin'] ?? null)
+                ? $station['occupant_bin']
+                : [],
+        ]];
+
+        return $station;
+    }
+
     /** @return array<int, array<string, mixed>> */
     public static function sanitizeInstances(mixed $instances): array
     {

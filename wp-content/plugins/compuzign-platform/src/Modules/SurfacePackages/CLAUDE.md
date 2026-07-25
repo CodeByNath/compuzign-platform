@@ -19,4 +19,4 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Rat
 
 ## Validation
 
-From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-instance-schema.php`, `npx tsc --noEmit`, and `npm run docs:check`.
+From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-instance-schema.php`, `php tests/tier-instance-migration.php`, `npx tsc --noEmit`, and `npm run docs:check`.

@@ -18,6 +18,7 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Repositories;
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 
 /**
  * Single authority for Package Station storage.
@@ -62,13 +63,15 @@ class PackageRepository
 
         $station = get_option(self::OPTION_KEY, null);
         if (is_array($station) && !empty($station)) {
-            return $this->stationCache = $this->ensurePromotions($station);
+            $station = $this->ensurePromotions($station);
+            return $this->stationCache = TierInstanceSchema::liftLegacyStation($station);
         }
 
         // One-time cutover migration from the legacy Service-hosted meta.
         $station = $this->migrateFromLegacyServiceMeta();
         if ($station !== null) {
             $station = $this->ensurePromotions($station);
+            $station = TierInstanceSchema::liftLegacyStation($station);
         }
 
         return $this->stationCache = $station;
@@ -153,6 +156,7 @@ class PackageRepository
         return [
             'platform_status'         => 'disabled',
             'tiers'                   => [],
+            'tier_instances'          => TierInstanceSchema::defaultInstances(),
             'popular_tier'            => null,
             'popular_label'           => '',
             'sort_position'           => 0,
