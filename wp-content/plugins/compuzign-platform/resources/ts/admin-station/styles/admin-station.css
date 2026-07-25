@@ -2055,6 +2055,7 @@ button.cz-station-status-pill {
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface-elevated);
+  color: var(--station-text);
   overflow: hidden;
 }
 
@@ -2650,6 +2651,25 @@ button.cz-station-status-pill {
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface);
+}
+
+/* Keep every primary data value on the Station foreground. WordPress and the
+   separately loaded drawer stylesheet both expose inherited text colours; the
+   deck is a Station surface and must close that inheritance boundary itself. */
+.cz-tier-deck__context-name,
+.cz-tier-deck__lane-title,
+.cz-tier-deck__identity-name,
+.cz-tier-deck__field,
+.cz-tier-deck__money,
+.cz-tier-deck__tool-title,
+.cz-tier-settings__callout-copy strong,
+.cz-tier-settings__attach-row strong,
+.cz-tier-settings__configuration h5,
+.cz-tier-settings__slots li,
+.cz-tier-settings__rate-sheet-name strong,
+.cz-tier-settings__rate-sheet-scope > strong,
+.cz-tier-settings__instance-list strong {
+  color: var(--station-text);
 }
 
 .cz-tier-settings__configuration p {

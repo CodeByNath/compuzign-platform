@@ -229,6 +229,26 @@ const workspaceHook = readFileSync(resolve(
 ), 'utf8');
 check(workspaceHook.includes('fetchPackageStationManager'), 'Rate Sheet settings load independently from an assigned Tier instance');
 check(!workspaceHook.includes('addTierCapability'), 'the workspace never auto-creates and assigns a Tier instance');
+const adminStationStyles = readFileSync(resolve(
+  root,
+  'resources/ts/admin-station/styles/admin-station.css',
+), 'utf8');
+check(
+  /\.cz-tier-deck\s*\{[^}]*color:\s*var\(--station-text\)/s.test(adminStationStyles),
+  'the lower deck closes inherited foreground colour at its Station surface boundary',
+);
+const foregroundRuleStart = adminStationStyles.indexOf('/* Keep every primary data value');
+const foregroundRule = foregroundRuleStart >= 0
+  ? adminStationStyles.slice(foregroundRuleStart, adminStationStyles.indexOf('}', foregroundRuleStart) + 1)
+  : '';
+check(foregroundRule.includes('color: var(--station-text)'), 'primary deck values resolve to the Station foreground token');
+for (const selector of [
+  '.cz-tier-deck__identity-name',
+  '.cz-tier-deck__field',
+  '.cz-tier-settings__slots li',
+]) {
+  check(foregroundRule.includes(selector), `${selector} participates in the Station foreground rule`);
+}
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
