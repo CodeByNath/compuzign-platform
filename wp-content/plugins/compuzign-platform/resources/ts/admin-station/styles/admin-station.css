@@ -2739,8 +2739,20 @@ button.cz-station-status-pill {
 }
 
 .cz-tier-settings__leaf .cz-tier-deck__list,
-.cz-tier-settings__leaf .cz-tier-settings__form {
+.cz-tier-settings__leaf .cz-tier-settings__form,
+.cz-tier-settings__leaf .cz-tier-settings__launcher {
   width: 100%;
+}
+
+/* A launcher is one sentence and one button. It deliberately does not look like
+   a form: there is nothing here to fill in, because the drawer it opens owns
+   every field, the validation and the save. */
+.cz-tier-settings__launcher {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 62ch;
 }
 
 /* One atomic creation. Fields stack, the submit sits under them, and the created

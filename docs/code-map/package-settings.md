@@ -2,9 +2,11 @@
 
 ## Purpose and ownership
 
-Settings is the third lane of the Package Home Tier workspace lower deck. It does two things: it configures the ONE Tier system the workspace has focused, and it creates single Package Manager pool records. Package Station owns every read and write; Admin Station supplies the shell, tokens, icons, and the drawer Settings hands slots to.
+Settings is the third lane of the Package Home Tier workspace lower deck. It does two things: it configures the ONE Tier system the workspace has focused, and it launches the drawers that own Package Manager pool creation. Package Station owns every read and write; Admin Station supplies the shell, tokens, icons, and the drawer Settings hands slots to.
 
-Settings makes no relationship — it never assigns a Tier system to a Family, offers a Family picker, derives a likely consumer, keeps a second Tier inventory, or launches another tool. Assignment lives in the `package-family` drawer's capability shell; Rate Sheet binding in the `tier` drawer's overview picker.
+Package Manager is a launcher, not an editor. It holds no form, draft, validation, endpoint or save: a subject offers one button, the drawer that owns the record does the rest, and that drawer refreshes this surface through the `refetch` the host handed it at dispatch.
+
+Settings makes no relationship — it never assigns a Tier system to a Family, offers a Family picker, derives a likely consumer, or keeps a second Tier inventory. Assignment lives in the `package-family` drawer's capability shell; Rate Sheet binding in the `tier` drawer's overview picker.
 
 ## Required structure
 
@@ -14,11 +16,12 @@ Settings
 │   ├── Access          → Rate Sheet Access
 │   └── Tier Structure  → Fixed Tier Slots
 └── Package Manager
-    ├── Families        → Create Family
-    ├── Tiers           → Create Tier
-    ├── Groups          → Create Group
-    └── Rate Sheets     → Create Rate Sheet
+    ├── Families        → Create Family      → `package-family-create` drawer
+    ├── Tiers           → Create Tier        (form; no Tier creation drawer exists yet)
+    └── Rate Sheets     → Create Rate Sheet  → `rate-sheet` drawer, edit mode
 ```
+
+Groups has no entry: a group is stored inside `rate_sheets[].groups[]`, so it has no pool and no address apart from the sheet holding it, which the Rate Sheet drawer already authors. A fourth entry could only re-open that same drawer.
 
 ## Current implementation
 
@@ -28,13 +31,14 @@ Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-stati
 - [TierSettingsNav.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSettingsNav.tsx) is a second control over that same id, not second state. Each item is a button carrying `aria-controls`, `aria-expanded`, and `aria-current`; opening moves focus to the section's own header.
 - [DeckDisclosure.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/DeckDisclosure.tsx) is the shared WAI-ARIA disclosure, also used by the Connections lane. Settings passes `open`, `onToggle`, `idPrefix`, and `headingLevel={5}`; Connections uses the uncontrolled form.
 - [FocusedTierSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx) renders Rate Sheet Access and Fixed Tier Slots in the deck's row grammar. Access writes the focused instance's own `allowed_rate_sheet_ids` through `useTierInstances.updateInstance`; an empty allow-list means every active sheet, and an allowed id that no longer resolves is listed by that id as unresolved rather than dropped. At least one active sheet must stay allowed. Slots report the stored slot key plus the occupant's own label, `occ_…` id, status, and bound sheet; occupied slots offer View/Edit into the `tier` drawer and empty slots offer only Configure.
-- [PackageManagerSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageManagerSettings.tsx) holds the four creation forms. Each reports the created record's stored label and minted id through `role="status"` and returns that record to its caller.
-- [usePackageManagerCreation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageManager/usePackageManagerCreation.ts) is the creation authority for Family, Rate Sheet, and group. It adds no endpoint, mints no id, and writes no relationship: Families use the existing `admin/package-category-groups` route; Rate Sheets and groups are edits to the one Package Manager document, mapped by `rateSheetToolModel` and committed through the same `savePackageStationManager` partial upsert the Rate Sheet tool uses. A created record is resolved by the stored id present after the save, never matched by title. Tier creation stays on `useTierInstances.createInstance`.
+- The Package Manager launchers live in the shell, as a `PoolLauncher` per subject dispatching a `PoolSubject`. Nothing else crosses that edge, because there is no record yet. `PackageTierWorkspace.dispatchPoolIntent` maps the subject to a registered intent (`create-package-family` → `package-family-create`, `create-rate-sheet` → `rate-sheet` in edit mode), forwarded down the same `TierLowerDeck` chain as `onTierAction`.
+- [PackageManagerSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageManagerSettings.tsx) holds only `CreateTier`, and only until a Tier system can be registered in a drawer. `useTierInstances.createInstance` sends a title and PHP mints the five-slot shell; nothing else can register one today, so removing the form first would take a capability away rather than move it.
 
 ## Invariants
 
+- Settings creates nothing: no endpoint, draft, id or save for a pool record, and no second writer of the Package Manager document beside the drawers that own those writes.
 - No creation action assigns, binds, grants access, fills a slot, or pre-selects the focused Family.
-- A Rate Sheet group is stored in `rate_sheets[].groups[]`, so there is no free-standing group pool. Create Group asks which sheet stores it; that is the group's address, not a connection.
+- There is no free-standing group pool and no Groups launcher; the sheet holding a group is the only place it can be authored.
 - Every row and every creation result is addressed by a stored id, never a label.
 - Empty and unresolved states fail closed: an absent record is reported absent, never substituted.
 - Styles use the `--station-*` token family only, through `cz-tier-settings__*` and the deck's own classes.

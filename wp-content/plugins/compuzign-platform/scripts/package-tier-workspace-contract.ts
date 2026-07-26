@@ -1,7 +1,7 @@
 // Contract: Package Family workspace scope resolves only through the explicit
 // tier_assignment peer edge. Rate Sheet provenance enriches presentation only.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   projectResolvedInstanceOccupants,
@@ -403,83 +403,82 @@ check(
   'Focused Tier System presents Access before Tier Structure',
 );
 
-// Package Manager is exactly four atomic creations, in order, and nothing else.
+// ── Package Manager launches; it does not create ──────────────────────────────
+// Package Manager is three pool subjects, and a subject offers a launcher into
+// the drawer that owns the record — not a form. Groups is absent by design: a
+// group is stored inside `rate_sheets[].groups[]`, so it has no pool and no
+// address apart from the sheet holding it, and the Rate Sheet drawer already
+// authors it. A fourth entry could only re-open that same drawer.
 const managerGroup = settingsSource.slice(settingsSource.indexOf("id: 'package-manager'"));
 const managerLeaves = [...managerGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
-  managerLeaves.join(',') === 'Create Family,Create Tier,Create Group,Create Rate Sheet',
-  'Package Manager holds exactly the four atomic creations, in the required order',
+  managerLeaves.join(',') === 'Create Family,Create Tier,Create Rate Sheet',
+  'Package Manager holds exactly the three pool creations, in the required order',
 );
 const managerTitles = [...managerGroup.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
-  managerTitles.join(',') === 'Package Manager,Families,Tiers,Groups,Rate Sheets',
-  'Package Manager holds exactly the four pool subjects and no other section',
+  managerTitles.join(',') === 'Package Manager,Families,Tiers,Rate Sheets',
+  'Package Manager holds exactly the three pool subjects and no Groups section',
 );
 check(
   settingsSource.indexOf("id: 'focused-tier-system'") < settingsSource.indexOf("id: 'package-manager'"),
   'Settings presents Focused Tier System before Package Manager',
 );
+check(
+  managerGroup.includes("onPoolIntent('family')")
+    && managerGroup.includes("onPoolIntent('rate-sheet')"),
+  'Families and Rate Sheets launch a drawer rather than rendering a creation form',
+);
 
-// Every creation writes ONE record. No form assigns, binds, grants access, fills
-// a slot, or pre-selects the focused Family.
+// The Settings shell holds no creation authority of its own. It dispatches a
+// subject and nothing else — no endpoint, no draft, no save, no form. Its one
+// remaining write is the focused instance's own `allowed_rate_sheet_ids`, which
+// configures a Tier system rather than creating a pool record.
+for (const forbidden of [
+  'createPackageFamily',
+  'createRateSheet',
+  'savePackageStationManager',
+  'buildManagerSavePayload',
+  'toRateSheetEditorList',
+  '<form',
+]) {
+  check(!settingsSource.includes(forbidden), `the Settings shell performs no ${forbidden} of its own`);
+}
+
+// Create Tier is the one form left, and only because a Tier system still has no
+// creation drawer. It is the sole creation call in the lane, and it writes one
+// record: no assignment, no slot, no access grant.
 const creationSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/PackageManagerSettings.tsx',
 ), 'utf8');
 for (const forbidden of [
   'createTierAssignment',
-  'createTierInstance',
   'assignInstance',
   'allowed_rate_sheet_ids',
   'addTierCapability',
   'selectedFamily',
   'workspaceInstance',
+  'rateSheets',
 ]) {
-  check(!creationSource.includes(forbidden), `no creation form performs ${forbidden}`);
+  check(!creationSource.includes(forbidden), `the remaining form performs no ${forbidden}`);
 }
 check(
-  (creationSource.match(/creation\.create|tool\.createInstance/g) ?? []).length === 4,
-  'the four creation forms make exactly four creation calls between them',
-);
-// Feedback names the record the backend actually stored, by the id it minted.
-check(
-  creationSource.includes('reference: family.group_id')
-    && creationSource.includes('reference: instance.tier_instance_id')
-    && creationSource.includes('reference: group.group_id')
-    && creationSource.includes('reference: sheet.rate_sheet_id'),
-  'each creation reports the stored id the backend minted, never the label it was given',
+  (creationSource.match(/tool\.createInstance/g) ?? []).length === 1,
+  'Create Tier is the only creation call left in the Settings lane',
 );
 check(
-  creationSource.includes('role="status"'),
-  'creation feedback is announced through the established live-region pattern',
+  creationSource.includes('reference: instance.tier_instance_id')
+    && creationSource.includes('role="status"'),
+  'Create Tier reports the stored id the backend minted, through the live-region pattern',
 );
 
-// The creation hook adds no endpoint and no id minting, and resolves what it
-// created by stored id rather than by title.
-const creationHook = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/surface/packageManager/usePackageManagerCreation.ts',
-), 'utf8');
+// The atomic-creation hook is gone. Family, Rate Sheet and group creation are
+// owned by the drawers that already performed those writes, so a second writer
+// of the one Package Manager document must not reappear beside them.
 check(
-  creationHook.includes('buildManagerSavePayload')
-    && creationHook.includes('toRateSheetEditorList')
-    && creationHook.includes('savePackageStationManager'),
-  'Rate Sheet and group creation reuse the Rate Sheet tool’s mapping and the one manager save',
-);
-for (const forbidden of [
-  'createTierAssignment',
-  'updateTierInstance',
-  'deleteTierAssignment',
-  'rate_sheet_deletions:',
-  'newRateGroupId',
-  'Date.now(',
-]) {
-  check(!creationHook.includes(forbidden), `the creation hook performs no ${forbidden}`);
-}
-check(
-  creationHook.includes('!before.has(sheet.rate_sheet_id)')
-    && creationHook.includes('group.group_id === created.id'),
-  'a created record is resolved by its stored id, never matched by title',
+  !existsSync(resolve(root, 'resources/ts/package-station/surface/packageManager')),
+  'no second Package Manager creation writer sits beside the drawers that own those writes',
 );
 
 const focusedSectionsSource = readFileSync(resolve(

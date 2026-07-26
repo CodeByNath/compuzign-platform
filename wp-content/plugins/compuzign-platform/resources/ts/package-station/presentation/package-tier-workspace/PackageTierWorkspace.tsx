@@ -23,6 +23,7 @@ import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierNavigation } from './TierNavigation';
 import { TierDetailPanel } from './TierDetailPanel';
 import { TierLowerDeck, type DeckTab } from './TierLowerDeck';
+import type { PoolSubject } from './TierSystemSettings';
 
 const ENGINE_DESCRIPTION = 'Package-owned workspace for managing independent Tier capability instances.';
 const NO_FAMILY_MESSAGE = 'Create a Package Family to organise Services and optionally add Tier capability.';
@@ -145,6 +146,15 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   // drawer closes.
   const dispatchFamilyIntent = (familyId: string, actionId: 'view' | 'edit') => {
     onIntent(familyId, actionId === 'edit' ? 'edit-family' : 'view-family');
+  };
+
+  // The Settings lane launches a pool subject's own creation drawer. There is no
+  // record yet, so nothing but the subject crosses this edge: the Family drawer
+  // ignores the id entirely and the Rate Sheet drawer reads the whole collection.
+  // Neither disturbs the focused Family or slot, and each refreshes this surface
+  // through the `refetch` the host handed the drawer at dispatch.
+  const dispatchPoolIntent = (subject: PoolSubject) => {
+    onIntent('new', subject === 'family' ? 'create-package-family' : 'create-rate-sheet');
   };
 
   const dispatchGroupIntent = (
@@ -293,7 +303,6 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           activeTab={deckTab}
           hasFocusedTier={selectedSlot?.item !== null && selectedSlot !== null}
           tierTool={tool.tierInstances}
-          creation={tool.creation}
           family={tool.selectedFamily}
           workspaceInstance={tool.workspaceInstance}
           rateSheets={tool.rateSheets}
@@ -313,6 +322,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             if (selectedSlot) dispatchRateSheetIntent(selectedSlot.slotId, rateSheetId, actionId);
           }}
           onTierAction={dispatchExplicitTierIntent}
+          onPoolIntent={dispatchPoolIntent}
           onTabChange={setDeckTab}
         />
         </div>

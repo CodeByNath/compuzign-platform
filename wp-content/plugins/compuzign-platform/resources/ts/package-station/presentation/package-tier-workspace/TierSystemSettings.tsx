@@ -13,17 +13,26 @@
 //
 //   Focused Tier System   Access          → Rate Sheet Access
 //                         Tier Structure  → Fixed Tier Slots
-//   Package Manager       Families        → Create Family
+//   Package Manager       Families        → Create Family     → drawer
 //                         Tiers           → Create Tier
-//                         Groups          → Create Group
-//                         Rate Sheets     → Create Rate Sheet
+//                         Rate Sheets     → Create Rate Sheet → drawer
 //
-// Focused Tier System configures the ONE Tier system focused above. Package
-// Manager creates ONE pool record per action. Neither group assigns anything to
-// anything: no creation mints a second record, grants access, fills a slot, or
-// pre-selects the focused Family, and nothing here suggests a consumer or
-// launches an unrelated tool. Every relationship in this workspace is made in the
-// drawer that owns the record.
+// Focused Tier System configures the ONE Tier system focused above.
+//
+// Package Manager is a LAUNCHER, not an editor. It holds no form, no draft, no
+// validation and no save: each subject offers one button that opens the mature
+// drawer already owning that record's creation, and the drawer's own save and
+// close bridge does the rest. Settings therefore cannot drift from the drawer,
+// because there is nothing here to drift.
+//
+// Groups have no launcher. A group is stored inside `rate_sheets[].groups[]`, so
+// it has no pool of its own and no address apart from the sheet that holds it;
+// authoring one is part of the Rate Sheet drawer, which is where the group tool
+// lives. A second entry here would only re-open the same drawer.
+//
+// Neither group assigns anything to anything, and nothing here pre-selects the
+// focused Family. Every relationship in this workspace is made in the drawer that
+// owns the record.
 
 import { useId, useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
@@ -32,10 +41,8 @@ import type {
   TierInstanceSummary,
 } from '../../types';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
-import type { PackageManagerCreationState } from '../../surface/packageManager/usePackageManagerCreation';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
 import {
-  AppsIcon,
   RateSheetIcon,
   ServicesIcon,
   TiersIcon,
@@ -43,18 +50,15 @@ import {
 import { DeckDisclosure } from './DeckDisclosure';
 import { TierSettingsNav, type SettingsNavGroup } from './TierSettingsNav';
 import { FixedTierSlots, RateSheetAccess } from './FocusedTierSettings';
-import {
-  CreateFamily,
-  CreateGroup,
-  CreateRateSheet,
-  CreateTier,
-} from './PackageManagerSettings';
+import { CreateTier } from './PackageManagerSettings';
 
 // ── SECTION: CONTRACTS ────────────────────────────────────────────────────────
 
+/** The pool subjects Settings can launch a creation drawer for. */
+export type PoolSubject = 'family' | 'rate-sheet';
+
 interface Props {
   tool: TierInstancesToolState;
-  creation: PackageManagerCreationState;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
   loading: boolean;
@@ -65,6 +69,28 @@ interface Props {
     occupantId: string | null,
     actionId: 'view' | 'edit',
   ) => void;
+  /** Opens the drawer that owns this pool subject's creation. Settings does not create. */
+  onPoolIntent: (subject: PoolSubject) => void;
+}
+
+/** The one control a Package Manager section renders: a launcher into a drawer. */
+function PoolLauncher({ label, note, onLaunch }: {
+  label:    string;
+  note:     string;
+  onLaunch: () => void;
+}): VNode {
+  return (
+    <div class="cz-tier-settings__launcher">
+      <p class="cz-tier-settings__muted">{note}</p>
+      <button
+        type="button"
+        class="cz-tier-deck__button cz-tier-deck__button--primary"
+        onClick={onLaunch}
+      >
+        {label}
+      </button>
+    </div>
+  );
 }
 
 // ── SECTION: SECTION_MODEL ────────────────────────────────────────────────────
@@ -91,12 +117,12 @@ interface SettingsGroup {
 
 export function TierSystemSettings({
   tool,
-  creation,
   workspaceInstance,
   rateSheets,
   loading,
   error,
   onTierAction,
+  onPoolIntent,
 }: Props): VNode {
   const uid = useId();
   const idFor = (sectionId: string): string => `${uid}-${sectionId}`;
@@ -108,6 +134,7 @@ export function TierSystemSettings({
   const groups = useMemo<SettingsGroup[]>(() => {
     const activeRateSheets = rateSheets.filter((sheet) => sheet.status === 'active');
     const allowedCount = currentRecord?.allowed_rate_sheet_ids.length ?? 0;
+    const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     const configuredSlots = currentRecord
       ? tierSlotStates(currentRecord).filter((slot) => slot.occupied).length
       : null;
@@ -159,7 +186,7 @@ export function TierSystemSettings({
       {
         id: 'package-manager',
         title: 'Package Manager',
-        note: 'Creates one Package record at a time. Nothing created here is assigned, granted access, or connected to anything.',
+        note: 'Opens the drawer that owns each pool record. Settings creates nothing itself, and nothing created there is assigned, granted access, or connected to anything.',
         sections: [
           {
             id: 'families',
@@ -168,7 +195,13 @@ export function TierSystemSettings({
             description: 'The Package Family pool.',
             summary: `${tool.families.length} in pool`,
             leaf: 'Create Family',
-            content: <CreateFamily creation={creation} />,
+            content: (
+              <PoolLauncher
+                label="Create Family"
+                note="Opens the Package Family creation drawer, which owns the name, the description and the save. The Family joins the pool with no Services and no Tier system."
+                onLaunch={() => onPoolIntent('family')}
+              />
+            ),
           },
           {
             id: 'tiers',
@@ -180,27 +213,24 @@ export function TierSystemSettings({
             content: <CreateTier tool={tool} />,
           },
           {
-            id: 'groups',
-            icon: <AppsIcon />,
-            title: 'Groups',
-            description: 'The groups each Rate Sheet stores.',
-            summary: `${rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0)} in pool`,
-            leaf: 'Create Group',
-            content: <CreateGroup creation={creation} rateSheets={rateSheets} />,
-          },
-          {
             id: 'rate-sheets',
             icon: <RateSheetIcon />,
             title: 'Rate Sheets',
-            description: 'The Rate Sheet pool.',
-            summary: `${rateSheets.length} in pool`,
+            description: 'The Rate Sheet pool, and the groups each sheet stores.',
+            summary: `${rateSheets.length} in pool · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}`,
             leaf: 'Create Rate Sheet',
-            content: <CreateRateSheet creation={creation} />,
+            content: (
+              <PoolLauncher
+                label="Create Rate Sheet"
+                note="Opens the Rate Sheet drawer in edit mode, where New Rate Sheet and each sheet's own group tool already live. A group is stored inside its sheet, so that drawer is the only place one can be authored."
+                onLaunch={() => onPoolIntent('rate-sheet')}
+              />
+            ),
           },
         ],
       },
     ];
-  }, [creation, currentRecord, error, loading, onTierAction, rateSheets, tool]);
+  }, [currentRecord, error, loading, onPoolIntent, onTierAction, rateSheets, tool]);
 
   const [openId, setOpenId] = useState<string | null>('access');
 

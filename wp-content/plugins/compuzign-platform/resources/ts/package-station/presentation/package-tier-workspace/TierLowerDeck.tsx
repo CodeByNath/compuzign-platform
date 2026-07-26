@@ -51,7 +51,7 @@ import type {
 import type { PackageRateSheet, TierInstanceSummary } from '../../types';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
-import type { PackageManagerCreationState } from '../../surface/packageManager/usePackageManagerCreation';
+import type { PoolSubject } from './TierSystemSettings';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import {
   AppsIcon,
@@ -73,7 +73,6 @@ interface Props {
   activeTab:  DeckTab;
   hasFocusedTier: boolean;
   tierTool: TierInstancesToolState;
-  creation: PackageManagerCreationState;
   family: WorkspaceFamilyScope | null;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
@@ -101,6 +100,9 @@ interface Props {
     occupantId: string | null,
     actionId: 'view' | 'edit',
   ) => void;
+  // Opens the drawer that owns one pool subject's creation. The Settings lane
+  // launches; it never carries the record, so no identity crosses this deck.
+  onPoolIntent: (subject: PoolSubject) => void;
   onTabChange: (tab: DeckTab) => void;
 }
 
@@ -162,7 +164,6 @@ export function TierLowerDeck({
   activeTab,
   hasFocusedTier,
   tierTool,
-  creation,
   family,
   workspaceInstance,
   rateSheets,
@@ -174,6 +175,7 @@ export function TierLowerDeck({
   onGroupIntent,
   onRateSheetIntent,
   onTierAction,
+  onPoolIntent,
   onTabChange,
 }: Props): VNode {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -253,12 +255,12 @@ export function TierLowerDeck({
         {activeTab === 'settings' && (
           <TierSystemSettings
             tool={tierTool}
-            creation={creation}
             workspaceInstance={workspaceInstance}
             rateSheets={rateSheets}
             loading={settingsLoading}
             error={settingsError}
             onTierAction={onTierAction}
+            onPoolIntent={onPoolIntent}
           />
         )}
       </div>
