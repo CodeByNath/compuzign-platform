@@ -27,11 +27,15 @@ Feature CSS must not declare `border`, `border-radius`, `height`, `min-height`, 
 
 ## Field system
 
-`cz-tf-*` in `drawer-kit.css` is the one Admin drawer field system: one wrapper (`.cz-tf-field`), one label (`.cz-tf-label`), one hint (`.cz-tf-hint`), one error (`.cz-tf-error`), and one control base (`.cz-tf-control`) specialised by `.cz-tf-input`, `.cz-tf-select`, `.cz-tf-textarea` and `.cz-tf-checkbox`.
+`cz-tf-*` in `drawer-kit.css` is the one Admin drawer field system: one wrapper (`.cz-tf-field`), one checkbox row inside it (`.cz-tf-field__inline`), one label (`.cz-tf-label`, with `--required`), one hint (`.cz-tf-hint`), one error (`.cz-tf-error`), and one control base (`.cz-tf-control`) specialised by `.cz-tf-input`, `.cz-tf-select`, `.cz-tf-textarea` and `.cz-tf-checkbox`. `.cz-tf-control__inner` is the bare input inside a composite control surface, such as the catalogue search.
 
-Three sizes (`--sm`, default, `--lg`) and the states default / hover / focus-visible / disabled / readonly / error / required are declared once on the base and inherited by every type. No second field system may be created.
+Three sizes — `--sm`, default, `--lg` — and the states default / hover / focus-visible / disabled / readonly / error / required are declared once on the base and inherited by every type. The eight types and three sizes are twenty-four combinations built from one base, two size modifiers and shared tokens; they are not twenty-four implementations. No second field system may be created.
 
-Editors render fields through `drawer-kit/fields/AdminField`, not hand-authored markup.
+The checkbox is the one type that does not take the base: the base sets `appearance: none` so a select can carry its own chevron, which on a checkbox erases the native tick.
+
+The default size is `--station-control-height`, so a field in a drawer and a filter on a station page are the same control. `--station-field-*` in the token file is the whole contract; every name is an alias over an existing station family or a 4px-rhythm value.
+
+Editors render fields through `drawer-kit/fields/AdminField`, not hand-authored markup. Specialised editors — the Rate Sheet grid, the repeatable FAQ and inclusion collections, the transforming category control — keep their own layout and consume the shared control classes; they are not expressed as field definitions.
 
 ## Responsive rules
 
