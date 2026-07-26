@@ -20,6 +20,7 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
+import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import { useTierRegistration } from '../../surface/tierInstance/useTierRegistration';
 
@@ -41,23 +42,23 @@ export function TierRegistrationContent({ tool, initialFamilyId, bridge }: {
   actions.current = registration;
 
   const footer = useMemo(() => (
-    <div class="cz-drawer-actions">
-      <button type="button" class="button" onClick={() => bridge.close()}>
-        {stage === 'form' ? 'Cancel' : 'Done'}
-      </button>
-      <button
-        type="button"
-        class="button button-primary"
-        disabled={!canSave}
-        onClick={() => void (stage === 'form'
+    <EntityActionFooter
+      close={{
+        id: 'close',
+        label: stage === 'form' ? 'Cancel' : 'Done',
+        onSelect: () => bridge.close(),
+      }}
+      primary={{
+        id: stage === 'form' ? 'register' : 'save',
+        label: stage === 'form' ? 'Register Tier system' : 'Save changes',
+        busyLabel: stage === 'form' ? 'Registering…' : 'Saving…',
+        busy: saving,
+        disabled: !canSave,
+        onSelect: () => void (stage === 'form'
           ? actions.current.register()
-          : actions.current.applyEdits())}
-      >
-        {stage === 'form'
-          ? (saving ? 'Registering…' : 'Register Tier system')
-          : (saving ? 'Saving…' : 'Save changes')}
-      </button>
-    </div>
+          : actions.current.applyEdits()),
+      }}
+    />
   ), [bridge, canSave, saving, stage]);
 
   useEffect(() => {

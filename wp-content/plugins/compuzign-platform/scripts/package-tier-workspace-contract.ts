@@ -506,13 +506,39 @@ for (const forbidden of ['[bridge, canSave, registration', 'registration.registe
 // Presentation uses the styled editor vocabulary. `drawerModule__field` and its
 // siblings are only styled under `.drawerOverview`, so using them outside that
 // scope renders an unstyled form.
-for (const unstyled of ['drawerModule__field', 'drawerModule__label', 'drawerModule__hint', 'drawerModule__fields']) {
-  check(!registrationSource.includes(unstyled), `registration does not use the unscoped ${unstyled}`);
+// Every drawer create composition uses the styled vocabularies. `drawerModule__*`
+// field classes are styled ONLY under `.drawerOverview`, and `cz-drawer-actions`
+// is styled nowhere at all — both render an unstyled drawer. The action footer
+// belongs to the drawer kit, which owns that one visual grammar.
+const familyCreateSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/package-family/PackageFamilyCreateContent.tsx',
+), 'utf8');
+for (const [name, source] of [
+  ['Tier registration', registrationSource],
+  ['Package Family create', familyCreateSource],
+] as const) {
+  for (const unstyled of [
+    'cz-drawer-actions',
+    'drawerModule__field',
+    'drawerModule__label',
+    'drawerModule__hint',
+    'drawerModule__fields',
+  ]) {
+    check(!source.includes(unstyled), `${name} does not use the unstyled ${unstyled}`);
+  }
+  check(
+    source.includes('EntityActionFooter'),
+    `${name} uses the drawer kit's action footer rather than hand-rolled buttons`,
+  );
+  check(
+    source.includes('cz-tf-form') && source.includes('cz-tf-label'),
+    `${name} uses the established cz-tf-* editor vocabulary`,
+  );
 }
 check(
-  registrationSource.includes('cz-tf-form') && registrationSource.includes('cz-tf-field')
-    && registrationSource.includes('cz-tf-label') && registrationSource.includes('cz-tf-hint'),
-  'registration uses the established cz-tf-* editor vocabulary',
+  registrationSource.includes('cz-tf-field') && registrationSource.includes('cz-tf-hint'),
+  'registration renders its fields and its Family hint in that vocabulary',
 );
 
 // A Package Family is not a field on a Tier system. The instance schema carries
