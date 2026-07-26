@@ -135,24 +135,33 @@ function TierRateSheetDrawerBody({
       </InlineEditorShell>
     );
   }
-  return <TierRateSheetReadScope scope={scope} target={target} tierLabel={tierLabel} title={title} />;
+  return <TierRateSheetReadScope scope={scope} target={target} tierLabel={tierLabel} title={title} onEdit={requestEdit} />;
 }
 
 // ── SECTION: view mode ────────────────────────────────────────────────────────
 
 function TierRateSheetReadScope({
-  scope, target, tierLabel, title,
+  scope, target, tierLabel, title, onEdit,
 }: {
   scope: TierRateSheetDrawerState;
   target: TierRateSheetDrawerTarget;
   tierLabel: string;
   title: string;
+  onEdit: () => void;
 }): VNode {
   const isGroup = target.scope.kind === 'group';
   const identity = isGroup ? (scope.group?.id ?? '') : target.rateSheetId;
   const subtitle = isGroup
     ? `${identity} · rows the ${tierLabel} Tier draws from this group.`
     : `${identity} · inclusions the ${tierLabel} Tier connects to in this sheet.`;
+  // Module status pill: the Presentation Status Contract renders only
+  // Active/Pending/Disabled (drawer-kit/schema/presentation.ts). A Rate Sheet's
+  // own status is 'active' | 'archived' — not a travel state here, so 'archived'
+  // presents as the closest canonical module state, Disabled. A group carries no
+  // status of its own (RateSheetEditorGroup stores no lifecycle), so both scopes
+  // read the parent sheet's status — the same inheritance packageTierWorkspace's
+  // deck already applies to this drawer's own Connections-lane row.
+  const status = scope.sheet?.status === 'archived' ? 'disabled' : 'active';
 
   return (
     <div class="cz-req-detail">
@@ -162,6 +171,8 @@ function TierRateSheetReadScope({
         subtitle={subtitle}
         icon={<RateSheetIcon />}
         scopeClass="drawerOverview"
+        status={status}
+        actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}
       >
         {isGroup && scope.group && (
           <RateSheetGroupsRead groups={[scope.group]} rows={scope.sheet?.items ?? []} />
