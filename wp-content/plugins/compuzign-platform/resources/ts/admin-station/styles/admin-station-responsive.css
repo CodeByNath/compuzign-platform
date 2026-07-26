@@ -30,22 +30,11 @@
     grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
   }
 
-  /* Lower-deck Settings tools follow the same three-across-to-two step as the
-     rest of the engine at this boundary. */
-  .cz-tier-deck__tools {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cz-tier-settings__callout,
-  .cz-tier-settings__rate-sheet {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .cz-tier-settings__attach-list,
-  .cz-tier-settings__setup-path,
-  .cz-tier-settings__actions,
-  .cz-tier-settings__rate-sheet-scope {
-    grid-column: 2;
+  /* Settings gives its section navigation a narrower share at this boundary; the
+     two columns are still the navigation and the sections it drives. */
+  .cz-tier-settings {
+    grid-template-columns: minmax(160px, 0.26fr) minmax(0, 1fr);
+    gap: 16px;
   }
 
   .cz-tier-workspace__primary > .cz-tier-workspace__no-system {
@@ -104,50 +93,24 @@
     display: flex;
   }
 
-  /* Lower deck — filters, rows and tools all collapse to a single column, and the
+  /* Lower deck — filters and rows collapse to a single column, and the
      mid-priority row fields (quantity / coverage) drop out, the same one-per-row
      treatment the card grid takes at this boundary. */
   .cz-tier-deck__toolbar,
   .cz-tier-deck__row,
-  .cz-tier-deck__row--connection,
-  .cz-tier-deck__tools {
+  .cz-tier-deck__row--connection {
     grid-template-columns: 1fr;
   }
 
-  .cz-tier-settings__callout,
-  .cz-tier-settings__configuration,
-  .cz-tier-settings__rate-sheet,
-  .cz-tier-settings__inline-form {
-    grid-template-columns: 1fr;
+  /* Settings stacks: the section navigation stays above the sections it drives
+     rather than beside them, so both keep a usable measure. */
+  .cz-tier-settings {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .cz-tier-settings__callout-icon,
-  .cz-tier-settings__attach-list,
-  .cz-tier-settings__setup-path,
-  .cz-tier-settings__actions,
-  .cz-tier-settings__rate-sheet-scope,
-  .cz-tier-settings__confirm,
-  .cz-tier-settings__suggestion,
-  .cz-tier-settings__inline-form small {
+  .cz-tier-settings__nav,
+  .cz-tier-settings__sections {
     grid-column: 1;
-  }
-
-  .cz-tier-settings__attach-row,
-  .cz-tier-settings__instance-list li {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .cz-tier-settings__attach-row > span,
-  .cz-tier-settings__instance-list li > span,
-  .cz-tier-settings__rate-sheet-name,
-  .cz-tier-settings__rate-sheet-scope > strong {
-    overflow-wrap: anywhere;
-  }
-
-  .cz-tier-settings__attach-row .cz-tier-deck__button,
-  .cz-tier-settings__instance-list .cz-tier-deck__button {
-    align-self: flex-start;
   }
 
   .cz-tier-settings__slot-action {

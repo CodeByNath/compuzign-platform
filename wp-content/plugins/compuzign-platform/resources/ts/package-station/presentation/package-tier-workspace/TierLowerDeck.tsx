@@ -60,7 +60,7 @@ import {
   ServicesIcon,
   TiersIcon,
 } from '@/admin-station/shell/icons';
-import { ConnectionDisclosure } from './ConnectionDisclosure';
+import { DeckDisclosure } from './DeckDisclosure';
 import { TierSystemSettings } from './TierSystemSettings';
 
 // ── SECTION: contract ─────────────────────────────────────────────────────────
@@ -452,7 +452,7 @@ function ConnectionsLane({
 
   return (
     <div class="cz-tier-deck__connections">
-      <ConnectionDisclosure
+      <DeckDisclosure
         icon={<PackagesIcon />}
         title="Stations"
         description="Package Station records this Tier is connected to — the Family its system is assigned to, and the Rate Sheet groups its selections draw from."
@@ -530,9 +530,9 @@ function ConnectionsLane({
             </ul>
           )}
         </ConnectionSection>
-      </ConnectionDisclosure>
+      </DeckDisclosure>
 
-      <ConnectionDisclosure
+      <DeckDisclosure
         icon={<AppsIcon />}
         title="Tools"
         description="The authoring tools this Tier prices from. Sheet availability across the Tier system stays in Settings."
@@ -573,7 +573,7 @@ function ConnectionsLane({
             </ul>
           )}
         </ConnectionSection>
-      </ConnectionDisclosure>
+      </DeckDisclosure>
     </div>
   );
 }

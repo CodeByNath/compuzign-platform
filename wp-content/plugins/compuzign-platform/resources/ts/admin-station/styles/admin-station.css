@@ -2581,175 +2581,130 @@ button.cz-station-status-pill {
   justify-content: flex-end;
 }
 
-/* Settings tools — one honest card per Package Manager tool. */
-.cz-tier-deck__tools {
+/* Settings — a section navigation and the disclosures it drives. Both controls
+   read the one open-section id the shell owns, so the highlighted navigation item
+   and the expanded section are always the same section. */
+.cz-tier-settings {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: minmax(190px, 0.3fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
 }
 
-.cz-tier-deck__tool {
+.cz-tier-settings__nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 16px;
+  gap: 18px;
+  padding: 14px;
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface);
 }
 
-.cz-tier-deck__tool-icon {
-  display: grid;
-  place-items: center;
-  width: var(--station-card-icon-size);
-  height: var(--station-card-icon-size);
-  margin-bottom: 6px;
-  border-radius: var(--station-card-icon-radius);
-  background: var(--station-accent-soft-bg);
-  color: var(--station-accent-fg);
+.cz-tier-settings__nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.cz-tier-deck__tool-icon > svg {
-  width: var(--station-card-glyph-size);
-  height: var(--station-card-glyph-size);
-}
-
-.cz-tier-deck__tool-title {
+/* A label, not a heading: the sections column already contributes the group
+   headings to the outline, and a navigation aid must not duplicate them. */
+.cz-tier-settings__nav-label {
   margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
+}
+
+.cz-tier-settings__nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cz-tier-settings__nav-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--station-control-radius);
+  background: transparent;
+  color: var(--station-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.cz-tier-settings__nav-item:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-tier-settings__nav-item:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: -2px;
+}
+
+/* The open section, marked the same way the Tier tab strip marks its selection. */
+.cz-tier-settings__nav-item--current {
+  border-color: var(--station-accent-border);
+  background: var(--station-accent-soft-bg);
+  box-shadow: inset 3px 0 0 var(--station-accent);
+}
+
+.cz-tier-settings__nav-title {
   font-size: var(--station-text-sm);
   font-weight: 700;
 }
 
-.cz-tier-deck__tool-body {
-  margin: 0;
+.cz-tier-settings__nav-leaf {
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
+  font-weight: 400;
   line-height: var(--station-line-snug);
 }
 
-.cz-tier-deck__tool-unavailable {
-  margin: 2px 0 0;
-  color: var(--station-status-pending-fg);
-  font-size: var(--station-text-xs);
-  line-height: var(--station-line-snug);
-}
-
-.cz-tier-deck__tool-action {
-  align-self: flex-start;
-  margin-top: auto;
-  padding: 8px 14px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-surface-elevated);
-  color: var(--station-text-muted);
-  font: inherit;
-  font-weight: 700;
-  cursor: not-allowed;
-}
-
-/* A tool that routes to a real destination reads as an accent action. */
-.cz-tier-deck__tool-action--live {
-  border-color: var(--station-accent-border);
-  background: var(--station-accent-soft-bg);
-  color: var(--station-accent-fg);
-  cursor: pointer;
-}
-
-.cz-tier-deck__tool-action--live:hover {
-  border-color: var(--station-action-bg);
-  background: var(--station-action-bg);
-  color: var(--station-accent-on);
-}
-
-.cz-tier-deck__tool-action:focus-visible {
-  outline: 2px solid var(--station-focus-ring);
-  outline-offset: 2px;
-}
-
-/* Settings hosts Tier-system operations in the existing lower-deck lane. */
-.cz-tier-settings,
-.cz-tier-settings__section,
-.cz-tier-settings__advanced-body {
+.cz-tier-settings__sections,
+.cz-tier-settings__group {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.cz-tier-settings__section + .cz-tier-settings__section,
-.cz-tier-settings__advanced {
+.cz-tier-settings__group + .cz-tier-settings__group {
   padding-top: 18px;
   border-top: 1px solid var(--station-card-divider);
 }
 
-.cz-tier-settings__callout {
-  display: grid;
-  grid-template-columns: auto minmax(180px, 0.8fr) minmax(280px, 1.2fr);
-  align-items: start;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid var(--station-accent-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-accent-soft-bg);
-}
-
-.cz-tier-settings__callout-icon {
-  display: grid;
-  place-items: center;
-  width: var(--station-card-icon-size);
-  height: var(--station-card-icon-size);
-  border-radius: var(--station-card-icon-radius);
-  background: var(--station-surface-elevated);
-  color: var(--station-accent-fg);
-}
-
-.cz-tier-settings__callout-icon > svg {
-  width: var(--station-card-glyph-size);
-  height: var(--station-card-glyph-size);
-}
-
-.cz-tier-settings__callout-copy,
-.cz-tier-settings__setup-path,
-.cz-tier-settings__attach-row > span,
-.cz-tier-settings__instance-list li > span,
-.cz-tier-settings__rate-sheet-name,
-.cz-tier-settings__rate-sheet-scope {
+/* The one leaf inside a section. The shell renders its heading, so a section can
+   never advertise one hierarchy in the navigation and present another here. */
+.cz-tier-settings__leaf {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
 }
 
-.cz-tier-settings__setup-path {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.cz-tier-settings__steps {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.cz-tier-settings__leaf-title {
   margin: 0;
-  padding-inline-start: 22px;
   color: var(--station-text);
   font-size: var(--station-text-sm);
+  font-weight: 700;
 }
 
-.cz-tier-settings__steps li {
-  padding-inline-start: 4px;
-}
-
-.cz-tier-settings__steps span {
-  display: block;
-  margin-top: 2px;
+.cz-tier-settings__muted,
+.cz-tier-settings__leaf p {
+  margin: 0;
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
   line-height: var(--station-line-snug);
-}
-
-.cz-tier-settings__progress {
-  color: var(--station-text) !important;
-  font-weight: 700;
 }
 
 .cz-tier-settings__success {
@@ -2762,104 +2717,17 @@ button.cz-station-status-pill {
   font-size: var(--station-text-sm);
 }
 
-.cz-tier-settings__callout-copy span,
-.cz-tier-settings__attach-row small,
-.cz-tier-settings__instance-list small,
-.cz-tier-settings__rate-sheet-name small,
-.cz-tier-settings__muted,
-.cz-tier-settings__inline-form small,
-.cz-tier-settings__configuration p {
-  color: var(--station-text-muted);
-  font-size: var(--station-text-xs);
-  line-height: var(--station-line-snug);
-}
-
-.cz-tier-settings__attach-list,
-.cz-tier-settings__actions,
 .cz-tier-settings__checks {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.cz-tier-settings__attach-row,
-.cz-tier-settings__instance-list li {
+.cz-tier-settings__checks label {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.cz-tier-settings__confirm {
-  grid-column: 2 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--station-status-inactive-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-status-inactive-bg);
-}
-
-.cz-tier-settings__suggestion {
-  grid-column: 2 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--station-accent-border);
-  color: var(--station-text-muted);
+  gap: 8px;
   font-size: var(--station-text-sm);
-}
-
-.cz-tier-settings__confirm p {
-  flex: 1 1 100%;
-  margin: 0;
-  font-size: var(--station-text-sm);
-}
-
-.cz-tier-settings__inline-form {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) auto;
-  align-items: end;
-  gap: 10px;
-}
-
-.cz-tier-settings__inline-form label,
-.cz-tier-settings__configuration h5 {
-  margin: 0;
-  color: var(--station-text);
-  font-size: var(--station-text-sm);
-  font-weight: 700;
-}
-
-.cz-tier-settings__inline-form small {
-  grid-column: 1 / -1;
-}
-
-.cz-tier-settings__inline-form--create {
-  padding-top: 12px;
-  border-top: 1px solid var(--station-accent-border);
-}
-
-.cz-tier-settings__configuration {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.cz-tier-settings__configuration > div {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
 }
 
 /* Keep every primary data value on the Station foreground. WordPress and the
@@ -2871,31 +2739,13 @@ button.cz-station-status-pill {
 .cz-tier-deck__identity-name,
 .cz-tier-deck__field,
 .cz-tier-deck__money,
-.cz-tier-deck__tool-title,
-.cz-tier-settings__callout-copy strong,
-.cz-tier-settings__attach-row strong,
-.cz-tier-settings__configuration h5,
-.cz-tier-settings__slots li,
-.cz-tier-settings__rate-sheet-name strong,
-.cz-tier-settings__rate-sheet-scope > strong,
-.cz-tier-settings__instance-list strong {
+.cz-tier-settings__leaf-title,
+.cz-tier-settings__nav-title,
+.cz-tier-settings__slots li {
   color: var(--station-text);
 }
 
-.cz-tier-settings__configuration p {
-  margin: 0;
-}
-
-.cz-tier-settings__checks label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--station-text-sm);
-}
-
-.cz-tier-settings__slots,
-.cz-tier-settings__instance-list,
-.cz-tier-settings__rate-sheets {
+.cz-tier-settings__slots {
   width: 100%;
   margin: 0;
   padding: 0;
@@ -2911,6 +2761,10 @@ button.cz-station-status-pill {
   font-size: var(--station-text-sm);
 }
 
+.cz-tier-settings__slots li:last-child {
+  border-bottom: 0;
+}
+
 .cz-tier-settings__slot-action {
   display: flex;
   align-items: center;
@@ -2922,57 +2776,9 @@ button.cz-station-status-pill {
   padding: 6px 12px;
 }
 
-.cz-tier-settings__slots li:last-child {
-  border-bottom: 0;
-}
-
-.cz-tier-settings__rate-sheets,
-.cz-tier-settings__instance-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.cz-tier-settings__rate-sheet {
-  display: grid;
-  grid-template-columns: auto minmax(180px, 0.8fr) minmax(240px, 1fr) minmax(240px, 1fr);
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
-}
-
-.cz-tier-settings__rate-sheet-scope > span {
-  color: var(--station-text-muted);
-  font-size: var(--station-text-xs);
-  font-weight: 700;
-  letter-spacing: var(--station-tracking-wide);
-  text-transform: uppercase;
-}
-
-.cz-tier-settings__rate-sheet-scope > strong {
-  font-size: var(--station-text-xs);
-  line-height: var(--station-line-snug);
-}
-
-.cz-tier-settings__advanced summary {
-  color: var(--station-text);
-  font-size: var(--station-text-sm);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.cz-tier-settings__advanced-body {
-  padding-top: 14px;
-}
-
-.cz-tier-settings__instance-list li {
-  padding: 12px 14px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
+/* A Settings-wide message belongs to neither column. */
+.cz-tier-settings > .cz-station-empty {
+  grid-column: 1 / -1;
 }
 
 .cz-tier-drawer-setup {

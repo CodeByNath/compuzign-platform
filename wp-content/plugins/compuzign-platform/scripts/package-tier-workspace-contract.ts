@@ -356,6 +356,64 @@ for (const forbidden of [
 ]) {
   check(!settingsSource.includes(forbidden), `Settings carries no ${forbidden} relationship workflow`);
 }
+
+// ── Settings shell ────────────────────────────────────────────────────────────
+// Settings is a three-level tree, and its navigation and accordions are two
+// controls over ONE open-section id. The leaf heading is rendered by the shell,
+// so a section cannot advertise one hierarchy in the navigation and present
+// another in its panel.
+const navigationSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierSettingsNav.tsx',
+), 'utf8');
+check(
+  settingsSource.includes('const [openId, setOpenId]')
+    && settingsSource.includes('open={openId === section.id}')
+    && settingsSource.includes('openId={openId}'),
+  'the section navigation and the accordions read the same open-section id',
+);
+check(
+  navigationSource.includes('aria-controls={`${idFor(section.id)}-panel`}')
+    && navigationSource.includes('aria-expanded={current}')
+    && navigationSource.includes("aria-current={current ? 'true' : undefined}"),
+  'each navigation item names the panel it controls and reports that panel’s state',
+);
+check(
+  settingsSource.includes('idPrefix={idFor(section.id)}'),
+  'the navigation and the disclosure address the same panel id',
+);
+check(
+  settingsSource.includes('<h6 class="cz-tier-settings__leaf-title">{section.leaf}</h6>')
+    && settingsSource.includes('headingLevel={5}'),
+  'the shell renders one leaf heading per section beneath the section’s own heading',
+);
+
+// The required hierarchy, in order. Focused Tier System carries exactly Rate
+// Sheet Access and Fixed Tier Slots and nothing else.
+const focusedGroup = settingsSource.slice(settingsSource.indexOf("id: 'focused-tier-system'"));
+for (const expected of [
+  "title: 'Access'",
+  "leaf: 'Rate Sheet Access'",
+  "title: 'Tier Structure'",
+  "leaf: 'Fixed Tier Slots'",
+]) {
+  check(focusedGroup.includes(expected), `Focused Tier System declares ${expected}`);
+}
+check(
+  focusedGroup.indexOf("title: 'Access'") < focusedGroup.indexOf("title: 'Tier Structure'"),
+  'Focused Tier System presents Access before Tier Structure',
+);
+
+const focusedSectionsSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx',
+), 'utf8');
+check(
+  focusedSectionsSource.includes('No Tier system is focused, so no Rate Sheet access is configured.')
+    && focusedSectionsSource.includes('No Tier system is focused, so there are no slots to configure.')
+    && focusedSectionsSource.includes('No active Rate Sheet exists, so this Tier system can reach none.'),
+  'the focused sections fail closed rather than inventing a system, a sheet, or a slot',
+);
 check(
   workspacePresentation.includes('scrollIntoView')
     && workspacePresentation.includes('aria-live="polite"')
@@ -454,7 +512,7 @@ const connectionsLane = lowerDeckSource.slice(lowerDeckSource.indexOf('function 
 // Connections is exactly two top-level disclosures — Stations and Tools — and the
 // connected record types live inside them as named subsections, never as siblings.
 check(
-  (connectionsLane.match(/<ConnectionDisclosure$/gm) ?? []).length === 2,
+  (connectionsLane.match(/<DeckDisclosure$/gm) ?? []).length === 2,
   'the Connections lane opens exactly two top-level disclosures',
 );
 const stationsScope = connectionsLane.slice(
@@ -481,10 +539,12 @@ check(
 );
 
 // The disclosure is a real, keyboard-operable button bound to its own panel — it
-// adds presentation state and nothing else.
+// adds presentation state and nothing else. One implementation serves both lanes:
+// the Connections lane lets each section hold its own state, Settings drives them
+// from one shared id, and neither forks the accessible markup.
 const disclosureSource = readFileSync(resolve(
   root,
-  'resources/ts/package-station/presentation/package-tier-workspace/ConnectionDisclosure.tsx',
+  'resources/ts/package-station/presentation/package-tier-workspace/DeckDisclosure.tsx',
 ), 'utf8');
 check(
   disclosureSource.includes('type="button"')
@@ -492,7 +552,12 @@ check(
     && disclosureSource.includes('aria-controls={panelId}')
     && disclosureSource.includes('aria-labelledby={triggerId}')
     && disclosureSource.includes('useId'),
-  'the Connections disclosure is a real button with aria-expanded, aria-controls and stable ids',
+  'the deck disclosure is a real button with aria-expanded, aria-controls and stable ids',
+);
+check(
+  disclosureSource.includes('controlledOpen ?? uncontrolledOpen')
+    && disclosureSource.includes('idPrefix ?? uid'),
+  'the deck disclosure supports a controlled open state and a caller-supplied id stem',
 );
 check(
   !connectionsLane.includes('onIntent') && !connectionsLane.includes('onInclusionIntent'),
