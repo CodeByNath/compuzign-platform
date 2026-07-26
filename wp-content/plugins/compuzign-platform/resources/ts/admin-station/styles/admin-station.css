@@ -2654,18 +2654,6 @@ button.cz-station-status-pill {
   grid-column: 1 / -1;
 }
 
-.cz-tier-drawer-setup {
-  margin-bottom: var(--cz-space-3);
-}
-
-.cz-tier-drawer-setup ol {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-2);
-  margin-bottom: 0;
-  padding-inline-start: 22px;
-}
-
 /* ── Rate Sheet authoring tool ───────────────────────────────────────────── */
 /* The Rate Sheet is a registered drawer that follows the mature View/Edit flow.
    View renders through the shared `drawerModule` read cards; Edit renders these

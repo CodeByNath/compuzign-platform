@@ -695,15 +695,47 @@ check(
   'the Admin host adapter carries Manage Tier system into the Packages destination',
 );
 
+// ── Empty-slot drawer entry ───────────────────────────────────────────────────
+// An empty fixed slot opens the ordinary readable module screen. The drawer
+// explains no setup sequence above it and opens no editor for it: the empty Tier
+// Overview module carries its own Pending pill, that pill's message, and the Edit
+// action that opens the editor — the cycle Included Features and Common Questions
+// already follow.
 const tierDrawerSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx',
 ), 'utf8');
 check(
-  tierDrawerSource.includes('Choose the Rate Sheet that supplies pricing rows.')
-    && tierDrawerSource.includes('Add included features and optional common questions.')
-    && tierDrawerSource.includes('Publish the Tier when it is ready.'),
-  'the existing empty-slot drawer explains its authoritative setup sequence',
+  !tierDrawerSource.includes('cz-tier-drawer-setup')
+    && !tierDrawerSource.includes('This fixed slot is empty.'),
+  'the empty-slot drawer presents no explanation block above its modules',
+);
+const tierDrawerHostSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx',
+), 'utf8');
+check(
+  tierDrawerHostSource.includes(
+    "initialTierSection={mode === 'edit' && slotTarget === null ? 'tier-overview' : undefined}",
+  ),
+  'an empty slot opens on the readable Overview screen, never straight into the Tier Overview editor',
+);
+const tierBindingsSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/schema/bindings/tier.tsx',
+), 'utf8');
+check(
+  (tierBindingsSource.match(/footer:\s+DETAILS_FOOTER/g) ?? []).length === 3
+    && tierBindingsSource.includes("edit: { id: 'edit', label: 'Edit', intent: 'secondary' }"),
+  'all three Tier modules offer the same Edit action into their own inline editor',
+);
+const tierModuleRules = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/utils/moduleNotifications/tier.ts',
+), 'utf8');
+check(
+  /tierOverviewModule[^}]*emptyPrompt:\s+'Edit and configure this tier\.'/s.test(tierModuleRules),
+  'the empty Tier Overview module carries the message its Pending pill opens with',
 );
 
 // ── Connections lane composition ──────────────────────────────────────────────

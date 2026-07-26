@@ -217,9 +217,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   const td = c.tierDetail;
   if (!td) return null;
   const { detail, rateSheetCatalogue } = td;
-  const setupSlotLabel = props.initialTierId
-    ? TIER_LABELS[props.initialTierId as keyof typeof TIER_LABELS] ?? props.initialTierId
-    : null;
 
   let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
@@ -281,22 +278,13 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // View mode — the Individual Tier drawer body. Keyed by stable occupant
   // identity so content edits do not remount; the resolved shell id addresses
   // all mutations.
+  //
+  // An empty fixed slot renders this same readable body: its Tier Overview
+  // module is simply empty, and the module's own Pending pill carries the
+  // guidance (`Edit and configure this tier.`) that a separate explanation block
+  // used to duplicate above it. Edit is the only way into the editor, exactly as
+  // Included Features and Common Questions already behave.
   return (
-    <>
-    {setupSlotLabel && (
-      <div class="cz-req-detail cz-tier-drawer-setup" role="status">
-        <div class="drawerModule drawerModule--overview">
-          <h3>Configure {setupSlotLabel} Tier</h3>
-          <p>This fixed slot is empty. Complete its setup in the existing Tier modules below.</p>
-          <ol>
-            <li>Choose the Rate Sheet that supplies pricing rows.</li>
-            <li>Save the Tier overview.</li>
-            <li>Add included features and optional common questions.</li>
-            <li>Publish the Tier when it is ready.</li>
-          </ol>
-        </div>
-      </div>
-    )}
     <EntityDrawer
       key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}
       entity={TIER_ENTITY}
@@ -322,6 +310,5 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     >
       <TierDrawerDialogs c={c} />
     </EntityDrawer>
-    </>
   );
 }
