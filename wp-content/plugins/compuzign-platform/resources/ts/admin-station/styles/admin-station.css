@@ -1010,36 +1010,6 @@ button.cz-station-status-pill {
 .cz-station-drawer__close:hover {
   background: var(--station-hover-bg);
 }
-
-.cz-station-drawer__tabs {
-  display: flex;
-  gap: 4px;
-  flex: 0 0 auto;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--station-border);
-}
-
-.cz-station-drawer__tab {
-  padding: 8px 16px;
-  border: 0;
-  border-radius: var(--station-control-radius);
-  background: transparent;
-  color: var(--station-text-muted);
-  font: inherit;
-  cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
-}
-
-.cz-station-drawer__tab:hover {
-  background: var(--station-hover-bg);
-}
-
-.cz-station-drawer__tab--active {
-  background: var(--station-active-bg);
-  color: var(--station-text);
-  font-weight: 600;
-}
-
 .cz-station-drawer__body {
   flex: 1 1 auto;
   min-height: 0;
