@@ -29,6 +29,8 @@
 // dependency on the full API types and the contract script can run them with
 // plain fixtures. The Package read model's real shapes satisfy these by width.
 
+import type { PackageRateSheetStatus } from '../../types';
+
 export interface WorkspaceRateItem {
   item_id: string;
   source_item_id: string;
@@ -58,7 +60,7 @@ export interface DeckCategoryRelationship {
 export interface DeckRateSheet {
   rate_sheet_id: string;
   title:  string;
-  status: string;
+  status: PackageRateSheetStatus;
   groups: { group_id: string; label: string; sort_order: number }[];
 }
 
@@ -99,7 +101,7 @@ export interface DeckRateSheetGroupConnection {
   rateSheetId:   string;
   groupId:       string;
   title:         string;       // stored group label
-  status:        string;       // inherited from the parent Rate Sheet
+  status:        PackageRateSheetStatus; // inherited from the parent Rate Sheet
   connectedRows: number;       // resolved selections the focused Tier draws from this group
   coverage:      number;       // summed quantity the Tier commits across those rows
 }
@@ -112,7 +114,8 @@ export interface DeckRateSheetGroupConnection {
 export interface DeckRateSheetConnection {
   rateSheetId:         string;
   title:               string;
-  status:              string;   // the sheet's own stored status
+  status:              PackageRateSheetStatus | 'unresolved';
+  resolved:            boolean;
   connectedRows:       number;   // every resolved selection the Tier draws from the sheet
   connectedInclusions: number;   // of those, the ones sourced from an inclusion
 }
@@ -244,8 +247,18 @@ export function projectTierRateSheetGroups(
 export function projectTierRateSheet(
   selections: readonly DeckSelection[],
   rateSheet: DeckRateSheet | null,
+  boundRateSheetId: string | null = rateSheet?.rate_sheet_id ?? null,
 ): DeckRateSheetConnection | null {
-  if (rateSheet === null) return null;
+  if (rateSheet === null) {
+    return boundRateSheetId === null ? null : {
+      rateSheetId:         boundRateSheetId,
+      title:               'Unresolved Rate Sheet',
+      status:              'unresolved',
+      resolved:            false,
+      connectedRows:       0,
+      connectedInclusions: 0,
+    };
+  }
   let connectedRows = 0;
   let connectedInclusions = 0;
   for (const selection of selections) {
@@ -257,6 +270,7 @@ export function projectTierRateSheet(
     rateSheetId: rateSheet.rate_sheet_id,
     title:       rateSheet.title.trim() || 'Untitled Rate Sheet',
     status:      rateSheet.status,
+    resolved:    true,
     connectedRows,
     connectedInclusions,
   };
@@ -271,6 +285,7 @@ export function projectTierDeck(
   selections: readonly DeckSelection[],
   categoryByRateItem: ReadonlyMap<string, string[]>,
   rateSheet: DeckRateSheet | null,
+  boundRateSheetId: string | null = rateSheet?.rate_sheet_id ?? null,
 ): TierDeck {
   const inclusions = projectTierInclusions(selections, categoryByRateItem);
   const categories = [...new Set(inclusions.flatMap((inclusion) => inclusion.categories))].sort((a, b) =>
@@ -278,7 +293,7 @@ export function projectTierDeck(
   );
   return {
     inclusions,
-    rateSheet: projectTierRateSheet(selections, rateSheet),
+    rateSheet: projectTierRateSheet(selections, rateSheet, boundRateSheetId),
     groups:    projectTierRateSheetGroups(selections, rateSheet),
     categories,
   };

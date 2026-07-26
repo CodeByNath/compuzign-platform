@@ -17,8 +17,10 @@ import {
   projectTierInclusions,
   projectTierRateSheet,
   projectTierRateSheetGroups,
+  type DeckRateSheet,
   type DeckSelection,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/deck';
+import { projectConnectionNavigation } from '../resources/ts/package-station/surface/packageTierWorkspace/connectionNavigation';
 import {
   decodeTierRateSheetDrawerRecordId,
   encodeTierRateSheetDrawerRecordId,
@@ -187,7 +189,7 @@ const deckSelections: DeckSelection[] = [
   { item_id: 'rate_faq', source_type: 'faq', source_id: 'faq-1', quantity: 1, resolved: true, label: 'FAQ', unit_price: 0, per: 'Per month', line_total: 0, group_id: 'grp' },
   { item_id: 'rate_missing', source_type: 'inclusion', source_id: 'inc-3', quantity: 1, resolved: false, label: '(unresolved)', unit_price: null, per: null, line_total: null, group_id: null },
 ];
-const rateSheet = {
+const rateSheet: DeckRateSheet = {
   rate_sheet_id: 'rs_kairos',
   title: 'KAIROS Rates',
   status: 'active',
@@ -230,6 +232,67 @@ check(projectTierRateSheet(deckSelections, null) === null, 'an unbound Tier repo
 const deck = projectTierDeck(deckSelections, categoryByRateItem, rateSheet);
 check(deck.categories.join(',') === 'Cloud Infrastructure,Managed Services', 'lower-deck category filter remains distinct and sorted');
 check(deck.rateSheet !== null && deck.groups.length === 1, 'the deck carries the Rate Sheet and group connections it renders');
+
+const unresolvedSheet = projectTierRateSheet(deckSelections, null, 'rs_missing');
+check(
+  unresolvedSheet?.rateSheetId === 'rs_missing'
+    && unresolvedSheet.status === 'unresolved'
+    && unresolvedSheet.resolved === false,
+  'a stale stored Rate Sheet binding remains visible by its canonical id instead of collapsing to unbound',
+);
+
+// The Connections navigation is one typed projection: the same rows feed cards,
+// counts, nested tabs, statuses, and canonical drawer targets.
+const connectionNavigation = projectConnectionNavigation({
+  family: kairos,
+  groups: groupConnections,
+  rateSheet: sheetConnection,
+  hasFocusedTier: true,
+});
+check(
+  connectionNavigation.map((category) => category.id).join(',') === 'stations,tools',
+  'Connections exposes only the supported Stations and Tools categories',
+);
+check(
+  connectionNavigation[0].tabs.map((tab) => tab.id).join(',') === 'family-groups,groups'
+    && connectionNavigation[1].tabs.map((tab) => tab.id).join(',') === 'rate-sheets',
+  'each Connections category owns its valid nested tab set',
+);
+check(
+  connectionNavigation[0].summary === '1 Family · 1 Group'
+    && connectionNavigation[1].summary === '1 Rate Sheet',
+  'selector summaries derive from the same row arrays they expose',
+);
+const familyTarget = connectionNavigation[0].tabs[0].rows[0]?.target;
+const groupTargetFromNavigation = connectionNavigation[0].tabs[1].rows[0]?.target;
+const sheetTargetFromNavigation = connectionNavigation[1].tabs[0].rows[0]?.target;
+check(
+  familyTarget?.kind === 'package-family' && familyTarget.familyId === 'pcg_kairos',
+  'the Family row carries the canonical Package Family id',
+);
+check(
+  groupTargetFromNavigation?.kind === 'rate-sheet-group'
+    && groupTargetFromNavigation.rateSheetId === 'rs_kairos'
+    && groupTargetFromNavigation.groupId === 'grp',
+  'the Group row carries its canonical parent-sheet and group ids',
+);
+check(
+  sheetTargetFromNavigation?.kind === 'rate-sheet'
+    && sheetTargetFromNavigation.rateSheetId === 'rs_kairos',
+  'the Rate Sheet row carries its canonical sheet id',
+);
+const emptyConnectionNavigation = projectConnectionNavigation({
+  family: null,
+  groups: [],
+  rateSheet: null,
+  hasFocusedTier: false,
+});
+check(
+  emptyConnectionNavigation[0].summary === 'No Family'
+    && emptyConnectionNavigation[1].summary === 'Focus a Tier'
+    && emptyConnectionNavigation.every((category) => category.tabs.every((tab) => tab.rows.length === 0)),
+  'unfocused Connections reports honest empty states without placeholder records or counts',
+);
 
 // ── Connections routing tokens ────────────────────────────────────────────────
 // Every Connections action addresses its target by the identities Package

@@ -210,6 +210,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
           view?.detail.rate_sheet_selections ?? [],
           categoryByRateItem,
           rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
+          view?.detail.rate_sheet_id ?? null,
         );
         return {
           occupantId,
