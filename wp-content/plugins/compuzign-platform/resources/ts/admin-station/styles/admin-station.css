@@ -2249,14 +2249,116 @@ button.cz-station-status-pill {
   color: var(--station-text-muted);
 }
 
-/* Connections — two top-level disclosures (Stations, Tools), each a bordered
-   container whose expanded panel stays inside the same border. The connected
-   record types are named subsections inside a panel, spaced by its own flow gap
-   rather than by a sibling margin, so the panel never opens with a hanging gap. */
+/* Connections — one selected category card exposes one focused content panel. */
 .cz-tier-deck__connections {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--station-card-gap);
+}
+
+.cz-tier-deck__selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--station-card-gap);
+}
+
+.cz-tier-deck__selector-card {
+  display: flex;
+  align-items: center;
+  gap: var(--station-card-gap);
+  min-width: 0;
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+  color: var(--station-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.cz-tier-deck__selector-card:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-tier-deck__selector-card:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+.cz-tier-deck__selector-card--selected {
+  border-color: var(--station-accent-border);
+  background: var(--station-accent-soft-bg);
+  box-shadow: inset 3px 0 0 var(--station-accent);
+}
+
+.cz-tier-deck__selector-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+}
+
+.cz-tier-deck__selector-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-tier-deck__selector-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cz-tier-deck__selector-title,
+.cz-tier-deck__selector-summary {
+  display: block;
+}
+
+.cz-tier-deck__selector-title {
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-tier-deck__selector-summary {
+  margin-top: 2px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+.cz-tier-deck__selector-chevron {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--station-text-muted);
+  transform: rotate(-90deg);
+  transition: transform 140ms ease;
+}
+
+.cz-tier-deck__selector-chevron > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cz-tier-deck__selector-card--selected .cz-tier-deck__selector-chevron {
+  color: var(--station-accent-fg);
+  transform: rotate(0);
+}
+
+.cz-tier-deck__connection-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
 }
 
 /* No `overflow: hidden` here: the rows inside carry StationSplitAction, whose

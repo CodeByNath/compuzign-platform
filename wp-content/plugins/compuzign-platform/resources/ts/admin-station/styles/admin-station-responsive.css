@@ -103,6 +103,10 @@
     grid-template-columns: 1fr;
   }
 
+  .cz-tier-deck__selector-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   /* Settings stacks: the section navigation stays above the sections it drives
      rather than beside them, so both keep a usable measure. */
   .cz-tier-settings {

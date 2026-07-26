@@ -316,6 +316,12 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           deck={selectedSlot?.item ? tool.decks[selectedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
           activeTab={deckTab}
           hasFocusedTier={selectedSlot?.item !== null && selectedSlot !== null}
+          connectionScopeKey={[
+            tool.selectedFamily?.id ?? 'unassigned',
+            instanceId ?? 'no-instance',
+            selectedSlot?.slotId ?? 'no-slot',
+            selectedSlot?.occupantId ?? 'empty',
+          ].join(':')}
           tierTool={tool.tierInstances}
           family={tool.selectedFamily}
           workspaceInstance={tool.workspaceInstance}
