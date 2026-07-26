@@ -28,7 +28,7 @@ export function PackageFamilyScope({ families, selectedId, onSelect }: Props): V
     <label class="cz-tier-workspace__scope">
       <span class="cz-tier-workspace__scope-label">Package Family</span>
       <select
-        class="cz-tier-workspace__scope-select"
+        class="cz-tf-control cz-tf-select cz-tf-control--accent cz-tier-workspace__scope-select"
         value={selectedId ?? ''}
         onChange={(event) => onSelect((event.currentTarget as HTMLSelectElement).value)}
       >

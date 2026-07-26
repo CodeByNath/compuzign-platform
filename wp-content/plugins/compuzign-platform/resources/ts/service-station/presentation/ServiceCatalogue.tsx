@@ -177,7 +177,7 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
       </div>
 
       <div class="cz-service-catalogue__toolbar" role="search" aria-label="Filter services">
-        <label class="cz-service-catalogue__search">
+        <label class="cz-tf-control cz-service-catalogue__search">
           <span class="cz-station-visually-hidden">Search services</span>
           <SearchIcon />
           <input
@@ -188,24 +188,24 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
           />
         </label>
 
-        <select aria-label="Filter by status" value={status}
+        <select class="cz-tf-control cz-tf-select" aria-label="Filter by status" value={status}
           onChange={(event) => { setStatus(event.currentTarget.value as StatusFilter); setRequestedPage(1); }}>
           {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select aria-label="Filter by category" value={category}
+        <select class="cz-tf-control cz-tf-select" aria-label="Filter by category" value={category}
           onChange={(event) => { setCategory(event.currentTarget.value); setRequestedPage(1); }}>
           <option value="all">All categories</option>
           {categories.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select aria-label="Filter by Family Group" value={family}
+        <select class="cz-tf-control cz-tf-select" aria-label="Filter by Family Group" value={family}
           onChange={(event) => { setFamily(event.currentTarget.value); setRequestedPage(1); }}>
           <option value="all">All families</option>
           {families.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select class="cz-service-catalogue__sort" aria-label="Sort services" value={sort}
+        <select class="cz-tf-control cz-tf-select cz-service-catalogue__sort" aria-label="Sort services" value={sort}
           onChange={(event) => { setSort(event.currentTarget.value as SortOrder); setRequestedPage(1); }}>
           <option value="newest">Sort by: Newest</option>
           <option value="oldest">Sort by: Oldest</option>
@@ -275,7 +275,7 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
       <footer class="cz-service-catalogue__pagination">
         <span>Showing {firstResult}–{lastResult} of {filtered.length} services</span>
         <span class="cz-service-catalogue__page-controls">
-          <select aria-label="Services per page" value={pageSize}
+          <select class="cz-tf-control cz-tf-select" aria-label="Services per page" value={pageSize}
             onChange={(event) => { setPageSize(Number(event.currentTarget.value)); setRequestedPage(1); }}>
             {PAGE_SIZES.map((size) => <option key={size} value={size}>{size} per page</option>)}
           </select>

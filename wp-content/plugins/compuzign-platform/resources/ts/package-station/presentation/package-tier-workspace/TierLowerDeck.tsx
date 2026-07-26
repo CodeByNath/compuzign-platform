@@ -316,7 +316,7 @@ function DetailsLane({
         <span class="cz-tier-deck__search">
           <SearchIcon class="cz-tier-deck__search-icon" />
           <input
-            class="cz-tier-deck__control cz-tier-deck__control--search"
+            class="cz-tf-control cz-tf-input cz-tier-deck__control--search"
             type="search"
             placeholder="Search focused inclusions…"
             value={query}
@@ -325,7 +325,7 @@ function DetailsLane({
           />
         </span>
         <select
-          class="cz-tier-deck__control"
+          class="cz-tf-control cz-tf-select"
           value={category}
           aria-label="Filter by category"
           disabled={deck.categories.length === 0}
@@ -335,7 +335,7 @@ function DetailsLane({
           {deck.categories.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
         </select>
         <select
-          class="cz-tier-deck__control"
+          class="cz-tf-control cz-tf-select"
           value={status}
           aria-label="Filter by status"
           disabled={statuses.length === 0}

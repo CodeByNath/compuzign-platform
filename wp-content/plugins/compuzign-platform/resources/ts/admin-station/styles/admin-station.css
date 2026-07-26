@@ -1158,10 +1158,9 @@ button.cz-station-status-pill {
   gap: var(--station-grid-gap);
 }
 
-.cz-service-catalogue__toolbar select,
-.cz-service-catalogue__search,
+/* The toolbar's buttons are not fields, so they keep their own surface. The
+   selects and the search take theirs from the shared field system. */
 .cz-service-catalogue__reset,
-.cz-service-catalogue__page-controls select,
 .cz-service-catalogue__page-controls button {
   min-height: var(--station-control-height);
   border: 1px solid var(--station-border);
@@ -1172,21 +1171,17 @@ button.cz-station-status-pill {
   font-size: var(--station-text-sm);
 }
 
-.cz-service-catalogue__toolbar select,
-.cz-service-catalogue__page-controls select {
-  padding-inline: var(--station-control-pad-x);
-}
-
 .cz-service-catalogue__toolbar select {
   flex: 0 1 168px;
 }
 
+/* The search is a composite: an icon and a bare input sharing one control
+   surface. The surface comes from the shared base; this is its layout. */
 .cz-service-catalogue__search {
   display: flex;
   align-items: center;
   gap: var(--station-grid-gap);
   flex: 1 1 260px;
-  padding-inline: var(--station-control-pad-x);
 }
 
 .cz-service-catalogue__search .cz-station-icon {
@@ -1232,10 +1227,7 @@ button.cz-station-status-pill {
   cursor: not-allowed;
 }
 
-.cz-service-catalogue__toolbar select:focus-visible,
-.cz-service-catalogue__search:focus-within,
 .cz-service-catalogue__reset:focus-visible,
-.cz-service-catalogue__page-controls select:focus-visible,
 .cz-service-catalogue__page-controls button:focus-visible,
 .cz-service-row__action:focus-visible {
   outline: 2px solid var(--station-focus-ring);
@@ -1580,25 +1572,13 @@ button.cz-station-status-pill {
   text-transform: uppercase;
 }
 
+/* The accent treatment that marks this control as naming the active scope is a
+   shared variant now. What remains is how it sits in the scope row. */
 .cz-tier-workspace__scope-select {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  height: 42px;
-  padding-inline: var(--station-control-pad-x);
-  border: 1px solid var(--station-accent-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-accent-soft-bg);
-  color: var(--station-text);
-  font: inherit;
-  font-weight: 700;
   text-overflow: ellipsis;
-  cursor: pointer;
-}
-
-.cz-tier-workspace__scope-select:focus-visible {
-  outline: 2px solid var(--station-focus-ring);
-  outline-offset: 2px;
 }
 
 /* View switch — a two-option segmented control (Focus | Grid). A view mode of
@@ -2184,42 +2164,10 @@ button.cz-station-status-pill {
   pointer-events: none;
 }
 
-.cz-tier-deck__control {
-  width: 100%;
-  min-width: 0;
-  height: var(--station-control-height);
-  padding-inline: var(--station-control-pad-x);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-surface);
-  color: var(--station-text);
-  font: inherit;
-}
-
+/* The deck's filters are shared controls. What stays here is the one piece of
+   genuine layout they need: room for the search glyph sitting over the field. */
 .cz-tier-deck__control--search {
   padding-inline-start: 36px;
-}
-
-.cz-tier-deck__control:focus-visible {
-  outline: none;
-  border-color: var(--station-accent-border);
-  box-shadow: 0 0 0 3px var(--station-accent-soft-bg);
-}
-
-.cz-tier-deck__control:disabled {
-  opacity: var(--station-disabled-opacity);
-  cursor: not-allowed;
-}
-
-.cz-tier-deck__control::placeholder {
-  color: var(--station-text-muted);
-  opacity: 0.8;
-}
-
-.cz-tier-deck input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--station-accent);
 }
 
 /* Station-page actions must use the Station token family. Drawer-kit
@@ -2736,19 +2684,6 @@ button.cz-station-status-pill {
   max-width: 62ch;
 }
 
-.cz-tier-settings__field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-}
-
-.cz-tier-settings__field label {
-  color: var(--station-text);
-  font-size: var(--station-text-sm);
-  font-weight: 700;
-}
-
 .cz-tier-settings__success code {
   padding: 1px 5px;
   border-radius: 6px;
@@ -2784,18 +2719,6 @@ button.cz-station-status-pill {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.cz-rate-sheet-tool__field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 420px;
-}
-
-.cz-rate-sheet-tool__field-label {
-  font-size: var(--station-text-sm);
-  font-weight: 700;
 }
 
 .cz-rate-sheet-tool__toolbar {
@@ -2914,10 +2837,4 @@ button.cz-station-status-pill {
 .cz-rate-sheet-tool__picker-actions {
   display: flex;
   justify-content: flex-end;
-}
-
-@media (max-width: 720px) {
-  .cz-rate-sheet-tool__field {
-    max-width: none;
-  }
 }

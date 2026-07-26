@@ -680,6 +680,7 @@
 .cz-tf-select,
 .cz-tf-textarea {
   width: 100%;
+  min-height: var(--station-field-min-h);
   background: transparent;
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
@@ -791,6 +792,7 @@
   color: var(--admin-text-faint);
 }
 
+/* A textarea sizes from its rows, so it opts out of the single-line floor. */
 .cz-tf-textarea {
   resize: vertical;
   min-height: 74px;

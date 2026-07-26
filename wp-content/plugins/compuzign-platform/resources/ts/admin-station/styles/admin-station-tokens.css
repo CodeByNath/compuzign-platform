@@ -122,12 +122,15 @@
    * families above, so the field system follows the theme without a palette of
    * its own.
    *
-   * The default size deliberately carries the metrics the drawer controls
-   * already render at (8px/12px padding, 14px type, no declared height), so
-   * introducing the contract moves nothing. Small and large are the two
-   * deliberate steps either side of it, on the 4px rhythm. */
+   * The default is the station control height, so a field in a drawer and a
+   * filter on a station page are literally the same control rather than two
+   * that happen to look alike. Small and large are the two deliberate steps
+   * either side of it, on the 4px rhythm.
+   *
+   * A textarea opts out of the floor: it sizes from its own rows. */
   --station-field-gap: 6px;
 
+  --station-field-min-h: var(--station-control-height);
   --station-field-pad-y: 8px;
   --station-field-pad-x: 12px;
   --station-field-font: 14px;
