@@ -29,19 +29,23 @@ Feature CSS must not declare `border`, `border-radius`, `height`, `min-height`, 
 
 `cz-tf-*` in `drawer-kit.css` is the one Admin drawer field system: one wrapper (`.cz-tf-field`), one checkbox row inside it (`.cz-tf-field__inline`), one label (`.cz-tf-label`, with `--required`), one hint (`.cz-tf-hint`), one error (`.cz-tf-error`), and one control base (`.cz-tf-control`) specialised by `.cz-tf-input`, `.cz-tf-select`, `.cz-tf-textarea` and `.cz-tf-checkbox`. `.cz-tf-control__inner` is the bare input inside a composite control surface, such as the catalogue search.
 
-Three sizes — `--sm`, default, `--lg` — and the states default / hover / focus-visible / disabled / readonly / error / required are declared once on the base and inherited by every type. The eight types and three sizes are twenty-four combinations built from one base, two size modifiers and shared tokens; they are not twenty-four implementations. No second field system may be created.
+Three sizes — `--sm`, default, `--lg` — and the states default / hover / focus-visible / disabled / readonly / error / required are declared once on the base and inherited by every type. Twenty-four type/size combinations, one base plus two modifiers; not twenty-four implementations. No second field system may be created.
 
-The checkbox is the one type that does not take the base: the base sets `appearance: none` so a select can carry its own chevron, which on a checkbox erases the native tick.
+The checkbox does not take the base: the base sets `appearance: none` so a select can carry its chevron, which on a checkbox erases the native tick.
 
-The default size is `--station-control-height`, so a field in a drawer and a filter on a station page are the same control. `--station-field-*` in the token file is the whole contract; every name is an alias over an existing station family or a 4px-rhythm value.
+The default size is `--station-control-height`, so a drawer field and a station-page filter are the same control. `--station-field-*` is the whole contract; every name aliases an existing station family or a 4px-rhythm value.
 
-Editors render fields through `drawer-kit/fields/AdminField`, not hand-authored markup. Specialised editors — the Rate Sheet grid, the repeatable FAQ and inclusion collections, the transforming category control — keep their own layout and consume the shared control classes; they are not expressed as field definitions.
+Editors render fields through `drawer-kit/fields/AdminField`, not hand-authored markup. Specialised editors — the Rate Sheet grid, the repeatable FAQ and inclusion collections, the transforming category control — keep their own layout and consume the shared control classes.
 
 ## Responsive rules
 
 - Home gutters and card columns change at 767px; the Service Catalogue table collapses to stacked rows there.
 - Header pill compaction uses 720px; at 560px the pills hide and the drawer becomes full viewport width.
 - Shared record footers wrap at the drawer-kit 480px breakpoint.
+
+## Token namespaces
+
+`--station-*` is the Admin Station's palette and the only place a colour or shape is decided. Every `--admin-*` colour has moved to a station family, so the drawer follows the light/dark switch. `drawer-kit.css` keeps 37 private `--admin-*` names — type scale, radii, alpha tints, depth family, action z-index — which have no station counterpart. The contract holds that count as a budget that may only shrink.
 
 ## Validation
 
