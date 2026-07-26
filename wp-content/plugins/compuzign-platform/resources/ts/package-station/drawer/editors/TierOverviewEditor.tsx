@@ -1,4 +1,14 @@
+import { AdminField } from '@/drawer-kit/fields';
+import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { TierOverviewDraft } from '../../types';
+
+// The billing cycles a Tier can carry. A fixed vocabulary, so it is a constant
+// rather than a value rebuilt on every render.
+const BILLING_CYCLES: AdminFieldOption[] = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'annually', label: 'Annually' },
+  { value: 'one-time', label: 'One-time' },
+];
 
 // Tier Overview module editor (extracted from ServiceTierStep in S3a — the
 // tier shells became bindings of the archetype shells and the editor is now
@@ -32,54 +42,69 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
     if (hasSelections && !window.confirm('Switching Rate Sheet clears this tier\'s selected rows. Continue?')) return;
     onChange({ rate_sheet_id: next });
   };
+  const rateSheetOptions: AdminFieldOption[] = rateSheets.map((sheet) => ({
+    value: sheet.id,
+    label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
+  }));
+
   return (
     <div class="cz-tf-form">
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Rate Sheet</label>
-        <select class="cz-tf-select" value={draft.rate_sheet_id ?? ''}
-          onChange={(e) => changeRateSheet((e.target as HTMLSelectElement).value || null)}>
-          <option value="">Not bound</option>
-          {rateSheets.map((sheet) => (
-            <option key={sheet.id} value={sheet.id}>
-              {sheet.title || '(untitled)'}{sheet.status === 'archived' ? ' (archived)' : ''}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Price</label>
-        <input type="text" class="cz-tf-input" value={draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'} readOnly />
-      </div>
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Billing Cycle</label>
-        <select class="cz-tf-select" value={draft.billing_cycle}
-          onChange={(e) => onChange({ billing_cycle: (e.target as HTMLSelectElement).value })}>
-          <option value="monthly">Monthly</option>
-          <option value="annually">Annually</option>
-          <option value="one-time">One-time</option>
-        </select>
-      </div>
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Display Label (optional)</label>
-        <input type="text" class="cz-tf-input" value={draft.label}
-          onInput={(e) => onChange({ label: (e.target as HTMLInputElement).value })} />
-      </div>
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Ideal For</label>
-        <textarea class="cz-tf-input" rows={3} value={draft.ideal_for}
-          onInput={(e) => onChange({ ideal_for: (e.target as HTMLTextAreaElement).value })} />
-      </div>
-      <div class="cz-tf-field" style="flex-direction: row; align-items: center; gap: var(--cz-space-3)">
-        <input type="checkbox" id="tier-popular" checked={draft.popular}
-          onChange={(e) => onChange({ popular: (e.target as HTMLInputElement).checked })} />
-        <label class="cz-tf-label" for="tier-popular" style="margin: 0">Mark as popular tier</label>
-      </div>
+      <AdminField
+        def={{
+          id: 'tier-rate-sheet',
+          type: 'select',
+          label: 'Rate Sheet',
+          unsetLabel: 'Not bound',
+          options: rateSheetOptions,
+        }}
+        value={draft.rate_sheet_id ?? ''}
+        onChange={(next: string) => changeRateSheet(next || null)}
+      />
+
+      {/* Price is derived from the bound sheet's selected rows, so it reports
+          rather than accepts. Readonly, not disabled: the value is still
+          selectable and still submitted. */}
+      <AdminField
+        def={{ id: 'tier-price', type: 'text', label: 'Price', readonly: true }}
+        value={draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
+        onChange={() => undefined}
+      />
+
+      <AdminField
+        def={{
+          id: 'tier-billing-cycle',
+          type: 'select',
+          label: 'Billing Cycle',
+          options: BILLING_CYCLES,
+        }}
+        value={draft.billing_cycle}
+        onChange={(billing_cycle: string) => onChange({ billing_cycle })}
+      />
+
+      <AdminField
+        def={{ id: 'tier-label', type: 'text', label: 'Display Label (optional)' }}
+        value={draft.label}
+        onChange={(label) => onChange({ label })}
+      />
+
+      <AdminField
+        def={{ id: 'tier-ideal-for', type: 'textarea', label: 'Ideal For', rows: 3 }}
+        value={draft.ideal_for}
+        onChange={(ideal_for) => onChange({ ideal_for })}
+      />
+
+      <AdminField
+        def={{ id: 'tier-popular', type: 'checkbox', label: 'Mark as popular tier' }}
+        value={draft.popular}
+        onChange={(popular) => onChange({ popular })}
+      />
+
       {draft.popular && (
-        <div class="cz-tf-field">
-          <label class="cz-tf-label">Popular badge label</label>
-          <input type="text" class="cz-tf-input" value={draft.popular_label}
-            onInput={(e) => onChange({ popular_label: (e.target as HTMLInputElement).value })} />
-        </div>
+        <AdminField
+          def={{ id: 'tier-popular-label', type: 'text', label: 'Popular badge label' }}
+          value={draft.popular_label}
+          onChange={(popular_label) => onChange({ popular_label })}
+        />
       )}
     </div>
   );
