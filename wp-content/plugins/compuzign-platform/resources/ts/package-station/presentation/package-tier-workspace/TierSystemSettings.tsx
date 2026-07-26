@@ -13,11 +13,17 @@
 //
 //   Focused Tier System   Access          → Rate Sheet Access
 //                         Tier Structure  → Fixed Tier Slots
+//   Package Manager       Families        → Create Family
+//                         Tiers           → Create Tier
+//                         Groups          → Create Group
+//                         Rate Sheets     → Create Rate Sheet
 //
-// It configures the ONE Tier system focused above. It creates no Tier, assigns
-// nothing to a Package Family, suggests no consumer, infers no relationship and
-// launches no unrelated tool — every relationship in this workspace is made in
-// the drawer that owns the record.
+// Focused Tier System configures the ONE Tier system focused above. Package
+// Manager creates ONE pool record per action. Neither group assigns anything to
+// anything: no creation mints a second record, grants access, fills a slot, or
+// pre-selects the focused Family, and nothing here suggests a consumer or
+// launches an unrelated tool. Every relationship in this workspace is made in the
+// drawer that owns the record.
 
 import { useId, useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
@@ -26,16 +32,29 @@ import type {
   TierInstanceSummary,
 } from '../../types';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
+import type { PackageManagerCreationState } from '../../surface/packageManager/usePackageManagerCreation';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
-import { RateSheetIcon, TiersIcon } from '@/admin-station/shell/icons';
+import {
+  AppsIcon,
+  RateSheetIcon,
+  ServicesIcon,
+  TiersIcon,
+} from '@/admin-station/shell/icons';
 import { DeckDisclosure } from './DeckDisclosure';
 import { TierSettingsNav, type SettingsNavGroup } from './TierSettingsNav';
 import { FixedTierSlots, RateSheetAccess } from './FocusedTierSettings';
+import {
+  CreateFamily,
+  CreateGroup,
+  CreateRateSheet,
+  CreateTier,
+} from './PackageManagerSettings';
 
 // ── SECTION: CONTRACTS ────────────────────────────────────────────────────────
 
 interface Props {
   tool: TierInstancesToolState;
+  creation: PackageManagerCreationState;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
   loading: boolean;
@@ -72,6 +91,7 @@ interface SettingsGroup {
 
 export function TierSystemSettings({
   tool,
+  creation,
   workspaceInstance,
   rateSheets,
   loading,
@@ -136,8 +156,51 @@ export function TierSystemSettings({
           },
         ],
       },
+      {
+        id: 'package-manager',
+        title: 'Package Manager',
+        note: 'Creates one Package record at a time. Nothing created here is assigned, granted access, or connected to anything.',
+        sections: [
+          {
+            id: 'families',
+            icon: <ServicesIcon />,
+            title: 'Families',
+            description: 'The Package Family pool.',
+            summary: `${tool.families.length} in pool`,
+            leaf: 'Create Family',
+            content: <CreateFamily creation={creation} />,
+          },
+          {
+            id: 'tiers',
+            icon: <TiersIcon />,
+            title: 'Tiers',
+            description: 'The Tier system pool.',
+            summary: `${tool.instances.length} in pool`,
+            leaf: 'Create Tier',
+            content: <CreateTier tool={tool} />,
+          },
+          {
+            id: 'groups',
+            icon: <AppsIcon />,
+            title: 'Groups',
+            description: 'The groups each Rate Sheet stores.',
+            summary: `${rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0)} in pool`,
+            leaf: 'Create Group',
+            content: <CreateGroup creation={creation} rateSheets={rateSheets} />,
+          },
+          {
+            id: 'rate-sheets',
+            icon: <RateSheetIcon />,
+            title: 'Rate Sheets',
+            description: 'The Rate Sheet pool.',
+            summary: `${rateSheets.length} in pool`,
+            leaf: 'Create Rate Sheet',
+            content: <CreateRateSheet creation={creation} />,
+          },
+        ],
+      },
     ];
-  }, [currentRecord, error, loading, onTierAction, rateSheets, tool]);
+  }, [creation, currentRecord, error, loading, onTierAction, rateSheets, tool]);
 
   const [openId, setOpenId] = useState<string | null>('access');
 

@@ -51,6 +51,7 @@ import type {
 import type { PackageRateSheet, TierInstanceSummary } from '../../types';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
+import type { PackageManagerCreationState } from '../../surface/packageManager/usePackageManagerCreation';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import {
   AppsIcon,
@@ -72,6 +73,7 @@ interface Props {
   activeTab:  DeckTab;
   hasFocusedTier: boolean;
   tierTool: TierInstancesToolState;
+  creation: PackageManagerCreationState;
   family: WorkspaceFamilyScope | null;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
@@ -160,6 +162,7 @@ export function TierLowerDeck({
   activeTab,
   hasFocusedTier,
   tierTool,
+  creation,
   family,
   workspaceInstance,
   rateSheets,
@@ -250,6 +253,7 @@ export function TierLowerDeck({
         {activeTab === 'settings' && (
           <TierSystemSettings
             tool={tierTool}
+            creation={creation}
             workspaceInstance={workspaceInstance}
             rateSheets={rateSheets}
             loading={settingsLoading}

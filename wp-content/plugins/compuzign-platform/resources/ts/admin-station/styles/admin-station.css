@@ -2743,6 +2743,37 @@ button.cz-station-status-pill {
   width: 100%;
 }
 
+/* One atomic creation. Fields stack, the submit sits under them, and the created
+   record's own identity is reported beneath that — one column, because a create
+   form that fills the panel width reads as a record editor, which it is not. */
+.cz-tier-settings__form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 62ch;
+}
+
+.cz-tier-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+.cz-tier-settings__field label {
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-tier-settings__success code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--station-surface-elevated);
+  font-size: var(--station-text-xs);
+}
+
 /* A Settings-wide message belongs to neither column. */
 .cz-tier-settings > .cz-station-empty {
   grid-column: 1 / -1;

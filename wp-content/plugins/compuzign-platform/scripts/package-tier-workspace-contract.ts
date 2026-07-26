@@ -403,6 +403,85 @@ check(
   'Focused Tier System presents Access before Tier Structure',
 );
 
+// Package Manager is exactly four atomic creations, in order, and nothing else.
+const managerGroup = settingsSource.slice(settingsSource.indexOf("id: 'package-manager'"));
+const managerLeaves = [...managerGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
+check(
+  managerLeaves.join(',') === 'Create Family,Create Tier,Create Group,Create Rate Sheet',
+  'Package Manager holds exactly the four atomic creations, in the required order',
+);
+const managerTitles = [...managerGroup.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+check(
+  managerTitles.join(',') === 'Package Manager,Families,Tiers,Groups,Rate Sheets',
+  'Package Manager holds exactly the four pool subjects and no other section',
+);
+check(
+  settingsSource.indexOf("id: 'focused-tier-system'") < settingsSource.indexOf("id: 'package-manager'"),
+  'Settings presents Focused Tier System before Package Manager',
+);
+
+// Every creation writes ONE record. No form assigns, binds, grants access, fills
+// a slot, or pre-selects the focused Family.
+const creationSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/PackageManagerSettings.tsx',
+), 'utf8');
+for (const forbidden of [
+  'createTierAssignment',
+  'createTierInstance',
+  'assignInstance',
+  'allowed_rate_sheet_ids',
+  'addTierCapability',
+  'selectedFamily',
+  'workspaceInstance',
+]) {
+  check(!creationSource.includes(forbidden), `no creation form performs ${forbidden}`);
+}
+check(
+  (creationSource.match(/creation\.create|tool\.createInstance/g) ?? []).length === 4,
+  'the four creation forms make exactly four creation calls between them',
+);
+// Feedback names the record the backend actually stored, by the id it minted.
+check(
+  creationSource.includes('reference: family.group_id')
+    && creationSource.includes('reference: instance.tier_instance_id')
+    && creationSource.includes('reference: group.group_id')
+    && creationSource.includes('reference: sheet.rate_sheet_id'),
+  'each creation reports the stored id the backend minted, never the label it was given',
+);
+check(
+  creationSource.includes('role="status"'),
+  'creation feedback is announced through the established live-region pattern',
+);
+
+// The creation hook adds no endpoint and no id minting, and resolves what it
+// created by stored id rather than by title.
+const creationHook = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/packageManager/usePackageManagerCreation.ts',
+), 'utf8');
+check(
+  creationHook.includes('buildManagerSavePayload')
+    && creationHook.includes('toRateSheetEditorList')
+    && creationHook.includes('savePackageStationManager'),
+  'Rate Sheet and group creation reuse the Rate Sheet tool’s mapping and the one manager save',
+);
+for (const forbidden of [
+  'createTierAssignment',
+  'updateTierInstance',
+  'deleteTierAssignment',
+  'rate_sheet_deletions:',
+  'newRateGroupId',
+  'Date.now(',
+]) {
+  check(!creationHook.includes(forbidden), `the creation hook performs no ${forbidden}`);
+}
+check(
+  creationHook.includes('!before.has(sheet.rate_sheet_id)')
+    && creationHook.includes('group.group_id === created.id'),
+  'a created record is resolved by its stored id, never matched by title',
+);
+
 const focusedSectionsSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx',

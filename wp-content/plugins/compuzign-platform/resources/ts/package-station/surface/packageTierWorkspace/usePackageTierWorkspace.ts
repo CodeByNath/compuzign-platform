@@ -14,6 +14,10 @@ import { usePackageStation } from '../../usePackageStation';
 import { useTierInstances } from '../tierInstance/useTierInstances';
 import type { TierInstancesToolState } from '../tierInstance/useTierInstances';
 import { useHostService } from '../tierSurface/useHostService';
+import {
+  usePackageManagerCreation,
+  type PackageManagerCreationState,
+} from '../packageManager/usePackageManagerCreation';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
 import {
@@ -41,6 +45,8 @@ export interface PackageTierWorkspaceTool {
   slots: WorkspaceTierSlot[];
   decks: Record<string, TierDeck>;
   rateSheets: PackageRateSheet[];
+  /** Atomic Package Manager creation. One record per call, never a relationship. */
+  creation: PackageManagerCreationState;
   settingsLoading: boolean;
   settingsError: string | null;
   selectFamily: (familyId: string) => void;
@@ -119,6 +125,16 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       .finally(() => { if (active) setSettingsLoading(false); });
     return () => { active = false; };
   }, [host.service?.id, managerRevision]);
+
+  // Package Manager creation writes to the pools this surface already reads, so
+  // it hands the saved manager straight back and re-reads the Family collection.
+  // Neither refresh changes the focused Family or the focused Tier system.
+  const creation = usePackageManagerCreation({
+    hostServiceId: host.service?.id ?? null,
+    manager,
+    onManagerSaved: setManager,
+    onFamilyCreated: tierInstances.refetch,
+  });
 
   const selectFamily = useCallback((familyId: string) => {
     setSelectedFamilyId(familyId);
@@ -230,12 +246,14 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       slots: projectWorkspaceTierSlots(resolvedOccupants),
       decks,
       rateSheets,
+      creation,
       settingsLoading,
       settingsError,
       selectFamily,
     };
   }, [
     assignedInstance,
+    creation,
     families,
     pkg.service,
     pkg.tierOccupants,

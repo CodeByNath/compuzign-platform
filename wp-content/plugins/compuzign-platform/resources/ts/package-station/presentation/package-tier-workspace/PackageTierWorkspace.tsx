@@ -293,6 +293,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           activeTab={deckTab}
           hasFocusedTier={selectedSlot?.item !== null && selectedSlot !== null}
           tierTool={tool.tierInstances}
+          creation={tool.creation}
           family={tool.selectedFamily}
           workspaceInstance={tool.workspaceInstance}
           rateSheets={tool.rateSheets}
