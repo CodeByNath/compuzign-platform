@@ -211,7 +211,7 @@ function RateSheetCollectionEditor({ controller }: { controller: RateSheetToolCo
         <div key={sheet.key} class="cz-rate-sheet-tool__group-row" style="flex-direction: column; align-items: stretch; gap: var(--cz-space-2)">
           <div class="cz-rate-sheet-tool__group-row" style="align-items: center">
             <input
-              class="cz-tf-input"
+              class="cz-tf-control cz-tf-input"
               value={sheet.key === selectedKey ? (controller.selected?.title ?? sheet.title) : sheet.title}
               placeholder="Rate Sheet title"
               aria-label={`Title for ${sheet.title || 'untitled sheet'}`}
@@ -219,7 +219,7 @@ function RateSheetCollectionEditor({ controller }: { controller: RateSheetToolCo
               onInput={(event) => { controller.openSheet(sheet.key); controller.setTitle((event.currentTarget as HTMLInputElement).value); }}
             />
             <select
-              class="cz-tf-select"
+              class="cz-tf-control cz-tf-select"
               value={sheet.status}
               aria-label={`Status for ${sheet.title || 'untitled sheet'}`}
               onChange={(event) => controller.setSheetStatus(sheet.key, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived')}
@@ -272,7 +272,7 @@ function RateSheetSheetEditor({ controller, value }: { controller: RateSheetTool
 
       {creatingGroup && (
         <div class="cz-rate-sheet-tool__group-create">
-          <input class="cz-tf-input" value={groupLabel} placeholder="New group name" autoFocus aria-label="New group name"
+          <input class="cz-tf-control cz-tf-input" value={groupLabel} placeholder="New group name" autoFocus aria-label="New group name"
             onInput={(event) => setGroupLabel((event.currentTarget as HTMLInputElement).value)}
             onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submitGroup(); } if (event.key === 'Escape') { setCreatingGroup(false); setGroupLabel(''); } }} />
           <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={submitGroup} disabled={!groupLabel.trim()}>Add Group</button>
@@ -341,7 +341,7 @@ function SourcePicker({ controller, onDone }: { controller: RateSheetToolControl
               const already = connected.has(service.id);
               return (
                 <label key={service.id} class="cz-rate-sheet-tool__candidate">
-                  <input type="checkbox" checked={already || selected.includes(service.id)} disabled={already || controller.saving}
+                  <input type="checkbox" class="cz-tf-checkbox" checked={already || selected.includes(service.id)} disabled={already || controller.saving}
                     onChange={(event) => toggle(service.id, (event.currentTarget as HTMLInputElement).checked)} />
                   <span>{service.title}</span>
                   {already && <span class="cz-rate-sheet-tool__candidate-tag">Connected</span>}

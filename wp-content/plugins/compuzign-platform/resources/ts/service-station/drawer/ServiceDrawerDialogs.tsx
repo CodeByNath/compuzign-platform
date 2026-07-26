@@ -113,7 +113,7 @@ export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {
                   <li key={name}><strong>{name}</strong> — Pending</li>
                 ))}
               </ul>
-              <p style="margin-top:var(--cz-space-3);font-size:var(--cz-text-sm);color:var(--admin-text-secondary)">
+              <p style="margin-top:var(--cz-space-3);font-size:var(--admin-fs-s-label);color:var(--admin-text-muted)">
                 Changes are saved as a draft and not yet live. Settle now to publish them, or close and return later.
               </p>
             </div>
@@ -144,9 +144,10 @@ export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {
                   { key: 'category',    label: 'Category',    value: c.displayCategory || 'Not selected'               },
                   { key: 'description', label: 'Description', value: c.stationOverviewDraft?.content ? '…' : '(empty)' },
                 ].map(({ key, label, value }) => (
-                  <label key={key} style="display:flex;align-items:center;gap:var(--cz-space-3);cursor:pointer">
+                  <label key={key} class="cz-tf-field__inline" style="cursor:pointer">
                     <input
                       type="checkbox"
+                      class="cz-tf-checkbox"
                       checked={(c.newSvcFields as Record<string, boolean>)[key]}
                       onChange={(e) => c.setNewSvcFields((prev) => ({ ...prev, [key]: (e.target as HTMLInputElement).checked }))}
                     />

@@ -56,7 +56,7 @@ export function InlineEditorShell({ title, onSave, onCancel, saving, saveErr, is
       <div class="cz-ies__footer">
         {confirmingCancel ? (
           <>
-            <span style="font-size:var(--cz-text-sm);color:var(--admin-text-secondary);align-self:center">
+            <span style="font-size:var(--admin-fs-s-label);color:var(--admin-text-muted);align-self:center">
               Discard unsaved changes?
             </span>
             <button

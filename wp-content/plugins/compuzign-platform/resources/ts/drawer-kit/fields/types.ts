@@ -109,15 +109,25 @@ export function fieldInputType(type: AdminFieldType): string | undefined {
 }
 
 /**
- * The single place that turns a definition into control classes. Every type
- * carries the shared base and its own specialisation; size is one modifier on
- * that base, never a separate family. The checkbox is the one type that is a
- * box rather than a full-width control, so it takes no size modifier.
+ * The single place that turns a definition into control classes. The seven
+ * value types carry the shared control base plus their own specialisation, and
+ * size is one modifier on that base — never a separate family.
+ *
+ * The checkbox is the one type that does NOT take the base. The base sets
+ * `appearance: none` so a select can carry its own chevron and an input can
+ * carry a station-shaped border; applied to a checkbox that erases the native
+ * tick and leaves an empty square. A checkbox is a box, not a field surface:
+ * it takes `.cz-tf-checkbox`, which sizes it and hands the tick to
+ * `accent-color`, and it inherits the shared disabled and focus states from
+ * the rules that name it explicitly.
  */
 export function fieldControlClass(def: AdminFieldDef, isUnset = false): string {
-  const size = def.type === 'checkbox' ? '' : SIZE_CLASS[def.size ?? 'default'];
-  const accent = def.accent && def.type !== 'checkbox' ? ' cz-tf-control--accent' : '';
-  const unset = def.type === 'select' && isUnset ? ' cz-tf-select--unset' : '';
   const extra = def.className ? ` ${def.className}` : '';
+  if (def.type === 'checkbox') {
+    return `${TYPE_CLASS.checkbox}${extra}`;
+  }
+  const size = SIZE_CLASS[def.size ?? 'default'];
+  const accent = def.accent ? ' cz-tf-control--accent' : '';
+  const unset = def.type === 'select' && isUnset ? ' cz-tf-select--unset' : '';
   return `cz-tf-control ${TYPE_CLASS[def.type]}${size}${accent}${unset}${extra}`;
 }

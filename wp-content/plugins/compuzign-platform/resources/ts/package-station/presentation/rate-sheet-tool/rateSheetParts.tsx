@@ -91,7 +91,7 @@ function InlineCreateSelect({
   if (adding) {
     return (
       <input
-        class="cz-tf-input"
+        class="cz-tf-control cz-tf-input"
         value={draft}
         placeholder={placeholder}
         aria-label={placeholder}
@@ -108,7 +108,7 @@ function InlineCreateSelect({
 
   return (
     <select
-      class="cz-tf-select"
+      class="cz-tf-control cz-tf-select"
       value={value}
       disabled={disabled}
       aria-label={ariaLabel}
@@ -137,7 +137,7 @@ export function RateSheetGroupsEditor({
     <div class="cz-rate-sheet-tool__groups" aria-label="Rate Sheet groups">
       {groups.map((group) => (
         <div key={group.id} class="cz-rate-sheet-tool__group-row">
-          <input class="cz-tf-input" value={group.label} aria-label={`Group name for ${group.label}`}
+          <input class="cz-tf-control cz-tf-input" value={group.label} aria-label={`Group name for ${group.label}`}
             onInput={(event) => commands.renameGroup(group.id, (event.currentTarget as HTMLInputElement).value)} />
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Delete group ${group.label}`} onClick={() => commands.deleteGroup(group.id)}>Delete</button>
         </div>
@@ -238,7 +238,7 @@ function RateSheetEditRow({
     <tr>
       <td class="cz-rate-sheet-tool__cell-name">{row.optionLabel}{disabled ? ' — Unavailable' : ''}</td>
       <td>
-        <input class="cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
+        <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
           aria-label={`Unit price for ${row.optionLabel}`}
           onInput={(event) => commands.setRowUnitPrice(key, Number((event.currentTarget as HTMLInputElement).value))} />
       </td>
@@ -256,7 +256,7 @@ function RateSheetEditRow({
         </InlineCreateSelect>
       </td>
       <td>
-        <input class="cz-tf-input" type="number" min="1" step="1" value={row.quantity} disabled={disabled}
+        <input class="cz-tf-control cz-tf-input" type="number" min="1" step="1" value={row.quantity} disabled={disabled}
           aria-label={`Quantity for ${row.optionLabel}`}
           onInput={(event) => commands.setRowQuantity(key, Number((event.currentTarget as HTMLInputElement).value))} />
       </td>
