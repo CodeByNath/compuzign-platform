@@ -21,6 +21,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 
 - [Package Station](package-station.md)
 - [Package Manager](package-manager.md)
+- [Package Home Settings](package-settings.md)
 - [Service Catalogue](service-catalogue.md)
 - [Service Station](service-station.md)
 - [Service Connections](service-connections.md)

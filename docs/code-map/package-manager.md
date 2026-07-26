@@ -17,6 +17,7 @@ Admin Station is the presentation/control host. Its policy selects where registe
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns Package/Tier reads and mutations.
 - [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) owns Package Family lifecycle actions and derives its relationship-module state.
 - `surface/packageFamily/usePackageFamilyCreate.ts` owns the post-save optional capability stage; `usePackageFamilyCapabilities.ts` reads and mutates only the assignment/instance peers for the Family Capabilities shell.
+- `surface/packageManager/usePackageManagerCreation.ts` creates one pool record per call for Package Home Settings — Family through the existing Family route, Rate Sheet and group through `rateSheetToolModel` and the one manager save. It adds no endpoint, mints no id, and writes no relationship. See [Package Home Settings](package-settings.md).
 - [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/register.ts) registers Package navigation, destinations, data sources, the Tier workspace kit, and Package drawers (`package-family`, `package-family-create`, `tier`, and the `rate-sheet` authoring drawer). It is boot-entry-only.
 - [surface/rateSheetTool/](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/) and [presentation/rate-sheet-tool/](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/) — the Rate Sheet authoring drawer content and controller (see [Rate Sheet](rate-sheet.md)). It reuses the manager read/save endpoints and IDs; it is not a second authority and adds no endpoint or storage.
 
@@ -40,4 +41,4 @@ Run `php tests/package-manager-schema.php`, `php tests/package-category-groups.p
 
 ## Related Code Maps
 
-[Package Station](package-station.md), [Rate Sheet](rate-sheet.md), [Tiers](tiers.md), and [Service Connections](service-connections.md).
+[Package Station](package-station.md), [Package Home Settings](package-settings.md), [Rate Sheet](rate-sheet.md), [Tiers](tiers.md), and [Service Connections](service-connections.md).

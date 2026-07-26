@@ -5,7 +5,7 @@ The Admin Station uses scoped station tokens plus the shared drawer stylesheet. 
 ## Authoritative files
 
 - `resources/ts/admin-station/styles/admin-station-tokens.css` — light/dark station tokens.
-- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, Service Catalogue, carousel, the Tier Workspace Engine's Tier Tabs → Focused Tier → Family Group composition (including fixed-slot empty overlays and the lower-deck Tier Settings/Rate Sheet inventory), and Admin-only drawer overlay/header/footer-band chrome. The workspace uses Station classes only; drawer module classes remain inside drawers.
+- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, Service Catalogue, carousel, the Tier Workspace Engine's Tier Tabs → Focused Tier → Family Group composition (including fixed-slot empty overlays and the lower-deck Settings section navigation, disclosures, rows and creation forms), and Admin-only drawer overlay/header/footer-band chrome. The workspace uses Station classes only; drawer module classes remain inside drawers.
 - `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell/card/catalogue/Tier-workspace/drawer rules; the Tier workspace collapses its three columns to two at a component 1100px breakpoint (Tier Tabs + focused Tier, Family group full-width below), then to a single column preserving the reading order at the existing 767px shell breakpoint.
 - `resources/css/modules/drawer-kit.css` — shared modules, status pills, notification panels, forms, inline editors, dialogs, module actions, and record footers. `.cz-admin-station`-scoped adaptations give shared compositions the newer Admin Station module/editor treatment while leaving Command Centre unchanged.
 
