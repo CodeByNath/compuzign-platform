@@ -107,7 +107,7 @@ for (const sheet of SHELL_SHEETS) {
 // ── Rule 2 — the private --admin-* palette may shrink, never grow ────────────
 // It is being retired in favour of the station tokens. The budget is what stops
 // a new name being added to a palette on its way out.
-const ADMIN_TOKEN_BUDGET = 51;
+const ADMIN_TOKEN_BUDGET = 37;
 const adminTokens = new Set(read(DRAWER_SHEET).match(/^\s*(--admin-[a-z0-9-]+)\s*:/gm)?.map((s) => s.trim().replace(':', '')) ?? []);
 if (adminTokens.size > ADMIN_TOKEN_BUDGET) {
   failures.push(

@@ -19,27 +19,15 @@
   --admin-z-action:   300;
 
   /* ── Base surface — single background; hierarchy via depth, shadow, type ──── */
-  --admin-bg: #0f1117;
 
   /* ── Text — mapped to Atomic Engine ──────────────────────────────────────── */
-  --admin-text:       var(--cz-color-text);
-  --admin-text-muted: var(--cz-color-muted);
-  --admin-text-faint: var(--cz-color-muted-2);
 
   /* ── Borders — mapped to Atomic Engine ───────────────────────────────────── */
-  --admin-border:         var(--cz-color-line);
-  --admin-border-blue:    rgba(72, 82, 161, 0.23);
 
   /* ── Accent text — readable on dark surfaces ──────────────────────────────── */
-  --admin-accent-text: #5f6ccc;
   /* Blue signals the command layer — same platform, different operating mode.   */
-  --admin-accent:       #5c6ef5;
-  --admin-accent-hover: #7080ff;
 
   /* ── Status — mapped to Atomic Engine ────────────────────────────────────── */
-  --admin-success: var(--cz-color-success);
-  --admin-error:   var(--cz-color-danger);
-  --admin-warning: #fcc419;
 
   /* White alpha — form focus fills, code blocks, inactive dots */
   --admin-white-a05:  rgba(255, 255, 255, 0.05);
@@ -65,7 +53,6 @@
 
   /* Overlay / scrim */
   --admin-overlay:       rgba(0, 0, 0, 0.60);
-  --admin-overlay-mid:   rgba(0, 0, 0, 0.50);
   --admin-overlay-light: rgba(0, 0, 0, 0.18);
 
   /* ── Radius — single shared value; removes sharp edges ─────────────────── */
@@ -76,7 +63,6 @@
    * Use --admin-radius-base going forward for shared UI surfaces.
    * Keep --admin-btn-radius-base for button-specific inheritance/children.
    */
-  --admin-radius-base: var(--admin-btn-radius-base);
   /* Structural: flat (0) → card (1) → drawer (2) → modal (3)                   */
   --admin-depth-1:      0 1px 4px var(--admin-overlay-light);
   --admin-depth-3:      0 8px 48px var(--admin-overlay);
@@ -145,11 +131,11 @@
   align-self: center;
 }
 
-.cz-admin-status-dot--active   { color: var(--admin-success);    }
+.cz-admin-status-dot--active   { color: var(--station-status-active-fg);    }
 
-.cz-admin-status-dot--pending  { color: var(--admin-warning);    }
+.cz-admin-status-dot--pending  { color: var(--station-status-pending-fg);    }
 
-.cz-admin-status-dot--inactive { color: var(--admin-error);      }
+.cz-admin-status-dot--inactive { color: var(--station-status-inactive-fg);      }
 
 .cz-admin-status-dot--faint    { color: var(--station-text-muted); }
 
@@ -174,42 +160,42 @@
 }
 
 .cz-admin-btn--primary {
-  background: var(--admin-accent);
-  border-color: var(--admin-accent);
+  background: var(--station-accent);
+  border-color: var(--station-accent);
   color: var(--station-surface);
 }
 
 .cz-admin-btn--primary:hover:not(:disabled) {
-  background: var(--admin-accent-hover);
-  border-color: var(--admin-accent-hover);
+  background: var(--station-accent-strong);
+  border-color: var(--station-accent-strong);
   box-shadow: var(--admin-depth-glow-md);
 }
 
 .cz-admin-btn--primary:active,
 .cz-admin-btn--primary:focus {
-  background: var(--admin-accent-hover);
-  border-color: var(--admin-accent-hover);
+  background: var(--station-accent-strong);
+  border-color: var(--station-accent-strong);
   box-shadow: var(--admin-depth-ring-md);
 }
 
 .cz-admin-btn--secondary {
   background: transparent;
-  border-color: var(--admin-accent);
-  color: var(--admin-accent-text);
+  border-color: var(--station-accent);
+  color: var(--station-accent-fg);
 }
 
 .cz-admin-btn--secondary:hover:not(:disabled) {
   background: var(--admin-accent-a12);
-  border-color: var(--admin-accent-hover);
-  color: var(--admin-accent-hover);
+  border-color: var(--station-accent-strong);
+  color: var(--station-accent-strong);
   box-shadow: var(--admin-depth-glow-sm);
 }
 
 .cz-admin-btn--secondary:active,
 .cz-admin-btn--secondary:focus {
   background: var(--admin-accent-a15);
-  border-color: var(--admin-accent-hover);
-  color: var(--admin-accent-hover);
+  border-color: var(--station-accent-strong);
+  color: var(--station-accent-strong);
 }
 
 .cz-admin-btn:disabled {
@@ -234,7 +220,7 @@
   border: 1px solid var(--admin-error-a25);
   border-radius: var(--admin-radius);
   padding: var(--cz-space-3) var(--cz-space-4);
-  color: var(--admin-error);
+  color: var(--station-status-inactive-fg);
   font-size: var(--admin-fs-label);
 }
 
@@ -243,7 +229,7 @@
   border: 1px solid var(--admin-success-a20);
   border-radius: var(--admin-radius);
   padding: var(--cz-space-3) var(--cz-space-4);
-  color: var(--admin-success);
+  color: var(--station-status-active-fg);
   font-size: var(--admin-fs-label);
 }
 
@@ -837,7 +823,7 @@
   padding: 4px 0;
   background: transparent;
   border: none;
-  color: var(--admin-accent-hover);
+  color: var(--station-accent-strong);
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-normal);
   cursor: pointer;
@@ -941,7 +927,7 @@
 .cz-footer-split--danger .cz-footer-split__btn,
 .cz-footer-split--danger .cz-footer-split__chevron {
   background: var(--admin-error-a10);
-  color: var(--admin-error);
+  color: var(--station-status-inactive-fg);
   border-color: var(--admin-error-a25);
 }
 
@@ -956,18 +942,18 @@
 
 .cz-footer-split--secondary .cz-footer-split__btn,
 .cz-footer-split--secondary .cz-footer-split__chevron {
-  border-color: var(--admin-accent);
-  color: var(--admin-accent-text);
+  border-color: var(--station-accent);
+  color: var(--station-accent-fg);
 }
 
 .cz-footer-split--secondary .cz-footer-split__chevron {
-  border-left-color: var(--admin-accent);
+  border-left-color: var(--station-accent);
 }
 
 .cz-footer-split--secondary .cz-footer-split__btn:hover:not(:disabled),
 .cz-footer-split--secondary .cz-footer-split__chevron:hover:not(:disabled) {
   background: var(--admin-accent-a12);
-  color: var(--admin-accent-hover);
+  color: var(--station-accent-strong);
 }
 
 .cz-footer-split__btn:disabled,
@@ -1016,11 +1002,11 @@
 
 .cz-footer-split__item:hover:not(:disabled) {
   background: var(--admin-accent-a12);
-  color: var(--admin-accent-hover);
+  color: var(--station-accent-strong);
 }
 
 .cz-footer-split__item--danger {
-  color: var(--admin-error);
+  color: var(--station-status-inactive-fg);
 }
 
 .cz-footer-split__item:disabled {
@@ -1068,7 +1054,7 @@
 
 .cz-admin-btn--danger {
   background: var(--admin-error-a10);
-  color: var(--admin-error);
+  color: var(--station-status-inactive-fg);
   border-color: var(--admin-error-a25);
 }
 
@@ -1116,7 +1102,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--admin-accent);
+  background: var(--station-accent);
   margin-bottom: calc(-1 * var(--cz-space-2));
 }
 
@@ -1144,17 +1130,17 @@ button.cz-module-status-pill {
   font-family: inherit;
 }
 
-.cz-module-status-pill--active   { background: var(--admin-success-a10); color: var(--admin-success);     }
+.cz-module-status-pill--active   { background: var(--admin-success-a10); color: var(--station-status-active-fg);     }
 
-.cz-module-status-pill--inactive { background: var(--admin-error-a10);   color: var(--admin-error);       }
+.cz-module-status-pill--inactive { background: var(--admin-error-a10);   color: var(--station-status-inactive-fg);       }
 
-.cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--admin-warning);     }
+.cz-module-status-pill--pending  { background: var(--admin-warning-a12); color: var(--station-status-pending-fg);     }
 
 .cz-module-status-pill--draft    { background: var(--admin-white-a08);   color: var(--station-text-muted);  }
 
 .cz-module-status-pill--archived { background: var(--admin-white-a08);   color: var(--station-text-muted);  }
 
-.cz-module-status-pill--trashed  { background: var(--admin-error-a10);   color: var(--admin-error);       }
+.cz-module-status-pill--trashed  { background: var(--admin-error-a10);   color: var(--station-status-inactive-fg);       }
 
 .cz-module-status-pill__marker {
   padding-left: 0;
@@ -1238,7 +1224,7 @@ button.cz-module-status-pill {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--admin-accent);
+  color: var(--station-accent);
   flex-shrink: 0;
 }
 
