@@ -22,9 +22,15 @@ export interface TierInstanceRow {
 }
 
 export interface TierSlotState {
-  slotId:   string;
-  occupied: boolean;
+  slotId:     string;
+  occupied:   boolean;
   occupantId: string | null;
+  /** The occupant's own stored label, status, and Rate Sheet binding. Null when
+   *  the slot is empty or the record stores none — never substituted, and never
+   *  derived from the slot key. */
+  occupantLabel:  string | null;
+  occupantStatus: string | null;
+  rateSheetId:    string | null;
 }
 
 export interface TierRateSheetScope {
@@ -102,6 +108,9 @@ export function tierSlotStates(instance: TierInstanceRecord): TierSlotState[] {
       slotId,
       occupied: occupant !== null,
       occupantId: occupant?.id ?? null,
+      occupantLabel:  occupant?.label ?? null,
+      occupantStatus: occupant?.platform_status ?? null,
+      rateSheetId:    occupant?.rate_sheet_id ?? null,
     };
   });
 }

@@ -114,6 +114,24 @@ check(
   tierSlotStates(instance('ti_slots')).map((slot) => slot.slotId).join(',') === TIER_KEYS.join(','),
   'slot display is always all five fixed keys in vocabulary order',
 );
+// A slot carries the occupant's OWN stored label, status and Rate Sheet binding.
+// An empty slot carries none of them rather than a value derived from the key.
+const occupiedSlots = tierSlotStates(unassigned);
+check(
+  occupiedSlots[0].occupantId === 'occ_a'
+    && occupiedSlots[0].occupantStatus === 'active'
+    && occupiedSlots[0].occupantLabel === null
+    && occupiedSlots[0].rateSheetId === null,
+  'an occupied slot reports exactly the occupant fields the record stores',
+);
+check(
+  occupiedSlots.slice(2).every((slot) =>
+    slot.occupantId === null
+      && slot.occupantLabel === null
+      && slot.occupantStatus === null
+      && slot.rateSheetId === null),
+  'an empty slot fabricates no occupant identity, status, or Rate Sheet binding',
+);
 
 // A consumer is knowable only from a stored assignment. The model derives no
 // candidate from Tier selections, Rate Sheet provenance, or any other proximity

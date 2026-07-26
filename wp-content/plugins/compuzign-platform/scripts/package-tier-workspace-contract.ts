@@ -325,9 +325,8 @@ check(
   'a Family without an assignment receives an honest setup surface instead of five implied Tier records',
 );
 check(
-  !workspacePresentation.includes('Open Tier tool')
-    && workspacePresentation.includes("slot.occupied ? 'view' : 'edit'"),
-  'workspace actions open the authoritative fixed-slot drawer and never offer a no-op Open Tier tool action',
+  !workspacePresentation.includes('Open Tier tool'),
+  'the workspace never offers a no-op Open Tier tool action',
 );
 check(
   workspacePresentation.includes('Rate Sheet access')
@@ -414,6 +413,27 @@ check(
     && focusedSectionsSource.includes('No active Rate Sheet exists, so this Tier system can reach none.'),
   'the focused sections fail closed rather than inventing a system, a sheet, or a slot',
 );
+// Every focused row is addressed by a stored id, and an unresolvable grant keeps
+// its id rather than borrowing another sheet's title.
+check(
+  focusedSectionsSource.includes('reference={row.rateSheetId}')
+    && focusedSectionsSource.includes('reference={slot.slotId}')
+    && focusedSectionsSource.includes("name={row.title ?? 'Unresolved Rate Sheet'}"),
+  'the focused sections identify each record by its own stored id',
+);
+// An occupied slot offers View and Edit into the mature Tier drawer; an empty one
+// offers only Configure, because there is no occupant identity to view.
+const slotSection = focusedSectionsSource.slice(focusedSectionsSource.indexOf('export function FixedTierSlots'));
+check(
+  slotSection.includes('<StationSplitAction')
+    && slotSection.includes('actions={SLOT_ACTIONS}')
+    && slotSection.includes("onTierAction(record.tier_instance_id, slot.slotId, null, 'edit')"),
+  'occupied slots offer View and Edit while an empty slot offers only Configure',
+);
+check(
+  slotSection.includes('slot.occupantId === null') && !slotSection.includes('occ_'),
+  'an empty slot is reported empty and never given a fabricated occupant id',
+);
 check(
   workspacePresentation.includes('scrollIntoView')
     && workspacePresentation.includes('aria-live="polite"')
@@ -457,7 +477,7 @@ check(foregroundRule.includes('color: var(--station-text)'), 'primary deck value
 for (const selector of [
   '.cz-tier-deck__identity-name',
   '.cz-tier-deck__field',
-  '.cz-tier-settings__slots li',
+  '.cz-tier-settings__leaf-title',
 ]) {
   check(foregroundRule.includes(selector), `${selector} participates in the Station foreground rule`);
 }

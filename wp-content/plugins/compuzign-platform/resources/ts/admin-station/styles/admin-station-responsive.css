@@ -98,7 +98,8 @@
      treatment the card grid takes at this boundary. */
   .cz-tier-deck__toolbar,
   .cz-tier-deck__row,
-  .cz-tier-deck__row--connection {
+  .cz-tier-deck__row--connection,
+  .cz-tier-settings__row {
     grid-template-columns: 1fr;
   }
 
@@ -111,11 +112,6 @@
   .cz-tier-settings__nav,
   .cz-tier-settings__sections {
     grid-column: 1;
-  }
-
-  .cz-tier-settings__slot-action {
-    align-items: flex-end;
-    flex-direction: column;
   }
 
   .cz-tier-deck__field--hide-sm {

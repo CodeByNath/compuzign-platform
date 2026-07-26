@@ -2717,19 +2717,6 @@ button.cz-station-status-pill {
   font-size: var(--station-text-sm);
 }
 
-.cz-tier-settings__checks {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cz-tier-settings__checks label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--station-text-sm);
-}
-
 /* Keep every primary data value on the Station foreground. WordPress and the
    separately loaded drawer stylesheet both expose inherited text colours; the
    deck is a Station surface and must close that inheritance boundary itself. */
@@ -2740,40 +2727,20 @@ button.cz-station-status-pill {
 .cz-tier-deck__field,
 .cz-tier-deck__money,
 .cz-tier-settings__leaf-title,
-.cz-tier-settings__nav-title,
-.cz-tier-settings__slots li {
+.cz-tier-settings__nav-title {
   color: var(--station-text);
 }
 
-.cz-tier-settings__slots {
+/* A Settings row is a deck row with one summary field: identity, that field, the
+   record's state, and its actions. The five-column connection row still serves
+   the slot list, which carries two. */
+.cz-tier-settings__row {
+  grid-template-columns: minmax(200px, 1.6fr) minmax(140px, 0.9fr) minmax(120px, 0.6fr) auto;
+}
+
+.cz-tier-settings__leaf .cz-tier-deck__list,
+.cz-tier-settings__leaf .cz-tier-settings__form {
   width: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cz-tier-settings__slots li {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--station-card-divider);
-  font-size: var(--station-text-sm);
-}
-
-.cz-tier-settings__slots li:last-child {
-  border-bottom: 0;
-}
-
-.cz-tier-settings__slot-action {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cz-tier-settings__slot-action .cz-tier-deck__button {
-  min-height: 36px;
-  padding: 6px 12px;
 }
 
 /* A Settings-wide message belongs to neither column. */
