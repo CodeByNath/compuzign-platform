@@ -485,6 +485,36 @@ check(
   'registration reports the stored id the backend minted, never the title it was given',
 );
 
+// The drawer footer is HOST state: setting it re-renders this component. The
+// footer memo must therefore depend on primitives only. `useTierRegistration`
+// and the Tier instance collection beneath it both return a fresh object every
+// render, so depending on either would set the footer, re-render, and set it
+// again — a loop that hangs the page rather than failing.
+check(
+  registrationSource.includes('), [bridge, canSave, saving, stage]);'),
+  'the footer memo depends on primitives only, never on a per-render object identity',
+);
+check(
+  registrationSource.includes('actions.current.register()')
+    && registrationSource.includes('actions.current.applyEdits()'),
+  'footer actions are read through a ref at click time, never captured in the memo',
+);
+for (const forbidden of ['[bridge, canSave, registration', 'registration.register,', 'registration.applyEdits,']) {
+  check(!registrationSource.includes(forbidden), `the footer memo never depends on ${forbidden}`);
+}
+
+// Presentation uses the styled editor vocabulary. `drawerModule__field` and its
+// siblings are only styled under `.drawerOverview`, so using them outside that
+// scope renders an unstyled form.
+for (const unstyled of ['drawerModule__field', 'drawerModule__label', 'drawerModule__hint', 'drawerModule__fields']) {
+  check(!registrationSource.includes(unstyled), `registration does not use the unscoped ${unstyled}`);
+}
+check(
+  registrationSource.includes('cz-tf-form') && registrationSource.includes('cz-tf-field')
+    && registrationSource.includes('cz-tf-label') && registrationSource.includes('cz-tf-hint'),
+  'registration uses the established cz-tf-* editor vocabulary',
+);
+
 // A Package Family is not a field on a Tier system. The instance schema carries
 // no Family vocabulary, so the link must stay a separate assignment write.
 const registrationHook = readFileSync(resolve(
