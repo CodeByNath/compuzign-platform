@@ -1,9 +1,10 @@
 // Pure contract for the Package-owned Tier-instance tool.
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   eligibleConsumers,
   selectableRateSheets,
-  suggestConsumerForInstance,
   tierRateSheetInventory,
   tierInstanceRows,
   tierSlotStates,
@@ -114,19 +115,19 @@ check(
   'slot display is always all five fixed keys in vocabulary order',
 );
 
-check(
-  suggestConsumerForInstance(unassigned, families, [assigned])?.group_id === 'kairos',
-  'exactly one eligible Family with Tier selections produces an explicit suggestion',
+// A consumer is knowable only from a stored assignment. The model derives no
+// candidate from Tier selections, Rate Sheet provenance, or any other proximity
+// signal, so no surface can offer a pre-picked Family to confirm.
+const modelSource = readFileSync(
+  resolve(import.meta.dirname, '..', 'resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts'),
+  'utf8',
 );
+for (const forbidden of ['suggestConsumerForInstance', 'suggestConsumer', 'suggested']) {
+  check(!modelSource.includes(forbidden), `the Tier model exposes no consumer suggestion (${forbidden})`);
+}
 check(
-  suggestConsumerForInstance(unassigned, [...families, family('omnia', 'active', 1)], [assigned]) === null,
-  'multiple candidates produce no default pick',
-);
-check(
-  suggestConsumerForInstance(unassigned, families.map((item) => ({
-    ...item, dependents: { ...item.dependents, tier_selections: 0 },
-  })), [assigned]) === null,
-  'zero candidates produce no suggestion',
+  tierInstanceRows([unassigned], [], families)[0].consumerId === null,
+  'an instance with no assignment reports no consumer rather than a likely one',
 );
 
 const routingToken = encodeTierDrawerRecordId('ti_unassigned', 'occ_a');

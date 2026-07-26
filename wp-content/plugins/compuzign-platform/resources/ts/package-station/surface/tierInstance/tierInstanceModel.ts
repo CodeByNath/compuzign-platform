@@ -1,6 +1,6 @@
 // Pure projections for the Package-owned Tier-instance tool. Instances and
-// assignments stay separate inputs throughout; no function infers or writes a
-// relationship.
+// assignments stay separate inputs throughout; no function infers, suggests, or
+// writes a relationship — a consumer is known only from a stored assignment.
 
 import type {
   PackageFamilyListItem,
@@ -93,19 +93,6 @@ export function eligibleConsumers(
       && family.platform_status !== 'trashed'
       && !assigned.has(family.group_id),
   );
-}
-
-/** Suggestion only. Callers must render an explicit action before any write. */
-export function suggestConsumerForInstance(
-  instance: TierInstanceRecord,
-  families: readonly PackageFamilyListItem[],
-  assignments: readonly TierAssignment[],
-): PackageFamilyListItem | null {
-  if (assignmentForInstance(assignments, instance.tier_instance_id) !== null) return null;
-  const candidates = eligibleConsumers(families, assignments).filter(
-    (family) => family.dependents.tier_selections > 0,
-  );
-  return candidates.length === 1 ? candidates[0] : null;
 }
 
 export function tierSlotStates(instance: TierInstanceRecord): TierSlotState[] {

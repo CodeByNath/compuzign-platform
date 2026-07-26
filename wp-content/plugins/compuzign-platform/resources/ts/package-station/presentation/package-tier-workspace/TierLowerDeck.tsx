@@ -12,8 +12,9 @@
 //                  Sheet it binds). Each summary reports its own stored identity
 //                  and opens the drawer that owns THAT record, never the Tier
 //                  drawer.
-//   Settings     — explicit Tier-system operations, the Package Manager tools,
-//                  and Rate Sheet availability/current-use inventory.
+//   Settings     — the focused Tier system's own Rate Sheet access and its five
+//                  fixed slots. It wires no relationship and launches no other
+//                  tool.
 //
 // It is presentation-only: it receives derived workspace models plus intent
 // dispatchers and fetches nothing.
@@ -50,7 +51,6 @@ import type {
 import type { PackageRateSheet, TierInstanceSummary } from '../../types';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
-import type { TierRateSheetInventoryRow } from '../../surface/tierInstance/tierInstanceModel';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import {
   AppsIcon,
@@ -73,10 +73,8 @@ interface Props {
   hasFocusedTier: boolean;
   tierTool: TierInstancesToolState;
   family: WorkspaceFamilyScope | null;
-  assignedInstance: TierInstanceSummary | null;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
-  rateSheetInventory: TierRateSheetInventoryRow[];
   settingsLoading: boolean;
   settingsError: string | null;
   // Dispatches a registered action id ('view' | 'edit') for the focused Tier. The
@@ -95,8 +93,6 @@ interface Props {
   onGroupIntent: (rateSheetId: string, groupId: string, actionId: 'view' | 'edit') => void;
   // Dispatches a registered action id for the Rate Sheet the focused Tier binds.
   onRateSheetIntent: (rateSheetId: string, actionId: 'view' | 'edit') => void;
-  onToolIntent: (actionId: string) => void;
-  onManageInstance: (instanceId: string) => void;
   onTierAction: (
     instanceId: string,
     slotId: string,
@@ -165,10 +161,8 @@ export function TierLowerDeck({
   hasFocusedTier,
   tierTool,
   family,
-  assignedInstance,
   workspaceInstance,
   rateSheets,
-  rateSheetInventory,
   settingsLoading,
   settingsError,
   onIntent,
@@ -176,8 +170,6 @@ export function TierLowerDeck({
   onFamilyIntent,
   onGroupIntent,
   onRateSheetIntent,
-  onToolIntent,
-  onManageInstance,
   onTierAction,
   onTabChange,
 }: Props): VNode {
@@ -258,15 +250,10 @@ export function TierLowerDeck({
         {activeTab === 'settings' && (
           <TierSystemSettings
             tool={tierTool}
-            family={family}
-            assignedInstance={assignedInstance}
             workspaceInstance={workspaceInstance}
             rateSheets={rateSheets}
-            inventory={rateSheetInventory}
             loading={settingsLoading}
             error={settingsError}
-            onToolIntent={onToolIntent}
-            onManageInstance={onManageInstance}
             onTierAction={onTierAction}
           />
         )}

@@ -29,10 +29,6 @@ import {
   projectTierDeck,
   type TierDeck,
 } from './deck';
-import {
-  tierRateSheetInventory,
-  type TierRateSheetInventoryRow,
-} from '../tierInstance/tierInstanceModel';
 
 export interface PackageTierWorkspaceTool {
   kind: 'tier-instance-tool';
@@ -45,7 +41,6 @@ export interface PackageTierWorkspaceTool {
   slots: WorkspaceTierSlot[];
   decks: Record<string, TierDeck>;
   rateSheets: PackageRateSheet[];
-  rateSheetInventory: TierRateSheetInventoryRow[];
   settingsLoading: boolean;
   settingsError: string | null;
   selectFamily: (familyId: string) => void;
@@ -235,12 +230,6 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       slots: projectWorkspaceTierSlots(resolvedOccupants),
       decks,
       rateSheets,
-      rateSheetInventory: tierRateSheetInventory(
-        rateSheets,
-        tierInstances.instances,
-        tierInstances.assignments,
-        tierInstances.families,
-      ),
       settingsLoading,
       settingsError,
       selectFamily,

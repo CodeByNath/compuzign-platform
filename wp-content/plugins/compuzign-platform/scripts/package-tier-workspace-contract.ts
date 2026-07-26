@@ -326,7 +326,6 @@ check(
 );
 check(
   !workspacePresentation.includes('Open Tier tool')
-    && workspacePresentation.includes('Configure {TIER_LABELS[firstEmptySlot.slotId]')
     && workspacePresentation.includes("slot.occupied ? 'view' : 'edit'"),
   'workspace actions open the authoritative fixed-slot drawer and never offer a no-op Open Tier tool action',
 );
@@ -335,11 +334,28 @@ check(
     && workspacePresentation.includes('Each Tier chooses its own Rate Sheet when configured.'),
   'Rate Sheet access is distinguished from each Tier slot’s own Rate Sheet binding',
 );
-check(
-  workspacePresentation.includes('Creation does not assign the new system')
-    && workspacePresentation.includes('Confirm its assignment separately'),
-  'Family setup keeps instance creation and assignment as two explicit acts',
-);
+
+// ── Settings wires no relationship ────────────────────────────────────────────
+// Settings configures the ONE focused Tier system. It never assigns a Tier to a
+// Package Family, never offers a Family picker or a pre-picked candidate, never
+// keeps a second Tier inventory beside the focused one, and never launches an
+// unrelated tool. Each of those relationships is made in the drawer that owns the
+// record, so removing them here removed a UI path and no capability.
+const settingsSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx',
+), 'utf8');
+for (const forbidden of [
+  'assignInstance',
+  'unassignInstance',
+  'suggestConsumerForInstance',
+  'eligibleFamilies',
+  'TierRateSheetInventory',
+  'onToolIntent',
+  'onManageInstance',
+]) {
+  check(!settingsSource.includes(forbidden), `Settings carries no ${forbidden} relationship workflow`);
+}
 check(
   workspacePresentation.includes('scrollIntoView')
     && workspacePresentation.includes('aria-live="polite"')
@@ -350,11 +366,17 @@ check(workspacePresentation.includes('<TierNavigation') && workspacePresentation
 check(!workspacePresentation.includes('TierInstancePanel'), 'the standalone raw Tier-instance panel is retired');
 check(!workspacePresentation.includes('drawerModule__'), 'workspace presentation never leaks drawer-only field classes');
 check(!workspacePresentation.includes('cz-admin-btn'), 'workspace presentation never leaks drawer-kit button tokens');
-check(
-  workspacePresentation.includes('Existing Tier selections suggest')
-    && workspacePresentation.includes('Confirming adds only the assignment'),
-  'migration suggestions remain explicit assignment actions inside Settings',
-);
+for (const forbidden of [
+  'Existing Tier selections suggest',
+  'Assign to Package Family',
+  'Remove Tier capability',
+  'Independent Tier systems',
+]) {
+  check(
+    !workspacePresentation.includes(forbidden),
+    `the workspace offers no guessed or guided relationship workflow (${forbidden})`,
+  );
+}
 const workspaceHook = readFileSync(resolve(
   root,
   'resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts',

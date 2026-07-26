@@ -294,10 +294,8 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           hasFocusedTier={selectedSlot?.item !== null && selectedSlot !== null}
           tierTool={tool.tierInstances}
           family={tool.selectedFamily}
-          assignedInstance={tool.assignedInstance}
           workspaceInstance={tool.workspaceInstance}
           rateSheets={tool.rateSheets}
-          rateSheetInventory={tool.rateSheetInventory}
           settingsLoading={tool.settingsLoading}
           settingsError={tool.settingsError}
           onIntent={(actionId) => {
@@ -313,11 +311,6 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           onRateSheetIntent={(rateSheetId, actionId) => {
             if (selectedSlot) dispatchRateSheetIntent(selectedSlot.slotId, rateSheetId, actionId);
           }}
-          onToolIntent={(actionId) => onIntent(
-            actionId === 'create-package-family' ? 'new' : tool.selectedFamily?.id ?? instanceId ?? 'new',
-            actionId,
-          )}
-          onManageInstance={manageInstance}
           onTierAction={dispatchExplicitTierIntent}
           onTabChange={setDeckTab}
         />
