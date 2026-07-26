@@ -691,9 +691,11 @@
   margin-bottom: 0;
 }
 
-/* A control whose label reads beside it rather than above it — the checkbox
-   case. Replaces the per-editor inline style that used to do this. */
-.cz-tf-field--inline {
+/* The row a checkbox and its label share. It sits inside the one wrapper, so
+   hint and error still read beneath the control the way they do for every
+   other type. Replaces the per-editor inline style that used to do this. */
+.cz-tf-field__inline {
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--cz-space-3);
@@ -707,7 +709,7 @@
   color: var(--admin-text-faint);
 }
 
-.cz-tf-field--inline .cz-tf-label {
+.cz-tf-field__inline .cz-tf-label {
   margin: 0;
 }
 
