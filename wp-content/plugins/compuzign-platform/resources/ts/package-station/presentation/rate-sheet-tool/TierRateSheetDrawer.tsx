@@ -8,8 +8,10 @@
 //   tier-rate-sheet        the readable `cz-rate-sheet-tool__grid` filtered to the
 //                          focused Tier's connected rows, and the editable grid
 //                          over the same rows. No Groups section.
-//   tier-rate-sheet-group  the readable `cz-rate-sheet-tool__groups` block for the
-//                          addressed group with the focused Tier's rows from it,
+//   tier-rate-sheet-group  the addressed group's own identity in the module
+//                          header (name, status, row count) with the focused
+//                          Tier's rows from it as the readable grid — no separate
+//                          groups block, since it would only repeat the header —
 //                          and the editable groups block in Edit.
 //
 // Both are the SAME presentations the Rate Sheet tool renders (./rateSheetParts)
@@ -35,7 +37,6 @@ import {
   RateSheetGridEditor,
   RateSheetGridRead,
   RateSheetGroupsEditor,
-  RateSheetGroupsRead,
 } from './rateSheetParts';
 
 // ── SECTION: drawer content ───────────────────────────────────────────────────
@@ -95,18 +96,15 @@ function TierRateSheetDrawerBody({
     await tool.save();
   }, [tool]);
 
-  const editable = !scope.loading && scope.unavailable === null;
+  // The record footer stays Close-only, exactly as the Package Family and Tier
+  // drawers leave it: this drawer's single module already owns its own Edit
+  // action in its footer, so the record footer never repeats it.
   useEffect(() => {
     if (!setFooter) return;
     if (editing) { setFooter(null); return () => setFooter(null); }
-    setFooter(
-      <EntityActionFooter
-        close={{ id: 'close', label: 'Close', onSelect: onClose }}
-        primary={{ id: 'edit', label: 'Edit', onSelect: requestEdit, disabled: !editable }}
-      />,
-    );
+    setFooter(<EntityActionFooter close={{ id: 'close', label: 'Close', onSelect: onClose }} />);
     return () => setFooter(null);
-  }, [setFooter, editing, onClose, requestEdit, editable]);
+  }, [setFooter, editing, onClose]);
 
   if (scope.loading) {
     return <div class="cz-station-drawer__state" aria-busy="true">Loading this Tier's Rate Sheet connection…</div>;
@@ -174,9 +172,6 @@ function TierRateSheetReadScope({
         status={status}
         actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}
       >
-        {isGroup && scope.group && (
-          <RateSheetGroupsRead groups={[scope.group]} rows={scope.sheet?.items ?? []} />
-        )}
         {scope.scopedRows.length === 0 ? (
           <div class="drawerModule__empty">
             <p class="drawerModule__empty-title">No connected rows</p>

@@ -1,11 +1,13 @@
 // Rate Sheet tool — the shared `cz-rate-sheet-tool__groups` and
 // `cz-rate-sheet-tool__grid` presentations.
 //
-// These are the ONE implementation of the Rate Sheet groups block and the Rate
-// Sheet pricing grid, in both their readable and editable forms. They were
-// extracted from ./RateSheetTool once a second genuine consumer arrived — the
-// focused Tier's Connections drawers, which show the SAME sheet scoped to the
-// rows one Tier connects to. Same semantics, same Package Station ownership, one
+// These are the ONE implementation of the Rate Sheet groups block (editable
+// only — a group's read-side identity is its module header, owned by whichever
+// drawer addresses it, never a second summary here) and the Rate Sheet pricing
+// grid (both readable and editable forms). They were extracted from
+// ./RateSheetTool once a second genuine consumer arrived — the focused Tier's
+// Connections drawers, which show the SAME sheet scoped to the rows one Tier
+// connects to. Same semantics, same Package Station ownership, one
 // implementation: extraction, never a second editor.
 //
 // Every part is presentation-only. It renders the rows it is handed, addresses
@@ -45,29 +47,6 @@ export interface RateSheetRowCommands {
 }
 
 // ── SECTION: groups block ─────────────────────────────────────────────────────
-
-/**
- * The readable groups block. Each row names one stored group and the number of
- * the supplied rows that sit in it — no lifecycle, because a Rate Sheet group
- * stores none.
- */
-export function RateSheetGroupsRead({
-  groups, rows,
-}: {
-  groups: readonly RateSheetEditorGroup[];
-  rows:   readonly RateSheetEditorRow[];
-}): VNode {
-  return (
-    <div class="cz-rate-sheet-tool__groups" aria-label="Rate Sheet groups">
-      {groups.map((group) => (
-        <div key={group.id} class="cz-rate-sheet-tool__group-row">
-          <span class="cz-rate-sheet-tool__cell-name">{group.label || 'Untitled group'}</span>
-          <span>{rows.filter((row) => row.groupId === group.id).length} rows</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** The editable groups block — rename in place, delete explicitly. */
 export function RateSheetGroupsEditor({
