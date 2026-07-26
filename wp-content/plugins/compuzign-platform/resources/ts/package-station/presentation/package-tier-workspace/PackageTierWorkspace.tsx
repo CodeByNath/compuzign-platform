@@ -154,11 +154,18 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   // ignores the id entirely and the Rate Sheet drawer reads the whole collection.
   // Neither disturbs the focused Family or slot, and each refreshes this surface
   // through the `refetch` the host handed the drawer at dispatch.
+  // Registering a Tier system is the same atomic creation wherever it starts. The
+  // engine already knows which Family the user is looking at, so it hands that id
+  // over to be pre-selected; Settings hands over none, because it pre-selects
+  // nothing from whatever happens to be focused above it. Neither is a different
+  // level of the workflow — the drawer performs one creation either way.
+  const dispatchTierRegistration = (familyId: string | null) => {
+    onIntent(encodeTierRegistrationRecordId(familyId), 'register-tier');
+  };
+
   const dispatchPoolIntent = (subject: PoolSubject) => {
     if (subject === 'tier') {
-      // Registering from Settings offers no Family, because Settings pre-selects
-      // nothing from whatever happens to be focused above it.
-      onIntent(encodeTierRegistrationRecordId(null), 'register-tier');
+      dispatchTierRegistration(null);
       return;
     }
     onIntent('new', subject === 'family' ? 'create-package-family' : 'create-rate-sheet');
@@ -246,9 +253,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
                 <button
                   type="button"
                   class="cz-tier-deck__button cz-tier-deck__button--primary"
-                  onClick={openTierSettings}
+                  onClick={() => dispatchTierRegistration(tool.selectedFamily?.id ?? null)}
                 >
-                  Set up Tier pricing
+                  Register a Tier system
                 </button>
               </div>
             </section>

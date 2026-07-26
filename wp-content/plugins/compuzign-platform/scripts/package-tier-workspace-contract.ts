@@ -321,8 +321,19 @@ check(
 );
 check(
   workspacePresentation.includes('No Tier system assigned')
-    && workspacePresentation.includes('Set up Tier pricing'),
+    && workspacePresentation.includes('Register a Tier system'),
   'a Family without an assignment receives an honest setup surface instead of five implied Tier records',
+);
+// That surface acts, rather than sending the user somewhere else to act. It opens
+// the registration drawer directly, carrying the Family the engine already has in
+// hand so the drawer pre-selects it — one atomic creation, not a relayed errand.
+check(
+  workspacePresentation.includes('dispatchTierRegistration(tool.selectedFamily?.id ?? null)'),
+  'the no-assignment state registers a Tier system for the Family it is showing',
+);
+check(
+  workspacePresentation.includes("encodeTierRegistrationRecordId(familyId), 'register-tier'"),
+  'registration is addressed on the Tier drawer, never a second Tier editor',
 );
 check(
   !workspacePresentation.includes('Open Tier tool'),

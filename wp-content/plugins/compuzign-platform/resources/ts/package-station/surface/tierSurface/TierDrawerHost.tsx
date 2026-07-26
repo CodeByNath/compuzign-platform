@@ -17,9 +17,8 @@ import { useMemo, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { TierDrawerContent } from '../../drawer/tier/TierDrawerContent';
-import { TierRegistrationContent } from '../../drawer/tier/TierRegistrationContent';
+import { TierRegistrationHost } from './TierRegistrationHost';
 import { useHostService } from './useHostService';
-import { useTierInstances } from '../tierInstance/useTierInstances';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
 import {
@@ -37,9 +36,6 @@ export function TierDrawerHost({
   setCloseGuard,
 }: DrawerContentProps): VNode {
   const host = useHostService();
-  // The registration address has no instance to read, so its state is the Tier
-  // instance collection itself — the same authority that owns the create write.
-  const tierInstances = useTierInstances();
 
   const closeRef  = useRef(onClose);       closeRef.current  = onClose;
   const footerRef = useRef(setFooter);     footerRef.current = setFooter;
@@ -59,19 +55,13 @@ export function TierDrawerHost({
     return <div class="cz-station-drawer__state">This tier identity is invalid.</div>;
   }
   // Registration addresses no record, so it is resolved before any identity is
-  // decoded. It needs the Family collection rather than the host Service, and it
-  // never falls through to the occupant fallback below.
+  // decoded and never falls through to the occupant fallback below. It reads the
+  // Family collection rather than the host Service, in its own host so that read
+  // stays out of every ordinary slot and occupant open.
   const registrationTarget = decodeTierRegistrationRecordId(recordId);
   if (registrationTarget !== null) {
-    if (tierInstances.loading) {
-      return <div class="cz-station-drawer__state">Loading Package Families…</div>;
-    }
     return (
-      <TierRegistrationContent
-        tool={tierInstances}
-        initialFamilyId={registrationTarget.familyId}
-        bridge={bridge}
-      />
+      <TierRegistrationHost initialFamilyId={registrationTarget.familyId} bridge={bridge} />
     );
   }
   const slotTarget = decodeTierSlotDrawerRecordId(recordId);
