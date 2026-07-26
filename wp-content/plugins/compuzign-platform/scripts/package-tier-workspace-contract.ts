@@ -428,12 +428,50 @@ const lowerDeckSource = readFileSync(resolve(
   'resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx',
 ), 'utf8');
 const connectionsLane = lowerDeckSource.slice(lowerDeckSource.indexOf('function ConnectionsLane'));
-for (const section of ['Family Group', 'Groups', 'Rate Sheets']) {
-  check(
-    connectionsLane.includes(`title="${section}"`),
-    `the Connections lane presents its ${section} section`,
-  );
-}
+
+// Connections is exactly two top-level disclosures — Stations and Tools — and the
+// connected record types live inside them as named subsections, never as siblings.
+check(
+  (connectionsLane.match(/<ConnectionDisclosure$/gm) ?? []).length === 2,
+  'the Connections lane opens exactly two top-level disclosures',
+);
+const stationsScope = connectionsLane.slice(
+  connectionsLane.indexOf('title="Stations"'),
+  connectionsLane.indexOf('title="Tools"'),
+);
+check(
+  connectionsLane.indexOf('title="Stations"') < connectionsLane.indexOf('title="Tools"'),
+  'the Connections lane presents Stations before Tools',
+);
+check(
+  stationsScope.includes('title="Family Groups"') && stationsScope.includes('title="Groups"'),
+  'Stations holds the Family Groups and Groups subsections',
+);
+check(
+  connectionsLane.slice(connectionsLane.indexOf('title="Tools"')).includes('title="Rate Sheets"'),
+  'Tools holds the Rate Sheets subsection',
+);
+check(
+  stationsScope.includes('defaultOpen') && !connectionsLane.slice(
+    connectionsLane.indexOf('title="Tools"'),
+  ).includes('defaultOpen'),
+  'Stations opens by default and Tools stays collapsed until asked for',
+);
+
+// The disclosure is a real, keyboard-operable button bound to its own panel — it
+// adds presentation state and nothing else.
+const disclosureSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/ConnectionDisclosure.tsx',
+), 'utf8');
+check(
+  disclosureSource.includes('type="button"')
+    && disclosureSource.includes('aria-expanded={open}')
+    && disclosureSource.includes('aria-controls={panelId}')
+    && disclosureSource.includes('aria-labelledby={triggerId}')
+    && disclosureSource.includes('useId'),
+  'the Connections disclosure is a real button with aria-expanded, aria-controls and stable ids',
+);
 check(
   !connectionsLane.includes('onIntent') && !connectionsLane.includes('onInclusionIntent'),
   'the Connections lane dispatches no Tier-scoped or inclusion-scoped intent, so no row re-opens the Tier drawer',

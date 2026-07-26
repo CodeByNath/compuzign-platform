@@ -2347,9 +2347,144 @@ button.cz-station-status-pill {
   color: var(--station-text-muted);
 }
 
-/* The Connections lane stacks one section per connected record type. */
-.cz-tier-deck__connection-section + .cz-tier-deck__connection-section {
-  margin-top: 24px;
+/* Connections — two top-level disclosures (Stations, Tools), each a bordered
+   container whose expanded panel stays inside the same border. The connected
+   record types are named subsections inside a panel, spaced by its own flow gap
+   rather than by a sibling margin, so the panel never opens with a hanging gap. */
+.cz-tier-deck__connections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* No `overflow: hidden` here: the rows inside carry StationSplitAction, whose
+   menu is absolutely positioned below its trigger. Clipping to this box would
+   swallow the menu of every section's last row. The corners are rounded on the
+   header and panel themselves instead. */
+.cz-tier-deck__disclosure {
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+}
+
+.cz-tier-deck__disclosure-heading {
+  margin: 0;
+  font: inherit;
+}
+
+.cz-tier-deck__disclosure-trigger {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--station-card-radius) var(--station-card-radius) 0 0;
+  background: transparent;
+  color: var(--station-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+/* Collapsed, the header is the whole container, so it takes all four corners. */
+.cz-tier-deck__disclosure-trigger[aria-expanded='false'] {
+  border-radius: var(--station-card-radius);
+}
+
+/* The neutral hover, not the accent wash — the icon medallion already spends
+   --station-accent-soft-bg, and washing the header in it would erase the
+   medallion's separation from its own header. */
+.cz-tier-deck__disclosure-trigger:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-tier-deck__disclosure-trigger:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: -2px;
+}
+
+.cz-tier-deck__disclosure-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+}
+
+.cz-tier-deck__disclosure-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-tier-deck__disclosure-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cz-tier-deck__disclosure-title {
+  display: block;
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-tier-deck__disclosure-note {
+  display: block;
+  margin-top: 2px;
+  max-width: 76ch;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 400;
+  line-height: var(--station-line-snug);
+}
+
+/* A count the connected records actually report — absent whenever there is
+   nothing real to summarise. */
+.cz-tier-deck__disclosure-summary {
+  flex: none;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  white-space: nowrap;
+}
+
+.cz-tier-deck__disclosure-chevron {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--station-text-muted);
+  transition: transform 140ms ease;
+}
+
+.cz-tier-deck__disclosure-chevron > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cz-tier-deck__disclosure-trigger[aria-expanded='true'] .cz-tier-deck__disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.cz-tier-deck__disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px;
+  border-block-start: 1px solid var(--station-card-divider);
+  border-end-start-radius: var(--station-card-radius);
+  border-end-end-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+}
+
+/* The collapsed panel stays in the DOM under `hidden` so its id remains a valid
+   aria-controls target; the flex display above would otherwise defeat it. */
+.cz-tier-deck__disclosure-body[hidden] {
+  display: none;
 }
 
 .cz-tier-deck__identity {
@@ -2732,6 +2867,7 @@ button.cz-station-status-pill {
    deck is a Station surface and must close that inheritance boundary itself. */
 .cz-tier-deck__context-name,
 .cz-tier-deck__lane-title,
+.cz-tier-deck__disclosure-title,
 .cz-tier-deck__identity-name,
 .cz-tier-deck__field,
 .cz-tier-deck__money,

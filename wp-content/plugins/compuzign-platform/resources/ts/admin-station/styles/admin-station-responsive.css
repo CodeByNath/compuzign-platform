@@ -163,6 +163,19 @@
     justify-content: flex-start;
   }
 
+  /* Connections disclosures — the header keeps every part it carries at this
+     boundary (the description is content, not decoration); it only tightens its
+     own spacing so the title and description keep a usable measure. */
+  .cz-tier-deck__disclosure-trigger {
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .cz-tier-deck__disclosure-body {
+    gap: 16px;
+    padding: 14px;
+  }
+
   .cz-service-stat:nth-child(odd) {
     border-inline-start: 0;
   }

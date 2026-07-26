@@ -6,10 +6,12 @@
 //
 //   Details      — the Tier's inclusion rows: Service-owned identity/category and
 //                  Rate Sheet-derived pricing, filterable by search/category/status.
-//   Connections  — what the focused Tier is connected TO: its Package Family, the
-//                  Rate Sheet groups its selections draw from, and the Rate Sheet
-//                  it binds. Each summary reports its own stored identity and
-//                  opens the drawer that owns THAT record, never the Tier drawer.
+//   Connections  — what the focused Tier is connected TO, in two disclosures:
+//                  Stations (the Package Family it is assigned to, and the Rate
+//                  Sheet groups its selections draw from) and Tools (the Rate
+//                  Sheet it binds). Each summary reports its own stored identity
+//                  and opens the drawer that owns THAT record, never the Tier
+//                  drawer.
 //   Settings     — explicit Tier-system operations, the Package Manager tools,
 //                  and Rate Sheet availability/current-use inventory.
 //
@@ -25,8 +27,8 @@
 //     inclusion, so it forwards its own `item_id` (the Tier's Rate Sheet
 //     selection key) and the orchestrator routes it to the registered
 //     `tier-inclusion` drawer.
-//   - Family-scoped (`onFamilyIntent`) — the Connections lane's Family Group
-//     section forwards the Package Family's own `group_id` to the mature
+//   - Family-scoped (`onFamilyIntent`) — the Connections lane's Family Groups
+//     subsection forwards the Package Family's own `group_id` to the mature
 //     `package-family` drawer. It introduces no second Family editor.
 //   - Connection-scoped (`onGroupIntent` / `onRateSheetIntent`) — a Groups row
 //     forwards its `(rate_sheet_id, group_id)` and a Rate Sheets row its
@@ -51,12 +53,14 @@ import type { TierInstancesToolState } from '../../surface/tierInstance/useTierI
 import type { TierRateSheetInventoryRow } from '../../surface/tierInstance/tierInstanceModel';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import {
+  AppsIcon,
   PackagesIcon,
   RateSheetIcon,
   SearchIcon,
   ServicesIcon,
   TiersIcon,
 } from '@/admin-station/shell/icons';
+import { ConnectionDisclosure } from './ConnectionDisclosure';
 import { TierSystemSettings } from './TierSystemSettings';
 
 // ── SECTION: contract ─────────────────────────────────────────────────────────
@@ -417,11 +421,18 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
 // ── SECTION: Connections lane ─────────────────────────────────────────────────
 
 /**
- * What the focused Tier is connected TO, in three sections that each address a
- * different owning record: the Package Family the Tier's instance is assigned
- * to, the Rate Sheet groups its selections draw from, and the Rate Sheet it
- * binds. Every row reports the record's own stored identity and status and opens
- * the drawer that owns that record. No action opens the Tier drawer.
+ * What the focused Tier is connected TO, grouped by which side of the platform
+ * owns the connected record:
+ *
+ *   Stations — the Package Family the Tier's instance is assigned to (Family
+ *              Groups) and the Rate Sheet groups its selections draw from
+ *              (Groups). Both are Package Station records.
+ *   Tools    — the Rate Sheet the Tier binds, the authoring tool it prices from.
+ *
+ * The two are top-level disclosures; the connected records are named subsections
+ * inside them, never siblings of them. Every row still reports the record's own
+ * stored identity and status and opens the drawer that owns that record. No
+ * action opens the Tier drawer, and the disclosures hold presentation state only.
  */
 function ConnectionsLane({
   family,
@@ -440,119 +451,153 @@ function ConnectionsLane({
   onGroupIntent:     (rateSheetId: string, groupId: string, actionId: 'view' | 'edit') => void;
   onRateSheetIntent: (rateSheetId: string, actionId: 'view' | 'edit') => void;
 }): VNode {
-  return (
-    <>
-      <ConnectionSection
-        title="Family Group"
-        note="The Package Family this Tier system is assigned to, resolved through the assignment ledger. View and Edit open the Package Family drawer."
-      >
-        {family === null ? (
-          <NotConfiguredRow
-            label="No Package Family"
-            copy="This Tier instance is being operated directly and is assigned to no Family."
-          />
-        ) : (
-          <ul class="cz-tier-deck__list">
-            <li class="cz-tier-deck__row cz-tier-deck__row--connection">
-              <ConnectionIdentity icon={<ServicesIcon />} name={family.name} reference={family.id} />
-              <div class="cz-tier-deck__field">
-                <span class="cz-tier-deck__field-label">Summary</span>
-                {family.description.trim() || '—'}
-              </div>
-              <div class="cz-tier-deck__field">
-                <span class="cz-tier-deck__field-label">Assigned Services</span>
-                <span class="cz-tier-deck__money">{family.dependents.services}</span>
-              </div>
-              <ConnectionStatus status={family.status} />
-              <div class="cz-tier-deck__row-actions">
-                <StationSplitAction
-                  actions={ROW_ACTIONS}
-                  controlLabel={family.name}
-                  onAction={(actionId) => onFamilyIntent(family.id, actionId as 'view' | 'edit')}
-                />
-              </div>
-            </li>
-          </ul>
-        )}
-      </ConnectionSection>
+  // Header summaries report only what the loaded records actually resolve. The
+  // group and Rate Sheet connections are only knowable once a Tier is focused,
+  // so with no focused Tier they are omitted rather than reported as zero.
+  const stationsSummary = [
+    family === null ? 'No Family' : '1 Family',
+    hasFocusedTier ? `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}` : null,
+  ].filter((part): part is string => part !== null).join(' · ');
 
-      <ConnectionSection
-        title="Groups"
-        note="Rate Sheet groups this Tier draws priced rows from. View and Edit open that group scoped to this Tier."
+  const toolsSummary = !hasFocusedTier
+    ? null
+    : rateSheet === null ? 'No Rate Sheet' : '1 Rate Sheet';
+
+  return (
+    <div class="cz-tier-deck__connections">
+      <ConnectionDisclosure
+        icon={<PackagesIcon />}
+        title="Stations"
+        description="Package Station records this Tier is connected to — the Family its system is assigned to, and the Rate Sheet groups its selections draw from."
+        summary={stationsSummary}
+        defaultOpen
       >
-        {!hasFocusedTier ? (
-          <p class="cz-station-empty">Focus a configured Tier to see the groups it connects to.</p>
-        ) : groups.length === 0 ? (
-          <NotConfiguredRow
-            label="No connected group"
-            copy="This Tier draws no resolving row from a group its Rate Sheet stores."
-          />
-        ) : (
-          <ul class="cz-tier-deck__list">
-            {groups.map((group) => (
-              <li key={group.groupId} class="cz-tier-deck__row cz-tier-deck__row--connection">
-                <ConnectionIdentity icon={<RateSheetIcon />} name={group.title} reference={group.groupId} />
+        <ConnectionSection
+          title="Family Groups"
+          note="The Package Family this Tier system is assigned to, resolved through the assignment ledger. View and Edit open the Package Family drawer."
+        >
+          {family === null ? (
+            <NotConfiguredRow
+              label="No Package Family"
+              copy="This Tier instance is being operated directly and is assigned to no Family."
+            />
+          ) : (
+            <ul class="cz-tier-deck__list">
+              <li class="cz-tier-deck__row cz-tier-deck__row--connection">
+                <ConnectionIdentity icon={<ServicesIcon />} name={family.name} reference={family.id} />
                 <div class="cz-tier-deck__field">
-                  <span class="cz-tier-deck__field-label">Connected rows</span>
-                  <span class="cz-tier-deck__money">{group.connectedRows}</span>
+                  <span class="cz-tier-deck__field-label">Summary</span>
+                  {family.description.trim() || '—'}
                 </div>
-                <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
-                  <span class="cz-tier-deck__field-label">Coverage</span>
-                  {group.coverage} selected
+                <div class="cz-tier-deck__field">
+                  <span class="cz-tier-deck__field-label">Assigned Services</span>
+                  <span class="cz-tier-deck__money">{family.dependents.services}</span>
                 </div>
-                <ConnectionStatus status={group.status} />
+                <ConnectionStatus status={family.status} />
                 <div class="cz-tier-deck__row-actions">
                   <StationSplitAction
                     actions={ROW_ACTIONS}
-                    controlLabel={group.title}
-                    onAction={(actionId) => onGroupIntent(group.rateSheetId, group.groupId, actionId as 'view' | 'edit')}
+                    controlLabel={family.name}
+                    onAction={(actionId) => onFamilyIntent(family.id, actionId as 'view' | 'edit')}
                   />
                 </div>
               </li>
-            ))}
-          </ul>
-        )}
-      </ConnectionSection>
+            </ul>
+          )}
+        </ConnectionSection>
 
-      <ConnectionSection
-        title="Rate Sheets"
-        note="The Rate Sheet this Tier binds. View and Edit open its pricing grid filtered to this Tier's connected inclusions."
+        <ConnectionSection
+          title="Groups"
+          note="Rate Sheet groups this Tier draws priced rows from. View and Edit open that group scoped to this Tier."
+        >
+          {!hasFocusedTier ? (
+            <p class="cz-station-empty">Focus a configured Tier to see the groups it connects to.</p>
+          ) : groups.length === 0 ? (
+            <NotConfiguredRow
+              label="No connected group"
+              copy="This Tier draws no resolving row from a group its Rate Sheet stores."
+            />
+          ) : (
+            <ul class="cz-tier-deck__list">
+              {groups.map((group) => (
+                <li key={group.groupId} class="cz-tier-deck__row cz-tier-deck__row--connection">
+                  <ConnectionIdentity icon={<RateSheetIcon />} name={group.title} reference={group.groupId} />
+                  <div class="cz-tier-deck__field">
+                    <span class="cz-tier-deck__field-label">Connected rows</span>
+                    <span class="cz-tier-deck__money">{group.connectedRows}</span>
+                  </div>
+                  <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
+                    <span class="cz-tier-deck__field-label">Coverage</span>
+                    {group.coverage} selected
+                  </div>
+                  <ConnectionStatus status={group.status} />
+                  <div class="cz-tier-deck__row-actions">
+                    <StationSplitAction
+                      actions={ROW_ACTIONS}
+                      controlLabel={group.title}
+                      onAction={(actionId) => onGroupIntent(group.rateSheetId, group.groupId, actionId as 'view' | 'edit')}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </ConnectionSection>
+      </ConnectionDisclosure>
+
+      <ConnectionDisclosure
+        icon={<AppsIcon />}
+        title="Tools"
+        description="The authoring tools this Tier prices from. Sheet availability across the Tier system stays in Settings."
+        summary={toolsSummary}
       >
-        {!hasFocusedTier ? (
-          <p class="cz-station-empty">Focus a configured Tier to see the Rate Sheet it binds. Sheet availability stays in Settings.</p>
-        ) : rateSheet === null ? (
-          <NotConfiguredRow
-            label="No Rate Sheet bound"
-            copy="This Tier binds no Rate Sheet, so it prices nothing. Bind one from the Tier drawer."
-          />
-        ) : (
-          <ul class="cz-tier-deck__list">
-            <li class="cz-tier-deck__row cz-tier-deck__row--connection">
-              <ConnectionIdentity icon={<RateSheetIcon />} name={rateSheet.title} reference={rateSheet.rateSheetId} />
-              <div class="cz-tier-deck__field">
-                <span class="cz-tier-deck__field-label">Connected inclusions</span>
-                <span class="cz-tier-deck__money">{rateSheet.connectedInclusions}</span>
-              </div>
-              <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
-                <span class="cz-tier-deck__field-label">Connected rows</span>
-                {rateSheet.connectedRows}
-              </div>
-              <ConnectionStatus status={rateSheet.status} />
-              <div class="cz-tier-deck__row-actions">
-                <StationSplitAction
-                  actions={ROW_ACTIONS}
-                  controlLabel={rateSheet.title}
-                  onAction={(actionId) => onRateSheetIntent(rateSheet.rateSheetId, actionId as 'view' | 'edit')}
-                />
-              </div>
-            </li>
-          </ul>
-        )}
-      </ConnectionSection>
-    </>
+        <ConnectionSection
+          title="Rate Sheets"
+          note="The Rate Sheet this Tier binds. View and Edit open its pricing grid filtered to this Tier's connected inclusions."
+        >
+          {!hasFocusedTier ? (
+            <p class="cz-station-empty">Focus a configured Tier to see the Rate Sheet it binds. Sheet availability stays in Settings.</p>
+          ) : rateSheet === null ? (
+            <NotConfiguredRow
+              label="No Rate Sheet bound"
+              copy="This Tier binds no Rate Sheet, so it prices nothing. Bind one from the Tier drawer."
+            />
+          ) : (
+            <ul class="cz-tier-deck__list">
+              <li class="cz-tier-deck__row cz-tier-deck__row--connection">
+                <ConnectionIdentity icon={<RateSheetIcon />} name={rateSheet.title} reference={rateSheet.rateSheetId} />
+                <div class="cz-tier-deck__field">
+                  <span class="cz-tier-deck__field-label">Connected inclusions</span>
+                  <span class="cz-tier-deck__money">{rateSheet.connectedInclusions}</span>
+                </div>
+                <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
+                  <span class="cz-tier-deck__field-label">Connected rows</span>
+                  {rateSheet.connectedRows}
+                </div>
+                <ConnectionStatus status={rateSheet.status} />
+                <div class="cz-tier-deck__row-actions">
+                  <StationSplitAction
+                    actions={ROW_ACTIONS}
+                    controlLabel={rateSheet.title}
+                    onAction={(actionId) => onRateSheetIntent(rateSheet.rateSheetId, actionId as 'view' | 'edit')}
+                  />
+                </div>
+              </li>
+            </ul>
+          )}
+        </ConnectionSection>
+      </ConnectionDisclosure>
+    </div>
   );
 }
 
+/**
+ * One connected record type inside a disclosure: a named subsection, not a
+ * second accordion. Its heading is an `h5` under the disclosure's own `h4`, so
+ * the outline reports the nesting the layout shows, and it carries no
+ * `aria-label` of its own — the disclosure panel is already the named region,
+ * and a nested landmark here would only repeat it.
+ */
 function ConnectionSection({
   title, note, children,
 }: {
@@ -561,10 +606,10 @@ function ConnectionSection({
   children: ComponentChildren;
 }): VNode {
   return (
-    <section class="cz-tier-deck__connection-section" aria-label={title}>
+    <section class="cz-tier-deck__connection-section">
       <div class="cz-tier-deck__lane-head">
         <div>
-          <h4 class="cz-tier-deck__lane-title">{title}</h4>
+          <h5 class="cz-tier-deck__lane-title">{title}</h5>
           <p class="cz-tier-deck__lane-note">{note}</p>
         </div>
       </div>
