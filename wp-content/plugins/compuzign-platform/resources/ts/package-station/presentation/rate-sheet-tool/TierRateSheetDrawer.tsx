@@ -20,19 +20,33 @@
 // and `InlineEditorShell` owns the single Save/Cancel footer and the dirty-cancel
 // confirm, exactly as the Rate Sheet drawer does. Neither drawer opens the Tier
 // drawer, and neither adds an editor, an endpoint, or an id.
+//
+// View mode also carries the canonical Drawer Tab Contract (DrawerTabs —
+// Overview | Connections), matching Package Family and Tier: Overview is the
+// scope above; Connections is read-only and lists the supplying Services behind
+// the scoped rows, resolved from the manager relationship's own stored
+// `source_service_id`/`source_service_title` (the same provenance the Tier
+// Inclusion drawer's Service shell already reads) — never a second lookup, never
+// a placeholder. `rate-sheet` itself has no such tab because its own edit mode
+// already exposes source Services directly through its picker; these narrower
+// connection drawers had no equivalent, which is the gap this closes. Edit mode
+// stays tab-less, exactly as `rate-sheet`'s edit mode is.
 
-import { useCallback, useEffect, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
+import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
+import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
 import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
-import { RateSheetIcon } from '@/admin-station/shell/icons';
+import { RateSheetIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { decodeTierRateSheetDrawerRecordId } from '../../drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import type { TierRateSheetDrawerTarget } from '../../drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import { useTierRateSheetDrawer } from '../../surface/rateSheetTool/useTierRateSheetDrawer';
 import type { TierRateSheetDrawerState } from '../../surface/rateSheetTool/useTierRateSheetDrawer';
 import { TIER_LABELS } from '../../vocabulary';
+import { connectedServicesForRows } from '../../surface/rateSheetTool/rateSheetToolModel';
 import {
   RateSheetGridEditor,
   RateSheetGridRead,
@@ -56,6 +70,7 @@ function TierRateSheetDrawerBody({
 }: DrawerContentProps & { target: TierRateSheetDrawerTarget }): VNode {
   const savedRef = useRef(onSaved); savedRef.current = onSaved;
   const modeRef  = useRef(onModeChange); modeRef.current = onModeChange;
+  const [activeTab, setActiveTab] = useState<DrawerBaseTabId>('details');
 
   const notifySaved = useCallback(() => savedRef.current(), []);
   const scope = useTierRateSheetDrawer(
@@ -133,7 +148,16 @@ function TierRateSheetDrawerBody({
       </InlineEditorShell>
     );
   }
-  return <TierRateSheetReadScope scope={scope} target={target} tierLabel={tierLabel} title={title} onEdit={requestEdit} />;
+  return (
+    <div class="cz-req-detail">
+      <DrawerTabs active={activeTab} onSelect={setActiveTab} />
+      {activeTab === 'details' ? (
+        <TierRateSheetReadScope scope={scope} target={target} tierLabel={tierLabel} title={title} onEdit={requestEdit} />
+      ) : (
+        <TierRateSheetConnectionsScope scope={scope} tierLabel={tierLabel} />
+      )}
+    </div>
+  );
 }
 
 // ── SECTION: view mode ────────────────────────────────────────────────────────
@@ -162,30 +186,75 @@ function TierRateSheetReadScope({
   const status = scope.sheet?.status === 'archived' ? 'disabled' : 'active';
 
   return (
-    <div class="cz-req-detail">
-      <ReadBlock
-        title={title}
-        count={scope.scopedRows.length}
-        subtitle={subtitle}
-        icon={<RateSheetIcon />}
-        scopeClass="drawerOverview"
-        status={status}
-        actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}
-      >
-        {scope.scopedRows.length === 0 ? (
-          <div class="drawerModule__empty">
-            <p class="drawerModule__empty-title">No connected rows</p>
-            <p class="drawerModule__empty-copy">
-              {isGroup
-                ? `The ${tierLabel} Tier selects no row from this group.`
-                : `The ${tierLabel} Tier selects no resolving row from this Rate Sheet.`}
-            </p>
-          </div>
-        ) : (
-          <RateSheetGridRead rows={scope.scopedRows} groups={scope.sheet?.groups ?? []} />
-        )}
-      </ReadBlock>
-    </div>
+    <ReadBlock
+      title={title}
+      count={scope.scopedRows.length}
+      subtitle={subtitle}
+      icon={<RateSheetIcon />}
+      scopeClass="drawerOverview"
+      status={status}
+      actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}
+    >
+      {scope.scopedRows.length === 0 ? (
+        <div class="drawerModule__empty">
+          <p class="drawerModule__empty-title">No connected rows</p>
+          <p class="drawerModule__empty-copy">
+            {isGroup
+              ? `The ${tierLabel} Tier selects no row from this group.`
+              : `The ${tierLabel} Tier selects no resolving row from this Rate Sheet.`}
+          </p>
+        </div>
+      ) : (
+        <RateSheetGridRead rows={scope.scopedRows} groups={scope.sheet?.groups ?? []} />
+      )}
+    </ReadBlock>
+  );
+}
+
+// ── SECTION: Connections tab ──────────────────────────────────────────────────
+
+/**
+ * Read-only. Lists the supplying Services behind the scoped rows, resolved
+ * from the manager relationship's own stored `source_service_id`/`_title` —
+ * the same field the Tier Inclusion drawer's Service shell reads. No
+ * navigation into Service Station: Package Station reports the connection's
+ * identity, never a cross-station link, matching the Tier Inclusion Service
+ * shell's own read-only precedent.
+ */
+function TierRateSheetConnectionsScope({
+  scope, tierLabel,
+}: {
+  scope: TierRateSheetDrawerState;
+  tierLabel: string;
+}): VNode {
+  const services = connectedServicesForRows(scope.scopedRows);
+
+  return (
+    <ReadBlock
+      title="Connections"
+      count={services.length}
+      subtitle={`Services supplying the ${tierLabel} Tier's connected rows here.`}
+      icon={<ServicesIcon />}
+      scopeClass="drawerOverview"
+    >
+      {services.length === 0 ? (
+        <div class="drawerModule__empty">
+          <p class="drawerModule__empty-title">No supplying Service</p>
+          <p class="drawerModule__empty-copy">
+            No connected row here resolves to a supplying Service.
+          </p>
+        </div>
+      ) : (
+        <div class="drawerModule__fields">
+          {services.map((service) => (
+            <div key={service.id} class="drawerModule__field">
+              <p class="drawerModule__label">{service.title} · #{service.id}</p>
+              <p class="drawerModule__value">{service.rows} connected {service.rows === 1 ? 'row' : 'rows'}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </ReadBlock>
   );
 }
 

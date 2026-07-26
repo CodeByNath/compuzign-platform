@@ -42,6 +42,11 @@ export interface RateSheetEditorRow {
   quantity:        number;
   groupId:         string | null;
   sourceAvailable: boolean;              // supplying source resolves and is not missing/disabled
+  // Supplying-Service provenance, carried straight from the manager relationship
+  // (PackageManagerItem.source_service_id/_title — display only, resolved by the
+  // backend, never derived here). Null when the relationship carries none.
+  sourceServiceId:    number | null;
+  sourceServiceTitle: string | null;
 }
 
 export interface RateSheetEditorValue {
@@ -56,6 +61,8 @@ export interface RateSheetEditorValue {
 export interface RateSheetOption {
   id:    string;   // manager item_id (the row's source_item_id)
   label: string;
+  sourceServiceId:    number | null;
+  sourceServiceTitle: string | null;
 }
 
 export const EMPTY_RATE_SHEET_VALUE: RateSheetEditorValue = { id: '', title: '', status: 'active', groups: [], items: [] };
@@ -93,16 +100,21 @@ function toEditorValue(
   const items = [...sheet.items]
     .sort((a, b) => a.sort_order - b.sort_order)
     .filter((item) => itemById.has(item.source_item_id))
-    .map((item) => ({
-      id:              item.item_id,
-      optionId:        item.source_item_id,
-      optionLabel:     labelById.get(item.source_item_id) ?? '(missing source)',
-      unitPrice:       item.unit_price,
-      per:             item.per,
-      quantity:        item.quantity,
-      groupId:         item.group_id !== null && groupIds.has(item.group_id) ? item.group_id : null,
-      sourceAvailable: sourceAvailable(itemById.get(item.source_item_id)),
-    }));
+    .map((item) => {
+      const relationship = itemById.get(item.source_item_id);
+      return {
+        id:              item.item_id,
+        optionId:        item.source_item_id,
+        optionLabel:     labelById.get(item.source_item_id) ?? '(missing source)',
+        unitPrice:       item.unit_price,
+        per:             item.per,
+        quantity:        item.quantity,
+        groupId:         item.group_id !== null && groupIds.has(item.group_id) ? item.group_id : null,
+        sourceAvailable: sourceAvailable(relationship),
+        sourceServiceId:    relationship?.source_service_id ?? null,
+        sourceServiceTitle: relationship?.source_service_title ?? null,
+      };
+    });
 
   return { id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status, groups, items };
 }
@@ -116,7 +128,12 @@ export function toRateSheetEditorList(readModel: PackageManagerReadModel): RateS
 
 /** The manager relationships selectable as row sources (all connected items). */
 export function rateSheetOptions(readModel: PackageManagerReadModel): RateSheetOption[] {
-  return readModel.items.map((item) => ({ id: item.item_id, label: packageItemLabel(item) }));
+  return readModel.items.map((item) => ({
+    id:    item.item_id,
+    label: packageItemLabel(item),
+    sourceServiceId:    item.source_service_id ?? null,
+    sourceServiceTitle: item.source_service_title ?? null,
+  }));
 }
 
 // ── Read-mode summary (pure) ──────────────────────────────────────────────────
@@ -157,6 +174,31 @@ export function summariseRateSheet(
     unpriced:    value.items.length - priced,
     unavailable,
   };
+}
+
+/** One supplying Service behind a set of rows, and how many of them it sources. */
+export interface RateSheetConnectedService {
+  id:    number;
+  title: string;
+  rows:  number;
+}
+
+/**
+ * The distinct supplying Services behind a set of rows, in first-seen order.
+ * A row whose relationship carries no Service provenance (missing/non-Service
+ * source) contributes to no entry — nothing is invented for it.
+ */
+export function connectedServicesForRows(
+  rows: readonly RateSheetEditorRow[],
+): RateSheetConnectedService[] {
+  const byId = new Map<number, RateSheetConnectedService>();
+  for (const row of rows) {
+    if (row.sourceServiceId === null || row.sourceServiceTitle === null) continue;
+    const existing = byId.get(row.sourceServiceId);
+    if (existing) existing.rows += 1;
+    else byId.set(row.sourceServiceId, { id: row.sourceServiceId, title: row.sourceServiceTitle, rows: 1 });
+  }
+  return [...byId.values()];
 }
 
 /** Rows belonging to a group, in grid order. `null` selects the ungrouped rows. */
@@ -237,6 +279,7 @@ export function addEditorRow(
   const row: RateSheetEditorRow = {
     id: '', optionId: option.id, optionLabel: option.label,
     unitPrice: 0, per: DEFAULT_UNIT, quantity: 1, groupId: null, sourceAvailable: true,
+    sourceServiceId: option.sourceServiceId, sourceServiceTitle: option.sourceServiceTitle,
   };
   return { ...value, items: [...value.items, row] };
 }
