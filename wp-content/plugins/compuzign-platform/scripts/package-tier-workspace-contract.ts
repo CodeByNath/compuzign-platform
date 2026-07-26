@@ -485,23 +485,13 @@ check(
   'registration reports the stored id the backend minted, never the title it was given',
 );
 
-// The drawer footer is HOST state: setting it re-renders this component. The
-// footer memo must therefore depend on primitives only. `useTierRegistration`
-// and the Tier instance collection beneath it both return a fresh object every
-// render, so depending on either would set the footer, re-render, and set it
-// again — a loop that hangs the page rather than failing.
+// The drawer footer is HOST state: setting it re-renders the content. Owning no
+// footer here is what makes that loop impossible — the module shell carries the
+// buttons, so nothing recomputes a footer VNode from a per-render object.
 check(
-  registrationSource.includes('), [bridge, canSave, saving, stage]);'),
-  'the footer memo depends on primitives only, never on a per-render object identity',
+  !registrationSource.includes('setFooter(footer)'),
+  'registration sets no computed footer, so it cannot drive the set/re-render loop',
 );
-check(
-  registrationSource.includes('actions.current.register()')
-    && registrationSource.includes('actions.current.applyEdits()'),
-  'footer actions are read through a ref at click time, never captured in the memo',
-);
-for (const forbidden of ['[bridge, canSave, registration', 'registration.register,', 'registration.applyEdits,']) {
-  check(!registrationSource.includes(forbidden), `the footer memo never depends on ${forbidden}`);
-}
 
 // Presentation uses the styled editor vocabulary. `drawerModule__field` and its
 // siblings are only styled under `.drawerOverview`, so using them outside that
@@ -527,18 +517,29 @@ for (const [name, source] of [
   ]) {
     check(!source.includes(unstyled), `${name} does not use the unstyled ${unstyled}`);
   }
+  // A create surface is an edit surface with no record behind it yet, so it
+  // wears the module edit shell the mature drawer already wears — which owns
+  // Save/Cancel, the dirty confirmation, the busy state and the error slot —
+  // rather than hand-rolling a footer beside it.
   check(
-    source.includes('EntityActionFooter'),
-    `${name} uses the drawer kit's action footer rather than hand-rolled buttons`,
+    source.includes('InlineEditorShell'),
+    `${name} wears the drawer kit's module edit shell`,
   );
   check(
-    source.includes('cz-tf-form') && source.includes('cz-tf-label'),
+    source.includes('cz-tf-field') && source.includes('cz-tf-label'),
     `${name} uses the established cz-tf-* editor vocabulary`,
   );
 }
+// The module shell owns the buttons, so the drawer keeps no second footer under
+// the form — the same way the Rate Sheet tool nulls it while editing.
 check(
-  registrationSource.includes('cz-tf-field') && registrationSource.includes('cz-tf-hint'),
-  'registration renders its fields and its Family hint in that vocabulary',
+  registrationSource.includes('bridge.setFooter(null)')
+    && !registrationSource.includes('EntityActionFooter'),
+  'the registration form keeps no drawer footer beside the module shell',
+);
+check(
+  registrationSource.includes('cz-tf-hint') && registrationSource.includes('cz-tf-select'),
+  'registration renders its Family picker and hint in that vocabulary',
 );
 
 // A Package Family is not a field on a Tier system. The instance schema carries

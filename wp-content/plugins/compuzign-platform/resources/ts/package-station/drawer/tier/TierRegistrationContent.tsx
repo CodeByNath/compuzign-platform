@@ -4,23 +4,22 @@
 // system exists. It presents the record's own fields at their defaults; the
 // backend mints the id and the five empty slots on save.
 //
+// It wears the SAME module chrome the mature drawer wears while editing:
+// `InlineEditorShell` — the module shell with different content, which already
+// owns Save/Cancel, the dirty-cancel confirmation, the busy state and the error
+// slot. The drawer footer is therefore null here, exactly as the Rate Sheet tool
+// leaves it while editing. A create surface is an edit surface with no record
+// behind it yet, so it earns no chrome of its own — and owning no footer is also
+// why nothing here can drive the footer-set/re-render loop.
+//
 // It deliberately does NOT continue into slot configuration. Registering is one
 // atomic creation, and a Tier system that holds a Package Family is reached the
-// ordinary way afterwards — by selecting that Family in the engine, which
-// resolves its assignment and loads the empty slots for individual Tier edits.
-//
-// FOOTER STABILITY — the drawer's footer is host state. Setting it re-renders
-// this component, so the footer VNode must only change when something the footer
-// actually displays changes. Its memo therefore depends on primitives alone and
-// reaches the actions through a ref: `useTierRegistration` (like the Tier
-// instance collection beneath it) returns a fresh object every render, so
-// depending on that object would set the footer on every render, re-render, and
-// set it again — an unbreakable loop that hangs the page.
+// ordinary way afterwards — by selecting that Family in the engine.
 
-import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
+import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import { useTierRegistration } from '../../surface/tierInstance/useTierRegistration';
 
@@ -34,44 +33,30 @@ export function TierRegistrationContent({ tool, initialFamilyId, bridge }: {
     initialFamilyId,
     bridge.onMutationComplete ?? (() => {}),
   );
-  const { draft, saving, setDraft, stage } = registration;
-  const canSave = draft.title.trim().length > 0 && !saving;
+  const { draft, error, saving, setDraft, stage } = registration;
+  const registered = stage === 'registered';
+  const dirty = draft.title.trim() !== '' || draft.description.trim() !== '' || draft.familyId !== null;
 
-  // The actions are read at click time, never captured in the memo.
-  const actions = useRef(registration);
-  actions.current = registration;
-
-  const footer = useMemo(() => (
-    <EntityActionFooter
-      close={{
-        id: 'close',
-        label: stage === 'form' ? 'Cancel' : 'Done',
-        onSelect: () => bridge.close(),
-      }}
-      primary={{
-        id: stage === 'form' ? 'register' : 'save',
-        label: stage === 'form' ? 'Register Tier system' : 'Save changes',
-        busyLabel: stage === 'form' ? 'Registering…' : 'Saving…',
-        busy: saving,
-        disabled: !canSave,
-        onSelect: () => void (stage === 'form'
-          ? actions.current.register()
-          : actions.current.applyEdits()),
-      }}
-    />
-  ), [bridge, canSave, saving, stage]);
-
+  // The module shell owns Save and Cancel, so the drawer keeps no footer here.
   useEffect(() => {
-    bridge.setFooter(footer);
+    bridge.setFooter(null);
     return () => bridge.setFooter(null);
-  }, [bridge, footer]);
+  }, [bridge]);
 
   return (
-    <div class="cz-tf-form">
-      {stage === 'registered' && registration.instance && (
-        <p class="cz-tier-settings__success" role="status">
-          <strong>{registration.instance.title}</strong> is registered as a Tier system, in the
-          pool as <code>{registration.instance.tier_instance_id}</code> with five empty slots.
+    <InlineEditorShell
+      title={registered ? 'Tier system' : 'Register Tier system'}
+      onSave={registered ? registration.applyEdits : registration.register}
+      onCancel={bridge.close}
+      saving={saving}
+      saveErr={error}
+      isDirty={!registered && dirty}
+      saveDisabled={draft.title.trim().length === 0}
+    >
+      {registered && registration.instance && (
+        <p class="cz-tf-hint" role="status">
+          <strong>{registration.instance.title}</strong> is registered, in the pool as{' '}
+          <code>{registration.instance.tier_instance_id}</code> with five empty slots.
         </p>
       )}
 
@@ -91,7 +76,7 @@ export function TierRegistrationContent({ tool, initialFamilyId, bridge }: {
         <label class="cz-tf-label" for="tier-registration-description">Description</label>
         <textarea
           id="tier-registration-description"
-          class="cz-tf-input"
+          class="cz-tf-textarea"
           rows={3}
           value={draft.description}
           disabled={saving}
@@ -120,10 +105,6 @@ export function TierRegistrationContent({ tool, initialFamilyId, bridge }: {
           separate assignment, not a field on the Tier system.
         </p>
       </div>
-
-      {registration.error && (
-        <div class="cz-admin-error-msg" role="alert">{registration.error}</div>
-      )}
-    </div>
+    </InlineEditorShell>
   );
 }

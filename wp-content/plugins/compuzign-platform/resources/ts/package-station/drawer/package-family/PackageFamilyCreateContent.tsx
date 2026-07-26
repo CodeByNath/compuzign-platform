@@ -1,6 +1,16 @@
+// Package Family creation — the `package-family-create` drawer composition.
+//
+// It wears the SAME module chrome the mature drawer wears while editing:
+// `InlineEditorShell` owns Save/Cancel, the dirty-cancel confirmation, the busy
+// state and the error slot, so the drawer keeps no footer of its own while the
+// form is open. The optional Tier-capability stages that follow the save are
+// record-level choices rather than module editing, so those keep the drawer
+// footer and the kit's `EntityActionFooter` grammar.
+
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
+import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import type {
   PackageFamilyCreateCommands,
   PackageFamilyCreateDraft,
@@ -18,24 +28,11 @@ export interface PackageFamilyCreateContentProps {
 export function PackageFamilyCreateContent({ commands, bridge, onManageTierSystem }: PackageFamilyCreateContentProps) {
   const [draft, setDraft] = useState<PackageFamilyCreateDraft>({ name: '', description: '' });
   const create = usePackageFamilyCreate(commands, bridge.onMutationComplete ?? (() => {}));
-  const canSave = draft.name.trim().length > 0 && !create.saving;
+  const onForm = create.stage === 'form';
 
   const footer = useMemo(() => {
-    if (create.stage === 'form') {
-      return (
-        <EntityActionFooter
-          close={{ id: 'cancel', label: 'Cancel', onSelect: bridge.close }}
-          primary={{
-            id: 'create',
-            label: 'Create Family',
-            busyLabel: 'Creating…',
-            busy: create.saving,
-            disabled: !canSave,
-            onSelect: () => void create.saveFamily(draft),
-          }}
-        />
-      );
-    }
+    // The module shell owns Save/Cancel while the form is open.
+    if (create.stage === 'form') return null;
     if (create.stage === 'saved') {
       return (
         <EntityActionFooter
@@ -62,14 +59,11 @@ export function PackageFamilyCreateContent({ commands, bridge, onManageTierSyste
     );
   }, [
     bridge,
-    canSave,
     create.stage,
     create.saving,
-    create.saveFamily,
     create.addTierCapability,
     create.openTierTool,
     onManageTierSystem,
-    draft,
   ]);
 
   useEffect(() => {
@@ -96,10 +90,16 @@ export function PackageFamilyCreateContent({ commands, bridge, onManageTierSyste
     );
   }
 
-  // The read-module field classes are styled only under `.drawerOverview`, which
-  // this composition is not, so it uses the `cz-tf-*` editor vocabulary instead.
   return (
-    <div class="cz-tf-form">
+    <InlineEditorShell
+      title="New Package Family"
+      onSave={async () => { await create.saveFamily(draft); }}
+      onCancel={bridge.close}
+      saving={create.saving}
+      saveErr={create.error}
+      isDirty={onForm && (draft.name.trim() !== '' || draft.description.trim() !== '')}
+      saveDisabled={draft.name.trim().length === 0}
+    >
       <div class="cz-tf-field">
         <label class="cz-tf-label" for="package-family-create-name">Family name</label>
         <input
@@ -115,14 +115,13 @@ export function PackageFamilyCreateContent({ commands, bridge, onManageTierSyste
         <label class="cz-tf-label" for="package-family-create-description">Description</label>
         <textarea
           id="package-family-create-description"
-          class="cz-tf-input"
+          class="cz-tf-textarea"
           rows={3}
           value={draft.description}
           disabled={create.saving}
           onInput={(event) => setDraft((current) => ({ ...current, description: (event.target as HTMLTextAreaElement).value }))}
         />
       </div>
-      {create.error && <div class="cz-admin-error-msg" role="alert">{create.error}</div>}
-    </div>
+    </InlineEditorShell>
   );
 }
