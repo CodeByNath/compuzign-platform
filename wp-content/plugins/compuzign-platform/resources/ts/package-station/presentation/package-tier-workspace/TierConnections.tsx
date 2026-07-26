@@ -105,7 +105,7 @@ function ConnectionTabContent({ tab, onIntent }: {
     <section class="cz-tier-deck__connection-section">
       <div class="cz-tier-deck__lane-head">
         <div>
-          <h5 class="cz-tier-deck__lane-title">{tab.title}</h5>
+          <h4 class="cz-tier-deck__lane-title">{tab.title}</h4>
           <p class="cz-tier-deck__lane-note">{tab.description}</p>
         </div>
       </div>

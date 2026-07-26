@@ -11,8 +11,10 @@ import {
 } from '../resources/ts/package-station/surface/tierInstance/tierInstanceModel';
 import {
   decodeTierDrawerRecordId,
+  decodeTierInstanceDrawerRecordId,
   decodeTierSlotDrawerRecordId,
   encodeTierDrawerRecordId,
+  encodeTierInstanceDrawerRecordId,
   encodeTierSlotDrawerRecordId,
 } from '../resources/ts/package-station/drawer/tier/tierDrawerTypes';
 import { TIER_KEYS } from '../resources/ts/package-station/vocabulary';
@@ -155,6 +157,18 @@ check(
 );
 check(decodeTierDrawerRecordId('occ_a') === null, 'legacy occupant-only identity remains distinguishable');
 
+const instanceRoutingToken = encodeTierInstanceDrawerRecordId('ti_unassigned');
+check(
+  JSON.stringify(decodeTierInstanceDrawerRecordId(instanceRoutingToken)) === JSON.stringify({ instanceId: 'ti_unassigned' }),
+  'whole-instance routing round-trips the exact Tier instance id',
+);
+check(decodeTierDrawerRecordId(instanceRoutingToken) === null, 'whole-instance routing cannot decode as an occupant route');
+check(decodeTierSlotDrawerRecordId(instanceRoutingToken) === null, 'whole-instance routing cannot decode as a slot route');
+check(decodeTierInstanceDrawerRecordId(routingToken) === null, 'an occupant route cannot decode as a whole-instance route');
+for (const malformed of ['tier-instance:', 'tier-instance:ti_unassigned:occ_a:extra']) {
+  check(decodeTierInstanceDrawerRecordId(malformed) === null, `malformed whole-instance route fails closed (${malformed})`);
+}
+
 const slotRoutingToken = encodeTierSlotDrawerRecordId('ti_unassigned', 'basic');
 check(
   JSON.stringify(decodeTierSlotDrawerRecordId(slotRoutingToken)) === JSON.stringify({ instanceId: 'ti_unassigned', slotId: 'basic' }),
@@ -162,6 +176,17 @@ check(
 );
 check(decodeTierSlotDrawerRecordId(encodeTierSlotDrawerRecordId('ti_unassigned', 'custom')) === null, 'non-fixed slots are rejected');
 check(decodeTierDrawerRecordId(slotRoutingToken) === null, 'slot routing can never be mistaken for occupant routing');
+
+const tierDrawerHostSource = readFileSync(
+  resolve(import.meta.dirname, '..', 'resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx'),
+  'utf8',
+);
+check(
+  tierDrawerHostSource.includes("recordId.startsWith('tier-instance:') && instanceTarget === null && occupantTarget === null")
+    && tierDrawerHostSource.includes('<TierInstanceSettingsHost')
+    && tierDrawerHostSource.includes('instanceId={instanceTarget.instanceId}'),
+  'the Tier host rejects malformed instance-prefixed routes before legacy fallback and mounts the whole-instance host for valid routes',
+);
 
 const sharedA = instance('ti_shared_a', ['occ_shared_a']);
 const sharedB = instance('ti_shared_b', ['occ_shared_b']);

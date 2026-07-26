@@ -167,6 +167,9 @@ const cases = [
   ['tierInclusion.unresolved',    dna.tierInclusionModule, { resolved: false },                             CTX.activeSettled],
   ['tierInclusionConn.configured',   dna.tierInclusionConnectionModule, { configured: true },               CTX.activeSettled],
   ['tierInclusionConn.unconfigured', dna.tierInclusionConnectionModule, { configured: false },              CTX.activeSettled],
+  ['tierRateSheetAccess.active',      dna.tierRateSheetAccessModule, { activeCount: 2, allowedActiveCount: 2, unresolvedCount: 0 }, CTX.activeSettled],
+  ['tierRateSheetAccess.noActive',    dna.tierRateSheetAccessModule, { activeCount: 0, allowedActiveCount: 0, unresolvedCount: 0 }, CTX.activeSettled],
+  ['tierRateSheetAccess.unresolved',  dna.tierRateSheetAccessModule, { activeCount: 2, allowedActiveCount: 1, unresolvedCount: 1 }, CTX.activeSettled],
 ];
 
 const snapshot = {};

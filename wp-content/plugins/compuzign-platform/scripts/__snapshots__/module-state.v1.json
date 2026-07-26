@@ -532,5 +532,29 @@
         "type": "info"
       }
     ]
+  },
+  "tierRateSheetAccess.active": {
+    "status": "active",
+    "notes": []
+  },
+  "tierRateSheetAccess.noActive": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "tier-rate-sheet-access.active.required",
+        "message": "Allow at least one active Rate Sheet for this Tier system.",
+        "type": "error"
+      }
+    ]
+  },
+  "tierRateSheetAccess.unresolved": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "tier-rate-sheet-access.references.unresolved",
+        "message": "Remove or replace unresolved Rate Sheet references.",
+        "type": "error"
+      }
+    ]
   }
 }

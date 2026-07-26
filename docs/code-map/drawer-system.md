@@ -13,10 +13,10 @@ The drawer system separates coordination, hosting, rendering, and persistence:
 
 ## Shared Drawer Kit
 
-- [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityDrawer.tsx) renders Overview/Connections placement, notifications, trailing content, and one module edit session.
+- [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityDrawer.tsx) renders placements, notifications, trailing content, and one edit session.
 - [entityDrawerHost.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/entityDrawerHost.ts) defines the host-neutral close/footer/guard/mutation bridge.
-- [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/InlineEditorShell.tsx) owns Save/Cancel, dirty-cancel confirmation, validation, loading, and error chrome.
-- [EntityActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityActionFooter.tsx) and [CanonicalEntityFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/CanonicalEntityFooter.tsx) provide record-footer grammar and canonical lifecycle mapping.
+- [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/InlineEditorShell.tsx) owns Save/Cancel, dirty confirmation, validation, loading, and errors.
+- [EntityActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityActionFooter.tsx) and [CanonicalEntityFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/CanonicalEntityFooter.tsx) provide footer grammar and lifecycle mapping.
 - [schema/types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/schema/types.ts) and `schema/{elements,shells}` define neutral entity, binding, placement, action, and edit-session contracts.
 
 ## Module entry contract
@@ -32,29 +32,29 @@ drawer opens readable
   → only Edit opens the module's inline editor
 ```
 
-Consequences that are not optional:
+Required consequences:
 
-- **No explanation block above the modules.** An empty module plus its pill is the guidance; prose above it duplicates the pill and drifts from it.
-- **No entry-state editor** — not for an empty record, nor one that does not exist yet. A creation drawer opens readable too, so creation intents register `mode: 'view'`.
-- **Status stays in the pill vocabulary.** `settled` / `not-configured` are module *transition* values; reaching Pending through the unknown-status fallback in [presentation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/schema/presentation.ts) is missing the contract, not following it.
-- **Disabled is a user action, never a derivation.** A module reads Disabled only from the explicit per-record signal the footer's enable/disable control writes (`tier.enabled`, `PackageManagerItem.disabled`). Never from a record that was simply never activated: a Package Family has no `draft` state, so never-activated and switched-off both store `disabled`, and the module reads **Pending** while the footer keeps the action. Reference: `resolveOverviewStatus`, which never returns Disabled.
-- **Editor and Edit action come as a pair** — an editor with no Edit can only be entered on arrival.
+- **No explanation block above modules.** The empty module and pill are the guidance.
+- **No entry-state editor**, including empty or not-yet-created records.
+- **Status stays in the pill vocabulary.** `settled` / `not-configured` are transitions, not statuses.
+- **Disabled is a user action, never a parent-lifecycle derivation.** It requires the explicit per-record signal written by the owning control.
+- **Editor and Edit action come as a pair.**
 - **One footer at a time.** While `InlineEditorShell` owns Save/Cancel the drawer withdraws its own.
-- **Cancel returns to the readable module**; leaving is the footer's Close.
-- **A create surface renders the record's own module**, never a second copy of its fields.
+- **Cancel returns to the readable module**; Close leaves.
+- **Create surfaces render the record's own module**, never copied fields.
 
-Enforced by `npm run contract:drawer-module-entry`, which executes each rule and reads the compositions for the wiring they need, and by `node scripts/module-state-snapshot.mjs`, which pins every exported rule's `{ status, notes }`. Surfaces under it: empty Tier slots ([Tiers](tiers.md)), Tier registration ([Tier System Registration](tier-registration.md)), Family creation, and the Rate Sheet pool ([Rate Sheet](rate-sheet.md)).
+Enforced by `npm run contract:drawer-module-entry`, which executes each rule and reads the compositions for the wiring they need, and by `node scripts/module-state-snapshot.mjs`, which pins every exported rule's `{ status, notes }`. Surfaces under it: empty Tier slots ([Tiers](tiers.md)), whole-instance Tier Rate Sheet access ([Package Home Settings](package-settings.md)), Tier registration ([Tier System Registration](tier-registration.md)), Family creation, and the Rate Sheet pool ([Rate Sheet](rate-sheet.md)).
 
-Two rules still derive Disabled and are **recorded divergences, not precedent**: the Category modules (a deliberate S6 blueprint decision — "the category is deliberately off, not awaiting first publish") and `tierInclusionConnectionModule`, where an absent relationship reads Disabled with no action offered. Do not copy either into a new module.
+Recorded divergences are not precedent: Category modules and an absent `tierInclusionConnectionModule` relationship may derive Disabled.
 
 ## Domain compositions and adapters
 
-- `package-station/drawer/{package-family,tier}/` and `drawer/{schema,editors}/` are Package-owned. Their registered adapters are [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx) and [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx).
+- `package-station/drawer/{package-family,tier}/` and `drawer/{schema,editors}/` are Package-owned. Their registered adapters are [PackageFamilyDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx) and [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx). The Tier host strictly distinguishes whole-instance `tier-instance:{instance}`, occupant `tier-instance:{instance}:{occupant}`, and empty-slot `tier-slot:{instance}:{slot}` routes; all reuse the registered `tier` key.
 - `service-station/drawer/` is Service-owned; [ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx) is its registered adapter.
 - `entity-drawers/category/` and `entity-drawers/schema/` remain Category residue hosted through Admin Station's [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx).
 - [drawerChrome.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/shared/drawerChrome.ts) remains genuinely shared close/lifecycle/dialog coordination.
 
-Controllers render no JSX; presentation calls no endpoints. Native identities pass through Station Manager unchanged: Package Family and Tier IDs are strings, Category and Service IDs are numeric.
+Controllers render no JSX; presentation calls no endpoints. Native identities pass through Station Manager unchanged.
 
 ## Validation
 

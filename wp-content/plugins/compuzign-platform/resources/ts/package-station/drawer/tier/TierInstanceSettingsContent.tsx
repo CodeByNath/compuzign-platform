@@ -88,9 +88,11 @@ export function TierInstanceSettingsContent({
       allowedActiveCount: projection.allowedActiveCount,
       activeCount: projection.activeCount,
       unresolvedCount: projection.unresolvedCount,
-      needsReview: projection.needsReview,
     }, {
-      platformStatus: record.status,
+      // Access has no enable/disable lifecycle of its own. A resolved policy is
+      // evaluated in its module-local active context so the generic lifecycle
+      // tail cannot invent a parent-instance activation note.
+      platformStatus: 'active',
       platformLabel: 'Tier system',
     }),
     hasDraft: false,

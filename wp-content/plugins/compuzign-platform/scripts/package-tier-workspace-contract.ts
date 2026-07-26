@@ -22,11 +22,19 @@ import {
 } from '../resources/ts/package-station/surface/packageTierWorkspace/deck';
 import { projectConnectionNavigation } from '../resources/ts/package-station/surface/packageTierWorkspace/connectionNavigation';
 import {
+  projectTierRateSheetAccess,
+  tierRateSheetAccessDraft,
+  tierRateSheetAccessIsDirty,
+  tierRateSheetAccessIsValid,
+  tierRateSheetAccessPayload,
+} from '../resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel';
+import {
   decodeTierRateSheetDrawerRecordId,
   encodeTierRateSheetDrawerRecordId,
   encodeTierRateSheetGroupDrawerRecordId,
 } from '../resources/ts/package-station/drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import type {
+  PackageRateSheet,
   TierAssignment,
   TierInstanceRecord,
 } from '../resources/ts/package-station/types';
@@ -241,6 +249,55 @@ check(
   'a stale stored Rate Sheet binding remains visible by its canonical id instead of collapsing to unbound',
 );
 
+const accessSheets: PackageRateSheet[] = [
+  { rate_sheet_id: 'rs_active', title: 'Active', status: 'active', groups: [], items: [] },
+  { rate_sheet_id: 'rs_second', title: 'Second', status: 'active', groups: [], items: [] },
+  { rate_sheet_id: 'rs_archived', title: 'Archived', status: 'archived', groups: [], items: [] },
+];
+const unrestrictedAccess = projectTierRateSheetAccess(
+  { ...kairosRecord, allowed_rate_sheet_ids: [] },
+  accessSheets,
+);
+check(
+  unrestrictedAccess.unrestricted
+    && unrestrictedAccess.activeCount === 2
+    && unrestrictedAccess.allowedActiveCount === 2
+    && unrestrictedAccess.summary === 'All 2 active Rate Sheets'
+    && !unrestrictedAccess.needsReview,
+  'an empty allow-list means all active Rate Sheets and its summary/counts share that projection',
+);
+const limitedRecord = {
+  ...kairosRecord,
+  allowed_rate_sheet_ids: ['rs_active', 'rs_archived', 'rs_missing'],
+};
+const limitedAccess = projectTierRateSheetAccess(limitedRecord, accessSheets);
+check(
+  limitedAccess.allowedCount === 3
+    && limitedAccess.allowedActiveCount === 1
+    && limitedAccess.unresolvedCount === 1
+    && limitedAccess.needsReview,
+  'limited access distinguishes usable active grants from archived and unresolved stored ids',
+);
+check(
+  limitedAccess.rows.some((row) => row.rateSheetId === 'rs_archived' && row.status === 'archived')
+    && limitedAccess.rows.some((row) => row.rateSheetId === 'rs_missing' && row.status === 'unresolved'),
+  'archived and unresolved stored ids remain visible by their own identities',
+);
+const limitedDraft = tierRateSheetAccessDraft(limitedAccess);
+check(!tierRateSheetAccessIsDirty(limitedDraft, limitedRecord), 'an unchanged limited draft is not saveable');
+check(tierRateSheetAccessIsValid(limitedDraft, limitedAccess), 'a limited draft with one active sheet is valid');
+check(
+  !tierRateSheetAccessIsValid(
+    { mode: 'limited', allowedRateSheetIds: ['rs_archived', 'rs_missing'] },
+    limitedAccess,
+  ),
+  'limited access must retain at least one active Rate Sheet',
+);
+check(
+  tierRateSheetAccessPayload({ mode: 'limited', allowedRateSheetIds: [' rs_active ', 'rs_active'] }).join(',') === 'rs_active',
+  'the save payload trims and de-duplicates the draft ids before backend validation',
+);
+
 // The Connections navigation is one typed projection: the same rows feed cards,
 // counts, nested tabs, statuses, and canonical drawer targets.
 const connectionNavigation = projectConnectionNavigation({
@@ -290,8 +347,24 @@ const emptyConnectionNavigation = projectConnectionNavigation({
 check(
   emptyConnectionNavigation[0].summary === 'No Family'
     && emptyConnectionNavigation[1].summary === 'Focus a Tier'
-    && emptyConnectionNavigation.every((category) => category.tabs.every((tab) => tab.rows.length === 0)),
+    && emptyConnectionNavigation.every((category) => category.tabs.every((tab) =>
+      tab.rows.length === 0 && tab.emptyState.trim().length > 0)),
   'unfocused Connections reports honest empty states without placeholder records or counts',
+);
+const unresolvedNavigation = projectConnectionNavigation({
+  family: kairos,
+  groups: [],
+  rateSheet: unresolvedSheet,
+  hasFocusedTier: true,
+});
+const unresolvedNavigationRow = unresolvedNavigation[1].tabs[0].rows[0];
+check(
+  unresolvedNavigationRow?.kind === 'rate-sheet'
+    && unresolvedNavigationRow.status === 'unresolved'
+    && unresolvedNavigationRow.target.kind === 'rate-sheet'
+    && unresolvedNavigationRow.target.rateSheetId === 'rs_missing'
+    && unresolvedNavigationRow.actions.join(',') === 'view',
+  'an unresolved Rate Sheet stays visible at its canonical target and offers no unsupported Edit action',
 );
 
 // ── Connections routing tokens ────────────────────────────────────────────────
@@ -356,6 +429,15 @@ for (const [intentId, templateKey] of [
     `the ${intentId} Connections intent routes to the ${templateKey} drawer, never to the Tier drawer`,
   );
 }
+const packageRegister = readFileSync(
+  resolve(import.meta.dirname, '..', 'resources/ts/package-station/register.ts'),
+  'utf8',
+);
+check(
+  !adminRegister.includes("drawerTemplateKey: 'tier-rate-sheet-access'")
+    && !packageRegister.includes("key: 'tier-rate-sheet-access'"),
+  'Rate Sheet access reuses the registered Tier drawer instead of adding a template or surface intent',
+);
 
 const root = resolve(import.meta.dirname, '..');
 const packageSource = sourceFiles(resolve(root, 'resources/ts/package-station'))
@@ -377,6 +459,16 @@ const workspacePresentationDirectory = resolve(
 const workspacePresentation = sourceFiles(workspacePresentationDirectory)
   .filter((path) => /\.tsx?$/.test(path))
   .map((path) => readFileSync(path, 'utf8')).join('\n');
+for (const forbidden of [
+  'allowed_rate_sheet_ids',
+  'tool.updateInstance',
+  'onAllow',
+  'TierRateSheetAccessDraft',
+  'TierRateSheetAccessEditor',
+  "type: 'checkbox'",
+]) {
+  check(!workspacePresentation.includes(forbidden), `Package Home presentation owns no Rate Sheet access mutation symbol (${forbidden})`);
+}
 check(
   workspacePresentation.includes('is complete without a Tier assignment')
     && workspacePresentation.includes('Configure the Tier system from Settings below.'),
@@ -403,9 +495,9 @@ check(
   'the workspace never offers a no-op Open Tier tool action',
 );
 check(
-  workspacePresentation.includes('Rate Sheet access')
-    && workspacePresentation.includes('Each Tier chooses its own Rate Sheet when configured.'),
-  'Rate Sheet access is distinguished from each Tier slot’s own Rate Sheet binding',
+  workspacePresentation.includes('Which Rate Sheets this Tier system may make available to its Tier slots.')
+    && workspacePresentation.includes('Rate Sheet Access'),
+  'Rate Sheet access is described as whole-system availability rather than a slot binding',
 );
 
 // ── Settings wires no relationship ────────────────────────────────────────────
@@ -418,6 +510,11 @@ const settingsSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx',
 ), 'utf8');
+const focusedSectionsSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx',
+), 'utf8');
+const settingsPresentation = `${settingsSource}\n${focusedSectionsSource}`;
 for (const forbidden of [
   'assignInstance',
   'unassignInstance',
@@ -426,39 +523,34 @@ for (const forbidden of [
   'TierRateSheetInventory',
   'onToolIntent',
   'onManageInstance',
+  'tool.updateInstance',
+  'onAllow',
+  'TierRateSheetAccessDraft',
+  "type: 'checkbox'",
+  '<form',
+  'api.',
 ]) {
-  check(!settingsSource.includes(forbidden), `Settings carries no ${forbidden} relationship workflow`);
+  check(!settingsPresentation.includes(forbidden), `Settings carries no ${forbidden} relationship or mutation workflow`);
 }
 
 // ── Settings shell ────────────────────────────────────────────────────────────
-// Settings is a three-level tree, and its navigation and accordions are two
-// controls over ONE open-section id. The leaf heading is rendered by the shell,
-// so a section cannot advertise one hierarchy in the navigation and present
-// another in its panel.
-const navigationSource = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/presentation/package-tier-workspace/TierSettingsNav.tsx',
-), 'utf8');
+// Settings uses the same selector-card and nested-tab contract as Connections;
+// each context reset remounts it through the exact workspace scope key.
 check(
-  settingsSource.includes('const [openId, setOpenId]')
-    && settingsSource.includes('open={openId === section.id}')
-    && settingsSource.includes('openId={openId}'),
-  'the section navigation and the accordions read the same open-section id',
+  settingsSource.includes('variant="selectors"')
+    && settingsSource.includes('variant="nested"')
+    && settingsSource.includes('const [selectedGroupId, setSelectedGroupId]')
+    && settingsSource.includes('const [selectedSections, setSelectedSections]'),
+  'Settings uses compact category selectors and one valid nested-tab selection per category',
 );
 check(
-  navigationSource.includes('aria-controls={`${idFor(section.id)}-panel`}')
-    && navigationSource.includes('aria-expanded={current}')
-    && navigationSource.includes("aria-current={current ? 'true' : undefined}"),
-  'each navigation item names the panel it controls and reports that panel’s state',
+  !existsSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/TierSettingsNav.tsx'))
+    && !existsSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/DeckDisclosure.tsx')),
+  'the retired parallel Settings navigation and disclosure implementations are deleted',
 );
 check(
-  settingsSource.includes('idPrefix={idFor(section.id)}'),
-  'the navigation and the disclosure address the same panel id',
-);
-check(
-  settingsSource.includes('<h6 class="cz-tier-settings__leaf-title">{section.leaf}</h6>')
-    && settingsSource.includes('headingLevel={5}'),
-  'the shell renders one leaf heading per section beneath the section’s own heading',
+  settingsSource.includes('<h4 class="cz-tier-settings__leaf-title">{section.leaf}</h4>'),
+  'the selected Settings leaf enters the lower deck outline at the correct heading rank',
 );
 
 // The required hierarchy, in order. Focused Tier System carries exactly Rate
@@ -505,10 +597,8 @@ check(
   'every pool subject launches a drawer rather than rendering a creation form',
 );
 
-// The Settings lane holds no creation authority of its own. It dispatches a
-// subject and nothing else — no endpoint, no draft, no save, no form. Its one
-// remaining write is the focused instance's own `allowed_rate_sheet_ids`, which
-// configures a Tier system rather than creating a pool record.
+// The Settings lane holds no mutation authority of its own. It dispatches a
+// subject or exact instance identity and owns no endpoint, draft, save, or form.
 for (const forbidden of [
   'createPackageFamily',
   'createRateSheet',
@@ -516,9 +606,10 @@ for (const forbidden of [
   'savePackageStationManager',
   'buildManagerSavePayload',
   'toRateSheetEditorList',
+  'updateInstance',
   '<form',
 ]) {
-  check(!settingsSource.includes(forbidden), `the Settings lane performs no ${forbidden} of its own`);
+  check(!settingsPresentation.includes(forbidden), `the Settings lane performs no ${forbidden} of its own`);
 }
 check(
   !existsSync(resolve(
@@ -653,23 +744,16 @@ check(
   'no second Package Manager creation writer sits beside the drawers that own those writes',
 );
 
-const focusedSectionsSource = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx',
-), 'utf8');
 check(
   focusedSectionsSource.includes('No Tier system is focused, so no Rate Sheet access is configured.')
-    && focusedSectionsSource.includes('No Tier system is focused, so there are no slots to configure.')
-    && focusedSectionsSource.includes('No active Rate Sheet exists, so this Tier system can reach none.'),
-  'the focused sections fail closed rather than inventing a system, a sheet, or a slot',
+    && focusedSectionsSource.includes('No Tier system is focused, so there are no slots to configure.'),
+  'the focused sections fail closed rather than inventing a system or a slot',
 );
-// Every focused row is addressed by a stored id, and an unresolvable grant keeps
-// its id rather than borrowing another sheet's title.
 check(
-  focusedSectionsSource.includes('reference={row.rateSheetId}')
+  focusedSectionsSource.includes('reference={record.tier_instance_id}')
     && focusedSectionsSource.includes('reference={slot.slotId}')
-    && focusedSectionsSource.includes("name={row.title ?? 'Unresolved Rate Sheet'}"),
-  'the focused sections identify each record by its own stored id',
+    && focusedSectionsSource.includes("actions={[{ id: 'view', label: 'View' }]}"),
+  'Settings identifies access by the instance id, slots by stored keys, and keeps Home access read-only',
 );
 // An occupied slot offers View and Edit into the mature Tier drawer; an empty one
 // offers only Configure, because there is no occupant identity to view.
@@ -823,6 +907,12 @@ const workspaceSource = readFileSync(resolve(
 ), 'utf8');
 
 check(
+  workspaceSource.includes("onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), 'view')")
+    && settingsSource.includes('onView={onInstanceIntent}'),
+  'Settings dispatches the exact whole-instance token through ordinary View into the registered Tier drawer',
+);
+
+check(
   lowerDeckSource.includes('<TierTabSet') && connectionsSource.includes('variant="selectors"')
     && connectionsSource.includes('variant="nested"'),
   'one workspace tab contract renders the deck lanes, compact selectors, and nested connection tabs',
@@ -832,14 +922,18 @@ check(
     && tabSetSource.includes('role="tab"')
     && tabSetSource.includes('aria-selected={selected}')
     && tabSetSource.includes('aria-controls={panelId}')
+    && tabSetSource.includes('id={`${uid}-panel-${item.id}`}')
     && tabSetSource.includes('role="tabpanel"')
     && tabSetSource.includes('aria-labelledby={`${uid}-tab-${item.id}`}')
-    && tabSetSource.includes('tabIndex={selected ? 0 : -1}'),
+    && tabSetSource.includes('tabIndex={selected ? 0 : -1}')
+    && tabSetSource.includes('hidden={!selected}'),
   'every workspace tab level has matching tab/panel ids and a roving tab stop',
 );
 check(
   tabSetSource.includes("event.key === 'ArrowRight'")
     && tabSetSource.includes("event.key === 'ArrowLeft'")
+    && tabSetSource.includes("event.key === 'ArrowDown'")
+    && tabSetSource.includes("event.key === 'ArrowUp'")
     && tabSetSource.includes("event.key === 'Home'")
     && tabSetSource.includes("event.key === 'End'"),
   'the shared tab contract supports Arrow, Home, and End keyboard navigation',
@@ -875,11 +969,21 @@ check(
   'connection selection state resets on the exact Family, instance, slot, and occupant scope',
 );
 check(
+  lowerDeckSource.includes('<TierSystemSettings\n              key={connectionScopeKey}')
+    && connectionsSource.includes('<h4 class="cz-tier-deck__lane-title">{tab.title}</h4>'),
+  'Settings resets on the same exact context and nested connection panels preserve the lower-deck heading outline',
+);
+check(
   workspaceSource.includes("target.kind === 'package-family'")
     && workspaceSource.includes("target.kind === 'rate-sheet-group'")
     && workspaceSource.includes('target.rateSheetId')
     && workspaceSource.includes('target.groupId'),
   'the orchestrator resolves the typed target union through the existing canonical drawer routes',
+);
+check(
+  /encodeTierRateSheetGroupDrawerRecordId\(\s*instanceId,\s*selectedSlot\.slotId,\s*target\.rateSheetId,\s*target\.groupId,\s*\)/s.test(workspaceSource)
+    && workspaceSource.includes('encodeTierRateSheetDrawerRecordId(instanceId, selectedSlot.slotId, target.rateSheetId)'),
+  'group and Rate Sheet routes preserve the canonical instance, slot, sheet, then nested-group argument order',
 );
 
 const scopedDrawerSource = readFileSync(resolve(

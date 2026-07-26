@@ -139,7 +139,6 @@ export const tierRateSheetAccessModule: ModuleDefinition<{
   allowedActiveCount: number;
   activeCount: number;
   unresolvedCount: number;
-  needsReview: boolean;
 }> = {
   key: 'tier-rate-sheet-access',
   problems: ({ allowedActiveCount, activeCount, unresolvedCount }) => [
@@ -154,5 +153,8 @@ export const tierRateSheetAccessModule: ModuleDefinition<{
       type: 'error' as const,
     }] : []),
   ],
-  resolveStatus: ({ needsReview }) => needsReview ? 'pending-full' : 'active',
+  resolveStatus: ({ activeCount, allowedActiveCount, unresolvedCount }) =>
+    activeCount === 0 || allowedActiveCount === 0 || unresolvedCount > 0
+      ? 'pending-full'
+      : 'active',
 };

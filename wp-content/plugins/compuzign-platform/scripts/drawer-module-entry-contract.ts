@@ -32,6 +32,7 @@ import {
   tierFaqsModule,
   tierFeaturesModule,
   tierOverviewModule,
+  tierRateSheetAccessModule,
   tierRegistrationModule,
 } from '../resources/ts/drawer-kit/utils/moduleNotifications';
 import type { ShellSchema } from '../resources/ts/drawer-kit/schema/types';
@@ -57,6 +58,7 @@ import {
 } from '../resources/ts/package-station/drawer/schema/bindings/tier';
 import { tierRegistrationOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierRegistration';
 import { tierInclusionOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInclusion';
+import { tierRateSheetAccessShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInstance';
 
 const root = resolve(import.meta.dirname, '..');
 
@@ -85,6 +87,7 @@ const SHELLS: Array<[string, ShellSchema<any>]> = [
   ['Tier FAQs', tierFaqsShell],
   ['Tier Registration Overview', tierRegistrationOverviewShell],
   ['Tier Inclusion Overview', tierInclusionOverviewShell],
+  ['Tier System Rate Sheet Access', tierRateSheetAccessShell],
 ];
 
 // An editable module is always reachable from its readable card, and a card that
@@ -229,6 +232,25 @@ check(
   'a stocked Rate Sheet pool reads Active',
 );
 
+const validAccessState = evaluateModule(tierRateSheetAccessModule, {
+  activeCount: 2,
+  allowedActiveCount: 1,
+  unresolvedCount: 0,
+}, { platformStatus: 'active' });
+check(
+  validAccessState.status === 'active' && validAccessState.notes.length === 0,
+  'valid Rate Sheet access reads Active with no irrelevant parent-lifecycle note',
+);
+const invalidAccessState = evaluateModule(tierRateSheetAccessModule, {
+  activeCount: 2,
+  allowedActiveCount: 0,
+  unresolvedCount: 1,
+}, { platformStatus: 'active' });
+check(
+  invalidAccessState.status === 'pending-full' && invalidAccessState.notes.length === 2,
+  'Rate Sheet access needing review reads Pending and explains both unusable access and unresolved references',
+);
+
 // ── The compositions that open these modules ─────────────────────────────────
 // Each opens readable and wires the panel its pill needs. `useState(false)` is
 // the entry state itself: `useState(true)` here means the drawer opens in its
@@ -253,6 +275,28 @@ for (const [name, path] of READABLE_ENTRY) {
     composition.includes('onCancel: () => setEditing(false)'),
     `${name} returns Cancel to the readable module rather than closing the drawer`,
   );
+}
+
+const instanceSettings = source('resources/ts/package-station/drawer/tier/TierInstanceSettingsContent.tsx');
+check(
+  instanceSettings.includes('useState<TierRateSheetAccessDraft | null>(null)')
+    && instanceSettings.includes("handlers: { edit: () => setDraft(")
+    && instanceSettings.includes('onCancel: () => setDraft(null)'),
+  'Tier-system Rate Sheet access opens readable, enters through Edit, and Cancel returns readable',
+);
+check(
+  instanceSettings.includes("platformStatus: 'active'")
+    && !instanceSettings.includes('platformStatus: record.status'),
+  'the access module uses its own resolved-policy context rather than inheriting Tier-instance lifecycle notes',
+);
+check(
+  instanceSettings.includes('bridge.setFooter(editing ? null : (')
+    && instanceSettings.includes('<EntityActionFooter'),
+  'the instance drawer withdraws its Close footer while InlineEditorShell owns Save and Cancel',
+);
+const accessEditor = source('resources/ts/package-station/drawer/editors/TierRateSheetAccessEditor.tsx');
+for (const forbidden of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions', 'updateInstance', 'api.']) {
+  check(!accessEditor.includes(forbidden), `the Rate Sheet access field editor owns no ${forbidden}`);
 }
 
 // The Rate Sheet collection renders through ReadBlock rather than a shell, so it
