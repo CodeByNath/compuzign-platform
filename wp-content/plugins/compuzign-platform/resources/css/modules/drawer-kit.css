@@ -644,7 +644,7 @@
   font-size: var(--admin-fs-s-label);
   font-weight: var(--admin-fw-normal);
   line-height: var(--admin-lh-s-label);
-  color: var(--admin-text-faint);
+  color: var(--station-field-muted);
 }
 
 .cz-tf-field__inline .cz-tf-label {
@@ -662,7 +662,7 @@
 .cz-tf-hint {
   margin: 0;
   font-size: var(--admin-fs-s-label);
-  color: var(--admin-text-faint);
+  color: var(--station-field-muted);
   line-height: var(--admin-lh-s-label);
 }
 
@@ -681,10 +681,10 @@
 .cz-tf-textarea {
   width: 100%;
   min-height: var(--station-field-min-h);
-  background: transparent;
-  border: 1px solid var(--admin-border-blue);
-  border-radius: var(--admin-radius);
-  color: var(--admin-text);
+  background: var(--station-field-bg);
+  border: 1px solid var(--station-field-border);
+  border-radius: var(--station-field-radius);
+  color: var(--station-field-text);
   font-size: var(--station-field-font);
   font-family: inherit;
   padding: var(--station-field-pad-y) var(--station-field-pad-x);
@@ -713,11 +713,14 @@
 
 /* ── States ────────────────────────────────────────────────────────────────── */
 
-.cz-tf-input:focus,
-.cz-tf-select:focus,
-.cz-tf-textarea:focus {
-  border-color: var(--admin-accent);
-  background: var(--admin-white-a05);
+/* One focus treatment, the same one the shell uses on its own controls. */
+.cz-tf-control:focus-visible,
+.cz-tf-input:focus-visible,
+.cz-tf-select:focus-visible,
+.cz-tf-textarea:focus-visible {
+  outline: 2px solid var(--station-field-ring);
+  outline-offset: 2px;
+  border-color: var(--station-field-accent);
 }
 
 .cz-tf-control:hover:not(:disabled):not([readonly]),
@@ -729,7 +732,7 @@
 
 .cz-tf-input::placeholder,
 .cz-tf-textarea::placeholder {
-  color: var(--admin-text-faint);
+  color: var(--station-field-muted);
 }
 
 /* Disabled covers every control type, not only the text input. */
@@ -738,7 +741,7 @@
 .cz-tf-select:disabled,
 .cz-tf-textarea:disabled,
 .cz-tf-checkbox:disabled {
-  opacity: 0.38;
+  opacity: var(--station-field-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -785,11 +788,10 @@
   background-position: right 12px center;
   padding-right: 32px;
   cursor: pointer;
-  border-radius: var(--admin-radius-base);
 }
 
 .cz-tf-select--unset {
-  color: var(--admin-text-faint);
+  color: var(--station-field-muted);
 }
 
 /* A textarea sizes from its rows, so it opts out of the single-line floor. */
@@ -1499,16 +1501,6 @@ button.cz-module-status-pill {
 .cz-admin-station .cz-ies__footer {
   padding: 16px 20px;
   border-top: 1px solid var(--station-border);
-}
-
-.cz-admin-station .cz-tf-control,
-.cz-admin-station .cz-tf-input,
-.cz-admin-station .cz-tf-select,
-.cz-admin-station .cz-tf-textarea {
-  border-color: var(--station-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-surface);
-  color: var(--station-text);
 }
 
 .cz-admin-station .cz-module-notes {
