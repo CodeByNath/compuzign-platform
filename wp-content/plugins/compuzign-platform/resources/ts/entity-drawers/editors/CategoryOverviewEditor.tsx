@@ -1,3 +1,5 @@
+import { AdminField } from '@/drawer-kit/fields';
+import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type {
   CategoryOverviewDraft,
   ServiceCategoryGroupStationItem,
@@ -14,47 +16,41 @@ interface Props {
 // Neutral Category Overview editor. Group membership remains a separate
 // structural field supplied through the edit session and saved by the Category
 // station controller; it never enters the overview draft envelope.
+//
+// Group is the one field whose bound value is not a string: the station stores
+// a numeric id, so the conversion happens here, at the boundary that owns the
+// draft — not inside the shared field renderer.
 export function CategoryOverviewEditor({ draft, onChange, groups, groupId, onGroupChange }: Props) {
+  const groupOptions: AdminFieldOption[] = groups.map((group) => ({
+    value: String(group.id),
+    label: group.name,
+  }));
+
   return (
     <div class="cz-tf-form">
-      <div class="cz-tf-field">
-        <label class="cz-tf-label" for="cz-category-name">Name</label>
-        <input
-          id="cz-category-name"
-          type="text"
-          class="cz-tf-input"
-          value={draft.name}
-          onInput={(event) => onChange({ name: event.currentTarget.value })}
-        />
-      </div>
+      <AdminField
+        def={{ id: 'cz-category-name', type: 'text', label: 'Name' }}
+        value={draft.name}
+        onChange={(name) => onChange({ name })}
+      />
 
-      <div class="cz-tf-field">
-        <label class="cz-tf-label" for="cz-category-group">Group</label>
-        <select
-          id="cz-category-group"
-          class="cz-tf-select"
-          value={groupId ?? ''}
-          onChange={(event) => {
-            const raw = event.currentTarget.value;
-            onGroupChange(raw === '' ? null : Number(raw));
-          }}
-        >
-          <option value="">No group</option>
-          {groups.map((group) => (
-            <option key={group.id} value={group.id}>{group.name}</option>
-          ))}
-        </select>
-      </div>
+      <AdminField
+        def={{
+          id: 'cz-category-group',
+          type: 'select',
+          label: 'Group',
+          unsetLabel: 'No group',
+          options: groupOptions,
+        }}
+        value={groupId === null ? '' : String(groupId)}
+        onChange={(raw: string) => onGroupChange(raw === '' ? null : Number(raw))}
+      />
 
-      <div class="cz-tf-field">
-        <label class="cz-tf-label" for="cz-category-description">Description</label>
-        <textarea
-          id="cz-category-description"
-          class="cz-tf-textarea"
-          value={draft.description}
-          onInput={(event) => onChange({ description: event.currentTarget.value })}
-        />
-      </div>
+      <AdminField
+        def={{ id: 'cz-category-description', type: 'textarea', label: 'Description' }}
+        value={draft.description}
+        onChange={(description) => onChange({ description })}
+      />
     </div>
   );
 }

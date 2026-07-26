@@ -22,9 +22,12 @@ import type { AdminFieldDef, AdminFieldType } from './types';
 type CheckboxDef = AdminFieldDef & { type: 'checkbox' };
 type ValueDef = AdminFieldDef & { type: Exclude<AdminFieldType, 'checkbox'> };
 
+// The string branch is declared first so a call site that binds a string gets
+// its `onChange` parameter inferred without an annotation; only the checkbox,
+// which binds a boolean, falls through to the second member.
 export type AdminFieldProps =
-  | { def: CheckboxDef; value: boolean; onChange: (next: boolean) => void }
-  | { def: ValueDef; value: string; onChange: (next: string) => void };
+  | { def: ValueDef; value: string; onChange: (next: string) => void }
+  | { def: CheckboxDef; value: boolean; onChange: (next: boolean) => void };
 
 function isCheckbox(props: AdminFieldProps): props is Extract<AdminFieldProps, { value: boolean }> {
   return props.def.type === 'checkbox';
