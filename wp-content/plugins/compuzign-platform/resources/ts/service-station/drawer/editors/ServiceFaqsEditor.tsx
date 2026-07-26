@@ -74,7 +74,7 @@ export function ServiceFaqsEditor({ draft, onChange }: Props) {
           <div class="cz-tf-field">
             <input
               type="text"
-              class="cz-tf-input"
+              class="cz-tf-control cz-tf-input"
               placeholder="Question"
               value={item.question}
               onInput={(e) => updateItem(i, { question: (e.target as HTMLInputElement).value })}
@@ -82,7 +82,7 @@ export function ServiceFaqsEditor({ draft, onChange }: Props) {
           </div>
           <div class="cz-tf-field">
             <textarea
-              class="cz-tf-textarea cz-tf-textarea--tall"
+              class="cz-tf-control cz-tf-textarea cz-tf-textarea--tall"
               placeholder="Answer"
               value={item.answer}
               onInput={(e) => updateItem(i, { answer: (e.target as HTMLTextAreaElement).value })}
@@ -95,14 +95,14 @@ export function ServiceFaqsEditor({ draft, onChange }: Props) {
         <div class="cz-tf-inline-add">
           <input
             type="text"
-            class="cz-tf-input"
+            class="cz-tf-control cz-tf-input"
             placeholder="Question"
             value={newQ}
             onInput={(e) => setNewQ((e.target as HTMLInputElement).value)}
             autoFocus
           />
           <textarea
-            class="cz-tf-textarea"
+            class="cz-tf-control cz-tf-textarea"
             placeholder="Answer (optional)"
             value={newA}
             onInput={(e) => setNewA((e.target as HTMLTextAreaElement).value)}

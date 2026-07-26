@@ -56,7 +56,7 @@ export function ServiceInclusionsEditor({ draft, onChange }: Props) {
           <div key={item.id} class="cz-ie-row">
             <input
               type="text"
-              class="cz-tf-input"
+              class="cz-tf-control cz-tf-input"
               value={item.label}
               onInput={(e) => updateLabel(i, (e.target as HTMLInputElement).value)}
             />
@@ -76,7 +76,7 @@ export function ServiceInclusionsEditor({ draft, onChange }: Props) {
         <div class="cz-tf-inline-add">
           <input
             type="text"
-            class="cz-tf-input"
+            class="cz-tf-control cz-tf-input"
             placeholder="Inclusion label"
             value={newLabel}
             onInput={(e) => setNewLabel((e.target as HTMLInputElement).value)}

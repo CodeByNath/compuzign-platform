@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
+import { AdminField } from '@/drawer-kit/fields';
 import type { Category, ServiceItem } from '@/api/types/cost-builder';
 import type { OverviewDraft } from '@/service-station';
 import { decodeHtml } from '@/utils/format';
@@ -96,32 +97,31 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
 
   return (
     <div class="cz-tf-form">
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Title</label>
-        <input
-          type="text"
-          class="cz-tf-input"
-          value={draft.title}
-          onInput={(e) => onChange({ title: (e.target as HTMLInputElement).value })}
-        />
-      </div>
+      <AdminField
+        def={{ id: 'cz-service-title', type: 'text', label: 'Title' }}
+        value={draft.title}
+        onChange={(title) => onChange({ title })}
+      />
 
-      <div class="cz-tf-field">
-        <label class="cz-tf-label">Description</label>
-        <textarea
-          class="cz-tf-textarea"
-          value={draft.content}
-          onInput={(e) => onChange({ content: (e.target as HTMLTextAreaElement).value })}
-        />
-      </div>
+      <AdminField
+        def={{ id: 'cz-service-description', type: 'textarea', label: 'Description' }}
+        value={draft.content}
+        onChange={(content) => onChange({ content })}
+      />
 
+      {/* Category is not an ordinary metadata field: the control transforms
+          between a browse select and a create input, commits on Enter or blur,
+          cancels on Escape, and can reveal the chosen category's description
+          beneath it. It stays a dedicated composite and consumes the shared
+          control classes rather than being flattened into a field definition. */}
       <div class="cz-tf-field">
-        <label class="cz-tf-label">Category</label>
+        <label class="cz-tf-label" for="cz-service-category">Category</label>
         {isAdding ? (
           <input
             ref={inputRef}
+            id="cz-service-category"
             type="text"
-            class="cz-tf-input"
+            class="cz-tf-control cz-tf-input"
             placeholder="New category name"
             value={newCatName}
             disabled={creating}
@@ -134,7 +134,8 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
           />
         ) : (
           <select
-            class={`cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
+            id="cz-service-category"
+            class={`cz-tf-control cz-tf-select${draft.category_id === null ? ' cz-tf-select--unset' : ''}`}
             value={draft.category_id !== null ? String(draft.category_id) : ''}
             onChange={(e) => {
               const val = (e.target as HTMLSelectElement).value;
@@ -156,15 +157,11 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
           </select>
         )}
 
-        {createErr && (
-          <p style="margin: 4px 0 0; font-size: var(--admin-fs-s-label); color: var(--admin-error)">
-            {createErr}
-          </p>
-        )}
+        {createErr && <p class="cz-tf-error">{createErr}</p>}
 
         {showDescription && (
           <textarea
-            class="cz-tf-textarea"
+            class="cz-tf-control cz-tf-textarea"
             placeholder="Category description (optional)"
             value={catDescription}
             rows={2}
