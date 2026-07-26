@@ -14,7 +14,7 @@
 //   Focused Tier System   Access          → Rate Sheet Access
 //                         Tier Structure  → Fixed Tier Slots
 //   Package Manager       Families        → Create Family     → drawer
-//                         Tiers           → Create Tier
+//                         Tiers           → Create Tier       → drawer
 //                         Rate Sheets     → Create Rate Sheet → drawer
 //
 // Focused Tier System configures the ONE Tier system focused above.
@@ -50,12 +50,11 @@ import {
 import { DeckDisclosure } from './DeckDisclosure';
 import { TierSettingsNav, type SettingsNavGroup } from './TierSettingsNav';
 import { FixedTierSlots, RateSheetAccess } from './FocusedTierSettings';
-import { CreateTier } from './PackageManagerSettings';
 
 // ── SECTION: CONTRACTS ────────────────────────────────────────────────────────
 
 /** The pool subjects Settings can launch a creation drawer for. */
-export type PoolSubject = 'family' | 'rate-sheet';
+export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
 
 interface Props {
   tool: TierInstancesToolState;
@@ -210,7 +209,13 @@ export function TierSystemSettings({
             description: 'The Tier system pool.',
             summary: `${tool.instances.length} in pool`,
             leaf: 'Create Tier',
-            content: <CreateTier tool={tool} />,
+            content: (
+              <PoolLauncher
+                label="Create Tier"
+                note="Opens the Tier drawer at its registration address, where the title, the description and an optional Package Family are entered. The backend mints its id and its five empty slots; no slot is filled here."
+                onLaunch={() => onPoolIntent('tier')}
+              />
+            ),
           },
           {
             id: 'rate-sheets',

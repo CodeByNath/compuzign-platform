@@ -160,6 +160,7 @@ export type TierInstanceStatus = 'draft' | 'active' | 'disabled' | 'archived' | 
 export interface TierInstanceSummary {
   tier_instance_id:       string;
   title:                  string;
+  description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
   popular_tier:           string | null;
@@ -173,6 +174,7 @@ export interface TierInstanceSummary {
 export interface TierInstanceRecord {
   tier_instance_id:       string;
   title:                  string;
+  description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
   popular_tier:           string | null;

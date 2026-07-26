@@ -426,51 +426,71 @@ check(
 );
 check(
   managerGroup.includes("onPoolIntent('family')")
+    && managerGroup.includes("onPoolIntent('tier')")
     && managerGroup.includes("onPoolIntent('rate-sheet')"),
-  'Families and Rate Sheets launch a drawer rather than rendering a creation form',
+  'every pool subject launches a drawer rather than rendering a creation form',
 );
 
-// The Settings shell holds no creation authority of its own. It dispatches a
+// The Settings lane holds no creation authority of its own. It dispatches a
 // subject and nothing else — no endpoint, no draft, no save, no form. Its one
 // remaining write is the focused instance's own `allowed_rate_sheet_ids`, which
 // configures a Tier system rather than creating a pool record.
 for (const forbidden of [
   'createPackageFamily',
   'createRateSheet',
+  'createInstance',
   'savePackageStationManager',
   'buildManagerSavePayload',
   'toRateSheetEditorList',
   '<form',
 ]) {
-  check(!settingsSource.includes(forbidden), `the Settings shell performs no ${forbidden} of its own`);
+  check(!settingsSource.includes(forbidden), `the Settings lane performs no ${forbidden} of its own`);
 }
+check(
+  !existsSync(resolve(
+    root,
+    'resources/ts/package-station/presentation/package-tier-workspace/PackageManagerSettings.tsx',
+  )),
+  'no inline Package Manager creation form survives beside the launchers',
+);
 
-// Create Tier is the one form left, and only because a Tier system still has no
-// creation drawer. It is the sole creation call in the lane, and it writes one
-// record: no assignment, no slot, no access grant.
-const creationSource = readFileSync(resolve(
+// Registration is ONE atomic creation, addressed on the mature `tier` drawer
+// rather than a second Tier editor. It fills no slot and chains into no workflow.
+const registrationSource = readFileSync(resolve(
   root,
-  'resources/ts/package-station/presentation/package-tier-workspace/PackageManagerSettings.tsx',
+  'resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx',
 ), 'utf8');
 for (const forbidden of [
-  'createTierAssignment',
-  'assignInstance',
+  'encodeTierSlotDrawerRecordId',
+  'saveTierFeatures',
   'allowed_rate_sheet_ids',
-  'addTierCapability',
-  'selectedFamily',
-  'workspaceInstance',
-  'rateSheets',
+  'rate_sheet_id',
+  'occupant',
 ]) {
-  check(!creationSource.includes(forbidden), `the remaining form performs no ${forbidden}`);
+  check(!registrationSource.includes(forbidden), `registration performs no ${forbidden}`);
 }
 check(
-  (creationSource.match(/tool\.createInstance/g) ?? []).length === 1,
-  'Create Tier is the only creation call left in the Settings lane',
+  registrationSource.includes('registration.instance.tier_instance_id'),
+  'registration reports the stored id the backend minted, never the title it was given',
 );
+
+// A Package Family is not a field on a Tier system. The instance schema carries
+// no Family vocabulary, so the link must stay a separate assignment write.
+const registrationHook = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/tierInstance/useTierRegistration.ts',
+), 'utf8');
 check(
-  creationSource.includes('reference: instance.tier_instance_id')
-    && creationSource.includes('role="status"'),
-  'Create Tier reports the stored id the backend minted, through the live-region pattern',
+  registrationHook.includes('tool.assignInstance')
+    && registrationHook.includes('tool.unassignInstance'),
+  'a Family is linked through the assignment ledger, not written onto the instance',
+);
+for (const forbidden of ['family_id', 'consumer_id:', 'group_id:']) {
+  check(!registrationHook.includes(forbidden), `registration writes no ${forbidden} onto the instance`);
+}
+check(
+  registrationHook.includes('tool.eligibleFamilies'),
+  'only Families holding no Tier system are offered, so no assignment is silently retargeted',
 );
 
 // The atomic-creation hook is gone. Family, Rate Sheet and group creation are

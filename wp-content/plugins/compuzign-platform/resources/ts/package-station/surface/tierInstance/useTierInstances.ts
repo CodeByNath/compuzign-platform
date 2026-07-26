@@ -38,10 +38,13 @@ export interface TierInstancesToolState {
   /** Increments for Package-owned Open Tier tool hand-offs, even when identity is unchanged. */
   openRequestRevision: number;
   selectInstance: (instanceId: string) => void;
-  createInstance: (title: string) => Promise<TierInstanceRecord | null>;
+  /** Registers ONE Tier system. The backend mints its id and its five empty slots. */
+  createInstance: (
+    payload: { title: string; description?: string },
+  ) => Promise<TierInstanceRecord | null>;
   updateInstance: (
     instanceId: string,
-    payload: { title?: string; allowed_rate_sheet_ids?: string[] },
+    payload: { title?: string; description?: string; allowed_rate_sheet_ids?: string[] },
   ) => Promise<TierInstanceRecord | null>;
   assignInstance: (instanceId: string, familyId: string) => Promise<boolean>;
   unassignInstance: (instanceId: string) => Promise<boolean>;
@@ -130,11 +133,13 @@ export function useTierInstances(): TierInstancesToolState {
     [families, assignments],
   );
 
-  const createInstance = useCallback(async (title: string): Promise<TierInstanceRecord | null> => {
+  const createInstance = useCallback(async (
+    payload: { title: string; description?: string },
+  ): Promise<TierInstanceRecord | null> => {
     setSaving(true);
     setError(null);
     try {
-      const response = await createTierInstance({ title });
+      const response = await createTierInstance(payload);
       if (!response.success) return null;
       setSelectedInstanceId(response.tier_instance.tier_instance_id);
       refetch();
@@ -149,7 +154,7 @@ export function useTierInstances(): TierInstancesToolState {
 
   const updateInstance = useCallback(async (
     instanceId: string,
-    payload: { title?: string; allowed_rate_sheet_ids?: string[] },
+    payload: { title?: string; description?: string; allowed_rate_sheet_ids?: string[] },
   ): Promise<TierInstanceRecord | null> => {
     setSaving(true);
     setError(null);

@@ -320,6 +320,7 @@ class PackageStationController
         $instance = [
             'tier_instance_id' => TierInstanceSchema::mintInstanceId(),
             'title' => $title,
+            'description' => sanitize_textarea_field((string) (is_array($body) ? ($body['description'] ?? '') : '')),
             'status' => 'disabled',
             'allowed_rate_sheet_ids' => TierInstanceSchema::sanitizeAllowedRateSheetIds(
                 is_array($body) ? ($body['allowed_rate_sheet_ids'] ?? []) : [],
@@ -359,6 +360,11 @@ class PackageStationController
                 ], 422);
             }
             $instance['title'] = $title;
+        }
+        // A description is optional and may be cleared, so an empty string is a
+        // real value here rather than an absent one.
+        if (array_key_exists('description', $body)) {
+            $instance['description'] = sanitize_textarea_field((string) $body['description']);
         }
         if (array_key_exists('allowed_rate_sheet_ids', $body)) {
             $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);

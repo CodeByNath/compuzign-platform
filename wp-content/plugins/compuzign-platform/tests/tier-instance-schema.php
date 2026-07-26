@@ -5,6 +5,9 @@ declare(strict_types=1);
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
 }
+if (!function_exists('sanitize_textarea_field')) {
+    function sanitize_textarea_field(mixed $value): string { return trim(strip_tags((string) $value)); }
+}
 
 require_once __DIR__ . '/../src/Modules/Admin/Support/StationLifecycle.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageManagerSchema.php';
@@ -38,6 +41,22 @@ $base = [
 $duplicates = Schema::sanitizeInstances([$base, [...$base, 'title' => 'Duplicate']]);
 check_tier_instance(count($duplicates) === 1 && $duplicates[0]['title'] === 'A', 'duplicate ids are first-wins');
 check_tier_instance(array_keys(Schema::emptyTierMap()) === PackageSchema::ALLOWED_TIERS, 'empty map has all five fixed slots in order');
+
+// A description is the instance's own optional field. It survives a round trip,
+// defaults to empty rather than absent, and carries no Family vocabulary — the
+// consumer link stays in TierAssignmentSchema.
+$described = Schema::sanitizeInstances([[...$base, 'description' => "  Shared plans  \n"]]);
+check_tier_instance($described[0]['description'] === 'Shared plans', 'description is stored sanitised');
+$undescribed = Schema::sanitizeInstances([$base]);
+check_tier_instance(
+    array_key_exists('description', $undescribed[0]) && $undescribed[0]['description'] === '',
+    'an absent description is stored as empty rather than dropped'
+);
+$smuggled = Schema::sanitizeInstances([[...$base, 'consumer_id' => 'pf_a', 'family_id' => 'pf_a']]);
+check_tier_instance(
+    !array_key_exists('consumer_id', $smuggled[0]) && !array_key_exists('family_id', $smuggled[0]),
+    'an instance stores no consumer or Family field'
+);
 
 $allowed = Schema::sanitizeAllowedRateSheetIds(
     ['rs_b', 'unknown', 'rs_a', 'rs_b', ''],

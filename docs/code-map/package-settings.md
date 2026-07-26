@@ -17,7 +17,7 @@ Settings
 │   └── Tier Structure  → Fixed Tier Slots
 └── Package Manager
     ├── Families        → Create Family      → `package-family-create` drawer
-    ├── Tiers           → Create Tier        (form; no Tier creation drawer exists yet)
+    ├── Tiers           → Create Tier        → `tier` drawer, registration address
     └── Rate Sheets     → Create Rate Sheet  → `rate-sheet` drawer, edit mode
 ```
 
@@ -31,8 +31,8 @@ Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-stati
 - [TierSettingsNav.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSettingsNav.tsx) is a second control over that same id, not second state. Each item is a button carrying `aria-controls`, `aria-expanded`, and `aria-current`; opening moves focus to the section's own header.
 - [DeckDisclosure.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/DeckDisclosure.tsx) is the shared WAI-ARIA disclosure, also used by the Connections lane. Settings passes `open`, `onToggle`, `idPrefix`, and `headingLevel={5}`; Connections uses the uncontrolled form.
 - [FocusedTierSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx) renders Rate Sheet Access and Fixed Tier Slots in the deck's row grammar. Access writes the focused instance's own `allowed_rate_sheet_ids` through `useTierInstances.updateInstance`; an empty allow-list means every active sheet, and an allowed id that no longer resolves is listed by that id as unresolved rather than dropped. At least one active sheet must stay allowed. Slots report the stored slot key plus the occupant's own label, `occ_…` id, status, and bound sheet; occupied slots offer View/Edit into the `tier` drawer and empty slots offer only Configure.
-- The Package Manager launchers live in the shell, as a `PoolLauncher` per subject dispatching a `PoolSubject`. Nothing else crosses that edge, because there is no record yet. `PackageTierWorkspace.dispatchPoolIntent` maps the subject to a registered intent (`create-package-family` → `package-family-create`, `create-rate-sheet` → `rate-sheet` in edit mode), forwarded down the same `TierLowerDeck` chain as `onTierAction`.
-- [PackageManagerSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageManagerSettings.tsx) holds only `CreateTier`, and only until a Tier system can be registered in a drawer. `useTierInstances.createInstance` sends a title and PHP mints the five-slot shell; nothing else can register one today, so removing the form first would take a capability away rather than move it.
+- The Package Manager launchers live in the shell, as a `PoolLauncher` per subject dispatching a `PoolSubject`. Nothing else crosses that edge, because there is no record yet. `PackageTierWorkspace.dispatchPoolIntent` maps the subject to a registered intent (`create-package-family` → `package-family-create`, `register-tier` → the binding's own `tier` drawer at `tier-register:`, `create-rate-sheet` → `rate-sheet` in edit mode), forwarded down the same `TierLowerDeck` chain as `onTierAction`. Settings offers no Family when it registers a Tier system, because it pre-selects nothing from what is focused above it.
+- Settings holds no creation form at all. `PackageManagerSettings.tsx` is gone; see [Tiers](tiers.md) for the `tier` drawer's registration address.
 
 ## Invariants
 

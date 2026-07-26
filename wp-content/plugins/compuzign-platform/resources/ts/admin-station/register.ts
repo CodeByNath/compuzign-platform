@@ -99,6 +99,10 @@ export function registerPresentationPolicy(): void {
         { id: 'view', target: 'drawer', mode: 'view' },
         { id: 'edit', target: 'drawer', mode: 'edit' },
         { id: 'create-package-family', target: 'drawer', mode: 'edit', drawerTemplateKey: 'package-family-create' },
+        // Registering a Tier system uses the binding's own `tier` drawer at its
+        // registration address — the same mature composition, addressed before
+        // any instance exists. It needs no drawer key of its own.
+        { id: 'register-tier', target: 'drawer', mode: 'edit' },
         // The lower-deck Settings cards open the Package-owned Rate Sheet drawer
         // from this same surface. Its own drawer key overrides the binding's
         // `tier`, so no second body surface renders beneath the workspace.

@@ -149,6 +149,7 @@ final class TierInstanceSchema
         return [
             'tier_instance_id'       => $id,
             'title'                  => sanitize_text_field((string) ($instance['title'] ?? '')),
+            'description'            => sanitize_textarea_field((string) ($instance['description'] ?? '')),
             'status'                 => $status,
             'allowed_rate_sheet_ids' => self::sanitizeIdList($instance['allowed_rate_sheet_ids'] ?? []),
             'popular_tier'           => $popularTier,

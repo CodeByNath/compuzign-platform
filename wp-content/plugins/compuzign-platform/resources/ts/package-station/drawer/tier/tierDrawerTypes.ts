@@ -43,6 +43,7 @@ export interface TierBinPrompt {
 
 const TIER_DRAWER_RECORD_PREFIX = 'tier-instance:';
 const TIER_SLOT_DRAWER_RECORD_PREFIX = 'tier-slot:';
+const TIER_REGISTRATION_RECORD_PREFIX = 'tier-register:';
 const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate']);
 
 /** Package-owned routing token; the card itself keeps occupant_id identity. */
@@ -71,4 +72,22 @@ export function decodeTierSlotDrawerRecordId(
   return instanceId && FIXED_TIER_SLOTS.has(slotId) && extra.length === 0
     ? { instanceId, slotId }
     : null;
+}
+
+/**
+ * Registration route. There is no Tier system yet, so this token addresses no
+ * instance — it carries only the Package Family the caller already had in hand,
+ * which the form pre-selects. An empty family segment means none was offered,
+ * not that one failed to resolve; a Tier system may be registered standalone.
+ */
+export function encodeTierRegistrationRecordId(familyId: string | null): string {
+  return `${TIER_REGISTRATION_RECORD_PREFIX}${familyId ?? ''}`;
+}
+
+export function decodeTierRegistrationRecordId(
+  recordId: string,
+): { familyId: string | null } | null {
+  if (!recordId.startsWith(TIER_REGISTRATION_RECORD_PREFIX)) return null;
+  const [familyId, ...extra] = recordId.slice(TIER_REGISTRATION_RECORD_PREFIX.length).split(':');
+  return extra.length === 0 ? { familyId: familyId || null } : null;
 }

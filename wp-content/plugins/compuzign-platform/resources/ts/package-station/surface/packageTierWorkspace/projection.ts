@@ -59,6 +59,7 @@ export function summarizeTierInstance(instance: TierInstanceRecord): TierInstanc
   return {
     tier_instance_id: instance.tier_instance_id,
     title: instance.title,
+    description: instance.description,
     status: instance.status,
     allowed_rate_sheet_ids: [...instance.allowed_rate_sheet_ids],
     popular_tier: instance.popular_tier,

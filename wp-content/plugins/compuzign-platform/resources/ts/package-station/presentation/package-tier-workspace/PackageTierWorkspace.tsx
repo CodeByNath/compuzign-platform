@@ -9,6 +9,7 @@ import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-gro
 import type { PackageTierWorkspaceTool } from '../../surface/packageTierWorkspace/usePackageTierWorkspace';
 import {
   encodeTierDrawerRecordId,
+  encodeTierRegistrationRecordId,
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
 import { encodeTierInclusionDrawerRecordId } from '../../drawer/inclusion/tierInclusionDrawerTypes';
@@ -154,6 +155,12 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   // Neither disturbs the focused Family or slot, and each refreshes this surface
   // through the `refetch` the host handed the drawer at dispatch.
   const dispatchPoolIntent = (subject: PoolSubject) => {
+    if (subject === 'tier') {
+      // Registering from Settings offers no Family, because Settings pre-selects
+      // nothing from whatever happens to be focused above it.
+      onIntent(encodeTierRegistrationRecordId(null), 'register-tier');
+      return;
+    }
     onIntent('new', subject === 'family' ? 'create-package-family' : 'create-rate-sheet');
   };
 
