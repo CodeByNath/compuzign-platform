@@ -804,76 +804,82 @@ check(
   'the empty Tier Overview module carries the message its Pending pill opens with',
 );
 
-// ── Connections lane composition ──────────────────────────────────────────────
+// ── Connections card / tab / row composition ────────────────────────────────────
 const lowerDeckSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx',
 ), 'utf8');
-const connectionsLane = lowerDeckSource.slice(lowerDeckSource.indexOf('function ConnectionsLane'));
-
-// Connections is exactly two top-level disclosures — Stations and Tools — and the
-// connected record types live inside them as named subsections, never as siblings.
-check(
-  (connectionsLane.match(/<DeckDisclosure$/gm) ?? []).length === 2,
-  'the Connections lane opens exactly two top-level disclosures',
-);
-const stationsScope = connectionsLane.slice(
-  connectionsLane.indexOf('title="Stations"'),
-  connectionsLane.indexOf('title="Tools"'),
-);
-check(
-  connectionsLane.indexOf('title="Stations"') < connectionsLane.indexOf('title="Tools"'),
-  'the Connections lane presents Stations before Tools',
-);
-check(
-  stationsScope.includes('title="Family Groups"') && stationsScope.includes('title="Groups"'),
-  'Stations holds the Family Groups and Groups subsections',
-);
-check(
-  connectionsLane.slice(connectionsLane.indexOf('title="Tools"')).includes('title="Rate Sheets"'),
-  'Tools holds the Rate Sheets subsection',
-);
-check(
-  stationsScope.includes('defaultOpen') && !connectionsLane.slice(
-    connectionsLane.indexOf('title="Tools"'),
-  ).includes('defaultOpen'),
-  'Stations opens by default and Tools stays collapsed until asked for',
-);
-
-// The disclosure is a real, keyboard-operable button bound to its own panel — it
-// adds presentation state and nothing else. One implementation serves both lanes:
-// the Connections lane lets each section hold its own state, Settings drives them
-// from one shared id, and neither forks the accessible markup.
-const disclosureSource = readFileSync(resolve(
+const tabSetSource = readFileSync(resolve(
   root,
-  'resources/ts/package-station/presentation/package-tier-workspace/DeckDisclosure.tsx',
+  'resources/ts/package-station/presentation/package-tier-workspace/TierTabSet.tsx',
 ), 'utf8');
+const connectionsSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierConnections.tsx',
+), 'utf8');
+const workspaceSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx',
+), 'utf8');
+
 check(
-  disclosureSource.includes('type="button"')
-    && disclosureSource.includes('aria-expanded={open}')
-    && disclosureSource.includes('aria-controls={panelId}')
-    && disclosureSource.includes('aria-labelledby={triggerId}')
-    && disclosureSource.includes('useId'),
-  'the deck disclosure is a real button with aria-expanded, aria-controls and stable ids',
+  lowerDeckSource.includes('<TierTabSet') && connectionsSource.includes('variant="selectors"')
+    && connectionsSource.includes('variant="nested"'),
+  'one workspace tab contract renders the deck lanes, compact selectors, and nested connection tabs',
 );
 check(
-  disclosureSource.includes('controlledOpen ?? uncontrolledOpen')
-    && disclosureSource.includes('idPrefix ?? uid'),
-  'the deck disclosure supports a controlled open state and a caller-supplied id stem',
+  tabSetSource.includes('role="tablist"')
+    && tabSetSource.includes('role="tab"')
+    && tabSetSource.includes('aria-selected={selected}')
+    && tabSetSource.includes('aria-controls={panelId}')
+    && tabSetSource.includes('role="tabpanel"')
+    && tabSetSource.includes('aria-labelledby={`${uid}-tab-${item.id}`}')
+    && tabSetSource.includes('tabIndex={selected ? 0 : -1}'),
+  'every workspace tab level has matching tab/panel ids and a roving tab stop',
 );
 check(
-  !connectionsLane.includes('onIntent') && !connectionsLane.includes('onInclusionIntent'),
-  'the Connections lane dispatches no Tier-scoped or inclusion-scoped intent, so no row re-opens the Tier drawer',
+  tabSetSource.includes("event.key === 'ArrowRight'")
+    && tabSetSource.includes("event.key === 'ArrowLeft'")
+    && tabSetSource.includes("event.key === 'Home'")
+    && tabSetSource.includes("event.key === 'End'"),
+  'the shared tab contract supports Arrow, Home, and End keyboard navigation',
 );
 check(
-  connectionsLane.includes('onFamilyIntent(family.id')
-    && connectionsLane.includes('onGroupIntent(group.rateSheetId, group.groupId')
-    && connectionsLane.includes('onRateSheetIntent(rateSheet.rateSheetId'),
-  'every Connections row dispatches the connected record\'s own stored id, never its label',
+  connectionsSource.includes('navigation: ConnectionNavigationCategory[]')
+    && connectionsSource.includes('tab.rows.length === 0')
+    && connectionsSource.includes('{tab.emptyState}')
+    && connectionsSource.includes('row.target'),
+  'Connections renders the typed projection rows and honest empty state, then dispatches the canonical target',
 );
 check(
-  connectionsLane.includes('NotConfiguredRow') && connectionsLane.includes('DISABLED_ROW_ACTIONS'),
-  'a missing connection reports Not configured with its actions disabled rather than omitted',
+  !connectionsSource.includes('projectConnectionNavigation')
+    && !connectionsSource.includes('NotConfiguredRow')
+    && !connectionsSource.includes('family: WorkspaceFamilyScope')
+    && !connectionsSource.includes('groups: DeckRateSheetGroupConnection')
+    && !connectionsSource.includes('rateSheet: DeckRateSheetConnection'),
+  'Connections owns no domain derivation, raw domain collections, or placeholder entity rows',
+);
+check(
+  connectionsSource.includes('StationSplitAction')
+    && connectionsSource.includes("view: 'View'")
+    && connectionsSource.includes('cz-tier-deck__row--compact')
+    && connectionsSource.includes('TierDeckRowIdentity'),
+  'compact rows retain canonical identity, primary View, supported secondary actions, and Station split actions',
+);
+check(
+  lowerDeckSource.includes('key={connectionScopeKey}')
+    && workspaceSource.includes("tool.selectedFamily?.id ?? 'unassigned'")
+    && workspaceSource.includes("instanceId ?? 'no-instance'")
+    && workspaceSource.includes("selectedSlot?.slotId ?? 'no-slot'")
+    && workspaceSource.includes("selectedSlot?.occupantId ?? 'empty'"),
+  'connection selection state resets on the exact Family, instance, slot, and occupant scope',
+);
+check(
+  workspaceSource.includes("target.kind === 'package-family'")
+    && workspaceSource.includes("target.kind === 'rate-sheet-group'")
+    && workspaceSource.includes('target.rateSheetId')
+    && workspaceSource.includes('target.groupId'),
+  'the orchestrator resolves the typed target union through the existing canonical drawer routes',
 );
 
 const scopedDrawerSource = readFileSync(resolve(

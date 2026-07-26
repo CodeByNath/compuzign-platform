@@ -2244,6 +2244,23 @@ button.cz-station-status-pill {
   list-style: none;
 }
 
+.cz-tier-deck__list--compact {
+  gap: 0;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+}
+
+.cz-tier-deck__list--compact > .cz-tier-deck__row--compact {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cz-tier-deck__list--compact > .cz-tier-deck__row--compact + .cz-tier-deck__row--compact {
+  border-top: 1px solid var(--station-card-divider);
+}
+
 .cz-tier-deck__row {
   display: grid;
   grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(80px, 0.5fr) auto auto;
@@ -2257,16 +2274,6 @@ button.cz-station-status-pill {
 
 .cz-tier-deck__row--connection {
   grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
-}
-
-/* A connection that does not exist keeps the row shape, with one wide
-   explanation in place of the two summary fields. */
-.cz-tier-deck__row--empty {
-  grid-template-columns: minmax(200px, 1.6fr) minmax(200px, 2.2fr) minmax(120px, 0.7fr) auto;
-}
-
-.cz-tier-deck__field--wide {
-  color: var(--station-text-muted);
 }
 
 /* Connections — one selected category card exposes one focused content panel. */
@@ -2532,6 +2539,17 @@ button.cz-station-status-pill {
 .cz-tier-deck__identity-icon > svg {
   width: var(--station-card-glyph-size);
   height: var(--station-card-glyph-size);
+}
+
+.cz-tier-deck__identity-icon--compact {
+  width: var(--station-metric-glyph-plate);
+  height: var(--station-metric-glyph-plate);
+  border-radius: var(--station-metric-glyph-radius);
+}
+
+.cz-tier-deck__identity-icon--compact > svg {
+  width: var(--station-metric-glyph-size);
+  height: var(--station-metric-glyph-size);
 }
 
 .cz-tier-deck__identity-copy {

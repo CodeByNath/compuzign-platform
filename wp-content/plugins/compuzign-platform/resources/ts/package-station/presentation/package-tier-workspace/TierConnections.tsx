@@ -1,22 +1,22 @@
-// Tier Workspace Connections — compact category selectors and connected records.
+// Tier Workspace Connections — compact category selectors, nested tabs, and
+// canonical connected-record rows.
 //
-// The pure Package-owned navigation projection supplies every category, summary,
-// subsection, row, status, empty state, and drawer target. This presentation owns
-// only the currently selected category. It does not fetch, infer relationships,
-// encode routes, or open a drawer directly.
+// The Package-owned surface projection supplies every category, summary, tab,
+// row, status, empty state, action, and target. This component owns selection
+// only; it fetches nothing, derives no relationship, encodes no route, and opens
+// no drawer directly.
 
-import { useMemo, useState } from 'preact/hooks';
-import type { ComponentChildren, VNode } from 'preact';
+import { useState } from 'preact/hooks';
+import type { VNode } from 'preact';
 import type {
-  DeckRateSheetConnection,
-  DeckRateSheetGroupConnection,
-} from '../../surface/packageTierWorkspace/deck';
-import {
-  projectConnectionNavigation,
-  type ConnectionCategoryId,
-  type ConnectionTabId,
+  ConnectionActionId,
+  ConnectionCategoryId,
+  ConnectionNavigationCategory,
+  ConnectionNavigationTab,
+  ConnectionRow,
+  ConnectionTabId,
+  ConnectionTarget,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
-import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import {
   AppsIcon,
@@ -24,24 +24,18 @@ import {
   RateSheetIcon,
   ServicesIcon,
 } from '@/admin-station/shell/icons';
+import { TierDeckRowIdentity } from './TierDeckRowIdentity';
 import { TierTabSet } from './TierTabSet';
 
 interface Props {
-  family:    WorkspaceFamilyScope | null;
-  groups:    DeckRateSheetGroupConnection[];
-  rateSheet: DeckRateSheetConnection | null;
-  hasFocusedTier: boolean;
-  onFamilyIntent:    (familyId: string, actionId: 'view' | 'edit') => void;
-  onGroupIntent:     (rateSheetId: string, groupId: string, actionId: 'view' | 'edit') => void;
-  onRateSheetIntent: (rateSheetId: string, actionId: 'view' | 'edit') => void;
+  navigation: ConnectionNavigationCategory[];
+  onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
 }
 
-const ROW_ACTIONS = [
-  { id: 'view', label: 'View' },
-  { id: 'edit', label: 'Edit' },
-];
-
-const DISABLED_ROW_ACTIONS = ROW_ACTIONS.map((action) => ({ ...action, disabled: true }));
+const ACTION_LABELS: Record<ConnectionActionId, string> = {
+  view: 'View',
+  edit: 'Edit',
+};
 
 const CONNECTION_STATUS_TOKEN: Record<string, string> = {
   active:         'active',
@@ -59,155 +53,25 @@ function connectionStatus(status: string): { label: string; token: string } {
   };
 }
 
-export function TierConnections({
-  family,
-  groups,
-  rateSheet,
-  hasFocusedTier,
-  onFamilyIntent,
-  onGroupIntent,
-  onRateSheetIntent,
-}: Props): VNode {
-  const navigation = useMemo(() => projectConnectionNavigation({
-    family, groups, rateSheet, hasFocusedTier,
-  }), [family, groups, hasFocusedTier, rateSheet]);
-  const [selectedId, setSelectedId] = useState<ConnectionCategoryId>('stations');
+export function TierConnections({ navigation, onIntent }: Props): VNode {
+  const [selectedId, setSelectedId] = useState<ConnectionCategoryId>(navigation[0]?.id ?? 'stations');
   const [selectedTabs, setSelectedTabs] = useState<Record<ConnectionCategoryId, ConnectionTabId>>({
     stations: 'family-groups',
     tools:    'rate-sheets',
   });
-
-  const renderLegacyTab = (tabId: ConnectionTabId): ComponentChildren => {
-    if (tabId === 'family-groups') {
-      return (
-        <ConnectionSection
-          title="Family Groups"
-          note="The Package Family this Tier system is assigned to, resolved through the assignment ledger. View and Edit open the Package Family drawer."
-        >
-          {family === null ? (
-            <NotConfiguredRow
-              label="No Package Family"
-              copy="This Tier instance is being operated directly and is assigned to no Family."
-            />
-          ) : (
-            <ul class="cz-tier-deck__list">
-              <li class="cz-tier-deck__row cz-tier-deck__row--connection">
-                <ConnectionIdentity icon={<ServicesIcon />} name={family.name} reference={family.id} />
-                <div class="cz-tier-deck__field">
-                  <span class="cz-tier-deck__field-label">Summary</span>
-                  {family.description.trim() || '—'}
-                </div>
-                <div class="cz-tier-deck__field">
-                  <span class="cz-tier-deck__field-label">Assigned Services</span>
-                  <span class="cz-tier-deck__money">{family.dependents.services}</span>
-                </div>
-                <ConnectionStatus status={family.status} />
-                <div class="cz-tier-deck__row-actions">
-                  <StationSplitAction
-                    actions={ROW_ACTIONS}
-                    controlLabel={family.name}
-                    onAction={(actionId) => onFamilyIntent(family.id, actionId as 'view' | 'edit')}
-                  />
-                </div>
-              </li>
-            </ul>
-          )}
-        </ConnectionSection>
-      );
-    }
-
-    if (tabId === 'groups') {
-      return (
-        <ConnectionSection
-          title="Groups"
-          note="Rate Sheet groups this Tier draws priced rows from. View and Edit open that group scoped to this Tier."
-        >
-          {!hasFocusedTier ? (
-            <p class="cz-station-empty">Focus a configured Tier to see the groups it connects to.</p>
-          ) : groups.length === 0 ? (
-            <NotConfiguredRow
-              label="No connected group"
-              copy="This Tier draws no resolving row from a group its Rate Sheet stores."
-            />
-          ) : (
-            <ul class="cz-tier-deck__list">
-              {groups.map((group) => (
-                <li key={group.groupId} class="cz-tier-deck__row cz-tier-deck__row--connection">
-                  <ConnectionIdentity icon={<RateSheetIcon />} name={group.title} reference={group.groupId} />
-                  <div class="cz-tier-deck__field">
-                    <span class="cz-tier-deck__field-label">Connected rows</span>
-                    <span class="cz-tier-deck__money">{group.connectedRows}</span>
-                  </div>
-                  <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
-                    <span class="cz-tier-deck__field-label">Coverage</span>
-                    {group.coverage} selected
-                  </div>
-                  <ConnectionStatus status={group.status} />
-                  <div class="cz-tier-deck__row-actions">
-                    <StationSplitAction
-                      actions={ROW_ACTIONS}
-                      controlLabel={group.title}
-                      onAction={(actionId) => onGroupIntent(group.rateSheetId, group.groupId, actionId as 'view' | 'edit')}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </ConnectionSection>
-      );
-    }
-
-    return (
-      <ConnectionSection
-        title="Rate Sheets"
-        note="The Rate Sheet this Tier binds. View and Edit open its pricing grid filtered to this Tier's connected inclusions."
-      >
-        {!hasFocusedTier ? (
-          <p class="cz-station-empty">Focus a configured Tier to see the Rate Sheet it binds. Sheet availability stays in Settings.</p>
-        ) : rateSheet === null ? (
-          <NotConfiguredRow
-            label="No Rate Sheet bound"
-            copy="This Tier binds no Rate Sheet, so it prices nothing. Bind one from the Tier drawer."
-          />
-        ) : (
-          <ul class="cz-tier-deck__list">
-            <li class="cz-tier-deck__row cz-tier-deck__row--connection">
-              <ConnectionIdentity icon={<RateSheetIcon />} name={rateSheet.title} reference={rateSheet.rateSheetId} />
-              <div class="cz-tier-deck__field">
-                <span class="cz-tier-deck__field-label">Connected inclusions</span>
-                <span class="cz-tier-deck__money">{rateSheet.connectedInclusions}</span>
-              </div>
-              <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
-                <span class="cz-tier-deck__field-label">Connected rows</span>
-                {rateSheet.connectedRows}
-              </div>
-              <ConnectionStatus status={rateSheet.status} />
-              <div class="cz-tier-deck__row-actions">
-                <StationSplitAction
-                  actions={ROW_ACTIONS}
-                  controlLabel={rateSheet.title}
-                  onAction={(actionId) => onRateSheetIntent(rateSheet.rateSheetId, actionId as 'view' | 'edit')}
-                />
-              </div>
-            </li>
-          </ul>
-        )}
-      </ConnectionSection>
-    );
-  };
+  const selectedCategory = navigation.find((category) => category.id === selectedId) ?? navigation[0];
 
   return (
     <div class="cz-tier-deck__connections">
       <TierTabSet
         label="Connection categories"
         items={navigation.map((category) => ({
-          id: category.id,
-          label: category.title,
+          id:      category.id,
+          label:   category.title,
           summary: category.summary,
-          icon: category.id === 'stations' ? <PackagesIcon /> : <AppsIcon />,
+          icon:    category.id === 'stations' ? <PackagesIcon /> : <AppsIcon />,
         }))}
-        selectedId={selectedId}
+        selectedId={selectedCategory.id}
         onSelect={setSelectedId}
         variant="selectors"
         renderPanel={(categoryId) => {
@@ -221,7 +85,10 @@ export function TierConnections({
               selectedId={selectedTab.id}
               onSelect={(tabId) => setSelectedTabs((current) => ({ ...current, [category.id]: tabId }))}
               variant="nested"
-              renderPanel={renderLegacyTab}
+              renderPanel={(tabId) => {
+                const tab = category.tabs.find((entry) => entry.id === tabId) ?? category.tabs[0];
+                return <ConnectionTabContent tab={tab} onIntent={onIntent} />;
+              }}
             />
           );
         }}
@@ -230,63 +97,82 @@ export function TierConnections({
   );
 }
 
-function ConnectionSection({ title, note, children }: {
-  title: string;
-  note:  string;
-  children: ComponentChildren;
+function ConnectionTabContent({ tab, onIntent }: {
+  tab: ConnectionNavigationTab;
+  onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
 }): VNode {
   return (
     <section class="cz-tier-deck__connection-section">
       <div class="cz-tier-deck__lane-head">
         <div>
-          <h5 class="cz-tier-deck__lane-title">{title}</h5>
-          <p class="cz-tier-deck__lane-note">{note}</p>
+          <h5 class="cz-tier-deck__lane-title">{tab.title}</h5>
+          <p class="cz-tier-deck__lane-note">{tab.description}</p>
         </div>
       </div>
-      {children}
+      {tab.rows.length === 0 ? (
+        <p class="cz-station-empty">{tab.emptyState}</p>
+      ) : (
+        <ul class="cz-tier-deck__list cz-tier-deck__list--compact">
+          {tab.rows.map((row) => (
+            <ConnectionRowView key={row.id} row={row} onIntent={onIntent} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
-function ConnectionIdentity({ icon, name, reference }: {
-  icon: VNode;
-  name: string;
-  reference: string;
+function ConnectionRowView({ row, onIntent }: {
+  row: ConnectionRow;
+  onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
 }): VNode {
+  const icon = row.kind === 'family' ? <ServicesIcon /> : <RateSheetIcon />;
+  const meta = connectionStatus(row.status);
   return (
-    <div class="cz-tier-deck__identity">
-      <span class="cz-tier-deck__identity-icon" aria-hidden="true">{icon}</span>
-      <div class="cz-tier-deck__identity-copy">
-        <strong class="cz-tier-deck__identity-name">{name}</strong>
-        <small class="cz-tier-deck__identity-ref">{reference}</small>
+    <li class="cz-tier-deck__row cz-tier-deck__row--connection cz-tier-deck__row--compact">
+      <TierDeckRowIdentity icon={icon} name={row.name} reference={row.reference} compact />
+      {row.kind === 'family' ? (
+        <>
+          <div class="cz-tier-deck__field">
+            <span class="cz-tier-deck__field-label">Summary</span>
+            {row.description || '—'}
+          </div>
+          <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
+            <span class="cz-tier-deck__field-label">Assigned Services</span>
+            <span class="cz-tier-deck__money">{row.assignedServices}</span>
+          </div>
+        </>
+      ) : row.kind === 'group' ? (
+        <>
+          <div class="cz-tier-deck__field">
+            <span class="cz-tier-deck__field-label">Connected rows</span>
+            <span class="cz-tier-deck__money">{row.connectedRows}</span>
+          </div>
+          <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
+            <span class="cz-tier-deck__field-label">Coverage</span>
+            {row.coverage} selected
+          </div>
+        </>
+      ) : (
+        <>
+          <div class="cz-tier-deck__field">
+            <span class="cz-tier-deck__field-label">Connected inclusions</span>
+            <span class="cz-tier-deck__money">{row.connectedInclusions}</span>
+          </div>
+          <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
+            <span class="cz-tier-deck__field-label">Connected rows</span>
+            {row.connectedRows}
+          </div>
+        </>
+      )}
+      <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>
+      <div class="cz-tier-deck__row-actions">
+        <StationSplitAction
+          actions={row.actions.map((actionId) => ({ id: actionId, label: ACTION_LABELS[actionId] }))}
+          controlLabel={row.name}
+          onAction={(actionId) => onIntent(row.target, actionId as ConnectionActionId)}
+        />
       </div>
-    </div>
-  );
-}
-
-function ConnectionStatus({ status }: { status: string }): VNode {
-  const meta = connectionStatus(status);
-  return <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>;
-}
-
-function NotConfiguredRow({ label, copy }: { label: string; copy: string }): VNode {
-  return (
-    <ul class="cz-tier-deck__list">
-      <li class="cz-tier-deck__row cz-tier-deck__row--connection cz-tier-deck__row--empty">
-        <ConnectionIdentity icon={<PackagesIcon />} name={label} reference="—" />
-        <div class="cz-tier-deck__field cz-tier-deck__field--wide">
-          <span class="cz-tier-deck__field-label">Connection</span>
-          {copy}
-        </div>
-        <span class="cz-tier-deck__status" data-status="inactive">Not configured</span>
-        <div class="cz-tier-deck__row-actions">
-          <StationSplitAction
-            actions={DISABLED_ROW_ACTIONS}
-            controlLabel={label}
-            onAction={() => undefined}
-          />
-        </div>
-      </li>
-    </ul>
+    </li>
   );
 }

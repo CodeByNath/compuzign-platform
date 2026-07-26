@@ -47,7 +47,10 @@ import type {
   DeckInclusion,
 } from '../../surface/packageTierWorkspace/deck';
 import type { PackageRateSheet, TierInstanceSummary } from '../../types';
-import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
+import type {
+  ConnectionNavigationCategory,
+  ConnectionTarget,
+} from '../../surface/packageTierWorkspace/connectionNavigation';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import type { PoolSubject } from './TierSystemSettings';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
@@ -59,6 +62,7 @@ import {
 import { TierSystemSettings } from './TierSystemSettings';
 import { TierConnections } from './TierConnections';
 import { TierTabSet } from './TierTabSet';
+import { TierDeckRowIdentity } from './TierDeckRowIdentity';
 
 // ── SECTION: contract ─────────────────────────────────────────────────────────
 
@@ -66,18 +70,15 @@ interface Props {
   familyName: string;
   tierName:   string;
   deck:       TierDeck;
+  connectionNavigation: ConnectionNavigationCategory[];
   activeTab:  DeckTab;
   hasFocusedTier: boolean;
   connectionScopeKey: string;
   tierTool: TierInstancesToolState;
-  family: WorkspaceFamilyScope | null;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
   settingsLoading: boolean;
   settingsError: string | null;
-  // Dispatches a registered action id ('view' | 'edit') for the focused Tier. The
-  // orchestrator binds it to the occupant_id, so this deck never handles identity.
-  onIntent:   (actionId: string) => void;
   // Dispatches a registered action id for ONE inclusion the focused Tier
   // selects. `itemId` is the Tier's Rate Sheet selection key, carried straight
   // from the row; the orchestrator scopes it to the instance and slot.
@@ -85,12 +86,7 @@ interface Props {
   // Dispatches a registered action id for the connected Package Family. The row
   // forwards the Family's own group_id; the orchestrator routes it to the mature
   // `package-family` drawer.
-  onFamilyIntent: (familyId: string, actionId: 'view' | 'edit') => void;
-  // Dispatches a registered action id for ONE Rate Sheet group the focused Tier
-  // connects to, carrying the stored (rate_sheet_id, group_id) pair.
-  onGroupIntent: (rateSheetId: string, groupId: string, actionId: 'view' | 'edit') => void;
-  // Dispatches a registered action id for the Rate Sheet the focused Tier binds.
-  onRateSheetIntent: (rateSheetId: string, actionId: 'view' | 'edit') => void;
+  onConnectionIntent: (target: ConnectionTarget, actionId: 'view' | 'edit') => void;
   onTierAction: (
     instanceId: string,
     slotId: string,
@@ -138,20 +134,17 @@ export function TierLowerDeck({
   familyName,
   tierName,
   deck,
+  connectionNavigation,
   activeTab,
   hasFocusedTier,
   connectionScopeKey,
   tierTool,
-  family,
   workspaceInstance,
   rateSheets,
   settingsLoading,
   settingsError,
-  onIntent,
   onInclusionIntent,
-  onFamilyIntent,
-  onGroupIntent,
-  onRateSheetIntent,
+  onConnectionIntent,
   onTierAction,
   onPoolIntent,
   onTabChange,
@@ -191,13 +184,8 @@ export function TierLowerDeck({
             return (
               <TierConnections
                 key={connectionScopeKey}
-                family={family}
-                groups={deck.groups}
-                rateSheet={deck.rateSheet}
-                hasFocusedTier={hasFocusedTier}
-                onFamilyIntent={onFamilyIntent}
-                onGroupIntent={onGroupIntent}
-                onRateSheetIntent={onRateSheetIntent}
+                navigation={connectionNavigation}
+                onIntent={onConnectionIntent}
               />
             );
           }
@@ -328,13 +316,11 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
 
   return (
     <li class="cz-tier-deck__row">
-      <div class="cz-tier-deck__identity">
-        <span class="cz-tier-deck__identity-icon" aria-hidden="true"><PackagesIcon /></span>
-        <div class="cz-tier-deck__identity-copy">
-          <strong class="cz-tier-deck__identity-name">{inclusion.name}</strong>
-          <small class="cz-tier-deck__identity-ref">{inclusion.sourceId ?? inclusion.itemId}</small>
-        </div>
-      </div>
+      <TierDeckRowIdentity
+        icon={<PackagesIcon />}
+        name={inclusion.name}
+        reference={inclusion.sourceId ?? inclusion.itemId}
+      />
       <div class="cz-tier-deck__field">
         <span class="cz-tier-deck__field-label">Category</span>
         {inclusion.categories.length > 0 ? inclusion.categories.join(' · ') : '—'}

@@ -18,6 +18,7 @@ import {
   encodeTierRateSheetGroupDrawerRecordId,
 } from '../../drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
+import type { ConnectionTarget } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
 import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
@@ -145,10 +146,6 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   // Rate Sheet drawers. None of them re-opens the Tier drawer, and none of them
   // disturbs the focused Family or slot, so the workspace is unchanged when the
   // drawer closes.
-  const dispatchFamilyIntent = (familyId: string, actionId: 'view' | 'edit') => {
-    onIntent(familyId, actionId === 'edit' ? 'edit-family' : 'view-family');
-  };
-
   // The Settings lane launches a pool subject's own creation drawer. There is no
   // record yet, so nothing but the subject crosses this edge: the Family drawer
   // ignores the id entirely and the Rate Sheet drawer reads the whole collection.
@@ -171,23 +168,26 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     onIntent('new', subject === 'family' ? 'create-package-family' : 'create-rate-sheet');
   };
 
-  const dispatchGroupIntent = (
-    slotId: string,
-    rateSheetId: string,
-    groupId: string,
-    actionId: 'view' | 'edit',
-  ) => {
-    if (instanceId === null) return;
+  const dispatchConnectionIntent = (target: ConnectionTarget, actionId: 'view' | 'edit') => {
+    if (target.kind === 'package-family') {
+      onIntent(target.familyId, actionId === 'edit' ? 'edit-family' : 'view-family');
+      return;
+    }
+    if (instanceId === null || selectedSlot === null) return;
+    if (target.kind === 'rate-sheet-group') {
+      onIntent(
+        encodeTierRateSheetGroupDrawerRecordId(
+          instanceId,
+          selectedSlot.slotId,
+          target.rateSheetId,
+          target.groupId,
+        ),
+        actionId === 'edit' ? 'edit-connected-group' : 'view-connected-group',
+      );
+      return;
+    }
     onIntent(
-      encodeTierRateSheetGroupDrawerRecordId(instanceId, slotId, rateSheetId, groupId),
-      actionId === 'edit' ? 'edit-connected-group' : 'view-connected-group',
-    );
-  };
-
-  const dispatchRateSheetIntent = (slotId: string, rateSheetId: string, actionId: 'view' | 'edit') => {
-    if (instanceId === null) return;
-    onIntent(
-      encodeTierRateSheetDrawerRecordId(instanceId, slotId, rateSheetId),
+      encodeTierRateSheetDrawerRecordId(instanceId, selectedSlot.slotId, target.rateSheetId),
       actionId === 'edit' ? 'edit-connected-rate-sheet' : 'view-connected-rate-sheet',
     );
   };
@@ -314,6 +314,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           familyName={contextName}
           tierName={selectedSlot?.item?.name ?? (selectedSlot ? `${selectedSlot.label} Tier` : 'Tier setup')}
           deck={selectedSlot?.item ? tool.decks[selectedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
+          connectionNavigation={selectedSlot?.occupantId
+            ? tool.connectionNavigation[selectedSlot.occupantId] ?? tool.emptyConnectionNavigation
+            : tool.emptyConnectionNavigation}
           activeTab={deckTab}
           hasFocusedTier={selectedSlot?.item !== null && selectedSlot !== null}
           connectionScopeKey={[
@@ -323,24 +326,14 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             selectedSlot?.occupantId ?? 'empty',
           ].join(':')}
           tierTool={tool.tierInstances}
-          family={tool.selectedFamily}
           workspaceInstance={tool.workspaceInstance}
           rateSheets={tool.rateSheets}
           settingsLoading={tool.settingsLoading}
           settingsError={tool.settingsError}
-          onIntent={(actionId) => {
-            if (selectedSlot) dispatchTierIntent(selectedSlot.slotId, selectedSlot.occupantId, actionId);
-          }}
           onInclusionIntent={(itemId, actionId) => {
             if (selectedSlot) dispatchInclusionIntent(selectedSlot.slotId, itemId, actionId);
           }}
-          onFamilyIntent={dispatchFamilyIntent}
-          onGroupIntent={(rateSheetId, groupId, actionId) => {
-            if (selectedSlot) dispatchGroupIntent(selectedSlot.slotId, rateSheetId, groupId, actionId);
-          }}
-          onRateSheetIntent={(rateSheetId, actionId) => {
-            if (selectedSlot) dispatchRateSheetIntent(selectedSlot.slotId, rateSheetId, actionId);
-          }}
+          onConnectionIntent={dispatchConnectionIntent}
           onTierAction={dispatchExplicitTierIntent}
           onPoolIntent={dispatchPoolIntent}
           onTabChange={setDeckTab}

@@ -29,6 +29,10 @@ import {
   projectTierDeck,
   type TierDeck,
 } from './deck';
+import {
+  projectConnectionNavigation,
+  type ConnectionNavigationCategory,
+} from './connectionNavigation';
 
 export interface PackageTierWorkspaceTool {
   kind: 'tier-instance-tool';
@@ -40,6 +44,8 @@ export interface PackageTierWorkspaceTool {
   occupants: CategoryGroupCardItem[];
   slots: WorkspaceTierSlot[];
   decks: Record<string, TierDeck>;
+  connectionNavigation: Record<string, ConnectionNavigationCategory[]>;
+  emptyConnectionNavigation: ConnectionNavigationCategory[];
   rateSheets: PackageRateSheet[];
   settingsLoading: boolean;
   settingsError: string | null;
@@ -202,16 +208,24 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       relationships,
     );
     const decks: Record<string, TierDeck> = {};
+    const connectionNavigation: Record<string, ConnectionNavigationCategory[]> = {};
     const resolvedOccupants = projectResolvedInstanceOccupants(
       workspaceInstance,
       pkg.tierOccupants.map(({ occupantId, slotId }) => {
         const view = pkg.tierView(slotId);
-        decks[occupantId] = projectTierDeck(
+        const deck = projectTierDeck(
           view?.detail.rate_sheet_selections ?? [],
           categoryByRateItem,
           rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
           view?.detail.rate_sheet_id ?? null,
         );
+        decks[occupantId] = deck;
+        connectionNavigation[occupantId] = projectConnectionNavigation({
+          family: selectedFamily,
+          groups: deck.groups,
+          rateSheet: deck.rateSheet,
+          hasFocusedTier: true,
+        });
         return {
           occupantId,
           slotId,
@@ -235,6 +249,13 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       occupants,
       slots: projectWorkspaceTierSlots(resolvedOccupants),
       decks,
+      connectionNavigation,
+      emptyConnectionNavigation: projectConnectionNavigation({
+        family: selectedFamily,
+        groups: [],
+        rateSheet: null,
+        hasFocusedTier: false,
+      }),
       rateSheets,
       settingsLoading,
       settingsError,

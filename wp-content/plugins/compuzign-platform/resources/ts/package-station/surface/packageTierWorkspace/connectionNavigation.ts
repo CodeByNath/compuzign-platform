@@ -15,6 +15,7 @@ import type { WorkspaceFamilyScope } from './projection';
 
 export type ConnectionCategoryId = 'stations' | 'tools';
 export type ConnectionTabId = 'family-groups' | 'groups' | 'rate-sheets';
+export type ConnectionActionId = 'view' | 'edit';
 
 export type ConnectionTarget =
   | { kind: 'package-family'; familyId: string }
@@ -26,6 +27,7 @@ interface ConnectionRowBase {
   name:      string;
   reference: string;
   target:    ConnectionTarget;
+  actions:   ConnectionActionId[];
 }
 
 export interface FamilyConnectionRow extends ConnectionRowBase {
@@ -98,6 +100,7 @@ export function projectConnectionNavigation({
     description:      family.description.trim(),
     assignedServices: family.dependents.services,
     target:           { kind: 'package-family', familyId: family.id },
+    actions:          ['view', 'edit'],
   }];
 
   const groupRows: GroupConnectionRow[] = groups.map((group) => ({
@@ -113,6 +116,7 @@ export function projectConnectionNavigation({
       rateSheetId: group.rateSheetId,
       groupId:     group.groupId,
     },
+    actions: ['view', 'edit'],
   }));
 
   const rateSheetRows: RateSheetConnectionRow[] = rateSheet === null ? [] : [{
@@ -125,6 +129,7 @@ export function projectConnectionNavigation({
     connectedRows:       rateSheet.connectedRows,
     connectedInclusions: rateSheet.connectedInclusions,
     target:              { kind: 'rate-sheet', rateSheetId: rateSheet.rateSheetId },
+    actions:             rateSheet.resolved ? ['view', 'edit'] : ['view'],
   }];
 
   const stationSummary = [
