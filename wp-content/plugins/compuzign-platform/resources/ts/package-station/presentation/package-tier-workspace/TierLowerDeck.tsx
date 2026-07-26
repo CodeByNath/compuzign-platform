@@ -6,20 +6,17 @@
 //
 //   Details      — the Tier's inclusion rows: Service-owned identity/category and
 //                  Rate Sheet-derived pricing, filterable by search/category/status.
-//   Connections  — what the focused Tier is connected TO, in two disclosures:
-//                  Stations (the Package Family it is assigned to, and the Rate
-//                  Sheet groups its selections draw from) and Tools (the Rate
-//                  Sheet it binds). Each summary reports its own stored identity
-//                  and opens the drawer that owns THAT record, never the Tier
-//                  drawer.
-//   Settings     — the focused Tier system's own Rate Sheet access and its five
-//                  fixed slots. It wires no relationship and launches no other
-//                  tool.
+//   Connections  — what the focused Tier is connected TO, through compact
+//                  Stations/Tools selectors and nested tabs. Each row reports
+//                  its stored identity and opens the drawer that owns that
+//                  record, never the Tier drawer.
+//   Settings     — readable focused-system summaries and Package Manager
+//                  launchers. Mutation remains in each owning drawer.
 //
 // It is presentation-only: it receives derived workspace models plus intent
 // dispatchers and fetches nothing.
 //
-// Four intent scopes, deliberately separate — a row dispatches the scope it
+// Five intent scopes, deliberately separate — a row dispatches the scope it
 // actually addresses, and every one of them carries a stored id, never a label:
 //   - Tier-scoped   (`onIntent`) — the focused Tier as a whole, keyed by the
 //     focused occupant_id the orchestrator supplies. It is NOT used by the
@@ -28,13 +25,11 @@
 //     inclusion, so it forwards its own `item_id` (the Tier's Rate Sheet
 //     selection key) and the orchestrator routes it to the registered
 //     `tier-inclusion` drawer.
-//   - Family-scoped (`onFamilyIntent`) — the Connections lane's Family Groups
-//     subsection forwards the Package Family's own `group_id` to the mature
-//     `package-family` drawer. It introduces no second Family editor.
-//   - Connection-scoped (`onGroupIntent` / `onRateSheetIntent`) — a Groups row
-//     forwards its `(rate_sheet_id, group_id)` and a Rate Sheets row its
-//     `rate_sheet_id`; the orchestrator scopes both to the focused instance and
-//     slot for the `tier-rate-sheet-group` / `tier-rate-sheet` drawers.
+//   - Connection-scoped (`onConnectionIntent`) — a typed target forwards the
+//     Package Family id, `(rate_sheet_id, group_id)`, or `rate_sheet_id` through
+//     the existing owning drawer route.
+//   - Instance-scoped (`onInstanceIntent`) — Settings forwards the exact Tier
+//     instance id to its whole-system module in the registered Tier drawer.
 //
 // All land inside the Package Station boundary that owns Tier selections,
 // quantities, Family assignment and Rate Sheet connections. This deck still
@@ -93,6 +88,9 @@ interface Props {
     occupantId: string | null,
     actionId: 'view' | 'edit',
   ) => void;
+  // Opens the whole Tier-system Settings module. Package Home remains readable
+  // and carries only the stored instance identity into the registered drawer.
+  onInstanceIntent: (instanceId: string) => void;
   // Opens the drawer that owns one pool subject's creation. The Settings lane
   // launches; it never carries the record, so no identity crosses this deck.
   onPoolIntent: (subject: PoolSubject) => void;
@@ -146,6 +144,7 @@ export function TierLowerDeck({
   onInclusionIntent,
   onConnectionIntent,
   onTierAction,
+  onInstanceIntent,
   onPoolIntent,
   onTabChange,
 }: Props): VNode {
@@ -191,12 +190,14 @@ export function TierLowerDeck({
           }
           return (
             <TierSystemSettings
+              key={connectionScopeKey}
               tool={tierTool}
               workspaceInstance={workspaceInstance}
               rateSheets={rateSheets}
               loading={settingsLoading}
               error={settingsError}
               onTierAction={onTierAction}
+              onInstanceIntent={onInstanceIntent}
               onPoolIntent={onPoolIntent}
             />
           );

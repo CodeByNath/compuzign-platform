@@ -51,6 +51,19 @@ export function encodeTierDrawerRecordId(instanceId: string, occupantId: string)
   return `${TIER_DRAWER_RECORD_PREFIX}${instanceId}:${occupantId}`;
 }
 
+/** Whole Tier-system route. Distinct from the two-segment occupant route. */
+export function encodeTierInstanceDrawerRecordId(instanceId: string): string {
+  return `${TIER_DRAWER_RECORD_PREFIX}${instanceId}`;
+}
+
+export function decodeTierInstanceDrawerRecordId(
+  recordId: string,
+): { instanceId: string } | null {
+  if (!recordId.startsWith(TIER_DRAWER_RECORD_PREFIX)) return null;
+  const [instanceId, ...extra] = recordId.slice(TIER_DRAWER_RECORD_PREFIX.length).split(':');
+  return instanceId && extra.length === 0 ? { instanceId } : null;
+}
+
 export function decodeTierDrawerRecordId(
   recordId: string,
 ): { instanceId: string; occupantId: string } | null {

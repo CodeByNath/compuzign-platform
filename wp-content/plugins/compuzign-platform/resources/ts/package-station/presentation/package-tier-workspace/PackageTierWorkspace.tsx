@@ -9,6 +9,7 @@ import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-gro
 import type { PackageTierWorkspaceTool } from '../../surface/packageTierWorkspace/usePackageTierWorkspace';
 import {
   encodeTierDrawerRecordId,
+  encodeTierInstanceDrawerRecordId,
   encodeTierRegistrationRecordId,
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
@@ -166,6 +167,10 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       return;
     }
     onIntent('new', subject === 'family' ? 'create-package-family' : 'create-rate-sheet');
+  };
+
+  const dispatchTierInstanceIntent = (targetInstanceId: string) => {
+    onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), 'view');
   };
 
   const dispatchConnectionIntent = (target: ConnectionTarget, actionId: 'view' | 'edit') => {
@@ -335,6 +340,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           }}
           onConnectionIntent={dispatchConnectionIntent}
           onTierAction={dispatchExplicitTierIntent}
+          onInstanceIntent={dispatchTierInstanceIntent}
           onPoolIntent={dispatchPoolIntent}
           onTabChange={setDeckTab}
         />

@@ -18,11 +18,13 @@ import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { TierDrawerContent } from '../../drawer/tier/TierDrawerContent';
 import { TierRegistrationHost } from './TierRegistrationHost';
+import { TierInstanceSettingsHost } from './TierInstanceSettingsHost';
 import { useHostService } from './useHostService';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
 import {
   decodeTierDrawerRecordId,
+  decodeTierInstanceDrawerRecordId,
   decodeTierRegistrationRecordId,
   decodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
@@ -65,9 +67,13 @@ export function TierDrawerHost({
     );
   }
   const slotTarget = decodeTierSlotDrawerRecordId(recordId);
+  const instanceTarget = decodeTierInstanceDrawerRecordId(recordId);
   const occupantTarget = decodeTierDrawerRecordId(recordId);
   if (recordId.startsWith('tier-slot:') && slotTarget === null) {
     return <div class="cz-station-drawer__state">This Tier slot identity is invalid.</div>;
+  }
+  if (recordId.startsWith('tier-instance:') && instanceTarget === null && occupantTarget === null) {
+    return <div class="cz-station-drawer__state">This Tier identity is invalid.</div>;
   }
   const target = occupantTarget ?? {
     instanceId: PRIMARY_TIER_INSTANCE_ID,
@@ -77,6 +83,16 @@ export function TierDrawerHost({
   if (host.loading && !host.service) return <div class="cz-station-drawer__state">Loading package tiers…</div>;
   if (host.error)                    return <div class="cz-station-drawer__state">{host.error}</div>;
   if (!host.service)                 return <div class="cz-station-drawer__state">No package station is available.</div>;
+
+  if (instanceTarget !== null) {
+    return (
+      <TierInstanceSettingsHost
+        serviceId={host.service.id}
+        instanceId={instanceTarget.instanceId}
+        bridge={bridge}
+      />
+    );
+  }
 
   return (
     <TierDrawerContent

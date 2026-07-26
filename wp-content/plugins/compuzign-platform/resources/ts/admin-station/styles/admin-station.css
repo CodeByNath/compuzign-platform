@@ -2623,14 +2623,11 @@ button.cz-station-status-pill {
   justify-content: flex-end;
 }
 
-/* Settings — a section navigation and the disclosures it drives. Both controls
-   read the one open-section id the shell owns, so the highlighted navigation item
-   and the expanded section are always the same section. */
+/* Settings follows the same full-width selector → nested-tab flow as Connections. */
 .cz-tier-settings {
-  display: grid;
-  grid-template-columns: minmax(190px, 0.3fr) minmax(0, 1fr);
-  align-items: start;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
 }
 
 .cz-tier-settings__nav {

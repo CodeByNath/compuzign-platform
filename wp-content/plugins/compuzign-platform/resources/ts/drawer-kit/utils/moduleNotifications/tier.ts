@@ -131,3 +131,28 @@ export const tierRegistrationModule: ModuleDefinition<{ titled: boolean }> = {
     ? 'pending-dim'
     : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
 };
+
+// Rate Sheet access is instance-level configuration. It never inherits the
+// parent instance lifecycle as its module status; the projected access policy
+// alone reports whether usable active sheets and stored references need review.
+export const tierRateSheetAccessModule: ModuleDefinition<{
+  allowedActiveCount: number;
+  activeCount: number;
+  unresolvedCount: number;
+  needsReview: boolean;
+}> = {
+  key: 'tier-rate-sheet-access',
+  problems: ({ allowedActiveCount, activeCount, unresolvedCount }) => [
+    ...(activeCount === 0 || allowedActiveCount === 0 ? [{
+      id: 'tier-rate-sheet-access.active.required',
+      message: 'Allow at least one active Rate Sheet for this Tier system.',
+      type: 'error' as const,
+    }] : []),
+    ...(unresolvedCount > 0 ? [{
+      id: 'tier-rate-sheet-access.references.unresolved',
+      message: 'Remove or replace unresolved Rate Sheet references.',
+      type: 'error' as const,
+    }] : []),
+  ],
+  resolveStatus: ({ needsReview }) => needsReview ? 'pending-full' : 'active',
+};
