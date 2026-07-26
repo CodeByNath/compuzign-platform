@@ -8,14 +8,19 @@ Admin Station owns one entity-agnostic drawer shell. Station Manager resolves dr
 
 Registration ownership is:
 
-| Key | Registrar | Host / composition owner | Size |
-| --- | --- | --- | --- |
-| `category` | Admin Station | retained Admin Category adapter / Category drawer | normal |
-| `service` | Service Station | Service Station | normal |
-| `package-family` | Package Station | Package Station | normal |
-| `package-family-create` | Package Station | Package Station | normal |
-| `tier` | Package Station | Package Station | normal |
-| `rate-sheet` | Package Station | Package Station | extra-wide |
+| Key | Registrar | Host / composition owner | Size | Modes |
+| --- | --- | --- | --- | --- |
+| `category` | Admin Station | retained Admin Category adapter / Category drawer | normal | view, edit |
+| `service` | Service Station | Service Station | normal | view, edit |
+| `package-family` | Package Station | Package Station | normal | view, edit |
+| `package-family-create` | Package Station | Package Station | normal | edit |
+| `tier` | Package Station | Package Station | normal | view, edit |
+| `tier-inclusion` | Package Station | Package Station | normal | view, edit |
+| `rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
+| `tier-rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
+| `tier-rate-sheet-group` | Package Station | Package Station | wide | view, edit |
+
+`DrawerMode` is `'view' | 'edit'`. There is no `create` mode: creation is modelled as a separate registration whose supported modes are `['edit']`, which is why `package-family-create` carries edit only.
 
 ## Drawer size
 

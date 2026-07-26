@@ -1,36 +1,43 @@
 # Admin Station Styles
 
-The Admin Station uses scoped station tokens plus the shared drawer stylesheet. Theme selectors remain under `.cz-admin-station`, so the surrounding WordPress page and Command Centre do not inherit station visuals.
+The Admin Station uses scoped station tokens plus the shared drawer stylesheet. Theme selectors remain under `.cz-admin-station`, so the surrounding WordPress page does not inherit station visuals.
 
 ## Authoritative files
 
-- `resources/ts/admin-station/styles/admin-station-tokens.css` — light/dark station tokens.
-- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, Service Catalogue, carousel, the Tier Workspace Engine's Tier Tabs → Focused Tier → Family Group composition (including fixed-slot empty overlays and the lower-deck Settings section navigation, disclosures, rows and creation forms), and Admin-only drawer overlay/header/footer-band chrome. The workspace uses Station classes only; drawer module classes remain inside drawers.
-- `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell/card/catalogue/Tier-workspace/drawer rules; the Tier workspace collapses its three columns to two at a component 1100px breakpoint (Tier Tabs + focused Tier, Family group full-width below), then to a single column preserving the reading order at the existing 767px shell breakpoint.
-- `resources/css/modules/drawer-kit.css` — shared modules, status pills, notification panels, forms, inline editors, dialogs, module actions, and record footers. `.cz-admin-station`-scoped adaptations give shared compositions the newer Admin Station module/editor treatment while leaving Command Centre unchanged.
+- `resources/ts/admin-station/styles/admin-station-tokens.css` — the single Admin Station token definition site. Light/dark station tokens plus the field-system contract.
+- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, drawer layer/backdrop/panel/sizes, and the Station-level feature surfaces (Service Catalogue, Service Category card, Tier Workspace Engine, lower deck, Tier settings, Rate Sheet tool).
+- `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell, card, catalogue, Tier-workspace and drawer rules. The Tier workspace collapses three columns to two at a component 1100px breakpoint, then to a single column at the 767px shell breakpoint.
+- `resources/css/modules/drawer-kit.css` — drawer content: modules, status pills, notification panels, **the shared field system**, inline editors, dialogs, module actions, and record footers.
 
-`resources/ts/modules/admin-station.ts` emits `dist/css/admin-station.css`. Vite builds `drawer-kit.css` as its own stable entry; `Core/AssetLoader.php` registers it once and makes both page styles depend on it.
+`resources/ts/modules/admin-station.ts` emits `dist/css/admin-station.css` in the order tokens → base → responsive. Vite builds `drawer-kit.css` as its own stable entry; `Core/AssetLoader.php` registers it once and makes the Admin Station sheet depend on it, so drawer-kit always precedes the station sheet.
 
-## Drawer styling boundary
+`.cz-admin-station` is the only live root for both sheets. The retired `.cz-admin-root` Command Centre root is emitted by no TypeScript or PHP file.
 
-The one Admin Station shell owns the fixed layer, backdrop, width, header, scroll body, and pinned footer band. Entity content uses only drawer-kit primitives. The removed transitional `cz-record-drawer__*` style system no longer competes with mature modules.
+## Ownership boundary
 
-Admin Station host adaptations in `drawer-kit.css` provide:
+Three owners, no overlap. See [Admin Station Field System](../architecture/admin-station-field-system-v1.md) for the full specification.
 
-- sticky Overview/Connections tabs;
-- rounded dark module cards with blue accents;
-- inline (module-local) editors so sibling modules remain readable;
-- pinned record footer normalization;
-- station-token form fields and notification panels.
+**Shell CSS** (`admin-station.css`, `admin-station-tokens.css`, `admin-station-responsive.css`) owns station layout, header, navigation, body, footer, slide menu, presentation surfaces, station tabs, the drawer layer, backdrop, drawer placement, drawer widths, station breakpoints, and every design token.
 
-These overrides always begin with `.cz-admin-station`; unscoped drawer-kit rules preserve Command Centre.
+**Drawer/content CSS** (`drawer-kit.css`) owns drawer content sections, overview modules, field grids, field wrappers, labels, hints, control appearance, control states, control sizes, validation presentation, inline-edit layouts, and record footer contents.
+
+**Feature CSS** owns only genuine domain layout: grids, rows, columns, specialised editor structures, relationship visualisation, and entity status presentation.
+
+Feature CSS must not declare `border`, `border-radius`, `height`, `min-height`, `outline`, `box-shadow`, `background` or `color` on an `input`, `select`, `textarea`, `label` or a shared control class. Those belong to the field system. The Admin Station CSS contract script enforces this from the enforcement phase onward.
+
+## Field system
+
+`cz-tf-*` in `drawer-kit.css` is the one Admin drawer field system: one wrapper (`.cz-tf-field`), one label (`.cz-tf-label`), one hint (`.cz-tf-hint`), one error (`.cz-tf-error`), and one control base (`.cz-tf-control`) specialised by `.cz-tf-input`, `.cz-tf-select`, `.cz-tf-textarea` and `.cz-tf-checkbox`.
+
+Three sizes (`--sm`, default, `--lg`) and the states default / hover / focus-visible / disabled / readonly / error / required are declared once on the base and inherited by every type. No second field system may be created.
+
+Editors render fields through `drawer-kit/fields/AdminField`, not hand-authored markup.
 
 ## Responsive rules
 
-- Home gutters/card columns and the Service Catalogue table change at 767px.
-- Carousel sizing uses 768px; header pill compaction uses 720px.
-- At 560px the header pills hide and the drawer becomes full viewport width.
-- Shared record footers wrap at the existing 480px drawer-kit breakpoint.
+- Home gutters and card columns change at 767px; the Service Catalogue table collapses to stacked rows there.
+- Header pill compaction uses 720px; at 560px the pills hide and the drawer becomes full viewport width.
+- Shared record footers wrap at the drawer-kit 480px breakpoint.
 
 ## Validation
 
@@ -38,4 +45,4 @@ From the plugin root: `npm run build`, `npm run docs:check`, and browser inspect
 
 ## Related Code Maps
 
-[Admin Station](admin-station.md), [Admin Station Drawer](admin-station-drawer.md), [Admin Station Cards](admin-station-cards.md).
+[Admin Station](admin-station.md), [Admin Station Drawer](admin-station-drawer.md), [Admin Station Cards](admin-station-cards.md), [Drawer System](drawer-system.md).
