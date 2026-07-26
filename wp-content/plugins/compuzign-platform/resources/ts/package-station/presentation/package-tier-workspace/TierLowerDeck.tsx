@@ -40,7 +40,7 @@
 // quantities, Family assignment and Rate Sheet connections. This deck still
 // invents no drawer.
 
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type {
   TierDeck,
@@ -58,6 +58,7 @@ import {
 } from '@/admin-station/shell/icons';
 import { TierSystemSettings } from './TierSystemSettings';
 import { TierConnections } from './TierConnections';
+import { TierTabSet } from './TierTabSet';
 
 // ── SECTION: contract ─────────────────────────────────────────────────────────
 
@@ -155,23 +156,6 @@ export function TierLowerDeck({
   onPoolIntent,
   onTabChange,
 }: Props): VNode {
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  // Arrow/Home/End move focus and selection together — the WAI-ARIA tab pattern,
-  // the same interaction the engine's own tab strip uses.
-  const onTabKeyDown = (event: KeyboardEvent, index: number) => {
-    let next: number | null = null;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % TABS.length;
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + TABS.length) % TABS.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = TABS.length - 1;
-    if (next !== null) {
-      event.preventDefault();
-      onTabChange(TABS[next].id);
-      tabRefs.current[next]?.focus();
-    }
-  };
-
   return (
     <section class="cz-tier-deck" aria-label={`${tierName} lower deck`}>
       <div class="cz-tier-deck__bar">
@@ -193,55 +177,43 @@ export function TierLowerDeck({
         </span>
       </div>
 
-      <div class="cz-tier-deck__tabs" role="tablist" aria-label="Focused Tier sections">
-        {TABS.map((entry, index) => {
-          const selected = activeTab === entry.id;
+      <TierTabSet
+        label="Focused Tier sections"
+        items={TABS}
+        selectedId={activeTab}
+        onSelect={onTabChange}
+        variant="deck"
+        renderPanel={(tabId) => {
+          if (tabId === 'details') {
+            return <DetailsLane deck={deck} hasFocusedTier={hasFocusedTier} onInclusionIntent={onInclusionIntent} />;
+          }
+          if (tabId === 'connections') {
+            return (
+              <TierConnections
+                key={connectionScopeKey}
+                family={family}
+                groups={deck.groups}
+                rateSheet={deck.rateSheet}
+                hasFocusedTier={hasFocusedTier}
+                onFamilyIntent={onFamilyIntent}
+                onGroupIntent={onGroupIntent}
+                onRateSheetIntent={onRateSheetIntent}
+              />
+            );
+          }
           return (
-            <button
-              key={entry.id}
-              ref={(el) => { tabRefs.current[index] = el; }}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              tabIndex={selected ? 0 : -1}
-              class={`cz-tier-deck__tab${selected ? ' cz-tier-deck__tab--active' : ''}`}
-              onClick={() => onTabChange(entry.id)}
-              onKeyDown={(event) => onTabKeyDown(event, index)}
-            >
-              {entry.label}
-            </button>
+            <TierSystemSettings
+              tool={tierTool}
+              workspaceInstance={workspaceInstance}
+              rateSheets={rateSheets}
+              loading={settingsLoading}
+              error={settingsError}
+              onTierAction={onTierAction}
+              onPoolIntent={onPoolIntent}
+            />
           );
-        })}
-      </div>
-
-      <div class="cz-tier-deck__panel" role="tabpanel">
-        {activeTab === 'details' && (
-          <DetailsLane deck={deck} hasFocusedTier={hasFocusedTier} onInclusionIntent={onInclusionIntent} />
-        )}
-        {activeTab === 'connections' && (
-          <TierConnections
-            key={connectionScopeKey}
-            family={family}
-            groups={deck.groups}
-            rateSheet={deck.rateSheet}
-            hasFocusedTier={hasFocusedTier}
-            onFamilyIntent={onFamilyIntent}
-            onGroupIntent={onGroupIntent}
-            onRateSheetIntent={onRateSheetIntent}
-          />
-        )}
-        {activeTab === 'settings' && (
-          <TierSystemSettings
-            tool={tierTool}
-            workspaceInstance={workspaceInstance}
-            rateSheets={rateSheets}
-            loading={settingsLoading}
-            error={settingsError}
-            onTierAction={onTierAction}
-            onPoolIntent={onPoolIntent}
-          />
-        )}
-      </div>
+        }}
+      />
     </section>
   );
 }

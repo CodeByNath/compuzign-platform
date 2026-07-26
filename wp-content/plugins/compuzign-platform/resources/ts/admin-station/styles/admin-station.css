@@ -2083,11 +2083,11 @@ button.cz-station-status-pill {
   outline-offset: 2px;
 }
 
-.cz-tier-deck__tab--active {
+.cz-tier-deck__tab[aria-selected='true'] {
   color: var(--station-text);
 }
 
-.cz-tier-deck__tab--active::after {
+.cz-tier-deck__tab[aria-selected='true']::after {
   content: "";
   position: absolute;
   inset-inline: 0;
@@ -2102,6 +2102,26 @@ button.cz-station-status-pill {
   flex-direction: column;
   gap: 14px;
   padding: 18px 20px 20px;
+}
+
+.cz-tier-deck__panel[hidden],
+.cz-tier-deck__connection-panel[hidden],
+.cz-tier-deck__tabpanel[hidden] {
+  display: none;
+}
+
+.cz-tier-deck__tabs--nested {
+  gap: var(--station-card-gap);
+  padding-inline: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cz-tier-deck__tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  padding-top: var(--station-card-pad);
 }
 
 /* Lane header — title and one honest line about what the lane shows. */
@@ -2287,7 +2307,7 @@ button.cz-station-status-pill {
   outline-offset: 2px;
 }
 
-.cz-tier-deck__selector-card--selected {
+.cz-tier-deck__selector-card[aria-selected='true'] {
   border-color: var(--station-accent-border);
   background: var(--station-accent-soft-bg);
   box-shadow: inset 3px 0 0 var(--station-accent);
@@ -2346,7 +2366,7 @@ button.cz-station-status-pill {
   height: 16px;
 }
 
-.cz-tier-deck__selector-card--selected .cz-tier-deck__selector-chevron {
+.cz-tier-deck__selector-card[aria-selected='true'] .cz-tier-deck__selector-chevron {
   color: var(--station-accent-fg);
   transform: rotate(0);
 }
