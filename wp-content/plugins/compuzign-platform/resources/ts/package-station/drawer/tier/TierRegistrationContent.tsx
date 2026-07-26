@@ -2,13 +2,17 @@
 //
 // It is the SAME mature composition the drawer already uses: `EntityDrawer`
 // assembling a placed overview module from a schema, with the module's inline
-// editor opened over it. Registering starts in that editor because there is
-// nothing to read yet; saving it settles the module, and the card then reads
-// back the record's own stored identity with Edit to reopen the editor — the
-// ordinary module cycle, not a bespoke form.
+// editor opened over it.
 //
-// The drawer keeps no footer: the module's InlineEditorShell owns Save/Cancel,
-// exactly as the Rate Sheet tool leaves it while editing. Owning no footer is
+// It opens READABLE, on the Overview screen: the empty module states what a Tier
+// system will be, carries its own Pending pill and that pill's message, and
+// offers Edit. Only Edit opens the editor. Saving settles the module, and the
+// card then reads back the record's own stored identity with Edit to reopen the
+// editor — one module cycle before and after creation, never a bespoke form.
+//
+// Footer: the readable module owns none of its own, so the drawer publishes the
+// record footer's Close; while editing, InlineEditorShell owns Save/Cancel and
+// the drawer withdraws its footer. One footer is present at a time, which is
 // also why nothing here can drive a set-footer/re-render loop.
 //
 // Registering is ONE atomic creation. It fills no slot and chains into no
@@ -18,6 +22,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
+import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import { evaluateModule } from '@/drawer-kit/utils/moduleNotifications';
 import { tierRegistrationModule } from '@/drawer-kit/utils/moduleNotifications';
@@ -40,17 +45,21 @@ export function TierRegistrationContent({ tool, initialFamilyId, bridge }: {
   const { draft, error, saving, setDraft, stage } = registration;
   const registered = stage === 'registered';
 
-  // Nothing exists to read before the first save, so the module opens straight
-  // in its editor. Afterwards it behaves like every other module: readable, with
-  // Edit reopening the same editor.
-  const [editing, setEditing] = useState(true);
+  // Readable first, before and after the save. Edit is the only way in.
+  const [editing, setEditing] = useState(false);
+  // The module's own notification panel, opened from its pill — the one place
+  // this drawer states what is still missing.
+  const [openPanel, setOpenPanel] = useState<string | null>(null);
   useEffect(() => { if (registered) setEditing(false); }, [registered]);
 
-  // The module shell owns Save and Cancel while editing.
+  // Readable → the record footer's Close. Editing → InlineEditorShell owns
+  // Save/Cancel, so the drawer withdraws its footer.
   useEffect(() => {
-    bridge.setFooter(null);
+    bridge.setFooter(editing ? null : (
+      <EntityActionFooter close={{ id: 'close', label: 'Close', onSelect: bridge.close }} />
+    ));
     return () => bridge.setFooter(null);
-  }, [bridge]);
+  }, [bridge, editing]);
 
   const titled = draft.title.trim().length > 0;
   const familyLabel = draft.familyId === null
@@ -79,6 +88,8 @@ export function TierRegistrationContent({ tool, initialFamilyId, bridge }: {
     <EntityDrawer
       entity={TIER_REGISTRATION_ENTITY}
       bindings={{ overview: binding }}
+      openPanel={openPanel}
+      onTogglePanel={(module) => setOpenPanel((current) => current === module ? null : module)}
       editing={editing ? {
         module: 'overview',
         session: {
@@ -89,7 +100,9 @@ export function TierRegistrationContent({ tool, initialFamilyId, bridge }: {
             if (registered) { await registration.applyEdits(); setEditing(false); return; }
             await registration.register();
           },
-          onCancel: () => { if (registered) setEditing(false); else bridge.close(); },
+          // Cancel returns to the readable module in both stages; leaving the
+          // drawer is the footer's Close, not an editor gesture.
+          onCancel: () => setEditing(false),
           saving,
           saveErr: error,
           isDirty: titled || draft.description.trim() !== '' || draft.familyId !== null,

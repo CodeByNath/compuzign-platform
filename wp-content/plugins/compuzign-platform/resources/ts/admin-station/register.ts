@@ -107,13 +107,16 @@ export function registerPresentationPolicy(): void {
         // from this same surface. Its own drawer key overrides the binding's
         // `tier`, so no second body surface renders beneath the workspace.
         //
-        // Settings launches the same drawer in edit mode, because that is where
-        // the Rate Sheet tool already keeps `New Rate Sheet` and the per-sheet
-        // `Create Group`. Groups have no launcher of their own: a group is stored
-        // inside `rate_sheets[].groups[]`, so the sheet that holds it is the only
-        // place it can be authored.
+        // Both launchers open that drawer READABLE, like every other module
+        // surface: the Rate Sheets module states the pool, carries its own
+        // Pending pill, and its Edit opens the authoring editor where `New Rate
+        // Sheet` and the per-sheet `Create Group` already live. Settings keeps a
+        // separate intent id because it names a different launcher, not a
+        // different entry state. Groups have no launcher of their own: a group is
+        // stored inside `rate_sheets[].groups[]`, so the sheet that holds it is
+        // the only place it can be authored.
         { id: 'rate-sheet', target: 'drawer', mode: 'view', drawerTemplateKey: 'rate-sheet' },
-        { id: 'create-rate-sheet', target: 'drawer', mode: 'edit', drawerTemplateKey: 'rate-sheet' },
+        { id: 'create-rate-sheet', target: 'drawer', mode: 'view', drawerTemplateKey: 'rate-sheet' },
         // The lower-deck Details rows address ONE inclusion, not the whole
         // Tier, so they carry their own intents and their own drawer key. The
         // binding's `view`/`edit` remain the Tier's, dispatched by the Tier

@@ -47,6 +47,20 @@ export const packageManagerSummaryModule: ModuleDefinition<PackageManagerItem[]>
   resolveStatus: (items, ctx) => resolvePackageManagerSummary(items, ctx.platformStatus),
 };
 
+// ── Rate Sheet collection module ──────────────────────────────────────────────
+// The Rate Sheet pool as one module. An empty pool prompts the same way every
+// other empty module does, so the collection drawer can open readable and let
+// Edit open its authoring editor. Row and binding problems belong to the sheet
+// that stores them, never to the pool.
+export const rateSheetCollectionModule: ModuleDefinition<{ count: number }> = {
+  key:            'rate-sheet-collection',
+  emptyPrompt:    'Edit and create a Rate Sheet.',
+  isEmpty:        ({ count }) => count === 0,
+  problems:       () => [],
+  resolveStatus:  ({ count }, ctx) =>
+    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+};
+
 export function getPackageNotes(pkg: SurfacePackageSummary | null, ctx: NoteContext): ModuleNote[] {
   return evaluateModuleNotes(packageModule, pkg, ctx);
 }

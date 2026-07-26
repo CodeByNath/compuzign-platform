@@ -29,6 +29,10 @@ CSS contract: one wrapper `.cz-tf-field`, one label `.cz-tf-label`, one hint `.c
 
 Editors pass field data into `AdminField`. An editor that hand-authors `<div class="cz-tf-field"><label class="cz-tf-label">…<input class="cz-tf-input">` is a defect.
 
+## Module entry
+
+Every drawer that presents modules opens **readable**, on its Overview screen — including creation drawers. The module renders even when empty, carries its own pill from the 5-state vocabulary, opens its notification panel from that pill, offers Edit, and only Edit opens the inline editor. No explanation block above the modules, no entry-state editor, and a module rule's `resolveStatus` must return a status `PILL_META` knows. **Disabled is a user action** written by the footer's enable/disable control; a module never infers it from a record that was simply never activated — that reads Pending. The full rule and its rationale: the Module entry contract in [Drawer System](../../../../../../docs/code-map/drawer-system.md), enforced by `npm run contract:drawer-module-entry`.
+
 ## Boundaries
 
 Consumers import from `@/drawer-kit`. The kit renders entity data; it must not import station mutation hooks or call endpoints. Colour, shape and rhythm come from the Admin Station token file — the kit defines no tokens of its own.
@@ -39,4 +43,4 @@ Read [Admin Station Styles](../../../../../../docs/code-map/admin-station-styles
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run contract:drawer-module-entry`, `npm run docs:check`.

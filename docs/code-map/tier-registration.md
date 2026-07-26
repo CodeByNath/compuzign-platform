@@ -25,7 +25,7 @@ The instance is authoritative either way. A failed ledger write leaves a registe
 ## Current implementation
 
 - [tierDrawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/tierDrawerTypes.ts) encodes and decodes the address beside the occupant and empty-slot tokens.
-- [TierRegistrationContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx) presents the record's own defaults and, once registered, its own overview for correction.
+- [TierRegistrationContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx) opens readable on the Overview screen, before and after the save: the empty module states what a Tier system will be, carries its Pending pill and that pill's message, and only its Edit opens the editor. Once registered it reads back the record's own stored identity, with Edit reopening the same editor for correction. Readable publishes the record footer's Close; editing withdraws it, because `InlineEditorShell` owns Save/Cancel. See the Module entry contract in [Drawer System](drawer-system.md).
 - [useTierRegistration.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierRegistration.ts) owns draft state, validation, the create write and the assignment writes.
 - [TierRegistrationHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierRegistrationHost.tsx) is a separate host so the Family collection loads only when registering, keeping it out of every ordinary slot and occupant open.
 - [TierInstanceSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) stores `description`; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) accepts it on create and update and mints the five-slot shell.
@@ -39,7 +39,7 @@ The instance is authoritative either way. A failed ledger write leaves a registe
 
 ## Validation
 
-Run `php tests/tier-instance-schema.php`, `php tests/tier-capability-invariants.php`, `npm run contract:package-tier-workspace`, `npm run contract:tier-instance-tool`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `php tests/tier-instance-schema.php`, `php tests/tier-capability-invariants.php`, `npm run contract:package-tier-workspace`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-tool`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 

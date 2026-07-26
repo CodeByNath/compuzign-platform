@@ -121,5 +121,13 @@ export const tierRegistrationModule: ModuleDefinition<{ titled: boolean }> = {
         message: 'A Tier system needs a title before it can be registered.',
         type:    'error',
       }],
-  resolveStatus: ({ titled }) => (titled ? 'settled' : 'not-configured'),
+  // The 5-state presentation vocabulary, like every other module: an untitled
+  // registration reads Pending (dim), a titled one Pending until the platform
+  // reports the registered system active. `settled`/`not-configured` are module
+  // TRANSITION values and were never pill statuses — they only reached a Pending
+  // pill through the unknown-status fallback, which also left a registered system
+  // reading Pending forever.
+  resolveStatus: ({ titled }, ctx) => !titled
+    ? 'pending-dim'
+    : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
 };

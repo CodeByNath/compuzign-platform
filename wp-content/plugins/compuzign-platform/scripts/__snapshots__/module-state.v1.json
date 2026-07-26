@@ -322,5 +322,215 @@
         "type": "info"
       }
     ]
+  },
+  "categoryServices.empty": {
+    "status": "active",
+    "notes": [
+      {
+        "id": "category-services.empty.action",
+        "message": "No Services are assigned to this Category yet.",
+        "type": "info"
+      }
+    ]
+  },
+  "categoryServices.offline": {
+    "status": "disabled",
+    "notes": [
+      {
+        "id": "category-services.platform.inactive",
+        "message": "Waiting for service activation",
+        "type": "info"
+      }
+    ]
+  },
+  "categoryGroupOverview.complete": {
+    "status": "active",
+    "notes": []
+  },
+  "categoryGroupOverview.unnamed": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "category-group-overview.empty.action",
+        "message": "Edit and name this category group.",
+        "type": "info"
+      }
+    ]
+  },
+  "familyOverview.complete.active": {
+    "status": "active",
+    "notes": []
+  },
+  "familyOverview.complete.pending": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "package-family-overview.module.draft",
+        "message": "Draft saved — settle to publish",
+        "type": "info"
+      }
+    ]
+  },
+  "familyOverview.neverActivated": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "package-family-overview.platform.inactive",
+        "message": "Waiting for Package Family activation",
+        "type": "info"
+      }
+    ]
+  },
+  "familyOverview.unnamed": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "package-family-overview.empty.action",
+        "message": "Edit and name this Package Family.",
+        "type": "info"
+      }
+    ]
+  },
+  "familyRelationships.empty": {
+    "status": "active",
+    "notes": [
+      {
+        "id": "package-family-relationships.empty.action",
+        "message": "No Services, Rate Sheet rows, or Tier selections use this Package Family yet.",
+        "type": "info"
+      }
+    ]
+  },
+  "familyRelationships.neverActivated": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "package-family-relationships.platform.inactive",
+        "message": "Waiting for Package Family activation",
+        "type": "info"
+      }
+    ]
+  },
+  "familyCapabilities.none": {
+    "status": "active",
+    "notes": []
+  },
+  "familyCapabilities.neverActivated": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "package-family-capabilities.platform.inactive",
+        "message": "Waiting for Package Family activation",
+        "type": "info"
+      }
+    ]
+  },
+  "managerItem.disabled": {
+    "status": "disabled",
+    "notes": []
+  },
+  "managerItem.active": {
+    "status": "active",
+    "notes": []
+  },
+  "managerItem.missing": {
+    "status": "active",
+    "notes": [
+      {
+        "id": "package-manager-item.i1.missing",
+        "message": "Source item no longer exists in the Service pool.",
+        "type": "info"
+      }
+    ]
+  },
+  "managerSummary.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "package-manager-summary.empty.action",
+        "message": "No features or common questions to organise yet.",
+        "type": "info"
+      }
+    ]
+  },
+  "managerSummary.mixed": {
+    "status": "pending-full",
+    "notes": []
+  },
+  "rateSheets.empty": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "rate-sheet-collection.empty.action",
+        "message": "Edit and create a Rate Sheet.",
+        "type": "info"
+      }
+    ]
+  },
+  "rateSheets.stocked": {
+    "status": "active",
+    "notes": []
+  },
+  "rateSheets.offline": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "rate-sheet-collection.platform.inactive",
+        "message": "Waiting for Rate Sheet activation",
+        "type": "info"
+      }
+    ]
+  },
+  "tierRegistration.untitled": {
+    "status": "pending-dim",
+    "notes": [
+      {
+        "id": "tier-registration.title.required",
+        "message": "A Tier system needs a title before it can be registered.",
+        "type": "error"
+      }
+    ]
+  },
+  "tierRegistration.titled": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "tier-registration.platform.inactive",
+        "message": "Waiting for Tier system activation",
+        "type": "info"
+      }
+    ]
+  },
+  "tierRegistration.registered": {
+    "status": "active",
+    "notes": []
+  },
+  "tierInclusion.resolved": {
+    "status": "active",
+    "notes": []
+  },
+  "tierInclusion.unresolved": {
+    "status": "pending-full",
+    "notes": [
+      {
+        "id": "tier-inclusion.source.unresolved",
+        "message": "This inclusion no longer resolves to a live Rate Sheet row and Service source.",
+        "type": "error"
+      }
+    ]
+  },
+  "tierInclusionConn.configured": {
+    "status": "active",
+    "notes": []
+  },
+  "tierInclusionConn.unconfigured": {
+    "status": "disabled",
+    "notes": [
+      {
+        "id": "tier-inclusion-connection.empty.action",
+        "message": "Not configured.",
+        "type": "info"
+      }
+    ]
   }
 }

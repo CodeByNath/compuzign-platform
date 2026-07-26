@@ -26,7 +26,7 @@ It is a **collection manager**, not a singleton: View lists sheets; Edit hosts c
 - [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts) — pure read-model ⇄ editor ⇄ save-payload mapping and summaries, preserving sheet, row/source and group ids; the backend mints blank ids. `rateSheetRowsWithKeys` restricts a sheet to an allow-list of `rowKey`s.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts) — local-edit collection controller; Save batches through `savePackageStationManager`, Cancel reverts, and shared `useHostService` supplies the host id.
 - [rateSheetParts.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/rateSheetParts.tsx) — the one implementation of `cz-rate-sheet-tool__groups` and `cz-rate-sheet-tool__grid`, readable and editable. Grids render the rows they are handed, so a scope may pass a subset; `allowRemove` keeps row deletion in the whole-sheet view. Its `InlineCreateSelect` is the one implementation of pick-or-create, used by both row dropdowns: an `__add__` sentinel swaps the select for an input, and only the value the controller settled on is selected on the row that asked. Presentation mints nothing.
-- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — View list and Edit collection editor over those parts. It calls no endpoint and mints no IDs.
+- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — View list and Edit collection editor over those parts. It calls no endpoint and mints no IDs. Every launcher opens it readable, Settings' Create Rate Sheet included: an empty pool reads Pending with its own message through `rateSheetCollectionModule`, and Edit opens the editor. See the Module entry contract in [Drawer System](drawer-system.md).
 
 ### Focused-Tier connection drawers
 
@@ -43,7 +43,7 @@ Tier selections resolve within their bound sheet and derive totals/readiness. Li
 
 ## Validation
 
-Run `php tests/tier-capability-invariants.php`, `npm run contract:rate-sheet-tool` (read/save mapping, summary/grouping projections, scoped row allow-list), `npm run contract:package-tier-workspace` (connection projections, routing tokens, lane composition), `npx tsx scripts/tier-pricing-parity-contract.ts`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+Run `php tests/tier-capability-invariants.php`, `npm run contract:rate-sheet-tool` (read/save mapping, summary/grouping projections, scoped row allow-list), `npm run contract:package-tier-workspace` (connection projections, routing tokens, lane composition), `npm run contract:drawer-module-entry`, `npx tsx scripts/tier-pricing-parity-contract.ts`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

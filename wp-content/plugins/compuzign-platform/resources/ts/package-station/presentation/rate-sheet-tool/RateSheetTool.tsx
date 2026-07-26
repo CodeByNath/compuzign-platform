@@ -11,6 +11,11 @@
 // footer; Edit hands the collection editor to the shared `InlineEditorShell`,
 // which owns Save / Cancel and the dirty-cancel confirm — one footer, one save.
 //
+// Every launcher opens it READABLE, including Settings' Create Rate Sheet: the
+// Rate Sheets module states the pool, carries its own Pending pill and that
+// pill's message, and its Edit opens the editor where sheets are created. No
+// launcher opens the editor directly.
+//
 // Presentation only. Every read, edit, and save lives on the controller the
 // Package-owned `useRateSheetTool` hook supplies; this file calls no endpoint and
 // mints no id. Deleting a sheet a Tier still uses is rejected by the backend
@@ -22,6 +27,7 @@ import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
+import { evaluateModule, rateSheetCollectionModule } from '@/drawer-kit/utils/moduleNotifications';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
@@ -124,11 +130,25 @@ function RateSheetCollectionView({
 }: { controller: RateSheetToolController; onEdit: () => void }): VNode {
   const { list, connectedServiceIds } = controller;
   const editAction = [{ id: 'edit', label: 'Edit', onSelect: onEdit }];
+  // The module's own lifecycle and notification panel, resolved by the shared
+  // engine and opened from its pill — the same cycle every other module follows,
+  // and the only guidance an empty pool needs.
+  const [panelOpen, setPanelOpen] = useState(false);
+  const state = evaluateModule(rateSheetCollectionModule, { count: list.length }, {
+    platformStatus: list.some((sheet) => sheet.status === 'active') ? 'active' : 'disabled',
+    platformLabel:  'Rate Sheet',
+  });
+  const moduleStatus = {
+    status:        state.status,
+    notes:         state.notes,
+    panelOpen,
+    onTogglePanel: () => setPanelOpen((open) => !open),
+  };
 
   if (list.length === 0) {
     return (
       <div class="cz-req-detail">
-        <ReadBlock title="Rate Sheets" subtitle="Pricing and supply the Package Tiers select from." icon={<RateSheetIcon />} scopeClass="drawerOverview" actions={editAction}>
+        <ReadBlock title="Rate Sheets" subtitle="Pricing and supply the Package Tiers select from." icon={<RateSheetIcon />} scopeClass="drawerOverview" actions={editAction} {...moduleStatus}>
           <div class="drawerModule__empty">
             <p class="drawerModule__empty-title">No Rate Sheets yet</p>
             <p class="drawerModule__empty-copy">Create a Rate Sheet in Edit, then curate its priced rows.</p>
@@ -147,6 +167,7 @@ function RateSheetCollectionView({
         icon={<RateSheetIcon />}
         scopeClass="drawerOverview"
         actions={editAction}
+        {...moduleStatus}
       >
         <div class="drawerModule__fields">
           {list.map((sheet) => (

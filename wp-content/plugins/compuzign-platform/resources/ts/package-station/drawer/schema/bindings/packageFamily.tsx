@@ -34,7 +34,13 @@ export const packageFamilyOverviewShell: ShellSchema<PackageFamilyOverviewShellD
   },
   content: [
     { id: 'name', element: 'text', label: 'Name', bind: (data): TextValue => ({ value: data.name, fallback: 'New Package Family' }) },
-    { id: 'group-id', element: 'text', label: 'Group ID', bind: (data): TextValue => ({ value: data.groupId }) },
+    {
+      // The stored id, or an honest statement that none exists yet — this shell
+      // is also the surface a Family is created through, where PHP has not
+      // minted one.
+      id: 'group-id', element: 'text', label: 'Group ID',
+      bind: (data): TextValue => ({ value: data.groupId, fallback: 'Minted when saved' }),
+    },
     {
       id: 'description', element: 'rich-text', label: 'Description',
       bind: (data) => ({

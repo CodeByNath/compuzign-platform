@@ -65,6 +65,11 @@ const CTX = {
   parentReadyOff:  { platformStatus: 'disabled', parentReady: true },
 };
 
+// Contexts carrying the entity's own platformLabel, so the baseline records the
+// wording each surface really shows in its lifecycle tail rather than the
+// engine's 'service' default.
+const labelled = (ctx, platformLabel) => ({ ...ctx, platformLabel });
+
 const cases = [
   ['overview.complete.active',    dna.overviewModule, { service: svc() },                                        CTX.activeSettled],
   ['overview.complete.pending',   dna.overviewModule, { service: svc(), draft: draft() },                        CTX.activePending],
@@ -117,6 +122,51 @@ const cases = [
   ['categoryOverview.incomplete',        dna.categoryOverviewModule, cat({ description: '' }),           CTX.activeSettled],
   ['categoryOverview.notconfigured',     dna.categoryOverviewModule, cat({ name: '', description: '' }), CTX.notConfigured],
   ['categoryOverview.platformInactive',  dna.categoryOverviewModule, cat(),                              CTX.disabledSettled],
+  ['categoryServices.empty',             dna.categoryServicesModule, { total: 0, active: 0, disabled: 0 }, CTX.activeSettled],
+  ['categoryServices.offline',           dna.categoryServicesModule, { total: 2, active: 1, disabled: 1 }, CTX.disabledSettled],
+  ['categoryGroupOverview.complete',     dna.serviceCategoryGroupOverviewModule, { name: 'Cloud', description: 'All cloud.' }, CTX.activeSettled],
+  ['categoryGroupOverview.unnamed',      dna.serviceCategoryGroupOverviewModule, { name: '', description: '' }, CTX.notConfigured],
+
+  // ── Package Family modules ────────────────────────────────────────────────
+  // A module never infers Disabled. A Family has no `draft` state, so a
+  // never-activated Family is stored `disabled` exactly like one an operator
+  // switched off; both read Pending here, and the record footer owns the
+  // enable/disable action. `*.neverActivated` is the case that regression-guards
+  // it.
+  ['familyOverview.complete.active',      dna.packageFamilyOverviewModule, { name: 'Managed Care', description: 'Care plans.' }, labelled(CTX.activeSettled, 'Package Family')],
+  ['familyOverview.complete.pending',     dna.packageFamilyOverviewModule, { name: 'Managed Care', description: '' }, labelled(CTX.activePending, 'Package Family')],
+  ['familyOverview.neverActivated',       dna.packageFamilyOverviewModule, { name: 'Managed Care', description: '' }, labelled(CTX.disabledSettled, 'Package Family')],
+  ['familyOverview.unnamed',              dna.packageFamilyOverviewModule, { name: '', description: '' },  labelled(CTX.notConfigured, 'Package Family')],
+  ['familyRelationships.empty',           dna.packageFamilyRelationshipsModule, { services: 0, rateSheetRows: 0, tierSelections: 0 }, labelled(CTX.activeSettled, 'Package Family')],
+  ['familyRelationships.neverActivated',  dna.packageFamilyRelationshipsModule, { services: 2, rateSheetRows: 1, tierSelections: 0 }, labelled(CTX.disabledSettled, 'Package Family')],
+  ['familyCapabilities.none',             dna.packageFamilyCapabilitiesModule, { tier: { enabled: false } }, labelled(CTX.activeSettled, 'Package Family')],
+  ['familyCapabilities.neverActivated',   dna.packageFamilyCapabilitiesModule, { tier: { enabled: false } }, labelled(CTX.disabledSettled, 'Package Family')],
+
+  // ── Package Manager modules ───────────────────────────────────────────────
+  // packageManagerItemModule reads an EXPLICIT `disabled` flag, so it does read
+  // Disabled — the other half of the same rule.
+  ['managerItem.disabled',        dna.packageManagerItemModule, { item_id: 'i1', module_transition: 'settled', disabled: true,  missing: false }, CTX.activeSettled],
+  ['managerItem.active',          dna.packageManagerItemModule, { item_id: 'i1', module_transition: 'settled', disabled: false, missing: false }, CTX.activeSettled],
+  ['managerItem.missing',         dna.packageManagerItemModule, { item_id: 'i1', module_transition: 'settled', disabled: false, missing: true },  CTX.activeSettled],
+  ['managerSummary.empty',        dna.packageManagerSummaryModule, [],                                       CTX.activeSettled],
+  ['managerSummary.mixed',        dna.packageManagerSummaryModule, [
+    { item_id: 'i1', module_transition: 'settled', disabled: true,  missing: false },
+    { item_id: 'i2', module_transition: 'pending', disabled: false, missing: false },
+  ], CTX.activeSettled],
+
+  // ── Rate Sheet pool ───────────────────────────────────────────────────────
+  ['rateSheets.empty',            dna.rateSheetCollectionModule, { count: 0 },                              labelled(CTX.disabledSettled, 'Rate Sheet')],
+  ['rateSheets.stocked',          dna.rateSheetCollectionModule, { count: 3 },                              labelled(CTX.activeSettled, 'Rate Sheet')],
+  ['rateSheets.offline',          dna.rateSheetCollectionModule, { count: 3 },                              labelled(CTX.disabledSettled, 'Rate Sheet')],
+
+  // ── Tier registration and inclusion ───────────────────────────────────────
+  ['tierRegistration.untitled',   dna.tierRegistrationModule, { titled: false },                            labelled(CTX.notConfigured, 'Tier system')],
+  ['tierRegistration.titled',     dna.tierRegistrationModule, { titled: true },                             labelled(CTX.disabledSettled, 'Tier system')],
+  ['tierRegistration.registered', dna.tierRegistrationModule, { titled: true },                             labelled(CTX.activeSettled, 'Tier system')],
+  ['tierInclusion.resolved',      dna.tierInclusionModule, { resolved: true },                              CTX.activeSettled],
+  ['tierInclusion.unresolved',    dna.tierInclusionModule, { resolved: false },                             CTX.activeSettled],
+  ['tierInclusionConn.configured',   dna.tierInclusionConnectionModule, { configured: true },               CTX.activeSettled],
+  ['tierInclusionConn.unconfigured', dna.tierInclusionConnectionModule, { configured: false },              CTX.activeSettled],
 ];
 
 const snapshot = {};

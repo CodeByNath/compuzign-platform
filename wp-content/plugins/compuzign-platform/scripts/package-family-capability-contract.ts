@@ -56,10 +56,15 @@ check(
   'a Family without an assignment has a disabled Tier capability row',
 );
 const disabledData = { tier: { enabled: false as const } };
+// The module tracks the FAMILY's lifecycle, not the capability's presence: an
+// absent Tier capability is valid and must not dim the module. A Family that is
+// not live reads Pending, never Disabled — Disabled is the record footer's
+// action, and a Family has no `draft` state to distinguish never-activated from
+// deliberately switched off.
 check(
   evaluateModule(packageFamilyCapabilitiesModule, disabledData, { platformStatus: 'active' }).status === 'active'
-    && evaluateModule(packageFamilyCapabilitiesModule, disabledData, { platformStatus: 'disabled' }).status === 'disabled',
-  'capability module status follows only the Family platform status',
+    && evaluateModule(packageFamilyCapabilitiesModule, disabledData, { platformStatus: 'disabled' }).status === 'pending-full',
+  'capability module status follows only the Family platform status, and never infers Disabled',
 );
 check(packageFamilyCapabilitiesModule.problems(disabledData).length === 0, 'capability absence has no problem');
 check(

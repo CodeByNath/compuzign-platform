@@ -17,13 +17,21 @@ export const packageFamilyOverviewModule: ModuleDefinition<PackageFamilyOverview
   problems: (family) => family.name.trim()
     ? []
     : [{ id: 'package-family-overview.name.missing', message: 'Name missing', type: 'error' }],
+  // Mirrors the reference implementation (resolveOverviewStatus, Service
+  // Overview): incomplete → pending-dim, complete but not live → pending-full,
+  // live → active. It NEVER returns 'disabled'.
+  //
+  // Disabled is a user action, owned by the record footer's enable/disable
+  // control — not something a module infers. A Package Family has no `draft`
+  // state (`'active' | 'disabled' | 'archived' | 'trashed'`), so a Family that
+  // was created and never activated is stored `disabled` exactly like one an
+  // operator switched off. Reading a Disabled pill off that ambiguity told a
+  // brand-new record it had been turned off, and contradicted the footer offering
+  // to enable it.
   resolveStatus: (family, ctx) => {
     if (ctx.moduleTransition === 'not-configured' || !family.name.trim()) return 'pending-dim';
-    if (ctx.platformStatus === 'disabled') {
-      return ctx.moduleTransition === 'settled' ? 'disabled' : 'pending-dim';
-    }
     if (ctx.moduleTransition === 'pending') return 'pending-full';
-    return 'active';
+    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
   },
 };
 
@@ -33,12 +41,15 @@ export interface PackageFamilyRelationshipsLike {
   tierSelections: number;
 }
 
+// No lifecycle of its own — it follows the Family's, like tierFeaturesModule
+// follows its Tier's, and reads Pending rather than Disabled until the Family is
+// live. A projection cannot be "switched off"; only the record can.
 export const packageFamilyRelationshipsModule: ModuleDefinition<PackageFamilyRelationshipsLike> = {
   key:         'package-family-relationships',
   emptyPrompt: 'No Services, Rate Sheet rows, or Tier selections use this Package Family yet.',
   isEmpty:     ({ services, rateSheetRows, tierSelections }) => services + rateSheetRows + tierSelections === 0,
   problems:    () => [],
-  resolveStatus: (_relationships, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
+  resolveStatus: (_relationships, ctx) => ctx.platformStatus === 'active' ? 'active' : 'pending-full',
 };
 
 export interface PackageFamilyCapabilitiesLike {
@@ -50,5 +61,5 @@ export const packageFamilyCapabilitiesModule: ModuleDefinition<PackageFamilyCapa
   key:         'package-family-capabilities',
   isEmpty:     () => false,
   problems:    () => [],
-  resolveStatus: (_capabilities, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
+  resolveStatus: (_capabilities, ctx) => ctx.platformStatus === 'active' ? 'active' : 'pending-full',
 };

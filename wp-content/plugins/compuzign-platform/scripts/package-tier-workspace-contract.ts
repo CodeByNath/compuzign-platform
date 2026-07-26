@@ -551,12 +551,15 @@ check(
 for (const chrome of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions']) {
   check(!registrationEditor.includes(chrome), `the registration editor owns no ${chrome} of its own`);
 }
-// The module shell owns the buttons, so the drawer keeps no second footer under
-// the form — the same way the Rate Sheet tool nulls it while editing.
+// Exactly one footer at a time. The readable module owns no buttons of its own,
+// so the drawer publishes the record footer's Close; while the module's
+// InlineEditorShell owns Save/Cancel the drawer withdraws it — the same way the
+// Rate Sheet tool nulls it while editing. What must never happen is two footers
+// under one form.
 check(
-  registrationSource.includes('bridge.setFooter(null)')
-    && !registrationSource.includes('EntityActionFooter'),
-  'the registration form keeps no drawer footer beside the module shell',
+  registrationSource.includes('bridge.setFooter(editing ? null : (')
+    && registrationSource.includes('EntityActionFooter'),
+  'the registration drawer publishes Close while readable and no footer while editing',
 );
 
 
