@@ -23,7 +23,7 @@ Three owners, no overlap. See [Admin Station Field System](../architecture/admin
 
 **Feature CSS** owns only genuine domain layout: grids, rows, columns, specialised editor structures, relationship visualisation, and entity status presentation.
 
-Feature CSS must not declare `border`, `border-radius`, `height`, `min-height`, `outline`, `box-shadow`, `background` or `color` on an `input`, `select`, `textarea`, `label` or a shared control class. Those belong to the field system. The Admin Station CSS contract script enforces this from the enforcement phase onward.
+Feature CSS must not declare `border`, `border-radius`, `height`, `min-height`, `outline`, `box-shadow`, `background` or `color` on an `input`, `select`, `textarea`, `label` or a shared control class. Those belong to the field system. `scripts/admin-station-css-contract.mjs` enforces this.
 
 ## Field system
 
@@ -41,7 +41,7 @@ Editors render fields through `drawer-kit/fields/AdminField`, not hand-authored 
 
 ## Validation
 
-From the plugin root: `npm run build`, `npm run docs:check`, and browser inspection when a WordPress runtime is available.
+From the plugin root: `npm run build`, `npm run contract:admin-station-css`, `npm run docs:check`, and browser inspection when a WordPress runtime is available.
 
 ## Related Code Maps
 

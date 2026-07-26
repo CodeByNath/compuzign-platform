@@ -398,10 +398,6 @@
   box-shadow: var(--admin-depth-ring-sm);
 }
 
-.cz-action-shell__body:has(.cz-ies) {
-  overflow: hidden;
-}
-
 .cz-ies {
   position: absolute;
   inset: 0;
@@ -590,10 +586,6 @@
 .cz-sp-tier-table__muted {
   color: var(--admin-text-muted);
   font-size: var(--admin-fs-s-label);
-}
-
-.cz-sp-tier-table__actions .cz-admin-btn + .cz-admin-btn {
-  margin-left: var(--cz-space-1);
 }
 
 /* ── The Admin drawer field system ────────────────────────────────────────────
@@ -799,6 +791,24 @@
   resize: vertical;
   min-height: 74px;
   line-height: 1.5;
+}
+
+/* A bare input sharing a control surface with something else — a search glyph,
+   a unit suffix. The surface is the parent, which carries .cz-tf-control; this
+   is the input inside it, which must contribute nothing of its own. */
+.cz-tf-control__inner {
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.cz-tf-control__inner::placeholder {
+  color: var(--station-field-muted);
 }
 
 /* The checkbox is the one type that is not a full-width field: it is a box the

@@ -182,6 +182,7 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
           <SearchIcon />
           <input
             type="search"
+            class="cz-tf-control__inner"
             value={query}
             placeholder="Search services…"
             onInput={(event) => { setQuery(event.currentTarget.value); setRequestedPage(1); }}

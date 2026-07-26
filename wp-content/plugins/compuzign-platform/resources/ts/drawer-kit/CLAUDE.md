@@ -33,10 +33,10 @@ Editors pass field data into `AdminField`. An editor that hand-authors `<div cla
 
 Consumers import from `@/drawer-kit`. The kit renders entity data; it must not import station mutation hooks or call endpoints. Colour, shape and rhythm come from the Admin Station token file — the kit defines no tokens of its own.
 
-Feature stylesheets must not declare `border`, `border-radius`, `height`, `min-height`, `outline`, `box-shadow`, `background` or `color` on an `input`, `select`, `textarea`, `label` or a `cz-tf-*` class. The Admin Station CSS contract script enforces this from the enforcement phase onward.
+Feature stylesheets must not declare `border`, `border-radius`, `height`, `min-height`, `outline`, `box-shadow`, `background` or `color` on an `input`, `select`, `textarea`, `label` or a `cz-tf-*` class. `scripts/admin-station-css-contract.mjs` enforces this.
 
 Read [Admin Station Styles](../../../../../../docs/code-map/admin-station-styles.md), [Admin Station Drawer](../../../../../../docs/code-map/admin-station-drawer.md), [Drawer System](../../../../../../docs/code-map/drawer-system.md), and the locked [Admin Station Field System](../../../../../../docs/architecture/admin-station-field-system-v1.md).
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run docs:check`.

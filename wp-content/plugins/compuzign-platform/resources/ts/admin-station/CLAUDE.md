@@ -32,4 +32,4 @@ Read [Admin Station](../../../../../../docs/code-map/admin-station.md), [Admin S
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run docs:check`.

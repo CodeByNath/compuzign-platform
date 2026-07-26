@@ -1191,22 +1191,6 @@ button.cz-station-status-pill {
   color: var(--station-text-muted);
 }
 
-.cz-service-catalogue__search input {
-  min-width: 0;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--station-text);
-  font: inherit;
-  font-size: var(--station-text-sm);
-}
-
-.cz-service-catalogue__search input::placeholder {
-  color: var(--station-text-muted);
-}
-
 .cz-service-catalogue__sort {
   margin-inline-start: auto;
 }
@@ -2625,16 +2609,6 @@ button.cz-station-status-pill {
   line-height: var(--station-line-snug);
 }
 
-.cz-tier-settings__success {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--station-status-active-border);
-  border-radius: var(--station-control-radius);
-  background: var(--station-status-active-bg);
-  color: var(--station-text);
-  font-size: var(--station-text-sm);
-}
-
 /* Keep every primary data value on the Station foreground. WordPress and the
    separately loaded drawer stylesheet both expose inherited text colours; the
    deck is a Station surface and must close that inheritance boundary itself. */
@@ -2657,7 +2631,6 @@ button.cz-station-status-pill {
 }
 
 .cz-tier-settings__leaf .cz-tier-deck__list,
-.cz-tier-settings__leaf .cz-tier-settings__form,
 .cz-tier-settings__leaf .cz-tier-settings__launcher {
   width: 100%;
 }
@@ -2676,21 +2649,6 @@ button.cz-station-status-pill {
 /* One atomic creation. Fields stack, the submit sits under them, and the created
    record's own identity is reported beneath that — one column, because a create
    form that fills the panel width reads as a record editor, which it is not. */
-.cz-tier-settings__form {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  max-width: 62ch;
-}
-
-.cz-tier-settings__success code {
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: var(--station-surface-elevated);
-  font-size: var(--station-text-xs);
-}
-
 /* A Settings-wide message belongs to neither column. */
 .cz-tier-settings > .cz-station-empty {
   grid-column: 1 / -1;
