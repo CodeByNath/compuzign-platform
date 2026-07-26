@@ -106,3 +106,20 @@ export const tierInclusionConnectionModule: ModuleDefinition<{ configured: boole
 export function getTierNotes(tier: TierLike | undefined, ctx: NoteContext): ModuleNote[] {
   return evaluateModuleNotes(tierModule, tier, ctx);
 }
+
+// A Tier system being registered has no lifecycle behind it yet: it is not
+// waiting on a parent, it holds no draft, and its only incompleteness is the
+// title the backend requires. Registration is therefore its own module rather
+// than a reuse of the occupant modules above, which all describe a Tier that
+// already exists inside an instance.
+export const tierRegistrationModule: ModuleDefinition<{ titled: boolean }> = {
+  key: 'tier-registration',
+  problems: ({ titled }) => titled
+    ? []
+    : [{
+        id:      'tier-registration.title.required',
+        message: 'A Tier system needs a title before it can be registered.',
+        type:    'error',
+      }],
+  resolveStatus: ({ titled }) => (titled ? 'settled' : 'not-configured'),
+};

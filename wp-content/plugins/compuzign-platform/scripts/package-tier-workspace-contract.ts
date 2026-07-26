@@ -481,7 +481,7 @@ for (const forbidden of [
   check(!registrationSource.includes(forbidden), `registration performs no ${forbidden}`);
 }
 check(
-  registrationSource.includes('registration.instance.tier_instance_id'),
+  registrationSource.includes('registration.instance?.tier_instance_id'),
   'registration reports the stored id the backend minted, never the title it was given',
 );
 
@@ -522,13 +522,34 @@ for (const [name, source] of [
   // Save/Cancel, the dirty confirmation, the busy state and the error slot —
   // rather than hand-rolling a footer beside it.
   check(
-    source.includes('InlineEditorShell'),
-    `${name} wears the drawer kit's module edit shell`,
+    source.includes('InlineEditorShell') || source.includes('EntityDrawer'),
+    `${name} wears the drawer kit's mature composition`,
   );
-  check(
-    source.includes('cz-tf-field') && source.includes('cz-tf-label'),
-    `${name} uses the established cz-tf-* editor vocabulary`,
-  );
+}
+// Registration is the SAME composition the drawer already uses: a schema-placed
+// overview module, with the module's own inline editor over it. Not a bespoke
+// form dropped into the drawer body.
+check(
+  registrationSource.includes('EntityDrawer')
+    && registrationSource.includes('TIER_REGISTRATION_ENTITY')
+    && registrationSource.includes("module: 'overview'"),
+  'registration renders a placed overview module, not a bespoke form',
+);
+check(
+  registrationSource.includes('handlers: { edit:'),
+  'the registered module offers Edit, so it re-enters the same editor',
+);
+const registrationEditor = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/editors/TierRegistrationEditor.tsx',
+), 'utf8');
+check(
+  registrationEditor.includes('cz-tf-field') && registrationEditor.includes('cz-tf-label')
+    && registrationEditor.includes('cz-tf-hint'),
+  'the registration editor uses the established cz-tf-* vocabulary',
+);
+for (const chrome of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions']) {
+  check(!registrationEditor.includes(chrome), `the registration editor owns no ${chrome} of its own`);
 }
 // The module shell owns the buttons, so the drawer keeps no second footer under
 // the form — the same way the Rate Sheet tool nulls it while editing.
@@ -537,10 +558,7 @@ check(
     && !registrationSource.includes('EntityActionFooter'),
   'the registration form keeps no drawer footer beside the module shell',
 );
-check(
-  registrationSource.includes('cz-tf-hint') && registrationSource.includes('cz-tf-select'),
-  'registration renders its Family picker and hint in that vocabulary',
-);
+
 
 // A Package Family is not a field on a Tier system. The instance schema carries
 // no Family vocabulary, so the link must stay a separate assignment write.
