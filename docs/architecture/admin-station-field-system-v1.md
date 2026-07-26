@@ -17,7 +17,9 @@ are those of the audited commit; later phases shift them, so locate rules by sel
 
 | # | Phase | Amendment | Reason |
 |---|---|---|---|
-| — | — | none yet | — |
+| A1 | 2 | §9.2 proposed `--station-field-height` = `--station-control-height` (38px) and `--station-field-pad-x` = `--station-control-pad-x` (14px). Implemented instead as `--station-field-pad-y: 8px`, `--station-field-pad-x: 12px`, `--station-field-font: 14px`, with **no declared height on the default size**; `min-height` is carried by the `--sm` and `--lg` modifiers only. | The drawer control renders today at `padding: 8px 12px` (`resources/css/modules/drawer-kit.css`, the `.cz-tf-input, .cz-tf-select, .cz-tf-textarea` base) with no declared height. Adopting 14px padding and a 38px floor would have changed the resting metrics of every existing control, contradicting the Phase 2 completion criterion "no screenshot has moved". The default size therefore encodes today's metrics; small and large are the two deliberate steps either side. |
+| A2 | 2 | §9.2 listed 11 tokens. Implemented as 24, adding `--station-field-pad-y*`, `--station-field-font*` and `--station-field-min-h-*` per size, plus `--station-field-text`, `--station-field-muted`, `--station-field-accent`, `--station-field-accent-bg`, `--station-field-readonly-bg` and `--station-field-checkbox-size`. | §9.2's 11 names could not express three sizes without literal values inside the size modifiers, which the brief's "built from shared tokens" requirement rules out. All 24 remain aliases over existing `--station-*` families or 4px-rhythm values; no new colour is introduced. |
+| A3 | 2 | §9.1 specified `:read-only` on the shared base. Implemented on `.cz-tf-input` and `.cz-tf-textarea` only. | A `<select>` always matches `:read-only` in CSS (it has no `readonly` attribute), so a base-level rule would apply the readonly treatment to every dropdown in the Admin Station. |
 
 ---
 

@@ -658,6 +658,22 @@
   display: none;
 }
 
+/* ── The Admin drawer field system ────────────────────────────────────────────
+ *
+ * One wrapper, one label, one hint, one error, one control base. The eight
+ * field types (text, number, email, tel, search, select, textarea, checkbox)
+ * and the three sizes (small, default, large) are built from the shared
+ * `--station-field-*` tokens and the primitives below — never as separate
+ * implementations. A type adds only what genuinely differs from the base: the
+ * select's chevron, the textarea's resize behaviour, the checkbox's box.
+ *
+ * States are declared once, on the base, and every type inherits them:
+ * default, hover, focus-visible, disabled, readonly, error, required.
+ *
+ * `drawer-kit/fields/AdminField` is the only component that composes these
+ * classes. Feature stylesheets must not restyle them — see the drawer-kit
+ * local instructions for the boundary rule. */
+
 .cz-tf-form {
   display: flex;
   flex-direction: column;
@@ -667,12 +683,20 @@
 .cz-tf-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--station-field-gap);
   margin-bottom: var(--cz-space-4);
 }
 
 .cz-tf-field:last-child {
   margin-bottom: 0;
+}
+
+/* A control whose label reads beside it rather than above it — the checkbox
+   case. Replaces the per-editor inline style that used to do this. */
+.cz-tf-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--cz-space-3);
 }
 
 .cz-tf-label {
@@ -683,6 +707,18 @@
   color: var(--admin-text-faint);
 }
 
+.cz-tf-field--inline .cz-tf-label {
+  margin: 0;
+}
+
+/* The required marker is presentation only. The control still carries the
+   `required` attribute, which is what assistive technology and validation
+   read. */
+.cz-tf-label--required::after {
+  content: ' *';
+  color: var(--station-field-error);
+}
+
 .cz-tf-hint {
   margin: 0;
   font-size: var(--admin-fs-s-label);
@@ -690,6 +726,16 @@
   line-height: var(--admin-lh-s-label);
 }
 
+/* The validation message. Rendered only when the field definition carries an
+   error, and always alongside `aria-invalid` on the control itself. */
+.cz-tf-error {
+  margin: 0;
+  font-size: var(--admin-fs-s-label);
+  line-height: var(--admin-lh-s-label);
+  color: var(--station-field-error);
+}
+
+.cz-tf-control,
 .cz-tf-input,
 .cz-tf-select,
 .cz-tf-textarea {
@@ -698,15 +744,33 @@
   border: 1px solid var(--admin-border-blue);
   border-radius: var(--admin-radius);
   color: var(--admin-text);
-  font-size: var(--admin-fs-label);
+  font-size: var(--station-field-font);
   font-family: inherit;
-  padding: 8px 12px;
+  padding: var(--station-field-pad-y) var(--station-field-pad-x);
   outline: none;
   box-sizing: border-box;
   transition: border-color var(--cz-transition-fast), background var(--cz-transition-fast);
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* ── Sizes ─────────────────────────────────────────────────────────────────── */
+/* Two modifiers, not two families. The default size is the unmodified base, so
+   the common case carries no extra class at all. */
+
+.cz-tf-control--sm {
+  min-height: var(--station-field-min-h-sm);
+  padding: var(--station-field-pad-y-sm) var(--station-field-pad-x-sm);
+  font-size: var(--station-field-font-sm);
+}
+
+.cz-tf-control--lg {
+  min-height: var(--station-field-min-h-lg);
+  padding: var(--station-field-pad-y-lg) var(--station-field-pad-x-lg);
+  font-size: var(--station-field-font-lg);
+}
+
+/* ── States ────────────────────────────────────────────────────────────────── */
 
 .cz-tf-input:focus,
 .cz-tf-select:focus,
@@ -715,15 +779,64 @@
   background: var(--admin-white-a05);
 }
 
+.cz-tf-control:hover:not(:disabled):not([readonly]),
+.cz-tf-input:hover:not(:disabled):not([readonly]),
+.cz-tf-select:hover:not(:disabled),
+.cz-tf-textarea:hover:not(:disabled):not([readonly]) {
+  border-color: var(--station-field-accent);
+}
+
 .cz-tf-input::placeholder,
 .cz-tf-textarea::placeholder {
   color: var(--admin-text-faint);
 }
 
-.cz-tf-input:disabled {
+/* Disabled covers every control type, not only the text input. */
+.cz-tf-control:disabled,
+.cz-tf-input:disabled,
+.cz-tf-select:disabled,
+.cz-tf-textarea:disabled,
+.cz-tf-checkbox:disabled {
   opacity: 0.38;
   cursor: not-allowed;
 }
+
+/* Readonly is a distinct state from disabled: the value is still selectable,
+   focusable and submitted, so it reads as settled rather than unavailable.
+   Scoped to input and textarea because a `select` always matches `:read-only`
+   in CSS, which would style every dropdown. */
+.cz-tf-input:read-only,
+.cz-tf-textarea:read-only {
+  background: var(--station-field-readonly-bg);
+  cursor: default;
+}
+
+.cz-tf-input:read-only:focus,
+.cz-tf-textarea:read-only:focus {
+  border-color: var(--station-field-border);
+  background: var(--station-field-readonly-bg);
+}
+
+/* Error. Driven by the attribute assistive technology already reads, so the
+   presentation cannot drift from the announced state. */
+.cz-tf-control[aria-invalid='true'],
+.cz-tf-input[aria-invalid='true'],
+.cz-tf-select[aria-invalid='true'],
+.cz-tf-textarea[aria-invalid='true'] {
+  border-color: var(--station-field-error);
+  background: var(--station-field-error-bg);
+}
+
+/* The accent variant — a control that names an active scope rather than
+   holding ordinary data. One modifier, not a second control family. */
+.cz-tf-control--accent {
+  border-color: var(--station-field-accent);
+  background: var(--station-field-accent-bg);
+  font-weight: 700;
+}
+
+/* ── Type specialisations ──────────────────────────────────────────────────── */
+/* Only what genuinely differs from the base. */
 
 .cz-tf-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2366678a' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -742,6 +855,24 @@
   resize: vertical;
   min-height: 74px;
   line-height: 1.5;
+}
+
+/* The checkbox is the one type that is not a full-width field: it is a box the
+   label sits beside. It takes the shared states above and nothing else. */
+.cz-tf-checkbox {
+  width: var(--station-field-checkbox-size);
+  height: var(--station-field-checkbox-size);
+  min-width: var(--station-field-checkbox-size);
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: var(--station-accent);
+  cursor: pointer;
+}
+
+.cz-tf-checkbox:focus-visible {
+  outline: 2px solid var(--station-field-ring);
+  outline-offset: 2px;
 }
 
 .cz-tf-price-row .cz-tf-field {
@@ -1499,6 +1630,7 @@ button.cz-module-status-pill {
   border-top: 1px solid var(--station-border);
 }
 
+.cz-admin-station .cz-tf-control,
 .cz-admin-station .cz-tf-input,
 .cz-admin-station .cz-tf-select,
 .cz-admin-station .cz-tf-textarea {

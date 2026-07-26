@@ -114,6 +114,48 @@
   --station-menu-min-width: 180px;
   --station-disabled-opacity: 0.5;
 
+  /* Field system — the one contract behind every Admin drawer control.
+   *
+   * The eight field types and three sizes are built from these values plus the
+   * shared `cz-tf-*` primitives in drawer-kit.css. A type never restates a
+   * value here; it selects from it. Colour and shape names are aliases over the
+   * families above, so the field system follows the theme without a palette of
+   * its own.
+   *
+   * The default size deliberately carries the metrics the drawer controls
+   * already render at (8px/12px padding, 14px type, no declared height), so
+   * introducing the contract moves nothing. Small and large are the two
+   * deliberate steps either side of it, on the 4px rhythm. */
+  --station-field-gap: 6px;
+
+  --station-field-pad-y: 8px;
+  --station-field-pad-x: 12px;
+  --station-field-font: 14px;
+
+  --station-field-pad-y-sm: 5px;
+  --station-field-pad-x-sm: 10px;
+  --station-field-font-sm: 12px;
+  --station-field-min-h-sm: 30px;
+
+  --station-field-pad-y-lg: 11px;
+  --station-field-pad-x-lg: 16px;
+  --station-field-font-lg: 16px;
+  --station-field-min-h-lg: 46px;
+
+  --station-field-radius: var(--station-control-radius);
+  --station-field-bg: var(--station-surface);
+  --station-field-border: var(--station-border);
+  --station-field-text: var(--station-text);
+  --station-field-muted: var(--station-text-muted);
+  --station-field-ring: var(--station-focus-ring);
+  --station-field-accent: var(--station-accent-border);
+  --station-field-accent-bg: var(--station-accent-soft-bg);
+  --station-field-error: var(--station-status-inactive-fg);
+  --station-field-error-bg: var(--station-status-inactive-bg);
+  --station-field-readonly-bg: var(--station-active-bg);
+  --station-field-disabled-opacity: var(--station-disabled-opacity);
+  --station-field-checkbox-size: 16px;
+
   /* Layering. Anchored menus share one level: they are siblings in the page, not
    * a stack, and the slide-menu layer (80) stays above them. The sticky header
    * and group tabs sit beneath both — above normal page content, never above an
