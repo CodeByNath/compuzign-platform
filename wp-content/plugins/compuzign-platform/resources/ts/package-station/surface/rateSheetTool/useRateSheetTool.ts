@@ -18,7 +18,7 @@ import type { SurfaceCollection } from '@/station-manager/registry/dataSources';
 import { fetchAdminCatalog } from '@/service-station';
 import type { ServiceSummary } from '@/service-station';
 import { fetchPackageStationManager, savePackageStationManager } from '../../api';
-import { PACKAGE_RATE_SHEET_UNITS } from '../../types';
+import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageManagerReadModel, PackageRateSheetUnit } from '../../types';
 import { useHostService } from '../tierSurface/useHostService';
 import {
@@ -26,7 +26,7 @@ import {
   buildManagerSavePayload,
   connectSourceServices,
   connectedServiceIds,
-  createEditorGroup,
+  createEditorGroupWithId,
   createEditorSheet,
   deleteEditorGroup,
   duplicateEditorSheet,
@@ -73,13 +73,16 @@ export interface RateSheetToolController {
   deleteSheet:          (key: string) => void;
   // Selected-sheet edits.
   setTitle:             (title: string) => void;
-  createGroup:          (label: string) => void;
+  /** Creates a group in the selected sheet. Returns its stored id for the row that asked. */
+  createGroup:          (label: string) => string | null;
   renameGroup:          (groupId: string, label: string) => void;
   deleteGroup:          (groupId: string) => void;
   addRow:               (optionId: string) => void;
   removeRow:            (rowId: string) => void;
   setRowUnitPrice:      (rowId: string, unitPrice: number) => void;
   setRowPer:            (rowId: string, per: PackageRateSheetUnit) => void;
+  /** Adds a unit to the Manager vocabulary. Returns the settled label, or null if blank. */
+  createUnit:           (label: string) => PackageRateSheetUnit | null;
   setRowQuantity:       (rowId: string, quantity: number) => void;
   setRowGroup:          (rowId: string, groupId: string | null) => void;
   // Persisting actions.
@@ -105,6 +108,9 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   const [readModel, setReadModel]   = useState<PackageManagerReadModel | null>(null);
   const [sheets, setSheets]         = useState<WorkingSheet[]>([]);
   const [deletions, setDeletions]   = useState<string[]>([]);
+  // The vocabulary a row's `per` may hold. It is the Manager's, not a sheet's,
+  // so it lives beside `sheets` rather than inside the selected one.
+  const [units, setUnits]           = useState<PackageRateSheetUnit[]>([...BUILT_IN_RATE_SHEET_UNITS]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [dirty, setDirty]           = useState(false);
   const [loading, setLoading]       = useState(true);
@@ -121,6 +127,9 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   const applyReadModel = useCallback((next: PackageManagerReadModel) => {
     setReadModel(next);
     setSheets(withKeys(toRateSheetEditorList(next)));
+    // The backend sends the whole vocabulary, built-ins first. An older response
+    // without the key falls back to the built-ins rather than to nothing.
+    setUnits(next.rate_sheet_units?.length ? [...next.rate_sheet_units] : [...BUILT_IN_RATE_SHEET_UNITS]);
     setDeletions([]);
     setDirty(false);
   }, []);
@@ -159,14 +168,19 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   }, [selectedKey]);
 
   const persist = useCallback(
-    async (nextSheets: WorkingSheet[], nextDeletions: string[], sources: PackageManagerReadModel['sources']) => {
+    async (
+      nextSheets: WorkingSheet[],
+      nextDeletions: string[],
+      sources: PackageManagerReadModel['sources'],
+      nextUnits: PackageRateSheetUnit[],
+    ) => {
       if (readModel == null || hostServiceId == null) return;
       setSaving(true);
       setSaveError(null);
       try {
         const response = await savePackageStationManager(
           hostServiceId,
-          buildManagerSavePayload(readModel, nextSheets, nextDeletions, sources),
+          buildManagerSavePayload(readModel, nextSheets, nextDeletions, sources, nextUnits),
         );
         if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return; }
         applyReadModel(response.manager);
@@ -195,7 +209,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     selectedKey,
     selected,
     options: readModel ? rateSheetOptions(readModel) : [],
-    units: PACKAGE_RATE_SHEET_UNITS,
+    units,
     dirty,
     saving,
     saveError,
@@ -240,7 +254,17 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       setSaveError(null);
     },
     setTitle: (title) => editSelected((value) => ({ ...value, title })),
-    createGroup: (label) => editSelected((value) => createEditorGroup(value, label)),
+    // The group belongs to the selected sheet, so its id is minted from that
+    // sheet's own collection and reported back for the row that asked. It is
+    // derived from `selected` rather than inside the state updater, because that
+    // updater runs later and could not hand an id back to this caller.
+    createGroup: (label) => {
+      if (selected === null) return null;
+      const { value, groupId } = createEditorGroupWithId(selected, label);
+      if (groupId === null) return null;
+      editSelected(() => value);
+      return groupId;
+    },
     renameGroup: (groupId, label) => editSelected((value) => renameEditorGroup(value, groupId, label)),
     deleteGroup: (groupId) => editSelected((value) => deleteEditorGroup(value, groupId)),
     addRow: (optionId) => {
@@ -252,17 +276,30 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     setRowPer: (rowId, per) => editSelected((value) => patchEditorRow(value, rowId, { per })),
     setRowQuantity: (rowId, quantity) => editSelected((value) => patchEditorRow(value, rowId, { quantity: Math.max(1, Math.trunc(quantity) || 1) })),
     setRowGroup: (rowId, groupId) => editSelected((value) => patchEditorRow(value, rowId, { groupId })),
+    // A unit is Manager vocabulary, not a sheet's property, so creating one
+    // touches no sheet. It returns the label it settled on — the existing entry
+    // when one already matches — so the row that asked can select it either way.
+    createUnit: (label) => {
+      const next = label.trim();
+      if (next === '') return null;
+      const existing = units.find((unit) => unit.toLowerCase() === next.toLowerCase());
+      if (existing !== undefined) return existing;
+      setUnits((current) => [...current, next]);
+      setDirty(true);
+      setSaveError(null);
+      return next;
+    },
     connectServices: async (serviceIds) => {
       if (readModel == null) return;
-      await persist(sheets, deletions, connectSourceServices(readModel.sources, serviceIds));
+      await persist(sheets, deletions, connectSourceServices(readModel.sources, serviceIds), units);
     },
     save: async () => {
       if (readModel == null) return;
-      await persist(sheets, deletions, readModel.sources);
+      await persist(sheets, deletions, readModel.sources, units);
     },
     discard: () => { if (readModel) applyReadModel(readModel); setSelectedKey(null); },
   }), [
-    hostServiceId, list, selected, selectedKey, readModel, sheets, deletions, dirty, saving, saveError,
+    hostServiceId, list, selected, selectedKey, readModel, sheets, deletions, units, dirty, saving, saveError,
     catalog, catalogLoading, catalogError, loadCatalog, editSelected, persist, applyReadModel,
   ]);
 

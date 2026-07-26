@@ -23,6 +23,7 @@ import type {
   PackageRateSheetUnit,
   PackageSourceRelationship,
 } from '../../types';
+import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 
 // ── Editor value ────────────────────────────────────────────────────────────
 // The flat shape the grid edits — a projection of one stored sheet, never a
@@ -238,6 +239,24 @@ export function createEditorGroup(value: RateSheetEditorValue, label: string): R
   return { ...value, groups: [...value.groups, { id: newRateGroupId(value.groups.length), label: trimmed }] };
 }
 
+/**
+ * The same creation, reporting the id it minted so the row that asked can select
+ * it. Two callers need different halves of one operation — the toolbar wants the
+ * new value, an inline "+ Add new" wants its id — so the id is derived once here
+ * rather than guessed from the collection afterwards.
+ */
+export function createEditorGroupWithId(
+  value: RateSheetEditorValue,
+  label: string,
+): { value: RateSheetEditorValue; groupId: string | null } {
+  const trimmed = label.trim();
+  if (!trimmed) return { value, groupId: null };
+  const existing = value.groups.find((group) => group.label.toLowerCase() === trimmed.toLowerCase());
+  if (existing) return { value, groupId: existing.id };
+  const groupId = newRateGroupId(value.groups.length);
+  return { value: { ...value, groups: [...value.groups, { id: groupId, label: trimmed }] }, groupId };
+}
+
 export function renameEditorGroup(value: RateSheetEditorValue, groupId: string, label: string): RateSheetEditorValue {
   return {
     ...value,
@@ -379,11 +398,24 @@ function toStoredSheet(value: RateSheetEditorValue): PackageRateSheet {
  *                     empty new sheet is dropped so it is not persisted.
  *  - `rate_sheet_deletions` the ids explicitly removed (guarded server-side).
  */
+/**
+ * The curated half of the vocabulary — what the backend actually stores. The
+ * built-in seven are dropped because they are constants there, not records, and
+ * re-submitting them would store duplicates of things that already exist.
+ */
+export function curatedUnits(
+  units: readonly PackageRateSheetUnit[],
+): PackageRateSheetUnit[] {
+  const builtIn = new Set<string>(BUILT_IN_RATE_SHEET_UNITS);
+  return units.filter((unit) => !builtIn.has(unit));
+}
+
 export function buildManagerSavePayload(
   readModel: PackageManagerReadModel,
   sheets: readonly RateSheetEditorValue[],
   deletions: readonly string[],
   sources: readonly PackageSourceRelationship[],
+  units?: readonly PackageRateSheetUnit[],
 ): PackageManagerSavePayload {
   const referenced = new Set(sheets.flatMap((sheet) => sheet.items.map((row) => row.optionId)));
 
@@ -411,5 +443,8 @@ export function buildManagerSavePayload(
     item_decisions: itemDecisions,
     rate_sheets: rateSheets,
     rate_sheet_deletions: [...deletions],
+    // Absent rather than empty when the caller authored no units, so a save that
+    // never touched the vocabulary cannot erase it.
+    ...(units === undefined ? {} : { rate_sheet_units: curatedUnits(units) }),
   };
 }

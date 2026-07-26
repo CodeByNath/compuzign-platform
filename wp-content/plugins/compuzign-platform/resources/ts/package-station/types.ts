@@ -231,10 +231,22 @@ export interface PackageManagerProjectionFaq {
   answer:   string;
 }
 
-export const PACKAGE_RATE_SHEET_UNITS = [
+/**
+ * The units every Package Manager understands without being told. Always
+ * offered, never removable, so a sheet is never left with no vocabulary.
+ */
+export const BUILT_IN_RATE_SHEET_UNITS = [
   'Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item',
 ] as const;
-export type PackageRateSheetUnit = typeof PACKAGE_RATE_SHEET_UNITS[number];
+
+/**
+ * A unit label. The vocabulary is DATA — the built-in seven plus whatever this
+ * Manager curated — so this is deliberately not a closed union: the frontend
+ * cannot enumerate at compile time what an admin will store at runtime. The
+ * closed check lives where the vocabulary lives, in `PackageManagerSchema`,
+ * which drops a `per` its stored vocabulary does not know.
+ */
+export type PackageRateSheetUnit = string;
 
 export interface PackageRateSheetItem {
   item_id: string;
@@ -265,6 +277,8 @@ export interface PackageManagerReadModel {
   category_groups:   PackageFamilyItem[];
   items:             PackageManagerItem[];
   rate_sheets:       PackageRateSheet[];
+  /** The full vocabulary a row's `per` may hold: built-ins then curated units. */
+  rate_sheet_units:  PackageRateSheetUnit[];
   projections: {
     inclusions: PackageManagerProjectionInclusion[];
     faqs:       PackageManagerProjectionFaq[];
@@ -306,6 +320,11 @@ export interface PackageManagerSavePayload {
   // carries a blank rate_sheet_id — the backend mints it (the Tool never mints).
   rate_sheets:          PackageRateSheet[];
   rate_sheet_deletions: string[];
+  // Curated units only — the built-in seven are never submitted, because they
+  // are not stored. Omitting this key leaves the stored vocabulary untouched;
+  // sending it replaces it, subject to the backend keeping any unit a surviving
+  // row still carries.
+  rate_sheet_units?:    PackageRateSheetUnit[];
 }
 
 export type PackageManagerSaveResponse =

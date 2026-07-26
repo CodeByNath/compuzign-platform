@@ -9,13 +9,19 @@
 // reassigns its rows; connecting a source Service appends a deduplicated
 // relationship. The tool mints no IDs and invents no storage.
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import {
   addEditorRow,
   buildManagerSavePayload,
   connectSourceServices,
   connectedServiceIds,
   createEditorGroup,
+  createEditorGroupWithId,
   createEditorSheet,
+  curatedUnits,
   deleteEditorGroup,
   duplicateEditorSheet,
   rateSheetOptions,
@@ -166,6 +172,77 @@ const withUnsaved = addEditorRow(value, { id: 'mgr_unsaved', label: 'Unsaved' })
 check(
   rateSheetRowsWithKeys(withUnsaved, new Set(['mgr_unsaved'])).length === 0,
   'a not-yet-persisted row is never matched by a stored selection id',
+);
+
+// ── Curated unit vocabulary ───────────────────────────────────────────────────
+// The unit list is data. Only the curated half is ever submitted: the built-in
+// seven are constants in PackageManagerSchema, not records, so re-sending them
+// would store duplicates of things that already exist.
+check(
+  JSON.stringify(curatedUnits(['Per VM', 'Per rack', 'Per item', 'Per node'])) === JSON.stringify(['Per rack', 'Per node']),
+  'only curated units are submitted; the built-in seven are never re-sent',
+);
+check(
+  JSON.stringify(curatedUnits(['Per VM', 'Per item'])) === JSON.stringify([]),
+  'a vocabulary of built-ins alone submits nothing',
+);
+// Omitting the vocabulary is not the same as clearing it: a save that never
+// authored a unit must leave the stored list alone.
+const noUnitsPayload = buildManagerSavePayload(readModel, [value], [], readModel.sources);
+check(
+  !('rate_sheet_units' in noUnitsPayload),
+  'a save that authored no unit omits the vocabulary rather than emptying it',
+);
+const unitsPayload = buildManagerSavePayload(readModel, [value], [], readModel.sources, ['Per VM', 'Per rack']);
+check(
+  JSON.stringify(unitsPayload.rate_sheet_units) === JSON.stringify(['Per rack']),
+  'an authored vocabulary is submitted with the built-ins stripped',
+);
+
+// An inline "+ Add new" needs the id of what it just created, on the row that
+// asked. Creating reports that id; naming an existing group selects it instead
+// of minting a duplicate.
+const inlineGroup = createEditorGroupWithId(value, 'Storage tiers');
+check(
+  inlineGroup.groupId !== null && inlineGroup.value.groups.some((group) => group.id === inlineGroup.groupId),
+  'creating a group reports the stored id it minted',
+);
+check(
+  createEditorGroupWithId(inlineGroup.value, '  storage TIERS ').groupId === inlineGroup.groupId,
+  'naming an existing group selects it rather than minting a duplicate',
+);
+check(createEditorGroupWithId(value, '   ').groupId === null, 'a blank name mints no group');
+
+// ── Inline create in the row dropdowns ────────────────────────────────────────
+// Both row pickers can create the thing they pick. The behaviour is written ONCE
+// — two dropdowns with the same semantics is the evidence for extraction, and a
+// second inline copy is what that extraction exists to prevent.
+const root = resolve(fileURLToPath(import.meta.url), '../..');
+const partsSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/rate-sheet-tool/rateSheetParts.tsx',
+), 'utf8');
+check(
+  (partsSource.match(/<InlineCreateSelect/g) ?? []).length === 2,
+  'the Group and Per dropdowns both offer inline create, through one implementation',
+);
+check(
+  (partsSource.match(/const ADD_SENTINEL/g) ?? []).length === 1
+    && (partsSource.match(/function InlineCreateSelect/g) ?? []).length === 1,
+  'inline create has one sentinel and one implementation, not a copy per dropdown',
+);
+check(
+  partsSource.includes('onCreate={commands.createGroup}')
+    && partsSource.includes('onCreate={commands.createUnit}'),
+  'creation is delegated to the controller; presentation mints no group and no unit',
+);
+check(
+  !/newRateGroupId|rate_group_|Date\.now\(/.test(partsSource),
+  'presentation mints no id of its own',
+);
+check(
+  partsSource.includes('if (settled !== null) onSelect(settled)'),
+  'only the value the controller settled on is selected on the row that asked',
 );
 
 console.log('Rate Sheet tool contract checks passed.');

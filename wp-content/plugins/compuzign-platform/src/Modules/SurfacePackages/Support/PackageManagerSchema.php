@@ -69,6 +69,18 @@ final class PackageManagerSchema
     public const ALLOWED_RATE_SHEET_STATUSES = ['active', 'archived'];
 
     /**
+     * The units every Package Manager understands without being told. They are
+     * always offered and can never be removed, so a sheet is never left with a
+     * vocabulary of nothing.
+     */
+    public const BUILT_IN_RATE_SHEET_UNITS = [
+        'Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item',
+    ];
+
+    /** A curated unit is a label, not a sentence. */
+    private const MAX_RATE_SHEET_UNIT_LENGTH = 32;
+
+    /**
      * Deterministic identity assigned to the ONE legacy singleton Rate Sheet
      * when it is lifted into the rate_sheets[] collection. This is the only
      * id ever minted during read-time sanitisation; all other sheet ids are
@@ -112,21 +124,88 @@ final class PackageManagerSchema
         }
         unset($source);
 
+        // The unit vocabulary is curated Manager configuration, so it is resolved
+        // BEFORE the sheets that are validated against it. A row may only carry a
+        // unit this vocabulary knows; it can never introduce one by using it.
+        $rateSheetUnits = self::sanitizeRateSheetUnits($data['rate_sheet_units'] ?? []);
+
         return [
             'sources' => $sources,
             'groups' => $groups,
             'category_groups' => $categoryGroups,
             'items'  => self::sanitizeItems($data['items'] ?? [], $groupIds),
+            'rate_sheet_units' => $rateSheetUnits,
             // Identified sibling collection. The legacy singular `rate_sheet` is
             // still accepted as a one-time migration source but never re-emitted.
-            'rate_sheets' => self::sanitizeRateSheets($data['rate_sheets'] ?? null, $data['rate_sheet'] ?? null),
+            'rate_sheets' => self::sanitizeRateSheets(
+                $data['rate_sheets'] ?? null,
+                $data['rate_sheet'] ?? null,
+                self::allowedRateSheetUnits($rateSheetUnits)
+            ),
         ];
     }
 
-    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheets: array} */
+    /**
+     * Curated unit labels, beyond the built-in seven. Blank, over-long and
+     * duplicate entries are dropped, and an entry that merely restates a
+     * built-in is dropped rather than stored twice — comparison is
+     * case-insensitive so `per vm` cannot shadow `Per VM`.
+     *
+     * @param  mixed $units
+     * @return array<int, string>
+     */
+    public static function sanitizeRateSheetUnits(mixed $units): array
+    {
+        if (!is_array($units)) {
+            return [];
+        }
+        $seen = [];
+        foreach (self::BUILT_IN_RATE_SHEET_UNITS as $builtIn) {
+            $seen[mb_strtolower($builtIn)] = true;
+        }
+        $out = [];
+        foreach ($units as $unit) {
+            // A unit is a label. A number or a structure is malformed input, not
+            // a label that happens to stringify, so it is dropped rather than cast.
+            if (!is_string($unit)) {
+                continue;
+            }
+            $label = trim(sanitize_text_field($unit));
+            if ($label === '' || mb_strlen($label) > self::MAX_RATE_SHEET_UNIT_LENGTH) {
+                continue;
+            }
+            $key = mb_strtolower($label);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = $label;
+        }
+        return $out;
+    }
+
+    /**
+     * The full vocabulary a row's `per` is validated against.
+     *
+     * @param  array<int, string> $customUnits
+     * @return array<int, string>
+     */
+    public static function allowedRateSheetUnits(array $customUnits): array
+    {
+        return array_merge(self::BUILT_IN_RATE_SHEET_UNITS, $customUnits);
+    }
+
+    /** @return array{sources: array, groups: array, category_groups: array, items: array, rate_sheet_units: array, rate_sheets: array} */
     public static function defaultManager(): array
     {
-        return ['sources' => [], 'groups' => [], 'category_groups' => [], 'items' => [], 'rate_sheets' => []];
+        return [
+            'sources' => [],
+            'groups' => [],
+            'category_groups' => [],
+            'items' => [],
+            'rate_sheet_units' => [],
+            'rate_sheets' => [],
+        ];
     }
 
     /**
@@ -136,7 +215,7 @@ final class PackageManagerSchema
      */
     public static function hasConfiguration(array $storedManager): bool
     {
-        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheets']);
+        return !empty($storedManager['sources']) || !empty($storedManager['groups']) || !empty($storedManager['category_groups']) || !empty($storedManager['items']) || !empty($storedManager['rate_sheet_units']) || !empty($storedManager['rate_sheets']);
     }
 
     /**
@@ -153,17 +232,21 @@ final class PackageManagerSchema
      *
      * @return array<int, array{rate_sheet_id:string,title:string,status:string,groups:array,items:array}>
      */
-    public static function sanitizeRateSheets(mixed $plural, mixed $legacySingle = null): array
-    {
+    public static function sanitizeRateSheets(
+        mixed $plural,
+        mixed $legacySingle = null,
+        ?array $allowedUnits = null
+    ): array {
         $out  = [];
         $seen = [];
+        $allowedUnits ??= self::BUILT_IN_RATE_SHEET_UNITS;
 
         if (is_array($plural)) {
             foreach ($plural as $sheet) {
                 if (!is_array($sheet)) { continue; }
                 $id = sanitize_text_field((string) ($sheet['rate_sheet_id'] ?? ''));
                 if ($id === '' || isset($seen[$id])) { continue; }
-                $core = self::sanitizeRateSheet($sheet);
+                $core = self::sanitizeRateSheet($sheet, $allowedUnits);
                 if ($core === null) { continue; }
                 $seen[$id] = true;
                 $out[] = [
@@ -178,7 +261,7 @@ final class PackageManagerSchema
         }
 
         // Legacy-singleton migration: one deterministic id assignment.
-        $core = self::sanitizeRateSheet($legacySingle);
+        $core = self::sanitizeRateSheet($legacySingle, $allowedUnits);
         if ($core !== null) {
             $out[] = [
                 'rate_sheet_id' => self::PRIMARY_RATE_SHEET_ID,
@@ -237,7 +320,7 @@ final class PackageManagerSchema
      * relationship Groups. Option identity points at a canonical reconciled
      * Package Manager item; the Rate Sheet never copies source labels.
      */
-    private static function sanitizeRateSheet(mixed $rateSheet): ?array
+    private static function sanitizeRateSheet(mixed $rateSheet, ?array $allowedUnits = null): ?array
     {
         if (!is_array($rateSheet)) {
             return null;
@@ -248,7 +331,7 @@ final class PackageManagerSchema
         $groupIds = array_column($groups, 'group_id');
         $items = [];
         $seen = [];
-        $allowedUnits = ['Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item'];
+        $allowedUnits ??= self::BUILT_IN_RATE_SHEET_UNITS;
 
         foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $item) {
             if (!is_array($item)) {
@@ -464,7 +547,8 @@ final class PackageManagerSchema
         array $faqPool,
         mixed $submittedRateSheets = null,
         mixed $submittedSources = null,
-        mixed $rateSheetDeletions = null
+        mixed $rateSheetDeletions = null,
+        mixed $submittedRateSheetUnits = null
     ): array {
         if ($submittedSources === null) { $submittedSources = self::sanitize($storedManager)['sources']; }
         if (!is_array($submittedSources) || !is_array($submittedGroups) || !is_array($submittedDecisions)) {
@@ -570,13 +654,20 @@ final class PackageManagerSchema
         // Rate Sheets — partial upsert by id + explicit deletions. Independent
         // curation: NO blanket auto-onboard of live sources; each sheet holds
         // only the rows the admin curated. Sheets in neither list are preserved.
+        // A submitted vocabulary replaces the stored one; an absent one keeps it,
+        // so a caller that does not author units cannot silently erase them.
+        $rateSheetUnits = $submittedRateSheetUnits === null
+            ? $stored['rate_sheet_units']
+            : self::sanitizeRateSheetUnits($submittedRateSheetUnits);
+        $allowedUnits = self::allowedRateSheetUnits($rateSheetUnits);
+
         $sheetsById = [];
         foreach ($stored['rate_sheets'] as $sheet) {
             $sheetsById[$sheet['rate_sheet_id']] = $sheet;
         }
         foreach (is_array($submittedRateSheets) ? $submittedRateSheets : [] as $submitted) {
             if (!is_array($submitted)) { continue; }
-            $core = self::sanitizeRateSheet($submitted);
+            $core = self::sanitizeRateSheet($submitted, $allowedUnits);
             if ($core === null) { continue; }
             $id = sanitize_text_field((string) ($submitted['rate_sheet_id'] ?? ''));
             if ($id === '') { $id = self::mintRateSheetId(); } // write-path mint
@@ -593,6 +684,23 @@ final class PackageManagerSchema
             if ($deleteId !== '') { unset($sheetsById[$deleteId]); }
         }
 
+        $rateSheets = array_values($sheetsById);
+
+        // A curated unit a surviving row still carries is kept, even when the
+        // submitted vocabulary omits it. Retiring a unit is a deliberate act on
+        // the rows that use it, never a side effect of saving a sheet.
+        $inUse = [];
+        foreach ($rateSheets as $sheet) {
+            foreach ($sheet['items'] as $rateItem) {
+                if ($rateItem['per'] !== '') { $inUse[$rateItem['per']] = true; }
+            }
+        }
+        foreach ($stored['rate_sheet_units'] as $storedUnit) {
+            if (isset($inUse[$storedUnit]) && !in_array($storedUnit, $rateSheetUnits, true)) {
+                $rateSheetUnits[] = $storedUnit;
+            }
+        }
+
         return self::sanitize([
             'sources' => $submittedSources,
             'groups' => $groups,
@@ -600,7 +708,8 @@ final class PackageManagerSchema
             // manager configuration commit never creates or removes groups.
             'category_groups' => $stored['category_groups'],
             'items' => $items,
-            'rate_sheets' => array_values($sheetsById),
+            'rate_sheet_units' => $rateSheetUnits,
+            'rate_sheets' => $rateSheets,
         ]);
     }
 
@@ -879,6 +988,12 @@ final class PackageManagerSchema
             ),
             'items'             => $outItems,
             'rate_sheets'       => is_array($storedManager['rate_sheets'] ?? null) ? $storedManager['rate_sheets'] : [],
+            // The full vocabulary a row's `per` may hold: the built-in seven
+            // followed by whatever this Manager curated. The reader never infers
+            // it from the rows it happens to see.
+            'rate_sheet_units'  => self::allowedRateSheetUnits(
+                self::sanitizeRateSheetUnits($storedManager['rate_sheet_units'] ?? [])
+            ),
             'projections'       => self::buildConsumerProjections($outItems, $platformStatus),
         ];
     }

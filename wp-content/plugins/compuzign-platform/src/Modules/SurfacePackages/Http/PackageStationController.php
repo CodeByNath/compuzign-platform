@@ -528,6 +528,7 @@ class PackageStationController
                     fn($i) => is_array($i) && !empty($i['question'])
                 )),
                 'rate_sheets' => $managerModel['rate_sheets'],
+                'rate_sheet_units' => $managerModel['rate_sheet_units'],
                 'package_relationships' => $managerModel['items'],
             ],
         ]));
@@ -609,6 +610,11 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => 'rate_sheets must be an array.']);
         }
         $rateSheetDeletions = is_array($body['rate_sheet_deletions'] ?? null) ? $body['rate_sheet_deletions'] : [];
+        // An absent vocabulary is not an empty one: a caller that does not author
+        // units leaves the stored list alone rather than erasing it.
+        $submittedRateSheetUnits = array_key_exists('rate_sheet_units', $body)
+            ? $body['rate_sheet_units']
+            : null;
 
         // First-time configuration bootstraps the independent station anchor.
         $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
@@ -665,7 +671,8 @@ class PackageStationController
                 $faqPool,
                 $submittedRateSheets,
                 $submittedSources,
-                $rateSheetDeletions
+                $rateSheetDeletions,
+                $submittedRateSheetUnits
             );
         } catch (\InvalidArgumentException $e) {
             return rest_ensure_response(['success' => false, 'message' => $e->getMessage()]);

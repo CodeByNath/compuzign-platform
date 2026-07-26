@@ -15,7 +15,8 @@
 // interfaces the Rate Sheet controller already satisfies. It reads no state,
 // calls no endpoint, and mints no id.
 
-import type { VNode } from 'preact';
+import { useState } from 'preact/hooks';
+import type { ComponentChildren, VNode } from 'preact';
 import type { PackageRateSheetUnit } from '../../types';
 import { rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
@@ -44,6 +45,83 @@ export interface RateSheetRowCommands {
   setRowQuantity:  (rowId: string, quantity: number) => void;
   setRowGroup:     (rowId: string, groupId: string | null) => void;
   removeRow:       (rowId: string) => void;
+  /** Creates a group in this sheet and returns its stored id, or null if blank. */
+  createGroup:     (label: string) => string | null;
+  /** Adds a unit to the Manager vocabulary and returns the settled label. */
+  createUnit:      (label: string) => PackageRateSheetUnit | null;
+}
+
+// ── SECTION: inline create ────────────────────────────────────────────────────
+
+/**
+ * A picker that can also create the thing it is picking. Both row dropdowns need
+ * exactly this — pick an existing value, or name a new one and have it selected
+ * on the row that asked — so the behaviour is written once here rather than
+ * twice inline. It mints nothing itself: `onCreate` returns the value that was
+ * settled on, and only that value is selected.
+ *
+ * The interaction follows the established Service Station pattern: a sentinel
+ * option swaps the select for an input, Enter commits, Escape abandons, and blur
+ * commits so a click elsewhere does not silently discard the name.
+ */
+const ADD_SENTINEL = '__add__';
+
+function InlineCreateSelect({
+  value, disabled, ariaLabel, addLabel, placeholder, children, onSelect, onCreate,
+}: {
+  value:       string;
+  disabled:    boolean;
+  ariaLabel:   string;
+  addLabel:    string;
+  placeholder: string;
+  children:    ComponentChildren;
+  onSelect:    (next: string) => void;
+  onCreate:    (label: string) => string | null;
+}): VNode {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const commit = () => {
+    const settled = onCreate(draft);
+    if (settled !== null) onSelect(settled);
+    setDraft('');
+    setAdding(false);
+  };
+
+  if (adding) {
+    return (
+      <input
+        class="cz-tf-input"
+        value={draft}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        autoFocus
+        onInput={(event) => setDraft((event.currentTarget as HTMLInputElement).value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') { event.preventDefault(); commit(); }
+          if (event.key === 'Escape') { setDraft(''); setAdding(false); }
+        }}
+      />
+    );
+  }
+
+  return (
+    <select
+      class="cz-tf-select"
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onChange={(event) => {
+        const next = (event.currentTarget as HTMLSelectElement).value;
+        if (next === ADD_SENTINEL) { setAdding(true); return; }
+        onSelect(next);
+      }}
+    >
+      {children}
+      <option value={ADD_SENTINEL}>{addLabel}</option>
+    </select>
+  );
 }
 
 // ── SECTION: groups block ─────────────────────────────────────────────────────
@@ -165,10 +243,17 @@ function RateSheetEditRow({
           onInput={(event) => commands.setRowUnitPrice(key, Number((event.currentTarget as HTMLInputElement).value))} />
       </td>
       <td>
-        <select class="cz-tf-select" value={row.per} disabled={disabled} aria-label={`Unit for ${row.optionLabel}`}
-          onChange={(event) => commands.setRowPer(key, (event.currentTarget as HTMLSelectElement).value as PackageRateSheetUnit)}>
+        <InlineCreateSelect
+          value={row.per}
+          disabled={disabled}
+          ariaLabel={`Unit for ${row.optionLabel}`}
+          addLabel="+ Add new unit"
+          placeholder="New unit name"
+          onSelect={(next) => commands.setRowPer(key, next)}
+          onCreate={commands.createUnit}
+        >
           {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-        </select>
+        </InlineCreateSelect>
       </td>
       <td>
         <input class="cz-tf-input" type="number" min="1" step="1" value={row.quantity} disabled={disabled}
@@ -176,11 +261,18 @@ function RateSheetEditRow({
           onInput={(event) => commands.setRowQuantity(key, Number((event.currentTarget as HTMLInputElement).value))} />
       </td>
       <td>
-        <select class="cz-tf-select" value={row.groupId ?? ''} disabled={disabled} aria-label={`Group for ${row.optionLabel}`}
-          onChange={(event) => { const next = (event.currentTarget as HTMLSelectElement).value; commands.setRowGroup(key, next === '' ? null : next); }}>
+        <InlineCreateSelect
+          value={row.groupId ?? ''}
+          disabled={disabled}
+          ariaLabel={`Group for ${row.optionLabel}`}
+          addLabel="+ Add new group"
+          placeholder="New group name"
+          onSelect={(next) => commands.setRowGroup(key, next === '' ? null : next)}
+          onCreate={commands.createGroup}
+        >
           <option value="">Ungrouped</option>
           {groups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
-        </select>
+        </InlineCreateSelect>
       </td>
       {allowRemove && (
         <td>

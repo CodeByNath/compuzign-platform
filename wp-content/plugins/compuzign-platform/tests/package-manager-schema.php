@@ -256,6 +256,35 @@ assertSameValue('compute', $rateModel['rate_sheets'][0]['items'][0]['group_id'],
 assertSameValue('Per VM', $rateModel['rate_sheets'][0]['items'][0]['per'], 'controlled Rate Sheet unit is preserved');
 assertSameValue(true, $rateModel['has_configuration'], 'Rate Sheet alone contributes Manager configuration');
 
+// ── Curated unit vocabulary ──────────────────────────────────────────────────
+// The unit list is data. A row may only carry a unit the vocabulary knows, so a
+// row can never introduce one by using it.
+$units = PMS::sanitizeRateSheetUnits(['Per rack', '  Per node  ', '', 'Per rack', 'per RACK', 'Per item', str_repeat('x', 40), 42]);
+assertSameValue(['Per rack', 'Per node'], $units, 'curated units are trimmed, deduped case-insensitively, and bounded');
+assertSameValue(
+    ['Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item', 'Per rack'],
+    PMS::allowedRateSheetUnits(['Per rack']),
+    'the vocabulary is the built-in seven followed by what the Manager curated'
+);
+
+$customRow = static fn(string $per): array => ['rate_sheets' => [[
+    'rate_sheet_id' => 'rs_units', 'title' => 'Units', 'status' => 'active', 'groups' => [],
+    'items' => [[
+        'item_id' => 'rate-u', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+        'unit_price' => 5, 'per' => $per, 'quantity' => 1, 'group_id' => null, 'sort_order' => 0,
+    ]],
+]]];
+
+$knownUnit = PMS::sanitize([...$customRow('Per rack'), 'rate_sheet_units' => ['Per rack']]);
+assertSameValue('Per rack', $knownUnit['rate_sheets'][0]['items'][0]['per'], 'a row keeps a curated unit the vocabulary knows');
+assertSameValue(['Per rack'], $knownUnit['rate_sheet_units'], 'the curated vocabulary is stored beside the sheets');
+
+$unknownUnit = PMS::sanitize($customRow('Per rack'));
+assertSameValue('', $unknownUnit['rate_sheets'][0]['items'][0]['per'], 'a unit no vocabulary knows still fails closed');
+assertSameValue([], $unknownUnit['rate_sheet_units'], 'a row cannot introduce a unit by using it');
+
+assertSameValue(true, PMS::hasConfiguration(PMS::sanitize(['rate_sheet_units' => ['Per rack']])), 'a curated unit alone is Manager configuration');
+
 // Phase 2 migration — a legacy SINGULAR rate_sheet lifts into the identified collection.
 $legacyMigrated = PMS::sanitize(['rate_sheet' => [
     'title' => 'Legacy', 'groups' => [],
