@@ -14,6 +14,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Entity Drawer Recovery](entity-drawer-recovery.md)
 - [Admin Station Home Shell](admin-station-home-shell.md)
 - [Admin Station Styles](admin-station-styles.md)
+- [Station Tab Set](station-tab-set.md)
 - [Admin Station List System](admin-station-list-system.md)
 - [Admin Station Cards](admin-station-cards.md)
 - [Drawer System](drawer-system.md)

@@ -11,13 +11,13 @@ The Admin Station uses scoped station tokens plus the shared drawer stylesheet. 
 
 `resources/ts/modules/admin-station.ts` emits `dist/css/admin-station.css` in the order tokens → base → responsive. Vite builds `drawer-kit.css` as its own stable entry; `Core/AssetLoader.php` registers it once and makes the Admin Station sheet depend on it, so drawer-kit always precedes the station sheet.
 
-`.cz-admin-station` is the only live root for both sheets. The retired `.cz-admin-root` Command Centre root is emitted by no TypeScript or PHP file.
+`.cz-admin-station` is the only live root for both sheets.
 
 ## Ownership boundary
 
 Three owners, no overlap. See [Admin Station Field System](../architecture/admin-station-field-system-v1.md) for the full specification.
 
-**Shell CSS** (`admin-station.css`, `admin-station-tokens.css`, `admin-station-responsive.css`) owns station layout, header, navigation, body, footer, slide menu, presentation surfaces, station tabs, the drawer layer, backdrop, drawer placement, drawer widths, station breakpoints, and every design token.
+**Shell CSS** (`admin-station.css`, `admin-station-tokens.css`, `admin-station-responsive.css`) owns station layout, header, navigation, body, footer, slide menu, presentation surfaces, station tabs and tab sets, the drawer layer, backdrop, drawer placement, drawer widths, station breakpoints, and every design token.
 
 **Drawer/content CSS** (`drawer-kit.css`) owns drawer content sections, overview modules, field grids, field wrappers, labels, hints, control appearance, control states, control sizes, validation presentation, inline-edit layouts, and record footer contents.
 
@@ -54,4 +54,4 @@ From the plugin root: `npm run build`, `npm run contract:admin-station-css`, `np
 
 ## Related Code Maps
 
-[Admin Station](admin-station.md), [Admin Station Drawer](admin-station-drawer.md), [Admin Station Cards](admin-station-cards.md), [Drawer System](drawer-system.md).
+[Admin Station](admin-station.md), [Station Tab Set](station-tab-set.md), [Admin Station Drawer](admin-station-drawer.md), [Admin Station Cards](admin-station-cards.md), [Drawer System](drawer-system.md).

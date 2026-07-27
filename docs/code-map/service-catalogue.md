@@ -4,7 +4,7 @@
 
 Service Station owns the family-first Service Catalogue: Service browsing, creation handoff, Service drawer intent, data projection, and presentation kit. Service posts, direct Categories, meta, and lifecycle remain Service-owned. Package Family relationships remain Package-owned.
 
-Admin Station is the presentation/control host, not the Catalogue owner. Admin's string-key presentation policy places the registered Service Catalogue on the Services destination. Station Manager resolves the binding, data source, kit, intent, and drawer contract without owning their behavior.
+Admin Station is the presentation/control host, not the Catalogue owner. Admin's string-key presentation policy places the registered Service lower deck on the Services destination. Station Manager resolves the binding, data source, kit, intent, and drawer contract without owning their behavior.
 
 ## Registration and composition
 
@@ -12,8 +12,10 @@ Admin Station is the presentation/control host, not the Catalogue owner. Admin's
 
 - the Services navigation item and destination;
 - `services` and `service-catalogue` data sources;
-- the `service-catalogue` template kit;
+- the `service-lower-deck` template kit;
 - the `service` drawer contract.
+
+The Catalogue is no longer a wall of its own. [ServiceLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceLowerDeck.tsx) is the bound kit: it selects a lane and hands the Catalogue the template-kit props unchanged, so filters, sorting, pagination, table, and drawer intent behave exactly as before inside the `Details` lane. `Connections` and `Settings` are declared lanes with an empty state and nothing behind them. Lane semantics come from the Admin-owned `StationTabSet`; Service Home renders no Tier class and reaches no Package presentation module.
 
 [useServiceCatalogue.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/useServiceCatalogue.ts) composes Service summaries with Package Family relationships. [serviceCatalogueAdapter.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/serviceCatalogueAdapter.ts) builds presentation rows, while [ServiceCatalogue.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceCatalogue.tsx) renders them and calls no endpoints.
 
@@ -29,7 +31,7 @@ The Category filter uses the Service's direct Category slug. The Family filter u
 
 ## Validation
 
-Run `npx tsx scripts/service-catalogue-projection-contract.ts`, `php tests/package-category-groups.php`, `php tests/service-route-baseline.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `npx tsx scripts/service-catalogue-projection-contract.ts`, `npm run contract:station-tabset`, `php tests/package-category-groups.php`, `php tests/service-route-baseline.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 

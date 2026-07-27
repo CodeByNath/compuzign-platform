@@ -10,7 +10,8 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `api.ts` — the single implementation of Service-owned endpoint calls.
 - `useServiceStation.ts` — detail fetch, draft-preferred state, mutations, and lifecycle actions.
 - `derive.ts` — stateless module status, publish gate, Package summary, and modal projections.
-- `register.ts` — registers Service navigation, destination, sources, catalogue kit, and drawer with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
+- `presentation/ServiceLowerDeck.tsx` — the bound presentation kit for Service Home: composition only. It selects a lane and hands `ServiceCatalogue.tsx` the template-kit props unchanged, so the catalogue keeps its own hooks, filters, table, pagination, and drawer intent. `Connections` and `Settings` are declared lanes with an empty state and nothing behind them; do not give either one a source, projection, drawer route, or model without the owning Station's decision. Lane semantics come from `@/admin-station/presentation/StationTabSet`; no `cz-tier-*` class and no Package presentation module may appear here.
+- `register.ts` — registers Service navigation, destination, sources, the lower-deck kit, and drawer with Station Manager. It is imported only by `resources/ts/modules/admin-station.ts` and is never re-exported from `index.ts`.
 
 ## Boundaries
 
@@ -18,10 +19,10 @@ External consumers import only `index.ts`; sibling files import `./types` / `./a
 
 Host-engine contracts and helpers come from `@/station-manager`. Imports from `@/admin-station/presentation/` and `@/admin-station/shell/icons` are legal consumption of Admin Station presentation/control capabilities, not transitional coupling. `register.ts` remains an entry-only module and must not enter the public barrel.
 
-This peer owns Service data (`.`), surface adapters (`surface/`), the catalogue presentation kit (`presentation/`), and the Service drawer, editors, and schema (`drawer/`). `serviceConnectionBinding` lives in `drawer/schema/bindings/service.tsx` and is exported through the public barrel; `serviceDrawerShared.ts` no longer exists. Service consumes the shared `resources/ts/entity-drawers/shared/drawerChrome.ts` chrome and module-notification framework in `resources/ts/drawer-kit/` without transferring Service authority to those shared renderer contracts.
+This peer owns Service data (`.`), surface adapters (`surface/`), the lower deck and catalogue presentation kit (`presentation/`), and the Service drawer, editors, and schema (`drawer/`). `serviceConnectionBinding` lives in `drawer/schema/bindings/service.tsx` and is exported through the public barrel; `serviceDrawerShared.ts` no longer exists. Service consumes the shared `resources/ts/entity-drawers/shared/drawerChrome.ts` chrome and module-notification framework in `resources/ts/drawer-kit/` without transferring Service authority to those shared renderer contracts.
 
 Read [Service Station](../../../../../../docs/code-map/service-station.md) and [Service Catalogue](../../../../../../docs/code-map/service-catalogue.md).
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `npm run contract:station-tabset`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

@@ -6,7 +6,7 @@ Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station
 
 ## Ownership
 
-- `presentation/` owns the station presentation shell, generic card-grid kit, Service Category carousel, status pill, metric, and split-action components. Peer imports of these modules are legal consumption of Admin presentation capabilities.
+- `presentation/` owns the station presentation shell, generic card-grid kit, Service Category carousel, status pill, metric, split-action, and tab-set components. Peer imports of these modules are legal consumption of Admin presentation capabilities. `StationTabSet.tsx` is the one tab primitive for lanes inside a wall; see [Station Tab Set](station-tab-set.md).
 - `shell/` owns layout and navigation chrome, icons, local controls, and the single entity-agnostic drawer shell.
 - `register.ts` registers Admin's own Promotions navigation/destination, Service Category source, presentation kits, and Category drawer. Its separate `registerPresentationPolicy()` declares all current surface bindings and the default home by string key.
 - `stations/serviceCategory/` is retained Admin residue until Service Categories are re-owned in a later increment.

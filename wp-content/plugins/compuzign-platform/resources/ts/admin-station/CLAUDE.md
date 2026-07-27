@@ -10,7 +10,8 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `shell/AdminStationLayout|Header|Body|Footer|SlideMenu|Dropdown.tsx` — the station frame.
 - `shell/drawer/AdminStationDrawer.tsx` — **the one drawer host**: layer, backdrop, panel, size modifier, header, scrolling body, footer band, scroll lock, Escape, focus restore, close guard, mode clamping, unresolved-key fallback. It never branches on entity type.
 - `shell/drawer/AdminStationDrawerContext.tsx` — one open drawer: template key, opaque record id, mode, originating-wall refetch.
-- `home/`, `presentation/` — the home shell and the station-level presentation primitives (status pill, metric block, split action, category-group cards).
+- `home/`, `presentation/` — the home shell and the station-level presentation primitives (status pill, metric block, split action, category-group cards, tab set).
+- `presentation/StationTabSet.tsx` — **the one tab primitive** for lanes inside a wall: ids, roving focus, Arrow/Home/End movement, disabled tabs, and `tablist`/`tab`/`tabpanel` semantics. It imports only Preact and names no station, entity, drawer route, data source, or lane. Callers own the selected id, every panel body, and the class names. It is not the station-group region: `home/AdminStationGroups.tsx` remains the station-level tabs.
 - `register.ts` — Admin Station navigation, destinations, kits, the Category drawer, and the presentation action policy.
 - `styles/` — see the ownership boundary below.
 
@@ -32,4 +33,4 @@ Read [Admin Station](../../../../../../docs/code-map/admin-station.md), [Admin S
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run contract:station-tabset`, `npm run docs:check`.

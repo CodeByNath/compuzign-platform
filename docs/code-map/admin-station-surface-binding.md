@@ -13,12 +13,14 @@ Roots: `wp-content/plugins/compuzign-platform/resources/ts/station-manager/` and
 | Station / surface | Order | Source | Kit | Drawer |
 | --- | ---: | --- | --- | --- |
 | `services/package-families` | 0 | `package-families` | `category-group-cards` | `package-family` |
-| `services/service-catalogue` | 1 | `service-catalogue` | `service-catalogue` | `service` |
+| `services/service-lower-deck` | 1 | `service-catalogue` | `service-lower-deck` | `service` |
 | `packages/tier-tool` | 0 | `package-tier-workspace` | `tier-workspace` | `tier` |
 
 All use `placement: 'presentation'` and `conditions.scope: 'current'`. The policy also sets `services` as the default home. These are string-key references: Admin does not import peer data or business implementations into its policy function.
 
 Service Categories, Service cards, and standalone Service Tier cards have registered sources, and the Category carousel is a registered kit, but none is currently bound to a presentation wall.
+
+`service-lower-deck` is a Service-owned kit that composes lanes rather than a list: it reads the same `service-catalogue` source and opens the same `service` drawer, and renders the existing Service Catalogue inside its `Details` lane. Composition inside one kit is not a second binding; Connections and Settings hold declared empty states with no source, kit, or drawer of their own.
 
 ## Finalization and rendering
 
