@@ -955,6 +955,12 @@ const tabSetSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierTabSet.tsx',
 ), 'utf8');
+// Tab behaviour and accessibility are the shared station primitive's; the
+// Package file above keeps only the deck skin each variant wears.
+const stationTabSetSource = readFileSync(resolve(
+  root,
+  'resources/ts/admin-station/presentation/StationTabSet.tsx',
+), 'utf8');
 const connectionsSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierConnections.tsx',
@@ -980,25 +986,37 @@ check(
   'one workspace tab contract renders the deck lanes, compact selectors, and nested connection tabs',
 );
 check(
-  tabSetSource.includes('role="tablist"')
-    && tabSetSource.includes('role="tab"')
-    && tabSetSource.includes('aria-selected={selected}')
-    && tabSetSource.includes('aria-controls={panelId}')
-    && tabSetSource.includes('id={`${uid}-panel-${item.id}`}')
-    && tabSetSource.includes('role="tabpanel"')
-    && tabSetSource.includes('aria-labelledby={`${uid}-tab-${item.id}`}')
-    && tabSetSource.includes('tabIndex={selected ? 0 : -1}')
-    && tabSetSource.includes('hidden={!selected}'),
+  tabSetSource.includes('<StationTabSet')
+    && !/role="tab(list|panel)?"/.test(tabSetSource)
+    && !tabSetSource.includes('event.key ==='),
+  'the workspace tab contract delegates tab semantics and keyboard movement to the shared primitive',
+);
+check(
+  stationTabSetSource.includes('role="tablist"')
+    && stationTabSetSource.includes('role="tab"')
+    && stationTabSetSource.includes('aria-selected={selected}')
+    && stationTabSetSource.includes('aria-controls={panelId(item.id)}')
+    && stationTabSetSource.includes('id={panelId(item.id)}')
+    && stationTabSetSource.includes('role="tabpanel"')
+    && stationTabSetSource.includes('aria-labelledby={tabId(item.id)}')
+    && stationTabSetSource.includes('tabIndex={selected ? 0 : -1}')
+    && stationTabSetSource.includes('hidden={item.id !== selectedId}'),
   'every workspace tab level has matching tab/panel ids and a roving tab stop',
 );
 check(
-  tabSetSource.includes("event.key === 'ArrowRight'")
-    && tabSetSource.includes("event.key === 'ArrowLeft'")
-    && tabSetSource.includes("event.key === 'ArrowDown'")
-    && tabSetSource.includes("event.key === 'ArrowUp'")
-    && tabSetSource.includes("event.key === 'Home'")
-    && tabSetSource.includes("event.key === 'End'"),
+  stationTabSetSource.includes("event.key === 'ArrowLeft'")
+    && stationTabSetSource.includes("event.key === 'ArrowUp'")
+    && stationTabSetSource.includes("event.key === 'Home'")
+    && stationTabSetSource.includes("event.key === 'End'")
+    && stationTabSetSource.includes("'ArrowRight', 'ArrowDown'"),
   'the shared tab contract supports Arrow, Home, and End keyboard navigation',
+);
+// The three deck skins stay Package-owned: the shared primitive must never name
+// a Tier class, and the Package skin must never name a Tier lane.
+check(
+  !stationTabSetSource.includes('cz-tier-')
+    && ['deck', 'nested', 'selectors'].every((variant) => tabSetSource.includes(`${variant}: {`)),
+  'the shared tab primitive carries no Tier class and the deck variants stay Package-owned',
 );
 check(
   connectionsSource.includes('navigation: ConnectionNavigationCategory[]')

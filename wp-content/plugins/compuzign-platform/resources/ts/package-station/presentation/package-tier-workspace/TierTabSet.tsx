@@ -1,12 +1,20 @@
-// Tier workspace tab contract.
+// Tier workspace tab contract — the Package-owned skin over the shared station
+// tab set.
 //
-// One accessible selection primitive serves the lower-deck lanes, compact
-// category selectors, and nested connection tabs. It owns IDs, roving focus,
-// arrow/Home/End movement, and matching tab/panel relationships; callers own the
-// selected id and render only domain content.
+// One accessible selection primitive still serves the lower-deck lanes, compact
+// category selectors, and nested connection tabs. The behaviour — ids, roving
+// focus, arrow/Home/End movement, and matching tab/panel relationships — now
+// belongs to `admin-station/presentation/StationTabSet.tsx`, which knows nothing
+// about Tiers. What stays here is the part that is genuinely Package
+// presentation: which deck classes each variant wears, and what a compact
+// selector card renders inside its tab. Callers still own the selected id and
+// render only domain content.
 
-import { useId, useRef } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
+import {
+  StationTabSet,
+  type StationTabSetClasses,
+} from '@/admin-station/presentation/StationTabSet';
 import { ChevronDownIcon } from '@/admin-station/shell/icons';
 
 export interface TierTabItem<Id extends string> {
@@ -16,14 +24,37 @@ export interface TierTabItem<Id extends string> {
   summary?: string | null;
 }
 
+type TierTabVariant = 'deck' | 'selectors' | 'nested';
+
 interface Props<Id extends string> {
   label:       string;
   items:       readonly TierTabItem<Id>[];
   selectedId:  Id;
   onSelect:    (id: Id) => void;
-  variant:     'deck' | 'selectors' | 'nested';
+  variant:     TierTabVariant;
   renderPanel: (id: Id) => ComponentChildren;
 }
+
+// Deck lanes and nested tabs wear the shared strip and add only the deck's own
+// inset and panel spacing. Compact selectors are a card grid rather than a
+// strip, so they replace the strip skin outright and keep only the shared panel.
+const VARIANT_CLASSES: Record<TierTabVariant, StationTabSetClasses> = {
+  deck: {
+    list:  'cz-station-tabset__list cz-tier-deck__tabs',
+    tab:   'cz-station-tabset__tab',
+    panel: 'cz-station-tabset__panel cz-tier-deck__panel',
+  },
+  nested: {
+    list:  'cz-station-tabset__list cz-tier-deck__tabs--nested',
+    tab:   'cz-station-tabset__tab',
+    panel: 'cz-station-tabset__panel cz-tier-deck__tabpanel',
+  },
+  selectors: {
+    list:  'cz-tier-deck__selector-grid',
+    tab:   'cz-tier-deck__selector-card',
+    panel: 'cz-station-tabset__panel cz-tier-deck__connection-panel',
+  },
+};
 
 export function TierTabSet<Id extends string>({
   label,
@@ -33,82 +64,32 @@ export function TierTabSet<Id extends string>({
   variant,
   renderPanel,
 }: Props<Id>): VNode {
-  const uid = useId();
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const tabListClass = variant === 'selectors'
-    ? 'cz-tier-deck__selector-grid'
-    : `cz-tier-deck__tabs${variant === 'nested' ? ' cz-tier-deck__tabs--nested' : ''}`;
-  const panelClass = variant === 'selectors'
-    ? 'cz-tier-deck__connection-panel'
-    : variant === 'nested'
-      ? 'cz-tier-deck__tabpanel'
-      : 'cz-tier-deck__panel';
+  return (
+    <StationTabSet
+      label={label}
+      items={items}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      classes={VARIANT_CLASSES[variant]}
+      renderPanel={renderPanel}
+      renderTab={variant === 'selectors' ? selectorCard : undefined}
+    />
+  );
+}
 
-  const onKeyDown = (event: KeyboardEvent, index: number) => {
-    let next: number | null = null;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % items.length;
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + items.length) % items.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = items.length - 1;
-    if (next === null) return;
-    event.preventDefault();
-    onSelect(items[next].id);
-    tabRefs.current[next]?.focus();
-  };
-
+// A compact selector states its category, its one-line summary when the
+// projection supplies one, and the chevron that reads as "opens below".
+function selectorCard(item: TierTabItem<string>): ComponentChildren {
   return (
     <>
-      <div class={tabListClass} role="tablist" aria-label={label}>
-        {items.map((item, index) => {
-          const selected = item.id === selectedId;
-          const tabId = `${uid}-tab-${item.id}`;
-          const panelId = `${uid}-panel-${item.id}`;
-          return (
-            <button
-              key={item.id}
-              id={tabId}
-              ref={(element) => { tabRefs.current[index] = element; }}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={panelId}
-              tabIndex={selected ? 0 : -1}
-              class={variant === 'selectors' ? 'cz-tier-deck__selector-card' : 'cz-tier-deck__tab'}
-              onClick={() => onSelect(item.id)}
-              onKeyDown={(event) => onKeyDown(event, index)}
-            >
-              {variant === 'selectors' ? (
-                <>
-                  {item.icon && <span class="cz-tier-deck__selector-icon" aria-hidden="true">{item.icon}</span>}
-                  <span class="cz-tier-deck__selector-copy">
-                    <span class="cz-tier-deck__selector-title">{item.label}</span>
-                    {item.summary !== null && item.summary !== undefined && (
-                      <span class="cz-tier-deck__selector-summary">{item.summary}</span>
-                    )}
-                  </span>
-                  <span class="cz-tier-deck__selector-chevron" aria-hidden="true"><ChevronDownIcon /></span>
-                </>
-              ) : item.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {items.map((item) => {
-        const selected = item.id === selectedId;
-        return (
-          <div
-            key={item.id}
-            id={`${uid}-panel-${item.id}`}
-            class={panelClass}
-            role="tabpanel"
-            aria-labelledby={`${uid}-tab-${item.id}`}
-            hidden={!selected}
-          >
-            {renderPanel(item.id)}
-          </div>
-        );
-      })}
+      {item.icon && <span class="cz-tier-deck__selector-icon" aria-hidden="true">{item.icon}</span>}
+      <span class="cz-tier-deck__selector-copy">
+        <span class="cz-tier-deck__selector-title">{item.label}</span>
+        {item.summary !== null && item.summary !== undefined && (
+          <span class="cz-tier-deck__selector-summary">{item.summary}</span>
+        )}
+      </span>
+      <span class="cz-tier-deck__selector-chevron" aria-hidden="true"><ChevronDownIcon /></span>
     </>
   );
 }

@@ -2181,71 +2181,27 @@ button.cz-station-status-pill {
   font-weight: 700;
 }
 
-/* Tab strip — underlined tabs, the mockup's Details | Connections | Settings. */
+/* Tab strip — the mockup's Details | Connections | Settings.
+   The underlined strip itself is the shared `cz-station-tabset` skin; the deck
+   adds only what its framed panel needs, which is the inset that lines the tabs
+   up with the context bar above them. */
 .cz-tier-deck__tabs {
-  display: flex;
-  gap: 28px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--station-card-divider);
-}
-
-.cz-tier-deck__tab {
-  position: relative;
-  padding: 14px 0;
-  border: 0;
-  background: transparent;
-  color: var(--station-text-muted);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.cz-tier-deck__tab:hover {
-  color: var(--station-text);
-}
-
-.cz-tier-deck__tab:focus-visible {
-  outline: 2px solid var(--station-focus-ring);
-  outline-offset: 2px;
-}
-
-.cz-tier-deck__tab[aria-selected='true'] {
-  color: var(--station-text);
-}
-
-.cz-tier-deck__tab[aria-selected='true']::after {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  bottom: -1px;
-  height: 3px;
-  border-radius: 3px 3px 0 0;
-  background: var(--station-accent);
+  padding-inline: 20px;
 }
 
 .cz-tier-deck__panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
   padding: 18px 20px 20px;
 }
 
-.cz-tier-deck__panel[hidden],
-.cz-tier-deck__connection-panel[hidden],
-.cz-tier-deck__tabpanel[hidden] {
-  display: none;
-}
-
+/* Nested tabs scroll instead of wrapping and sit flush inside the panel that
+   already carries the inset. */
 .cz-tier-deck__tabs--nested {
   gap: var(--station-card-gap);
-  padding-inline: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
 .cz-tier-deck__tabpanel {
-  display: flex;
-  flex-direction: column;
   gap: var(--station-card-gap);
   padding-top: var(--station-card-pad);
 }
@@ -2455,9 +2411,9 @@ button.cz-station-status-pill {
   transform: rotate(0);
 }
 
+/* The selected category's panel is a framed card of its own, so it restates the
+   shared panel's spacing and adds the frame. */
 .cz-tier-deck__connection-panel {
-  display: flex;
-  flex-direction: column;
   gap: 20px;
   padding: var(--station-card-pad);
   border: 1px solid var(--station-border);
