@@ -501,11 +501,12 @@ check(
 );
 
 // ── Settings wires no relationship ────────────────────────────────────────────
-// Settings configures the ONE focused Tier system. It never assigns a Tier to a
-// Package Family, never offers a Family picker or a pre-picked candidate, never
-// keeps a second Tier inventory beside the focused one, and never launches an
-// unrelated tool. Each of those relationships is made in the drawer that owns the
-// record, so removing them here removed a UI path and no capability.
+// Settings reads the WHOLE focus the Package Family Group leads. It never
+// assigns a Tier to a Package Family, never offers a Family picker or a
+// pre-picked candidate, never keeps a second Tier inventory beside the focused
+// one, and never launches an unrelated tool. Each of those relationships is made
+// in the drawer that owns the record, so removing them here removed a UI path
+// and no capability.
 const settingsSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx',
@@ -553,23 +554,42 @@ check(
   'the selected Settings leaf enters the lower deck outline at the correct heading rank',
 );
 
-// The required hierarchy. Focused Tier System carries exactly Rate Sheet Access
-// and nothing else: the fixed Tier slots are the engine's listing, and Settings
-// no longer restates them beside it.
+// The required hierarchy. The focused category is the WHOLE focus the Package
+// Family Group leads — not one Tier slot inside it — and it reports that focus
+// in the same two categories Connections uses: the Stations it is connected to,
+// and the Tools it may use. Exactly two sections, and the fixed Tier slots stay
+// the engine's listing, which Settings does not restate beside it.
 const focusedGroup = settingsSource.slice(
-  settingsSource.indexOf("id: 'focused-tier-system'"),
+  settingsSource.indexOf("id: 'focused-package'"),
   settingsSource.indexOf("id: 'package-manager'"),
 );
-for (const expected of [
-  "title: 'Access'",
-  "leaf: 'Rate Sheet Access'",
-]) {
-  check(focusedGroup.includes(expected), `Focused Tier System declares ${expected}`);
-}
+const focusedTitles = [...focusedGroup.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+check(
+  focusedTitles.join(',') === 'Focused Package,Stations,Tools',
+  'the focused category is package-focused and holds exactly the Stations and Tools sections',
+);
 const focusedLeaves = [...focusedGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
-  focusedLeaves.join(',') === 'Rate Sheet Access',
-  'Focused Tier System holds exactly the whole-system access section',
+  focusedLeaves.join(',') === 'Connected Family Group,Rate Sheet Access',
+  'the focused category holds exactly the connected Family Group and the whole-system access section',
+);
+// The connected Family Group is the workspace's ONE connection projection, and
+// it travels the existing connection dispatcher into the drawer that owns the
+// record. Settings mints no second row, target, or intent for it.
+check(
+  settingsSource.includes("import { projectFamilyConnectionRows } from '../../surface/packageTierWorkspace/connectionNavigation'")
+    && settingsSource.includes('projectFamilyConnectionRows(family)')
+    && focusedGroup.includes('<ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />'),
+  'Settings reports the connected Family Group from the shared projection through the shared connection dispatcher',
+);
+const connectionNavigationSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/packageTierWorkspace/connectionNavigation.ts',
+), 'utf8');
+check(
+  (connectionNavigationSource.match(/kind:\s+'family',/g) ?? []).length === 1
+    && connectionNavigationSource.includes('const familyRows = projectFamilyConnectionRows(family)'),
+  'one derivation builds the connected Family row for both the Tier and the whole-focus scope',
 );
 // The engine above lists every fixed slot and dispatches the occupant and slot
 // drawer routes. A second slot listing in Settings addressed the SAME focused
@@ -592,32 +612,50 @@ for (const retired of [
 }
 
 // ── Package Manager launches; it does not create ──────────────────────────────
-// Package Manager is three pool subjects, and a subject offers a launcher into
-// the drawer that owns the record — not a form. Groups is absent by design: a
-// group is stored inside `rate_sheets[].groups[]`, so it has no pool and no
-// address apart from the sheet holding it, and the Rate Sheet drawer already
-// authors it. A fourth entry could only re-open that same drawer.
+// Package Manager offers the same two categories as the focus above it —
+// Stations and Tools — and inside them the three pool creations, each a launcher
+// into the drawer that owns the record rather than a form. Groups is absent by
+// design: a group is stored inside `rate_sheets[].groups[]`, so it has no pool
+// and no address apart from the sheet holding it, and the Rate Sheet drawer
+// already authors it. A fourth creation could only re-open that same drawer.
 const managerGroup = settingsSource.slice(settingsSource.indexOf("id: 'package-manager'"));
-const managerLeaves = [...managerGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
-check(
-  managerLeaves.join(',') === 'Create Family,Create Tier,Create Rate Sheet',
-  'Package Manager holds exactly the three pool creations, in the required order',
-);
 const managerTitles = [...managerGroup.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
-  managerTitles.join(',') === 'Package Manager,Families,Tiers,Rate Sheets',
-  'Package Manager holds exactly the three pool subjects and no Groups section',
+  managerTitles.join(',') === 'Package Manager,Stations,Tools',
+  'Package Manager holds exactly the Stations and Tools sections',
+);
+const managerLeaves = [...managerGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
+check(
+  managerLeaves.join(',') === 'Create a Station record,Create a Tool record',
+  'each Package Manager section names the record kind it creates',
+);
+const managerLaunchers = [...managerGroup.matchAll(/label="(Create [^"]+)"/g)].map((match) => match[1]);
+check(
+  managerLaunchers.join(',') === 'Create Family,Create Tier,Create Rate Sheet',
+  'Package Manager offers exactly the three pool creations, in the required order',
 );
 check(
-  settingsSource.indexOf("id: 'focused-tier-system'") < settingsSource.indexOf("id: 'package-manager'"),
-  'Settings presents Focused Tier System before Package Manager',
+  settingsSource.indexOf("id: 'focused-package'") < settingsSource.indexOf("id: 'package-manager'"),
+  'Settings presents the focused Package before Package Manager',
 );
+const poolIntents = [...managerGroup.matchAll(/onPoolIntent\('([^']+)'\)/g)].map((match) => match[1]);
 check(
-  managerGroup.includes("onPoolIntent('family')")
-    && managerGroup.includes("onPoolIntent('tier')")
-    && managerGroup.includes("onPoolIntent('rate-sheet')"),
-  'every pool subject launches a drawer rather than rendering a creation form',
+  poolIntents.join(',') === 'family,tier,rate-sheet',
+  'every pool subject launches a drawer rather than rendering a creation form, and no fourth subject exists',
 );
+// Two categories per selector, at both levels, is the shape itself: the deck
+// selector renders whatever `sections` declares, so counting them here is what
+// keeps a third tab from growing back beside them.
+for (const [name, group] of [
+  ['the focused Package', focusedGroup],
+  ['Package Manager', managerGroup],
+] as const) {
+  const sectionTitles = [...group.matchAll(/title: '([^']+)'/g)].map((match) => match[1]).slice(1);
+  check(
+    sectionTitles.join(',') === 'Stations,Tools',
+    `${name} presents exactly the two Stations and Tools sections`,
+  );
+}
 
 // The Settings lane holds no mutation authority of its own. It dispatches a
 // subject or exact instance identity and owns no endpoint, draft, save, or form.
@@ -921,6 +959,10 @@ const connectionsSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierConnections.tsx',
 ), 'utf8');
+const connectionRowSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierConnectionRow.tsx',
+), 'utf8');
 const workspaceSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx',
@@ -962,7 +1004,7 @@ check(
   connectionsSource.includes('navigation: ConnectionNavigationCategory[]')
     && connectionsSource.includes('tab.rows.length === 0')
     && connectionsSource.includes('{tab.emptyState}')
-    && connectionsSource.includes('row.target'),
+    && connectionRowSource.includes('row.target'),
   'Connections renders the typed projection rows and honest empty state, then dispatches the canonical target',
 );
 check(
@@ -974,12 +1016,33 @@ check(
   'Connections owns no domain derivation, raw domain collections, or placeholder entity rows',
 );
 check(
-  connectionsSource.includes('StationSplitAction')
-    && connectionsSource.includes("view: 'View'")
-    && connectionsSource.includes('cz-station-list__row--connection')
-    && connectionsSource.includes('TierDeckRowIdentity'),
+  connectionRowSource.includes('StationSplitAction')
+    && connectionRowSource.includes("view: 'View'")
+    && connectionRowSource.includes('cz-station-list__row--connection')
+    && connectionRowSource.includes('TierDeckRowIdentity'),
   'connection rows retain canonical identity, primary View, supported secondary actions, and Station split actions',
 );
+// A connected record reads the same at both scopes, so exactly one component
+// renders it. Neither lane may re-author those cells beside it.
+check(
+  connectionsSource.includes('<TierConnectionRow')
+    && focusedSectionsSource.includes('<TierConnectionRow')
+    && (connectionRowSource.match(/cz-station-list__row--connection/g) ?? []).length === 1,
+  'the focused-Tier and whole-focus lanes render one connected-record row component',
+);
+// Settings keeps its own one-field Rate Sheet Access row — that record is not a
+// connection — but neither lane re-authors the connected record's cells.
+for (const [name, source] of [
+  ['Connections', connectionsSource],
+  ['Settings', focusedSectionsSource],
+] as const) {
+  for (const cell of ['Assigned Services', 'Connected inclusions', 'Connected rows']) {
+    check(
+      !source.includes(`>${cell}<`),
+      `${name} re-authors none of the connected-record row cells (${cell})`,
+    );
+  }
+}
 
 // ── One list system ───────────────────────────────────────────────────────────
 // Details, Connections and Settings are the SAME record list as the Service
@@ -988,7 +1051,7 @@ check(
 // parallel family is retired, and no deck row may re-author a list surface here.
 for (const [name, source] of [
   ['Details', lowerDeckSource],
-  ['Connections', connectionsSource],
+  ['Connections', connectionRowSource],
   ['Settings', focusedSectionsSource],
 ] as const) {
   check(

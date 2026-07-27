@@ -2563,6 +2563,16 @@ button.cz-station-status-pill {
   max-width: 62ch;
 }
 
+/* One section can hold more than one creation — a Station record is a Family or
+   a Tier system — so the launchers stack on the card rhythm instead of the
+   tighter gap that belongs inside a single launcher. */
+.cz-tier-settings__launchers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  width: 100%;
+}
+
 /* ── Rate Sheet authoring tool ───────────────────────────────────────────── */
 /* The Rate Sheet is a registered drawer that follows the mature View/Edit flow.
    View renders through the shared `drawerModule` read cards; Edit renders these

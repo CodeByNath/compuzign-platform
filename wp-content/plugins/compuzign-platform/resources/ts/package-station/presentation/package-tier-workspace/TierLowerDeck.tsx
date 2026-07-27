@@ -10,7 +10,8 @@
 //                  Stations/Tools selectors and nested tabs. Each row reports
 //                  its stored identity and opens the drawer that owns that
 //                  record, never the Tier drawer.
-//   Settings     — readable focused-system summaries and Package Manager
+//   Settings     — the WHOLE focus the Package Family Group leads, in those same
+//                  Stations/Tools categories, plus the Package Manager
 //                  launchers. Mutation remains in each owning drawer.
 //
 // It is presentation-only: it receives derived workspace models plus intent
@@ -27,7 +28,9 @@
 //     `tier-inclusion` drawer.
 //   - Connection-scoped (`onConnectionIntent`) — a typed target forwards the
 //     Package Family id, `(rate_sheet_id, group_id)`, or `rate_sheet_id` through
-//     the existing owning drawer route.
+//     the existing owning drawer route. Connections dispatches it for the
+//     focused Tier and Settings for the whole focus; one dispatcher serves both
+//     because a connected record's owning drawer does not change with scope.
 //   - Instance-scoped (`onInstanceIntent`) — Settings forwards the exact Tier
 //     instance id to its whole-system module in the registered Tier drawer.
 //   - Pool-scoped (`onPoolIntent`) — a Settings launcher forwards only the pool
@@ -48,6 +51,7 @@ import type {
   ConnectionNavigationCategory,
   ConnectionTarget,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
+import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import type { PoolSubject } from './TierSystemSettings';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
@@ -65,6 +69,10 @@ import { TierDeckRowIdentity } from './TierDeckRowIdentity';
 
 interface Props {
   familyName: string;
+  // The exact Family Group leading this focus, or null while an unassigned Tier
+  // system is being operated directly. Settings reports it as this focus's
+  // connected Station; the deck derives no assignment of its own.
+  family:     WorkspaceFamilyScope | null;
   tierName:   string;
   deck:       TierDeck;
   connectionNavigation: ConnectionNavigationCategory[];
@@ -126,6 +134,7 @@ const ROW_ACTIONS = [
 
 export function TierLowerDeck({
   familyName,
+  family,
   tierName,
   deck,
   connectionNavigation,
@@ -187,10 +196,12 @@ export function TierLowerDeck({
             <TierSystemSettings
               key={connectionScopeKey}
               tool={tierTool}
+              family={family}
               workspaceInstance={workspaceInstance}
               rateSheets={rateSheets}
               loading={settingsLoading}
               error={settingsError}
+              onConnectionIntent={onConnectionIntent}
               onInstanceIntent={onInstanceIntent}
               onPoolIntent={onPoolIntent}
             />

@@ -1,36 +1,49 @@
-// Tier Workspace Settings — compact category and section navigation.
+// Package Home Settings — compact category and section navigation.
 //
-// Focused Tier System remains configuration-oriented. Package Home reads its
-// access policy, then opens the owning drawer module. It presents no Tier slot
-// inventory: the engine above already lists every fixed slot with the same
-// occupant/slot drawer dispatch, so a second listing here would restate that
-// surface rather than add one. Package Manager remains a launcher: it holds no
+// Settings is scoped to the WHOLE focus the Package Family Group leads, not to
+// one Tier slot inside it: the Connections lane beside it already reads that
+// narrower Tier scope. Both lanes name the same two categories, Stations and
+// Tools, so the focused Package reports its connected Family Group and the Rate
+// Sheet access its Tier system grants under the same headings.
+//
+// It presents no Tier slot inventory: the engine above already lists every fixed
+// slot with the same occupant/slot drawer dispatch, so a second listing here
+// would restate that surface rather than add one.
+//
+// Package Manager remains a launcher, in those same two categories: Station
+// records (Family, Tier system) and Tool records (Rate Sheet). It holds no
 // record draft, validation, endpoint, or save and pre-selects no relationship.
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { PackageRateSheet, TierInstanceSummary } from '../../types';
+import type {
+  ConnectionActionId,
+  ConnectionTarget,
+} from '../../surface/packageTierWorkspace/connectionNavigation';
+import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
+import { projectFamilyConnectionRows } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import {
+  AppsIcon,
   PackagesIcon,
-  RateSheetIcon,
-  ServicesIcon,
-  TiersIcon,
 } from '@/admin-station/shell/icons';
-import { RateSheetAccessSummary } from './FocusedTierSettings';
+import { ConnectedStationsSummary, RateSheetAccessSummary } from './FocusedTierSettings';
 import { TierTabSet } from './TierTabSet';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
-type SettingsGroupId = 'focused-tier-system' | 'package-manager';
-type SettingsSectionId = 'access' | 'families' | 'tiers' | 'rate-sheets';
+type SettingsGroupId = 'focused-package' | 'package-manager';
+type SettingsSectionId = 'focused-stations' | 'focused-tools' | 'pool-stations' | 'pool-tools';
 
 interface Props {
   tool: TierInstancesToolState;
+  family: WorkspaceFamilyScope | null;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
   loading: boolean;
   error: string | null;
+  onConnectionIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
   onInstanceIntent: (instanceId: string) => void;
   onPoolIntent: (subject: PoolSubject) => void;
 }
@@ -52,10 +65,8 @@ function PoolLauncher({ label, note, onLaunch }: {
 
 interface SettingsSection {
   id: SettingsSectionId;
-  icon: VNode;
   title: string;
   description: string;
-  summary: string;
   leaf: string;
   content: VNode;
 }
@@ -71,10 +82,12 @@ interface SettingsGroup {
 
 export function TierSystemSettings({
   tool,
+  family,
   workspaceInstance,
   rateSheets,
   loading,
   error,
+  onConnectionIntent,
   onInstanceIntent,
   onPoolIntent,
 }: Props): VNode {
@@ -85,24 +98,35 @@ export function TierSystemSettings({
     () => currentRecord ? projectTierRateSheetAccess(currentRecord, rateSheets) : null,
     [currentRecord, rateSheets],
   );
+  // The connected Family Group is the workspace's own connection projection, so
+  // Settings and Connections report one record, one status and one target.
+  const familyRows = useMemo(() => projectFamilyConnectionRows(family), [family]);
   const groups = useMemo<SettingsGroup[]>(() => {
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     return [
       {
-        id: 'focused-tier-system',
-        icon: <TiersIcon />,
-        title: 'Focused Tier System',
-        note: 'Configuration for the exact Tier system focused above. Slot configuration stays in the engine above; Family assignment remains in the Package Family drawer.',
-        summary: currentRecord
-          ? access?.summary ?? 'Access unavailable'
-          : 'No Tier system focused',
+        id: 'focused-package',
+        icon: <PackagesIcon />,
+        title: 'Focused Package',
+        note: 'The whole focus this Package Family Group leads. One Tier slot\'s own connections stay in Connections above; Family assignment and slot configuration each remain in the drawer that owns them.',
+        summary: [
+          familyRows[0]?.name ?? 'No Family Group',
+          currentRecord ? access?.summary ?? 'Access unavailable' : 'No Tier system',
+        ].join(' · '),
         sections: [
           {
-            id: 'access',
-            icon: <RateSheetIcon />,
-            title: 'Access',
+            id: 'focused-stations',
+            title: 'Stations',
+            description: 'Package Station records this focus is connected to.',
+            leaf: 'Connected Family Group',
+            content: (
+              <ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />
+            ),
+          },
+          {
+            id: 'focused-tools',
+            title: 'Tools',
             description: 'Which Rate Sheets this Tier system may make available to its Tier slots.',
-            summary: access?.summary ?? 'Not available',
             leaf: 'Rate Sheet Access',
             content: (
               <RateSheetAccessSummary
@@ -118,48 +142,36 @@ export function TierSystemSettings({
       },
       {
         id: 'package-manager',
-        icon: <PackagesIcon />,
+        icon: <AppsIcon />,
         title: 'Package Manager',
         note: 'Opens each pool record in the drawer that owns it. Creation assigns, grants, and connects nothing.',
         summary: `${tool.families.length} Families · ${tool.instances.length} Tiers · ${rateSheets.length} Rate Sheets`,
         sections: [
           {
-            id: 'families',
-            icon: <ServicesIcon />,
-            title: 'Families',
-            description: 'The Package Family pool.',
-            summary: `${tool.families.length} in pool`,
-            leaf: 'Create Family',
+            id: 'pool-stations',
+            title: 'Stations',
+            description: `The Package Family and Tier system pools · ${tool.families.length} Families · ${tool.instances.length} Tiers.`,
+            leaf: 'Create a Station record',
             content: (
-              <PoolLauncher
-                label="Create Family"
-                note="Opens the readable Package Family creation module. Its drawer owns the fields and save; the new Family starts with no Services or Tier system."
-                onLaunch={() => onPoolIntent('family')}
-              />
+              <div class="cz-tier-settings__launchers">
+                <PoolLauncher
+                  label="Create Family"
+                  note="Opens the readable Package Family creation module. Its drawer owns the fields and save; the new Family starts with no Services or Tier system."
+                  onLaunch={() => onPoolIntent('family')}
+                />
+                <PoolLauncher
+                  label="Create Tier"
+                  note="Opens the readable Tier registration module. Its drawer owns registration; no Family or slot is pre-selected here."
+                  onLaunch={() => onPoolIntent('tier')}
+                />
+              </div>
             ),
           },
           {
-            id: 'tiers',
-            icon: <TiersIcon />,
-            title: 'Tiers',
-            description: 'The Tier system pool.',
-            summary: `${tool.instances.length} in pool`,
-            leaf: 'Create Tier',
-            content: (
-              <PoolLauncher
-                label="Create Tier"
-                note="Opens the readable Tier registration module. Its drawer owns registration; no Family or slot is pre-selected here."
-                onLaunch={() => onPoolIntent('tier')}
-              />
-            ),
-          },
-          {
-            id: 'rate-sheets',
-            icon: <RateSheetIcon />,
-            title: 'Rate Sheets',
-            description: 'The Rate Sheet pool and the groups stored inside each sheet.',
-            summary: `${rateSheets.length} in pool · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}`,
-            leaf: 'Create Rate Sheet',
+            id: 'pool-tools',
+            title: 'Tools',
+            description: `The Rate Sheet pool and the groups stored inside each sheet · ${rateSheets.length} in pool · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}.`,
+            leaf: 'Create a Tool record',
             content: (
               <PoolLauncher
                 label="Create Rate Sheet"
@@ -171,12 +183,12 @@ export function TierSystemSettings({
         ],
       },
     ];
-  }, [access, currentRecord, error, loading, onInstanceIntent, onPoolIntent, rateSheets, tool.families.length, tool.instances.length]);
+  }, [access, currentRecord, error, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheets, tool.families.length, tool.instances.length]);
 
-  const [selectedGroupId, setSelectedGroupId] = useState<SettingsGroupId>('focused-tier-system');
+  const [selectedGroupId, setSelectedGroupId] = useState<SettingsGroupId>('focused-package');
   const [selectedSections, setSelectedSections] = useState<Record<SettingsGroupId, SettingsSectionId>>({
-    'focused-tier-system': 'access',
-    'package-manager': 'families',
+    'focused-package': 'focused-stations',
+    'package-manager': 'pool-stations',
   });
   const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? groups[0];
 
@@ -205,8 +217,6 @@ export function TierSystemSettings({
                 items={group.sections.map((section) => ({
                   id: section.id,
                   label: section.title,
-                  summary: section.summary,
-                  icon: section.icon,
                 }))}
                 selectedId={selectedSection.id}
                 onSelect={(sectionId) => setSelectedSections((current) => ({ ...current, [group.id]: sectionId }))}

@@ -301,6 +301,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
         <div ref={lowerDeckRef} tabIndex={-1}>
         <TierLowerDeck
           familyName={contextName}
+          family={tool.selectedFamily}
           tierName={selectedSlot?.item?.name ?? (selectedSlot ? `${selectedSlot.label} Tier` : 'Tier setup')}
           deck={selectedSlot?.item ? tool.decks[selectedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
           connectionNavigation={selectedSlot?.occupantId

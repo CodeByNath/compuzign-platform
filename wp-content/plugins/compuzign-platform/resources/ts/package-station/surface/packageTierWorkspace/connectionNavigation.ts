@@ -85,13 +85,18 @@ function countLabel(count: number, singular: string, plural = `${singular}s`): s
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-export function projectConnectionNavigation({
-  family,
-  groups,
-  rateSheet,
-  hasFocusedTier,
-}: ConnectionNavigationInput): ConnectionNavigationCategory[] {
-  const familyRows: FamilyConnectionRow[] = family === null ? [] : [{
+/**
+ * The connected Package Family row.
+ *
+ * One derivation serves both scopes that read this relationship: the focused
+ * Tier's Connections lane, and the whole-focus Settings lane the Family Group
+ * leads. Neither invents a second identity, status, count, target or action set
+ * for the same record.
+ */
+export function projectFamilyConnectionRows(
+  family: WorkspaceFamilyScope | null,
+): FamilyConnectionRow[] {
+  return family === null ? [] : [{
     id:               family.id,
     kind:             'family',
     name:             family.name,
@@ -102,6 +107,15 @@ export function projectConnectionNavigation({
     target:           { kind: 'package-family', familyId: family.id },
     actions:          ['view', 'edit'],
   }];
+}
+
+export function projectConnectionNavigation({
+  family,
+  groups,
+  rateSheet,
+  hasFocusedTier,
+}: ConnectionNavigationInput): ConnectionNavigationCategory[] {
+  const familyRows = projectFamilyConnectionRows(family);
 
   const groupRows: GroupConnectionRow[] = groups.map((group) => ({
     id:            `${group.rateSheetId}:${group.groupId}`,
