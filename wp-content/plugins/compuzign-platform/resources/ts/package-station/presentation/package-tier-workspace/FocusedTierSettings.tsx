@@ -35,22 +35,24 @@ export function RateSheetAccessSummary({
   }
 
   return (
-    <ul class="cz-tier-deck__list cz-tier-deck__list--compact">
-      <li class="cz-tier-deck__row cz-tier-settings__row cz-tier-deck__row--compact">
+    <ul class="cz-station-list">
+      <li class="cz-station-list__row cz-station-list__row--settings">
         <TierDeckRowIdentity
           icon={<RateSheetIcon />}
           name="Rate Sheet Access"
           reference={record.tier_instance_id}
           compact
         />
-        <div class="cz-tier-deck__field">
+        <div class="cz-station-list__cell cz-tier-deck__field">
           <span class="cz-tier-deck__field-label">Policy</span>
           {projection.summary}
         </div>
-        <span class="cz-tier-deck__status" data-status={projection.needsReview ? 'pending' : 'active'}>
-          {projection.needsReview ? 'Review' : 'Configured'}
+        <span class="cz-station-list__cell">
+          <span class="cz-tier-deck__status" data-status={projection.needsReview ? 'pending' : 'active'}>
+            {projection.needsReview ? 'Review' : 'Configured'}
+          </span>
         </span>
-        <div class="cz-tier-deck__row-actions">
+        <div class="cz-station-list__cell cz-tier-deck__row-actions">
           <StationSplitAction
             actions={[{ id: 'view', label: 'View' }]}
             controlLabel="Rate Sheet Access"

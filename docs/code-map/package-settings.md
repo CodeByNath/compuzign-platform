@@ -39,7 +39,7 @@ Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-stati
 - Settings presents nothing the engine above it already presents; the fixed-slot listing has exactly one implementation.
 - No new drawer key, action intent, endpoint, or persistence owner exists for Rate Sheet Access.
 - Every route carries stored IDs, never labels; malformed and missing identities fail closed.
-- Connections and Settings reuse one local tab contract and one compact row grammar.
+- Connections and Settings reuse one local tab contract, and their rows are the shared station list system, not a second row grammar.
 - Styles use existing `--station-*` tokens; no component theme overrides or retired disclosure/navigation selectors remain.
 
 ## Validation

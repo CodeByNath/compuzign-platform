@@ -5,7 +5,7 @@ The Admin Station uses scoped station tokens plus the shared drawer stylesheet. 
 ## Authoritative files
 
 - `resources/ts/admin-station/styles/admin-station-tokens.css` — the single Admin Station token definition site. Light/dark station tokens plus the field-system contract.
-- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, drawer layer/backdrop/panel/sizes, and the Station-level feature surfaces (Service Catalogue, Service Category card, Tier Workspace Engine, lower deck, Tier settings, Rate Sheet tool).
+- `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, drawer layer/backdrop/panel/sizes, the shared [list system](admin-station-list-system.md), and the Station-level feature surfaces (Service Catalogue, Service Category card, Tier Workspace Engine, lower deck, Tier settings, Rate Sheet tool).
 - `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell, card, catalogue, Tier-workspace and drawer rules. The Tier workspace collapses three columns to two at a component 1100px breakpoint, then to a single column at the 767px shell breakpoint.
 - `resources/css/modules/drawer-kit.css` — drawer content: modules, status pills, notification panels, **the shared field system**, inline editors, dialogs, module actions, and record footers.
 
@@ -39,7 +39,8 @@ Editors render fields through `drawer-kit/fields/AdminField`, not hand-authored 
 
 ## Responsive rules
 
-- Home gutters and card columns change at 767px; the Service Catalogue table collapses to stacked rows there.
+- The list system stacks both its shapes at a 980px component breakpoint.
+- Home gutters and card columns change at 767px.
 - Header pill compaction uses 720px; at 560px the pills hide and the drawer becomes full viewport width.
 - Shared record footers wrap at the drawer-kit 480px breakpoint.
 

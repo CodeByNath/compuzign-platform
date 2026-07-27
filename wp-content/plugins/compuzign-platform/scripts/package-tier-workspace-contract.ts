@@ -976,10 +976,40 @@ check(
 check(
   connectionsSource.includes('StationSplitAction')
     && connectionsSource.includes("view: 'View'")
-    && connectionsSource.includes('cz-tier-deck__row--compact')
+    && connectionsSource.includes('cz-station-list__row--connection')
     && connectionsSource.includes('TierDeckRowIdentity'),
-  'compact rows retain canonical identity, primary View, supported secondary actions, and Station split actions',
+  'connection rows retain canonical identity, primary View, supported secondary actions, and Station split actions',
 );
+
+// ── One list system ───────────────────────────────────────────────────────────
+// Details, Connections and Settings are the SAME record list as the Service
+// Catalogue, in the markup shape a header-less list needs. The surface is
+// declared once in admin-station.css and named by both shapes; the deck's former
+// parallel family is retired, and no deck row may re-author a list surface here.
+for (const [name, source] of [
+  ['Details', lowerDeckSource],
+  ['Connections', connectionsSource],
+  ['Settings', focusedSectionsSource],
+] as const) {
+  check(
+    source.includes('cz-station-list__row') && source.includes('cz-station-list__cell'),
+    `${name} rows are rows of the one station list system`,
+  );
+  check(!source.includes('<table'), `${name} stays a list and brings across no table`);
+}
+for (const retired of [
+  'cz-tier-deck__list',
+  'cz-tier-deck__row"',
+  'cz-tier-deck__row ',
+  'cz-tier-deck__row--',
+  'cz-tier-settings__row',
+  'cz-tier-deck__field--hide-sm',
+]) {
+  check(
+    !workspacePresentation.includes(retired),
+    `the retired parallel deck list family is gone (${retired})`,
+  );
+}
 check(
   lowerDeckSource.includes('key={connectionScopeKey}')
     && workspaceSource.includes("tool.selectedFamily?.id ?? 'unassigned'")

@@ -1,5 +1,7 @@
 // Tier workspace row identity — one icon/name/canonical-reference grammar shared
-// by Details, Connections, and Settings rows. Presentation only.
+// by Details, Connections, and Settings rows. It is the identity CELL of the
+// station list system, so it carries that system's cell class and adds no
+// surface of its own. Presentation only.
 
 import type { VNode } from 'preact';
 
@@ -12,7 +14,7 @@ interface Props {
 
 export function TierDeckRowIdentity({ icon, name, reference, compact = false }: Props): VNode {
   return (
-    <div class="cz-tier-deck__identity">
+    <div class="cz-station-list__cell cz-tier-deck__identity">
       <span
         class={`cz-tier-deck__identity-icon${compact ? ' cz-tier-deck__identity-icon--compact' : ''}`}
         aria-hidden="true"

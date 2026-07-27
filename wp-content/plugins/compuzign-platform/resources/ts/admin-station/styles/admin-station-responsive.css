@@ -35,6 +35,98 @@
   }
 }
 
+/* The station list system's stacked mode — one breakpoint for both shapes.
+   The Service Catalogue table declares `min-width: 920px`, so between that floor
+   and the shell gutters it used to overflow its wrapper and scroll sideways for
+   roughly 200px of viewport before the old 767px collapse relieved it. Stacking
+   at 980px retires that band: above it the table fits, below it neither shape is
+   a grid of columns any more. Like the Tier workspace's 1100px boundary this is
+   a component breakpoint, earned by the component's own minimum rather than the
+   shell's. Stacked, a row — not its cells — becomes the card, so the cell
+   borders and radii declared in the base sheet are cleared here for both shapes
+   together and re-drawn as one divider between stacked cells. */
+@media (max-width: 980px) {
+  .cz-service-catalogue__table {
+    min-width: 0;
+    border-spacing: 0;
+  }
+
+  .cz-service-catalogue__table thead {
+    display: none;
+  }
+
+  .cz-service-catalogue__table,
+  .cz-service-catalogue__table tbody,
+  .cz-service-catalogue__table tr,
+  .cz-service-catalogue__table td {
+    display: block;
+    width: 100%;
+  }
+
+  .cz-station-list__row {
+    grid-template-columns: 1fr;
+  }
+
+  .cz-service-catalogue__table tbody tr,
+  .cz-station-list__row {
+    overflow: hidden;
+    border: 1px solid var(--station-border);
+    border-radius: var(--station-card-radius);
+    background: var(--station-surface-elevated);
+  }
+
+  .cz-service-catalogue__table tbody tr + tr {
+    margin-block-start: var(--station-grid-gap);
+  }
+
+  .cz-service-catalogue__table tbody td,
+  .cz-service-catalogue__table tbody td:first-child,
+  .cz-service-catalogue__table tbody td:last-child,
+  .cz-station-list__cell,
+  .cz-station-list__row > .cz-station-list__cell:first-child,
+  .cz-station-list__row > .cz-station-list__cell:last-child {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  /* The catalogue's cells take their label from `data-label`; a deck cell
+     already carries its own label, so it only needs the divider. */
+  .cz-service-catalogue__table tbody td + td,
+  .cz-station-list__cell + .cz-station-list__cell {
+    border-block-start: 1px solid var(--station-border);
+  }
+
+  .cz-service-catalogue__table tbody td + td {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--station-grid-gap);
+  }
+
+  .cz-service-catalogue__table tbody td + td::before {
+    content: attr(data-label);
+    color: var(--station-text-muted);
+    font-size: var(--station-text-xs);
+    font-weight: 700;
+    letter-spacing: var(--station-tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .cz-service-catalogue__table .cz-service-catalogue__empty {
+    display: block;
+    border: 0 !important;
+  }
+
+  .cz-service-catalogue__table .cz-service-catalogue__empty::before {
+    content: none;
+  }
+
+  .cz-tier-deck__row-actions {
+    justify-content: flex-start;
+  }
+}
+
 /* Home body gutters tighten at and below 767px. The breakpoint itself is a raw
    value because CSS custom properties are not valid in a media query prelude —
    the padding it applies is token-driven. */
@@ -86,51 +178,14 @@
     display: flex;
   }
 
-  /* Lower deck — filters and rows collapse to a single column, and the
-     mid-priority row fields (quantity / coverage) drop out, the same one-per-row
-     treatment the card grid takes at this boundary. */
-  .cz-tier-deck__toolbar,
-  .cz-tier-deck__row,
-  .cz-tier-deck__row--connection,
-  .cz-tier-settings__row {
+  /* Lower deck — the filter toolbar collapses to a single column. The row lists
+     stack at the list system's own breakpoint, not this one. */
+  .cz-tier-deck__toolbar {
     grid-template-columns: 1fr;
   }
 
   .cz-tier-deck__selector-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cz-tier-deck__field--hide-sm {
-    display: none;
-  }
-
-  .cz-tier-deck__row-actions {
-    justify-content: flex-start;
-  }
-
-  .cz-tier-deck__row--compact {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "identity actions"
-      "status actions";
-  }
-
-  .cz-tier-deck__row--compact > .cz-tier-deck__identity {
-    grid-area: identity;
-  }
-
-  .cz-tier-deck__row--compact > .cz-tier-deck__field {
-    display: none;
-  }
-
-  .cz-tier-deck__row--compact > .cz-tier-deck__status {
-    grid-area: status;
-  }
-
-  .cz-tier-deck__row--compact > .cz-tier-deck__row-actions {
-    grid-area: actions;
-    align-self: center;
-    justify-content: flex-end;
   }
 
   .cz-service-stat:nth-child(odd) {
@@ -147,68 +202,6 @@
 
   .cz-service-catalogue__sort {
     margin-inline-start: 0;
-  }
-
-  .cz-service-catalogue__table {
-    min-width: 0;
-    border-spacing: 0;
-  }
-
-  .cz-service-catalogue__table thead {
-    display: none;
-  }
-
-  .cz-service-catalogue__table,
-  .cz-service-catalogue__table tbody,
-  .cz-service-catalogue__table tr,
-  .cz-service-catalogue__table td {
-    display: block;
-    width: 100%;
-  }
-
-  .cz-service-catalogue__table tbody tr {
-    overflow: hidden;
-    border: 1px solid var(--station-border);
-    border-radius: var(--station-card-radius);
-    background: var(--station-surface-elevated);
-  }
-
-  .cz-service-catalogue__table tbody tr + tr {
-    margin-block-start: var(--station-grid-gap);
-  }
-
-  .cz-service-catalogue__table tbody td,
-  .cz-service-catalogue__table tbody td:first-child,
-  .cz-service-catalogue__table tbody td:last-child {
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .cz-service-catalogue__table tbody td + td {
-    display: grid;
-    grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
-    align-items: center;
-    gap: var(--station-grid-gap);
-    border-block-start: 1px solid var(--station-border);
-  }
-
-  .cz-service-catalogue__table tbody td + td::before {
-    content: attr(data-label);
-    color: var(--station-text-muted);
-    font-size: var(--station-text-xs);
-    font-weight: 700;
-    letter-spacing: var(--station-tracking-wide);
-    text-transform: uppercase;
-  }
-
-  .cz-service-catalogue__table .cz-service-catalogue__empty {
-    display: block;
-    border: 0 !important;
-  }
-
-  .cz-service-catalogue__table .cz-service-catalogue__empty::before {
-    content: none;
   }
 
   .cz-service-row__identity {

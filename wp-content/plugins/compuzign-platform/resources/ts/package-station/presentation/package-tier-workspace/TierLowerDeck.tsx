@@ -286,7 +286,7 @@ function DetailsLane({
       ) : rows.length === 0 ? (
         <p class="cz-station-empty">No focused inclusions match these filters.</p>
       ) : (
-        <ul class="cz-tier-deck__list">
+        <ul class="cz-station-list">
           {rows.map((inclusion) => (
             <InclusionRow
               key={inclusion.itemId}
@@ -310,26 +310,28 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
     : 'Pricing unavailable';
 
   return (
-    <li class="cz-tier-deck__row">
+    <li class="cz-station-list__row cz-station-list__row--details">
       <TierDeckRowIdentity
         icon={<PackagesIcon />}
         name={inclusion.name}
         reference={inclusion.sourceId ?? inclusion.itemId}
       />
-      <div class="cz-tier-deck__field">
+      <div class="cz-station-list__cell cz-tier-deck__field">
         <span class="cz-tier-deck__field-label">Category</span>
         {inclusion.categories.length > 0 ? inclusion.categories.join(' · ') : '—'}
       </div>
-      <div class="cz-tier-deck__field">
+      <div class="cz-station-list__cell cz-tier-deck__field">
         <span class="cz-tier-deck__field-label">Price</span>
         <span class="cz-tier-deck__money">{priceLine}</span>
       </div>
-      <div class="cz-tier-deck__field cz-tier-deck__field--hide-sm">
+      <div class="cz-station-list__cell cz-tier-deck__field">
         <span class="cz-tier-deck__field-label">Quantity</span>
         {inclusion.quantity}
       </div>
-      <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>
-      <div class="cz-tier-deck__row-actions">
+      <span class="cz-station-list__cell">
+        <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>
+      </span>
+      <div class="cz-station-list__cell cz-tier-deck__row-actions">
         {/* The row closes over its OWN selection key, so the dispatched intent
             addresses this inclusion rather than the focused Tier. */}
         <StationSplitAction

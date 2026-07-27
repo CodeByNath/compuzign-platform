@@ -1218,25 +1218,80 @@ button.cz-station-status-pill {
   outline-offset: 2px;
 }
 
+/* ── The Admin Station list system ────────────────────────────────────────────
+   One record list, two markup shapes. The Service Catalogue is a <table> whose
+   <thead> supplies the column labels; the Package Station lower deck is a <ul>
+   whose cells carry their own label, because a list has no header row. The
+   surface they share — cell padding, cell borders, row radii, the elevated cell
+   background and the rhythm between rows — is declared ONCE in the blocks below
+   and named by both shapes. Only the layout engine each shape requires is
+   declared apart. A list surface must not re-author any of these values; adding
+   a third consumer means adding its selector here, not a fourth family. */
+
 .cz-service-catalogue__table-wrap {
   min-width: 0;
   overflow-x: auto;
 }
 
+.cz-service-catalogue__table,
+.cz-station-list {
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+}
+
+/* Table geometry: `border-spacing` carries the rhythm between rows. */
 .cz-service-catalogue__table {
   width: 100%;
   min-width: 920px;
   border-collapse: separate;
   border-spacing: 0 var(--station-grid-gap);
-  color: var(--station-text);
-  font-size: var(--station-text-sm);
+}
+
+/* List geometry: the same rhythm, expressed as the flex gap a <ul> can use. */
+.cz-station-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-grid-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A list row spans its cells the way a table row does, so every cell shares the
+   row's height and the first and last cell can round the row's ends. The column
+   templates are the domain layout each list owns; the surface is not. */
+.cz-station-list__row {
+  display: grid;
+}
+
+.cz-station-list__row--details {
+  grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(80px, 0.5fr) auto auto;
+}
+
+.cz-station-list__row--connection {
+  grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
+}
+
+.cz-station-list__row--settings {
+  grid-template-columns: minmax(200px, 1.6fr) minmax(140px, 0.9fr) minmax(120px, 0.6fr) auto;
 }
 
 .cz-service-catalogue__table th,
-.cz-service-catalogue__table td {
+.cz-service-catalogue__table td,
+.cz-station-list__cell {
   padding: 12px var(--station-card-pad);
   text-align: start;
   vertical-align: middle;
+}
+
+/* A grid cell has no table box to centre it against, so it centres its own
+   content. This is the label/value default; the identity and action cells later
+   in this sheet restate `display` for their own axis, which is why those two
+   need no wrapper element and the status pill — which sizes to its text — does. */
+.cz-station-list__cell {
+  display: grid;
+  align-content: center;
+  min-width: 0;
 }
 
 .cz-service-catalogue__table th {
@@ -1262,19 +1317,22 @@ button.cz-station-status-pill {
   border-end-end-radius: var(--station-control-radius);
 }
 
-.cz-service-catalogue__table tbody td {
+.cz-service-catalogue__table tbody td,
+.cz-station-list__cell {
   border-block: 1px solid var(--station-border);
   background: var(--station-surface-elevated);
   color: var(--station-text-muted);
 }
 
-.cz-service-catalogue__table tbody td:first-child {
+.cz-service-catalogue__table tbody td:first-child,
+.cz-station-list__row > .cz-station-list__cell:first-child {
   border-inline-start: 1px solid var(--station-border);
   border-start-start-radius: var(--station-card-radius);
   border-end-start-radius: var(--station-card-radius);
 }
 
-.cz-service-catalogue__table tbody td:last-child {
+.cz-service-catalogue__table tbody td:last-child,
+.cz-station-list__row > .cz-station-list__cell:last-child {
   border-inline-end: 1px solid var(--station-border);
   border-start-end-radius: var(--station-card-radius);
   border-end-end-radius: var(--station-card-radius);
@@ -2223,47 +2281,8 @@ button.cz-station-status-pill {
   outline-offset: 2px;
 }
 
-/* Row list — Details inclusions and Connections Rate Sheets share the grammar. */
-.cz-tier-deck__list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cz-tier-deck__list--compact {
-  gap: 0;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
-}
-
-.cz-tier-deck__list--compact > .cz-tier-deck__row--compact {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.cz-tier-deck__list--compact > .cz-tier-deck__row--compact + .cz-tier-deck__row--compact {
-  border-top: 1px solid var(--station-card-divider);
-}
-
-.cz-tier-deck__row {
-  display: grid;
-  grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(80px, 0.5fr) auto auto;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 16px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
-}
-
-.cz-tier-deck__row--connection {
-  grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
-}
+/* Details, Connections and Settings rows are the station list system above; this
+   deck declares no list surface of its own. What follows is cell content only. */
 
 /* Connections — one selected category card exposes one focused content panel. */
 .cz-tier-deck__connections {
@@ -2528,11 +2547,7 @@ button.cz-station-status-pill {
 /* A Settings row is a deck row with one summary field: identity, that field, the
    record's state, and its actions. The five-column connection row still serves
    the slot list, which carries two. */
-.cz-tier-settings__row {
-  grid-template-columns: minmax(200px, 1.6fr) minmax(140px, 0.9fr) minmax(120px, 0.6fr) auto;
-}
-
-.cz-tier-settings__leaf .cz-tier-deck__list,
+.cz-tier-settings__leaf .cz-station-list,
 .cz-tier-settings__leaf .cz-tier-settings__launcher {
   width: 100%;
 }
