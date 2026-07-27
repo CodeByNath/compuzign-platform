@@ -1,15 +1,16 @@
 // Tier Workspace Settings — compact category and section navigation.
 //
 // Focused Tier System remains configuration-oriented. Package Home reads its
-// access policy and slots, then opens their owning drawer modules. Package
-// Manager remains a launcher: it holds no record draft, validation, endpoint, or
-// save and pre-selects no relationship.
+// access policy, then opens the owning drawer module. It presents no Tier slot
+// inventory: the engine above already lists every fixed slot with the same
+// occupant/slot drawer dispatch, so a second listing here would restate that
+// surface rather than add one. Package Manager remains a launcher: it holds no
+// record draft, validation, endpoint, or save and pre-selects no relationship.
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { PackageRateSheet, TierInstanceSummary } from '../../types';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
-import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
 import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import {
   PackagesIcon,
@@ -17,12 +18,12 @@ import {
   ServicesIcon,
   TiersIcon,
 } from '@/admin-station/shell/icons';
-import { FixedTierSlots, RateSheetAccessSummary } from './FocusedTierSettings';
+import { RateSheetAccessSummary } from './FocusedTierSettings';
 import { TierTabSet } from './TierTabSet';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
 type SettingsGroupId = 'focused-tier-system' | 'package-manager';
-type SettingsSectionId = 'access' | 'tier-structure' | 'families' | 'tiers' | 'rate-sheets';
+type SettingsSectionId = 'access' | 'families' | 'tiers' | 'rate-sheets';
 
 interface Props {
   tool: TierInstancesToolState;
@@ -30,12 +31,6 @@ interface Props {
   rateSheets: PackageRateSheet[];
   loading: boolean;
   error: string | null;
-  onTierAction: (
-    instanceId: string,
-    slotId: string,
-    occupantId: string | null,
-    actionId: 'view' | 'edit',
-  ) => void;
   onInstanceIntent: (instanceId: string) => void;
   onPoolIntent: (subject: PoolSubject) => void;
 }
@@ -80,7 +75,6 @@ export function TierSystemSettings({
   rateSheets,
   loading,
   error,
-  onTierAction,
   onInstanceIntent,
   onPoolIntent,
 }: Props): VNode {
@@ -92,18 +86,15 @@ export function TierSystemSettings({
     [currentRecord, rateSheets],
   );
   const groups = useMemo<SettingsGroup[]>(() => {
-    const configuredSlots = currentRecord
-      ? tierSlotStates(currentRecord).filter((slot) => slot.occupied).length
-      : 0;
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     return [
       {
         id: 'focused-tier-system',
         icon: <TiersIcon />,
         title: 'Focused Tier System',
-        note: 'Configuration for the exact Tier system focused above. Family assignment remains in the Package Family drawer.',
+        note: 'Configuration for the exact Tier system focused above. Slot configuration stays in the engine above; Family assignment remains in the Package Family drawer.',
         summary: currentRecord
-          ? `${configuredSlots} of 5 configured · ${access?.summary ?? 'Access unavailable'}`
+          ? access?.summary ?? 'Access unavailable'
           : 'No Tier system focused',
         sections: [
           {
@@ -122,15 +113,6 @@ export function TierSystemSettings({
                 onView={onInstanceIntent}
               />
             ),
-          },
-          {
-            id: 'tier-structure',
-            icon: <TiersIcon />,
-            title: 'Tier Structure',
-            description: 'The fixed slots this Tier system offers and what occupies them.',
-            summary: currentRecord ? `${configuredSlots} of 5 configured` : 'Not available',
-            leaf: 'Fixed Tier Slots',
-            content: <FixedTierSlots record={currentRecord} onTierAction={onTierAction} />,
           },
         ],
       },
@@ -189,7 +171,7 @@ export function TierSystemSettings({
         ],
       },
     ];
-  }, [access, currentRecord, error, loading, onInstanceIntent, onPoolIntent, onTierAction, rateSheets, tool.families.length, tool.instances.length]);
+  }, [access, currentRecord, error, loading, onInstanceIntent, onPoolIntent, rateSheets, tool.families.length, tool.instances.length]);
 
   const [selectedGroupId, setSelectedGroupId] = useState<SettingsGroupId>('focused-tier-system');
   const [selectedSections, setSelectedSections] = useState<Record<SettingsGroupId, SettingsSectionId>>({

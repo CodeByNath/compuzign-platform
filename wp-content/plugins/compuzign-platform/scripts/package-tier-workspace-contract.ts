@@ -553,21 +553,43 @@ check(
   'the selected Settings leaf enters the lower deck outline at the correct heading rank',
 );
 
-// The required hierarchy, in order. Focused Tier System carries exactly Rate
-// Sheet Access and Fixed Tier Slots and nothing else.
-const focusedGroup = settingsSource.slice(settingsSource.indexOf("id: 'focused-tier-system'"));
+// The required hierarchy. Focused Tier System carries exactly Rate Sheet Access
+// and nothing else: the fixed Tier slots are the engine's listing, and Settings
+// no longer restates them beside it.
+const focusedGroup = settingsSource.slice(
+  settingsSource.indexOf("id: 'focused-tier-system'"),
+  settingsSource.indexOf("id: 'package-manager'"),
+);
 for (const expected of [
   "title: 'Access'",
   "leaf: 'Rate Sheet Access'",
-  "title: 'Tier Structure'",
-  "leaf: 'Fixed Tier Slots'",
 ]) {
   check(focusedGroup.includes(expected), `Focused Tier System declares ${expected}`);
 }
+const focusedLeaves = [...focusedGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
-  focusedGroup.indexOf("title: 'Access'") < focusedGroup.indexOf("title: 'Tier Structure'"),
-  'Focused Tier System presents Access before Tier Structure',
+  focusedLeaves.join(',') === 'Rate Sheet Access',
+  'Focused Tier System holds exactly the whole-system access section',
 );
+// The engine above lists every fixed slot and dispatches the occupant and slot
+// drawer routes. A second slot listing in Settings addressed the SAME focused
+// instance through the SAME routes, so removing it removed a duplicate view and
+// no capability. These scan the whole workspace directory — the section, its
+// props, and the dispatcher that existed only to feed it — so it cannot grow
+// back one file at a time.
+for (const retired of [
+  'Fixed Tier Slots',
+  'Tier Structure',
+  'tier-structure',
+  'FixedTierSlots',
+  'onTierAction',
+  'dispatchExplicitTierIntent',
+]) {
+  check(
+    !workspacePresentation.includes(retired),
+    `Package Home Settings restates no fixed Tier slot inventory (${retired})`,
+  );
+}
 
 // ── Package Manager launches; it does not create ──────────────────────────────
 // Package Manager is three pool subjects, and a subject offers a launcher into
@@ -745,28 +767,26 @@ check(
 );
 
 check(
-  focusedSectionsSource.includes('No Tier system is focused, so no Rate Sheet access is configured.')
-    && focusedSectionsSource.includes('No Tier system is focused, so there are no slots to configure.'),
-  'the focused sections fail closed rather than inventing a system or a slot',
+  focusedSectionsSource.includes('No Tier system is focused, so no Rate Sheet access is configured.'),
+  'the focused section fails closed rather than inventing a system',
 );
 check(
   focusedSectionsSource.includes('reference={record.tier_instance_id}')
-    && focusedSectionsSource.includes('reference={slot.slotId}')
     && focusedSectionsSource.includes("actions={[{ id: 'view', label: 'View' }]}"),
-  'Settings identifies access by the instance id, slots by stored keys, and keeps Home access read-only',
+  'Settings identifies access by the instance id and keeps Home access read-only',
 );
-// An occupied slot offers View and Edit into the mature Tier drawer; an empty one
-// offers only Configure, because there is no occupant identity to view.
-const slotSection = focusedSectionsSource.slice(focusedSectionsSource.indexOf('export function FixedTierSlots'));
+// The engine keeps the slot listing this Settings section used to duplicate: it
+// renders every fixed slot, reports an empty one honestly, and addresses an
+// occupied slot by its occupant and an empty slot by its stored slot key.
 check(
-  slotSection.includes('<StationSplitAction')
-    && slotSection.includes('actions={SLOT_ACTIONS}')
-    && slotSection.includes("onTierAction(record.tier_instance_id, slot.slotId, null, 'edit')"),
-  'occupied slots offer View and Edit while an empty slot offers only Configure',
+  workspacePresentation.includes('slots.map((slot, index)')
+    && workspacePresentation.includes('data-status="empty">Empty'),
+  'the engine still lists every fixed slot and reports an empty one as empty',
 );
 check(
-  slotSection.includes('slot.occupantId === null') && !slotSection.includes('occ_'),
-  'an empty slot is reported empty and never given a fabricated occupant id',
+  workspacePresentation.includes('encodeTierDrawerRecordId(instanceId, occupantId)')
+    && workspacePresentation.includes('encodeTierSlotDrawerRecordId(instanceId, slotId)'),
+  'the engine addresses an occupied slot by occupant and an empty slot by its stored slot key',
 );
 check(
   workspacePresentation.includes('scrollIntoView')

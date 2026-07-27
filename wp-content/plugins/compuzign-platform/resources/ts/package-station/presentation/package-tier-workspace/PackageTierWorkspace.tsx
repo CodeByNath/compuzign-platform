@@ -92,22 +92,6 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     );
   };
 
-  const dispatchExplicitTierIntent = (
-    targetInstanceId: string,
-    slotId: string,
-    occupantId: string | null,
-    actionId: 'view' | 'edit',
-  ) => {
-    if (!tool) return;
-    tool.tierInstances.selectInstance(targetInstanceId);
-    setViewMode('focus');
-    setSelectedSlotId(slotId);
-    const recordId = occupantId
-      ? encodeTierDrawerRecordId(targetInstanceId, occupantId)
-      : encodeTierSlotDrawerRecordId(targetInstanceId, slotId);
-    onIntent(recordId, actionId);
-  };
-
   // Family-drawer and post-create hand-offs must remain visible even when the
   // requested instance was already selected. Identity selection alone is not a
   // navigation affordance.
@@ -339,7 +323,6 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             if (selectedSlot) dispatchInclusionIntent(selectedSlot.slotId, itemId, actionId);
           }}
           onConnectionIntent={dispatchConnectionIntent}
-          onTierAction={dispatchExplicitTierIntent}
           onInstanceIntent={dispatchTierInstanceIntent}
           onPoolIntent={dispatchPoolIntent}
           onTabChange={setDeckTab}

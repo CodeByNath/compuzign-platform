@@ -2206,17 +2206,6 @@ button.cz-station-status-pill {
   background: var(--station-action-bg-hover);
 }
 
-.cz-tier-deck__button--secondary {
-  border-color: var(--station-accent-border);
-  background: var(--station-surface-elevated);
-  color: var(--station-accent-fg);
-}
-
-.cz-tier-deck__button--secondary:hover:not(:disabled) {
-  border-color: var(--station-accent);
-  background: var(--station-accent-soft-bg);
-}
-
 .cz-tier-deck__button--destructive,
 .cz-tier-deck__button--destructive:hover:not(:disabled) {
   border-color: var(--station-status-inactive-border);

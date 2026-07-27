@@ -16,11 +16,11 @@
 // It is presentation-only: it receives derived workspace models plus intent
 // dispatchers and fetches nothing.
 //
-// Five intent scopes, deliberately separate — a row dispatches the scope it
-// actually addresses, and every one of them carries a stored id, never a label:
-//   - Tier-scoped   (`onIntent`) — the focused Tier as a whole, keyed by the
-//     focused occupant_id the orchestrator supplies. It is NOT used by the
-//     Connections lane.
+// Four intent scopes, deliberately separate — a row dispatches the scope it
+// actually addresses, and every one of them carries a stored id, never a label.
+// None of them addresses a Tier slot: slot configuration is dispatched by the
+// engine above, which owns the slot listing this deck deliberately does not
+// repeat.
 //   - Inclusion-scoped (`onInclusionIntent`) — a Details row addresses ONE
 //     inclusion, so it forwards its own `item_id` (the Tier's Rate Sheet
 //     selection key) and the orchestrator routes it to the registered
@@ -30,6 +30,8 @@
 //     the existing owning drawer route.
 //   - Instance-scoped (`onInstanceIntent`) — Settings forwards the exact Tier
 //     instance id to its whole-system module in the registered Tier drawer.
+//   - Pool-scoped (`onPoolIntent`) — a Settings launcher forwards only the pool
+//     subject, because the record it creates does not exist yet.
 //
 // All land inside the Package Station boundary that owns Tier selections,
 // quantities, Family assignment and Rate Sheet connections. This deck still
@@ -82,12 +84,6 @@ interface Props {
   // forwards the Family's own group_id; the orchestrator routes it to the mature
   // `package-family` drawer.
   onConnectionIntent: (target: ConnectionTarget, actionId: 'view' | 'edit') => void;
-  onTierAction: (
-    instanceId: string,
-    slotId: string,
-    occupantId: string | null,
-    actionId: 'view' | 'edit',
-  ) => void;
   // Opens the whole Tier-system Settings module. Package Home remains readable
   // and carries only the stored instance identity into the registered drawer.
   onInstanceIntent: (instanceId: string) => void;
@@ -143,7 +139,6 @@ export function TierLowerDeck({
   settingsError,
   onInclusionIntent,
   onConnectionIntent,
-  onTierAction,
   onInstanceIntent,
   onPoolIntent,
   onTabChange,
@@ -196,7 +191,6 @@ export function TierLowerDeck({
               rateSheets={rateSheets}
               loading={settingsLoading}
               error={settingsError}
-              onTierAction={onTierAction}
               onInstanceIntent={onInstanceIntent}
               onPoolIntent={onPoolIntent}
             />
