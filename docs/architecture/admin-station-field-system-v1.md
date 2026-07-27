@@ -40,7 +40,7 @@ are those of the audited commit; later phases shift them, so locate rules by sel
 - There is exactly **one** drawer host — `resources/ts/admin-station/shell/drawer/AdminStationDrawer.tsx` (162 lines). No portal, no second implementation, no bypass path. Every drawer surface in the bundle resolves through it.
 - There is exactly **one** drawer registry — `resources/ts/station-manager/registry/drawerTemplates.ts`:32-72 — with 9 registrations, 2 modes (`'view' | 'edit'`, `station-manager/drawerTypes.ts:13`) and 3 sizes (`'normal' | 'wide' | 'extra-wide'`, `drawerTypes.ts:21`).
 - Drawer structural CSS is **148 lines** total (`admin-station.css:939-1086`), of which 28 are already dead.
-- The competing directories the brief suspected (`resources/ts/components/admin/stations/service-drawer/`, `.../tier-drawer/`, `admin-station/stations/drawers/`) are **empty directories with zero files**, emptied by commit `34c8175`.
+- The competing directories the brief suspected (resources/ts/components/admin/stations/service-drawer/, `.../tier-drawer/`, `admin-station/stations/drawers/`) are **empty directories with zero files**, emptied by commit `34c8175`.
 
 **Where is the multiplication?** Three places, in descending order of cost:
 
