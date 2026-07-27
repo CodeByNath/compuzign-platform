@@ -384,6 +384,74 @@
   cursor: not-allowed;
 }
 
+/* ── Station tab set ─────────────────────────────────────────────────────────
+   The neutral skin for `admin-station/presentation/StationTabSet.tsx`: an
+   underlined strip over one visible panel, sized entirely from station tokens so
+   it follows the light and dark palettes without a second definition.
+
+   It is the DEFAULT skin, not the only one. A station that already owns a deck
+   presentation passes its own class names to the primitive per element, so these
+   rules never reach a panel that did not opt in. Declared here, before every
+   station's feature CSS, so an equal-specificity station rule wins on source
+   order. */
+.cz-station-tabset__list {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--station-card-divider);
+}
+
+.cz-station-tabset__tab {
+  position: relative;
+  padding: 14px 0;
+  border: 0;
+  background: transparent;
+  color: var(--station-text-muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-station-tabset__tab:hover:not(:disabled) {
+  color: var(--station-text);
+}
+
+.cz-station-tabset__tab:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+.cz-station-tabset__tab:disabled {
+  cursor: not-allowed;
+}
+
+.cz-station-tabset__tab[aria-selected='true'] {
+  color: var(--station-text);
+}
+
+/* The selected underline sits on the strip's own border line. */
+.cz-station-tabset__tab[aria-selected='true']::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--station-accent);
+}
+
+.cz-station-tabset__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: var(--station-body-pad);
+}
+
+/* Every panel is rendered so a lane keeps its state; only the selected one is
+   shown. This beats a panel skin's own `display`, whichever station supplied it. */
+.cz-station-tabset__panel[hidden] {
+  display: none;
+}
+
 /* ── Shell empty states ─────────────────────────────────────────────────── */
 
 .cz-station-visually-hidden {
