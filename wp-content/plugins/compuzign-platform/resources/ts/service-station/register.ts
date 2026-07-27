@@ -4,7 +4,7 @@ import { registerDestinations } from '@/station-manager/registry/destinations';
 import { registerDrawerTemplates } from '@/station-manager/registry/drawerTemplates';
 import { registerNavItems } from '@/station-manager/registry/navigation';
 import { registerTemplateKits } from '@/station-manager/registry/templateKits';
-import { ServiceCatalogue } from './presentation/ServiceCatalogue';
+import { ServiceLowerDeck } from './presentation/ServiceLowerDeck';
 import { ServiceDrawerHost } from './surface/ServiceDrawerHost';
 import { useServiceCards } from './surface/useServiceCards';
 import { useServiceCatalogue } from './surface/useServiceCatalogue';
@@ -38,8 +38,10 @@ export function registerServiceStation(): void {
     'service-catalogue': useServiceCatalogue,
   });
 
+  // Service Home's presentation placement is the lower deck; the catalogue is
+  // one lane inside it rather than a surface of its own.
   registerTemplateKits({
-    'service-catalogue': ServiceCatalogue,
+    'service-lower-deck': ServiceLowerDeck,
   });
 
   registerDrawerTemplates([

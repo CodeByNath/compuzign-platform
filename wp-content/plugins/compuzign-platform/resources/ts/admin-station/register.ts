@@ -72,13 +72,16 @@ export function registerPresentationPolicy(): void {
         { id: 'view', target: 'drawer', mode: 'view' },
       ],
     },
+    // Service Home's lower deck. The surface still reads the catalogue source
+    // and still opens the Service drawer; what changed is that Service composes
+    // the catalogue as one lane of its own deck rather than as a bare wall.
     {
       stationId: 'services',
-      surfaceId: 'service-catalogue',
+      surfaceId: 'service-lower-deck',
       placement: 'presentation',
       order: 1,
       dataSourceKey: 'service-catalogue',
-      templateKitKey: 'service-catalogue',
+      templateKitKey: 'service-lower-deck',
       conditions: { scope: 'current' },
       drawerTemplateKey: 'service',
       actionIntents: [

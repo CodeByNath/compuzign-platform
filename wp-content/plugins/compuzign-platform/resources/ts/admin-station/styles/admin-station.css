@@ -1120,6 +1120,16 @@ button.cz-station-status-pill {
   .cz-station-drawer--extra-wide { width: 1080px; }
 }
 
+/* ── Service Home lower deck ─────────────────────────────────────────────────
+   The Service-owned region beneath the Package Family cards. It contributes the
+   region and its stacking only: the tab strip and panels are the shared
+   `cz-station-tabset` skin, and each lane supplies its own content. No Tier deck
+   class reaches Service Home. */
+.cz-service-deck {
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Service Catalogue ─────────────────────────────────────────────────── */
 
 .cz-service-catalogue {
