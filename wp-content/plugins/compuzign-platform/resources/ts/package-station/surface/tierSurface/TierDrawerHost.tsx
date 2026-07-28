@@ -12,20 +12,28 @@
 // occupant_id)` or `(tier_instance_id, slotId)` in a Package-owned routing token.
 // This adapter unwraps the native identities; legacy occupant-only dispatches
 // explicitly address `ti_primary`. Slot and occupant ids are never substituted.
+//
+// `tier-instance:new[:familyId]` addresses no instance at all — there is
+// nothing to resolve yet, so it mounts TierCreateContent instead. That
+// composition's own footer is this record's one authoritative creation; once
+// it succeeds this host remembers the real instance+occupant identity in local
+// state and mounts the ordinary, unmodified TierDrawerContent from then on —
+// the SAME hand-off a stable card identity gets on any other record.
 
-import { useMemo, useRef } from 'preact/hooks';
+import { useMemo, useRef, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
+import { TierCreateContent } from '../../drawer/tier/TierCreateContent';
+import type { TierCreateResult } from '../../drawer/tier/useTierCreate';
 import { TierDrawerContent } from '../../drawer/tier/TierDrawerContent';
-import { TierRegistrationHost } from './TierRegistrationHost';
 import { TierInstanceSettingsHost } from './TierInstanceSettingsHost';
 import { useHostService } from './useHostService';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 import { PRIMARY_TIER_INSTANCE_ID } from '../../vocabulary';
 import {
   decodeTierDrawerRecordId,
+  decodeTierInstanceCreateRecordId,
   decodeTierInstanceDrawerRecordId,
-  decodeTierRegistrationRecordId,
   decodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
 
@@ -38,6 +46,7 @@ export function TierDrawerHost({
   setCloseGuard,
 }: DrawerContentProps): VNode {
   const host = useHostService();
+  const [createdTarget, setCreatedTarget] = useState<TierCreateResult | null>(null);
 
   const closeRef  = useRef(onClose);       closeRef.current  = onClose;
   const footerRef = useRef(setFooter);     footerRef.current = setFooter;
@@ -56,23 +65,14 @@ export function TierDrawerHost({
   if (typeof recordId !== 'string') {
     return <div class="cz-station-drawer__state">This tier identity is invalid.</div>;
   }
-  // Registration addresses no record, so it is resolved before any identity is
-  // decoded and never falls through to the occupant fallback below. It reads the
-  // Family collection rather than the host Service, in its own host so that read
-  // stays out of every ordinary slot and occupant open.
-  const registrationTarget = decodeTierRegistrationRecordId(recordId);
-  if (registrationTarget !== null) {
-    return (
-      <TierRegistrationHost initialFamilyId={registrationTarget.familyId} bridge={bridge} />
-    );
-  }
+  const createTarget = createdTarget === null ? decodeTierInstanceCreateRecordId(recordId) : null;
   const slotTarget = decodeTierSlotDrawerRecordId(recordId);
-  const instanceTarget = decodeTierInstanceDrawerRecordId(recordId);
-  const occupantTarget = decodeTierDrawerRecordId(recordId);
+  const instanceTarget = createTarget === null ? decodeTierInstanceDrawerRecordId(recordId) : null;
+  const occupantTarget = createTarget === null ? decodeTierDrawerRecordId(recordId) : null;
   if (recordId.startsWith('tier-slot:') && slotTarget === null) {
     return <div class="cz-station-drawer__state">This Tier slot identity is invalid.</div>;
   }
-  if (recordId.startsWith('tier-instance:') && instanceTarget === null && occupantTarget === null) {
+  if (recordId.startsWith('tier-instance:') && createTarget === null && instanceTarget === null && occupantTarget === null && createdTarget === null) {
     return <div class="cz-station-drawer__state">This Tier identity is invalid.</div>;
   }
   const target = occupantTarget ?? {
@@ -83,6 +83,30 @@ export function TierDrawerHost({
   if (host.loading && !host.service) return <div class="cz-station-drawer__state">Loading package tiers…</div>;
   if (host.error)                    return <div class="cz-station-drawer__state">{host.error}</div>;
   if (!host.service)                 return <div class="cz-station-drawer__state">No package station is available.</div>;
+
+  if (createdTarget !== null) {
+    return (
+      <TierDrawerContent
+        serviceId={host.service.id}
+        tierInstanceId={createdTarget.instanceId}
+        // The hand-off knows the fixed SLOT it just settled, not a resolved
+        // occ_… id — the same address an empty-slot open already uses.
+        initialTierId={createdTarget.occupantId}
+        bridge={bridge}
+      />
+    );
+  }
+
+  if (createTarget !== null) {
+    return (
+      <TierCreateContent
+        serviceId={host.service.id}
+        pendingFamilyId={createTarget.familyId}
+        bridge={bridge}
+        onCreated={setCreatedTarget}
+      />
+    );
+  }
 
   if (instanceTarget !== null) {
     return (

@@ -33,7 +33,6 @@ import {
   tierFeaturesModule,
   tierOverviewModule,
   tierRateSheetAccessModule,
-  tierRegistrationModule,
 } from '../resources/ts/drawer-kit/utils/moduleNotifications';
 import type { ShellSchema } from '../resources/ts/drawer-kit/schema/types';
 import {
@@ -56,7 +55,6 @@ import {
   tierFeaturesShell,
   tierOverviewShell,
 } from '../resources/ts/package-station/drawer/schema/bindings/tier';
-import { tierRegistrationOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierRegistration';
 import { tierInclusionOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInclusion';
 import { tierRateSheetAccessShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInstance';
 
@@ -85,7 +83,6 @@ const SHELLS: Array<[string, ShellSchema<any>]> = [
   ['Tier Overview', tierOverviewShell],
   ['Tier Features', tierFeaturesShell],
   ['Tier FAQs', tierFaqsShell],
-  ['Tier Registration Overview', tierRegistrationOverviewShell],
   ['Tier Inclusion Overview', tierInclusionOverviewShell],
   ['Tier System Rate Sheet Access', tierRateSheetAccessShell],
 ];
@@ -131,10 +128,10 @@ const ENTRY_STATES: Array<[string, ModuleState]> = [
     }),
   ],
   [
-    'Tier System, before registration',
-    evaluateModule(tierRegistrationModule, { titled: false }, {
-      platformStatus: 'draft', platformLabel: 'Tier system',
-    }),
+    // Tier creation (tier-instance:new) renders this exact module in this exact
+    // empty state — it mints no bespoke "before registration" shape of its own.
+    'Tier Overview, before creation',
+    evaluateModule(tierOverviewModule, EMPTY_TIER_SLOT, { platformStatus: 'disabled' }),
   ],
   [
     'Family Overview, before creation',
@@ -185,10 +182,6 @@ const DERIVED: Array<[string, ModuleState]> = [
     evaluateModule(packageFamilyCapabilitiesModule, { tier: { enabled: false } }, NEVER_ACTIVATED),
   ],
   [
-    'Tier System',
-    evaluateModule(tierRegistrationModule, { titled: true }, NEVER_ACTIVATED),
-  ],
-  [
     'Rate Sheets',
     evaluateModule(rateSheetCollectionModule, { count: 3 }, NEVER_ACTIVATED),
   ],
@@ -220,11 +213,12 @@ check(
   'an explicitly disabled Package Manager item reads Disabled',
 );
 
-// A registered/named record must leave Pending behind, or the pill is decoration.
+// A settled/complete record must leave Pending behind, or the pill is decoration.
 check(
-  PILL_META[evaluateModule(tierRegistrationModule, { titled: true }, { platformStatus: 'active' }).status]?.label
-    === 'Active',
-  'a registered Tier system reads Active, not Pending forever',
+  PILL_META[evaluateModule(tierOverviewModule, { enabled: true, price: 25, billing_cycle: 'monthly', contact: false }, {
+    platformStatus: 'active',
+  }).status]?.label === 'Active',
+  'a settled Tier (created or otherwise) reads Active, not Pending forever',
 );
 check(
   PILL_META[evaluateModule(rateSheetCollectionModule, { count: 2 }, { platformStatus: 'active' }).status]?.label
@@ -256,26 +250,47 @@ check(
 // the entry state itself: `useState(true)` here means the drawer opens in its
 // editor, which is the defect this contract exists to prevent.
 
-const READABLE_ENTRY: Array<[string, string]> = [
-  ['Tier system registration', 'resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx'],
-  ['Package Family creation', 'resources/ts/package-station/drawer/package-family/PackageFamilyCreateContent.tsx'],
-];
+// Tier system creation (tier-instance:new) is not a bespoke registration
+// composition — TierCreateContent renders the SAME TIER_ENTITY (Tier Overview /
+// Included Features / Common Questions) an existing occupant does, entering its
+// one editable module through Edit exactly like every other module-entry
+// surface.
+const tierCreate = source('resources/ts/package-station/drawer/tier/TierCreateContent.tsx');
+const tierCreateHookForEntry = source('resources/ts/package-station/drawer/tier/useTierCreate.ts');
+check(
+  tierCreateHookForEntry.includes('useState<TierOverviewEditDraft | null>(null)'),
+  'Tier creation opens readable — its one editable module starts with no edit session',
+);
+check(
+  tierCreate.includes('openPanel={openPanel}') && tierCreate.includes('onTogglePanel={(module) =>'),
+  'Tier creation wires its module\'s notification panel, so the pill can open it',
+);
+check(
+  tierCreate.includes('onCancel: tc.cancelSection'),
+  'Tier creation returns Cancel to the readable module rather than closing the drawer',
+);
 
-for (const [name, path] of READABLE_ENTRY) {
-  const composition = source(path);
-  check(
-    composition.includes('const [editing, setEditing] = useState(false)'),
-    `${name} opens readable, never in its editor`,
-  );
-  check(
-    composition.includes('onTogglePanel='),
-    `${name} wires its module's notification panel, so the pill can open it`,
-  );
-  check(
-    composition.includes('onCancel: () => setEditing(false)'),
-    `${name} returns Cancel to the readable module rather than closing the drawer`,
-  );
-}
+// Package Family creation (the 'new' recordId) is not a bespoke create
+// composition either — it is the SAME usePackageFamilyDrawerController /
+// PackageFamilyDrawerContent an existing Family uses.
+const familyDrawerController = source('resources/ts/package-station/drawer/package-family/usePackageFamilyDrawerController.ts');
+check(
+  familyDrawerController.includes('const [editing, setEditing] = useState(false)'),
+  'Family creation opens readable, never in its editor',
+);
+const familyDrawerContent = source('resources/ts/package-station/drawer/package-family/PackageFamilyDrawerContent.tsx');
+check(
+  familyDrawerContent.includes('onTogglePanel={(module) => c.setOpenPanel('),
+  'Family creation wires its module\'s notification panel, so the pill can open it',
+);
+const cancelEditBody = familyDrawerController.slice(
+  familyDrawerController.indexOf('const cancelEdit'),
+  familyDrawerController.indexOf('const saveOverview'),
+);
+check(
+  cancelEditBody.includes('setEditing(false)'),
+  'Family creation returns Cancel to the readable module rather than closing the drawer',
+);
 
 const instanceSettings = source('resources/ts/package-station/drawer/tier/TierInstanceSettingsContent.tsx');
 check(
@@ -319,22 +334,28 @@ check(
   'Create Rate Sheet opens the Rate Sheet drawer readable, not in its editor',
 );
 
-// The Family create surface renders the Family's OWN module, so the two can
-// never drift: no second hand-authored copy of those fields, and no bare stage
-// screens standing in for the module.
-const familyCreate = source('resources/ts/package-station/drawer/package-family/PackageFamilyCreateContent.tsx');
+// The Family create surface renders the Family's OWN module — literally
+// PACKAGE_FAMILY_ENTITY, the same entity an existing Family's drawer uses — so
+// the two can never drift: no second hand-authored copy of those fields, and
+// no bare stage screens standing in for the module.
+const familyRecordForEntry = source('resources/ts/package-station/surface/packageFamily/usePackageFamilyRecord.ts');
 check(
-  familyCreate.includes('PACKAGE_FAMILY_CREATE_ENTITY') && familyCreate.includes('packageFamilyOverviewModule'),
-  'Package Family creation renders the mature Family Overview module',
+  familyRecordForEntry.includes("recordId === 'new'") && familyRecordForEntry.includes('NEW_PACKAGE_FAMILY_SEED'),
+  'Package Family creation resolves the stable \'new\' recordId to a local empty record, not a second entity',
 );
-check(
-  !familyCreate.includes('cz-tf-input') && !familyCreate.includes('cz-tf-textarea'),
-  'Package Family creation hand-authors no field markup of its own',
-);
-check(
-  !familyCreate.includes('Package Family saved'),
-  'Package Family creation reports the save through its settled module, not a stage screen',
-);
+for (const [name, source_] of [
+  ['usePackageFamilyRecord', familyRecordForEntry],
+  ['usePackageFamilyDrawerController', familyDrawerController],
+] as const) {
+  check(
+    !source_.includes('cz-tf-input') && !source_.includes('cz-tf-textarea'),
+    `${name} hand-authors no field markup of its own`,
+  );
+  check(
+    !source_.includes('Package Family saved'),
+    `${name} reports the save through the settled module, not a stage screen`,
+  );
+}
 
 // The empty fixed slot that this rule was first derived from keeps its entry
 // behaviour. `package-tier-workspace` owns that surface in detail; this is the

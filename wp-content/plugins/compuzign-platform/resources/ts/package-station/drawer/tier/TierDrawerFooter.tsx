@@ -1,13 +1,14 @@
 // Tier record-level footer. Pure presentation over the controller's footer
 // model: 'none' during module edit (InlineEditorShell carries its own footer),
-// 'close-only' at load / package overview, and the Enable-Disable split +
-// Publish once a tier is open. Rendered into the host's footer region through
-// the bridge.
+// 'close-only' at load / package overview, 'create' before any instance
+// exists (the drawer's `tier-instance:new` identity), and the Enable-Disable
+// split + Publish once a tier is open. Rendered into the host's footer region
+// through the bridge.
 
 import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 
 interface TierDrawerFooterProps {
-  mode: 'close-only' | 'none' | 'tier-actions';
+  mode: 'close-only' | 'none' | 'tier-actions' | 'create';
   occupied: boolean;
   enabled: boolean;
   hasContent: boolean;
@@ -29,6 +30,22 @@ export function TierDrawerFooter({
   if (mode === 'close-only') {
     return (
       <EntityActionFooter close={{ id: 'close', label: 'Close', onSelect: onClose }} />
+    );
+  }
+
+  // No instance exists yet — Publish is this record's one authoritative
+  // creation (mint the instance, apply the drafted overview, settle the
+  // first occupant), gated on the same "titled" minimum bar every other
+  // creation surface uses. There is nothing to enable/disable/archive yet.
+  if (mode === 'create') {
+    return (
+      <EntityActionFooter
+        close={{ id: 'close', label: 'Close', onSelect: onClose, disabled: saving }}
+        primary={{
+          id: 'publish', label: 'Publish', onSelect: onPublish,
+          disabled: saving || !hasContent, busy: saving, busyLabel: 'Publishing…',
+        }}
+      />
     );
   }
 

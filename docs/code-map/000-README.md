@@ -30,7 +30,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Rate Sheet](rate-sheet.md)
 - [Focused-Tier Rate Sheet Connections](tier-rate-sheet-connections.md)
 - [Tiers](tiers.md)
-- [Tier System Registration](tier-registration.md)
+- [Tier System Creation](tier-registration.md)
 - [Tier Capability Instances and Assignments](tier-capability.md)
 - [Promotions](promotions.md)
 - [Categories](categories.md)

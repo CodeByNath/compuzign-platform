@@ -32,7 +32,7 @@ Assignments, occupants, bin entries, or drafts block instance deletion. Peer-iso
 
 ## Package Family capability flow
 
-`PackageFamilyCreateContent.tsx` saves the Family before optional instance creation/assignment. Decline/close writes nothing; partial failure preserves both peers.
+The mature `package-family` drawer's own footer creates the Family (`usePackageFamilyStation.createFamily`, its `'new'`-identity Publish action) independently of any Tier capability; the same drawer's Capabilities module then offers Add Tier capability immediately, through `usePackageFamilyCapabilities.addTier`. Close writes nothing beyond whatever Family creation itself already committed; partial failure in Add Tier capability preserves both peers.
 
 `usePackageFamilyCapabilities.ts` reads both peer collections. Absence never affects readiness. Add, Remove, and Open Tier are explicit; confirmed removal deletes only the assignment.
 

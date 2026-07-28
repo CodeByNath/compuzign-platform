@@ -16,6 +16,12 @@
 //
 // Bundle-safe: `useApi` + the shared endpoint only, same boundary as the card
 // read.
+//
+// The stable `'new'` sentinel addresses no stored record: it resolves to a
+// local, empty PackageFamilyItem (group_id: '') instead of reading the list,
+// so the mature drawer opens on its ordinary Overview module with nothing to
+// fetch. `usePackageFamilyStation`/`usePackageFamilyDrawerController` treat an
+// empty `group_id` as "not yet created" and route its Save/Publish accordingly.
 
 import { useMemo } from 'preact/hooks';
 import { useApi } from '@/hooks/useApi';
@@ -30,7 +36,21 @@ export interface PackageFamilyRecordResult {
   refetch: () => void;
 }
 
+export const NEW_PACKAGE_FAMILY_SEED: PackageFamilyItem = {
+  group_id:                 '',
+  label:                    '',
+  description:              '',
+  platform_status:          'disabled',
+  previous_platform_status: null,
+  module_status:            { overview: 'not-configured' },
+  has_draft:                false,
+  sort_order:               0,
+  assigned_service_count:   0,
+  dependents:               { services: 0, rate_sheet_rows: 0, tier_selections: 0 },
+};
+
 export function usePackageFamilyRecord(recordId: StationRecordId): PackageFamilyRecordResult {
+  const isNew = recordId === 'new';
   const { data, loading, error, refetch } = useApi(async () => {
     const [current, archived, trashed] = await Promise.all([
       fetchPackageFamilies(),
@@ -44,10 +64,15 @@ export function usePackageFamilyRecord(recordId: StationRecordId): PackageFamily
     ];
   });
 
-  const record = useMemo(
-    () => data?.find((group) => group.group_id === recordId) ?? null,
-    [data, recordId],
-  );
+  const record = useMemo(() => {
+    if (isNew) return NEW_PACKAGE_FAMILY_SEED;
+    return data?.find((group) => group.group_id === recordId) ?? null;
+  }, [data, recordId, isNew]);
 
-  return { record, loading, error, refetch };
+  return {
+    record,
+    loading: isNew ? false : loading,
+    error:   isNew ? null : error,
+    refetch,
+  };
 }

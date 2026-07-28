@@ -122,6 +122,13 @@ export function usePackageFamilyDrawerController({
 
   const handleConfirmPublish = useCallback(async () => {
     setConfirmDialog(null);
+    // A `group_id`-less family addresses no stored record: the footer's
+    // Publish is this record's one authoritative creation, not a settle/
+    // activate pair against an id that does not exist yet.
+    if (station.family.group_id === '') {
+      await runLifecycle(station.createFamily);
+      return;
+    }
     await runLifecycle(station.isActive ? station.settleOverview : station.publishFamily);
   }, [runLifecycle, station]);
 
@@ -242,7 +249,14 @@ export function usePackageFamilyDrawerController({
     handleConfirmDestructive,
     handleToggleActive: () => void runLifecycle(station.toggleActive),
     handleArchive: () => void runLifecycle(station.archiveFamily, true),
-    handleTrash: () => setConfirmDialog('trash'),
+    // isNewNeverPublished offers this action as "Move to Trash" (the
+    // CanonicalEntityFooter split's danger primary). Nothing is stored yet for
+    // a `group_id`-less family, so discarding it is simply closing — never a
+    // status write against an id that does not exist.
+    handleTrash: () => {
+      if (station.family.group_id === '') { closeBypassingGuard(); return; }
+      setConfirmDialog('trash');
+    },
     handleRestore: () => void runLifecycle(station.restoreFamily),
     handleDelete: () => setConfirmDialog('delete'),
     openPublish: () => setConfirmDialog('publish'),

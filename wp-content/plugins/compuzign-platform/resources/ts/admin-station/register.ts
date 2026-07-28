@@ -101,11 +101,17 @@ export function registerPresentationPolicy(): void {
       actionIntents: [
         { id: 'view', target: 'drawer', mode: 'view' },
         { id: 'edit', target: 'drawer', mode: 'edit' },
-        { id: 'create-package-family', target: 'drawer', mode: 'edit', drawerTemplateKey: 'package-family-create' },
-        // Registering a Tier system uses the binding's own `tier` drawer at its
-        // registration address — the same mature composition, addressed before
-        // any instance exists. It needs no drawer key of its own.
-        { id: 'register-tier', target: 'drawer', mode: 'edit' },
+        // Creating a Family opens the SAME mature `package-family` drawer the
+        // 'new' sentinel recordId already understands — no separate creation
+        // drawer/registration. `mode: 'view'` because a drawer never opens
+        // pre-entered into an editor, including a brand-new record: it opens
+        // readable, with the empty Family Overview module carrying its own
+        // Pending pill and Edit action.
+        { id: 'create-package-family', target: 'drawer', mode: 'view', drawerTemplateKey: 'package-family' },
+        // Creating a Tier system uses the binding's own `tier` drawer at its
+        // `tier-instance:new[:familyId]` address — the same mature composition,
+        // addressed before any instance exists. It needs no drawer key of its own.
+        { id: 'create-tier', target: 'drawer', mode: 'view' },
         // The lower-deck Settings cards open the Package-owned Rate Sheet drawer
         // from this same surface. Its own drawer key overrides the binding's
         // `tier`, so no second body surface renders beneath the workspace.

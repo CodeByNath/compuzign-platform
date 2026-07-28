@@ -5,12 +5,6 @@ import {
   packageFamilyCapabilitiesModule,
   packageFamilyOverviewModule,
 } from '../resources/ts/drawer-kit/utils/moduleNotifications';
-import {
-  PACKAGE_FAMILY_CREATE_ACTIONS,
-  addTierCapabilityAfterSave,
-  completePackageFamilyCreate,
-  type PackageFamilyCreateCommands,
-} from '../resources/ts/package-station/surface/packageFamily/usePackageFamilyCreate';
 import { projectPackageFamilyCapabilities } from '../resources/ts/package-station/surface/packageFamily/usePackageFamilyCapabilities';
 import type {
   PackageFamilyCapabilitiesShellData,
@@ -81,49 +75,6 @@ check(
     === packageFamilyOverviewModule.resolveStatus?.(overview, overviewContext),
   'overview readiness is byte-identical with and without an assignment',
 );
-check(
-  PACKAGE_FAMILY_CREATE_ACTIONS.form.length === 0
-    && PACKAGE_FAMILY_CREATE_ACTIONS.saved.join(',') === 'not-now,add-tier-capability'
-    && PACKAGE_FAMILY_CREATE_ACTIONS['capability-added'].join(',') === 'open-tier-tool',
-  'capability actions exist only after the independent Family save',
-);
-
-const calls: string[] = [];
-const commands: PackageFamilyCreateCommands = {
-  createFamily: async () => {
-    calls.push('create-family');
-    return { success: true, group: savedFamily };
-  },
-  createTierInstance: async () => {
-    calls.push('create-tier-instance');
-    return { success: true, tier_instance: savedInstance };
-  },
-  createTierAssignment: async () => {
-    calls.push('create-tier-assignment');
-    return { success: true, assignment, tier_assignments: [assignment] };
-  },
-};
-await completePackageFamilyCreate(commands, { name: 'KAIROS', description: '' }, () => calls.push('on-saved'));
-check(calls.join(',') === 'create-family,on-saved', 'onSaved fires at saved stage before any optional write');
-check(calls.length === 2, 'Not now and close at saved stage produce zero capability writes');
-await addTierCapabilityAfterSave(commands, savedFamily);
-check(
-  calls.slice(2).join(',') === 'create-tier-instance,create-tier-assignment',
-  'explicit Add Tier capability performs exactly two ordered writes',
-);
-
-const familyBytes = JSON.stringify(savedFamily);
-const failedInstance = await addTierCapabilityAfterSave({
-  ...commands,
-  createTierInstance: async () => { throw new Error('forced instance failure'); },
-}, savedFamily);
-check(failedInstance.status === 'instance-failed' && JSON.stringify(savedFamily) === familyBytes, 'instance failure leaves saved Family untouched');
-const failedAssignment = await addTierCapabilityAfterSave({
-  ...commands,
-  createTierAssignment: async () => { throw new Error('forced assignment failure'); },
-}, savedFamily);
-check(failedAssignment.status === 'assignment-failed' && JSON.stringify(savedFamily) === familyBytes, 'assignment failure leaves saved Family untouched and reports its orphan');
-
 const instanceBytes = JSON.stringify(savedInstance);
 const withoutAssignment = [assignment].filter((row) => row.assignment_id !== assignment.assignment_id);
 check(withoutAssignment.length === 0 && JSON.stringify(savedInstance) === instanceBytes, 'assignment removal leaves Tier instance untouched');
@@ -132,9 +83,32 @@ type ExtendedCapabilities = PackageFamilyCapabilitiesShellData & { futureCapabil
 const extensionProof: ExtendedCapabilities = { tier: { enabled: false }, futureCapability: { enabled: false } };
 check(!('futureCapability' in savedFamily) && !extensionProof.futureCapability.enabled, 'a second capability row needs no Family field');
 
+// Family creation and "Add Tier capability" are two independent, separately
+// authoritative writes — there is no third, create-time-only capability stage
+// any more. The mature drawer's own createFamily performs exactly the one
+// Family write; usePackageFamilyCapabilities.addTier remains the sole owner of
+// the instance-then-assignment sequence, immediately available (no separate
+// "saved stage") the moment the drawer shows the created record's Capabilities
+// module.
 const root = resolve(import.meta.dirname, '..');
-const createContent = readFileSync(resolve(root, 'resources/ts/package-station/drawer/package-family/PackageFamilyCreateContent.tsx'), 'utf8');
-check(!createContent.includes('setCloseGuard('), 'the saved stage installs no close guard');
+const familyStationForCapability = readFileSync(resolve(root, 'resources/ts/package-station/usePackageFamilyStation.ts'), 'utf8');
+const createFamilyBody = familyStationForCapability.slice(
+  familyStationForCapability.indexOf('const createFamily'),
+  familyStationForCapability.indexOf('return {', familyStationForCapability.indexOf('const createFamily')),
+);
+for (const forbidden of ['createTierInstance', 'createTierAssignment']) {
+  check(!createFamilyBody.includes(forbidden), `Family creation performs no ${forbidden} of its own — that stays with Add Tier capability`);
+}
+const capabilitiesHookSource = readFileSync(resolve(root, 'resources/ts/package-station/surface/packageFamily/usePackageFamilyCapabilities.ts'), 'utf8');
+const addTierBody = capabilitiesHookSource.slice(
+  capabilitiesHookSource.indexOf('const addTier = useCallback'),
+  capabilitiesHookSource.indexOf('const requestRemoveTier'),
+);
+check(
+  addTierBody.indexOf('createTierInstance') < addTierBody.indexOf('createTierAssignment')
+    && addTierBody.includes('createdOrphan'),
+  'Add Tier capability still performs the instance-then-assignment sequence and remembers a partial-failure orphan for retry',
+);
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {

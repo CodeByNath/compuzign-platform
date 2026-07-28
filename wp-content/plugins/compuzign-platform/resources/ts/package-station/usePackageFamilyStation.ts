@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import {
+  createPackageFamily,
   permanentDeletePackageFamily,
   restorePackageFamily,
   revertPackageFamilyOverview,
@@ -61,12 +62,39 @@ export function usePackageFamilyStation(
     return response.group;
   }, []);
 
+  // A `group_id`-less family addresses no stored record yet. Module Save must
+  // not call the update endpoint against an id that does not exist — it only
+  // advances the local draft, moving the overview transition to 'pending' so
+  // the record footer's Publish gate (canPublish) can read it as ready. The
+  // drawer footer's own Create/Publish action is the sole authoritative write
+  // for this record, via `createFamily` below.
   const saveOverview = useCallback(async (draft: PackageFamilyOverviewDraft) => {
+    if (family.group_id === '') {
+      setFamily((current) => ({
+        ...current,
+        label:       draft.name,
+        description: draft.description,
+        module_status: { ...current.module_status, overview: 'pending' },
+      }));
+      return family;
+    }
     const response = await savePackageFamilyOverview(family.group_id, draft);
     const group = requireGroup(response, 'Could not save the Package Family Overview.');
     onMutationComplete?.();
     return group;
-  }, [family.group_id, onMutationComplete, requireGroup]);
+  }, [family, onMutationComplete, requireGroup]);
+
+  // The drawer footer's authoritative creation. Persists the drafted overview
+  // (staged locally by saveOverview above) as a brand-new Package Family and
+  // replaces the local seed with the real, server-issued record — the same
+  // "born disabled, overview pending" state as any other newly created Family,
+  // so every existing lifecycle/footer computation applies unchanged from here.
+  const createFamily = useCallback(async () => {
+    const response = await createPackageFamily({ name: family.label, description: family.description });
+    const group = requireGroup(response, 'Could not create the Package Family.');
+    onMutationComplete?.();
+    return group;
+  }, [family.label, family.description, onMutationComplete, requireGroup]);
 
   const revertOverview = useCallback(async () => {
     const response = await revertPackageFamilyOverview(family.group_id);
@@ -148,6 +176,7 @@ export function usePackageFamilyStation(
     relationshipData,
     loading: { status: statusSaving, deleting },
     saveOverview,
+    createFamily,
     revertOverview,
     settleOverview,
     publishFamily,

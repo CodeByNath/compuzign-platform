@@ -480,15 +480,16 @@ check(
   'a Family without an assignment receives an honest setup surface instead of five implied Tier records',
 );
 // That surface acts, rather than sending the user somewhere else to act. It opens
-// the registration drawer directly, carrying the Family the engine already has in
-// hand so the drawer pre-selects it — one atomic creation, not a relayed errand.
+// the mature Tier drawer's own create identity directly, carrying the Family the
+// engine already has in hand so creation links it — one atomic creation, not a
+// relayed errand.
 check(
-  workspacePresentation.includes('dispatchTierRegistration(tool.selectedFamily?.id ?? null)'),
-  'the no-assignment state registers a Tier system for the Family it is showing',
+  workspacePresentation.includes('dispatchTierCreate(tool.selectedFamily?.id ?? null)'),
+  'the no-assignment state creates a Tier system for the Family it is showing',
 );
 check(
-  workspacePresentation.includes("encodeTierRegistrationRecordId(familyId), 'register-tier'"),
-  'registration is addressed on the Tier drawer, never a second Tier editor',
+  workspacePresentation.includes("encodeTierInstanceCreateRecordId(familyId), 'create-tier'"),
+  'creation is addressed on the mature Tier drawer’s own tier-instance:new identity, never a second Tier editor',
 );
 check(
   !workspacePresentation.includes('Open Tier tool'),
@@ -679,121 +680,172 @@ check(
   'no inline Package Manager creation form survives beside the launchers',
 );
 
-// Registration is ONE atomic creation, addressed on the mature `tier` drawer
-// rather than a second Tier editor. It fills no slot and chains into no workflow.
-const registrationSource = readFileSync(resolve(
-  root,
+// Creation is ONE atomic sequence, owned by the mature `tier` drawer's own
+// footer rather than a second Tier editor or a module's inline Save. There is
+// no `package-family-create`/`tier-register:` duplicate composition left to
+// audit — the retired files are gone outright.
+for (const retired of [
   'resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx',
-), 'utf8');
-for (const forbidden of [
-  'encodeTierSlotDrawerRecordId',
-  'saveTierFeatures',
-  'allowed_rate_sheet_ids',
-  'rate_sheet_id',
-  'occupant',
-]) {
-  check(!registrationSource.includes(forbidden), `registration performs no ${forbidden}`);
-}
-check(
-  registrationSource.includes('registration.instance?.tier_instance_id'),
-  'registration reports the stored id the backend minted, never the title it was given',
-);
-
-// The drawer footer is HOST state: setting it re-renders the content. Owning no
-// footer here is what makes that loop impossible — the module shell carries the
-// buttons, so nothing recomputes a footer VNode from a per-render object.
-check(
-  !registrationSource.includes('setFooter(footer)'),
-  'registration sets no computed footer, so it cannot drive the set/re-render loop',
-);
-
-// Presentation uses the styled editor vocabulary. `drawerModule__field` and its
-// siblings are only styled under `.drawerOverview`, so using them outside that
-// scope renders an unstyled form.
-// Every drawer create composition uses the styled vocabularies. `drawerModule__*`
-// field classes are styled ONLY under `.drawerOverview`, and `cz-drawer-actions`
-// is styled nowhere at all — both render an unstyled drawer. The action footer
-// belongs to the drawer kit, which owns that one visual grammar.
-const familyCreateSource = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/drawer/package-family/PackageFamilyCreateContent.tsx',
-), 'utf8');
-for (const [name, source] of [
-  ['Tier registration', registrationSource],
-  ['Package Family create', familyCreateSource],
-] as const) {
-  for (const unstyled of [
-    'cz-drawer-actions',
-    'drawerModule__field',
-    'drawerModule__label',
-    'drawerModule__hint',
-    'drawerModule__fields',
-  ]) {
-    check(!source.includes(unstyled), `${name} does not use the unstyled ${unstyled}`);
-  }
-  // A create surface is an edit surface with no record behind it yet, so it
-  // wears the module edit shell the mature drawer already wears — which owns
-  // Save/Cancel, the dirty confirmation, the busy state and the error slot —
-  // rather than hand-rolling a footer beside it.
-  check(
-    source.includes('InlineEditorShell') || source.includes('EntityDrawer'),
-    `${name} wears the drawer kit's mature composition`,
-  );
-}
-// Registration is the SAME composition the drawer already uses: a schema-placed
-// overview module, with the module's own inline editor over it. Not a bespoke
-// form dropped into the drawer body.
-check(
-  registrationSource.includes('EntityDrawer')
-    && registrationSource.includes('TIER_REGISTRATION_ENTITY')
-    && registrationSource.includes("module: 'overview'"),
-  'registration renders a placed overview module, not a bespoke form',
-);
-check(
-  registrationSource.includes('handlers: { edit:'),
-  'the registered module offers Edit, so it re-enters the same editor',
-);
-const registrationEditor = readFileSync(resolve(
-  root,
+  'resources/ts/package-station/surface/tierSurface/TierRegistrationHost.tsx',
+  'resources/ts/package-station/surface/tierInstance/useTierRegistration.ts',
+  'resources/ts/package-station/drawer/schema/entities/tierRegistration.ts',
+  'resources/ts/package-station/drawer/schema/bindings/tierRegistration.tsx',
   'resources/ts/package-station/drawer/editors/TierRegistrationEditor.tsx',
-), 'utf8');
-check(
-  registrationEditor.includes('cz-tf-field') && registrationEditor.includes('cz-tf-label')
-    && registrationEditor.includes('cz-tf-hint'),
-  'the registration editor uses the established cz-tf-* vocabulary',
-);
-for (const chrome of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions']) {
-  check(!registrationEditor.includes(chrome), `the registration editor owns no ${chrome} of its own`);
+  'resources/ts/package-station/drawer/package-family/PackageFamilyCreateContent.tsx',
+  'resources/ts/package-station/surface/packageFamily/PackageFamilyCreateDrawerHost.tsx',
+  'resources/ts/package-station/surface/packageFamily/usePackageFamilyCreate.ts',
+  'resources/ts/package-station/drawer/schema/entities/packageFamilyCreate.ts',
+] as const) {
+  check(!existsSync(resolve(root, retired)), `the retired duplicate creation file is deleted (${retired})`);
 }
-// Exactly one footer at a time. The readable module owns no buttons of its own,
-// so the drawer publishes the record footer's Close; while the module's
-// InlineEditorShell owns Save/Cancel the drawer withdraws it — the same way the
-// Rate Sheet tool nulls it while editing. What must never happen is two footers
-// under one form.
 check(
-  registrationSource.includes('bridge.setFooter(editing ? null : (')
-    && registrationSource.includes('EntityActionFooter'),
-  'the registration drawer publishes Close while readable and no footer while editing',
+  !adminRegister.includes('package-family-create') && !packageRegister.includes('package-family-create'),
+  'no drawer registers the retired package-family-create key',
+);
+check(
+  adminRegister.includes("id: 'create-package-family'") && adminRegister.includes("drawerTemplateKey: 'package-family'"),
+  'creating a Family opens the SAME mature package-family drawer, not a create-only registration',
+);
+check(
+  /id: 'create-package-family'[^}]*mode: 'view'/.test(adminRegister),
+  'a Family creation intent never opens pre-entered into an editor',
+);
+check(
+  !workspacePresentation.includes('tier-register:') && !workspacePresentation.includes('encodeTierRegistrationRecordId'),
+  'nothing dispatches the retired tier-register: token',
 );
 
+// Tier creation renders the SAME TIER_ENTITY the mature per-occupant drawer
+// uses — Tier Overview, Included Features and Common Questions — never a
+// bespoke registration entity/schema.
+const tierCreateSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierCreateContent.tsx',
+), 'utf8');
+check(
+  tierCreateSource.includes("import { TIER_ENTITY } from '../schema/entities/tier'")
+    && tierCreateSource.includes('entity={TIER_ENTITY}'),
+  'Tier creation reuses the mature per-occupant TIER_ENTITY, not a create-only entity',
+);
+check(
+  tierCreateSource.includes('bindings={{ overview: overviewBinding, features: featuresBinding, faqs: faqsBinding }}'),
+  'Tier creation places the same Overview / Included Features / Common Questions modules an existing Tier uses',
+);
+const tierCreateHook = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/useTierCreate.ts',
+), 'utf8');
+// Module Save (openSection/saveSection) only ever touches local state; only
+// `create()` calls the authoritative mutations, and it is wired solely to the
+// drawer's own footer action, never to a module's inline editor Save.
+const tierCreateOpenSectionBody = tierCreateHook.slice(
+  tierCreateHook.indexOf('const openSection'),
+  tierCreateHook.indexOf('const saveSection'),
+);
+const tierCreateSaveSectionBody = tierCreateHook.slice(
+  tierCreateHook.indexOf('const saveSection'),
+  tierCreateHook.indexOf('const cancelSection'),
+);
+check(
+  tierCreateOpenSectionBody.length > 0 && tierCreateSaveSectionBody.length > 0
+    && !tierCreateOpenSectionBody.includes('createTierInstance')
+    && !tierCreateSaveSectionBody.includes('createTierInstance'),
+  'module Save/Edit never call the create endpoint — only the footer-triggered create() does',
+);
+check(
+  tierCreateHook.includes('createTierInstance')
+    && tierCreateHook.includes('createTierAssignment')
+    && tierCreateHook.includes('saveServicePackageStationTierModule')
+    && tierCreateHook.includes('settleServicePackageStationTier'),
+  'creation composes the SAME authoritative mutations the ordinary empty-slot cycle already uses',
+);
+check(
+  tierCreateSource.includes("onPublish={() => {")
+    && tierCreateSource.includes('tc.create()'),
+  'the drawer footer is the one caller of the authoritative create sequence',
+);
+check(
+  tierCreateHook.includes("const hasContent = committed.label.trim().length > 0"),
+  'creation gates on a non-empty label, the same minimum bar Package Family creation uses',
+);
+check(
+  tierCreateSource.includes('featuresBinding') && tierCreateSource.includes('handlers: {},')
+    && tierCreateSource.includes('faqsBinding'),
+  'Included Features and Common Questions render in their ordinary empty state with Edit withheld until hand-off',
+);
+
+// TierDrawerFooter gained one more mode instead of a bespoke footer component —
+// exactly one footer implementation for the whole Tier drawer.
+const tierFooterSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierDrawerFooter.tsx',
+), 'utf8');
+check(
+  tierFooterSource.includes("mode === 'create'") && tierFooterSource.includes("label: 'Publish'"),
+  'the SAME TierDrawerFooter component owns the pre-creation Publish action',
+);
+
+// TierDrawerHost resolves the create identity before falling through to the
+// ordinary instance/occupant/slot routes, and hands off to the unmodified
+// TierDrawerContent at the real instance+occupant identity on success — never
+// staying on a parallel view once the record exists.
+const tierDrawerHostSourceForCreate = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx',
+), 'utf8');
+check(
+  tierDrawerHostSourceForCreate.includes('decodeTierInstanceCreateRecordId')
+    && tierDrawerHostSourceForCreate.includes('<TierCreateContent'),
+  'TierDrawerHost resolves tier-instance:new before the ordinary instance/occupant/slot routes',
+);
+check(
+  tierDrawerHostSourceForCreate.includes('createdTarget') && tierDrawerHostSourceForCreate.includes('onCreated={setCreatedTarget}'),
+  'a successful creation hands off to the ordinary TierDrawerContent at the real instance+occupant id',
+);
 
 // A Package Family is not a field on a Tier system. The instance schema carries
-// no Family vocabulary, so the link must stay a separate assignment write.
-const registrationHook = readFileSync(resolve(
+// no Family vocabulary, so the link stays a separate assignment write, made
+// exactly once by the same creation sequence — never a reassignable picker
+// (the settled platform rule: Add/Remove/Open only, no reassign action).
+check(
+  tierCreateHook.includes('createTierAssignment({')
+    && tierCreateHook.includes("consumer_type: 'package_family'"),
+  'a pre-selected Family is linked through the assignment ledger, not written onto the instance',
+);
+for (const forbidden of ['family_id', 'group_id:', 'selectable', 'assignInstance', 'unassignInstance']) {
+  check(!tierCreateHook.includes(forbidden), `creation writes no ${forbidden} onto the instance, and offers no reassignment picker`);
+}
+
+// Package Family creation is folded into the mature package-family drawer's own
+// 'new' identity — no second drawer, no second Family editor.
+const familyRecordSource = readFileSync(resolve(
   root,
-  'resources/ts/package-station/surface/tierInstance/useTierRegistration.ts',
+  'resources/ts/package-station/surface/packageFamily/usePackageFamilyRecord.ts',
 ), 'utf8');
 check(
-  registrationHook.includes('tool.assignInstance')
-    && registrationHook.includes('tool.unassignInstance'),
-  'a Family is linked through the assignment ledger, not written onto the instance',
+  familyRecordSource.includes("recordId === 'new'") && familyRecordSource.includes('NEW_PACKAGE_FAMILY_SEED'),
+  'the mature Family drawer resolves the stable \'new\' sentinel to a local empty record, not a stored fetch',
 );
-for (const forbidden of ['family_id', 'consumer_id:', 'group_id:']) {
-  check(!registrationHook.includes(forbidden), `registration writes no ${forbidden} onto the instance`);
-}
+const familyStationSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/usePackageFamilyStation.ts',
+), 'utf8');
 check(
-  registrationHook.includes('tool.eligibleFamilies'),
-  'only Families holding no Tier system are offered, so no assignment is silently retargeted',
+  familyStationSource.includes("family.group_id === ''") && familyStationSource.includes('createFamily'),
+  'the mature Family station distinguishes a not-yet-created record and exposes its one authoritative createFamily mutation',
+);
+check(
+  /saveOverview = useCallback\(async \(draft[^)]*\) => \{\s*if \(family\.group_id === ''\) \{/.test(familyStationSource),
+  'module Save never calls the update endpoint for a not-yet-created Family — it only advances the local draft',
+);
+const familyDrawerControllerSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/package-family/usePackageFamilyDrawerController.ts',
+), 'utf8');
+check(
+  familyDrawerControllerSource.includes("station.family.group_id === ''")
+    && familyDrawerControllerSource.includes('runLifecycle(station.createFamily)'),
+  'the drawer footer\'s Publish is Family creation\'s one authoritative call, exactly once',
 );
 
 // The atomic-creation hook is gone. Family, Rate Sheet and group creation are

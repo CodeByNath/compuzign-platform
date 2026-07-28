@@ -8,7 +8,6 @@ import { PackageTierWorkspace } from './presentation/package-tier-workspace/Pack
 import { RateSheetDrawerContent } from './presentation/rate-sheet-tool/RateSheetTool';
 import { TierRateSheetDrawerContent } from './presentation/rate-sheet-tool/TierRateSheetDrawer';
 import { PackageFamilyDrawerContent } from './surface/packageFamily/PackageFamilyDrawerContent';
-import { PackageFamilyCreateDrawerHost } from './surface/packageFamily/PackageFamilyCreateDrawerHost';
 import { usePackageFamilyCards } from './surface/packageFamily/usePackageFamilyCards';
 import { usePackageTierWorkspace } from './surface/packageTierWorkspace/usePackageTierWorkspace';
 import { TierDrawerHost } from './surface/tierSurface/TierDrawerHost';
@@ -50,12 +49,6 @@ export function registerPackageStation(): void {
   });
 
   registerDrawerTemplates([
-    {
-      key: 'package-family-create',
-      title: 'New Package Family',
-      supportedModes: ['edit'],
-      content: PackageFamilyCreateDrawerHost,
-    },
     {
       key: 'package-family',
       title: 'Package Family',

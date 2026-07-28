@@ -9,8 +9,8 @@ import { CategoryGroupCardGrid } from '@/admin-station/presentation/category-gro
 import type { PackageTierWorkspaceTool } from '../../surface/packageTierWorkspace/usePackageTierWorkspace';
 import {
   encodeTierDrawerRecordId,
+  encodeTierInstanceCreateRecordId,
   encodeTierInstanceDrawerRecordId,
-  encodeTierRegistrationRecordId,
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
 import { encodeTierInclusionDrawerRecordId } from '../../drawer/inclusion/tierInclusionDrawerTypes';
@@ -131,23 +131,24 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   // Rate Sheet drawers. None of them re-opens the Tier drawer, and none of them
   // disturbs the focused Family or slot, so the workspace is unchanged when the
   // drawer closes.
-  // The Settings lane launches a pool subject's own creation drawer. There is no
-  // record yet, so nothing but the subject crosses this edge: the Family drawer
-  // ignores the id entirely and the Rate Sheet drawer reads the whole collection.
-  // Neither disturbs the focused Family or slot, and each refreshes this surface
-  // through the `refetch` the host handed the drawer at dispatch.
-  // Registering a Tier system is the same atomic creation wherever it starts. The
+  // The Settings lane launches a pool subject's own creation state in the drawer
+  // that owns it. There is no record yet, so nothing but the subject crosses
+  // this edge: the Family drawer's 'new' identity ignores the id entirely and
+  // the Rate Sheet drawer reads the whole collection. Neither disturbs the
+  // focused Family or slot, and each refreshes this surface through the
+  // `refetch` the host handed the drawer at dispatch.
+  // Creating a Tier system is the same atomic creation wherever it starts. The
   // engine already knows which Family the user is looking at, so it hands that id
   // over to be pre-selected; Settings hands over none, because it pre-selects
   // nothing from whatever happens to be focused above it. Neither is a different
   // level of the workflow — the drawer performs one creation either way.
-  const dispatchTierRegistration = (familyId: string | null) => {
-    onIntent(encodeTierRegistrationRecordId(familyId), 'register-tier');
+  const dispatchTierCreate = (familyId: string | null) => {
+    onIntent(encodeTierInstanceCreateRecordId(familyId), 'create-tier');
   };
 
   const dispatchPoolIntent = (subject: PoolSubject) => {
     if (subject === 'tier') {
-      dispatchTierRegistration(null);
+      dispatchTierCreate(null);
       return;
     }
     onIntent('new', subject === 'family' ? 'create-package-family' : 'create-rate-sheet');
@@ -242,7 +243,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
                 <button
                   type="button"
                   class="cz-tier-deck__button cz-tier-deck__button--primary"
-                  onClick={() => dispatchTierRegistration(tool.selectedFamily?.id ?? null)}
+                  onClick={() => dispatchTierCreate(tool.selectedFamily?.id ?? null)}
                 >
                   Register a Tier system
                 </button>

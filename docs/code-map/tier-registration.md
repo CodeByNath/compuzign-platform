@@ -1,41 +1,36 @@
-# Tier System Registration
+# Tier System Creation
 
 ## Purpose and ownership
 
-Registering a Tier system is ONE atomic creation, performed in the mature `tier` drawer rather than a second Tier editor. Package Station owns the composition, state, validation, mutation and persistence; Admin Station supplies only the drawer shell.
+Creating a Tier system is ONE atomic sequence, performed in the mature `tier` drawer rather than a second editor or a parallel host. Package Station owns the composition, state, validation, mutation and persistence; Admin Station supplies only the drawer shell.
 
-A Tier system enters the pool with its own title and description. PHP mints its id and its five empty fixed slots. Nothing else is minted, filled, bound, or granted: registration fills no slot, grants no Rate Sheet access, and chains into no workflow. A registered system is reached the ordinary way afterwards — by selecting its Package Family in the workspace engine, which resolves the assignment and loads those empty slots for individual Tier edits.
+A Tier system enters the pool with its own title and its first fixed slot (`basic`) settled with whatever the Tier Overview module was given. PHP mints the instance id and its five empty slots in the same sequence that settles that first slot. Afterwards it is reached the ordinary way: selecting its linked Family in the workspace engine resolves the assignment and loads the remaining four slots.
 
 ## The address
 
-`tier-register:[familyId]` opens the `tier` drawer before any instance exists. It addresses no record, so it is decoded before any identity is resolved and never falls through to the occupant fallback. The optional segment carries only the Family the caller already had in hand; an empty segment means none was offered, not that one failed to resolve.
+`tier-instance:new[:familyId]` opens the `tier` drawer before any instance exists — the whole-instance route's own "no instance yet" identity, the same pattern as the Family drawer's `'new'` sentinel. `TierDrawerHost` decodes it before any other identity, never falling through to the occupant fallback. The optional segment carries only the Family the caller already had in hand; empty means none was offered, not that one failed to resolve.
 
-Two callers, one creation. The Settings lane's Tiers launcher passes no Family, because Settings pre-selects nothing from whatever is focused above it. The workspace's no-assignment surface passes the Family it is showing, so the drawer opens with it selected.
+Two callers, one creation. Settings' Create Tier launcher passes no Family, since Settings pre-selects nothing. The workspace's no-assignment surface passes the Family it is showing, so creation links it once the instance exists.
 
 ## A Family is not a field
 
-`TierInstanceSchema` deliberately carries no consumer, Family, Group, or assignment vocabulary, and registration does not change that. The link is a row in the separate `tier_assignments[]` ledger:
-
-- choosing a Family writes that row **after** the instance exists;
-- clearing it deletes that row;
-- re-pointing is a delete then a create, because one assignment row exists per instance.
-
-The instance is authoritative either way. A failed ledger write leaves a registered, unassigned Tier system — reported as such — rather than a half-written record. Only Families holding no Tier system are offered, so no existing assignment is silently retargeted, and a pre-selected Family arriving on the token is honoured only while it still holds none.
+`TierInstanceSchema` carries no consumer, Family, Group, or assignment vocabulary, and creation does not change that. The link is a row in the separate `tier_assignments[]` ledger, written once at creation — never a reassignable picker, matching the settled rule (see [Tier Capability](tier-capability.md)) of exactly Add/Remove/Open, no reassign. A standalone-created system stays standalone until a Family's Capabilities module adds a *different* instance. A failed ledger write leaves a created, unassigned system — reported as such — rather than blocking the creation that already succeeded.
 
 ## Current implementation
 
-- [tierDrawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/tierDrawerTypes.ts) encodes and decodes the address beside the occupant and empty-slot tokens.
-- [TierRegistrationContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx) opens readable on the Overview screen, before and after the save: the empty module states what a Tier system will be, carries its Pending pill and that pill's message, and only its Edit opens the editor. Once registered it reads back the record's own stored identity, with Edit reopening the same editor for correction. Readable publishes the record footer's Close; editing withdraws it, because `InlineEditorShell` owns Save/Cancel. See the Module entry contract in [Drawer System](drawer-system.md).
-- [useTierRegistration.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierRegistration.ts) owns draft state, validation, the create write and the assignment writes.
-- [TierRegistrationHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierRegistrationHost.tsx) is a separate host so the Family collection loads only when registering, keeping it out of every ordinary slot and occupant open.
-- [TierInstanceSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) stores `description`; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) accepts it on create and update and mints the five-slot shell.
+- [tierDrawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/tierDrawerTypes.ts) encodes/decodes `tier-instance:new[:familyId]` beside the ordinary whole-instance, occupant and empty-slot tokens, checked with priority so the literal `new` segment is never misread as a real instance id.
+- [TierCreateContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierCreateContent.tsx) renders the SAME `TIER_ENTITY` an existing occupant uses — Overview, Included Features, Common Questions — each in its ordinary empty/Pending state. Only Overview is editable; the other two need the parent Service's resolved Rate Sheet catalogue, unavailable before an instance exists, so Edit stays withheld until hand-off. Module Edit/Save only ever touches a local draft, never an endpoint.
+- [useTierCreate.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/useTierCreate.ts) owns that draft and the one authoritative `create()` sequence: mint the instance (`createTierInstance`), link the optional Family (`createTierAssignment`), persist the drafted overview and settle the first occupant (`saveServicePackageStationTierModule` / `settleServicePackageStationTier` — the SAME calls the empty-slot cycle already uses). Its one gate is a non-empty label, the same bar Family creation uses.
+- [TierDrawerFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerFooter.tsx)'s `'create'` mode is the sole caller of that sequence — one more mode on the SAME footer every other Tier state uses, not a bespoke footer.
+- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) resolves the create address before the ordinary instance/occupant/slot routes and mounts `TierCreateContent`. On success it remembers the real identity locally and mounts the ordinary, unmodified `TierDrawerContent` from then on — the same hand-off any other record gets.
+- [TierInstanceSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) mints the instance and its five-slot shell; [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) settles the first slot through the same `settleTierSlot` every occupant uses.
 
 ## Invariants
 
-- One creation per registration. No slot is filled, no access granted, no second record minted.
-- A Family is linked through the assignment ledger, never written onto the instance; a smuggled `consumer_id` or `family_id` is dropped by the schema.
-- Only Families holding no Tier system are selectable.
-- An absent description is stored as empty rather than dropped.
+- One creation sequence, exactly once per footer click. No second slot is filled, no second record minted.
+- A Family is linked through the assignment ledger, never written onto the instance; a smuggled `consumer_id`/`family_id` is dropped by the schema.
+- Included Features and Common Questions render but are not editable until hand-off — never a broken editor with no data behind it.
+- No `tier-register:` token or bespoke registration host/content/hook/entity/schema/editor remain; their responsibilities are absorbed into the mature Tier drawer above.
 
 ## Validation
 

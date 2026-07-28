@@ -182,10 +182,19 @@ const tierDrawerHostSource = readFileSync(
   'utf8',
 );
 check(
-  tierDrawerHostSource.includes("recordId.startsWith('tier-instance:') && instanceTarget === null && occupantTarget === null")
+  tierDrawerHostSource.includes("recordId.startsWith('tier-instance:')")
+    && tierDrawerHostSource.includes('instanceTarget === null && occupantTarget === null && createdTarget === null')
     && tierDrawerHostSource.includes('<TierInstanceSettingsHost')
     && tierDrawerHostSource.includes('instanceId={instanceTarget.instanceId}'),
   'the Tier host rejects malformed instance-prefixed routes before legacy fallback and mounts the whole-instance host for valid routes',
+);
+// tier-instance:new is resolved before the ordinary instance/occupant/slot
+// routes — decoded, priority-checked, and never misread as a real instance id.
+check(
+  tierDrawerHostSource.includes('decodeTierInstanceCreateRecordId')
+    && tierDrawerHostSource.includes('createTarget === null ? decodeTierInstanceDrawerRecordId(recordId) : null')
+    && tierDrawerHostSource.includes('createTarget === null ? decodeTierDrawerRecordId(recordId) : null'),
+  'the create identity is resolved with priority over the ordinary instance and occupant routes, never confused with a real instance id',
 );
 
 const sharedA = instance('ti_shared_a', ['occ_shared_a']);

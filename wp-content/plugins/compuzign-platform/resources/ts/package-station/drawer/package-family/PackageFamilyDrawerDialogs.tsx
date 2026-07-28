@@ -3,6 +3,7 @@ import type { PackageFamilyDrawerController } from './usePackageFamilyDrawerCont
 export function PackageFamilyDrawerDialogs({ controller }: { controller: PackageFamilyDrawerController }) {
   const c = controller;
   const name = c.station.family.label || 'this Package Family';
+  const isNew = c.station.family.group_id === '';
 
   return (
     <>
@@ -11,12 +12,14 @@ export function PackageFamilyDrawerDialogs({ controller }: { controller: Package
           <div class="cz-publish-confirm" role="dialog" aria-modal="true">
             <div class="cz-publish-confirm__header">
               <h3 class="cz-publish-confirm__title">
-                {c.station.isActive ? `Settle changes to ${name}?` : `Ready to publish ${name}?`}
+                {isNew ? `Create ${name}?` : c.station.isActive ? `Settle changes to ${name}?` : `Ready to publish ${name}?`}
               </h3>
             </div>
             <div class="cz-publish-confirm__body">
               <p class="cz-publish-confirm__lead">
-                {c.station.isActive
+                {isNew
+                  ? 'This creates the Package Family and enables it.'
+                  : c.station.isActive
                   ? 'This applies the current Family Overview draft as the settled Package Station state.'
                   : 'This settles the Family Overview and enables this Package Family.'}
               </p>
@@ -24,7 +27,7 @@ export function PackageFamilyDrawerDialogs({ controller }: { controller: Package
             <div class="cz-publish-confirm__footer">
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => c.setConfirmDialog(null)} disabled={c.station.loading.status}>Cancel</button>
               <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={c.handleConfirmPublish} disabled={c.station.loading.status}>
-                {c.station.loading.status ? '…' : c.station.isActive ? 'Settle' : 'Publish'}
+                {c.station.loading.status ? '…' : isNew ? 'Create' : c.station.isActive ? 'Settle' : 'Publish'}
               </button>
             </div>
           </div>
