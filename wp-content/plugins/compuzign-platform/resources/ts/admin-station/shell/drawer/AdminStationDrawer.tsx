@@ -35,6 +35,13 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
   // the content agree on when a close is allowed and what the footer shows. The
   // shell stays entity-agnostic: it renders and consults these without knowing
   // what they mean.
+  //
+  // Publishing a footer is a host state change: a newly created VNode is never
+  // referentially equal to the previous one, so this setState never bails out
+  // and re-renders the composition that published it. A publishing effect must
+  // therefore depend only on stable functions and primitive values — an
+  // unstable controller, tool, record or rebuilt callback makes each
+  // publication the cause of the next, and the tab loops.
   const [footer, setFooter] = useState<ComponentChildren>(null);
   const closeGuardRef = useRef<(() => boolean) | null>(null);
   const setCloseGuard = useCallback((guard: (() => boolean) | null) => {
