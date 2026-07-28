@@ -107,6 +107,31 @@ export function getTierNotes(tier: TierLike | undefined, ctx: NoteContext): Modu
   return evaluateModuleNotes(tierModule, tier, ctx);
 }
 
+// A Tier system being registered has no lifecycle behind it yet: it is not
+// waiting on a parent, it holds no draft, and its only incompleteness is the
+// title the backend requires. Registration is therefore its own module rather
+// than a reuse of the occupant modules above, which all describe a Tier that
+// already exists inside an instance.
+export const tierRegistrationModule: ModuleDefinition<{ titled: boolean }> = {
+  key: 'tier-registration',
+  problems: ({ titled }) => titled
+    ? []
+    : [{
+        id:      'tier-registration.title.required',
+        message: 'A Tier system needs a title before it can be registered.',
+        type:    'error',
+      }],
+  // The 5-state presentation vocabulary, like every other module: an untitled
+  // registration reads Pending (dim), a titled one Pending until the platform
+  // reports the registered system active. `settled`/`not-configured` are module
+  // TRANSITION values and were never pill statuses — they only reached a Pending
+  // pill through the unknown-status fallback, which also left a registered system
+  // reading Pending forever.
+  resolveStatus: ({ titled }, ctx) => !titled
+    ? 'pending-dim'
+    : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+};
+
 // Rate Sheet access is instance-level configuration. It never inherits the
 // parent instance lifecycle as its module status; the projected access policy
 // alone reports whether usable active sheets and stored references need review.

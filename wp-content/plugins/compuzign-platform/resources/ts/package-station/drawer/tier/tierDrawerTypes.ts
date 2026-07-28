@@ -43,10 +43,8 @@ export interface TierBinPrompt {
 
 const TIER_DRAWER_RECORD_PREFIX = 'tier-instance:';
 const TIER_SLOT_DRAWER_RECORD_PREFIX = 'tier-slot:';
+const TIER_REGISTRATION_RECORD_PREFIX = 'tier-register:';
 const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate']);
-/** The whole-instance route's explicit "no instance yet" identity — the Tier
- * counterpart of the Package Family drawer's stable `'new'` sentinel. */
-const TIER_INSTANCE_CREATE_SEGMENT = 'new';
 
 /** Package-owned routing token; the card itself keeps occupant_id identity. */
 export function encodeTierDrawerRecordId(instanceId: string, occupantId: string): string {
@@ -90,25 +88,19 @@ export function decodeTierSlotDrawerRecordId(
 }
 
 /**
- * Whole-instance "create" route. There is no Tier system yet, so this token
- * addresses no instance — it carries only the Package Family the caller
- * already had in hand, which creation assigns once the instance is minted. An
- * empty family segment means none was offered, not that one failed to
- * resolve; a Tier system may be created standalone. Checked with priority over
- * `decodeTierInstanceDrawerRecordId`/`decodeTierDrawerRecordId`, which would
- * otherwise read the literal `new` segment as an ordinary (wrong) instance or
- * occupant id.
+ * Registration route. There is no Tier system yet, so this token addresses no
+ * instance — it carries only the Package Family the caller already had in hand,
+ * which the form pre-selects. An empty family segment means none was offered,
+ * not that one failed to resolve; a Tier system may be registered standalone.
  */
-export function encodeTierInstanceCreateRecordId(familyId: string | null): string {
-  return `${TIER_DRAWER_RECORD_PREFIX}${TIER_INSTANCE_CREATE_SEGMENT}${familyId ? `:${familyId}` : ''}`;
+export function encodeTierRegistrationRecordId(familyId: string | null): string {
+  return `${TIER_REGISTRATION_RECORD_PREFIX}${familyId ?? ''}`;
 }
 
-export function decodeTierInstanceCreateRecordId(
+export function decodeTierRegistrationRecordId(
   recordId: string,
 ): { familyId: string | null } | null {
-  if (!recordId.startsWith(TIER_DRAWER_RECORD_PREFIX)) return null;
-  const [segment, familyId, ...extra] = recordId.slice(TIER_DRAWER_RECORD_PREFIX.length).split(':');
-  return segment === TIER_INSTANCE_CREATE_SEGMENT && extra.length === 0
-    ? { familyId: familyId || null }
-    : null;
+  if (!recordId.startsWith(TIER_REGISTRATION_RECORD_PREFIX)) return null;
+  const [familyId, ...extra] = recordId.slice(TIER_REGISTRATION_RECORD_PREFIX.length).split(':');
+  return extra.length === 0 ? { familyId: familyId || null } : null;
 }

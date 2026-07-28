@@ -19,7 +19,7 @@ Registration ownership is:
 | `tier-rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
 | `tier-rate-sheet-group` | Package Station | Package Station | wide | view, edit |
 
-`DrawerMode` is `'view' | 'edit'`. There is no `create` mode: creation is modelled as an explicit new-record identity understood by the record's own registered drawer — `package-family`'s stable `'new'` recordId sentinel, `tier`'s `tier-instance:new[:familyId]` token — never a second registration.
+`DrawerMode` is `'view' | 'edit'`. There is no `create` mode: Family creation uses the `package-family` drawer's stable `'new'` recordId sentinel, while Tier registration uses the `tier` drawer's registration address.
 
 ## Drawer size
 
@@ -46,7 +46,7 @@ kit action with native record id
 - `admin-station/stations/serviceCategory/CategoryDrawerHost.tsx` mounts the Category composition and uses numeric Category identity.
 - `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity.
 - `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id`, or the stable `'new'` sentinel to a local empty record, and mounts the SAME Package Family composition either way.
-- `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id` and rejects foreign identity shapes; it resolves `tier-instance:new[:familyId]` to a thin creation bridge (`TierCreateContent`) that hands off to the SAME `TierDrawerContent` at the real instance+occupant id once created — see [Tier System Creation](tier-registration.md).
+- `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id`, whole-instance, fixed-slot, and Tier registration identities, and rejects foreign identity shapes.
 
 The mature compositions remain under `entity-drawers/category/`, `service-station/drawer/`, and `package-station/drawer/{package-family,tier}/`. They use the shared `drawer-kit` renderer and module/editor/footer contracts. Category mutations remain in `useCategoryStation`; Service mutations remain in `useServiceStation`; Package Family and Tier mutations remain in Package Station hooks. Presentation components call no endpoints.
 

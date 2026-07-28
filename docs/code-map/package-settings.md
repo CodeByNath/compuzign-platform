@@ -2,7 +2,7 @@
 
 ## Purpose and ownership
 
-Settings is the third lane of the Package Home Tier workspace lower deck: a read-and-launch surface. It summarises the whole focus the Family Group leads, opens configuration in the drawer that owns it, and launches the mature drawers' own new-record identities. Package Home owns no draft, validation, endpoint, or save, creation included — the owning drawer's footer holds Create.
+Settings is the third lane of the Package Home Tier workspace lower deck: a read-and-launch surface. It summarises the whole focus the Family Group leads, opens configuration in the drawer that owns it, and launches the registered Package Manager creation flows. Package Home owns no draft, validation, endpoint, or save.
 
 Its scope is the focus, not one Tier slot inside it: Connections reads what the focused **Tier** connects to, Settings what the focused **Package** is. Both name the same two categories, Stations and Tools, and render the same rows, so one record reports one identity, status, and target either way.
 
@@ -19,7 +19,7 @@ Settings
 │   └── Tools (tab)          → Rate Sheet Access         → Tier instance drawer
 └── Package Manager (selector)
     ├── Stations (tab)       → Create Family             → `package-family` ('new')
-    │                        → Create Tier               → `tier` (`tier-instance:new`)
+    │                        → Create Tier               → `tier` (`tier-register:`)
     └── Tools (tab)          → Create Rate Sheet         → `rate-sheet`
 ```
 
@@ -35,7 +35,7 @@ Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-stati
 - [tierRateSheetAccessModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel.ts) is the pure read/edit/save projection. `[]` means all active sheets. Limited access must retain one active sheet; archived and unresolved stored IDs remain visible and removable. `needsReview` is shared by Home and the drawer.
 - `tier-instance:{tier_instance_id}` is the strict whole-instance route in [tierDrawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/tierDrawerTypes.ts). [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) resolves it before occupant fallback and mounts `TierInstanceSettingsHost`.
 - [TierInstanceSettingsContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierInstanceSettingsContent.tsx), `TIER_INSTANCE_ENTITY`, `tierRateSheetAccessShell`, and `TierRateSheetAccessEditor` implement the readable module → Edit → `InlineEditorShell` cycle. Persistence remains `useTierInstances.updateInstance`; success refreshes Rate Sheets and the originating wall.
-- Package Manager launchers dispatch only a `PoolSubject`, mapped to the registered creation intent — `package-family`'s `'new'`, `tier`'s `tier-instance:new` ([Tier System Creation](tier-registration.md)), or `rate-sheet`. No Family, slot, access grant, or candidate crosses that edge; each drawer owns its own new-record state and Create.
+- Package Manager launchers dispatch only a `PoolSubject`, mapped to the registered creation intent — `package-family`'s `'new'`, Tier registration's `tier-register:` address ([Tier System Registration](tier-registration.md)), or `rate-sheet`. No Family, slot, access grant, or candidate crosses that edge.
 
 ## Invariants
 

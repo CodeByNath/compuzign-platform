@@ -43,7 +43,7 @@ Required consequences:
 - **Cancel returns to the readable module**; Close leaves.
 - **Create surfaces render the record's own module**, never copied fields.
 
-Enforced by `npm run contract:drawer-module-entry`, which executes each rule and reads the compositions for the wiring they need, and by `node scripts/module-state-snapshot.mjs`, which pins every exported rule's `{ status, notes }`. Surfaces under it: empty Tier slots ([Tiers](tiers.md)), whole-instance Tier Rate Sheet access ([Package Home Settings](package-settings.md)), Tier system creation ([Tier System Creation](tier-registration.md)), Family creation (this same drawer's `'new'` identity), and the Rate Sheet pool ([Rate Sheet](rate-sheet.md)).
+Enforced by `npm run contract:drawer-module-entry`, which executes each rule and reads the compositions for the wiring they need, and by `node scripts/module-state-snapshot.mjs`, which pins every exported rule's `{ status, notes }`. Surfaces under it: empty Tier slots ([Tiers](tiers.md)), whole-instance Tier Rate Sheet access ([Package Home Settings](package-settings.md)), Tier registration ([Tier System Registration](tier-registration.md)), Family creation (the mature drawer's `'new'` identity), and the Rate Sheet pool ([Rate Sheet](rate-sheet.md)).
 
 Recorded divergences are not precedent: Category modules and an absent `tierInclusionConnectionModule` relationship may derive Disabled.
 

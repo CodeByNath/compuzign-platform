@@ -33,6 +33,7 @@ import {
   tierFeaturesModule,
   tierOverviewModule,
   tierRateSheetAccessModule,
+  tierRegistrationModule,
 } from '../resources/ts/drawer-kit/utils/moduleNotifications';
 import type { ShellSchema } from '../resources/ts/drawer-kit/schema/types';
 import {
@@ -55,6 +56,7 @@ import {
   tierFeaturesShell,
   tierOverviewShell,
 } from '../resources/ts/package-station/drawer/schema/bindings/tier';
+import { tierRegistrationOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierRegistration';
 import { tierInclusionOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInclusion';
 import { tierRateSheetAccessShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInstance';
 
@@ -83,6 +85,7 @@ const SHELLS: Array<[string, ShellSchema<any>]> = [
   ['Tier Overview', tierOverviewShell],
   ['Tier Features', tierFeaturesShell],
   ['Tier FAQs', tierFaqsShell],
+  ['Tier Registration Overview', tierRegistrationOverviewShell],
   ['Tier Inclusion Overview', tierInclusionOverviewShell],
   ['Tier System Rate Sheet Access', tierRateSheetAccessShell],
 ];
@@ -128,10 +131,10 @@ const ENTRY_STATES: Array<[string, ModuleState]> = [
     }),
   ],
   [
-    // Tier creation (tier-instance:new) renders this exact module in this exact
-    // empty state — it mints no bespoke "before registration" shape of its own.
-    'Tier Overview, before creation',
-    evaluateModule(tierOverviewModule, EMPTY_TIER_SLOT, { platformStatus: 'disabled' }),
+    'Tier System, before registration',
+    evaluateModule(tierRegistrationModule, { titled: false }, {
+      platformStatus: 'draft', platformLabel: 'Tier system',
+    }),
   ],
   [
     'Family Overview, before creation',
@@ -182,6 +185,10 @@ const DERIVED: Array<[string, ModuleState]> = [
     evaluateModule(packageFamilyCapabilitiesModule, { tier: { enabled: false } }, NEVER_ACTIVATED),
   ],
   [
+    'Tier System',
+    evaluateModule(tierRegistrationModule, { titled: true }, NEVER_ACTIVATED),
+  ],
+  [
     'Rate Sheets',
     evaluateModule(rateSheetCollectionModule, { count: 3 }, NEVER_ACTIVATED),
   ],
@@ -213,12 +220,11 @@ check(
   'an explicitly disabled Package Manager item reads Disabled',
 );
 
-// A settled/complete record must leave Pending behind, or the pill is decoration.
+// A registered/named record must leave Pending behind, or the pill is decoration.
 check(
-  PILL_META[evaluateModule(tierOverviewModule, { enabled: true, price: 25, billing_cycle: 'monthly', contact: false }, {
-    platformStatus: 'active',
-  }).status]?.label === 'Active',
-  'a settled Tier (created or otherwise) reads Active, not Pending forever',
+  PILL_META[evaluateModule(tierRegistrationModule, { titled: true }, { platformStatus: 'active' }).status]?.label
+    === 'Active',
+  'a registered Tier system reads Active, not Pending forever',
 );
 check(
   PILL_META[evaluateModule(rateSheetCollectionModule, { count: 2 }, { platformStatus: 'active' }).status]?.label
@@ -250,24 +256,18 @@ check(
 // the entry state itself: `useState(true)` here means the drawer opens in its
 // editor, which is the defect this contract exists to prevent.
 
-// Tier system creation (tier-instance:new) is not a bespoke registration
-// composition — TierCreateContent renders the SAME TIER_ENTITY (Tier Overview /
-// Included Features / Common Questions) an existing occupant does, entering its
-// one editable module through Edit exactly like every other module-entry
-// surface.
-const tierCreate = source('resources/ts/package-station/drawer/tier/TierCreateContent.tsx');
-const tierCreateHookForEntry = source('resources/ts/package-station/drawer/tier/useTierCreate.ts');
+const tierRegistration = source('resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx');
 check(
-  tierCreateHookForEntry.includes('useState<TierOverviewEditDraft | null>(null)'),
-  'Tier creation opens readable — its one editable module starts with no edit session',
+  tierRegistration.includes('const [editing, setEditing] = useState(false)'),
+  'Tier system registration opens readable, never in its editor',
 );
 check(
-  tierCreate.includes('openPanel={openPanel}') && tierCreate.includes('onTogglePanel={(module) =>'),
-  'Tier creation wires its module\'s notification panel, so the pill can open it',
+  tierRegistration.includes('onTogglePanel='),
+  'Tier system registration wires its module\'s notification panel, so the pill can open it',
 );
 check(
-  tierCreate.includes('onCancel: tc.cancelSection'),
-  'Tier creation returns Cancel to the readable module rather than closing the drawer',
+  tierRegistration.includes('onCancel: () => setEditing(false)'),
+  'Tier system registration returns Cancel to the readable module rather than closing the drawer',
 );
 
 // Package Family creation (the 'new' recordId) is not a bespoke create
