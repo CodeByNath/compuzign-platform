@@ -138,8 +138,9 @@ check(
   'Connections and Settings render one shared empty state carrying one plain sentence each',
 );
 // The deck cannot grow content it never imported, so its import list is the
-// honest boundary: the shared tab primitive and the existing catalogue, nothing
-// with a source, a projection, a drawer route, or a model behind it.
+// honest boundary: the shared tab primitive, the station glyph its context bar
+// draws, and the existing catalogue — nothing with a source, a projection, a
+// drawer route, or a model behind it.
 const deckImports = (serviceDeck.match(/from '([^']+)'/g) ?? []).map((from) => from.slice(6, -1));
 check(
   deckImports.every((from) => [
@@ -147,6 +148,7 @@ check(
     'preact/hooks',
     '@/station-manager/registry/templateKits',
     '@/admin-station/presentation/StationTabSet',
+    '@/admin-station/shell/icons',
     './ServiceCatalogue',
   ].includes(from)),
   `the deck imports beyond its lanes: ${deckImports.join(', ')}`,

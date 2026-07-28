@@ -1121,13 +1121,73 @@ button.cz-station-status-pill {
 }
 
 /* ── Service Home lower deck ─────────────────────────────────────────────────
-   The Service-owned region beneath the Package Family cards. It contributes the
-   region and its stacking only: the tab strip and panels are the shared
-   `cz-station-tabset` skin, and each lane supplies its own content. No Tier deck
-   class reaches Service Home. */
+   The Service-owned region beneath the Package Family cards: one framed deck
+   carrying a context bar, a tab strip (Details | Connections | Settings), and
+   the active lane. It wears the same panel treatment and proportions as the Tier
+   deck so both Home surfaces read as one system, restated here under Service's
+   own names — matching that look is a styling decision, and no Tier deck class
+   reaches Service Home. The strip and panels remain the shared
+   `cz-station-tabset` skin; each lane supplies its own content. */
 .cz-service-deck {
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+  color: var(--station-text);
+  overflow: hidden;
+}
+
+/* Context bar — what this deck presents, stated once above its lanes. */
+.cz-service-deck__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--station-card-gap);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--station-card-divider);
+}
+
+.cz-service-deck__context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cz-service-deck__context-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+}
+
+.cz-service-deck__context-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+/* The deck is a Station surface, so it closes the inherited-colour boundary on
+   its own title the way the Tier deck does for its context name. */
+.cz-service-deck__context-name {
+  margin: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+/* The strip inset lines the tabs up with the context bar above them, and the
+   panel spacing sets the active lane inside the frame. */
+.cz-service-deck__tabs {
+  padding-inline: 20px;
+}
+
+.cz-service-deck__panel {
+  padding: 18px 20px 20px;
 }
 
 /* ── Service Catalogue ─────────────────────────────────────────────────── */
