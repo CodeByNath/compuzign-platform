@@ -117,20 +117,6 @@
   --station-menu-min-width: 180px;
   --station-disabled-opacity: 0.5;
 
-  /* Compact pill — matches the drawer/module status pill's own dimensions
-   * (`--admin-space-pill-v/h`, `--admin-radius-pill`, `--admin-fs-s-label`,
-   * `--admin-lh-s-label` in drawer-kit.css) so a card pill can read identically
-   * to a drawer pill without this station sheet reaching into the drawer
-   * kit's private, being-retired `--admin-*` palette. The two shape values
-   * still resolve to the same atomic-engine rhythm the drawer pill is built
-   * from; the two type values have no atomic equivalent, so they are restated
-   * as station tokens instead of a bare literal. */
-  --station-pill-pad-y-compact: var(--cz-space-1);
-  --station-pill-pad-x-compact: 9px;
-  --station-pill-radius-compact: var(--cz-space-2);
-  --station-text-2xs: 12px;
-  --station-line-2xs: 16px;
-
   /* Field system — the one contract behind every Admin drawer control.
    *
    * The eight field types and three sizes are built from these values plus the

@@ -553,24 +553,14 @@ button.cz-station-status-pill {
   color: var(--station-status-inactive-fg);
 }
 
-/* ── Category Group card pill/notification modifier ─────────────────────── */
+/* ── Category Group card notification modifier ───────────────────────────── */
 
-/* A Package Family modifier, not a change to the shared pill/notification
-   primitives: every other consumer (Tier workspace, Service Catalogue,
-   Service Connections) keeps the dot and the drawer/module pill's own
-   dimensions untouched. Scoped under `.cz-cg-card` because that card is
-   Package Family's presentation only. */
-.cz-cg-card .cz-station-status-pill {
-  border: none;
-  padding: var(--station-pill-pad-y-compact) var(--station-pill-pad-x-compact);
-  border-radius: var(--station-pill-radius-compact);
-  font-size: var(--station-text-2xs);
-  line-height: var(--station-line-2xs);
-}
-
-.cz-cg-card .cz-station-status-pill__dot {
-  display: none;
-}
+/* The pill itself needs no override here: the Package Family card renders it
+   with the drawer/module pill variant (see StationStatusPill's `pillVariant`
+   prop), so it is literally `.cz-module-status-pill` from drawer-kit.css —
+   same dimensions, same typography, no dot — rather than a restatement of
+   those values in this sheet. Every other consumer (Tier workspace, Service
+   Catalogue, Service Connections) keeps the station variant untouched. */
 
 /* The notification wrapper no longer stretches to fit an open panel: with the
    panel floated below (next rule), the wrapper's own height is just the
@@ -787,11 +777,22 @@ button.cz-station-status-pill {
   grid-template-columns: repeat(var(--station-grid-columns), minmax(0, 1fr));
   gap: var(--station-card-gap);
   align-items: start;
+  /* `align-items: start` alone stops a cell stretching to a TALLER neighbour;
+     it does nothing about the grid's own row track being stretched by a
+     parent with leftover height (`.cz-station-home` fills the viewport floor
+     via flex-grow). `align-content: start` keeps this grid's row sized to its
+     own content — the fix below relies on that, not on absorbing page space. */
+  align-content: start;
 }
 
 .cz-cg-grid__cell {
   grid-column: span 4;
   min-width: 0;
+  /* With the row itself no longer stretched (`align-content: start` above),
+     each cell can safely fill that row's own computed height, so cards of
+     unequal content (a longer description, an open notification) stay
+     equal-height with their footers level. */
+  height: 100%;
 }
 
 /* ── Category Group card ────────────────────────────────────────────────── */
