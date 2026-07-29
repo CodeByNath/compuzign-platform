@@ -35,7 +35,7 @@
 import type { PackageFamilyItem } from '../../types';
 import { evaluateModule, packageFamilyOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
-import { ViewIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '@/admin-station/shell/icons';
+import { ChevronRightIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '@/admin-station/shell/icons';
 import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
@@ -95,7 +95,7 @@ export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardI
     // A single action. Identity-only dispatch; the string group_id travels to
     // the drawer exactly as it sits here, and Edit lives inside that drawer.
     actions: [
-      { id: 'view', label: 'View', icon: ViewIcon },
+      { id: 'view', label: 'View', icon: ChevronRightIcon },
     ],
   };
 }

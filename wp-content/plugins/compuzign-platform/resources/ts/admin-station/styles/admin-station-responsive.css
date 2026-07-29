@@ -5,6 +5,15 @@
  * complete navigation source. The menu button, brand, and right-side controls
  * stay visible and accessible at every width. No bottom navigation is used. */
 
+/* Home body ceiling tightens at and below 1440px. Raw breakpoint value for the
+   same reason as the 767px rule below — the max-width it applies is
+   token-driven. */
+@media (max-width: 1440px) {
+  .cz-station-home {
+    max-width: var(--station-content-max-compact);
+  }
+}
+
 /* Tier Workspace Engine — the three-column layout needs roughly 1020px for its
    own minimums (240 + 500 + 260 plus gaps), so unlike the shell this component
    earns an intermediate boundary. Below it, keep Tier Tabs beside the focused

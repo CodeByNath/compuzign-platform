@@ -553,6 +553,43 @@ button.cz-station-status-pill {
   color: var(--station-status-inactive-fg);
 }
 
+/* ── Category Group card pill/notification modifier ─────────────────────── */
+
+/* A Package Family modifier, not a change to the shared pill/notification
+   primitives: every other consumer (Tier workspace, Service Catalogue,
+   Service Connections) keeps the dot and the drawer/module pill's own
+   dimensions untouched. Scoped under `.cz-cg-card` because that card is
+   Package Family's presentation only. */
+.cz-cg-card .cz-station-status-pill {
+  border: none;
+  padding: var(--station-pill-pad-y-compact) var(--station-pill-pad-x-compact);
+  border-radius: var(--station-pill-radius-compact);
+  font-size: var(--station-text-2xs);
+  line-height: var(--station-line-2xs);
+}
+
+.cz-cg-card .cz-station-status-pill__dot {
+  display: none;
+}
+
+/* The notification wrapper no longer stretches to fit an open panel: with the
+   panel floated below (next rule), the wrapper's own height is just the
+   pill's, so the pending card's header matches the active cards' exactly —
+   same height, same title baseline, pill in the same header region. */
+.cz-cg-card .cz-station-status-notifications {
+  flex: 0 0 auto;
+}
+
+.cz-cg-card .cz-station-status-notifications__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--station-z-dropdown);
+  width: max-content;
+  max-width: 220px;
+  box-shadow: var(--station-shadow);
+}
+
 /* ── Metric row ─────────────────────────────────────────────────────────── */
 
 /* Neutral by design: metrics are data, not accent surfaces. A row — glyph
@@ -764,6 +801,7 @@ button.cz-station-status-pill {
    no metrics never renders a stray line. Padding is owned per region rather
    than by the card, so a rule can run the card's full width. */
 .cz-cg-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -915,6 +953,22 @@ button.cz-station-status-pill {
 .cz-cg-card__actions .cz-station-split,
 .cz-cg-card__actions .cz-station-split__primary {
   flex: 1 1 auto;
+}
+
+/* View reads as a row: label leading, chevron trailing. `order` flips the
+   visual position only — the split control's own icon-then-label markup, its
+   height, width, background, radius, and hover/focus states are untouched, and
+   the DOM/tab order every other consumer relies on does not change. */
+.cz-cg-card__actions .cz-station-split__primary {
+  justify-content: space-between;
+}
+
+.cz-cg-card__actions .cz-station-split__icon {
+  order: 2;
+}
+
+.cz-cg-card__actions .cz-station-split__label {
+  order: 1;
 }
 
 /* ── Slide menu ─────────────────────────────────────────────────────────── */
