@@ -775,24 +775,30 @@ button.cz-station-status-pill {
 .cz-cg-grid {
   display: grid;
   grid-template-columns: repeat(var(--station-grid-columns), minmax(0, 1fr));
+  /* Explicit rather than relied-on-default: each new group of 4 implicit rows
+     (one card's header/body/metrics/actions — see the subgrid chain below)
+     sizes to its own content only. This is what keeps row-of-cards N+1
+     independent of row-of-cards N when the collection wraps, and per-row is
+     also what stops a parent with leftover height (`.cz-station-home` fills
+     the viewport floor via flex-grow) from inflating every track evenly. */
+  grid-auto-rows: auto;
   gap: var(--station-card-gap);
   align-items: start;
-  /* `align-items: start` alone stops a cell stretching to a TALLER neighbour;
-     it does nothing about the grid's own row track being stretched by a
-     parent with leftover height (`.cz-station-home` fills the viewport floor
-     via flex-grow). `align-content: start` keeps this grid's row sized to its
-     own content — the fix below relies on that, not on absorbing page space. */
   align-content: start;
 }
 
+/* A cell spans 4 row tracks — one per card section — and hands them straight
+   through via subgrid, so `.cz-cg-card` below can align its own header/body/
+   metrics/actions to the SAME 4 tracks every sibling cell in its row uses.
+   `grid-auto-rows: auto` on the parent means each row-of-cards gets its own
+   independent group of 4 tracks, so this still works correctly however many
+   Package Families or Tier occupants there are. */
 .cz-cg-grid__cell {
   grid-column: span 4;
+  grid-row: span 4;
+  display: grid;
+  grid-template-rows: subgrid;
   min-width: 0;
-  /* With the row itself no longer stretched (`align-content: start` above),
-     each cell can safely fill that row's own computed height, so cards of
-     unequal content (a longer description, an open notification) stay
-     equal-height with their footers level. */
-  height: 100%;
 }
 
 /* ── Category Group card ────────────────────────────────────────────────── */
@@ -803,15 +809,25 @@ button.cz-station-status-pill {
    than by the card, so a rule can run the card's full width. */
 .cz-cg-card {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  /* Chains the cell's subgrid one level further: the card is the cell's only
+     child, so it re-exposes the same 4 row tracks to ITS OWN children below,
+     which is what lets header/body/metrics/actions align to their opposite
+     numbers in every sibling card. */
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   background: var(--station-surface-elevated);
 }
 
+/* Each region claims its row explicitly rather than relying on source order:
+   a card missing an optional region (no description, no metrics) must not
+   shift a later region into the wrong shared track. An absent region simply
+   leaves its own track empty for that one card, sized by whichever sibling
+   card's content is tallest there. */
 .cz-cg-card__header {
+  grid-row: 1;
   display: flex;
   align-items: center;
   gap: var(--station-card-gap);
@@ -865,11 +881,8 @@ button.cz-station-status-pill {
   overflow-wrap: anywhere;
 }
 
-/* The description's own subsection, beneath the header. It does NOT take the
-   card's slack: it is optional, so a description-less card would leave nothing
-   to absorb it. The actions region anchors itself to the bottom instead, which
-   holds however many regions a card actually renders. */
 .cz-cg-card__body {
+  grid-row: 2;
   min-width: 0;
   padding: var(--station-card-pad);
   border-top: 1px solid var(--station-card-divider);
@@ -923,6 +936,7 @@ button.cz-station-status-pill {
    single row with no internal rule. Inline padding only, so the row rules span
    the region's width while the region's own top rule spans the card's. */
 .cz-cg-card__metrics {
+  grid-row: 3;
   display: flex;
   flex-direction: column;
   padding-inline: var(--station-card-pad);
@@ -937,11 +951,12 @@ button.cz-station-status-pill {
   border-top: 1px solid var(--station-card-divider);
 }
 
-/* Anchored to the card's bottom, so action controls line up across a row of
-   cards whose descriptions and metric counts differ. */
+/* Row 4 always — the subgrid chain above is what lines action controls up
+   across a row of cards whose descriptions and metric counts differ, not a
+   flex push-to-bottom. */
 .cz-cg-card__actions {
+  grid-row: 4;
   display: flex;
-  margin-top: auto;
   padding: var(--station-card-pad);
   border-top: 1px solid var(--station-card-divider);
 }
