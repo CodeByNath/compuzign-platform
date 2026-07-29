@@ -1,24 +1,25 @@
-// The Tier system registration editor — the module's edit-mode content.
+// The Tier System Overview editor — the module's edit-mode content, shared by
+// both a pending (not yet published) and a persisted Tier System.
 //
-// It renders inside the shared module edit shell that every other module editor
-// renders inside, so it owns no Save, no Cancel and no chrome: only the fields
-// the record itself carries.
+// It renders inside the shared module edit shell that every other module
+// editor renders inside, so it owns no Save, no Cancel and no chrome: only
+// the fields the record itself carries.
 
 import type { PackageFamilyListItem } from '../../types';
 
-export interface TierRegistrationDraftFields {
+export interface TierSystemOverviewDraftFields {
   title:       string;
   description: string;
   familyId:    string | null;
 }
 
 interface Props {
-  draft:      TierRegistrationDraftFields;
-  onChange:   (patch: Partial<TierRegistrationDraftFields>) => void;
+  draft:      TierSystemOverviewDraftFields;
+  onChange:   (patch: Partial<TierSystemOverviewDraftFields>) => void;
   selectable: readonly PackageFamilyListItem[];
 }
 
-export function TierRegistrationEditor({ draft, onChange, selectable }: Props) {
+export function TierSystemOverviewEditor({ draft, onChange, selectable }: Props) {
   return (
     <div class="cz-tf-form">
       <div class="cz-tf-field">

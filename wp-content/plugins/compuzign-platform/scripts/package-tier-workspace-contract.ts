@@ -679,40 +679,71 @@ check(
   'no inline Package Manager creation form survives beside the launchers',
 );
 
-// Registration is ONE atomic creation, addressed on the mature `tier` drawer
-// rather than a second Tier editor. It fills no slot and chains into no workflow.
-const registrationSource = readFileSync(resolve(
+// Tier System registration is the PENDING state of one lifecycle, not a
+// second Tier editor: TierRegistrationHost and TierInstanceSettingsHost are
+// thin data-loading adapters only — both must mount the SAME TierSystemContent
+// composition, one entity manifest, one controller, one footer model.
+const tierSystemSource = readFileSync(resolve(
   root,
-  'resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx',
+  'resources/ts/package-station/drawer/tier/TierSystemContent.tsx',
 ), 'utf8');
-for (const forbidden of [
-  'encodeTierSlotDrawerRecordId',
-  'saveTierFeatures',
-  'allowed_rate_sheet_ids',
-  'rate_sheet_id',
-  'occupant',
-]) {
-  check(!registrationSource.includes(forbidden), `registration performs no ${forbidden}`);
+const tierSystemController = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/useTierSystemController.ts',
+), 'utf8');
+const tierSystemFooterSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierSystemFooter.tsx',
+), 'utf8');
+const registrationHostSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/tierSurface/TierRegistrationHost.tsx',
+), 'utf8');
+const instanceSettingsHostSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/tierSurface/TierInstanceSettingsHost.tsx',
+), 'utf8');
+check(
+  registrationHostSource.includes('<TierSystemContent') && instanceSettingsHostSource.includes('<TierSystemContent'),
+  'both the pending and persisted hosts mount the same TierSystemContent composition',
+);
+for (const host of [registrationHostSource, instanceSettingsHostSource]) {
+  check(
+    !/const \[.*useState/.test(host) && !host.includes('useEffect'),
+    'the hosts stay thin data-loading adapters — no independent lifecycle logic of their own',
+  );
+}
+
+// Fixed-slot occupant concerns (Basic/Standard/Premium/Enterprise/Ultimate)
+// never leak into the aggregate composition — only the whole-instance
+// allowed_rate_sheet_ids field, which belongs to this manifest's own Rate
+// Sheet Access module, is legitimate here.
+for (const forbidden of ['encodeTierSlotDrawerRecordId', 'saveTierFeatures', 'current_occupant', 'occupant_id']) {
+  check(!tierSystemSource.includes(forbidden), `the Tier System composition performs no ${forbidden}`);
+  check(!tierSystemController.includes(forbidden), `the Tier System controller performs no ${forbidden}`);
 }
 check(
-  registrationSource.includes('registration.instance?.tier_instance_id'),
-  'registration reports the stored id the backend minted, never the title it was given',
+  tierSystemSource.includes('c.instance?.tier_instance_id'),
+  'the Tier System composition reports the stored id the backend minted, never the title it was given',
 );
 
-// The drawer footer is HOST state: setting it re-renders the content. Owning no
-// footer here is what makes that loop impossible — the module shell carries the
-// buttons, so nothing recomputes a footer VNode from a per-render object.
+// The drawer footer is HOST state: setting it re-renders the content. A
+// stable dependency array and a presentational footer component (no computed
+// per-render object) are what make the set/re-render loop impossible.
 check(
-  !registrationSource.includes('setFooter(footer)'),
-  'registration sets no computed footer, so it cannot drive the set/re-render loop',
+  !tierSystemSource.includes('setFooter(footer)'),
+  'the Tier System composition sets no raw computed footer variable, so it cannot drive the set/re-render loop',
+);
+check(
+  tierSystemSource.includes('bridge.setFooter(') && tierSystemSource.includes('<TierSystemFooter'),
+  'the Tier System composition always publishes the mature TierSystemFooter, never a bespoke Close-only footer',
 );
 
 // Presentation uses the styled editor vocabulary. `drawerModule__field` and its
 // siblings are only styled under `.drawerOverview`, so using them outside that
 // scope renders an unstyled form.
-// The registration composition uses the styled drawer vocabulary.
 for (const [name, source] of [
-  ['Tier registration', registrationSource],
+  ['Tier System', tierSystemSource],
 ] as const) {
   for (const unstyled of [
     'cz-drawer-actions',
@@ -723,7 +754,7 @@ for (const [name, source] of [
   ]) {
     check(!source.includes(unstyled), `${name} does not use the unstyled ${unstyled}`);
   }
-  // A create surface is an edit surface with no record behind it yet, so it
+  // A pending record is an edit surface with no record behind it yet, so it
   // wears the module edit shell the mature drawer already wears — which owns
   // Save/Cancel, the dirty confirmation, the busy state and the error slot —
   // rather than hand-rolling a footer beside it.
@@ -732,60 +763,125 @@ for (const [name, source] of [
     `${name} wears the drawer kit's mature composition`,
   );
 }
-// Registration is the SAME composition the drawer already uses: a schema-placed
-// overview module, with the module's own inline editor over it. Not a bespoke
-// form dropped into the drawer body.
+// One manifest serves both states: a schema-placed overview module plus Rate
+// Sheet Access, with each module's own inline editor over it. Not a bespoke
+// form dropped into the drawer body, and not two separate manifests.
 check(
-  registrationSource.includes('EntityDrawer')
-    && registrationSource.includes('TIER_REGISTRATION_ENTITY')
-    && registrationSource.includes("module: 'overview'"),
-  'registration renders a placed overview module, not a bespoke form',
+  tierSystemSource.includes('EntityDrawer')
+    && tierSystemSource.includes('TIER_SYSTEM_ENTITY')
+    && tierSystemSource.includes("module: 'overview'")
+    && tierSystemSource.includes("'rate-sheet-access'"),
+  'the Tier System composition renders one manifest with placed overview and rate-sheet-access modules, not a bespoke form',
 );
 check(
-  registrationSource.includes('handlers: { edit:'),
-  'the registered module offers Edit, so it re-enters the same editor',
+  !existsSync(resolve(root, 'resources/ts/package-station/drawer/schema/entities/tierRegistration.ts'))
+    && !existsSync(resolve(root, 'resources/ts/package-station/drawer/schema/bindings/tierRegistration.tsx'))
+    && !existsSync(resolve(root, 'resources/ts/package-station/drawer/schema/entities/tierInstance.ts'))
+    && !existsSync(resolve(root, 'resources/ts/package-station/drawer/schema/bindings/tierInstance.tsx')),
+  'the separate registration-only and instance-only manifests are retired, not duplicated beside the unified one',
 );
-const registrationEditor = readFileSync(resolve(
+check(
+  tierSystemSource.includes('handlers: { edit:'),
+  'the Overview module offers Edit, so it re-enters the same editor',
+);
+const tierSystemEditor = readFileSync(resolve(
   root,
-  'resources/ts/package-station/drawer/editors/TierRegistrationEditor.tsx',
+  'resources/ts/package-station/drawer/editors/TierSystemOverviewEditor.tsx',
 ), 'utf8');
 check(
-  registrationEditor.includes('cz-tf-field') && registrationEditor.includes('cz-tf-label')
-    && registrationEditor.includes('cz-tf-hint'),
-  'the registration editor uses the established cz-tf-* vocabulary',
+  tierSystemEditor.includes('cz-tf-field') && tierSystemEditor.includes('cz-tf-label')
+    && tierSystemEditor.includes('cz-tf-hint'),
+  'the Tier System Overview editor uses the established cz-tf-* vocabulary',
 );
 for (const chrome of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions']) {
-  check(!registrationEditor.includes(chrome), `the registration editor owns no ${chrome} of its own`);
+  check(!tierSystemEditor.includes(chrome), `the Tier System Overview editor owns no ${chrome} of its own`);
 }
-// Exactly one footer at a time. The readable module owns no buttons of its own,
-// so the drawer publishes the record footer's Close; while the module's
-// InlineEditorShell owns Save/Cancel the drawer withdraws it — the same way the
-// Rate Sheet tool nulls it while editing. What must never happen is two footers
-// under one form.
+
+// Milestone 1 footer action set only: Close+Publish while pending, and
+// Close+Apply+guarded Delete once persisted. Aggregate status is currently
+// DERIVED (TierInstanceSchema::withInstance recomputes it on every write), so
+// Enable/Disable/Archive/Trash/Restore have no authoritative backend seam yet
+// and must not appear until that backend work lands.
 check(
-  registrationSource.includes('bridge.setFooter(editing ? null : (')
-    && registrationSource.includes('EntityActionFooter'),
-  'the registration drawer publishes Close while readable and no footer while editing',
+  tierSystemFooterSource.includes("id: 'publish'")
+    && tierSystemFooterSource.includes("id: 'apply'")
+    && tierSystemFooterSource.includes("id: 'delete'"),
+  'the Tier System footer offers exactly Publish (pending) and Apply + Delete (persisted)',
+);
+for (const forbidden of [
+  "label: 'Enable'", "label: 'Disable'", "label: 'Archive'", "label: 'Trash'", "label: 'Restore'",
+  'onToggleActive', 'onArchive', 'onTrash', 'onRestore',
+]) {
+  check(!tierSystemFooterSource.includes(forbidden), `the Tier System footer does not offer ${forbidden} in Milestone 1`);
+  check(!tierSystemController.includes(forbidden), `the Tier System controller does not wire ${forbidden} in Milestone 1`);
+}
+
+// Inline Save commits a module's draft locally only — Publish/Apply own every
+// create or update request, so Save itself must call neither. Each save
+// function's body is nothing but the editor-close state flip.
+function bodyBetween(source: string, startMarker: string, endMarker: string): string {
+  const start = source.indexOf(startMarker);
+  const end = start >= 0 ? source.indexOf(endMarker, start + startMarker.length) : -1;
+  return start >= 0 && end > start ? source.slice(start, end) : '';
+}
+const saveOverviewBody = bodyBetween(tierSystemController, 'const saveOverviewDraft = useCallback', 'const cancelOverviewEdit');
+const saveRateSheetBody = bodyBetween(tierSystemController, 'const saveRateSheetDraft = useCallback', 'const cancelRateSheetEdit');
+for (const [name, body] of [
+  ['Overview', saveOverviewBody],
+  ['Rate Sheet Access', saveRateSheetBody],
+] as const) {
+  check(body.length > 0, `Inline Save for ${name} is defined where expected`);
+  check(
+    body.includes('setEditingModule(null)')
+      && !body.includes('createInstance') && !body.includes('updateInstance'),
+    `Inline Save on ${name} only closes the editor — no create or update call`,
+  );
+}
+check(
+  tierSystemController.includes('createInstance(') && tierSystemController.includes('const publish'),
+  'createTierInstance is reachable only from the controller\'s publish() — the footer\'s authoritative write',
+);
+check(
+  tierSystemController.includes('updateInstance(') && tierSystemController.includes('const apply'),
+  'updateTierInstance is reachable only from the controller\'s apply() — the footer\'s authoritative write',
 );
 
+// Guarded permanent delete: the existing backend endpoint, not a
+// frontend-only reproduction of its guards.
+check(
+  tierSystemController.includes('tool.deleteInstance'),
+  'delete goes through the existing guarded tier-instance delete endpoint via useTierInstances',
+);
+check(
+  tierSystemSource.includes('deleteDialogOpen') && tierSystemSource.includes('confirmDelete'),
+  'delete is gated behind an explicit confirmation dialog',
+);
 
 // A Package Family is not a field on a Tier system. The instance schema carries
-// no Family vocabulary, so the link must stay a separate assignment write.
-const registrationHook = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/surface/tierInstance/useTierRegistration.ts',
-), 'utf8');
+// no Family vocabulary, so the link must stay a separate assignment write —
+// unchanged by unification, and unchanged for an already-persisted system.
 check(
-  registrationHook.includes('tool.assignInstance')
-    && registrationHook.includes('tool.unassignInstance'),
+  tierSystemController.includes('tool.assignInstance')
+    && tierSystemController.includes('tool.unassignInstance'),
   'a Family is linked through the assignment ledger, not written onto the instance',
 );
 for (const forbidden of ['family_id', 'consumer_id:', 'group_id:']) {
-  check(!registrationHook.includes(forbidden), `registration writes no ${forbidden} onto the instance`);
+  check(!tierSystemController.includes(forbidden), `the Tier System controller writes no ${forbidden} onto the instance`);
 }
 check(
-  registrationHook.includes('tool.eligibleFamilies'),
+  tierSystemController.includes('tool.eligibleFamilies'),
   'only Families holding no Tier system are offered, so no assignment is silently retargeted',
+);
+// Assignment failure after a successful create reports partial success and
+// keeps the minted id — it never discards the created Tier System.
+const publishStart = tierSystemController.indexOf('const publish = useCallback');
+const publishEnd = tierSystemController.indexOf('const apply = useCallback', publishStart);
+const publishBody = publishStart >= 0 && publishEnd > publishStart
+  ? tierSystemController.slice(publishStart, publishEnd)
+  : '';
+check(
+  publishBody.includes('setCreatedInstance(created)') && publishBody.includes('pointAssignment'),
+  'publish() retains the created instance before attempting the optional Family assignment',
 );
 
 // The atomic-creation hook is gone. Family, Rate Sheet and group creation are
@@ -794,6 +890,21 @@ check(
 check(
   !existsSync(resolve(root, 'resources/ts/package-station/surface/packageManager')),
   'no second Package Manager creation writer sits beside the drawers that own those writes',
+);
+
+// Ordinary occupant/slot opens never mount either Tier System host, so the
+// Family collection and instance-settings read stay out of every individual
+// Tier drawer open.
+const tierDrawerContentSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx',
+), 'utf8');
+check(
+  !tierDrawerContentSource.includes('useTierInstances')
+    && !tierDrawerContentSource.includes('TierSystemContent')
+    && !tierDrawerContentSource.includes('TierRegistrationHost')
+    && !tierDrawerContentSource.includes('TierInstanceSettingsHost'),
+  'the individual Tier occupant composition never loads the Tier System tool or hosts',
 );
 
 check(

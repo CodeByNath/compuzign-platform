@@ -481,27 +481,27 @@
       }
     ]
   },
-  "tierRegistration.untitled": {
+  "tierSystemOverview.untitled": {
     "status": "pending-dim",
     "notes": [
       {
-        "id": "tier-registration.title.required",
-        "message": "A Tier system needs a title before it can be registered.",
+        "id": "tier-system-overview.title.required",
+        "message": "A Tier system needs a title before it can be published.",
         "type": "error"
       }
     ]
   },
-  "tierRegistration.titled": {
+  "tierSystemOverview.titled": {
     "status": "pending-full",
     "notes": [
       {
-        "id": "tier-registration.platform.inactive",
+        "id": "tier-system-overview.platform.inactive",
         "message": "Waiting for Tier system activation",
         "type": "info"
       }
     ]
   },
-  "tierRegistration.registered": {
+  "tierSystemOverview.published": {
     "status": "active",
     "notes": []
   },

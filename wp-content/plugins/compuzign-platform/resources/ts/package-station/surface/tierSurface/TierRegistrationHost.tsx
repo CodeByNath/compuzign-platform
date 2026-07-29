@@ -1,14 +1,18 @@
-// TierRegistrationHost — the Tier drawer's registration branch.
+// TierRegistrationHost — the Tier drawer's pending-identity branch.
 //
-// It exists as its own component so the Tier instance collection loads ONLY when
-// a Tier system is being registered. The ordinary slot and occupant addresses
-// read one instance through the composition's own usePackageStation and need no
-// Family collection; mounting that read beside them would make every Tier drawer
-// open pay for three Family fetches it never uses.
+// It exists as its own component so the Tier instance collection loads ONLY
+// when a Tier system is being published. The ordinary slot and occupant
+// addresses read one instance through the composition's own usePackageStation
+// and need no Family collection; mounting that read beside them would make
+// every Tier drawer open pay for three Family fetches it never uses.
+//
+// It renders the SAME TierSystemContent the persisted route mounts, with
+// instance=null: registration is the pending state of the Tier System
+// lifecycle, not a separate composition.
 
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { TierRegistrationContent } from '../../drawer/tier/TierRegistrationContent';
+import { TierSystemContent } from '../../drawer/tier/TierSystemContent';
 import { useTierInstances } from '../tierInstance/useTierInstances';
 
 export function TierRegistrationHost({ initialFamilyId, bridge }: {
@@ -25,8 +29,9 @@ export function TierRegistrationHost({ initialFamilyId, bridge }: {
   }
 
   return (
-    <TierRegistrationContent
+    <TierSystemContent
       tool={tierInstances}
+      instance={null}
       initialFamilyId={initialFamilyId}
       bridge={bridge}
     />

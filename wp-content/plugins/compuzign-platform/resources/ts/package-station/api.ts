@@ -22,6 +22,7 @@ import type {
   TierAssignmentsResponse,
   TierInstancesResponse,
   TierInstanceMutationResponse,
+  TierInstanceDeleteResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -43,6 +44,15 @@ export function updateTierInstance(
   return apiClient.patch<TierInstanceMutationResponse>(
     `admin/package-station/tier-instances/${instanceId}`,
     payload,
+  );
+}
+
+// Guarded permanent delete: blocked by an existing Family assignment, an
+// occupied Tier slot, an occupant-bin entry, or an outstanding Tier draft
+// (each a distinct 409 code — see PackageStationController::deleteTierInstance).
+export function deleteTierInstance(instanceId: string): Promise<TierInstanceDeleteResponse> {
+  return apiClient.delete<TierInstanceDeleteResponse>(
+    `admin/package-station/tier-instances/${instanceId}`,
   );
 }
 

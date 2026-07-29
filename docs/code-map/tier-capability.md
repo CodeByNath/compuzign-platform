@@ -38,7 +38,7 @@ The mature `package-family` drawer's own footer creates the Family (`usePackageF
 
 ## Package-owned Tier Tool
 
-[`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) separates peer collections and mutations. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, eligibility, slots, sheet options, and migration suggestion. Unassigned instances remain operable.
+[`useTierInstances.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) separates peer collections and mutations — create, update, the guarded permanent `deleteInstance`, and assignment/unassignment. [`tierInstanceModel.ts`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) derives rows, eligibility, slots, sheet options, and migration suggestion. Unassigned instances remain operable.
 
 [`TierSystemSettings.tsx`](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) reads the focused system's Rate Sheet access and launches its owning drawer; it also launches existing Package Manager creation intents. It performs no mutation or assignment, offers no Family picker, suggests no consumer, and keeps no fixed-slot listing of its own. Whole-instance access uses `tier-instance:{instance}`; occupants and empty slots keep their exact instance + occupant or instance + slot routes, dispatched by the workspace engine that lists them. See [Package Home Settings](package-settings.md).
 

@@ -198,6 +198,14 @@ export interface TierInstanceMutationResponse {
   tier_instance: TierInstanceRecord;
 }
 
+// A guard failure is an HTTP 409 — apiClient throws, and the error text
+// carries the JSON body { code, message }, same parsing contract as
+// PackageFamilyDeleteResponse.
+export interface TierInstanceDeleteResponse {
+  success: boolean;
+  deleted: string;
+}
+
 export type TierAssignmentConsumerType = 'package_family';
 
 export interface TierAssignment {

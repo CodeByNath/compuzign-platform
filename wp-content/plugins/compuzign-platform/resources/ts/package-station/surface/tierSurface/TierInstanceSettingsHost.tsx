@@ -1,10 +1,11 @@
-// Existing Tier drawer's whole-instance adapter. It composes the canonical Tier
-// instance collection mutation owner with the selected instance's Rate Sheet
-// inventory, then hands both to the manifest-driven drawer composition.
+// Existing Tier drawer's persisted-identity branch. It composes the canonical
+// Tier instance collection mutation owner with the selected instance's Rate
+// Sheet inventory, then hands both to the SAME TierSystemContent composition
+// the pending route mounts.
 
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
-import { TierInstanceSettingsContent } from '../../drawer/tier/TierInstanceSettingsContent';
+import { TierSystemContent } from '../../drawer/tier/TierSystemContent';
 import { usePackageStation } from '../../usePackageStation';
 import { useTierInstances } from '../tierInstance/useTierInstances';
 
@@ -26,10 +27,17 @@ export function TierInstanceSettingsHost({ serviceId, instanceId, bridge }: {
     return <div class="cz-station-drawer__state" role="alert">Rate Sheet access is unavailable.</div>;
   }
 
+  const record = tool.instances.find((instance) => instance.tier_instance_id === instanceId) ?? null;
+  if (record === null) {
+    return <div class="cz-station-drawer__state">This Tier system no longer exists.</div>;
+  }
+
   return (
-    <TierInstanceSettingsContent
+    <TierSystemContent
+      key={record.tier_instance_id}
       tool={tool}
-      instanceId={instanceId}
+      instance={record}
+      initialFamilyId={null}
       rateSheets={pkg.service?.rate_sheets ?? []}
       refetchRateSheets={pkg.refetch}
       bridge={bridge}

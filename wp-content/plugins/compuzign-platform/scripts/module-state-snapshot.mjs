@@ -159,10 +159,10 @@ const cases = [
   ['rateSheets.stocked',          dna.rateSheetCollectionModule, { count: 3 },                              labelled(CTX.activeSettled, 'Rate Sheet')],
   ['rateSheets.offline',          dna.rateSheetCollectionModule, { count: 3 },                              labelled(CTX.disabledSettled, 'Rate Sheet')],
 
-  // ── Tier registration and inclusion ───────────────────────────────────────
-  ['tierRegistration.untitled',   dna.tierRegistrationModule, { titled: false },                            labelled(CTX.notConfigured, 'Tier system')],
-  ['tierRegistration.titled',     dna.tierRegistrationModule, { titled: true },                             labelled(CTX.disabledSettled, 'Tier system')],
-  ['tierRegistration.registered', dna.tierRegistrationModule, { titled: true },                             labelled(CTX.activeSettled, 'Tier system')],
+  // ── Tier System overview and inclusion ────────────────────────────────────
+  ['tierSystemOverview.untitled',  dna.tierSystemOverviewModule, { titled: false },                          labelled(CTX.notConfigured, 'Tier system')],
+  ['tierSystemOverview.titled',    dna.tierSystemOverviewModule, { titled: true },                           labelled(CTX.disabledSettled, 'Tier system')],
+  ['tierSystemOverview.published', dna.tierSystemOverviewModule, { titled: true },                           labelled(CTX.activeSettled, 'Tier system')],
   ['tierInclusion.resolved',      dna.tierInclusionModule, { resolved: true },                              CTX.activeSettled],
   ['tierInclusion.unresolved',    dna.tierInclusionModule, { resolved: false },                             CTX.activeSettled],
   ['tierInclusionConn.configured',   dna.tierInclusionConnectionModule, { configured: true },               CTX.activeSettled],

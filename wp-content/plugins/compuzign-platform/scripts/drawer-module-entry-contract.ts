@@ -33,7 +33,7 @@ import {
   tierFeaturesModule,
   tierOverviewModule,
   tierRateSheetAccessModule,
-  tierRegistrationModule,
+  tierSystemOverviewModule,
 } from '../resources/ts/drawer-kit/utils/moduleNotifications';
 import type { ShellSchema } from '../resources/ts/drawer-kit/schema/types';
 import {
@@ -56,9 +56,8 @@ import {
   tierFeaturesShell,
   tierOverviewShell,
 } from '../resources/ts/package-station/drawer/schema/bindings/tier';
-import { tierRegistrationOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierRegistration';
 import { tierInclusionOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInclusion';
-import { tierRateSheetAccessShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInstance';
+import { tierSystemOverviewShell, tierRateSheetAccessShell } from '../resources/ts/package-station/drawer/schema/bindings/tierSystem';
 
 const root = resolve(import.meta.dirname, '..');
 
@@ -85,7 +84,7 @@ const SHELLS: Array<[string, ShellSchema<any>]> = [
   ['Tier Overview', tierOverviewShell],
   ['Tier Features', tierFeaturesShell],
   ['Tier FAQs', tierFaqsShell],
-  ['Tier Registration Overview', tierRegistrationOverviewShell],
+  ['Tier System Overview', tierSystemOverviewShell],
   ['Tier Inclusion Overview', tierInclusionOverviewShell],
   ['Tier System Rate Sheet Access', tierRateSheetAccessShell],
 ];
@@ -131,8 +130,8 @@ const ENTRY_STATES: Array<[string, ModuleState]> = [
     }),
   ],
   [
-    'Tier System, before registration',
-    evaluateModule(tierRegistrationModule, { titled: false }, {
+    'Tier System, before publication',
+    evaluateModule(tierSystemOverviewModule, { titled: false }, {
       platformStatus: 'draft', platformLabel: 'Tier system',
     }),
   ],
@@ -186,7 +185,7 @@ const DERIVED: Array<[string, ModuleState]> = [
   ],
   [
     'Tier System',
-    evaluateModule(tierRegistrationModule, { titled: true }, NEVER_ACTIVATED),
+    evaluateModule(tierSystemOverviewModule, { titled: true }, NEVER_ACTIVATED),
   ],
   [
     'Rate Sheets',
@@ -220,11 +219,11 @@ check(
   'an explicitly disabled Package Manager item reads Disabled',
 );
 
-// A registered/named record must leave Pending behind, or the pill is decoration.
+// A published/named record must leave Pending behind, or the pill is decoration.
 check(
-  PILL_META[evaluateModule(tierRegistrationModule, { titled: true }, { platformStatus: 'active' }).status]?.label
+  PILL_META[evaluateModule(tierSystemOverviewModule, { titled: true }, { platformStatus: 'active' }).status]?.label
     === 'Active',
-  'a registered Tier system reads Active, not Pending forever',
+  'a published Tier system reads Active, not Pending forever',
 );
 check(
   PILL_META[evaluateModule(rateSheetCollectionModule, { count: 2 }, { platformStatus: 'active' }).status]?.label
@@ -256,18 +255,44 @@ check(
 // the entry state itself: `useState(true)` here means the drawer opens in its
 // editor, which is the defect this contract exists to prevent.
 
-const tierRegistration = source('resources/ts/package-station/drawer/tier/TierRegistrationContent.tsx');
+// Tier System registration is the pending state of the SAME lifecycle a
+// persisted Tier System continues in — one composition, one controller, one
+// entity manifest — so both the pending and the persisted entry states are
+// verified against the one shared TierSystemContent / useTierSystemController.
+const tierSystemContent = source('resources/ts/package-station/drawer/tier/TierSystemContent.tsx');
+const tierSystemController = source('resources/ts/package-station/drawer/tier/useTierSystemController.ts');
+function bodyBetween(text: string, startMarker: string, endMarker: string): string {
+  const start = text.indexOf(startMarker);
+  const end = start >= 0 ? text.indexOf(endMarker, start + startMarker.length) : -1;
+  return start >= 0 && end > start ? text.slice(start, end) : '';
+}
 check(
-  tierRegistration.includes('const [editing, setEditing] = useState(false)'),
-  'Tier system registration opens readable, never in its editor',
+  tierSystemController.includes('useState<TierSystemModule | null>(null)'),
+  'the Tier System controller opens readable, never in its editor — no module is pre-selected on entry',
 );
 check(
-  tierRegistration.includes('onTogglePanel='),
-  'Tier system registration wires its module\'s notification panel, so the pill can open it',
+  tierSystemContent.includes('onTogglePanel='),
+  'the Tier System composition wires its module\'s notification panel, so the pill can open it',
+);
+const cancelOverviewBody = bodyBetween(tierSystemController, 'const cancelOverviewEdit = useCallback', 'const openRateSheetEditor');
+check(
+  cancelOverviewBody.includes('setEditingModule(null)') && !cancelOverviewBody.includes('bridge.close'),
+  'Overview Cancel returns to the readable module rather than closing the drawer',
+);
+const cancelRateSheetBody = bodyBetween(tierSystemController, 'const cancelRateSheetEdit = useCallback', 'Footer — Publish');
+check(
+  cancelRateSheetBody.includes('setEditingModule(null)') && !cancelRateSheetBody.includes('bridge.close'),
+  'Rate Sheet Access Cancel returns to the readable module rather than closing the drawer',
 );
 check(
-  tierRegistration.includes('onCancel: () => setEditing(false)'),
-  'Tier system registration returns Cancel to the readable module rather than closing the drawer',
+  tierSystemController.includes('const openRateSheetEditor = useCallback')
+    && tierSystemController.includes("setEditingModule('rate-sheet-access')"),
+  'Rate Sheet Access opens readable and enters editing only through Edit',
+);
+check(
+  tierSystemContent.includes("platformStatus: 'active', platformLabel: 'Tier system' }),")
+    && !tierSystemContent.includes('platformStatus: c.instance'),
+  'the Rate Sheet Access module uses its own resolved-policy context rather than inheriting Tier System lifecycle notes',
 );
 
 // Package Family creation (the 'new' recordId) is not a bespoke create
@@ -292,22 +317,14 @@ check(
   'Family creation returns Cancel to the readable module rather than closing the drawer',
 );
 
-const instanceSettings = source('resources/ts/package-station/drawer/tier/TierInstanceSettingsContent.tsx');
+// The Tier System footer is now the mature Publish/Apply/Delete footer (see
+// package-tier-workspace-contract.ts for the full action-set assertions);
+// this contract's own concern is only the entry-state / editor-reachability
+// rule, already covered above for both the Overview and Rate Sheet Access
+// modules on the one shared composition.
 check(
-  instanceSettings.includes('useState<TierRateSheetAccessDraft | null>(null)')
-    && instanceSettings.includes("handlers: { edit: () => setDraft(")
-    && instanceSettings.includes('onCancel: () => setDraft(null)'),
-  'Tier-system Rate Sheet access opens readable, enters through Edit, and Cancel returns readable',
-);
-check(
-  instanceSettings.includes("platformStatus: 'active'")
-    && !instanceSettings.includes('platformStatus: record.status'),
-  'the access module uses its own resolved-policy context rather than inheriting Tier-instance lifecycle notes',
-);
-check(
-  instanceSettings.includes('bridge.setFooter(editing ? null : (')
-    && instanceSettings.includes('<EntityActionFooter'),
-  'the instance drawer withdraws its Close footer while InlineEditorShell owns Save and Cancel',
+  tierSystemContent.includes('bridge.setFooter(') && tierSystemContent.includes('<TierSystemFooter'),
+  'the Tier System drawer publishes its record footer through the host bridge',
 );
 const accessEditor = source('resources/ts/package-station/drawer/editors/TierRateSheetAccessEditor.tsx');
 for (const forbidden of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions', 'updateInstance', 'api.']) {

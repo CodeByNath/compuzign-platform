@@ -107,25 +107,28 @@ export function getTierNotes(tier: TierLike | undefined, ctx: NoteContext): Modu
   return evaluateModuleNotes(tierModule, tier, ctx);
 }
 
-// A Tier system being registered has no lifecycle behind it yet: it is not
-// waiting on a parent, it holds no draft, and its only incompleteness is the
-// title the backend requires. Registration is therefore its own module rather
-// than a reuse of the occupant modules above, which all describe a Tier that
-// already exists inside an instance.
-export const tierRegistrationModule: ModuleDefinition<{ titled: boolean }> = {
-  key: 'tier-registration',
+// A pending Tier System (not yet published) has no lifecycle behind it yet:
+// it is not waiting on a parent, it holds no draft, and its only
+// incompleteness is the title the backend requires. This module serves the
+// SAME Overview once persisted, too — Tier System registration is the
+// pending state of this one lifecycle, not a separate module, which is why a
+// titled-but-unpublished system and a published one share one resolver
+// rather than one being a reuse of the occupant modules above (which all
+// describe a Tier that already exists inside an instance).
+export const tierSystemOverviewModule: ModuleDefinition<{ titled: boolean }> = {
+  key: 'tier-system-overview',
   problems: ({ titled }) => titled
     ? []
     : [{
-        id:      'tier-registration.title.required',
-        message: 'A Tier system needs a title before it can be registered.',
+        id:      'tier-system-overview.title.required',
+        message: 'A Tier system needs a title before it can be published.',
         type:    'error',
       }],
   // The 5-state presentation vocabulary, like every other module: an untitled
-  // registration reads Pending (dim), a titled one Pending until the platform
-  // reports the registered system active. `settled`/`not-configured` are module
-  // TRANSITION values and were never pill statuses — they only reached a Pending
-  // pill through the unknown-status fallback, which also left a registered system
+  // system reads Pending (dim), a titled one Pending until the platform
+  // reports it active. `settled`/`not-configured` are module TRANSITION
+  // values and were never pill statuses — they only reached a Pending pill
+  // through the unknown-status fallback, which also left a published system
   // reading Pending forever.
   resolveStatus: ({ titled }, ctx) => !titled
     ? 'pending-dim'
