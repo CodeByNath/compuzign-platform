@@ -59,7 +59,16 @@ export function useTierInstances(): TierInstancesToolState {
   const [assignments, setAssignments] = useState<TierAssignment[]>([]);
   const [families, setFamilies] = useState<PackageFamilyListItem[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // True only until the FIRST fetch (success or failure) settles, and never
+  // again after — a later refetch() (createInstance()/deleteInstance() both
+  // trigger one, to reconcile with the canonical collection) must not flip
+  // this back to true. TierRegistrationHost / TierInstanceSettingsHost gate
+  // mounting the Tier System composition on `loading`; re-entering a
+  // blocking loading state over an already-mounted composition would
+  // unmount it and discard the controller's local pending→persisted
+  // transition (createdInstance) — exactly the Publish-reverts-to-pending
+  // defect this field exists to prevent.
+  const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openRequestRevision, setOpenRequestRevision] = useState(0);
@@ -67,7 +76,6 @@ export function useTierInstances(): TierInstancesToolState {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
     setError(null);
     Promise.all([
       fetchTierInstances(),
@@ -108,7 +116,7 @@ export function useTierInstances(): TierInstancesToolState {
         setAssignments([]);
         setFamilies([]);
       })
-      .finally(() => { if (active) setLoading(false); });
+      .finally(() => { if (active) setInitialized(true); });
     return () => { active = false; };
   }, [revision]);
 
@@ -231,7 +239,15 @@ export function useTierInstances(): TierInstancesToolState {
     }
   }, [assignments]);
 
-  return {
+  // Every consuming controller closes over this object in its own memoized
+  // callbacks (see useTierSystemController's pointAssignment/publish/apply).
+  // Returning a fresh literal on every render made those callbacks — and any
+  // effect that lists them as a dependency — recreate every render too, which
+  // is what caused the Tier System footer-registration effect to loop
+  // (render → new tool → new publish/apply → effect refires → setFooter →
+  // ancestor re-render → render …). Memoizing keeps this object referentially
+  // stable unless the underlying state actually changed.
+  return useMemo<TierInstancesToolState>(() => ({
     instances,
     assignments,
     families,
@@ -239,7 +255,7 @@ export function useTierInstances(): TierInstancesToolState {
     eligibleFamilies,
     selectedInstanceId,
     selectedInstance,
-    loading,
+    loading: !initialized,
     saving,
     error,
     openRequestRevision,
@@ -250,5 +266,10 @@ export function useTierInstances(): TierInstancesToolState {
     assignInstance,
     unassignInstance,
     refetch,
-  };
+  }), [
+    instances, assignments, families, rows, eligibleFamilies,
+    selectedInstanceId, selectedInstance, initialized, saving, error,
+    openRequestRevision, createInstance, updateInstance, deleteInstance,
+    assignInstance, unassignInstance, refetch,
+  ]);
 }
