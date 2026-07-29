@@ -73,9 +73,13 @@ export function fetchAdminCategories(platformStatus?: 'archived' | 'trashed'): P
 
 // Station create (D3): born disabled; overview settles immediately when the
 // payload is complete. Duplicate names fail (no return-existing convenience).
+// `group_id` is accepted directly on creation — a Group chosen before Publish
+// (Settings' Create Category launcher) travels in the same request rather than
+// a separate follow-up membership call.
 export function createCategory(payload: {
   name:         string;
   description?: string;
+  group_id?:    number | null;
 }): Promise<CategoryMutationResponse> {
   return apiClient.post<CategoryMutationResponse>('admin/categories', payload);
 }

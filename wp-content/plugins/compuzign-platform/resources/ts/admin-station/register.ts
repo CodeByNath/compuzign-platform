@@ -86,6 +86,22 @@ export function registerPresentationPolicy(): void {
       drawerTemplateKey: 'service',
       actionIntents: [
         { id: 'view', target: 'drawer', mode: 'view' },
+        // Connections addresses a Category, not a Service, so it carries its
+        // own intent and its own drawer key rather than overloading the
+        // binding's default `service` target — the same one-surface/multiple-
+        // drawer-keys shape the Tier binding below already uses for its
+        // Connections lane's Family/Rate-Sheet targets.
+        { id: 'view-category', target: 'drawer', mode: 'view', drawerTemplateKey: 'category' },
+        // Settings' two launchers open the SAME mature Service/Category drawers
+        // the binding's own `view`/`view-category` intents already open, at the
+        // stable `'new'` recordId sentinel each host resolves into a pending
+        // record — no separate creation drawer or registration. `mode: 'view'`
+        // for the same reason Package Family's `create-package-family` intent
+        // does: a drawer never opens pre-entered into an editor, including a
+        // brand-new record — it opens readable, with the empty Overview module
+        // carrying its own Pending pill and Edit action.
+        { id: 'create-service', target: 'drawer', mode: 'view', drawerTemplateKey: 'service' },
+        { id: 'create-category', target: 'drawer', mode: 'view', drawerTemplateKey: 'category' },
       ],
     },
     {

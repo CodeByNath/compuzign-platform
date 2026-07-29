@@ -9,8 +9,9 @@
 //   1. The primitive stays generic — no station, entity, drawer route, data
 //      source, or lane meaning inside it, and no station's class names.
 //   2. Service Home's deck stays Service-owned — Family cards above it, the
-//      existing catalogue inside `Details`, honest empty Connections and
-//      Settings, and no Package or Tier presentation anywhere in it.
+//      existing catalogue inside `Details`, Connections and Settings as
+//      Service's own lane components, and no Package or Tier presentation
+//      anywhere in it.
 //
 // This reads composition and registration. It does not execute Preact, so it
 // asserts no rendered pixel and no browser behaviour.
@@ -133,14 +134,19 @@ check(
   'the catalogue renders once, inside Details, from the props the surface host supplied',
 );
 check(
-  serviceDeck.includes(': <p class="cz-station-empty">{EMPTY_LANE[tab]}</p>')
-    && /connections:\s+'[^']+',\s+settings:\s+'[^']+',/.test(serviceDeck),
-  'Connections and Settings render one shared empty state carrying one plain sentence each',
+  (serviceDeck.match(/<ServiceConnectionsLane /g) ?? []).length === 1
+    && (serviceDeck.match(/<ServiceSettingsLane /g) ?? []).length === 1,
+  'Connections and Settings each render exactly once',
+);
+check(
+  serviceDeck.includes('<ServiceConnectionsLane onIntent={props.onIntent} />')
+    && serviceDeck.includes('<ServiceSettingsLane onIntent={props.onIntent} />'),
+  'Connections renders the Category-connections lane and Settings renders the two creation launchers, each fed the surface host\'s own intent dispatcher rather than a second one',
 );
 // The deck cannot grow content it never imported, so its import list is the
 // honest boundary: the shared tab primitive, the station glyph its context bar
-// draws, and the existing catalogue — nothing with a source, a projection, a
-// drawer route, or a model behind it.
+// draws, the existing catalogue, and Service's own Connections/Settings lanes —
+// nothing with a Package/Tier source, projection, drawer route, or model.
 const deckImports = (serviceDeck.match(/from '([^']+)'/g) ?? []).map((from) => from.slice(6, -1));
 check(
   deckImports.every((from) => [
@@ -150,6 +156,8 @@ check(
     '@/admin-station/presentation/StationTabSet',
     '@/admin-station/shell/icons',
     './ServiceCatalogue',
+    './ServiceConnectionsLane',
+    './ServiceSettingsLane',
   ].includes(from)),
   `the deck imports beyond its lanes: ${deckImports.join(', ')}`,
 );

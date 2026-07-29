@@ -15,11 +15,13 @@ Admin Station is the presentation/control host, not the Catalogue owner. Admin's
 - the `service-lower-deck` template kit;
 - the `service` drawer contract.
 
-The Catalogue is no longer a wall of its own. [ServiceLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceLowerDeck.tsx) is the bound kit: it selects a lane and hands the Catalogue the template-kit props unchanged, so filters, sorting, pagination, table, and drawer intent behave exactly as before inside the `Details` lane. `Connections` and `Settings` are declared lanes with an empty state and nothing behind them. Lane semantics come from the Admin-owned `StationTabSet`; Service Home renders no Tier class and reaches no Package presentation module.
+Admin Station's `service-lower-deck` surface binding carries the deck's own action intents: `view` (Service), `view-category` (opens the `category` drawer key from the same lane), `create-service`, and `create-category` (both open at the `'new'` recordId sentinel) — one surface dispatching to more than one registered drawer key, the same shape the Tier binding already uses.
+
+The Catalogue is no longer a wall of its own. [ServiceLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceLowerDeck.tsx) is the bound kit: it selects a lane and hands the Catalogue the template-kit props unchanged, so filters, sorting, pagination, table, and drawer intent behave exactly as before inside the `Details` lane. `Connections` and `Settings` are Service's own lanes now: [ServiceConnectionsLane.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceConnectionsLane.tsx) renders a read-only, shared-list projection of Categories connected to at least one Service (`assigned_count > 0`) via [useServiceHomeConnections](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/serviceHomeConnections.ts), View opening the mature `category` drawer by real numeric id; [ServiceSettingsLane.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceSettingsLane.tsx) renders exactly two launchers, Create Service and Create Category, both opening their mature drawers at the `'new'` recordId sentinel. Lane semantics come from the Admin-owned `StationTabSet`; Service Home renders no Tier class and reaches no Package presentation module.
 
 [useServiceCatalogue.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/useServiceCatalogue.ts) composes Service summaries with Package Family relationships. [serviceCatalogueAdapter.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/serviceCatalogueAdapter.ts) builds presentation rows, while [ServiceCatalogue.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceCatalogue.tsx) renders them and calls no endpoints.
 
-[ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx) adapts the Service-owned drawer composition to Station Manager's drawer contract. Admin Station's generic drawer shell hosts the resolved content and never saves Service data.
+[ServiceDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/surface/ServiceDrawerHost.tsx) adapts the Service-owned drawer composition to Station Manager's drawer contract, and resolves the stable `'new'` recordId sentinel to `service: null` — no fabricated ServiceItem — so the SAME mature composition opens on its ordinary Overview module with nothing to fetch. [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) represents that pending state with its own local Overview draft and exposes `createService()`, the footer Publish's one authoritative creation; the returned Service replaces the local `null` identity and the same lifecycle continues. Admin Station's generic drawer shell hosts the resolved content and never saves Service data.
 
 ## Data boundaries
 
@@ -31,7 +33,7 @@ The Category filter uses the Service's direct Category slug. The Family filter u
 
 ## Validation
 
-Run `npx tsx scripts/service-catalogue-projection-contract.ts`, `npm run contract:station-tabset`, `php tests/package-category-groups.php`, `php tests/service-route-baseline.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `npx tsx scripts/service-catalogue-projection-contract.ts`, `npm run contract:station-tabset`, `npm run contract:service-home-connections`, `npm run regression:service-create`, `npm run regression:category-create`, `php tests/package-category-groups.php`, `php tests/service-route-baseline.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 

@@ -2,7 +2,8 @@ import type { CategoryDrawerController } from './useCategoryDrawerController';
 
 export function CategoryDrawerDialogs({ controller }: { controller: CategoryDrawerController }) {
   const c = controller;
-  const name = c.station.category.name || 'this Category';
+  const name = c.station.displayName || 'this Category';
+  const isNew = c.station.isNew;
 
   return (
     <>
@@ -11,12 +12,14 @@ export function CategoryDrawerDialogs({ controller }: { controller: CategoryDraw
           <div class="cz-publish-confirm" role="dialog" aria-modal="true">
             <div class="cz-publish-confirm__header">
               <h3 class="cz-publish-confirm__title">
-                {c.isActive ? `Settle changes to ${name}?` : `Ready to publish ${name}?`}
+                {isNew ? `Create ${name}?` : c.isActive ? `Settle changes to ${name}?` : `Ready to publish ${name}?`}
               </h3>
             </div>
             <div class="cz-publish-confirm__body">
               <p class="cz-publish-confirm__lead">
-                {c.isActive
+                {isNew
+                  ? 'This creates the Category and enables the standard drawer lifecycle to continue from its real record.'
+                  : c.isActive
                   ? 'This confirms the current Category Overview draft as settled.'
                   : 'This settles the Overview and enables the Category for the public Cost Builder.'}
               </p>
@@ -24,7 +27,7 @@ export function CategoryDrawerDialogs({ controller }: { controller: CategoryDraw
             <div class="cz-publish-confirm__footer">
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => c.setConfirmDialog(null)} disabled={c.station.loading.status}>Cancel</button>
               <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={c.handleConfirmPublish} disabled={c.station.loading.status}>
-                {c.station.loading.status ? '…' : c.isActive ? 'Settle' : 'Publish'}
+                {c.station.loading.status ? '…' : isNew ? 'Create' : c.isActive ? 'Settle' : 'Publish'}
               </button>
             </div>
           </div>

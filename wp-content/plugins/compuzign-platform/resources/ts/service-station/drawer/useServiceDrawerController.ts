@@ -47,7 +47,13 @@ export function useServiceDrawerController({
   // lifecycle actions. Replaces the old host's ctx.setStepData('service', …):
   // the same numeric id keeps useServiceStation from refetching, while the
   // derived platform_status/module_status stay live for the footer and pills.
-  const [service, setService] = useState<ServiceItem>(seedService);
+  //
+  // `null` — the Settings lane's Create Service launcher — addresses no
+  // backing post yet. useServiceStation represents that state locally; once
+  // its `createService()` returns the server-issued record, `setService`
+  // below replaces this `null` with the real ServiceItem and the SAME mounted
+  // composition continues as an ordinary persisted Service.
+  const [service, setService] = useState<ServiceItem | null>(seedService);
 
   const [tab, setTab] = useState<DrawerTabId>(initialTab ?? 'details');
   const [openPanel, setOpenPanel] = useState<string | null>(null);
@@ -94,8 +100,17 @@ export function useServiceDrawerController({
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
+    // A pending Service addresses no stored post: the footer's Publish is this
+    // record's one authoritative creation, not a settle/activate pair against
+    // an id that does not exist yet — mirrors Package Family's `'new'` guard
+    // on the same action.
+    if (!service) {
+      const created = await station.createService();
+      if (created) setService(created);
+      return;
+    }
     await (isActive ? lifecycle.handleSettleModules() : lifecycle.handlePublishService());
-  }, [isActive, lifecycle.handleSettleModules, lifecycle.handlePublishService]);
+  }, [service, station, isActive, lifecycle.handleSettleModules, lifecycle.handlePublishService]);
 
   const handleConfirmDiscard = useCallback(async () => {
     const module = discardConfirm;
@@ -115,13 +130,17 @@ export function useServiceDrawerController({
   const requestClose = useCallback(() => bridge.close(), [bridge]);
 
   // ── Derived display values ──────────────────────────────────────────────────
-  const rawDisplayTitle = stationOverviewDraft?.title.trim() || settledOverview?.title.trim() || service.title.trim() || '';
+  // service?. — a pending Service (Create Service, before Publish) has no
+  // ServiceItem to fall back to; the draft/settled chain already covers it
+  // (overviewDraft is never null while pending), so the final fallback here
+  // simply resolves to empty rather than needing a fabricated record.
+  const rawDisplayTitle = stationOverviewDraft?.title.trim() || settledOverview?.title.trim() || service?.title.trim() || '';
   const displayTitle    = rawDisplayTitle ? decodeHtml(rawDisplayTitle) : '';
-  const displayContent  = stationOverviewDraft?.content.trim() || settledOverview?.content?.trim() || service.content?.trim() || '';
+  const displayContent  = stationOverviewDraft?.content.trim() || settledOverview?.content?.trim() || service?.content?.trim() || '';
   const displayCategory = stationOverviewDraft
     ? decodeHtml(editing.localCategories.find(c => stationOverviewDraft.category_ids.includes(c.id ?? -1))?.name ?? 'Not selected')
-    : decodeHtml(settledOverview?.categories[0]?.name ?? service.categories[0]?.name ?? 'Not selected');
-  const decodedServiceTitle = decodeHtml(service.title);
+    : decodeHtml(settledOverview?.categories[0]?.name ?? service?.categories[0]?.name ?? 'Not selected');
+  const decodedServiceTitle = service ? decodeHtml(service.title) : displayTitle;
 
   // ── Shell bindings — Station DNA delivered to the archetype shells ──────────
   const overviewShellBinding: ShellBinding<ServiceOverviewShellData> = {
@@ -149,7 +168,7 @@ export function useServiceDrawerController({
   return {
     // record + station
     service, station, platformStatus, isActive, canPublish, isNewNeverPublished, hasBeenPublished,
-    relatedPkg, inclSummary, faqsSummary, pendingModuleNames,
+    relatedPkg, inclSummary, faqsSummary, pendingModuleNames, displayTitle,
     // tabs
     tab, selectServiceTab,
     // panels + bindings

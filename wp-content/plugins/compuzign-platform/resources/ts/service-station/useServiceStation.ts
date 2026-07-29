@@ -19,12 +19,22 @@
  * (patchModuleDraft), moduleStatus, moduleNotifications. Service uses them; it
  * does not own them. The last two live in the neutral drawer-kit; they
  * import this station's './types' directly, never the barrel, so no cycle forms.
+ *
+ * `service: null` — the Settings lane's Create Service launcher — addresses no
+ * backing post yet. This station represents that state entirely with its own
+ * local Overview draft (below), never a fabricated ServiceItem: the shared
+ * resolveOverviewStatus/getOverviewNotes resolvers are hard-typed to a real
+ * ServiceItem and are simply not called until one exists, mirroring their own
+ * branches locally against the draft alone (see './derive'). Every id-bearing
+ * action below is a no-op while `service` is null; the drawer's Save/Publish
+ * flow only ever routes there once createService has returned the real id.
  */
 
 import { useEffect, useState, useCallback } from 'preact/hooks';
-import type { ServiceItem, ServiceInclusion, ServiceFaq } from '@/api/types/cost-builder';
+import type { ServiceItem, ServiceInclusion, ServiceFaq, PlatformStatus } from '@/api/types/cost-builder';
 import {
   archiveService,
+  createService as createServiceApi,
   fetchAdminServiceDetail,
   revertServiceModule,
   settleAllServiceModules,
@@ -46,12 +56,15 @@ import type {
 import type { SurfacePackageSummary } from '@/package-station';
 import { resolveOverviewStatus } from '@/drawer-kit/utils/moduleStatus';
 import { getOverviewNotes, getInclusionsNotes, getFaqsNotes } from '@/drawer-kit/utils/moduleNotifications';
-import type { NoteContext, ModuleState } from '@/drawer-kit/utils/moduleNotifications';
+import type { NoteContext, ModuleState, ModuleNote } from '@/drawer-kit/utils/moduleNotifications';
 import { patchModuleDraft } from '@/hooks/stationPrimitives';
 import {
   resolveInclusionsStatus,
   resolveFaqsStatus,
   derivePendingModules,
+  derivePendingOverviewComplete,
+  derivePendingOverviewStatus,
+  derivePendingOverviewNotes,
   deriveCanPublish,
   derivePackageSummary,
   deriveInclusionsSummary,
@@ -81,6 +94,8 @@ export interface PublishServiceResult {
   faqs?:           ServiceFaqItem[];
 }
 
+const EMPTY_OVERVIEW_DRAFT: OverviewDraft = { title: '', excerpt: '', content: '', category_id: null };
+
 // ── ServiceStation interface ───────────────────────────────────────────────────
 
 export interface ServiceStation {
@@ -89,8 +104,11 @@ export interface ServiceStation {
   isActive:       boolean;
   // True once the authoritative service detail fetch has resolved (success or
   // failure). While false, module pills should show a neutral loading placeholder
-  // instead of a status derived from the minimal catalog handoff.
+  // instead of a status derived from the minimal catalog handoff. A pending
+  // (no backing post) Service has nothing to fetch and reads true immediately.
   detailLoaded:   boolean;
+  // No backing post yet — Settings' Create Service launcher, before Publish.
+  isNew:          boolean;
 
   // ── Module data (draft-preferred) ─────────────────────────────────────────
   inclusions:    ServiceInclusionItem[];
@@ -154,21 +172,37 @@ export interface ServiceStation {
   revertOverview:        () => Promise<void>;
   revertInclusions:      () => Promise<void>;
   revertFaqs:            () => Promise<void>;
+  // The pending record's one authoritative creation. Persists the drafted
+  // Overview (staged locally by saveOverview above) as a brand-new Service and
+  // returns it; the caller (the drawer controller) replaces its local `null`
+  // identity with the result so the SAME mounted composition continues as an
+  // ordinary persisted Service from here — mirrors createFamily/createCategory.
+  createService:         () => Promise<ServiceItem | null>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useServiceStation(
-  service:    ServiceItem,
+  service:    ServiceItem | null,
   packages:   SurfacePackageSummary[],
   onRefresh?: () => void,
 ): ServiceStation {
+  const isNew = service === null;
+
   const [adminDetail, setAdminDetail] = useState<ServiceDetail | null>(null);
-  const [detailLoaded, setDetailLoaded] = useState(false);
+  const [detailLoaded, setDetailLoaded] = useState(() => isNew);
   const [statusSaving, setStatusSaving] = useState(false);
   const [creatingPkg,  setCreatingPkg]  = useState(false);
 
+  // The pending Overview draft — the only module a not-yet-created Service can
+  // edit. Inclusions/FAQs stay empty pools until the record exists, the same
+  // scope Package Family's `'new'` sentinel restricts creation to (Overview
+  // only; capabilities/relationships start empty).
+  const [pendingOverview, setPendingOverview] = useState<OverviewDraft>(EMPTY_OVERVIEW_DRAFT);
+  const [pendingModuleStatus, setPendingModuleStatus] = useState<'not-configured' | 'pending'>('not-configured');
+
   useEffect(() => {
+    if (!service) return;
     setDetailLoaded(false);
     fetchAdminServiceDetail(service.id)
       .then(setAdminDetail)
@@ -176,48 +210,50 @@ export function useServiceStation(
       // Resolved (success or failure): authoritative detail attempt is done, so module
       // pills may stop showing the loading placeholder.
       .finally(() => setDetailLoaded(true));
-  }, [service.id]);
+  }, [service?.id]);
 
   // ── Derived: identity ──────────────────────────────────────────────────────
-  const platformStatus = service.meta?.platform_status ?? 'disabled';
-  const isActive       = platformStatus === 'active';
+  const platformStatus = service?.meta?.platform_status ?? 'disabled';
+  const isActive        = platformStatus === 'active';
 
   // ── Derived: module data (draft-preferred) ─────────────────────────────────
   // Read priority: draft → authoritative settled pool (adminDetail) → passed-in
   // CostBuilder service → empty. adminDetail.inclusions/faqs is the canonical
   // service-owned pool (cz_service_inclusions / cz_service_faqs) returned by the
   // drawer's own fetch; the passed-in ServiceItem can be stale/empty for migrated
-  // services, so it must not shadow the settled pool.
-  const inclusions = (adminDetail?.drafts.inclusions ?? adminDetail?.inclusions ?? service.inclusions ?? []) as ServiceInclusionItem[];
-  const faqs       = (adminDetail?.drafts.faqs       ?? adminDetail?.faqs       ?? service.faqs       ?? []) as ServiceFaqItem[];
+  // services, so it must not shadow the settled pool. A pending Service has no
+  // pool yet — both stay empty until creation.
+  const inclusions = (adminDetail?.drafts.inclusions ?? adminDetail?.inclusions ?? service?.inclusions ?? []) as ServiceInclusionItem[];
+  const faqs       = (adminDetail?.drafts.faqs       ?? adminDetail?.faqs       ?? service?.faqs       ?? []) as ServiceFaqItem[];
 
   // ── Derived: module registry ───────────────────────────────────────────────
   // adminDetail.module_status is authoritative (loaded on drawer open).
-  // Falls back to CostBuilder data while the fetch is in flight.
-  const moduleStatus = (adminDetail?.module_status ?? service.meta?.module_status) as Record<string, string> | undefined;
+  // Falls back to CostBuilder data while the fetch is in flight. A pending
+  // Service has no adminDetail/service meta at all — its module registry is
+  // entirely local (Overview only ever advances from 'not-configured').
+  const moduleStatus = isNew
+    ? { overview: pendingModuleStatus, inclusions: 'not-configured', faqs: 'not-configured' }
+    : ((adminDetail?.module_status ?? service?.meta?.module_status) as Record<string, string> | undefined);
   const { hasPendingModules, pendingModuleNames } = derivePendingModules(moduleStatus, isActive);
 
   // ── Derived: package registry ──────────────────────────────────────────────
-  const relatedPkg = packages.find((p) => p.service_refs.includes(service.id)) ?? null;
+  // No package can reference an id that does not exist yet.
+  const relatedPkg = service ? (packages.find((p) => p.service_refs.includes(service.id)) ?? null) : null;
 
   // ── Derived: module status resolvers ──────────────────────────────────────
-  const overviewDraft  = adminDetail?.drafts.overview ?? null;
   // Authoritative settled overview source: prefer adminDetail's settled fields
   // (refreshed on settle/publish below) over the passed-in CostBuilder service,
   // which can be stale/incomplete for migrated services. A draft still wins inside
   // resolveOverviewStatus / getOverviewNotes. Read order: draft → adminDetail → service.
-  const overviewSource: ServiceItem = adminDetail
-    ? { ...service, title: adminDetail.title, excerpt: adminDetail.excerpt, content: adminDetail.content, categories: adminDetail.categories }
-    : service;
-  const overviewStatus = resolveOverviewStatus(overviewSource, {
-    platformStatus,
-    moduleTransition: moduleStatus?.overview ?? 'not-configured',
-  }, overviewDraft);
+  const overviewDraft: OverviewDraftData | null = isNew
+    ? {
+        title:        pendingOverview.title,
+        excerpt:      pendingOverview.excerpt,
+        content:      pendingOverview.content,
+        category_ids: pendingOverview.category_id !== null ? [pendingOverview.category_id] : [],
+      }
+    : (adminDetail?.drafts.overview ?? null);
 
-  const inclusionsStatus = resolveInclusionsStatus(inclusions, moduleStatus?.inclusions ?? 'not-configured', isActive);
-  const faqsStatus       = resolveFaqsStatus(faqs, moduleStatus?.faqs ?? 'not-configured', isActive);
-
-  // ── Derived: module notes ──────────────────────────────────────────────────
   const noteCtxOverview: NoteContext = {
     platformStatus,
     moduleTransition: moduleStatus?.overview   ?? 'not-configured',
@@ -234,7 +270,29 @@ export function useServiceStation(
     hasDraft:         adminDetail?.drafts.faqs != null,
   };
 
-  const overviewNotes   = getOverviewNotes(overviewSource, noteCtxOverview, overviewDraft);
+  // Overview status/notes: resolveOverviewStatus/getOverviewNotes are hard-typed
+  // to a real ServiceItem, so a pending record (no ServiceItem to give them)
+  // resolves through the local, ServiceItem-free equivalent in './derive'
+  // instead of fabricating one.
+  let overviewStatus: string;
+  let overviewNotes: ModuleNote[];
+  if (service) {
+    const overviewSource: ServiceItem = adminDetail
+      ? { ...service, title: adminDetail.title, excerpt: adminDetail.excerpt, content: adminDetail.content, categories: adminDetail.categories }
+      : service;
+    overviewStatus = resolveOverviewStatus(overviewSource, {
+      platformStatus,
+      moduleTransition: moduleStatus?.overview ?? 'not-configured',
+    }, overviewDraft);
+    overviewNotes = getOverviewNotes(overviewSource, noteCtxOverview, overviewDraft);
+  } else {
+    overviewStatus = derivePendingOverviewStatus(pendingOverview, pendingModuleStatus);
+    overviewNotes  = derivePendingOverviewNotes(pendingOverview);
+  }
+
+  const inclusionsStatus = resolveInclusionsStatus(inclusions, moduleStatus?.inclusions ?? 'not-configured', isActive);
+  const faqsStatus       = resolveFaqsStatus(faqs, moduleStatus?.faqs ?? 'not-configured', isActive);
+
   const inclusionsNotes = getInclusionsNotes(inclusions as unknown as ServiceInclusion[], noteCtxInclusions);
   const faqsNotes       = getFaqsNotes(faqs as unknown as ServiceFaq[], noteCtxFaqs);
 
@@ -253,8 +311,13 @@ export function useServiceStation(
   const faqsSummary = deriveFaqsSummary(faqs, faqsStatus);
 
   // ── Actions ────────────────────────────────────────────────────────────────
+  // Every action below that addresses an existing post is a no-op while
+  // `service` is null: none of them are reachable from the pending drawer's
+  // footer/dialogs (only Overview edits and createService are), and guarding
+  // here keeps that invariant true even if a caller ever changes.
 
   const toggleActive = useCallback(async (): Promise<ToggleActiveResult | null> => {
+    if (!service) return null;
     setStatusSaving(true);
     const nextStatus = isActive ? 'disabled' : 'active';
     try {
@@ -268,9 +331,10 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service.id, isActive, onRefresh]);
+  }, [service, isActive, onRefresh]);
 
   const archiveStation = useCallback(async (): Promise<ToggleActiveResult | null> => {
+    if (!service) return null;
     setStatusSaving(true);
     try {
       const result = await archiveService(service.id);
@@ -282,9 +346,10 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
 
   const trashStation = useCallback(async (): Promise<ToggleActiveResult | null> => {
+    if (!service) return null;
     setStatusSaving(true);
     try {
       const result = await trashService(service.id);
@@ -296,9 +361,10 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
 
   const settleModules = useCallback(async (): Promise<SettleModulesResult | null> => {
+    if (!service) return null;
     setStatusSaving(true);
     try {
       const result = await settleAllServiceModules(service.id);
@@ -326,9 +392,10 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
 
   const publishService = useCallback(async (): Promise<PublishServiceResult | null> => {
+    if (!service) return null;
     setStatusSaving(true);
     try {
       const settleResult = await settleAllServiceModules(service.id);
@@ -361,9 +428,20 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
 
+  // Module Save must not call the update endpoint against an id that does not
+  // exist — while pending it only advances the local Overview draft, moving the
+  // transition to 'pending' so the record footer's Publish gate (canPublish) can
+  // read it as ready. The drawer footer's own Publish is the sole authoritative
+  // write for this record, via `createService` below.
   const saveOverview = useCallback(async (draft: OverviewDraft): Promise<Record<string, string>> => {
+    if (!service) {
+      setPendingOverview(draft);
+      const status = derivePendingOverviewComplete(draft) ? 'pending' : 'not-configured';
+      setPendingModuleStatus(status);
+      return { overview: status, inclusions: 'not-configured', faqs: 'not-configured' };
+    }
     const result = await updateServiceOverview(service.id, {
       title:        draft.title,
       excerpt:      draft.excerpt,
@@ -374,52 +452,109 @@ export function useServiceStation(
     setAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', result.draft, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
 
   const saveInclusions = useCallback(async (draft: InclusionsDraft): Promise<Record<string, string>> => {
+    if (!service) return { overview: pendingModuleStatus, inclusions: 'not-configured', faqs: 'not-configured' };
     const result = await updateServiceInclusions(service.id, { inclusions: draft.items });
     if (!result.success) throw new Error('Failed to save inclusions.');
     setAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', result.inclusions, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh, pendingModuleStatus]);
 
   const saveFaqs = useCallback(async (draft: FaqsDraft): Promise<Record<string, string>> => {
+    if (!service) return { overview: pendingModuleStatus, inclusions: 'not-configured', faqs: 'not-configured' };
     const result = await updateServiceFaqs(service.id, { faqs: draft.items });
     if (!result.success) throw new Error('Failed to save FAQs.');
     setAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', result.faqs, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh, pendingModuleStatus]);
 
   const revertOverview = useCallback(async (): Promise<void> => {
+    if (!service) return;
     const result = await revertServiceModule(service.id, 'overview');
     if (result.success) {
       setAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', null, result.module_status) : prev);
       onRefresh?.();
     }
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
 
   const revertInclusions = useCallback(async (): Promise<void> => {
+    if (!service) return;
     const result = await revertServiceModule(service.id, 'inclusions');
     if (result.success) {
       setAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', null, result.module_status) : prev);
       onRefresh?.();
     }
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
 
   const revertFaqs = useCallback(async (): Promise<void> => {
+    if (!service) return;
     const result = await revertServiceModule(service.id, 'faqs');
     if (result.success) {
       setAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', null, result.module_status) : prev);
       onRefresh?.();
     }
-  }, [service.id, onRefresh]);
+  }, [service, onRefresh]);
+
+  // The pending record's one authoritative creation. Persists the drafted
+  // Overview as a brand-new Service and returns the server-issued record —
+  // the same "born disabled, overview pending" state as any other newly
+  // created Service, so every existing lifecycle/footer computation applies
+  // unchanged from here (mirrors createFamily/createCategory).
+  const createService = useCallback(async (): Promise<ServiceItem | null> => {
+    setStatusSaving(true);
+    try {
+      const response = await createServiceApi({
+        title:        pendingOverview.title,
+        excerpt:      pendingOverview.excerpt,
+        content:      pendingOverview.content,
+        category_ids: pendingOverview.category_id !== null ? [pendingOverview.category_id] : [],
+      });
+      if (!response.success) throw new Error('Could not create the Service.');
+      const created: ServiceItem = {
+        id:           response.service.id,
+        title:        response.service.title,
+        slug:         response.service.slug,
+        excerpt:      pendingOverview.excerpt,
+        content:      pendingOverview.content,
+        categories:   response.service.categories,
+        inclusions:   [],
+        faqs:         [],
+        availability: { is_available: true, message: '' },
+        meta: {
+          platform_status:   response.service.platform_status as PlatformStatus,
+          module_status:     response.service.module_status as unknown as ServiceItem['meta']['module_status'],
+          short_description: '',
+          long_description:  '',
+          billing_cycle:     '',
+          sla:               '',
+          uptime:            '',
+          notes:             '',
+          popular_tier:      null,
+          popular_label:     null,
+          sort_order:        0,
+        },
+        pricing: {
+          tiers:  {} as ServiceItem['pricing']['tiers'],
+          bundle: { title: '', description: '', price: null },
+        },
+        promotion_tiers: [],
+      };
+      onRefresh?.();
+      return created;
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [pendingOverview, onRefresh]);
 
   return {
     platformStatus,
     isActive,
     detailLoaded,
+    isNew,
     inclusions,
     faqs,
     overviewDraft,
@@ -457,5 +592,6 @@ export function useServiceStation(
     revertOverview,
     revertInclusions,
     revertFaqs,
+    createService,
   };
 }

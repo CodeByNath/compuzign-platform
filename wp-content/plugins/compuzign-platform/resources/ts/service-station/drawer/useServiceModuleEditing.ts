@@ -36,7 +36,10 @@ function isFaqsDirty(a: FaqsDraft, b: FaqsDraft): boolean {
 }
 
 export interface ServiceModuleEditingArgs {
-  service:       ServiceItem;
+  // Only consulted as the last-resort Overview seed below, and unreached while
+  // pending: a pending station's own `overviewDraft` is never null, so the
+  // fallback chain never needs a real ServiceItem for a not-yet-created record.
+  service:       ServiceItem | null;
   station:       ServiceStation;
   allCategories: Category[];
   initialEdit?:  boolean;
@@ -89,7 +92,7 @@ export function useServiceModuleEditing({
     } else if (settledOverview) {
       draft = { title: settledOverview.title, excerpt: settledOverview.excerpt, content: settledOverview.content, category_id: settledOverview.categories[0]?.id ?? null };
     } else {
-      draft = initOverviewDraft(service);
+      draft = service ? initOverviewDraft(service) : { title: '', excerpt: '', content: '', category_id: null };
     }
     const catId = draft.category_id;
     const desc  = catId ? (localCategories.find(c => c.id === catId)?.description ?? '') : '';

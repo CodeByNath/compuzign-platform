@@ -22,7 +22,7 @@ It imports only Preact. It names no station, entity, drawer route, data source, 
 ## Consumers
 
 - **Package Home** — [TierTabSet.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierTabSet.tsx) is the Package-owned skin over the primitive. It keeps the three deck variants (`deck`, `nested`, `selectors`) and the compact selector card. The Tier lower deck, its context bar, Connections, and Settings stay Package-owned; see [Tiers](tiers.md).
-- **Service Home** — [ServiceLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceLowerDeck.tsx) is Service-owned composition. `Details` holds the existing Service Catalogue, handed the template-kit props unchanged; `Connections` and `Settings` are declared lanes with an empty state and nothing behind them. See [Service Catalogue](service-catalogue.md).
+- **Service Home** — [ServiceLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/presentation/ServiceLowerDeck.tsx) is Service-owned composition. `Details` holds the existing Service Catalogue, handed the template-kit props unchanged; `Connections` renders Service's own read-only Category-connections lane and `Settings` renders Service's own two creation launchers (Create Service, Create Category). See [Service Catalogue](service-catalogue.md).
 
 Neither station's lane content, deck layout, rows, or models are shared. Only the tab behaviour is.
 

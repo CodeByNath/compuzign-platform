@@ -16,8 +16,16 @@ import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 // authoritative detail from `service.id`), the package summaries, and the
 // category list for the overview editor. The Admin Station adapter resolves the
 // same three from a numeric recordId before mounting the composition.
+//
+// `service: null` addresses no stored post yet — the Settings lane's Create
+// Service launcher opens this SAME composition against the stable `'new'`
+// recordId sentinel. No fake numeric id stands in for it anywhere: the
+// pending Overview draft lives in useServiceStation's own local state, and
+// `service` only becomes non-null once the footer's Publish creates the real
+// record (mirrors Package Family's `'new'` sentinel, without widening
+// ServiceItem.id to carry it).
 export interface ServiceDrawerContentProps {
-  service:       ServiceItem;
+  service:       ServiceItem | null;
   packages:      SurfacePackageSummary[];
   allCategories: Category[];
   // Opening intent, carried from the surface that dispatched the drawer.

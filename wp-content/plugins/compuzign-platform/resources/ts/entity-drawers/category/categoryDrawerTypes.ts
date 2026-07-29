@@ -4,7 +4,9 @@ import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 
 export interface CategoryDrawerContentProps {
-  category: CategoryStationItem;
+  // null — the Settings lane's Create Category launcher — addresses no
+  // backing term yet. useCategoryStation represents that state locally.
+  category: CategoryStationItem | null;
   assignedServices: ServiceSummary[];
   initialTab?: DrawerTabId;
   initialEdit?: boolean;

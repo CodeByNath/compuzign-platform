@@ -4,12 +4,12 @@
 // prompts, and the new-never-published draft prompt. Each reads controller state
 // and calls a controller handler; none owns business logic or calls an API.
 
-import { decodeHtml } from '@/utils/format';
 import type { ServiceDrawerController } from './useServiceDrawerController';
 
 export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {
-  const serviceTitle = decodeHtml(c.service.title);
+  const serviceTitle = c.displayTitle || 'this service';
   const loading = c.station.loading.status;
+  const isNew = c.station.isNew;
 
   return (
     <>
@@ -19,31 +19,35 @@ export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {
           <div class="cz-publish-confirm">
             <div class="cz-publish-confirm__header">
               <h3 class="cz-publish-confirm__title">
-                {c.isActive ? `Settle changes to ${serviceTitle}?` : `Ready to publish ${serviceTitle}?`}
+                {isNew ? `Create ${serviceTitle}?` : c.isActive ? `Settle changes to ${serviceTitle}?` : `Ready to publish ${serviceTitle}?`}
               </h3>
             </div>
             <div class="cz-publish-confirm__body">
               <p class="cz-publish-confirm__lead">
-                {c.isActive
+                {isNew
+                  ? 'This creates the Service and enables the standard drawer lifecycle to continue from its real record.'
+                  : c.isActive
                   ? 'This confirms the current live content as the settled state for each module.'
                   : 'You are about to publish this service and make it visible in the catalog.'}
               </p>
-              <ul class="cz-publish-confirm__summary">
-                <li><strong>Service Overview:</strong> Ready</li>
-                <li style={c.inclSummary.orange ? 'color:var(--admin-warning);font-weight:600' : undefined}>
-                  <strong>Included Features:</strong> {c.inclSummary.text}
-                </li>
-                <li style={c.faqsSummary.orange ? 'color:var(--admin-warning);font-weight:600' : undefined}>
-                  <strong>Common Questions:</strong> {c.faqsSummary.text}
-                </li>
-              </ul>
+              {!isNew && (
+                <ul class="cz-publish-confirm__summary">
+                  <li><strong>Service Overview:</strong> Ready</li>
+                  <li style={c.inclSummary.orange ? 'color:var(--admin-warning);font-weight:600' : undefined}>
+                    <strong>Included Features:</strong> {c.inclSummary.text}
+                  </li>
+                  <li style={c.faqsSummary.orange ? 'color:var(--admin-warning);font-weight:600' : undefined}>
+                    <strong>Common Questions:</strong> {c.faqsSummary.text}
+                  </li>
+                </ul>
+              )}
             </div>
             <div class="cz-publish-confirm__footer">
               <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => c.setShowPublishModal(false)} disabled={loading}>
                 Cancel
               </button>
               <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={c.handleConfirmPublish} disabled={loading}>
-                {loading ? '…' : c.isActive ? 'Settle' : 'Publish'}
+                {loading ? '…' : isNew ? 'Create' : c.isActive ? 'Settle' : 'Publish'}
               </button>
             </div>
           </div>

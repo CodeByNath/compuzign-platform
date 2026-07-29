@@ -9,7 +9,8 @@
 import type { TierId } from '@/api/types/cost-builder';
 import type { SurfacePackageSummary } from '@/package-station';
 import { resolvePackageStatus } from '@/drawer-kit/utils/moduleStatus';
-import type { ServiceInclusionItem, ServiceFaqItem } from './types';
+import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications';
+import type { ServiceInclusionItem, ServiceFaqItem, OverviewDraft } from './types';
 
 const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
 
@@ -45,6 +46,35 @@ export function resolveFaqsStatus(
   if (transition === 'pending') return 'pending-full';
   if (!isActive) return 'pending-full';
   return 'active';
+}
+
+// ── Pending (no backing post yet) Overview module ─────────────────────────────
+// A Service opened at the `'new'` sentinel has no ServiceItem to resolve
+// resolveOverviewStatus/getOverviewNotes against — those are hard-typed to a
+// real ServiceItem, and fabricating one (a fake numeric id) is exactly what
+// this station must not do. The only two facts a pending Overview module needs
+// — is a draft in progress, and is that draft complete — do not require an
+// entity at all, so this mirrors the shared resolver's own branches locally
+// against the draft alone.
+
+export function derivePendingOverviewComplete(draft: OverviewDraft): boolean {
+  return !!draft.title.trim() && draft.category_id !== null && !!draft.content.trim();
+}
+
+export function derivePendingOverviewStatus(
+  draft: OverviewDraft,
+  transition: 'not-configured' | 'pending',
+): string {
+  if (transition === 'not-configured') return 'pending-dim';
+  return derivePendingOverviewComplete(draft) ? 'pending-full' : 'pending-dim';
+}
+
+export function derivePendingOverviewNotes(draft: OverviewDraft): ModuleNote[] {
+  const notes: ModuleNote[] = [];
+  if (!draft.title.trim())       notes.push({ id: 'overview.title.missing',    message: 'Title missing',       type: 'error' });
+  if (draft.category_id === null) notes.push({ id: 'overview.category.missing', message: 'Category not selected', type: 'error' });
+  if (!draft.content.trim())     notes.push({ id: 'overview.content.missing',  message: 'Description missing', type: 'error' });
+  return notes;
 }
 
 // ── Module registry projections ───────────────────────────────────────────────

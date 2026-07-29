@@ -22,10 +22,14 @@ export function CategoryDrawerHost({
   const categoriesApi = useApi(() => fetchAdminCategories());
   const catalogApi = useApi(() => fetchAdminCatalog());
 
-  const category = useMemo(
-    () => categoriesApi.data?.categories.find((item) => item.id === recordId) ?? null,
-    [categoriesApi.data, recordId],
-  );
+  // The stable `'new'` sentinel addresses no stored term: it resolves to
+  // `null` rather than a fabricated CategoryStationItem, so the mature drawer
+  // opens on its ordinary Overview module with nothing to fetch. `undefined`
+  // stays reserved for "requested id, but not found".
+  const category = useMemo(() => {
+    if (recordId === 'new') return null;
+    return categoriesApi.data?.categories.find((item) => item.id === recordId) ?? undefined;
+  }, [categoriesApi.data, recordId]);
 
   const assignedServices = useMemo(
     () => category
@@ -54,7 +58,7 @@ export function CategoryDrawerHost({
   if (categoriesApi.error || catalogApi.error) {
     return <div class="cz-station-drawer__state" role="alert">{categoriesApi.error ?? catalogApi.error}</div>;
   }
-  if (!category) {
+  if (category === undefined) {
     return <div class="cz-station-drawer__state">This Category is no longer available.</div>;
   }
 

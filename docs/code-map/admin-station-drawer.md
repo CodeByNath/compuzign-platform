@@ -10,7 +10,7 @@ Registration ownership is:
 
 | Key | Registrar | Host / composition owner | Size | Modes |
 | --- | --- | --- | --- | --- |
-| `category` | Admin Station | retained Admin Category adapter / Category drawer | normal | view, edit |
+| `category` | Admin Station | Admin Category host adapter / neutral Category drawer | normal | view, edit |
 | `service` | Service Station | Service Station | normal | view, edit |
 | `package-family` | Package Station | Package Station | normal | view, edit |
 | `tier` | Package Station | Package Station | normal | view, edit |
@@ -19,7 +19,7 @@ Registration ownership is:
 | `tier-rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
 | `tier-rate-sheet-group` | Package Station | Package Station | wide | view, edit |
 
-`DrawerMode` is `'view' | 'edit'`. There is no `create` mode: Family creation uses the `package-family` drawer's stable `'new'` recordId sentinel, while Tier registration uses the `tier` drawer's registration address.
+`DrawerMode` is `'view' | 'edit'`. There is no `create` mode: Family, Service, and Category creation each use their own drawer's stable `'new'` recordId sentinel, while Tier registration uses the `tier` drawer's registration address. Every `'new'`-sentinel host resolves to a `null` record — never a fabricated identity — and the owning station's own hook represents the pending state locally until its footer's Publish creates the real record.
 
 ## Drawer size
 
@@ -43,8 +43,8 @@ kit action with native record id
 
 ## Owning compositions
 
-- `admin-station/stations/serviceCategory/CategoryDrawerHost.tsx` mounts the Category composition and uses numeric Category identity.
-- `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity.
+- `admin-station/stations/serviceCategory/CategoryDrawerHost.tsx` mounts the Category composition and uses numeric Category identity, or the stable `'new'` sentinel resolved to `category: null`, and mounts the SAME composition either way.
+- `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity, or the stable `'new'` sentinel resolved to `service: null`, and mounts the SAME composition either way.
 - `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id`, or the stable `'new'` sentinel to a local empty record, and mounts the SAME Package Family composition either way.
 - `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id`, whole-instance, fixed-slot, and Tier registration identities, and rejects foreign identity shapes.
 

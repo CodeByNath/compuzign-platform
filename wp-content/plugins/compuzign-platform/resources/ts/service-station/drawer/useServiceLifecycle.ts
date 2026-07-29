@@ -11,7 +11,11 @@ import { useCallback } from 'preact/hooks';
 import type { ServiceItem, PlatformStatus } from '@/api/types/cost-builder';
 import type { ServiceStation } from '@/service-station';
 
-type SetService = (updater: (prev: ServiceItem) => ServiceItem) => void;
+// Nullable: a pending Service (no backing post yet) has no ServiceItem to
+// update, but every handler below only ever runs once the record is real
+// (guarded by the `isNew` checks in this file and the controller's own
+// pending-create branch), so `prev` is only theoretically nullable here.
+type SetService = (updater: (prev: ServiceItem | null) => ServiceItem | null) => void;
 
 export interface ServiceLifecycleArgs {
   station:             ServiceStation;
@@ -22,12 +26,12 @@ export interface ServiceLifecycleArgs {
 }
 
 export function useServiceLifecycle({ station, setService, closeBypassingGuard, closeSplit }: ServiceLifecycleArgs) {
-  const { toggleActive, archiveStation, trashStation, settleModules, publishService } = station;
+  const { toggleActive, archiveStation, trashStation, settleModules, publishService, isNew } = station;
 
   const handleToggleActive = useCallback(async () => {
     const result = await toggleActive();
     if (result) {
-      setService((prev) => ({
+      setService((prev) => prev && ({
         ...prev,
         meta: { ...prev.meta, platform_status: result.platform_status as PlatformStatus, module_status: result.module_status as any },
       }));
@@ -37,7 +41,7 @@ export function useServiceLifecycle({ station, setService, closeBypassingGuard, 
   const handleSettleModules = useCallback(async () => {
     const result = await settleModules();
     if (result) {
-      setService((prev) => ({
+      setService((prev) => prev && ({
         ...prev,
         title:      result.service.title,
         excerpt:    result.service.excerpt,
@@ -52,7 +56,7 @@ export function useServiceLifecycle({ station, setService, closeBypassingGuard, 
   const handlePublishService = useCallback(async () => {
     const result = await publishService();
     if (result) {
-      setService((prev) => ({
+      setService((prev) => prev && ({
         ...prev,
         ...(result.settled && result.service ? {
           title:      result.service.title,
@@ -75,9 +79,13 @@ export function useServiceLifecycle({ station, setService, closeBypassingGuard, 
 
   const handleTrash = useCallback(async () => {
     closeSplit();
+    // Nothing is stored yet for a pending Service: discarding it is simply
+    // closing, never a status write against an id that does not exist —
+    // mirrors Package Family's `group_id === ''` guard on the same action.
+    if (isNew) { closeBypassingGuard(); return; }
     const result = await trashStation();
     if (result) closeBypassingGuard();
-  }, [trashStation, closeBypassingGuard, closeSplit]);
+  }, [trashStation, closeBypassingGuard, closeSplit, isNew]);
 
   return { handleToggleActive, handleSettleModules, handlePublishService, handleArchive, handleTrash };
 }

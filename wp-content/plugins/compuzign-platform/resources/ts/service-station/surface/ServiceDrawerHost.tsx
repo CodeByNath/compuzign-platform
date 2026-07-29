@@ -41,13 +41,20 @@ export function ServiceDrawerHost({
 
   // Resolve by the record's OWN native id. A Service id is numeric, so a foreign
   // id shape simply fails to match and the neutral state renders — nothing is
-  // coerced to force a match.
+  // coerced to force a match. The stable `'new'` sentinel addresses no stored
+  // post: it resolves to `null` rather than a fabricated ServiceItem, so the
+  // mature drawer opens on its ordinary Overview module with nothing to fetch.
+  // `undefined` (below) stays reserved for "requested id, but not found".
   const summary = useMemo(
-    () => (data?.stations ?? []).find((s) => s.id === recordId),
+    () => (recordId === 'new' ? undefined : (data?.stations ?? []).find((s) => s.id === recordId)),
     [data, recordId],
   );
+  const isNew = recordId === 'new';
 
-  const service       = useMemo(() => (summary ? buildServiceItemForStationHandoff(summary) : null), [summary]);
+  const service = useMemo(
+    () => (isNew ? null : summary ? buildServiceItemForStationHandoff(summary) : undefined),
+    [isNew, summary],
+  );
   const allCategories = useMemo(() => normalizeAdminCategories(data?.categories ?? []), [data]);
   const packages      = packagesData?.packages ?? [];
 
@@ -69,9 +76,9 @@ export function ServiceDrawerHost({
     onMutationComplete: () => savedRef.current(),
   }), []);
 
-  if (loading && !data) return <div class="cz-station-drawer__state">Loading service…</div>;
-  if (error)            return <div class="cz-station-drawer__state">{error}</div>;
-  if (!service)         return <div class="cz-station-drawer__state">This service is no longer available.</div>;
+  if (loading && !data)     return <div class="cz-station-drawer__state">Loading service…</div>;
+  if (error)                return <div class="cz-station-drawer__state">{error}</div>;
+  if (service === undefined) return <div class="cz-station-drawer__state">This service is no longer available.</div>;
 
   return (
     <ServiceDrawerContent

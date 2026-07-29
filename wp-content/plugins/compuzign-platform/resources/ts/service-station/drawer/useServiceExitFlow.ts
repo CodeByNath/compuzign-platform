@@ -27,7 +27,7 @@ export interface ServiceExitFlowArgs {
 export function useServiceExitFlow({
   bridge, station, editing, isNewNeverPublished, settleModules,
 }: ServiceExitFlowArgs) {
-  const { isActive, hasPendingModules, overviewDraft: stationOverviewDraft, saveOverview, trashStation } = station;
+  const { isActive, isNew, hasPendingModules, overviewDraft: stationOverviewDraft, saveOverview, trashStation } = station;
   const { editingSection, isEditorDirty, clearEditState, saveCurrentModule, setSaveErr } = editing;
 
   const [exitDialog,   setExitDialog]   = useState<ServiceExitDialog>(null);
@@ -36,9 +36,16 @@ export function useServiceExitFlow({
 
   // Evaluate whether an exit may proceed now; raise the matching dialog if not.
   // Closes over current render state — useGuardedClose reads it through a ref.
+  //
+  // 'new-service-draft' names a real persisted-but-unpublished post whose saved
+  // draft survives the drawer closing — it does not apply to a pending (no
+  // backing post) Service, whose local draft is inherently ephemeral until
+  // Publish creates the record. A pending Service falls through to the plain
+  // dirty-editor guard, the same close behaviour Package Family's `'new'`
+  // sentinel already has.
   const evaluateExit = (): boolean => {
     if (editingSection && isEditorDirty) { setExitDialog('unsaved'); return false; }
-    if (isNewNeverPublished && stationOverviewDraft !== null) { setExitDialog('new-service-draft'); return false; }
+    if (isNewNeverPublished && !isNew && stationOverviewDraft !== null) { setExitDialog('new-service-draft'); return false; }
     if (isActive && hasPendingModules) { setExitDialog('pending'); return false; }
     return true;
   };

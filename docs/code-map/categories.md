@@ -11,11 +11,13 @@ Category owns numeric identity, Overview draft/lifecycle, and optional Service C
 - [category.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/category.tsx) defines Category Overview and Assigned Services shells.
 - [category.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/category.ts) is the neutral drawer manifest.
 - [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/CategoryOverviewEditor.tsx) edits name, description, and structural group selection through the shared inline editor.
-- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell.
+- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell. It also resolves the stable `'new'` recordId sentinel to `category: null` — no fabricated CategoryStationItem — so the SAME composition opens on its ordinary Overview module with nothing to fetch; [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) represents that pending state with its own local Overview draft and exposes `createCategory(groupId)`, the footer Publish's one authoritative creation.
 
-## Admin Station card flow
+## Ownership verdict and Admin Station's actual role
 
-`ServiceCategoryCarousel` emits `view` with `category.id` → the `service-categories` surface binding names the `category` template → `CategoryDrawerHost` resolves with strict numeric equality → `CategoryDrawerContent` mounts inside the one `AdminStationDrawer`. Successful mutations refresh only that carousel wall.
+Category is a **neutral entity lifecycle mounted by Admin Station**, not Admin-owned business logic: `CategoryDrawerContent`, `useCategoryDrawerController`, `useCategoryStation`, the schema/bindings, and the inline editor are host-neutral and import no Admin Station module beyond legitimate shared presentation/icons. `Modules/Admin`'s `AdminCategoriesController.php`/`CategoryMeta.php` are the genuine, current, authoritative Category backend — not legacy residue; the name reflects that Category is philosophically an admin-only taxonomy concept, not that the module is stale. Admin Station's own contribution is strictly host/registration: `CategoryDrawerHost.tsx` (id resolution and mount) and the `category` key's registration in `admin-station/register.ts`. Screen placement under `admin-station/` does not transfer domain ownership.
+
+`ServiceCategoryCarousel` and its `service-categories` data source remain registered but are not bound to any placement — no surface binding names them (see [Service Catalogue](service-catalogue.md)'s Registration section for what the `service-lower-deck` binding does carry). **Service Home Connections is the active Category entry point today**: it reads the same authoritative Category list this carousel would, and its View action opens this same `category` drawer by real id.
 
 ## State and persistence
 
@@ -30,7 +32,7 @@ Overview and Connections use shared schema shells, status pills, notifications, 
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, and `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, `npm run regression:category-create`, and `npm run docs:check`.
 
 ## Related Code Maps
 

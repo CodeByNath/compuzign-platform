@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import {
+  createCategory as createCategoryApi,
   permanentDeleteCategory,
   restoreCategory,
   revertCategoryOverview,
@@ -29,11 +30,18 @@ export interface CategoryStation {
   // ── Identity ──────────────────────────────────────────────────────────────
   platformStatus: string;
   isActive:       boolean;
+  // No backing term yet — Settings' Create Category launcher, before Publish.
+  isNew:          boolean;
 
   // ── Draft-preferred projection ────────────────────────────────────────────
-  // The station's current view of the category: name/description show the
-  // draft when one exists (server-merged; refreshed locally after mutations).
-  category:      CategoryStationItem;
+  // `category` is the real record once one exists, and null while pending — no
+  // fake numeric id stands in for it. `displayName`/`displayDescription`/
+  // `displaySlug` are the draft-preferred values either state renders through,
+  // so callers do not need to branch on `category` for ordinary display.
+  category:           CategoryStationItem | null;
+  displayName:        string;
+  displayDescription: string;
+  displaySlug:        string | null;
   hasDraft:      boolean;
   moduleStatus:  { overview: string };
   assignedCount: number;
@@ -63,93 +71,132 @@ export interface CategoryStation {
   trashStation:    () => Promise<CategoryStationItem | null>;
   restoreStation:  () => Promise<CategoryStationItem | null>;
   deleteStation:   () => Promise<boolean>;
+  // The pending record's one authoritative creation. Persists the drafted
+  // Overview (staged locally by saveOverview above) as a brand-new Category,
+  // applies the chosen Group membership if any was picked before creation, and
+  // returns the server-issued record — mirrors createFamily/createService.
+  createCategory:  (groupId: number | null) => Promise<CategoryStationItem | null>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useCategoryStation(
-  category:       CategoryStationItem,
+  category:       CategoryStationItem | null,
   onRefresh?:     () => void,
   serviceCounts?: CategoryServiceCounts,
 ): CategoryStation {
   // Local station state: seeded from the list projection, patched from mutation
   // responses (each returns the refreshed projection), re-synced when the
-  // parent's refetch delivers a fresh prop. No detail fetch exists — the list
-  // projection is complete (unlike the service station's drawer-open fetch).
-  const [station, setStation] = useState<CategoryStationItem>(category);
+  // parent's refetch delivers a fresh prop. A pending (`category === null`)
+  // seed never re-syncs — the host keeps resolving the stable `'new'` recordId
+  // to `null` for the whole session, exactly like Package Family's `'new'`
+  // sentinel never changes on the host side — so `created` transitions from
+  // `null` to the real record exactly once, via createCategory below, and stays
+  // there regardless of how many more times the host re-offers `null`.
+  const [created, setCreated] = useState<CategoryStationItem | null>(category);
   const [statusSaving, setStatusSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // The pending Overview draft — the only thing a not-yet-created Category can
+  // hold. Group membership stays with the controller until creation (see
+  // createCategory's groupId argument).
+  const [pendingDraft, setPendingDraft] = useState<CategoryOverviewDraft>({ name: '', description: '' });
+  const [pendingModuleStatus, setPendingModuleStatus] = useState<'not-configured' | 'pending'>('not-configured');
+
   useEffect(() => {
-    setStation(category);
+    if (category !== null) setCreated(category);
   }, [category]);
 
+  const isNew = created === null;
+
   // ── Derived: identity ──────────────────────────────────────────────────────
-  const platformStatus = station.platform_status;
+  const platformStatus = created?.platform_status ?? 'disabled';
   const isActive       = platformStatus === 'active';
+
+  const displayName        = created?.name ?? pendingDraft.name;
+  const displayDescription = created?.description ?? pendingDraft.description;
+  const displaySlug        = created?.slug ?? null;
+  const moduleStatus        = created?.module_status ?? { overview: pendingModuleStatus };
+  const hasDraft            = created?.has_draft ?? (pendingModuleStatus === 'pending');
+  const assignedCount       = created?.assigned_count ?? 0;
 
   // ── Derived: module computed state ─────────────────────────────────────────
   const counts: CategoryServiceCounts = serviceCounts
-    ?? { total: station.assigned_count, active: 0, disabled: 0 };
+    ?? { total: assignedCount, active: 0, disabled: 0 };
 
   const overviewCtx: NoteContext = {
     platformStatus,
     platformLabel:    'Category',
-    moduleTransition: station.module_status.overview,
-    hasDraft:         station.has_draft,
+    moduleTransition: moduleStatus.overview,
+    hasDraft,
   };
+  // categoryOverviewModule takes plain { name, description, slug } data, not a
+  // CategoryStationItem, so the pending and persisted paths both feed it the
+  // same draft-preferred values unconditionally — no fabricated record needed.
   const overviewState = evaluateModule(categoryOverviewModule, {
-    name:        station.name,
-    description: station.description,
-    slug:        station.slug,
+    name:        displayName,
+    description: displayDescription,
+    slug:        displaySlug ?? '',
   }, overviewCtx);
 
   // The services gateway has no lifecycle of its own (pure projection, D4):
   // no moduleTransition, no draft — only the category's platform status.
 
   // Description is optional — publishing gates on the name only.
-  const canPublish = !!station.name.trim();
+  const canPublish = !!displayName.trim();
 
   // ── Actions ────────────────────────────────────────────────────────────────
+  // Every action below that addresses an existing term is a no-op while
+  // `created` is null: none of them are reachable from the pending drawer's
+  // footer/dialogs (only Overview edits and createCategory are).
 
   const saveOverview = useCallback(async (draft: CategoryOverviewDraft): Promise<Record<string, string>> => {
-    const result = await saveCategoryOverview(station.id, draft);
+    if (!created) {
+      setPendingDraft(draft);
+      const status = draft.name.trim() ? 'pending' : 'not-configured';
+      setPendingModuleStatus(status);
+      return { overview: status };
+    }
+    const result = await saveCategoryOverview(created.id, draft);
     if (!result.success) throw new Error('Failed to save changes.');
-    setStation(prev => ({
+    setCreated(prev => prev ? ({
       ...prev,
       name:          result.draft.name,
       description:   result.draft.description,
       has_draft:     true,
       module_status: result.module_status,
-    }));
+    }) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
 
   const updateGroupMembership = useCallback(async (groupId: number | null): Promise<CategoryStationItem | null> => {
-    const result = await updateServiceCategoryGroup(station.id, groupId);
+    if (!created) return null;
+    const result = await updateServiceCategoryGroup(created.id, groupId);
     if (result.success) {
-      setStation(result.category);
+      setCreated(result.category);
       onRefresh?.();
       return result.category;
     }
     return null;
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
 
   const revertOverview = useCallback(async (): Promise<void> => {
-    const result = await revertCategoryOverview(station.id);
+    if (!created) return;
+    const result = await revertCategoryOverview(created.id);
     if (result.success) {
-      setStation(result.category);
+      setCreated(result.category);
       onRefresh?.();
     }
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
 
   const settleModules = useCallback(async (): Promise<CategoryStationItem | null> => {
+    if (!created) return null;
     setStatusSaving(true);
     try {
-      const result = await settleCategoryOverview(station.id);
+      const result = await settleCategoryOverview(created.id);
       if (result.success) {
-        setStation(result.category);
+        setCreated(result.category);
         onRefresh?.();
         return result.category;
       }
@@ -157,20 +204,23 @@ export function useCategoryStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
 
   // Publish = settle + activate, mirroring publishService. Settling without a
   // draft is a harmless re-derivation backend-side.
   const publishCategory = useCallback(async (): Promise<CategoryStationItem | null> => {
+    if (!created) return null;
     setStatusSaving(true);
     try {
-      const settleResult = await settleCategoryOverview(station.id);
+      const settleResult = await settleCategoryOverview(created.id);
+      let next = created;
       if (settleResult.success) {
-        setStation(settleResult.category);
+        next = settleResult.category;
+        setCreated(next);
       }
-      const statusResult = await updateCategoryStatus(station.id, 'active');
+      const statusResult = await updateCategoryStatus(next.id, 'active');
       if (statusResult.success) {
-        setStation(statusResult.category);
+        setCreated(statusResult.category);
         onRefresh?.();
         return statusResult.category;
       }
@@ -178,16 +228,17 @@ export function useCategoryStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
 
   const applyStatus = useCallback(async (
     target: 'active' | 'disabled' | 'archived' | 'trashed',
   ): Promise<CategoryStationItem | null> => {
+    if (!created) return null;
     setStatusSaving(true);
     try {
-      const result = await updateCategoryStatus(station.id, target);
+      const result = await updateCategoryStatus(created.id, target);
       if (result.success) {
-        setStation(result.category);
+        setCreated(result.category);
         onRefresh?.();
         return result.category;
       }
@@ -195,18 +246,19 @@ export function useCategoryStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
 
   const toggleActive   = useCallback(() => applyStatus(isActive ? 'disabled' : 'active'), [applyStatus, isActive]);
   const archiveStation = useCallback(() => applyStatus('archived'), [applyStatus]);
   const trashStation   = useCallback(() => applyStatus('trashed'), [applyStatus]);
 
   const restoreStation = useCallback(async (): Promise<CategoryStationItem | null> => {
+    if (!created) return null;
     setStatusSaving(true);
     try {
-      const result = await restoreCategory(station.id);
+      const result = await restoreCategory(created.id);
       if (result.success) {
-        setStation(result.category);
+        setCreated(result.category);
         onRefresh?.();
         return result.category;
       }
@@ -214,15 +266,16 @@ export function useCategoryStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
 
   // Trashed-only + D6 guard. A guard failure surfaces as a thrown error
   // (HTTP 409, body { message, assigned_count }) for the caller's
   // inline-confirm error path — it is not swallowed here.
   const deleteStation = useCallback(async (): Promise<boolean> => {
+    if (!created) return false;
     setDeleting(true);
     try {
-      const result = await permanentDeleteCategory(station.id);
+      const result = await permanentDeleteCategory(created.id);
       if (result.success) {
         onRefresh?.();
         return true;
@@ -231,15 +284,38 @@ export function useCategoryStation(
     } finally {
       setDeleting(false);
     }
-  }, [station.id, onRefresh]);
+  }, [created, onRefresh]);
+
+  // The pending record's one authoritative creation. Persists the drafted
+  // Overview, and the Group chosen before creation (if any), as a brand-new
+  // Category in one request — the backend's create route already accepts
+  // `group_id` directly — the same "born disabled, overview pending" state as
+  // any other newly created Category, so every existing lifecycle/footer
+  // computation applies unchanged from here.
+  const createCategory = useCallback(async (groupId: number | null): Promise<CategoryStationItem | null> => {
+    setStatusSaving(true);
+    try {
+      const response = await createCategoryApi({ name: pendingDraft.name, description: pendingDraft.description, group_id: groupId });
+      if (!response.success) throw new Error(response.message ?? 'Could not create the Category.');
+      setCreated(response.category);
+      onRefresh?.();
+      return response.category;
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [pendingDraft, onRefresh]);
 
   return {
     platformStatus,
     isActive,
-    category:      station,
-    hasDraft:      station.has_draft,
-    moduleStatus:  station.module_status,
-    assignedCount: station.assigned_count,
+    isNew,
+    category:      created,
+    displayName,
+    displayDescription,
+    displaySlug,
+    hasDraft,
+    moduleStatus,
+    assignedCount,
     serviceCounts: counts,
     modules: {
       overview: overviewState,
@@ -256,5 +332,6 @@ export function useCategoryStation(
     trashStation,
     restoreStation,
     deleteStation,
+    createCategory,
   };
 }

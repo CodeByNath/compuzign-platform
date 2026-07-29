@@ -41,8 +41,8 @@ export function useCategoryDrawerController({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<CategoryOverviewDraft | null>(null);
   const [original, setOriginal] = useState<CategoryOverviewDraft | null>(null);
-  const [groupId, setGroupId] = useState<number | null>(category.group_id);
-  const [groupIdOriginal, setGroupIdOriginal] = useState<number | null>(category.group_id);
+  const [groupId, setGroupId] = useState<number | null>(category?.group_id ?? null);
+  const [groupIdOriginal, setGroupIdOriginal] = useState<number | null>(category?.group_id ?? null);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
@@ -51,12 +51,15 @@ export function useCategoryDrawerController({
   const [confirmDialog, setConfirmDialog] = useState<CategoryConfirmDialog>(null);
   const [exitDialog, setExitDialog] = useState<CategoryExitDialog>(null);
 
+  // Re-syncs the closed-state group display from the authoritative persisted
+  // record. A pending Category has no authoritative group_id to sync from yet
+  // — the user's pending choice stays put here until Publish applies it.
   useEffect(() => {
-    if (!editing) {
+    if (!editing && station.category) {
       setGroupId(station.category.group_id);
       setGroupIdOriginal(station.category.group_id);
     }
-  }, [editing, station.category.group_id]);
+  }, [editing, station.category]);
 
   useAutoDismiss(saveOk, () => setSaveOk(false), 3000);
 
@@ -73,8 +76,8 @@ export function useCategoryDrawerController({
 
   const openOverviewEditor = useCallback(() => {
     const seed = {
-      name: station.category.name,
-      description: station.category.description,
+      name: station.displayName,
+      description: station.displayDescription,
     };
     setOriginal(seed);
     setDraft(seed);
@@ -82,7 +85,7 @@ export function useCategoryDrawerController({
     setEditing(true);
     setOpenPanel(null);
     setSaveErr(null);
-  }, [groupId, station.category.description, station.category.name]);
+  }, [groupId, station.displayDescription, station.displayName]);
 
   const initialEditOpened = useRef(false);
   useEffect(() => {
@@ -110,7 +113,10 @@ export function useCategoryDrawerController({
     setSaveErr(null);
     try {
       await station.saveOverview(draft);
-      if (groupId !== groupIdOriginal) {
+      // A pending Category has no term to patch group membership on yet; the
+      // chosen group stays in local `groupId` state and createCategory below
+      // applies it once the record exists.
+      if (station.category && groupId !== groupIdOriginal) {
         await station.updateGroupMembership(groupId);
         setGroupIdOriginal(groupId);
       }
@@ -153,8 +159,17 @@ export function useCategoryDrawerController({
 
   const handleConfirmPublish = useCallback(async () => {
     setConfirmDialog(null);
+    // A pending Category addresses no stored term: the footer's Publish is
+    // this record's one authoritative creation, not a settle/activate pair
+    // against an id that does not exist yet — mirrors Package Family's `'new'`
+    // guard on the same action. Any Group chosen before creation travels
+    // along as createCategory's argument.
+    if (!station.category) {
+      await runLifecycle(() => station.createCategory(groupId));
+      return;
+    }
     await runLifecycle(station.isActive ? station.settleModules : station.publishCategory);
-  }, [runLifecycle, station]);
+  }, [runLifecycle, station, groupId]);
 
   const handleConfirmDiscard = useCallback(async () => {
     setConfirmDialog(null);
@@ -188,9 +203,9 @@ export function useCategoryDrawerController({
 
   const overviewBinding: ShellBinding<CategoryOverviewShellData> = {
     data: {
-      name: station.category.name,
-      slug: station.category.slug,
-      description: station.category.description,
+      name: station.displayName,
+      slug: station.displaySlug ?? '',
+      description: station.displayDescription,
       groupName,
     },
     state: station.modules.overview,
@@ -252,7 +267,10 @@ export function useCategoryDrawerController({
     handleConfirmDestructive,
     handleToggleActive: () => void runLifecycle(station.toggleActive),
     handleArchive: () => void runLifecycle(station.archiveStation, true),
-    handleTrash: () => setConfirmDialog('trash'),
+    // Nothing is stored yet for a pending Category: discarding it is simply
+    // closing, never a status write against an id that does not exist —
+    // mirrors Package Family's `group_id === ''` guard on the same action.
+    handleTrash: () => { if (!station.category) { closeBypassingGuard(); return; } setConfirmDialog('trash'); },
     handleRestore: () => void runLifecycle(station.restoreStation),
     handleDelete: () => setConfirmDialog('delete'),
     openPublish: () => setConfirmDialog('publish'),

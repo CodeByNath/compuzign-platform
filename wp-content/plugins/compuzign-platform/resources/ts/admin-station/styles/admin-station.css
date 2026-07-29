@@ -1190,6 +1190,173 @@ button.cz-station-status-pill {
   padding: 18px 20px 20px;
 }
 
+/* ── Service Connections / Settings rows ───────────────────────────────────
+   Cell content for Service's own lanes on the shared station list system
+   (`cz-station-list` / `cz-station-list__cell` above). Restated under Service's
+   own class names, byte-for-byte the same shape as the Package-owned
+   `cz-tier-deck__*` rules: no Tier deck class is reused here. */
+
+.cz-service-deck__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cz-service-deck__identity-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--station-card-icon-size);
+  height: var(--station-card-icon-size);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+}
+
+.cz-service-deck__identity-icon > svg {
+  width: var(--station-card-glyph-size);
+  height: var(--station-card-glyph-size);
+}
+
+.cz-service-deck__identity-copy {
+  min-width: 0;
+}
+
+.cz-service-deck__identity-name {
+  display: block;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-service-deck__identity-ref {
+  display: block;
+  margin-top: 2px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
+.cz-service-deck__field {
+  min-width: 0;
+  font-size: var(--station-text-sm);
+}
+
+.cz-service-deck__field-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
+}
+
+.cz-service-deck__count {
+  font-weight: 700;
+}
+
+.cz-service-deck__status {
+  justify-self: start;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--station-pill-radius);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cz-service-deck__status[data-status="active"] {
+  background: var(--station-status-active-bg);
+  border-color: var(--station-status-active-border);
+  color: var(--station-status-active-fg);
+}
+
+.cz-service-deck__status[data-status="pending"] {
+  background: var(--station-status-pending-bg);
+  border-color: var(--station-status-pending-border);
+  color: var(--station-status-pending-fg);
+}
+
+.cz-service-deck__status[data-status="inactive"] {
+  background: var(--station-status-inactive-bg);
+  border-color: var(--station-status-inactive-border);
+  color: var(--station-status-inactive-fg);
+}
+
+.cz-service-deck__row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cz-service-deck__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--station-grid-gap);
+  min-height: var(--station-control-height);
+  padding-inline: var(--station-control-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--station-control-radius);
+  font: inherit;
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+  line-height: var(--station-line-snug);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.cz-service-deck__button--primary {
+  border-color: var(--station-action-bg);
+  background: var(--station-action-bg);
+  color: var(--station-accent-on);
+}
+
+.cz-service-deck__button--primary:hover:not(:disabled) {
+  border-color: var(--station-action-bg-hover);
+  background: var(--station-action-bg-hover);
+}
+
+.cz-service-deck__button:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+/* A launcher is one sentence and one button — the same "no form" shape as
+   Package Home's Settings launchers, restated under Service's own names. */
+.cz-service-settings__launcher {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 62ch;
+}
+
+.cz-service-settings__launchers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  width: 100%;
+}
+
+.cz-service-settings__muted {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+}
+
+/* Service Home closes the same inherited-foreground-colour boundary the Tier
+   deck's own rule does, restated here so this file's one rule-lookup per deck
+   comment stays unambiguous. */
+.cz-service-deck__identity-name,
+.cz-service-deck__field,
+.cz-service-deck__count {
+  color: var(--station-text);
+}
+
 /* ── Service Catalogue ─────────────────────────────────────────────────── */
 
 .cz-service-catalogue {
@@ -1412,6 +1579,18 @@ button.cz-station-status-pill {
 
 .cz-station-list__row--settings {
   grid-template-columns: minmax(200px, 1.6fr) minmax(140px, 0.9fr) minmax(120px, 0.6fr) auto;
+}
+
+/* Service Home's own column templates — different column counts than Package's
+   above, so they declare their own modifiers rather than reusing `--connection`
+   / `--settings`, per the shared list system's "add a selector, not a second
+   family" rule. */
+.cz-station-list__row--service-connections {
+  grid-template-columns: minmax(200px, 1.6fr) minmax(160px, 0.8fr) minmax(120px, 0.6fr) auto;
+}
+
+.cz-station-list__row--service-settings {
+  grid-template-columns: 1fr;
 }
 
 .cz-service-catalogue__table th,
