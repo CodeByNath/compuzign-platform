@@ -150,6 +150,10 @@ class PackageFamiliesController
                 $station['tier_assignments'] ?? [],
                 (string) $group['group_id']
             );
+            $projection['active_tier_slots'] = PackageCategoryGroups::activeTierSlotSummary(
+                $station,
+                (string) $group['group_id']
+            );
             $projection['related_service_ids'] = PackageCategoryGroups::relatedServiceIds(
                 $station,
                 (string) $group['group_id']
@@ -373,12 +377,14 @@ class PackageFamiliesController
             $station['tier_assignments'] ?? [],
             $gid
         );
+        $activeTierSlots = PackageCategoryGroups::activeTierSlotSummary($station, $gid);
 
         return rest_ensure_response([
             'success' => true,
             'group'   => [
                 ...PackageCategoryGroups::projection($group, $dependents),
                 'tier_assignment_count' => $tierAssignmentCount,
+                'active_tier_slots'     => $activeTierSlots,
             ],
         ]);
     }

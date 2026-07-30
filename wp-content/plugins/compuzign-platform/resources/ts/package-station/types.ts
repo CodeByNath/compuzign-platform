@@ -116,6 +116,14 @@ export interface PackageFamilyDependents {
   tier_selections: number;
 }
 
+/** Occupied ACTIVE Tier slots vs. fixed slot capacity for the one Tier
+ *  instance assigned to this Family. Zero of zero when unassigned — a
+ *  Family with no assignment owns no Tier system to report slots for. */
+export interface ActiveTierSlots {
+  occupied: number;
+  capacity: number;
+}
+
 export interface PackageFamilyItem {
   group_id:                 string;
   label:                    string;
@@ -129,6 +137,7 @@ export interface PackageFamilyItem {
   dependents:               PackageFamilyDependents;
   /** Capability use is not a readiness/dependency metric. */
   tier_assignment_count?:   number;
+  active_tier_slots?:       ActiveTierSlots;
 }
 
 /** Package Family list row with Package-owned Service relationship identity. */

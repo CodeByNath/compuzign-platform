@@ -107,6 +107,54 @@ final class PackageCategoryGroups
     }
 
     /**
+     * Occupied ACTIVE Tier slots for the one Tier instance assigned to this
+     * Family (cardinality is one assignment per Family — TierAssignmentSchema
+     * enforces it), out of that instance's fixed slot capacity
+     * (PackageSchema::ALLOWED_TIERS, 5). A slot counts only when it holds a
+     * living occupant whose platform_status is 'active' — empty slots,
+     * disabled occupants, and a Family with no assignment at all are excluded,
+     * never treated as active. A Family with no assignment owns no Tier
+     * system, so it reports zero occupied of zero capacity rather than a
+     * misleading zero-of-five.
+     *
+     * @return array{occupied:int, capacity:int}
+     */
+    public static function activeTierSlotSummary(array $station, string $groupId): array
+    {
+        $assignment = TierAssignmentSchema::findForConsumer(
+            is_array($station['tier_assignments'] ?? null) ? $station['tier_assignments'] : [],
+            'package_family',
+            $groupId
+        );
+        if ($assignment === null) {
+            return ['occupied' => 0, 'capacity' => 0];
+        }
+
+        $instance = TierInstanceSchema::findInstance(
+            is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [],
+            $assignment['tier_instance_id'] ?? null
+        );
+        if ($instance === null) {
+            return ['occupied' => 0, 'capacity' => 0];
+        }
+
+        $occupied = 0;
+        foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+            $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
+            if (PackageSchema::isOccupantFormat($slot)) {
+                $occ = $slot['current_occupant'] ?? null;
+                if ($occ !== null && ($occ['platform_status'] ?? 'active') === 'active') {
+                    $occupied++;
+                }
+            } elseif (!empty($slot) && (($slot['enabled'] ?? true) !== false)) {
+                $occupied++;
+            }
+        }
+
+        return ['occupied' => $occupied, 'capacity' => count(PackageSchema::ALLOWED_TIERS)];
+    }
+
+    /**
      * Station create — born disabled with the overview module pending, exactly
      * matching the Service Category Group taxonomy station's create semantics.
      *

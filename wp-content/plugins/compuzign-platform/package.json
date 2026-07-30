@@ -8,6 +8,7 @@
     "contract:cost-builder-isolation": "tsx scripts/cost-builder-isolation-contract.ts",
     "contract:drawer-module-entry": "tsx scripts/drawer-module-entry-contract.ts",
     "contract:package-family-capability": "tsx scripts/package-family-capability-contract.ts",
+    "contract:package-family-card-metrics": "tsx scripts/package-family-card-metrics-contract.ts",
     "contract:package-tier-workspace": "tsx scripts/package-tier-workspace-contract.ts",
     "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",
     "contract:service-home-connections": "tsx scripts/service-home-connections-contract.ts",

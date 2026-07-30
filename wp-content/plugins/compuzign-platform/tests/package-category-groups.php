@@ -16,6 +16,9 @@ require_once __DIR__ . '/../src/Modules/Admin/Support/StationLifecycle.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageCategoryGroups.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageManagerSchema.php';
 require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageStationSchema.php';
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/PackageSchema.php';
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/TierInstanceSchema.php';
+require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/TierAssignmentSchema.php';
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups as PCG;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema as PMS;
@@ -223,5 +226,46 @@ assertSameValue([10], PCG::relatedServiceIds($station, 'pcg_kairos'), 'Package F
 
 $noDepGroup = PCG::dependents($station, $model['items'], 'pcg_other');
 assertSameValue(['services' => 0, 'rate_sheet_rows' => 0, 'tier_selections' => 0], $noDepGroup, 'unrelated group has no dependents');
+
+// ── Active Tier slot summary — occupied ACTIVE slots vs. fixed capacity ──────
+// Independent of tier_selections: a slot counts once regardless of how many
+// rate-sheet rows its occupant selects, and a disabled/empty slot never
+// counts even though `dependents.tier_selections` would still be nonzero for
+// other slots. Cardinality is one assignment per Family, so capacity is
+// always the flat 5-slot constant once assigned, never a sum across instances.
+
+assertSameValue(
+    ['occupied' => 0, 'capacity' => 0],
+    PCG::activeTierSlotSummary($station, 'pcg_kairos'),
+    'a Family with no Tier assignment reports zero occupied of zero capacity, not zero of five'
+);
+
+$assignedStation = $station;
+$assignedStation['tier_assignments'] = [[
+    'assignment_id' => 'tasg_kairos', 'consumer_type' => 'package_family',
+    'consumer_id' => 'pcg_kairos', 'tier_instance_id' => 'ti_primary',
+]];
+// 'basic' is an occupant-format slot with an implicit active status (no
+// platform_status key — defaults to 'active'); 'standard' is legacy flat
+// format with no explicit `enabled` (also defaults active); a third slot is
+// occupant-format but explicitly disabled and must not count; the two
+// remaining fixed slots ('premium', 'enterprise', 'ultimate') stay empty.
+$assignedStation['tier_instances'][0]['tiers']['premium'] = [
+    'current_occupant' => ['platform_status' => 'disabled', 'rate_sheet_items' => []],
+];
+$summary = PCG::activeTierSlotSummary($assignedStation, 'pcg_kairos');
+assertSameValue(5, $summary['capacity'], 'capacity is the flat 5 fixed-slot constant once a Tier instance is assigned');
+assertSameValue(2, $summary['occupied'], 'only living active occupants count — the disabled slot and the two empty slots are excluded');
+
+$unmatchedAssignmentStation = $station;
+$unmatchedAssignmentStation['tier_assignments'] = [[
+    'assignment_id' => 'tasg_ghost', 'consumer_type' => 'package_family',
+    'consumer_id' => 'pcg_kairos', 'tier_instance_id' => 'ti_missing',
+]];
+assertSameValue(
+    ['occupied' => 0, 'capacity' => 0],
+    PCG::activeTierSlotSummary($unmatchedAssignmentStation, 'pcg_kairos'),
+    'an assignment pointing at a nonexistent instance reports zero of zero rather than throwing'
+);
 
 fwrite(STDOUT, "PackageCategoryGroups contract tests passed.\n");
