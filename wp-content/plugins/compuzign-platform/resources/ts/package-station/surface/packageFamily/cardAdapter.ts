@@ -86,23 +86,28 @@ export function resolvePackageFamilyCardStatus(item: PackageFamilyItem): Categor
 /**
  * Render the Tiers metric.
  *
+ * The card shows the raw active-occupant count only (`occupied`) — not the
+ * "N of 5 active" phrase — so it reads as a plain number alongside Services
+ * and Inclusions rather than a sentence that dominates the row. `capacity`
+ * itself is never shown; it still governs only whether the Family has a Tier
+ * system at all.
+ *
  * `capacity` is 0 only when the Family has no Tier assignment at all (or,
  * degenerately, an assignment pointing at a missing instance) — the backend
  * never reports a nonzero capacity without a real assigned instance behind
- * it (PackageCategoryGroups::activeTierSlotSummary). That case reads "Not
- * assigned", echoing the platform's existing vocabulary for the same state
- * (tierInstanceModel.ts's `consumerName: 'Unassigned'`, PackageTierWorkspace's
- * "No Tier system assigned") rather than "0 of 0 active", which would read as
- * a Family with zero Tier capacity rather than one with no Tier system yet.
- * An assigned instance always reports the true fixed capacity (5), so "0 of 5
- * active" (assigned, nothing active) stays visibly distinct from "Not
- * assigned" (no instance at all) and from "N of 5 active" (assigned, N active).
+ * it (PackageCategoryGroups::activeTierSlotSummary). That case still reads
+ * "Not assigned", echoing the platform's existing vocabulary for the same
+ * state (tierInstanceModel.ts's `consumerName: 'Unassigned'`,
+ * PackageTierWorkspace's "No Tier system assigned") rather than the number
+ * `0`, which would misread as an assigned instance with nothing active
+ * rather than no Tier system yet. An assigned instance with nothing active
+ * reads the number `0`, staying visibly distinct from "Not assigned".
  * `active_tier_slots` is optional only for older cached responses that
  * predate the field — absence reads the same as unassigned.
  */
-export function formatActiveTierSlots(slots: ActiveTierSlots | undefined): string {
+export function formatActiveTierSlots(slots: ActiveTierSlots | undefined): number | string {
   const { occupied, capacity } = slots ?? { occupied: 0, capacity: 0 };
-  return capacity === 0 ? 'Not assigned' : `${occupied} of ${capacity} active`;
+  return capacity === 0 ? 'Not assigned' : occupied;
 }
 
 /** Project one backend family record into the card the grid renders. */
@@ -118,6 +123,11 @@ export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardI
     icon:        PackagesIcon,
     status:      module.status as CategoryGroupStatus,
     notifications: module.notes,
+    // Reduced value emphasis (small, regular weight): the Tiers metric now
+    // renders a bare number and must not visually overpower its label the
+    // way the card kit's default large/bold value would. Scoped to this
+    // card only — Service cards and Tier occupant cards keep the default.
+    compactMetrics: true,
     // Complete live dependency list. The shared card renders this as a repeater.
     metrics: [
       { id: 'services', label: 'Services', value: item.dependents.services, icon: ServicesIcon },

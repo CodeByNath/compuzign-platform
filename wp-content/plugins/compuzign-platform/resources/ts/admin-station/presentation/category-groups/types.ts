@@ -107,6 +107,12 @@ export interface CategoryGroupCardItem {
   status?:        CategoryGroupStatus;
   notifications?: CategoryGroupNotification[];
   metrics:        CategoryGroupCardMetric[];
+  // Opt-in, data-driven only: renders every metric value at reduced emphasis
+  // (smaller, regular weight) instead of the card kit's default large/bold
+  // value. The card and StationMetricBlock stay entity-neutral — this is a
+  // presentation flag an adapter may set, never a branch on which entity the
+  // card renders.
+  compactMetrics?: boolean;
   actions:        CategoryGroupCardAction[];
 }
 

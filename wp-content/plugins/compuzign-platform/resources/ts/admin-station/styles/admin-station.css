@@ -951,6 +951,16 @@ button.cz-station-status-pill {
   border-top: 1px solid var(--station-card-divider);
 }
 
+/* Opt-in reduced emphasis (Package Family card only — see CategoryGroupCardItem
+   .compactMetrics): the value reads as a plain number that doesn't visually
+   outweigh its label. Overrides only size/weight; spacing, alignment,
+   tabular numerals, and light/dark colour all still come from the base
+   .cz-station-metric__value rule above. */
+.cz-cg-card__metrics--compact .cz-station-metric__value {
+  font-size: var(--station-text-sm);
+  font-weight: 400;
+}
+
 /* Row 4 always — the subgrid chain above is what lines action controls up
    across a row of cards whose descriptions and metric counts differ, not a
    flex push-to-bottom. */

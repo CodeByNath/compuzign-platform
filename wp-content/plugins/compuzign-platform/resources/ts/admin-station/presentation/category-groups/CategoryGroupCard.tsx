@@ -67,7 +67,7 @@ export function CategoryGroupCard({ item, onAction }: Props) {
       )}
 
       {item.metrics.length > 0 && (
-        <div class="cz-cg-card__metrics">
+        <div class={`cz-cg-card__metrics${item.compactMetrics ? ' cz-cg-card__metrics--compact' : ''}`}>
           {item.metrics.map((metric) => (
             <StationMetricBlock key={metric.id} metric={metric} />
           ))}
