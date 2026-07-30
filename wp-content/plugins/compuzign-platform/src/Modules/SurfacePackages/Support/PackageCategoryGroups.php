@@ -110,11 +110,17 @@ final class PackageCategoryGroups
      * Occupied ACTIVE Tier slots for the one Tier instance assigned to this
      * Family (cardinality is one assignment per Family — TierAssignmentSchema
      * enforces it), out of that instance's fixed slot capacity
-     * (PackageSchema::ALLOWED_TIERS, 5). A slot counts only when it holds a
-     * living occupant whose platform_status is 'active' — empty slots,
-     * disabled occupants, and a Family with no assignment at all are excluded,
-     * never treated as active. A Family with no assignment owns no Tier
-     * system, so it reports zero occupied of zero capacity rather than a
+     * (PackageSchema::ALLOWED_TIERS, 5). A slot counts only via
+     * PackageSchema::isActiveOccupant() — a genuinely assigned, configured
+     * occupant whose own platform_status is 'active'. The five fixed slot
+     * definitions are capacity only: an empty slot, a pending/disabled
+     * occupant, and a Family with no assignment at all are excluded, never
+     * treated as active. The parent Tier instance's own status is never
+     * consulted here either way — an active Tier System does not make its
+     * slots active, and (symmetrically) a disabled/archived Tier System does
+     * not zero out a slot whose occupant is genuinely active; occupancy is
+     * intrinsic to the occupant alone. A Family with no assignment owns no
+     * Tier system, so it reports zero occupied of zero capacity rather than a
      * misleading zero-of-five.
      *
      * @return array{occupied:int, capacity:int}
@@ -141,12 +147,7 @@ final class PackageCategoryGroups
         $occupied = 0;
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
             $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
-            if (PackageSchema::isOccupantFormat($slot)) {
-                $occ = $slot['current_occupant'] ?? null;
-                if ($occ !== null && ($occ['platform_status'] ?? 'active') === 'active') {
-                    $occupied++;
-                }
-            } elseif (!empty($slot) && (($slot['enabled'] ?? true) !== false)) {
+            if (PackageSchema::isActiveOccupant($slot)) {
                 $occupied++;
             }
         }

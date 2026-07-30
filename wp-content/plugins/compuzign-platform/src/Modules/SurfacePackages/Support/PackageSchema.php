@@ -766,6 +766,40 @@ class PackageSchema
     }
 
     /**
+     * Whether a slot's own raw content is genuinely configured, apart from
+     * the drafts/module_status bookkeeping keys ensureTierLifecycle() always
+     * adds (which would otherwise make every slot — including a truly empty
+     * one — look non-empty). Occupant envelopes are configured only when they
+     * hold a real current_occupant; Phase 1 flat legacy slots are configured
+     * when they carry any field beyond that bookkeeping layer.
+     */
+    private static function hasConfiguredContent(array $slot): bool
+    {
+        return self::isOccupantFormat($slot)
+            ? !empty($slot['current_occupant'])
+            : !empty(array_diff_key($slot, ['drafts' => true, 'module_status' => true]));
+    }
+
+    /**
+     * The domain predicate for "does this slot count as an active occupant":
+     * a fixed slot's existence in the schema is capacity only, and the parent
+     * Tier System's own status is never consulted here — only a genuinely
+     * assigned, configured occupant whose own platform_status is 'active'
+     * counts. Occupant format requires a real current_occupant explicitly
+     * marked active (a missing/malformed platform_status never defaults to
+     * active — fail closed). Phase 1 flat legacy slots count only when they
+     * carry real configured content and are not explicitly disabled.
+     */
+    public static function isActiveOccupant(array $slot): bool
+    {
+        if (self::isOccupantFormat($slot)) {
+            $occ = $slot['current_occupant'] ?? null;
+            return is_array($occ) && ($occ['platform_status'] ?? null) === 'active';
+        }
+        return self::hasConfiguredContent($slot) && (($slot['enabled'] ?? true) !== false);
+    }
+
+    /**
      * Normalise a raw tier slot (Phase 1 flat OR Phase 2 occupant) to the
      * SurfaceTierDetail shape expected by admin API responses.
      * Returns the flat detail used by the frontend form. Occupant envelopes
@@ -962,17 +996,9 @@ class PackageSchema
     public static function deriveStationStatus(array $station): string
     {
         foreach (self::ALLOWED_TIERS as $tierId) {
-            $tier = $station['tiers'][$tierId] ?? [];
-            if (self::isOccupantFormat($tier)) {
-                $occ = $tier['current_occupant'] ?? null;
-                if ($occ !== null && ($occ['platform_status'] ?? 'active') === 'active') {
-                    return 'active';
-                }
-            } else {
-                // Phase 1 flat: active when non-empty and enabled is not explicitly false.
-                if (!empty($tier) && (($tier['enabled'] ?? true) !== false)) {
-                    return 'active';
-                }
+            $tier = is_array($station['tiers'][$tierId] ?? null) ? $station['tiers'][$tierId] : [];
+            if (self::isActiveOccupant($tier)) {
+                return 'active';
             }
         }
         return 'disabled';
@@ -1024,9 +1050,7 @@ class PackageSchema
         // Phase 1 flat tiers are settled occupants awaiting envelope migration,
         // not empty shells. Basic commonly remains in this shape longer because
         // it was populated first and has not travelled through an occupant write.
-        $configured = self::isOccupantFormat($slot)
-            ? !empty($slot['current_occupant'])
-            : !empty(array_diff_key($slot, ['drafts' => true, 'module_status' => true]));
+        $configured = self::hasConfiguredContent($slot);
         $default    = $configured ? 'settled' : 'not-configured';
 
         $drafts = (isset($slot['drafts']) && is_array($slot['drafts'])) ? $slot['drafts'] : [];

@@ -22,6 +22,7 @@ require_once __DIR__ . '/../src/Modules/SurfacePackages/Support/TierAssignmentSc
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups as PCG;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema as PMS;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema as PS;
 
 function assertSameValue(mixed $expected, mixed $actual, string $message): void
 {
@@ -266,6 +267,100 @@ assertSameValue(
     ['occupied' => 0, 'capacity' => 0],
     PCG::activeTierSlotSummary($unmatchedAssignmentStation, 'pcg_kairos'),
     'an assignment pointing at a nonexistent instance reports zero of zero rather than throwing'
+);
+
+// ── Regression: empty/pending slots must never count, regardless of the ────
+// parent Tier System's own status (bug fixed 2026-07-30 — the Family card
+// read "5 of 5 active" for an APTOS instance whose five fixed slots were all
+// Empty/Not-configured). The prior code's flat-slot branch tested
+// `!empty($slot)`, but every slot — including a genuinely empty one — has
+// already passed through PackageSchema::ensureTierLifecycle() by the time it
+// is read back from storage, which unconditionally adds drafts/module_status
+// bookkeeping keys. That made `!empty($slot)` true for every slot, and a
+// missing `enabled` key defaulted to true, so all five empty slots counted
+// as occupied. These fixtures build slots the same way the real read path
+// does (via ensureTierLifecycle), which the raw-literal fixtures above do
+// not, so only these catch that regression.
+
+$emptyTiers = [];
+foreach (PS::ALLOWED_TIERS as $tierId) {
+    $emptyTiers[$tierId] = PS::ensureTierLifecycle([]);
+}
+$emptyInstanceStation = [
+    'tier_assignments' => [[
+        'assignment_id' => 'tasg_r1', 'consumer_type' => 'package_family',
+        'consumer_id' => 'pcg_r1', 'tier_instance_id' => 'ti_r1',
+    ]],
+    'tier_instances' => [[
+        'tier_instance_id' => 'ti_r1', 'status' => 'active', 'tiers' => $emptyTiers,
+    ]],
+];
+assertSameValue(
+    ['occupied' => 0, 'capacity' => 5],
+    PCG::activeTierSlotSummary($emptyInstanceStation, 'pcg_r1'),
+    'an active Tier System whose five fixed slots are all empty reports 0 of 5 — a fixed slot definition is capacity only, never an occupant'
+);
+
+$pendingTiers = [];
+foreach (PS::ALLOWED_TIERS as $tierId) {
+    $pendingTiers[$tierId] = PS::ensureTierLifecycle([]);
+}
+$pendingTiers['basic'] = PS::ensureTierLifecycle([
+    'current_occupant' => null,
+    'module_status'    => ['overview' => 'pending'],
+]);
+$pendingInstanceStation = [
+    'tier_assignments' => [[
+        'assignment_id' => 'tasg_r2', 'consumer_type' => 'package_family',
+        'consumer_id' => 'pcg_r2', 'tier_instance_id' => 'ti_r2',
+    ]],
+    'tier_instances' => [[
+        'tier_instance_id' => 'ti_r2', 'status' => 'active', 'tiers' => $pendingTiers,
+    ]],
+];
+assertSameValue(
+    ['occupied' => 0, 'capacity' => 5],
+    PCG::activeTierSlotSummary($pendingInstanceStation, 'pcg_r2'),
+    'an active Tier System with one slot mid-draft (Overview pending, no committed occupant) reports 0 of 5 — a pending draft is not an assigned, active occupant'
+);
+
+$activeOccupantTiers = [];
+foreach (PS::ALLOWED_TIERS as $tierId) {
+    $activeOccupantTiers[$tierId] = PS::ensureTierLifecycle([]);
+}
+$activeOccupantTiers['basic'] = PS::commitTierLifecycle(PS::upsertOccupant([], ['label' => 'Basic'], true));
+$activeInstanceStation = [
+    'tier_assignments' => [[
+        'assignment_id' => 'tasg_r3', 'consumer_type' => 'package_family',
+        'consumer_id' => 'pcg_r3', 'tier_instance_id' => 'ti_r3',
+    ]],
+    'tier_instances' => [[
+        'tier_instance_id' => 'ti_r3', 'status' => 'active', 'tiers' => $activeOccupantTiers,
+    ]],
+];
+assertSameValue(
+    ['occupied' => 1, 'capacity' => 5],
+    PCG::activeTierSlotSummary($activeInstanceStation, 'pcg_r3'),
+    'an active Tier System with one genuinely active, configured occupant reports 1 of 5'
+);
+
+// DECISION (documented per audit request): an occupant's own active status is
+// intrinsic and is never inherited from, or gated by, the parent Tier
+// System's own status — activeTierSlotSummary() does not read
+// $instance['status'] at all, by design. This is the symmetric counterpart
+// of "an active Tier System must not make its slots active": a
+// disabled/archived Tier System likewise must not zero out a slot whose
+// occupant is genuinely active. So a disabled Tier System with one active
+// occupant still reports 1 of 5, matching [[tier-system-is-atomic]] — every
+// entity (instance and occupant alike) owns its own lifecycle independently.
+$disabledInstanceStation = $activeInstanceStation;
+$disabledInstanceStation['tier_assignments'][0]['assignment_id'] = 'tasg_r4';
+$disabledInstanceStation['tier_assignments'][0]['consumer_id']   = 'pcg_r4';
+$disabledInstanceStation['tier_instances'][0]['status']          = 'disabled';
+assertSameValue(
+    ['occupied' => 1, 'capacity' => 5],
+    PCG::activeTierSlotSummary($disabledInstanceStation, 'pcg_r4'),
+    'DECISION: a disabled/inactive Tier System with one genuinely active occupant still reports 1 of 5 — occupant activity is intrinsic to the occupant, never derived from or gated by the parent instance status'
 );
 
 fwrite(STDOUT, "PackageCategoryGroups contract tests passed.\n");
