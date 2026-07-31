@@ -1457,76 +1457,28 @@ button.cz-station-status-pill {
   overflow: hidden;
 }
 
+/* Compact metric tile — number, label, small trailing glyph. Deliberately not
+   the 44px badge tiles other Station cards use: the icon here stays tertiary,
+   so its size is local to this tile rather than the shared --station-card-icon
+   tokens. */
 .cz-service-stat {
   display: flex;
-  align-items: flex-start;
-  gap: var(--station-card-gap);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-width: 0;
-  padding: var(--station-card-pad);
+  padding: 12px 14px;
 }
 
 .cz-service-stat + .cz-service-stat {
   border-inline-start: 1px solid var(--station-border);
 }
 
-.cz-service-stat__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: var(--station-card-icon-size);
-  height: var(--station-card-icon-size);
-  border: 1px solid transparent;
-  border-radius: var(--station-card-icon-radius);
-}
-
-.cz-service-stat__icon .cz-station-icon {
-  width: var(--station-card-glyph-size);
-  height: var(--station-card-glyph-size);
-}
-
-.cz-service-stat__icon--accent {
-  border-color: var(--station-accent-border);
-  background: var(--station-accent-soft-bg);
-  color: var(--station-nav-accent-strong);
-}
-
-.cz-service-stat__icon--active {
-  border-color: var(--station-status-active-border);
-  background: var(--station-status-active-bg);
-  color: var(--station-status-active-fg);
-}
-
-.cz-service-stat__icon--pending {
-  border-color: var(--station-status-pending-border);
-  background: var(--station-status-pending-bg);
-  color: var(--station-status-pending-fg);
-}
-
-.cz-service-stat__icon--neutral {
-  border-color: var(--station-border);
-  background: var(--station-hover-bg);
-  color: var(--station-text-muted);
-}
-
 .cz-service-stat__copy {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-}
-
-.cz-service-stat__label,
-.cz-service-stat__description {
-  color: var(--station-text-muted);
-  font-size: var(--station-text-xs);
-  line-height: var(--station-line-snug);
-}
-
-.cz-service-stat__label {
-  font-weight: 700;
-  letter-spacing: var(--station-tracking-wide);
-  text-transform: uppercase;
 }
 
 .cz-service-stat__value {
@@ -1534,6 +1486,33 @@ button.cz-station-status-pill {
   font-size: var(--station-text-xl);
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+}
+
+.cz-service-stat__label {
+  overflow: hidden;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  line-height: var(--station-line-snug);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cz-service-stat__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-icon-radius);
+  background: var(--station-hover-bg);
+  color: var(--station-text-muted);
+}
+
+.cz-service-stat__icon .cz-station-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .cz-service-catalogue__toolbar {

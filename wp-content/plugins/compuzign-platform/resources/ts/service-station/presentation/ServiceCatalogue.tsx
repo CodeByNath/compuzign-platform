@@ -29,7 +29,6 @@ interface Option {
 interface StatCardProps {
   label: string;
   value: number;
-  tone:  'accent' | 'active' | 'pending' | 'neutral';
   icon:  ComponentType<{ class?: string }>;
 }
 
@@ -42,14 +41,14 @@ const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'disabled', label: PILL_META.disabled.label },
 ];
 
-function StatCard({ label, value, tone, icon: Icon }: StatCardProps) {
+function StatCard({ label, value, icon: Icon }: StatCardProps) {
   return (
     <article class="cz-service-stat" role="listitem">
       <span class="cz-service-stat__copy">
         <strong class="cz-service-stat__value">{value}</strong>
         <span class="cz-service-stat__label">{label}</span>
       </span>
-      <span class={`cz-service-stat__icon cz-service-stat__icon--${tone}`} aria-hidden="true">
+      <span class="cz-service-stat__icon" aria-hidden="true">
         <Icon />
       </span>
     </article>
@@ -148,25 +147,21 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
         <StatCard
           label="Total Services"
           value={services.length}
-          tone="accent"
           icon={ServicesIcon}
         />
         <StatCard
           label="Active Services"
           value={current.filter((item) => item.platformStatus === 'active').length}
-          tone="active"
           icon={CheckCircleIcon}
         />
         <StatCard
           label="Draft Services"
           value={current.filter(isPending).length}
-          tone="pending"
           icon={PencilSquareIcon}
         />
         <StatCard
           label="Archived Services"
           value={services.filter((item) => item.scope === 'archived').length}
-          tone="neutral"
           icon={ArchiveBoxIcon}
         />
       </div>
