@@ -89,7 +89,7 @@
   --station-card-icon-size: 44px;
   /* A rounded square, not a disc: the medallion reads as a plate behind the
    * glyph and sits square with the identity block beside it. */
-  --station-card-icon-radius: 13px;
+  --station-card-icon-radius: 12px;
   --station-card-glyph-size: 24px;
   --station-card-divider: var(--station-border);
 

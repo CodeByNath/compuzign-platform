@@ -1504,15 +1504,34 @@ button.cz-station-status-pill {
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--station-border);
   border-radius: var(--station-card-icon-radius);
-  background: var(--station-hover-bg);
-  color: var(--station-text-muted);
 }
 
 .cz-service-stat__icon .cz-station-icon {
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
+}
+
+/* Same pill-station colour pairs the status pill uses, so each tile reads
+   consistently with the rest of the platform's status vocabulary. */
+.cz-service-stat__icon--accent {
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+}
+
+.cz-service-stat__icon--active {
+  background: var(--station-status-active-bg);
+  color: var(--station-status-active-fg);
+}
+
+.cz-service-stat__icon--pending {
+  background: var(--station-status-pending-bg);
+  color: var(--station-status-pending-fg);
+}
+
+.cz-service-stat__icon--inactive {
+  background: var(--station-status-inactive-bg);
+  color: var(--station-status-inactive-fg);
 }
 
 .cz-service-catalogue__toolbar {
