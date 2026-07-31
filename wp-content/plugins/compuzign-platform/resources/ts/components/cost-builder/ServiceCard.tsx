@@ -8,11 +8,24 @@ interface ServiceCardProps {
   service: ServiceItem;
   tiers: Tier[];
   selectedTierId: QuoteItemTierId | null;
+  // Add-on Tiers currently in the quote for this Service.
+  selectedAddonTierIds: TierId[];
   onAddToQuote: (item: QuoteItem) => void;
-  onRemoveFromQuote: (serviceId: number) => void;
+  // Removes the whole Service's normal Tier (and, by the same cascade as
+  // today, any of its selected add-ons) when called with one argument.
+  // Removes exactly one add-on Tier, leaving everything else untouched, when
+  // called with the second argument.
+  onRemoveFromQuote: (serviceId: number, addonTierId?: TierId) => void;
 }
 
-export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRemoveFromQuote }: ServiceCardProps) {
+export function ServiceCard({
+  service,
+  tiers,
+  selectedTierId,
+  selectedAddonTierIds,
+  onAddToQuote,
+  onRemoveFromQuote,
+}: ServiceCardProps) {
   const { meta, pricing, availability } = service;
 
   if (!availability.is_available) {
@@ -51,6 +64,31 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
       features: tierData?.inclusions?.length
         ? tierData.inclusions.map((inc) => inc.label)
         : (tierData?.features ?? []),
+      isAddon: false,
+    });
+  };
+
+  // Independent toggle: never touches the normal Tier selection or any other
+  // add-on, and never replaces the normal selected Tier.
+  const handleToggleAddon = (tierId: TierId) => {
+    if (selectedAddonTierIds.includes(tierId)) {
+      onRemoveFromQuote(service.id, tierId);
+      return;
+    }
+    const tier = tiers.find((t) => t.id === tierId);
+    const tierData = pricing.tiers[tierId];
+    onAddToQuote({
+      serviceId: service.id,
+      serviceTitle: decodeHtml(service.title),
+      tierId,
+      tierTitle: tierData?.label || tier?.title || tierId,
+      price: tierData?.price ?? null,
+      billingCycle: tierData?.billing_cycle || meta.billing_cycle,
+      categoryName: decodeHtml(service.categories[0]?.name ?? ''),
+      features: tierData?.inclusions?.length
+        ? tierData.inclusions.map((inc) => inc.label)
+        : (tierData?.features ?? []),
+      isAddon: true,
     });
   };
 
@@ -83,8 +121,10 @@ export function ServiceCard({ service, tiers, selectedTierId, onAddToQuote, onRe
         popularTier={meta.popular_tier}
         popularLabel={meta.popular_label}
         selectedTierId={selectedTierId}
+        selectedAddonTierIds={selectedAddonTierIds}
         billingCycle={meta.billing_cycle}
         onSelect={handleSelect}
+        onToggleAddon={handleToggleAddon}
       />
     </Card>
   );

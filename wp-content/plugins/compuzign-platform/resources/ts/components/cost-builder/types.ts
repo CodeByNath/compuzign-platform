@@ -16,4 +16,13 @@ export interface QuoteItem {
   offer_type?: 'core_tier' | 'promotion_tier';
   promotion_id?: string;
   billing_label?: string;
+  // Whether this line is a stackable Tier add-on (selected alongside the
+  // normal Tier for the same serviceId) rather than the one normal/exclusive
+  // selection for that Service. Required and explicit — the classification
+  // for the add-on capability, never inferred from serviceId's sign. Legacy
+  // recommended-bundle items (tierId: 'bundle', negative serviceId) and
+  // promotion items are not Tier add-ons and carry isAddon: false; they stay
+  // distinguishable from real add-ons by tierId/offer_type, not merged into
+  // this flag.
+  isAddon: boolean;
 }

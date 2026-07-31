@@ -368,6 +368,25 @@
   color: var(--cz-color-danger);
 }
 
+/* Optional add-ons section — same tier-card language as the Tier strip above;
+   the heading reuses .cz-cost-builder__tier-name's small-uppercase treatment. */
+.cz-cost-builder__addons {
+  margin-top: var(--cz-space-4);
+}
+
+.cz-cost-builder__addons-heading {
+  margin: 0 0 var(--cz-space-2);
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-color-muted);
+}
+
+.cz-cost-builder__addons .cz-cost-builder__tiers-wrap {
+  margin-top: 0;
+}
+
 /* Quote summary sidebar */
 .cz-quote-summary {
   background: var(--cz-color-surface-2);

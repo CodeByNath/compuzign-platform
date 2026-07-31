@@ -11,6 +11,9 @@ export function ComparePlans({ service, tiers }: ComparePlansProps) {
   }
 
   const { inclusions, pricing, meta } = service;
+  // Compare Plans lines up the customer's normal Tier alternatives; an
+  // add-on is not a competing plan, so it does not get a column here.
+  const comparableTiers = tiers.filter((tier) => !pricing.tiers[tier.id]?.is_addon);
 
   return (
     <section class="cz-cost-builder__compare">
@@ -22,7 +25,7 @@ export function ComparePlans({ service, tiers }: ComparePlansProps) {
               <th class="cz-cost-builder__compare-th cz-cost-builder__compare-th--feature">
                 Feature
               </th>
-              {tiers.map((tier) => (
+              {comparableTiers.map((tier) => (
                 <th
                   key={tier.id}
                   class={`cz-cost-builder__compare-th${tier.id === meta.popular_tier ? ' cz-cost-builder__compare-th--popular' : ''}`}
@@ -36,7 +39,7 @@ export function ComparePlans({ service, tiers }: ComparePlansProps) {
             {inclusions.map((inclusion) => (
               <tr key={inclusion.id} class="cz-cost-builder__compare-row">
                 <td class="cz-cost-builder__compare-label">{inclusion.label}</td>
-                {tiers.map((tier) => {
+                {comparableTiers.map((tier) => {
                   const tierInclusions = pricing.tiers[tier.id]?.inclusions ?? [];
                   const has = tierInclusions.some((inc) => inc.id === inclusion.id);
                   return (

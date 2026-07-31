@@ -32,6 +32,11 @@ export function RecommendedBundle({ service, isInQuote, onAdd, onRemove }: Recom
         billingCycle: service.meta.billing_cycle,
         categoryName: service.categories[0]?.name ?? '',
         features: [],
+        // The legacy recommended bundle predates and is unrelated to the Tier
+        // add-on capability — it is not classified as one, and its
+        // coexistence with real selections keeps relying on its own negative
+        // serviceId, not on isAddon.
+        isAddon: false,
       });
     }
   };

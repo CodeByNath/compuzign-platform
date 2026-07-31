@@ -10,6 +10,7 @@
     "contract:package-family-capability": "tsx scripts/package-family-capability-contract.ts",
     "contract:package-family-card-metrics": "tsx scripts/package-family-card-metrics-contract.ts",
     "contract:package-tier-workspace": "tsx scripts/package-tier-workspace-contract.ts",
+    "contract:quote-cart-addon": "tsx scripts/quote-cart-addon-contract.ts",
     "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",
     "contract:service-home-connections": "tsx scripts/service-home-connections-contract.ts",
     "contract:station-tabset": "tsx scripts/station-tabset-contract.ts",

@@ -14,8 +14,9 @@ import { FaqAccordion } from './FaqAccordion';
 import { ComparePlans } from './ComparePlans';
 import { MobileQuoteBar } from './MobileQuoteBar';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
+import { replaceNormalQuoteItem, upsertAddonQuoteItem, removeAddonQuoteItem, removeServiceQuoteItems } from '@/utils/quote';
 import type { QuoteItem } from './types';
-import type { ServiceItem } from '@/api/types/cost-builder';
+import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 
 const QUOTE_SUMMARY_ID = 'cz-quote-summary';
 
@@ -71,15 +72,24 @@ export function CostBuilderApp() {
     }
   }, [quoteItems]);
 
+  // A normal Tier, a promotion, or the legacy bundle each replace only the
+  // one existing non-add-on line for that Service; a Tier add-on upserts
+  // independently by serviceId + tierId. See utils/quote.ts for the full
+  // cart-identity rationale.
   const addToQuote = (item: QuoteItem) => {
-    setQuoteItems((prev) => [
-      ...prev.filter((q) => q.serviceId !== item.serviceId),
-      item,
-    ]);
+    setQuoteItems((prev) => (item.isAddon ? upsertAddonQuoteItem(prev, item) : replaceNormalQuoteItem(prev, item)));
   };
 
-  const removeFromQuote = (serviceId: number) => {
-    setQuoteItems((prev) => prev.filter((q) => q.serviceId !== serviceId));
+  // Called with just a serviceId, this removes the whole Service (its normal
+  // selection and every add-on selected alongside it) — the existing
+  // behaviour, and also the correct behaviour for deselecting the normal
+  // Tier outright, since an add-on has nothing to attach to once its normal
+  // Tier is gone. Called with an addonTierId too, it removes exactly that one
+  // add-on and leaves everything else in the quote untouched.
+  const removeFromQuote = (serviceId: number, addonTierId?: TierId) => {
+    setQuoteItems((prev) => (addonTierId !== undefined
+      ? removeAddonQuoteItem(prev, serviceId, addonTierId)
+      : removeServiceQuoteItems(prev, serviceId)));
   };
 
   const handleCategoryChange = (slug: string) => {
@@ -132,6 +142,11 @@ export function CostBuilderApp() {
   const selectedPromoId = activeService
     ? (quoteItems.find((q) => q.serviceId === activeService.id && q.offer_type === 'promotion_tier')?.promotion_id ?? null)
     : null;
+  const selectedAddonTierIds: TierId[] = activeService
+    ? quoteItems
+      .filter((q) => q.serviceId === activeService.id && q.isAddon)
+      .map((q) => q.tierId as TierId)
+    : [];
 
   return (
     <div class={`cz-cost-builder${hasQuote ? ' cz-cost-builder--has-quote' : ''}`}>
@@ -153,7 +168,8 @@ export function CostBuilderApp() {
               <ServiceCard
                 service={activeService}
                 tiers={data.tiers}
-                selectedTierId={quoteItems.find((q) => q.serviceId === activeService.id)?.tierId ?? null}
+                selectedTierId={quoteItems.find((q) => q.serviceId === activeService.id && !q.isAddon)?.tierId ?? null}
+                selectedAddonTierIds={selectedAddonTierIds}
                 onAddToQuote={addToQuote}
                 onRemoveFromQuote={removeFromQuote}
               />

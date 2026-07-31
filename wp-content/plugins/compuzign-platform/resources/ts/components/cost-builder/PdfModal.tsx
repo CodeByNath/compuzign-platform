@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { formatPrice } from '@/utils/format';
+import { quoteItemKey } from '@/utils/quote';
 import type { QuoteItem } from './types';
 
 interface PdfModalProps {
@@ -97,7 +98,7 @@ export function PdfModal({ isOpen, items, onClose }: PdfModalProps) {
             <h4 class="cz-pdf-modal__summary-heading">Selected Services</h4>
             <ul class="cz-pdf-modal__summary-list">
               {items.map((item) => (
-                <li key={item.serviceId} class="cz-pdf-modal__summary-item">
+                <li key={quoteItemKey(item)} class="cz-pdf-modal__summary-item">
                   <span class="cz-pdf-modal__summary-name">{item.serviceTitle}</span>
                   <span class="cz-pdf-modal__summary-tier">{item.tierTitle}</span>
                   <span class="cz-pdf-modal__summary-price">

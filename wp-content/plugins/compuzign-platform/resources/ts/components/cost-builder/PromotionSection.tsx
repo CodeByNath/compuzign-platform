@@ -54,6 +54,9 @@ function PromotionCard({
       offer_type: 'promotion_tier',
       promotion_id: promo.id,
       billing_label: promo.billing_label,
+      // A promotion replaces the normal Tier selection for this Service; it
+      // is not a Tier add-on.
+      isAddon: false,
     });
   };
 

@@ -3,6 +3,7 @@ import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { decodeHtml, formatPrice, formatCycleLabel } from '@/utils/format';
 import { getRuntimeConfig } from '@/runtime/config';
 import { saveCart } from '@/utils/cartStorage';
+import { quoteItemKey } from '@/utils/quote';
 import type { ServiceItem, TierId, Tier, CostBuilderResponse } from '@/api/types/cost-builder';
 import type { QuoteItem } from '@/components/cost-builder/types';
 
@@ -165,8 +166,14 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
       features: tierData?.inclusions?.length
         ? tierData.inclusions.map((inc) => inc.label)
         : (tierData?.features ?? []),
+      // This lightweight widget always adds a Service at its popular Tier as
+      // a normal selection; it exposes no Tier-level or add-on granularity.
+      isAddon: false,
     };
-    const nextItems = [...quoteItems.filter((q) => q.serviceId !== service.id), item];
+    // Replaces only the existing normal selection for this Service, so any
+    // add-on lines already in the shared cart (added from the full Cost
+    // Builder) survive this widget's own add/replace action.
+    const nextItems = [...quoteItems.filter((q) => q.isAddon || q.serviceId !== service.id), item];
     setQuoteItems(nextItems);
     saveCart(nextItems);
     setPreviewServiceId(null);
@@ -269,7 +276,7 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
             </p>
             <ul class="cz-home-configurator__quote-list">
               {quoteItems.map((item) => (
-                <li key={item.serviceId} class="cz-home-configurator__quote-item">
+                <li key={quoteItemKey(item)} class="cz-home-configurator__quote-item">
                   <div class="cz-home-configurator__quote-item-info">
                     <span class="cz-home-configurator__quote-item-title">
                       {item.serviceTitle}

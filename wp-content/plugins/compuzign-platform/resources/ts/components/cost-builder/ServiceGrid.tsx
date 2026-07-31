@@ -1,5 +1,5 @@
 import { ServiceCard } from './ServiceCard';
-import type { ServiceItem, Tier } from '@/api/types/cost-builder';
+import type { ServiceItem, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItem } from './types';
 
 interface ServiceGridProps {
@@ -7,7 +7,7 @@ interface ServiceGridProps {
   tiers: Tier[];
   quoteItems: QuoteItem[];
   onAddToQuote: (item: QuoteItem) => void;
-  onRemoveFromQuote: (serviceId: number) => void;
+  onRemoveFromQuote: (serviceId: number, addonTierId?: TierId) => void;
 }
 
 export function ServiceGrid({ services, tiers, quoteItems, onAddToQuote, onRemoveFromQuote }: ServiceGridProps) {
@@ -18,13 +18,17 @@ export function ServiceGrid({ services, tiers, quoteItems, onAddToQuote, onRemov
   return (
     <div class="cz-cost-builder__grid">
       {services.map((service) => {
-        const selectedTierId = quoteItems.find((q) => q.serviceId === service.id)?.tierId ?? null;
+        const selectedTierId = quoteItems.find((q) => q.serviceId === service.id && !q.isAddon)?.tierId ?? null;
+        const selectedAddonTierIds = quoteItems
+          .filter((q) => q.serviceId === service.id && q.isAddon)
+          .map((q) => q.tierId as TierId);
         return (
           <ServiceCard
             key={service.id}
             service={service}
             tiers={tiers}
             selectedTierId={selectedTierId}
+            selectedAddonTierIds={selectedAddonTierIds}
             onAddToQuote={onAddToQuote}
             onRemoveFromQuote={onRemoveFromQuote}
           />
