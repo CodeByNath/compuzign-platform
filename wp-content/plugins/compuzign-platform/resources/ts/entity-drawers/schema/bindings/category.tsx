@@ -1,7 +1,4 @@
-import type {
-  CategoryOverviewDraft,
-  ServiceCategoryGroupStationItem,
-} from '@/api/types/admin';
+import type { CategoryOverviewDraft } from '@/api/types/admin';
 import {
   categoryOverviewModule,
   categoryServicesModule,
@@ -25,7 +22,6 @@ export interface CategoryOverviewShellData {
   name: string;
   slug: string;
   description: string;
-  groupName?: string;
 }
 
 export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
@@ -48,10 +44,6 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
       bind: (data): TextValue => ({ value: data.slug }),
     },
     {
-      id: 'group', element: 'text', label: 'Group',
-      bind: (data): TextValue => ({ value: data.groupName ?? 'Ungrouped' }),
-    },
-    {
       id: 'description', element: 'rich-text', label: 'Description',
       bind: (data) => ({
         value: data.description,
@@ -68,9 +60,6 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
       <CategoryOverviewEditor
         draft={session.draft as CategoryOverviewDraft}
         onChange={(patch) => session.patch?.(patch)}
-        groups={(session.extras?.groups ?? []) as ServiceCategoryGroupStationItem[]}
-        groupId={(session.extras?.groupId ?? null) as number | null}
-        onGroupChange={session.extras?.onGroupChange as (id: number | null) => void}
       />
     ),
   },

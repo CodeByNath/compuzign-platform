@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { CategoryOverviewDraft } from '@/api/types/admin';
-import { fetchAdminServiceCategoryGroups } from '@/api/endpoints/admin';
-import { useApi } from '@/hooks/useApi';
 import { useCategoryStation } from '@/hooks/useCategoryStation';
 import type { CategoryServiceCounts } from '@/hooks/useCategoryStation';
 import type { DrawerTabId } from '@/drawer-kit/DrawerTabs';
@@ -36,13 +34,10 @@ export function useCategoryDrawerController({
   }, [assignedServices]);
 
   const station = useCategoryStation(category, bridge.onMutationComplete, counts);
-  const groupsApi = useApi(() => fetchAdminServiceCategoryGroups());
   const [tab, setTab] = useState<DrawerTabId>(initialTab ?? 'details');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<CategoryOverviewDraft | null>(null);
   const [original, setOriginal] = useState<CategoryOverviewDraft | null>(null);
-  const [groupId, setGroupId] = useState<number | null>(category?.group_id ?? null);
-  const [groupIdOriginal, setGroupIdOriginal] = useState<number | null>(category?.group_id ?? null);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
@@ -51,28 +46,12 @@ export function useCategoryDrawerController({
   const [confirmDialog, setConfirmDialog] = useState<CategoryConfirmDialog>(null);
   const [exitDialog, setExitDialog] = useState<CategoryExitDialog>(null);
 
-  // Re-syncs the closed-state group display from the authoritative persisted
-  // record. A pending Category has no authoritative group_id to sync from yet
-  // — the user's pending choice stays put here until Publish applies it.
-  useEffect(() => {
-    if (!editing && station.category) {
-      setGroupId(station.category.group_id);
-      setGroupIdOriginal(station.category.group_id);
-    }
-  }, [editing, station.category]);
-
   useAutoDismiss(saveOk, () => setSaveOk(false), 3000);
 
   const isDirty = editing && draft !== null && original !== null && (
     draft.name !== original.name
     || draft.description !== original.description
-    || groupId !== groupIdOriginal
   );
-
-  const groupName = useMemo(() => {
-    if (groupId === null) return 'Ungrouped';
-    return groupsApi.data?.category_groups.find((group) => group.id === groupId)?.name ?? 'Ungrouped';
-  }, [groupId, groupsApi.data]);
 
   const openOverviewEditor = useCallback(() => {
     const seed = {
@@ -81,11 +60,10 @@ export function useCategoryDrawerController({
     };
     setOriginal(seed);
     setDraft(seed);
-    setGroupIdOriginal(groupId);
     setEditing(true);
     setOpenPanel(null);
     setSaveErr(null);
-  }, [groupId, station.displayDescription, station.displayName]);
+  }, [station.displayDescription, station.displayName]);
 
   const initialEditOpened = useRef(false);
   useEffect(() => {
@@ -98,10 +76,9 @@ export function useCategoryDrawerController({
     setEditing(false);
     setDraft(null);
     setOriginal(null);
-    setGroupId(groupIdOriginal);
     setSaveErr(null);
     setSaving(false);
-  }, [groupIdOriginal]);
+  }, []);
 
   const saveOverview = useCallback(async () => {
     if (!draft) return;
@@ -113,13 +90,6 @@ export function useCategoryDrawerController({
     setSaveErr(null);
     try {
       await station.saveOverview(draft);
-      // A pending Category has no term to patch group membership on yet; the
-      // chosen group stays in local `groupId` state and createCategory below
-      // applies it once the record exists.
-      if (station.category && groupId !== groupIdOriginal) {
-        await station.updateGroupMembership(groupId);
-        setGroupIdOriginal(groupId);
-      }
       setEditing(false);
       setDraft(null);
       setOriginal(null);
@@ -129,7 +99,7 @@ export function useCategoryDrawerController({
     } finally {
       setSaving(false);
     }
-  }, [draft, groupId, groupIdOriginal, station]);
+  }, [draft, station]);
 
   // Guarded exit: a dirty overview editor raises the 'unsaved' dialog; the
   // shared machinery stashes the blocked close/tab-switch continuation.
@@ -162,14 +132,13 @@ export function useCategoryDrawerController({
     // A pending Category addresses no stored term: the footer's Publish is
     // this record's one authoritative creation, not a settle/activate pair
     // against an id that does not exist yet — mirrors Package Family's `'new'`
-    // guard on the same action. Any Group chosen before creation travels
-    // along as createCategory's argument.
+    // guard on the same action.
     if (!station.category) {
-      await runLifecycle(() => station.createCategory(groupId));
+      await runLifecycle(() => station.createCategory());
       return;
     }
     await runLifecycle(station.isActive ? station.settleModules : station.publishCategory);
-  }, [runLifecycle, station, groupId]);
+  }, [runLifecycle, station]);
 
   const handleConfirmDiscard = useCallback(async () => {
     setConfirmDialog(null);
@@ -206,7 +175,6 @@ export function useCategoryDrawerController({
       name: station.displayName,
       slug: station.displaySlug ?? '',
       description: station.displayDescription,
-      groupName,
     },
     state: station.modules.overview,
     hasDraft: station.hasDraft,
@@ -231,14 +199,11 @@ export function useCategoryDrawerController({
 
   return {
     station,
-    groupsApi,
     tab,
     selectTab,
     editing,
     draft,
     setDraft,
-    groupId,
-    setGroupId,
     saving,
     saveErr,
     saveOk,

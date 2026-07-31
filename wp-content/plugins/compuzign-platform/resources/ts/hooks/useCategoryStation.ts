@@ -6,7 +6,6 @@ import {
   revertCategoryOverview,
   saveCategoryOverview,
   settleCategoryOverview,
-  updateServiceCategoryGroup,
   updateCategoryStatus,
 } from '@/api/endpoints/admin';
 import type { CategoryOverviewDraft, CategoryStationItem } from '@/api/types/admin';
@@ -62,7 +61,6 @@ export interface CategoryStation {
 
   // ── Actions ───────────────────────────────────────────────────────────────
   saveOverview:    (draft: CategoryOverviewDraft) => Promise<Record<string, string>>;
-  updateGroupMembership: (groupId: number | null) => Promise<CategoryStationItem | null>;
   revertOverview:  () => Promise<void>;
   settleModules:   () => Promise<CategoryStationItem | null>;
   publishCategory: () => Promise<CategoryStationItem | null>;
@@ -72,10 +70,9 @@ export interface CategoryStation {
   restoreStation:  () => Promise<CategoryStationItem | null>;
   deleteStation:   () => Promise<boolean>;
   // The pending record's one authoritative creation. Persists the drafted
-  // Overview (staged locally by saveOverview above) as a brand-new Category,
-  // applies the chosen Group membership if any was picked before creation, and
-  // returns the server-issued record — mirrors createFamily/createService.
-  createCategory:  (groupId: number | null) => Promise<CategoryStationItem | null>;
+  // Overview (staged locally by saveOverview above) as a brand-new Category
+  // and returns the server-issued record — mirrors createFamily/createService.
+  createCategory:  () => Promise<CategoryStationItem | null>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -168,17 +165,6 @@ export function useCategoryStation(
     }) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [created, onRefresh]);
-
-  const updateGroupMembership = useCallback(async (groupId: number | null): Promise<CategoryStationItem | null> => {
-    if (!created) return null;
-    const result = await updateServiceCategoryGroup(created.id, groupId);
-    if (result.success) {
-      setCreated(result.category);
-      onRefresh?.();
-      return result.category;
-    }
-    return null;
   }, [created, onRefresh]);
 
   const revertOverview = useCallback(async (): Promise<void> => {
@@ -287,15 +273,13 @@ export function useCategoryStation(
   }, [created, onRefresh]);
 
   // The pending record's one authoritative creation. Persists the drafted
-  // Overview, and the Group chosen before creation (if any), as a brand-new
-  // Category in one request — the backend's create route already accepts
-  // `group_id` directly — the same "born disabled, overview pending" state as
-  // any other newly created Category, so every existing lifecycle/footer
-  // computation applies unchanged from here.
-  const createCategory = useCallback(async (groupId: number | null): Promise<CategoryStationItem | null> => {
+  // Overview as a brand-new Category — the same "born disabled, overview
+  // pending" state as any other newly created Category, so every existing
+  // lifecycle/footer computation applies unchanged from here.
+  const createCategory = useCallback(async (): Promise<CategoryStationItem | null> => {
     setStatusSaving(true);
     try {
-      const response = await createCategoryApi({ name: pendingDraft.name, description: pendingDraft.description, group_id: groupId });
+      const response = await createCategoryApi({ name: pendingDraft.name, description: pendingDraft.description });
       if (!response.success) throw new Error(response.message ?? 'Could not create the Category.');
       setCreated(response.category);
       onRefresh?.();
@@ -323,7 +307,6 @@ export function useCategoryStation(
     canPublish,
     loading: { status: statusSaving, deleting },
     saveOverview,
-    updateGroupMembership,
     revertOverview,
     settleModules,
     publishCategory,

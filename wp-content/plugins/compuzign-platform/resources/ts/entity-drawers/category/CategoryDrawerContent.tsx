@@ -67,11 +67,6 @@ export function CategoryDrawerContent(props: CategoryDrawerContentProps) {
             saveErr: c.saveErr,
             isDirty: c.isDirty,
             saveDisabled: !c.isDirty || !c.draft.name.trim(),
-            extras: {
-              groups: c.groupsApi.data?.category_groups ?? [],
-              groupId: c.groupId,
-              onGroupChange: c.setGroupId,
-            },
           },
         } : null}
       >
