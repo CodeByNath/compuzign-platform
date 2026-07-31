@@ -22,6 +22,10 @@ export interface NoteContext {
   parentReady?:      boolean;  // true once the parent module is complete
   parentLabel?:      string;   // parent name shown in the waiting note, e.g. 'Tier Overview'
   platformLabel?:    string;   // entity name used by the shared inactive-state note
+  // Explicit Disable mask (Service today — see ServiceMeta.previous_platform_status).
+  // Never inferred from a record simply never activated. Only a station that sets
+  // this opts in; every other domain leaves it undefined and is unaffected.
+  disabled?:         boolean;
 }
 
 // Only 'error' notes increment the numeric badge on the pill.
@@ -74,6 +78,15 @@ function lifecycleTail(key: string, ctx: NoteContext, includeDraft?: boolean): M
 
 // Single evaluator for any module. Returns the 5-state status and the note list.
 export function evaluateModule<T>(def: ModuleDefinition<T>, data: T, ctx: NoteContext): ModuleState {
+  // Explicit Disable mask — takes precedence over every other state, including
+  // not-configured: Disable masks the whole record's modules. Opt-in per ctx.disabled.
+  if (ctx.disabled) {
+    return {
+      status: 'disabled',
+      notes:  [{ id: `${def.key}.platform.disabled`, message: `${ctx.platformLabel ?? 'Record'} is disabled`, type: 'info' }],
+    };
+  }
+
   // Parent gate: a child whose parent is not ready is pending-dim + an info note.
   const gated  = !!def.requiresParent && ctx.parentReady !== true;
   const status = gated

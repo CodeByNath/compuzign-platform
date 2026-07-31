@@ -34,6 +34,10 @@ export interface ModuleStatus {
 
 export interface ServiceMeta {
   platform_status: PlatformStatus;
+  // The mask signal Disable/Enable use: non-empty while platform_status is
+  // 'disabled' means an explicit Disable applied and captured what to restore;
+  // empty means 'disabled' because the Service has never been published.
+  previous_platform_status?: 'active' | 'disabled' | '';
   module_status:   ModuleStatus;
   short_description: string;
   long_description: string;

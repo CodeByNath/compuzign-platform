@@ -112,6 +112,17 @@ export function updateServiceStatus(
   return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, payload);
 }
 
+// Disable/Enable — the platform-visible presentation mask (never a settle/
+// publish call). Distinct from updateServiceStatus's platform_status shape,
+// which Publish also uses for 'active': see ServiceController::updateDisabledMask.
+export function disableService(serviceId: number): Promise<ServiceStatusResponse> {
+  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { action: 'disable' });
+}
+
+export function enableService(serviceId: number): Promise<ServiceStatusResponse> {
+  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { action: 'enable' });
+}
+
 export function archiveService(serviceId: number): Promise<ServiceStatusResponse> {
   return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'archived' });
 }

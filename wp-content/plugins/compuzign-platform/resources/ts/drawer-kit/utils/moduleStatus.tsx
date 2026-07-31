@@ -82,6 +82,11 @@ export function checkOverviewCompletenessFromDraft(draft: OverviewDraftData): Ov
 export interface OverviewStatusOpts {
   platformStatus:   string;  // 'active' | 'disabled' | 'archived' | 'trashed'
   moduleTransition: string;  // 'settled' | 'pending' | 'not-configured'
+  // Platform-visible presentation mask set by the drawer's explicit Disable
+  // action (never inferred from a Service that was simply never activated —
+  // see ServiceMeta.previous_platform_status). Takes precedence over every
+  // other state, including not-configured: Disable masks the whole record.
+  disabled?:        boolean;
 }
 
 export function resolveOverviewStatus(
@@ -89,7 +94,9 @@ export function resolveOverviewStatus(
   opts: OverviewStatusOpts,
   draft?: OverviewDraftData | null,
 ): string {
-  const { platformStatus, moduleTransition } = opts;
+  const { platformStatus, moduleTransition, disabled } = opts;
+
+  if (disabled) return 'disabled';
 
   // not-configured: module has no content and no draft — always dim.
   if (moduleTransition === 'not-configured') return 'pending-dim';

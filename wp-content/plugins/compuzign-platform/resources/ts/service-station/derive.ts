@@ -20,11 +20,17 @@ const TIER_KEYS: TierId[] = ['basic', 'standard', 'premium', 'enterprise', 'ulti
 // pending-dim, complete-but-unsettled (or platform inactive) → pending-full,
 // settled + active → active.
 
+// `disabled` is the Disable action's platform-visible mask (see
+// ServiceMeta.previous_platform_status) — never inferred from a Service that
+// was simply never activated. It takes precedence over every other state,
+// including not-configured: Disable masks the whole record's modules.
 export function resolveInclusionsStatus(
   inclusions: ServiceInclusionItem[],
   transition: string,
   isActive: boolean,
+  disabled?: boolean,
 ): string {
+  if (disabled) return 'disabled';
   if (transition === 'not-configured') return 'pending-dim';
   if (inclusions.length === 0) return 'pending-dim';
   const allComplete = inclusions.every(inc => !!inc.label?.trim());
@@ -38,7 +44,9 @@ export function resolveFaqsStatus(
   faqs: ServiceFaqItem[],
   transition: string,
   isActive: boolean,
+  disabled?: boolean,
 ): string {
+  if (disabled) return 'disabled';
   if (transition === 'not-configured') return 'pending-dim';
   if (faqs.length === 0) return 'pending-dim';
   const allComplete = faqs.every(faq => !!(faq.question?.trim()) && !!(faq.answer?.trim()));

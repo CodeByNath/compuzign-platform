@@ -81,6 +81,8 @@ export interface ServiceDetail {
   inclusions:      ServiceInclusionItem[];
   faqs:            ServiceFaqItem[];
   platform_status: string;
+  // The Disable/Enable mask signal — see ServiceMeta.previous_platform_status.
+  previous_platform_status: string;
   module_status:   Record<string, string>;
   drafts:          ServiceModuleDrafts;
 }
@@ -221,6 +223,9 @@ export interface ServiceStatusPayload {
   is_active?: boolean;
   /** @deprecated Ignored by the server; kept for transition period only. */
   post_status?: 'publish' | 'draft';
+  // Disable/Enable — a distinct request shape from platform_status, which
+  // Publish also sends as 'active'. Mutually exclusive with platform_status.
+  action?: 'disable' | 'enable';
 }
 
 export interface ServiceStatusResponse {
@@ -228,6 +233,7 @@ export interface ServiceStatusResponse {
   service: {
     id: number;
     platform_status: string;
+    previous_platform_status: string;
     module_status: Record<string, string>;
     /** @deprecated Use platform_status instead. */
     post_status: string;
@@ -254,12 +260,13 @@ export interface CreateServicePayload {
 export interface CreateServiceResponse {
   success: boolean;
   service: {
-    id:              number;
-    title:           string;
-    slug:            string;
-    platform_status: string;
-    module_status:   Record<string, string>;
-    categories:      Array<{ id: number; name: string; slug: string; description: string }>;
+    id:                        number;
+    title:                     string;
+    slug:                      string;
+    platform_status:           string;
+    previous_platform_status:  string;
+    module_status:             Record<string, string>;
+    categories:                Array<{ id: number; name: string; slug: string; description: string }>;
   };
   drafts: ServiceModuleDrafts;
 }

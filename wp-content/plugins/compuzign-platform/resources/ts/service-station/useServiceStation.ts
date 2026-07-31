@@ -35,6 +35,8 @@ import type { ServiceItem, ServiceInclusion, ServiceFaq, PlatformStatus } from '
 import {
   archiveService,
   createService as createServiceApi,
+  disableService,
+  enableService,
   fetchAdminServiceDetail,
   revertServiceModule,
   settleAllServiceModules,
@@ -74,8 +76,9 @@ import {
 // ── Result types ───────────────────────────────────────────────────────────────
 
 export interface ToggleActiveResult {
-  platform_status: string;
-  module_status:   Record<string, string>;
+  platform_status:           string;
+  previous_platform_status:  string;
+  module_status:             Record<string, string>;
 }
 
 export interface SettleModulesResult {
@@ -216,6 +219,15 @@ export function useServiceStation(
   const platformStatus = service?.meta?.platform_status ?? 'disabled';
   const isActive        = platformStatus === 'active';
 
+  // The Disable action's platform-visible mask: non-empty previous_platform_status
+  // while platform_status is 'disabled' means an explicit Disable applied (as
+  // opposed to a Service that is 'disabled' only because it has never been
+  // published). Never inferred — this is exactly what ServiceController's
+  // updateDisabledMask captures and Enable clears. adminDetail is authoritative
+  // once loaded; service.meta is the pre-fetch/create-time fallback.
+  const previousPlatformStatus = adminDetail?.previous_platform_status ?? service?.meta?.previous_platform_status ?? '';
+  const isDisabledMasked = platformStatus === 'disabled' && previousPlatformStatus !== '';
+
   // ── Derived: module data (draft-preferred) ─────────────────────────────────
   // Read priority: draft → authoritative settled pool (adminDetail) → passed-in
   // CostBuilder service → empty. adminDetail.inclusions/faqs is the canonical
@@ -258,16 +270,22 @@ export function useServiceStation(
     platformStatus,
     moduleTransition: moduleStatus?.overview   ?? 'not-configured',
     hasDraft:         overviewDraft !== null,
+    disabled:         isDisabledMasked,
+    platformLabel:    'Service',
   };
   const noteCtxInclusions: NoteContext = {
     platformStatus,
     moduleTransition: moduleStatus?.inclusions ?? 'not-configured',
     hasDraft:         adminDetail?.drafts.inclusions != null,
+    disabled:         isDisabledMasked,
+    platformLabel:    'Service',
   };
   const noteCtxFaqs: NoteContext = {
     platformStatus,
     moduleTransition: moduleStatus?.faqs ?? 'not-configured',
     hasDraft:         adminDetail?.drafts.faqs != null,
+    disabled:         isDisabledMasked,
+    platformLabel:    'Service',
   };
 
   // Overview status/notes: resolveOverviewStatus/getOverviewNotes are hard-typed
@@ -283,6 +301,7 @@ export function useServiceStation(
     overviewStatus = resolveOverviewStatus(overviewSource, {
       platformStatus,
       moduleTransition: moduleStatus?.overview ?? 'not-configured',
+      disabled: isDisabledMasked,
     }, overviewDraft);
     overviewNotes = getOverviewNotes(overviewSource, noteCtxOverview, overviewDraft);
   } else {
@@ -290,8 +309,8 @@ export function useServiceStation(
     overviewNotes  = derivePendingOverviewNotes(pendingOverview);
   }
 
-  const inclusionsStatus = resolveInclusionsStatus(inclusions, moduleStatus?.inclusions ?? 'not-configured', isActive);
-  const faqsStatus       = resolveFaqsStatus(faqs, moduleStatus?.faqs ?? 'not-configured', isActive);
+  const inclusionsStatus = resolveInclusionsStatus(inclusions, moduleStatus?.inclusions ?? 'not-configured', isActive, isDisabledMasked);
+  const faqsStatus       = resolveFaqsStatus(faqs, moduleStatus?.faqs ?? 'not-configured', isActive, isDisabledMasked);
 
   const inclusionsNotes = getInclusionsNotes(inclusions as unknown as ServiceInclusion[], noteCtxInclusions);
   const faqsNotes       = getFaqsNotes(faqs as unknown as ServiceFaq[], noteCtxFaqs);
@@ -316,16 +335,29 @@ export function useServiceStation(
   // footer/dialogs (only Overview edits and createService are), and guarding
   // here keeps that invariant true even if a caller ever changes.
 
+  // Disable/Enable — a platform-visible presentation mask, never Publish.
+  // Disable never alters module_status (drafts/settlement stay exactly as they
+  // are); Enable restores the record's prior platform_status and clears the
+  // mask — it never settles a draft or activates unpublished content. See
+  // ServiceController::updateDisabledMask for the backend half of this contract.
   const toggleActive = useCallback(async (): Promise<ToggleActiveResult | null> => {
     if (!service) return null;
     setStatusSaving(true);
-    const nextStatus = isActive ? 'disabled' : 'active';
     try {
-      const result = await updateServiceStatus(service.id, { platform_status: nextStatus });
+      const result = isActive ? await disableService(service.id) : await enableService(service.id);
       if (result.success) {
-        setAdminDetail(prev => prev ? { ...prev, module_status: result.service.module_status } : prev);
+        setAdminDetail(prev => prev ? {
+          ...prev,
+          platform_status:          result.service.platform_status,
+          previous_platform_status: result.service.previous_platform_status,
+          module_status:            result.service.module_status,
+        } : prev);
         onRefresh?.();
-        return { platform_status: result.service.platform_status, module_status: result.service.module_status };
+        return {
+          platform_status:           result.service.platform_status,
+          previous_platform_status:  result.service.previous_platform_status,
+          module_status:             result.service.module_status,
+        };
       }
       return null;
     } finally {
@@ -340,7 +372,11 @@ export function useServiceStation(
       const result = await archiveService(service.id);
       if (result.success) {
         onRefresh?.();
-        return { platform_status: result.service.platform_status, module_status: result.service.module_status };
+        return {
+          platform_status:           result.service.platform_status,
+          previous_platform_status:  result.service.previous_platform_status,
+          module_status:             result.service.module_status,
+        };
       }
       return null;
     } finally {
@@ -355,7 +391,11 @@ export function useServiceStation(
       const result = await trashService(service.id);
       if (result.success) {
         onRefresh?.();
-        return { platform_status: result.service.platform_status, module_status: result.service.module_status };
+        return {
+          platform_status:           result.service.platform_status,
+          previous_platform_status:  result.service.previous_platform_status,
+          module_status:             result.service.module_status,
+        };
       }
       return null;
     } finally {
@@ -525,8 +565,9 @@ export function useServiceStation(
         faqs:         [],
         availability: { is_available: true, message: '' },
         meta: {
-          platform_status:   response.service.platform_status as PlatformStatus,
-          module_status:     response.service.module_status as unknown as ServiceItem['meta']['module_status'],
+          platform_status:           response.service.platform_status as PlatformStatus,
+          previous_platform_status:  (response.service.previous_platform_status ?? '') as '' | 'active' | 'disabled',
+          module_status:             response.service.module_status as unknown as ServiceItem['meta']['module_status'],
           short_description: '',
           long_description:  '',
           billing_cycle:     '',
@@ -543,6 +584,28 @@ export function useServiceStation(
         },
         promotion_tiers: [],
       };
+      // Seed adminDetail synchronously from the create response instead of
+      // leaving it null until the follow-up fetchAdminServiceDetail resolves.
+      // Every module save below reads/patches adminDetail through
+      // `prev ? patchModuleDraft(prev, …) : prev` — while prev is null that
+      // patch is a silent no-op, which is exactly the window between hand-off
+      // and the async detail fetch. Seeding here closes that window: the very
+      // first Overview/Inclusions/FAQ save after creation always has a real
+      // adminDetail to patch, so its response is never dropped.
+      setAdminDetail({
+        success:                   true,
+        id:                        created.id,
+        title:                     created.title,
+        excerpt:                   created.excerpt,
+        content:                   created.content,
+        categories:                response.service.categories,
+        inclusions:                [],
+        faqs:                      [],
+        platform_status:           response.service.platform_status,
+        previous_platform_status:  response.service.previous_platform_status ?? '',
+        module_status:             response.service.module_status,
+        drafts:                    response.drafts,
+      });
       onRefresh?.();
       return created;
     } finally {

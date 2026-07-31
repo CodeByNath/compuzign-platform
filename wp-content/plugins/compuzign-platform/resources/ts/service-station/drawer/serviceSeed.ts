@@ -44,8 +44,9 @@ export function buildServiceItemForStationHandoff(summary: ServiceSummary): Serv
     faqs:         [],
     availability: { is_available: true, message: '' },
     meta: {
-      platform_status:   summary.platform_status,
-      module_status:     summary.module_status as ServiceItem['meta']['module_status'],
+      platform_status:           summary.platform_status,
+      previous_platform_status:  summary.previous_platform_status ?? '',
+      module_status:             summary.module_status as ServiceItem['meta']['module_status'],
       short_description: '',
       long_description:  '',
       billing_cycle:     '',

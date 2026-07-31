@@ -33,7 +33,12 @@ export function useServiceLifecycle({ station, setService, closeBypassingGuard, 
     if (result) {
       setService((prev) => prev && ({
         ...prev,
-        meta: { ...prev.meta, platform_status: result.platform_status as PlatformStatus, module_status: result.module_status as any },
+        meta: {
+          ...prev.meta,
+          platform_status:          result.platform_status as PlatformStatus,
+          previous_platform_status: result.previous_platform_status as '' | 'active' | 'disabled',
+          module_status:            result.module_status as any,
+        },
       }));
     }
   }, [toggleActive, setService]);
