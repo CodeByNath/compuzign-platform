@@ -28,10 +28,6 @@
                     "sanitize_callback": "sanitize_textarea_field",
                     "type": "string"
                 },
-                "group_id": {
-                    "required": false,
-                    "type": "integer"
-                },
                 "name": {
                     "required": true,
                     "sanitize_callback": "sanitize_text_field",
@@ -45,25 +41,6 @@
             "callback": "permanentDeleteCategory",
             "permission_callback": "requireAdmin",
             "args": {
-                "id": {
-                    "required": true,
-                    "type": "integer"
-                }
-            }
-        },
-        {
-            "route": "compuzign/v1/admin/categories/(?P<id>\\d+)/group",
-            "methods": "PATCH",
-            "callback": "updateGroup",
-            "permission_callback": "requireAdmin",
-            "args": {
-                "group_id": {
-                    "required": false,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
-                },
                 "id": {
                     "required": true,
                     "type": "integer"

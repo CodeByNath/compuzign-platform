@@ -4,15 +4,14 @@ namespace CompuZign\Platform\Modules\Admin;
 
 use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController;
-use CompuZign\Platform\Modules\Admin\Http\AdminCategoryGroupsController;
 use CompuZign\Platform\Modules\Admin\Http\AdminController;
 use CompuZign\Platform\Modules\Admin\Http\AdminRequestsController;
 
 /**
  * AdminModule wires the authenticated admin REST controllers. It owns backend
- * validation and orchestration for Categories, Service Category Groups,
- * requests, and overview routes. It hosts no frontend surface; the
- * admin frontend is the Admin Station, and access is owned by Core\PlatformAccess.
+ * validation and orchestration for Categories, requests, and overview routes.
+ * It hosts no frontend surface; the admin frontend is the Admin Station, and
+ * access is owned by Core\PlatformAccess.
  */
 class AdminModule
 {
@@ -21,7 +20,6 @@ class AdminModule
         (new AdminController())->register();
         (new AdminRequestsController())->register();
         (new AdminCategoriesController())->register();
-        (new AdminCategoryGroupsController())->register();
         Health::register('admin', static fn() => true);
     }
 }

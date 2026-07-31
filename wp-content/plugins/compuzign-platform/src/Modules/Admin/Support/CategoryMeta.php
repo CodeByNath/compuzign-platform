@@ -268,12 +268,6 @@ final class CategoryMeta
             'module_status'            => $meta['module_status'],
             'has_draft'                => $draft !== null,
             'station_role'             => $meta['station_role'],
-            // Category-role projection only: the parent group term id, or null when
-            // ungrouped (WP's own parent=0 convention). Meaningless on a group term
-            // (groups are always parent 0 — no nested groups) so it is not derived there.
-            'group_id'                 => $meta['station_role'] === self::STATION_ROLE_CATEGORY
-                ? ((int) $term->parent > 0 ? (int) $term->parent : null)
-                : null,
         ];
     }
 
@@ -306,24 +300,5 @@ final class CategoryMeta
         ]);
 
         return count($ids);
-    }
-
-    /**
-     * Count of child category terms under a group term (any status) — the
-     * group-side delete guard, term-hierarchy equivalent of
-     * assignedServiceCount(). A non-zero count blocks permanent delete of a
-     * group: detachment (moving each child back to parent 0 or another group)
-     * must be an explicit prior step, same rationale as D6.
-     */
-    public static function assignedCategoryCount(int $groupTermId): int
-    {
-        $children = get_terms([
-            'taxonomy'   => self::TAXONOMY,
-            'parent'     => $groupTermId,
-            'hide_empty' => false,
-            'fields'     => 'ids',
-        ]);
-
-        return is_array($children) ? count($children) : 0;
     }
 }

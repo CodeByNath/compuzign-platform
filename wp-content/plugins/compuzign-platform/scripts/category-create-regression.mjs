@@ -46,6 +46,7 @@ window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'te
 // ── Fetch mock — the only faked boundary ────────────────────────────────
 let createCategoryCalls = 0;
 let overviewSaveCalls = 0;
+let lastCreatePayload = null;
 const CREATED_ID = 701;
 
 globalThis.fetch = (url, init = {}) => {
@@ -58,12 +59,10 @@ globalThis.fetch = (url, init = {}) => {
   if (path.endsWith('/admin/services') && method === 'GET') {
     return jsonResponse({ categories: [], stations: [] });
   }
-  if (path.endsWith('/admin/service-category-groups') && method === 'GET') {
-    return jsonResponse({ category_groups: [] });
-  }
   if (path.endsWith('/admin/categories') && method === 'POST') {
     createCategoryCalls += 1;
     const payload = JSON.parse(init.body);
+    lastCreatePayload = payload;
     return jsonResponse({
       success: true,
       category: {
@@ -76,7 +75,6 @@ globalThis.fetch = (url, init = {}) => {
         module_status: { overview: 'pending' },
         has_draft: true,
         assigned_count: 0,
-        group_id: payload.group_id ?? null,
       },
     });
   }
@@ -233,6 +231,11 @@ check(
   !loadingTextSeenDuringLastWait,
 );
 check('createCategory called exactly once', createCategoryCalls === 1, `createCategoryCalls=${createCategoryCalls}`);
+check(
+  'the create payload carries no group_id (Service Category Group audit)',
+  lastCreatePayload !== null && !('group_id' in lastCreatePayload),
+  JSON.stringify(lastCreatePayload),
+);
 check('the created Category name is still rendered after Publish (same mounted composition, real id)',
   container.textContent.includes('Regression Test Category'));
 

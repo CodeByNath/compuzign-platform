@@ -249,9 +249,8 @@ export interface CategoryOverviewDraft {
 // The /admin/categories list-route projection: draft-preferred overview fields
 // (name/description show the draft when one exists) + the lifecycle envelope.
 // Slug is settled-only (immutable, D5). assigned_count is the D6 delete-guard
-// predicate: services assigned to the term in any status. group_id (Category
-// Group audit, Phase A/B) is the parent group term id, or null when ungrouped —
-// structural (term hierarchy), not part of the overview draft.
+// predicate: services assigned to the term in any status. Category carries no
+// group concept — the retired Service Category Group selector is gone.
 export interface CategoryStationItem {
   id:                       number;
   name:                     string;
@@ -262,7 +261,6 @@ export interface CategoryStationItem {
   module_status:            { overview: string };
   has_draft:                boolean;
   assigned_count:           number;
-  group_id:                 number | null;
 }
 
 export interface CategoryListResponse {
@@ -291,55 +289,3 @@ export interface CategoryDeleteResponse {
   deleted: number;
 }
 
-// ── Category Group station (Category Group audit, Option B, Phase C) ─────────
-// Same station shape as Category, one level up: overview (name/description) +
-// a categories gateway (child-category counts) in place of a services gateway.
-// Response keys mirror what AdminServiceCategoryGroupsController actually returns
-// ('category_groups' / 'group') — distinct from the Category equivalents
-// ('categories' / 'category') so the two stations' fetchers never collide.
-
-export interface ServiceCategoryGroupOverviewDraft {
-  name:        string;
-  description: string;
-}
-
-// The /admin/category-groups list-route projection. assigned_count here is the
-// group-side delete guard: count of child category terms (any status), not
-// services — see CategoryMeta::assignedCategoryCount().
-export interface ServiceCategoryGroupStationItem {
-  id:                       number;
-  name:                     string;
-  slug:                     string;
-  description:              string;
-  platform_status:          'active' | 'disabled' | 'archived' | 'trashed';
-  previous_platform_status: 'active' | 'disabled' | '';
-  module_status:            { overview: string };
-  has_draft:                boolean;
-  assigned_count:           number;
-}
-
-export interface ServiceCategoryGroupListResponse {
-  category_groups: ServiceCategoryGroupStationItem[];
-}
-
-// Shared by create / settle / revert / status / restore — each returns the full
-// refreshed projection.
-export interface ServiceCategoryGroupMutationResponse {
-  success:  boolean;
-  message?: string;
-  group:    ServiceCategoryGroupStationItem;
-}
-
-export interface ServiceCategoryGroupOverviewSaveResponse {
-  success:       boolean;
-  draft:         ServiceCategoryGroupOverviewDraft;
-  module_status: { overview: string };
-}
-
-// A D6-style guard failure (non-empty group) is an HTTP 409 — apiClient throws,
-// and the error text carries the JSON body { message, assigned_count }, same
-// parsing contract as CategoryDeleteResponse.
-export interface ServiceCategoryGroupDeleteResponse {
-  success: boolean;
-  deleted: number;
-}

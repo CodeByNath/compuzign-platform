@@ -4,9 +4,9 @@
  * FILE INDEX
  *
  * CATEGORY_ROUTES          Category REST route registration
- * CATEGORY_HANDLERS        Listing, creation, membership, modules, and lifecycle
+ * CATEGORY_HANDLERS        Listing, creation, modules, and lifecycle
  * CATEGORY_AUTHORIZATION   Permission callback
- * CATEGORY_HELPERS         Term lookup, Group validation, and response projection
+ * CATEGORY_HELPERS         Term lookup and response projection
  *
  * Search: SECTION: CATEGORY_ROUTES
  *         SECTION: CATEGORY_HANDLERS
@@ -74,21 +74,6 @@ class AdminCategoriesController
                                   'sanitize_callback' => 'sanitize_text_field'],
                 'description' => ['required' => false, 'type' => 'string',
                                   'sanitize_callback' => 'sanitize_textarea_field'],
-                'group_id'    => ['required' => false, 'type' => 'integer'],
-            ],
-        ]);
-
-        // ── Group assignment (structural, not draft content — Service Category Group
-        // audit Phase B): moves this category under a group term, or ungroups it
-        // when group_id is null/0. Validated against station_role, not folded
-        // into the overview draft envelope.
-        register_rest_route('compuzign/v1', '/admin/categories/(?P<id>\d+)/group', [
-            'methods'             => 'PATCH',
-            'callback'            => [$this, 'updateGroup'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'id'       => ['required' => true, 'type' => 'integer'],
-                'group_id' => ['required' => false, 'type' => ['integer', 'null']],
             ],
         ]);
 
@@ -210,9 +195,11 @@ class AdminCategoriesController
                 continue;
             }
 
-            // Category Group audit (Option B): the Category station's own list
-            // stays a flat list of category-role terms only — group-role terms
-            // belong exclusively to /admin/category-groups.
+            // The Category station's own list stays a flat list of category-role
+            // terms only. Legacy group-role terms from the retired Service
+            // Category Group station (former Admin Command Centre) may still
+            // exist on this taxonomy; excluding them here keeps them from
+            // leaking into the Category list without touching that term data.
             if (CategoryMeta::role((int) $term->term_id) !== CategoryMeta::STATION_ROLE_CATEGORY) {
                 continue;
             }
@@ -245,23 +232,12 @@ class AdminCategoriesController
     {
         $name        = (string) $request->get_param('name');
         $description = (string) ($request->get_param('description') ?? '');
-        $groupParam  = $request->get_param('group_id');
 
         if ($name === '') {
             return new \WP_REST_Response(['success' => false, 'message' => 'Category name is required.'], 422);
         }
 
-        $groupId = null;
-        if ($groupParam !== null && (int) $groupParam > 0) {
-            $groupError = $this->validateGroupId((int) $groupParam);
-            if ($groupError !== null) {
-                return $groupError;
-            }
-            $groupId = (int) $groupParam;
-        }
-
-        $insertArgs = $groupId !== null ? ['parent' => $groupId] : [];
-        $result     = wp_insert_term($name, CategoryMeta::TAXONOMY, $insertArgs);
+        $result = wp_insert_term($name, CategoryMeta::TAXONOMY);
         if (is_wp_error($result)) {
             return new \WP_REST_Response(['success' => false, 'message' => $result->get_error_message()], 422);
         }
@@ -291,51 +267,6 @@ class AdminCategoriesController
         return rest_ensure_response([
             'success'  => true,
             'category' => $this->categoryResponse($term),
-        ]);
-    }
-
-    /**
-     * Group assignment (structural, not draft content): moves this category
-     * under a group term (station_role 'group'), or ungroups it when group_id
-     * is null/0. Two-tier enforcement lives in validateGroupId() below — the
-     * target must itself have station_role 'group', and this endpoint refuses
-     * to act on a term that is itself a group (a group can never gain a parent).
-     */
-    public function updateGroup(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $term = $this->findTerm((int) $request->get_param('id'));
-        if ($term === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
-        }
-
-        $termId = (int) $term->term_id;
-
-        if (CategoryMeta::role($termId) !== CategoryMeta::STATION_ROLE_CATEGORY) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Only categories can be assigned to a group.'], 422);
-        }
-
-        $groupParam = $request->get_param('group_id');
-        $groupId    = null;
-
-        if ($groupParam !== null && (int) $groupParam > 0) {
-            if ((int) $groupParam === $termId) {
-                return new \WP_REST_Response(['success' => false, 'message' => 'A category cannot be its own group.'], 422);
-            }
-            $groupError = $this->validateGroupId((int) $groupParam);
-            if ($groupError !== null) {
-                return $groupError;
-            }
-            $groupId = (int) $groupParam;
-        }
-
-        $updated = wp_update_term($termId, CategoryMeta::TAXONOMY, ['parent' => $groupId ?? 0]);
-        if (is_wp_error($updated)) {
-            return new \WP_REST_Response(['success' => false, 'message' => $updated->get_error_message()], 422);
-        }
-
-        return rest_ensure_response([
-            'success'  => true,
-            'category' => $this->categoryResponse(get_term($termId, CategoryMeta::TAXONOMY)),
         ]);
     }
 
@@ -614,27 +545,6 @@ class AdminCategoriesController
         $term = get_term($termId, CategoryMeta::TAXONOMY);
 
         return $term instanceof \WP_Term ? $term : null;
-    }
-
-    /**
-     * Validates a candidate group_id: must resolve to an existing term with
-     * station_role 'group'. Returns an error response to short-circuit the
-     * caller, or null when valid. Shared by createCategory() and updateGroup()
-     * so the two-tier rule (a category may only be parented to a real group
-     * term) has one enforcement point.
-     */
-    private function validateGroupId(int $groupId): ?\WP_REST_Response
-    {
-        $groupTerm = get_term($groupId, CategoryMeta::TAXONOMY);
-        if (!$groupTerm instanceof \WP_Term) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Service Category Group not found.'], 422);
-        }
-
-        if (CategoryMeta::role($groupId) !== CategoryMeta::STATION_ROLE_GROUP) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'group_id must reference a Service Category Group.'], 422);
-        }
-
-        return null;
     }
 
     /** Full response projection: draft-preferred fields + lifecycle envelope + guard count. */

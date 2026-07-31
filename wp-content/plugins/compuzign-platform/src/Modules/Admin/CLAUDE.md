@@ -4,7 +4,7 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
 ## Ownership and entry points
 
-`AdminModule.php` wires the authenticated admin REST controllers. This module hosts no frontend surface — the admin frontend is the Admin Station. Controllers under `Http/` own Categories, Service Category Groups, requests, and overview route validation/orchestration. `Support/StationLifecycle.php`, `CategoryMeta.php`, and `PoolReferences.php` provide shared lifecycle, taxonomy-meta, and pool-reference rules.
+`AdminModule.php` wires the authenticated admin REST controllers. This module hosts no frontend surface — the admin frontend is the Admin Station. Controllers under `Http/` own Categories, requests, and overview route validation/orchestration. `Support/StationLifecycle.php`, `CategoryMeta.php`, and `PoolReferences.php` provide shared lifecycle, taxonomy-meta, and pool-reference rules. The former Service Category Group REST family (`AdminCategoryGroupsController`) is retired — see [Category Groups](../../../../../../docs/code-map/category-groups.md) for what remains.
 
 ## Boundaries
 

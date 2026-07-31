@@ -1,7 +1,5 @@
 // Category module rules (S6) — the Category's owned overview module and its
-// relation-summary gateway, plus the Service Category Group pair one level up
-// (Category-owned taxonomy; the group module resolves byte-for-byte like its
-// Category counterpart).
+// relation-summary gateway.
 
 import type { ModuleDefinition, ModuleNote } from './shared';
 
@@ -56,39 +54,3 @@ export const categoryServicesModule: ModuleDefinition<CategoryServicesLike> = {
   problems:    () => [],
   resolveStatus: (_counts, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
 };
-
-// ── Category Group modules (Category Group audit, Option B) ──────────────────
-// Same two-module shape as Category, one level up: an owned overview module and
-// a relation-summary gateway — here counting child categories instead of
-// assigned services. Byte-for-byte the same resolution rules as their Category
-// counterparts (station_role is a storage/relation concern; it does not change
-// how a station's own modules resolve).
-
-export interface ServiceCategoryGroupOverviewLike {
-  name:        string;
-  description: string;
-  slug:        string;
-}
-
-export const serviceCategoryGroupOverviewModule: ModuleDefinition<ServiceCategoryGroupOverviewLike> = {
-  key:                'category-group-overview',
-  emptyPrompt:        'Edit and name this category group.',
-  isEmpty:            (g) => !g.name.trim(),
-  includeDraftInTail: true,
-  // Completeness = name only; description is OPTIONAL (matches Category — never
-  // re-add a "Description missing" gate).
-  problems: (g) => {
-    const out: ModuleNote[] = [];
-    if (!g.name.trim()) out.push({ id: 'category-group-overview.name.missing', message: 'Name missing', type: 'error' });
-    return out;
-  },
-  resolveStatus: (g, ctx) => {
-    if (ctx.moduleTransition === 'not-configured') return 'pending-dim';
-    if (!g.name.trim())                            return 'pending-dim';
-    if (ctx.moduleTransition === 'pending')        return 'pending-full';
-    return ctx.platformStatus === 'active' ? 'active' : 'disabled';
-  },
-};
-
-// Service Category Group Categories — the relation-summary gateway, one level up from
-// categoryServicesModule: counts child category terms, not services.

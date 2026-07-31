@@ -2,7 +2,7 @@
 
 ## Purpose and ownership
 
-Category owns numeric identity, Overview draft/lifecycle, and optional Service Category Group membership. Membership is a separate structural mutation, saved beside—not inside—the Overview draft. Assigned Services are read-only projections; assignment stays Service-owned.
+Category owns numeric identity and Overview draft/lifecycle. Category carries no group concept — the retired Service Category Group selector and its `group_id` create/update payload were removed (Service Category Group audit); see [Service Category Groups](category-groups.md) for what was removed and what legacy data remains, ignored. Assigned Services are read-only projections; assignment stays Service-owned.
 
 ## Shared drawer composition
 
@@ -10,8 +10,8 @@ Category owns numeric identity, Overview draft/lifecycle, and optional Service C
 - [useCategoryDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/category/useCategoryDrawerController.ts) owns tab/edit/dirty/panel/dialog state and coordinates authoritative actions. It renders no JSX.
 - [category.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/category.tsx) defines Category Overview and Assigned Services shells.
 - [category.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/category.ts) is the neutral drawer manifest.
-- [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/CategoryOverviewEditor.tsx) edits name, description, and structural group selection through the shared inline editor.
-- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell. It also resolves the stable `'new'` recordId sentinel to `category: null` — no fabricated CategoryStationItem — so the SAME composition opens on its ordinary Overview module with nothing to fetch; [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) represents that pending state with its own local Overview draft and exposes `createCategory(groupId)`, the footer Publish's one authoritative creation.
+- [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/CategoryOverviewEditor.tsx) edits name and description through the shared inline editor.
+- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell. It also resolves the stable `'new'` recordId sentinel to `category: null` — no fabricated CategoryStationItem — so the SAME composition opens on its ordinary Overview module with nothing to fetch; [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) represents that pending state with its own local Overview draft and exposes `createCategory()`, the footer Publish's one authoritative creation.
 
 ## Ownership verdict and Admin Station's actual role
 
@@ -21,7 +21,7 @@ Category is a **neutral entity lifecycle mounted by Admin Station**, not Admin-o
 
 ## State and persistence
 
-- [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns draft-preferred local state, module evaluation, overview save/revert/settle/publish, group membership, status, archive/trash/restore/delete, and targeted mutation notification.
+- [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns draft-preferred local state, module evaluation, overview save/revert/settle/publish, status, archive/trash/restore/delete, and targeted mutation notification.
 - [AdminCategoriesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoriesController.php) owns Category routes.
 - [CategoryMeta.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/CategoryMeta.php) owns stored shape/readiness.
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) owns typed endpoint calls.
