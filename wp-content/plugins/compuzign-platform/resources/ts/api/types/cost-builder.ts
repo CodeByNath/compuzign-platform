@@ -54,6 +54,11 @@ export interface PricingTierData {
   inclusions: ServiceInclusion[];
   features: string[]; // transitional compatibility — prefer inclusions
   label?: string; // admin display-label override; falls back to Tier.title when absent
+  // Selection mode: false = this Tier is offered as the customer's one
+  // exclusive normal choice; true = it is offered as a stackable add-on
+  // alongside whichever normal Tier is selected. Always present — legacy/
+  // canonical tiers with no occupant record default to false.
+  is_addon: boolean;
 }
 
 export interface ServicePricing {

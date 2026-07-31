@@ -81,12 +81,14 @@ $behavioralMatrix = [
     'tier-instance-migration.php',
     'tier-instance-mutations.php',
     'tier-occupant-compatibility.php',
+    'tier-occupant-is-addon.php',
     'tier-instance-guards.php',
     'tier-assignment-schema.php',
     'tier-assignment-family-flow.php',
     'package-capability-peer-isolation.php',
     'package-category-groups.php',
     'tier-instance-public-projection.php',
+    'tier-public-projection-is-addon.php',
     'tier-pricing-parity.php',
 ];
 foreach ($behavioralMatrix as $testFile) {

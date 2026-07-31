@@ -351,6 +351,13 @@ class PricingBuilder
             if (!empty($pkgTier['label'])) {
                 $payload['pricing']['tiers'][$tierId]['label'] = $pkgTier['label'];
             }
+
+            // Selection mode: whether this occupant is offered as the customer's
+            // one exclusive normal Tier or as a stackable add-on. Carried
+            // verbatim from the occupant (PackageSchema::extractTierForCostBuilder)
+            // for every tier that survives the enabled/configured checks above;
+            // a tier removed from output above carries no is_addon meaning.
+            $payload['pricing']['tiers'][$tierId]['is_addon'] = (bool) ($pkgTier['is_addon'] ?? false);
         }
 
         // ── Availability recompute ────────────────────────────────────────────
@@ -498,6 +505,10 @@ class PricingBuilder
                 'billing_cycle' => $billingCycle,
                 'inclusions'    => array_map(fn($f) => ['id' => sanitize_title($f), 'label' => $f], $features),
                 'features'      => $features,
+                // Canonical/legacy tiers carry no occupant record and are never
+                // add-ons; overlayPackage() below is the only place this flips
+                // true, from an active Tier Instance occupant's own is_addon.
+                'is_addon'      => false,
             ];
         }
 

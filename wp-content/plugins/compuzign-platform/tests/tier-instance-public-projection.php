@@ -127,7 +127,8 @@ function public_projection_instance(
     string $label,
     string $rateSheetId,
     string $rateItemId,
-    string $status = 'active'
+    string $status = 'active',
+    ?string $addonLabel = null
 ): array {
     $tiers = TierInstanceSchema::emptyTierMap();
     $tiers['basic'] = [
@@ -144,9 +145,30 @@ function public_projection_instance(
             'features' => [],
             'faq_refs' => [],
             'platform_status' => $status,
+            'is_addon' => false,
         ],
         'history' => [],
     ];
+    if ($addonLabel !== null) {
+        $tiers['standard'] = [
+            'current_occupant' => [
+                'id' => 'occ_' . substr(hash('sha256', $id . '_addon'), 0, 8),
+                'label' => $addonLabel,
+                'ideal_for' => '',
+                'price' => null,
+                'contact' => false,
+                'billing_cycle' => 'monthly',
+                'rate_sheet_id' => $rateSheetId,
+                'rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 1]],
+                'inclusions_override' => [],
+                'features' => [],
+                'faq_refs' => [],
+                'platform_status' => $status,
+                'is_addon' => true,
+            ],
+            'history' => [],
+        ];
+    }
     return [
         'tier_instance_id' => $id,
         'title' => $title,
@@ -246,7 +268,7 @@ $manager = [
 ];
 
 $instances = [
-    public_projection_instance('ti_kairos', 'KAIROS Tier Set', 'KAIROS Basic', 'rs_kairos', $rateItemId),
+    public_projection_instance('ti_kairos', 'KAIROS Tier Set', 'KAIROS Basic', 'rs_kairos', $rateItemId, 'active', 'Backup & DR Shield'),
     public_projection_instance('ti_aptos', 'APTOS Tier Set', 'APTOS Basic', 'rs_aptos', $rateItemId),
     public_projection_instance('ti_unready', 'Unready Tier Set', 'Unready Basic', 'rs_kairos', $rateItemId, 'disabled'),
 ];
@@ -306,6 +328,9 @@ check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'KA
 check_public_projection($publicMap[102]['tiers']['basic']['price'] === 22.0, 'APTOS resolves the shared row id inside rs_aptos');
 check_public_projection($publicMap[101]['popular_label'] === 'KAIROS Tier Set popular', 'KAIROS popular configuration comes from its instance');
 check_public_projection($publicMap[102]['popular_label'] === 'APTOS Tier Set popular', 'APTOS popular configuration comes from its instance');
+check_public_projection($publicMap[101]['tiers']['basic']['is_addon'] === false, 'a normal occupant survives the repository projection as is_addon: false');
+check_public_projection($publicMap[101]['tiers']['standard']['is_addon'] === true, 'an add-on occupant survives the repository projection as is_addon: true, ready for PricingBuilder::overlayPackage');
+check_public_projection($publicMap[101]['tiers']['standard']['label'] === 'Backup & DR Shield', 'the add-on occupant keeps its own label through the repository projection');
 check_public_projection(!str_contains(serialize($publicMap), 'Forbidden legacy fallback'), 'legacy global Tiers never enter an assigned projection');
 
 $disabledServiceIds = $repository->findDisabledPackageServiceIds();
