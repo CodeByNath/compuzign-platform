@@ -173,7 +173,6 @@ export function useCategoryDrawerController({
   const overviewBinding: ShellBinding<CategoryOverviewShellData> = {
     data: {
       name: station.displayName,
-      slug: station.displaySlug ?? '',
       description: station.displayDescription,
     },
     state: station.modules.overview,

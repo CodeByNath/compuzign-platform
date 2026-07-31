@@ -20,7 +20,6 @@ const DETAILS_ACTIONS: Record<string, ShellActionSchema> = {
 
 export interface CategoryOverviewShellData {
   name: string;
-  slug: string;
   description: string;
 }
 
@@ -38,10 +37,6 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
     {
       id: 'name', element: 'text', label: 'Name',
       bind: (data): TextValue => ({ value: data.name, fallback: 'New Category' }),
-    },
-    {
-      id: 'slug', element: 'text', label: 'Slug',
-      bind: (data): TextValue => ({ value: data.slug }),
     },
     {
       id: 'description', element: 'rich-text', label: 'Description',
