@@ -4,8 +4,9 @@ import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
 import { PILL_META } from '@/drawer-kit/schema/presentation';
 import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
 import {
-  PackagesIcon,
-  RateSheetIcon,
+  ArchiveBoxIcon,
+  CheckCircleIcon,
+  PencilSquareIcon,
   SearchIcon,
   ServicesIcon,
   ViewIcon,
@@ -154,19 +155,19 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
           label="Active Services"
           value={current.filter((item) => item.platformStatus === 'active').length}
           tone="active"
-          icon={ViewIcon}
+          icon={CheckCircleIcon}
         />
         <StatCard
           label="Draft Services"
           value={current.filter(isPending).length}
           tone="pending"
-          icon={RateSheetIcon}
+          icon={PencilSquareIcon}
         />
         <StatCard
           label="Archived Services"
           value={services.filter((item) => item.scope === 'archived').length}
           tone="neutral"
-          icon={PackagesIcon}
+          icon={ArchiveBoxIcon}
         />
       </div>
 
