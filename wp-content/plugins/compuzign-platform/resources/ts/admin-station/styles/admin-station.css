@@ -2356,12 +2356,29 @@ button.cz-station-status-pill {
 }
 
 .cz-tier-workspace__detail-kind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   min-width: 0;
   color: var(--station-text-muted);
   font-size: var(--station-text-sm);
   line-height: var(--station-line-snug);
   overflow-wrap: anywhere;
+}
+
+/* The focused card's Popular badge — an accent chip, not a lifecycle status,
+   so it uses the accent tokens rather than the status-pill vocabulary. */
+.cz-tier-workspace__popular-badge {
+  flex: none;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid var(--station-accent-border);
+  border-radius: var(--station-pill-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 /* The price line, carried straight from the occupant card's description, given

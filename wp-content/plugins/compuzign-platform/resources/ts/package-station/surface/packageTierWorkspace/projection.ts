@@ -30,6 +30,11 @@ export interface WorkspaceTierSlot {
   label: string;
   occupantId: string | null;
   item: CategoryGroupCardItem | null;
+  // Occupant-level presentation flags, `null` for an empty slot (neither a Tier
+  // nor an Add-on yet). Carried here so the left list filter and the focused
+  // card can read them without re-deriving from the station.
+  isAddon: boolean | null;
+  isPopular: boolean;
 }
 
 /**
@@ -37,7 +42,7 @@ export interface WorkspaceTierSlot {
  * The input contains real occupant cards only; missing entries remain empty.
  */
 export function projectWorkspaceTierSlots(
-  occupants: readonly { slotId: string; occupantId: string; item: CategoryGroupCardItem }[],
+  occupants: readonly { slotId: string; occupantId: string; item: CategoryGroupCardItem; isAddon: boolean; isPopular: boolean }[],
 ): WorkspaceTierSlot[] {
   const occupantBySlot = new Map(occupants.map((occupant) => [occupant.slotId, occupant]));
   return TIER_KEYS.map((slotId) => {
@@ -47,6 +52,8 @@ export function projectWorkspaceTierSlots(
       label: TIER_LABELS[slotId] ?? slotId,
       occupantId: occupant?.occupantId ?? null,
       item: occupant?.item ?? null,
+      isAddon: occupant?.isAddon ?? null,
+      isPopular: occupant?.isPopular ?? false,
     };
   });
 }

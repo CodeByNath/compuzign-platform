@@ -72,7 +72,12 @@ export function TierDetailPanel({ slot, familyName, hasInstance, onAction, onOpe
         )}
         <div class="cz-tier-workspace__detail-identity">
           <h4 class="cz-tier-workspace__detail-name">{item.name}</h4>
-          {item.kind && <p class="cz-tier-workspace__detail-kind">{item.kind}</p>}
+          {item.kind && (
+            <p class="cz-tier-workspace__detail-kind">
+              {item.kind}
+              {slot.isPopular && <span class="cz-tier-workspace__popular-badge">Popular</span>}
+            </p>
+          )}
         </div>
         {item.status && <StationStatusPill status={item.status} notes={item.notifications} />}
       </header>

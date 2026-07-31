@@ -52,12 +52,13 @@ export function toTierOccupantCard({
   const price      = detail?.price ?? null;
   const inclusions = detail?.inclusions_override.length ?? 0;
   const faqs       = detail?.faq_refs.length ?? 0;
+  const isAddon    = detail?.is_addon ?? false;
 
   return {
     id:   occupantId,          // native stable occupant id, unchanged
     key:  occupantId,
     name: `Package ${detail?.label?.trim() || TIER_LABELS[slotId] || slotId}`,
-    kind: 'Package tier',
+    kind: isAddon ? 'Package Add-on' : 'Package Tier',
     description: price == null
       ? 'Pricing not configured'
       : `$${price.toFixed(2)} · ${detail?.billing_cycle ?? 'Not available'}`,

@@ -163,6 +163,8 @@ const fixedSlots = projectWorkspaceTierSlots([{
   slotId: 'basic',
   occupantId: 'occ_kairos_basic',
   item: { id: 'occ_kairos_basic', name: 'Starter' } as never,
+  isAddon: false,
+  isPopular: true,
 }]);
 check(fixedSlots.map((slot) => slot.slotId).join(',') === TIER_KEYS.join(','), 'Focus shell always projects the five fixed slots in canonical order');
 check(fixedSlots[0].occupantId === 'occ_kairos_basic', 'occupied slots preserve the real occupant identity');

@@ -229,6 +229,8 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         return {
           occupantId,
           slotId,
+          isAddon: view?.detail.is_addon ?? false,
+          isPopular: pkg.popularTier === slotId,
           item: toTierOccupantCard({
             occupantId,
             slotId,
@@ -268,6 +270,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     pkg.tierOccupants,
     pkg.tierView,
     pkg.platformStatus,
+    pkg.popularTier,
     pkg.detailLoaded,
     manager,
     selectFamily,
