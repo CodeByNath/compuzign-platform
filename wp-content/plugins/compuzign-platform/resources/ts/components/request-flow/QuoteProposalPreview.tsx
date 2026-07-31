@@ -1,5 +1,5 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
-import { calcQuoteTotals } from '@/utils/quote';
+import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
 import type { QuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
@@ -19,8 +19,13 @@ export function QuoteProposalPreview({
   quoteDate,
   quoteRef,
 }: QuoteProposalPreviewProps) {
-  const mainItems  = items.filter((item) => item.serviceId > 0);
-  const addonItems = items.filter((item) => item.serviceId < 0);
+  // Three explicitly distinct classifications, never merged: the customer's
+  // one normal Tier/promotion per Service; the legacy recommended bundle
+  // (still identified by its own negative serviceId, unchanged); and real
+  // Tier add-ons (identified by isAddon, never by serviceId sign).
+  const mainItems      = items.filter((item) => item.serviceId > 0 && !item.isAddon);
+  const bundleItems    = items.filter((item) => item.serviceId < 0);
+  const tierAddonItems = items.filter((item) => item.isAddon);
   const totals     = calcQuoteTotals(items);
 
   const findService = (id: number) => services.find((s) => s.id === Math.abs(id));
@@ -107,11 +112,11 @@ export function QuoteProposalPreview({
         })}
       </div>
 
-      {/* ── Add-ons ── */}
-      {addonItems.length > 0 && (
+      {/* ── Recommended bundle (legacy) ── */}
+      {bundleItems.length > 0 && (
         <div class="cz-proposal__addons">
           <h4 class="cz-proposal__addons-heading">Recommended Add-ons</h4>
-          {addonItems.map((item) => {
+          {bundleItems.map((item) => {
             const service     = findService(item.serviceId);
             const bundleDesc  = service?.pricing?.bundle?.description ?? '';
             const cycleSuffix = formatCycleLabel(item.billingCycle);
@@ -122,6 +127,44 @@ export function QuoteProposalPreview({
                   <span class="cz-proposal__addon-title">{item.serviceTitle}</span>
                   {bundleDesc && (
                     <span class="cz-proposal__addon-desc">{decodeHtml(bundleDesc)}</span>
+                  )}
+                </div>
+                <span class="cz-proposal__addon-price">
+                  {item.price !== null ? (
+                    <>
+                      {formatPrice(item.price)}
+                      {cycleSuffix && (
+                        <span class="cz-proposal__addon-cycle">{' '}{cycleSuffix}</span>
+                      )}
+                    </>
+                  ) : (
+                    'Contact for pricing'
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Tier add-ons (selected alongside a normal Tier) ── */}
+      {tierAddonItems.length > 0 && (
+        <div class="cz-proposal__addons">
+          <h4 class="cz-proposal__addons-heading">Optional Add-ons</h4>
+          {tierAddonItems.map((item) => {
+            const cycleSuffix = formatCycleLabel(item.billingCycle);
+
+            return (
+              <div key={quoteItemKey(item)} class="cz-proposal__addon">
+                <div class="cz-proposal__addon-info">
+                  <span class="cz-proposal__addon-title">{item.tierTitle}</span>
+                  <span class="cz-proposal__addon-desc">{item.serviceTitle}</span>
+                  {item.features.length > 0 && (
+                    <ul class="cz-proposal__features">
+                      {item.features.map((f, i) => (
+                        <li key={i} class="cz-proposal__feature">{f}</li>
+                      ))}
+                    </ul>
                   )}
                 </div>
                 <span class="cz-proposal__addon-price">

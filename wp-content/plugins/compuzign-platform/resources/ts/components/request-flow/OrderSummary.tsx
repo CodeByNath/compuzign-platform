@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
-import { calcQuoteTotals } from '@/utils/quote';
+import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
 import type { QuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
@@ -48,8 +48,11 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const mainItems  = items.filter((item) => item.serviceId > 0);
-  const addonItems = items.filter((item) => item.serviceId < 0);
+  // Three explicitly distinct classifications, never merged — see
+  // QuoteProposalPreview.tsx for the same split and its rationale.
+  const mainItems      = items.filter((item) => item.serviceId > 0 && !item.isAddon);
+  const bundleItems    = items.filter((item) => item.serviceId < 0);
+  const tierAddonItems = items.filter((item) => item.isAddon);
   const totals     = calcQuoteTotals(items);
 
   const findService = (id: number) => services.find((s) => s.id === Math.abs(id));
@@ -59,7 +62,7 @@ export function OrderSummary({
   const isSubmitting = submitState === 'submitting';
   const isSubmitted  = submitState === 'success';
   const submitDisabled = step === 'contact' || !canSubmit || isSubmitting;
-  const totalCount   = mainItems.length + addonItems.length;
+  const totalCount   = mainItems.length + bundleItems.length + tierAddonItems.length;
 
   return (
     <div class="cz-os">
@@ -148,13 +151,30 @@ export function OrderSummary({
             );
           })}
 
-          {addonItems.map((item) => {
+          {bundleItems.map((item) => {
             const cycleSuffix = formatCycleLabel(item.billingCycle);
             return (
               <div key={item.serviceId} class="cz-os__addon">
                 <div class="cz-os__addon-info">
                   <p class="cz-os__addon-name">{item.serviceTitle}</p>
                   <p class="cz-os__addon-label">Add-on</p>
+                </div>
+                <span class="cz-os__addon-price">
+                  {item.price !== null
+                    ? `${formatPrice(item.price)}${cycleSuffix ? ` ${cycleSuffix}` : ''}`
+                    : 'TBC'}
+                </span>
+              </div>
+            );
+          })}
+
+          {tierAddonItems.map((item) => {
+            const cycleSuffix = formatCycleLabel(item.billingCycle);
+            return (
+              <div key={quoteItemKey(item)} class="cz-os__addon">
+                <div class="cz-os__addon-info">
+                  <p class="cz-os__addon-name">{item.tierTitle}</p>
+                  <p class="cz-os__addon-label">Optional add-on · {item.serviceTitle}</p>
                 </div>
                 <span class="cz-os__addon-price">
                   {item.price !== null

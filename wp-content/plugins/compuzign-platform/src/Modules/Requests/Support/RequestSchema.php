@@ -115,6 +115,12 @@ class RequestSchema
                 'offer_type'    => sanitize_text_field((string) ($raw['offer_type'] ?? '')),
                 'promotion_id'  => sanitize_text_field((string) ($raw['promotion_id'] ?? '')),
                 'billing_label' => sanitize_text_field((string) ($raw['billing_label'] ?? '')),
+                // Whether this line is a Tier add-on (stackable, selected
+                // alongside the normal Tier) rather than the one normal
+                // selection for serviceId. Never inferred from serviceId's
+                // sign — the legacy recommended bundle keeps using its own
+                // negative serviceId and is not classified as an add-on here.
+                'isAddon'       => !empty($raw['isAddon']),
             ];
         }
 
@@ -186,6 +192,7 @@ class RequestSchema
                         'price'        => ['type' => ['number', 'null']],
                         'billingCycle' => ['type' => 'string'],
                         'features'     => ['type' => 'array', 'items' => ['type' => 'string']],
+                        'isAddon'      => ['type' => 'boolean'],
                     ],
                 ],
             ],
