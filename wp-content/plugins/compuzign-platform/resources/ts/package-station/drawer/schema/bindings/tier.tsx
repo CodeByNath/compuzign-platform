@@ -44,8 +44,8 @@ export interface TierOverviewShellData {
   contact:      boolean;
   price:        number | null;
   billingCycle: string | null;
+  isAddon:      boolean;         // occupant-level selection mode — see Tier Add-on Selection code map
   popular:      boolean;         // station-level presentation flag
-  popularLabel: string;
 }
 
 export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
@@ -64,6 +64,10 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.label.trim(), fallback: d.tierName }),
     },
     {
+      id: 'type', element: 'text', label: 'Type',
+      bind: (d): TextValue => ({ value: d.isAddon ? 'Package Add-on' : 'Package Tier' }),
+    },
+    {
       id: 'price', element: 'text', label: 'Price',
       bind: (d): TextValue => ({
         value: d.price != null ? `$${d.price}` : 'Not configured',
@@ -78,9 +82,8 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
     },
     {
-      id: 'presentation', element: 'text', label: 'Presentation',
-      when: (d) => d.popular,
-      bind: (d): TextValue => ({ value: `Popular${d.popularLabel ? ` · ${d.popularLabel}` : ''}` }),
+      id: 'popular', element: 'text', label: 'Popular',
+      bind: (d): TextValue => ({ value: d.popular ? 'Yes' : 'No' }),
     },
   ],
   footer:  DETAILS_FOOTER,
