@@ -166,8 +166,12 @@ export function useCategoryDrawerController({
   }, [closeBypassingGuard, confirmDialog, runLifecycle, station]);
 
   const isActive = station.isActive;
-  const isNewNeverPublished = station.platformStatus === 'disabled' && station.moduleStatus.overview !== 'settled';
-  const hasBeenPublished = isActive || station.moduleStatus.overview === 'settled';
+  // station.hasSettledOverview, not moduleStatus.overview === 'settled': the
+  // transition label alone never distinguished "genuinely new" from
+  // "previously published, mid-edit" (createCategory always seeds overview
+  // 'pending' too) — see useCategoryStation's hasSettledOverview comment.
+  const isNewNeverPublished = station.platformStatus === 'disabled' && !station.hasSettledOverview;
+  const hasBeenPublished = isActive || station.hasSettledOverview;
   const canPublish = station.modules.overview.status === 'pending-full' || (isActive && station.hasDraft);
 
   const overviewBinding: ShellBinding<CategoryOverviewShellData> = {
@@ -217,6 +221,7 @@ export function useCategoryDrawerController({
     setExitDialog,
     actionError,
     isActive,
+    isDisabledMasked: station.isDisabledMasked,
     isNewNeverPublished,
     hasBeenPublished,
     canPublish,

@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'preact/hooks';
+import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
 import {
   createCategory as createCategoryApi,
+  disableCategory,
+  enableCategory,
   permanentDeleteCategory,
   restoreCategory,
   revertCategoryOverview,
@@ -29,6 +31,17 @@ export interface CategoryStation {
   // ── Identity ──────────────────────────────────────────────────────────────
   platformStatus: string;
   isActive:       boolean;
+  // The Disable action's platform-visible mask (CategoryMeta.previous_platform_status,
+  // non-empty while platformStatus is 'disabled'): true only for a Category an
+  // explicit Disable applied and has not yet been Enabled. false covers both
+  // "never published" and "Enabled — Pending, awaiting Publish".
+  isDisabledMasked: boolean;
+  // Has this Category's overview ever been settled (i.e. genuinely published
+  // content exists), durable across a later edit that moves module_status.overview
+  // back to 'pending'. See isNewNeverPublished/hasBeenPublished in
+  // useCategoryDrawerController for why moduleStatus.overview === 'settled'
+  // alone cannot answer this.
+  hasSettledOverview: boolean;
   // No backing term yet — Settings' Create Category launcher, before Publish.
   isNew:          boolean;
 
@@ -110,12 +123,33 @@ export function useCategoryStation(
   const platformStatus = created?.platform_status ?? 'disabled';
   const isActive       = platformStatus === 'active';
 
+  // The Disable action's platform-visible mask: non-empty previous_platform_status
+  // while platformStatus is 'disabled' means an explicit Disable applied (as
+  // opposed to a Category that is 'disabled' only because it has never been
+  // published, or because Enable just lifted the mask). Never inferred — this
+  // is exactly what AdminCategoriesController's updateDisabledMask captures
+  // and Enable clears. Mirrors useServiceStation's isDisabledMasked exactly.
+  const previousPlatformStatus = created?.previous_platform_status ?? '';
+  const isDisabledMasked = platformStatus === 'disabled' && previousPlatformStatus !== '';
+
   const displayName        = created?.name ?? pendingDraft.name;
   const displayDescription = created?.description ?? pendingDraft.description;
   const displaySlug        = created?.slug ?? null;
   const moduleStatus        = created?.module_status ?? { overview: pendingModuleStatus };
   const hasDraft            = created?.has_draft ?? (pendingModuleStatus === 'pending');
   const assignedCount       = created?.assigned_count ?? 0;
+
+  // Durable "has ever been settled" signal: module_status.overview === 'settled'
+  // alone regresses to false the moment a post-Enable (or any) edit is saved,
+  // since saveOverview always marks it 'pending' again — a brand-new Category's
+  // overview also starts 'pending' (createCategory always seeds it that way), so
+  // that transition label never actually distinguished "genuinely new" from
+  // "previously published, mid-edit". This ref latches true the first time this
+  // session observes 'settled' and never resets — see useServiceStation's
+  // seedDetailFromItem/settledOverview for the Service equivalent of this fix.
+  const hasSettledOverviewRef = useRef(moduleStatus.overview === 'settled');
+  if (moduleStatus.overview === 'settled') hasSettledOverviewRef.current = true;
+  const hasSettledOverview = hasSettledOverviewRef.current;
 
   // ── Derived: module computed state ─────────────────────────────────────────
   const counts: CategoryServiceCounts = serviceCounts
@@ -126,6 +160,7 @@ export function useCategoryStation(
     platformLabel:    'Category',
     moduleTransition: moduleStatus.overview,
     hasDraft,
+    disabled:         isDisabledMasked,
   };
   // categoryOverviewModule takes plain { name, description, slug } data, not a
   // CategoryStationItem, so the pending and persisted paths both feed it the
@@ -234,7 +269,29 @@ export function useCategoryStation(
     }
   }, [created, onRefresh]);
 
-  const toggleActive   = useCallback(() => applyStatus(isActive ? 'disabled' : 'active'), [applyStatus, isActive]);
+  // Disable/Enable — a platform-visible presentation mask, never Publish. See
+  // AdminCategoriesController::updateDisabledMask; mirrors useServiceStation's
+  // toggleActive exactly, including deciding disable vs enable by the mask
+  // (isDisabledMasked), not by isActive — Enable applies only to a masked
+  // Category; every other reachable state (active, or unmasked-Pending with
+  // real settled content) calls Disable, so a Category Enable produces can
+  // always be disabled again without first routing through Publish.
+  const toggleActive = useCallback(async (): Promise<CategoryStationItem | null> => {
+    if (!created) return null;
+    setStatusSaving(true);
+    try {
+      const result = isDisabledMasked ? await enableCategory(created.id) : await disableCategory(created.id);
+      if (result.success) {
+        setCreated(result.category);
+        onRefresh?.();
+        return result.category;
+      }
+      return null;
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [created, isDisabledMasked, onRefresh]);
+
   const archiveStation = useCallback(() => applyStatus('archived'), [applyStatus]);
   const trashStation   = useCallback(() => applyStatus('trashed'), [applyStatus]);
 
@@ -292,6 +349,8 @@ export function useCategoryStation(
   return {
     platformStatus,
     isActive,
+    isDisabledMasked,
+    hasSettledOverview,
     isNew,
     category:      created,
     displayName,

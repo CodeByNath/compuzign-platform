@@ -25,6 +25,7 @@
     "regression:service-open-save-race": "node scripts/service-open-save-race-regression.mjs",
     "regression:service-disable-enable": "node scripts/service-disable-enable-regression.mjs",
     "regression:category-create": "node scripts/category-create-regression.mjs",
+    "regression:category-disable-enable": "node scripts/category-disable-enable-regression.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "dev": "vite"
   },
