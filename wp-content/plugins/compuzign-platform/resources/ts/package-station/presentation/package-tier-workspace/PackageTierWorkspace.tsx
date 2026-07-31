@@ -19,6 +19,7 @@ import {
   encodeTierRateSheetGroupDrawerRecordId,
 } from '../../drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
+import { filterWorkspaceTierSlots, type TierListFilter } from '../../surface/packageTierWorkspace/projection';
 import type { ConnectionTarget } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
 import { PackageFamilyScope } from './PackageFamilyScope';
@@ -35,6 +36,7 @@ type ViewMode = 'focus' | 'grid';
 export function PackageTierWorkspace({ items, loading, error, onIntent }: TemplateKitProps): VNode {
   const tool = (items as PackageTierWorkspaceTool[])[0] ?? null;
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [tierFilter, setTierFilter] = useState<TierListFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('focus');
   const [deckTab, setDeckTab] = useState<DeckTab>('details');
   const [navigationAnnouncement, setNavigationAnnouncement] = useState('');
@@ -44,12 +46,17 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
 
   const occupants = tool?.occupants ?? [];
   const slots = tool?.slots ?? [];
+  const visibleSlots = useMemo(() => filterWorkspaceTierSlots(slots, tierFilter), [slots, tierFilter]);
   const instanceId = tool?.workspaceInstance?.tier_instance_id ?? null;
+  // The same "selected, or the first available" pattern the unfiltered list
+  // always used — narrowed to the currently visible slots, so a filter change
+  // keeps the current selection when it remains visible and otherwise falls
+  // back to the first visible occupant instead of an occupant the filter hid.
   const selectedSlot = useMemo(
     () => instanceId === null
       ? null
-      : slots.find((slot) => slot.slotId === selectedSlotId) ?? slots[0] ?? null,
-    [instanceId, selectedSlotId, slots],
+      : visibleSlots.find((slot) => slot.slotId === selectedSlotId) ?? visibleSlots[0] ?? null,
+    [instanceId, selectedSlotId, visibleSlots],
   );
 
   const focusWorkspace = (announcement: string) => {
@@ -260,9 +267,11 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           ) : (
             <div class="cz-tier-workspace__focus">
               <TierNavigation
-                slots={slots}
+                slots={visibleSlots}
                 selectedId={selectedSlot?.slotId ?? null}
                 onSelect={setSelectedSlotId}
+                filter={tierFilter}
+                onFilterChange={setTierFilter}
               />
               {selectedSlot && (
                 <TierDetailPanel

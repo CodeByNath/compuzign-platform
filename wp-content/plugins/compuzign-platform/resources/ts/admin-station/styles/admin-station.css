@@ -2192,6 +2192,13 @@ button.cz-station-status-pill {
   padding: var(--station-card-pad);
 }
 
+.cz-tier-workspace__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .cz-tier-workspace__panel-label {
   margin: 0 0 2px;
   color: var(--station-text-muted);
@@ -2199,6 +2206,17 @@ button.cz-station-status-pill {
   font-weight: 700;
   letter-spacing: var(--station-tracking-wide);
   text-transform: uppercase;
+}
+
+/* Compact, visually-secondary list filter — small footprint so it reads as a
+   sort control, not a form field competing with the panel heading. */
+.cz-tier-workspace__list-filter-select {
+  min-width: 0;
+  width: auto;
+}
+
+.cz-tier-workspace__list-empty {
+  padding: var(--station-card-pad);
 }
 
 .cz-tier-workspace__tab {

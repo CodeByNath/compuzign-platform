@@ -4,6 +4,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  filterWorkspaceTierSlots,
   projectResolvedInstanceOccupants,
   projectWorkspaceTierSlots,
   resolveFamilyTierAssignment,
@@ -169,6 +170,38 @@ const fixedSlots = projectWorkspaceTierSlots([{
 check(fixedSlots.map((slot) => slot.slotId).join(',') === TIER_KEYS.join(','), 'Focus shell always projects the five fixed slots in canonical order');
 check(fixedSlots[0].occupantId === 'occ_kairos_basic', 'occupied slots preserve the real occupant identity');
 check(fixedSlots.slice(1).every((slot) => slot.occupantId === null && slot.item === null), 'empty slots never receive fabricated occupant identities');
+
+// Left Package Tiers list filter — is_addon and popular reach the slot
+// projection, and the filter narrows the fixed five-slot shell without
+// re-collecting it or fabricating identity for the slots it hides.
+const mixedSlots = projectWorkspaceTierSlots([
+  { slotId: 'basic', occupantId: 'occ_basic', item: { id: 'occ_basic', name: 'Basic' } as never, isAddon: false, isPopular: true },
+  { slotId: 'standard', occupantId: 'occ_addon', item: { id: 'occ_addon', name: 'Add-on' } as never, isAddon: true, isPopular: false },
+]);
+check(mixedSlots[0].isAddon === false && mixedSlots[0].isPopular === true, 'a normal occupant carries its is_addon and popular-Tier values unchanged');
+check(mixedSlots[1].isAddon === true && mixedSlots[1].isPopular === false, 'an add-on occupant carries its own is_addon value, independent of the popular Tier');
+check(mixedSlots.slice(2).every((slot) => slot.isAddon === null && slot.isPopular === false), 'an empty slot has no determined occupant type');
+
+check(filterWorkspaceTierSlots(mixedSlots, 'all').length === 5, 'the "all" filter keeps every fixed slot, occupied or empty');
+check(
+  filterWorkspaceTierSlots(mixedSlots, 'tiers').map((slot) => slot.slotId).join(',') === 'basic',
+  'the "tiers" filter keeps only is_addon === false occupants and excludes empty slots',
+);
+check(
+  filterWorkspaceTierSlots(mixedSlots, 'addons').map((slot) => slot.slotId).join(',') === 'standard',
+  'the "addons" filter keeps only is_addon === true occupants and excludes empty slots',
+);
+check(
+  filterWorkspaceTierSlots(mixedSlots, 'addons').every((slot) => mixedSlots.some((source) => source.slotId === slot.slotId)),
+  'filtering never fabricates a slot outside the source five-slot shell',
+);
+const allNormalSlots = projectWorkspaceTierSlots([
+  { slotId: 'basic', occupantId: 'occ_basic', item: { id: 'occ_basic', name: 'Basic' } as never, isAddon: false, isPopular: false },
+]);
+check(
+  filterWorkspaceTierSlots(allNormalSlots, 'addons').length === 0,
+  'a filter with no matching occupants yields an empty visible list rather than falling back to another filter',
+);
 
 const summary = buildFamilySummary(kairos);
 check(summary.metrics.length === 3, 'Family summary keeps exactly three dependency metrics');

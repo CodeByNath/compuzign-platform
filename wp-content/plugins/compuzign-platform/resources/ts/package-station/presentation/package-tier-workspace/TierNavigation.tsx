@@ -15,13 +15,21 @@
 import { useCallback, useRef } from 'preact/hooks';
 import type { VNode } from 'preact';
 import type { CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
-import type { WorkspaceTierSlot } from '../../surface/packageTierWorkspace/projection';
+import type { TierListFilter, WorkspaceTierSlot } from '../../surface/packageTierWorkspace/projection';
 
 interface Props {
   slots: WorkspaceTierSlot[];
   selectedId: string | null;
   onSelect: (slotId: string) => void;
+  filter: TierListFilter;
+  onFilterChange: (filter: TierListFilter) => void;
 }
+
+const FILTER_OPTIONS: { value: TierListFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'tiers', label: 'Tiers' },
+  { value: 'addons', label: 'Add-ons' },
+];
 
 // The card's 4-state vocabulary collapses to the three the compact chip shows —
 // the same collapse the shared status pill makes (both pending flavours read as
@@ -34,7 +42,7 @@ const STATUS_META: Record<CategoryGroupStatus, { label: string; token: string }>
   'pending-full': { label: 'Pending',  token: 'pending' },
 };
 
-export function TierNavigation({ slots, selectedId, onSelect }: Props): VNode {
+export function TierNavigation({ slots, selectedId, onSelect, filter, onFilterChange }: Props): VNode {
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Arrow/Home/End move focus AND selection together — the tablist pattern where
@@ -69,7 +77,24 @@ export function TierNavigation({ slots, selectedId, onSelect }: Props): VNode {
       aria-orientation="vertical"
       aria-label="Package Tiers"
     >
-      <p class="cz-tier-workspace__panel-label">Package Tiers</p>
+      <div class="cz-tier-workspace__panel-head">
+        <p class="cz-tier-workspace__panel-label">Package Tiers</p>
+        <label class="cz-tier-workspace__list-filter">
+          <span class="cz-station-visually-hidden">Filter Package Tiers</span>
+          <select
+            class="cz-tf-control cz-tf-select cz-tf-control--sm cz-tier-workspace__list-filter-select"
+            value={filter}
+            onChange={(event) => onFilterChange((event.currentTarget as HTMLSelectElement).value as TierListFilter)}
+          >
+            {FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {slots.length === 0 && (
+        <p class="cz-station-empty cz-tier-workspace__list-empty">No occupants match this filter.</p>
+      )}
       {slots.map((slot, index) => {
         const item = slot.item;
         const selected = slot.slotId === selectedId;

@@ -58,6 +58,24 @@ export function projectWorkspaceTierSlots(
   });
 }
 
+/** The left Package Tiers list filter: both occupant types, Tiers only, or Add-ons only. */
+export type TierListFilter = 'all' | 'tiers' | 'addons';
+
+/**
+ * Pure view filter over the fixed five-slot shell — it never mutates or
+ * re-collects the source slots, only narrows which ones are visible. A slot
+ * whose occupant type is not yet known (an empty slot) is visible only under
+ * `all`, since it is neither a Tier nor an Add-on.
+ */
+export function filterWorkspaceTierSlots(
+  slots: readonly WorkspaceTierSlot[],
+  filter: TierListFilter,
+): WorkspaceTierSlot[] {
+  if (filter === 'all') return [...slots];
+  const wantAddon = filter === 'addons';
+  return slots.filter((slot) => slot.isAddon === wantAddon);
+}
+
 /** Pure full-record → list-summary projection for assignment resolution. */
 export function summarizeTierInstance(instance: TierInstanceRecord): TierInstanceSummary {
   const occupantCount = TIER_KEYS.filter((slotId) =>
