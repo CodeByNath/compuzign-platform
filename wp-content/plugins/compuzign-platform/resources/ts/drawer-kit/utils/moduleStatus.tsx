@@ -313,10 +313,13 @@ export const STATION_STATUS_PILL: Record<StationStatus, PillMeta> = {
 
 export function resolveStationStatus(station: ServiceSummary): StationStatus {
   if (station.platform_status === 'disabled') {
-    // Never-published: overview not yet settled — show Pending, not Disabled.
-    // Disabled is reserved for services that were once live and explicitly turned off.
-    if ((station.module_status as Record<string, string>)?.overview !== 'settled') return 'pending';
-    return 'disabled';
+    // The Disable action's platform-visible mask (ServiceMeta.previous_platform_status):
+    // non-empty means Disable was explicitly applied — genuinely Disabled.
+    // Empty means the Service is 'disabled' only because it has never been
+    // published, OR because Enable just lifted the mask without republishing
+    // (Enable is not Publish — it leaves the Service pending review) — Pending
+    // either way, never Disabled.
+    return station.previous_platform_status ? 'disabled' : 'pending';
   }
   if (station.has_drafts) return 'drafts';
   if (Object.values(station.module_status).some((v) => v === 'pending')) return 'pending';
@@ -330,9 +333,10 @@ export function resolveStationStatus(station: ServiceSummary): StationStatus {
 // is live on the public Cost Builder.
 export function stationStatusLabel(station: ServiceSummary): PillMeta {
   if (station.platform_status === 'disabled') {
-    return (station.module_status as Record<string, string>)?.overview !== 'settled'
-      ? STATION_STATUS_PILL.pending
-      : STATION_STATUS_PILL.disabled;
+    // Mirrors resolveStationStatus's mask check — see its comment.
+    return station.previous_platform_status
+      ? STATION_STATUS_PILL.disabled
+      : STATION_STATUS_PILL.pending;
   }
   const hasUnsettled =
     station.has_drafts ||

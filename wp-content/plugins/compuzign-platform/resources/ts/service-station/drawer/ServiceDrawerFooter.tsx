@@ -10,6 +10,12 @@ import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 interface ServiceDrawerFooterProps {
   tab: 'details' | 'connections';
   platformStatus: string;
+  // The Disable action's platform-visible mask — see useServiceStation's
+  // isDisabledMasked. Drives the split action's label/target independently of
+  // raw platformStatus: a Service Enable just unmasked is platformStatus
+  // 'disabled' but NOT masked, and must offer Disable again, not a no-op
+  // "Enable" — see the split action below.
+  isDisabledMasked: boolean;
   isNewNeverPublished: boolean;
   hasBeenPublished: boolean;
   canPublish: boolean;
@@ -24,7 +30,7 @@ interface ServiceDrawerFooterProps {
 }
 
 export function ServiceDrawerFooter({
-  tab, platformStatus, isNewNeverPublished, hasBeenPublished, canPublish, loadingStatus,
+  tab, platformStatus, isDisabledMasked, isNewNeverPublished, hasBeenPublished, canPublish, loadingStatus,
   splitOpen, setSplitOpen, onToggleActive, onArchive, onTrash, onPublish, onClose,
 }: ServiceDrawerFooterProps) {
   const isLiveState = platformStatus === 'active' || platformStatus === 'disabled';
@@ -37,14 +43,22 @@ export function ServiceDrawerFooter({
     );
   }
 
+  // The split action's label: never-published (nothing to disable/publish yet)
+  // offers Move to Trash; a masked Service (explicit Disable applied, not yet
+  // Enabled) offers Enable; every other live state — genuinely active, or
+  // Enabled-and-Pending with real settled content — offers Disable. Enable is
+  // reachable only from a masked Service, so Enable can never repeat itself:
+  // once it runs, the record is unmasked and this reads Disable again.
+  const statusLabel = isNewNeverPublished ? 'Move to Trash' : isDisabledMasked ? 'Enable' : 'Disable';
+
   return (
     <EntityActionFooter
       split={{
         id: 'status',
-        label: platformStatus === 'active' ? 'Disable' : isNewNeverPublished ? 'Move to Trash' : 'Enable',
+        label: statusLabel,
         onSelect: isNewNeverPublished ? onTrash : onToggleActive,
         busy: loadingStatus,
-        tone: platformStatus === 'active' || isNewNeverPublished ? 'danger' : 'secondary',
+        tone: statusLabel === 'Enable' ? 'secondary' : 'danger',
         open: splitOpen,
         onToggle: () => setSplitOpen((value) => !value),
         overflow: [

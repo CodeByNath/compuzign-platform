@@ -81,6 +81,7 @@ export function ServiceDrawerContent(props: ServiceDrawerContentProps) {
       <ServiceDrawerFooter
         tab={c.tab}
         platformStatus={c.platformStatus}
+        isDisabledMasked={c.isDisabledMasked}
         isNewNeverPublished={c.isNewNeverPublished}
         hasBeenPublished={c.hasBeenPublished}
         canPublish={c.canPublish}
@@ -96,7 +97,7 @@ export function ServiceDrawerContent(props: ServiceDrawerContentProps) {
     );
     return () => bridge.setFooter(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [c.tab, c.platformStatus, c.splitOpen, c.station.loading.status, c.canPublish, c.hasBeenPublished, c.isNewNeverPublished, c.editingSection, bridge]);
+  }, [c.tab, c.platformStatus, c.isDisabledMasked, c.splitOpen, c.station.loading.status, c.canPublish, c.hasBeenPublished, c.isNewNeverPublished, c.editingSection, bridge]);
 
   return (
     <>

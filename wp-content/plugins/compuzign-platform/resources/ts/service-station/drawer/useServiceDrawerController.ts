@@ -60,7 +60,7 @@ export function useServiceDrawerController({
 
   const station = useServiceStation(service, packages, bridge.onMutationComplete);
   const {
-    platformStatus, isActive, detailLoaded, canPublish, pendingModuleNames, moduleStatus,
+    platformStatus, isActive, isDisabledMasked, detailLoaded, canPublish, pendingModuleNames, moduleStatus,
     hasInclusionsDraft, hasFaqsDraft,
     modules,
     relatedPkg, inclusions, faqs, overviewDraft: stationOverviewDraft, settledOverview,
@@ -68,7 +68,19 @@ export function useServiceDrawerController({
     revertOverview, revertInclusions, revertFaqs,
   } = station;
 
-  const isNewNeverPublished = platformStatus === 'disabled' && moduleStatus?.overview !== 'settled';
+  // "Has this record ever been settled/published" must survive an ordinary
+  // post-Enable edit that moves module_status.overview back to 'pending' —
+  // checking the transition label alone regresses the moment a fresh draft is
+  // saved: ServiceSchema::defaultModuleStatus() seeds a BRAND-NEW record's
+  // overview to 'pending' too (a draft exists from creation), so 'pending'
+  // never distinguished "genuinely new" from "previously published, mid-edit"
+  // in the first place. The canonical settled fields (settledOverview, always
+  // distinct from any newer in-flight draft) do: they stay complete once a
+  // record has ever been settled, regardless of what a newer unsettled draft
+  // holds, so a post-Enable edit no longer misroutes an already-published
+  // Service to "Move to Trash" / disables Archive.
+  const hasSettledOverview = !!settledOverview?.title.trim() && (settledOverview?.categories.length ?? 0) > 0 && !!settledOverview?.content.trim();
+  const isNewNeverPublished = platformStatus === 'disabled' && !hasSettledOverview;
 
   // ── Module editing ──────────────────────────────────────────────────────────
   const closePanel = useCallback(() => setOpenPanel(null), []);
@@ -163,11 +175,12 @@ export function useServiceDrawerController({
   };
 
   // Footer gate: Enable/Disable is meaningful once published at least once.
-  const hasBeenPublished = modules.overview.status === 'active' || moduleStatus?.overview === 'settled';
+  // Same durable signal as isNewNeverPublished above — see its comment.
+  const hasBeenPublished = modules.overview.status === 'active' || hasSettledOverview;
 
   return {
     // record + station
-    service, station, platformStatus, isActive, canPublish, isNewNeverPublished, hasBeenPublished,
+    service, station, platformStatus, isActive, isDisabledMasked, canPublish, isNewNeverPublished, hasBeenPublished,
     relatedPkg, inclSummary, faqsSummary, pendingModuleNames, displayTitle,
     // tabs
     tab, selectServiceTab,

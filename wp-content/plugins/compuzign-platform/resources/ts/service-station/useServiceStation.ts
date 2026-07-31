@@ -130,6 +130,12 @@ export interface ServiceStation {
   // ── Identity ──────────────────────────────────────────────────────────────
   platformStatus: string;
   isActive:       boolean;
+  // The Disable action's platform-visible mask (ServiceMeta.previous_platform_status,
+  // non-empty while platformStatus is 'disabled'): true only for a Service an
+  // explicit Disable applied and has not yet been Enabled. false covers both
+  // "never published" and "Enabled — Pending, awaiting Publish" — both read
+  // and behave identically (editable, saveable, Disable-able, Publish-able).
+  isDisabledMasked: boolean;
   // True once the authoritative service detail fetch has resolved (success or
   // failure). While false, module pills should show a neutral loading placeholder
   // instead of a status derived from the minimal catalog handoff. A pending
@@ -387,14 +393,23 @@ export function useServiceStation(
 
   // Disable/Enable — a platform-visible presentation mask, never Publish.
   // Disable never alters module_status (drafts/settlement stay exactly as they
-  // are); Enable restores the record's prior platform_status and clears the
-  // mask — it never settles a draft or activates unpublished content. See
-  // ServiceController::updateDisabledMask for the backend half of this contract.
+  // are); Enable never republishes on its own — it only clears the mask,
+  // leaving the Service in the ordinary pending-review state so an admin
+  // decides when to Publish. It never settles a draft or activates unpublished
+  // content. See ServiceController::updateDisabledMask for the backend half.
+  //
+  // Which endpoint to call is decided by the mask, not by `isActive`: a masked
+  // Service (isDisabledMasked) is the only state Enable applies to; every other
+  // reachable state here — genuinely active, or unmasked-disabled/Pending with
+  // real settled content (the state Enable itself lands on) — calls Disable.
+  // Without this, a Pending Service produced by Enable could never be disabled
+  // again without first routing through Publish, leaving it functionally stuck
+  // offering only "Enable" — a no-op — from the footer.
   const toggleActive = useCallback(async (): Promise<ToggleActiveResult | null> => {
     if (!service) return null;
     setStatusSaving(true);
     try {
-      const result = isActive ? await disableService(service.id) : await enableService(service.id);
+      const result = isDisabledMasked ? await enableService(service.id) : await disableService(service.id);
       if (result.success) {
         applyAdminDetail(prev => prev ? {
           ...prev,
@@ -413,7 +428,7 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service, isActive, onRefresh, applyAdminDetail]);
+  }, [service, isDisabledMasked, onRefresh, applyAdminDetail]);
 
   const archiveStation = useCallback(async (): Promise<ToggleActiveResult | null> => {
     if (!service) return null;
@@ -666,6 +681,7 @@ export function useServiceStation(
   return {
     platformStatus,
     isActive,
+    isDisabledMasked,
     detailLoaded,
     isNew,
     inclusions,
