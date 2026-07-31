@@ -26,13 +26,17 @@ Category is a **neutral entity lifecycle mounted by Admin Station**, not Admin-o
 - [CategoryMeta.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/CategoryMeta.php) owns stored shape/readiness.
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) owns typed endpoint calls.
 
+## Disable/Enable mask
+
+Mirrors Service Station's mask exactly (see [Service Station](service-station.md)'s Disable/Enable mask section for the full rule) — `PATCH /admin/categories/{id}/status` accepts either `platform_status` (Publish/Archive/Trash, the generic `StationLifecycle::applyStatus` engine) or `action: disable|enable` (mutually exclusive), routed to `AdminCategoriesController::updateDisabledMask`. Enable never republishes: it clears the `previous_platform_status` mask and leaves `platform_status` at `disabled`, never `active` — Publish is a separate, later decision. Frontend: `useCategoryStation` exposes `isDisabledMasked`; `toggleActive` calls Enable only when masked, Disable otherwise — never `isActive`-keyed, mirroring `useServiceStation`'s fixed decision. `isNewNeverPublished`/`hasBeenPublished` (`useCategoryDrawerController`) key off a new `hasSettledOverview` ref (latches true the first time `module_status.overview` is observed `'settled'`, never resets) instead of the transition label directly — a brand-new Category's overview also starts `'pending'` (`createCategory` seeds it that way too), so the label alone never distinguished "genuinely new" from "previously published, mid-edit". `categoryOverviewModule.resolveStatus` (`drawer-kit/utils/moduleNotifications/category.ts`) dropped its own "settled+inactive → Disabled" branch — the pre-mask stance, now superseded: masked-Disabled is handled upstream by `evaluateModule`'s `ctx.disabled` fact, so this resolver only runs unmasked, where settled-but-inactive now reads `pending-full`, matching Service's Overview. `CanonicalEntityFooter` (shared with Package Family and Tier System) gained an optional `isDisabledMasked` prop, defaulted `true` (the original always-"Enable" behaviour), so those two callers are unaffected until they separately adopt the mask.
+
 ## Invariants
 
 Overview and Connections use shared schema shells, status pills, notifications, module footers, inline editor, and canonical lifecycle footer. Dirty close/tab changes are guarded. Presentation makes no API calls. Category id is never stringified.
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, `npm run regression:category-create`, and `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, `npm run regression:category-create`, `npm run regression:category-disable-enable`, `php tests/category-lifecycle-mask.php`, and `npm run docs:check`.
 
 ## Related Code Maps
 
