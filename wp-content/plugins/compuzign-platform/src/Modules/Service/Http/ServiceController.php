@@ -750,10 +750,16 @@ class ServiceController
      *
      * previous_platform_status is reused as the mask signal: while
      * platform_status === 'disabled', a non-empty previous_platform_status means
-     * "explicitly disabled — remember what to restore", distinct from a Service
-     * that is simply 'disabled' because it has never been published (empty
-     * previous_platform_status, the default at creation). Enable restores exactly
-     * that captured value and clears the mask; it never manufactures 'active'.
+     * "explicitly disabled — remember what it was", distinct from a Service that
+     * is simply 'disabled' because it has never been published (empty
+     * previous_platform_status, the default at creation).
+     *
+     * Enable never republishes on its own: it always lands the Service in that
+     * same unmasked 'disabled' state — module pills and the catalogue read it as
+     * Pending, exactly like a never-published Service — instead of restoring
+     * straight to 'active'. A Service coming back from Disable needs review
+     * before it goes live again, not automatic reactivation; the admin decides
+     * that by explicitly hitting Publish afterward. Enable is not Publish.
      */
     private function updateDisabledMask(int $id, \WP_Post $post, array $meta, string $action): \WP_REST_Response
     {
@@ -774,10 +780,7 @@ class ServiceController
             if ($current !== 'disabled') {
                 return new \WP_REST_Response(['success' => false, 'message' => 'Only a disabled Service can be enabled.'], 422);
             }
-            $restoreTo = in_array($meta['previous_platform_status'] ?? '', ['active', 'disabled'], true)
-                ? (string) $meta['previous_platform_status']
-                : 'disabled';
-            $meta['platform_status']          = $restoreTo;
+            $meta['platform_status']          = 'disabled';
             $meta['previous_platform_status'] = '';
         } else {
             return new \WP_REST_Response(['success' => false, 'message' => 'Invalid action.'], 422);

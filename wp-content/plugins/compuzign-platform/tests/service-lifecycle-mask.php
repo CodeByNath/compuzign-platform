@@ -184,8 +184,10 @@ function createTestService(ServiceController $controller, int $categoryTermId): 
 // active) → publish (status=active) → Disable → every module pill's backing
 // module_status must stay 'settled' (Disable never rewrites it to pending)
 // and platform_status must read 'disabled' with the mask captured → Enable →
-// platform_status must be restored to 'active' (not left disabled, not
-// re-settled) with the mask cleared.
+// platform_status must land back on 'disabled' with the mask cleared — Enable
+// never republishes on its own; the record only reaches 'active' again through
+// an explicit, separate Publish call (the review step this masking rule
+// exists to enforce).
 echo "Scenario A — disable/enable a published Service\n";
 
 $created = createTestService($controller, 501);
@@ -209,11 +211,16 @@ check_lifecycle($disableResult['service']['module_status']['inclusions'] === 'se
 check_lifecycle($disableResult['service']['module_status']['faqs'] === 'settled', 'Disable does not touch faqs module_status');
 
 $enableResult = $controller->updateStatus(new WP_REST_Request(['id' => $id, 'action' => 'enable']))->get_data();
-check_lifecycle($enableResult['service']['platform_status'] === 'active', 'Enable restores platform_status to active (its prior state)');
+check_lifecycle($enableResult['service']['platform_status'] === 'disabled', 'Enable never republishes — a previously-active Service lands back on disabled, pending review, not active');
 check_lifecycle($enableResult['service']['previous_platform_status'] === '', 'Enable clears the mask');
 check_lifecycle($enableResult['service']['module_status']['overview'] === 'settled', 'Enable does not re-derive/resettle overview (still settled)');
 check_lifecycle($enableResult['service']['module_status']['inclusions'] === 'settled', 'Enable does not resettle inclusions');
 check_lifecycle($enableResult['service']['module_status']['faqs'] === 'settled', 'Enable does not resettle faqs');
+
+// The record is fully settled and now needs only an explicit Publish to go
+// live again — Enable deliberately stopped short of that decision.
+$rePublishResult = $controller->updateStatus(new WP_REST_Request(['id' => $id, 'platform_status' => 'active']))->get_data();
+check_lifecycle($rePublishResult['service']['platform_status'] === 'active', 'an explicit Publish after Enable is what actually reactivates the Service');
 
 // ── Scenario B: "Disabled unpublished/pending Service" ───────────────────────
 // A freshly created Service (overview pending, inclusions/faqs not-configured,
@@ -238,7 +245,7 @@ check_lifecycle($disableResult2['service']['module_status']['overview'] === 'pen
 check_lifecycle($disableResult2['service']['module_status']['inclusions'] === 'not-configured', 'Disable never turns not-configured into pending');
 
 $enableResult2 = $controller->updateStatus(new WP_REST_Request(['id' => $id2, 'action' => 'enable']))->get_data();
-check_lifecycle($enableResult2['service']['platform_status'] === 'disabled', 'Enable restores a never-published Service to disabled, NOT active — Enable must never publish');
+check_lifecycle($enableResult2['service']['platform_status'] === 'disabled', 'Enable leaves a never-published Service on disabled, NOT active — Enable must never publish');
 check_lifecycle($enableResult2['service']['previous_platform_status'] === '', 'Enable clears the mask on the never-published Service too');
 check_lifecycle($enableResult2['service']['module_status']['overview'] === 'pending', 'Enable preserves the pending overview draft — it never settles it');
 check_lifecycle($enableResult2['service']['module_status']['inclusions'] === 'not-configured', 'Enable preserves not-configured — it never activates unconfigured content');
