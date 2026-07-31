@@ -26,11 +26,10 @@ interface Option {
 }
 
 interface StatCardProps {
-  label:       string;
-  value:       number;
-  description: string;
-  tone:        'accent' | 'active' | 'pending' | 'neutral';
-  icon:        ComponentType<{ class?: string }>;
+  label: string;
+  value: number;
+  tone:  'accent' | 'active' | 'pending' | 'neutral';
+  icon:  ComponentType<{ class?: string }>;
 }
 
 const PAGE_SIZES = [10, 25, 50];
@@ -42,16 +41,15 @@ const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'disabled', label: PILL_META.disabled.label },
 ];
 
-function StatCard({ label, value, description, tone, icon: Icon }: StatCardProps) {
+function StatCard({ label, value, tone, icon: Icon }: StatCardProps) {
   return (
     <article class="cz-service-stat" role="listitem">
+      <span class="cz-service-stat__copy">
+        <strong class="cz-service-stat__value">{value}</strong>
+        <span class="cz-service-stat__label">{label}</span>
+      </span>
       <span class={`cz-service-stat__icon cz-service-stat__icon--${tone}`} aria-hidden="true">
         <Icon />
-      </span>
-      <span class="cz-service-stat__copy">
-        <span class="cz-service-stat__label">{label}</span>
-        <strong class="cz-service-stat__value">{value}</strong>
-        <span class="cz-service-stat__description">{description}</span>
       </span>
     </article>
   );
@@ -149,28 +147,24 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
         <StatCard
           label="Total Services"
           value={services.length}
-          description="Current and archived services"
           tone="accent"
           icon={ServicesIcon}
         />
         <StatCard
           label="Active Services"
           value={current.filter((item) => item.platformStatus === 'active').length}
-          description="Currently active and visible"
           tone="active"
           icon={ViewIcon}
         />
         <StatCard
           label="Draft Services"
           value={current.filter(isPending).length}
-          description="Drafts or unsettled changes"
           tone="pending"
           icon={RateSheetIcon}
         />
         <StatCard
           label="Archived Services"
           value={services.filter((item) => item.scope === 'archived').length}
-          description="Stored outside the active catalogue"
           tone="neutral"
           icon={PackagesIcon}
         />
