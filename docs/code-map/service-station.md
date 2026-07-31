@@ -11,7 +11,7 @@ Cost Builder separately owns `cz_service_pricing`. Package Station owns Package 
 [resources/ts/service-station/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/CLAUDE.md) is the public frontend boundary:
 
 - `types.ts` and `api.ts` own Service contracts and endpoint calls.
-- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns detail state, draft-preferred reads, mutations, and lifecycle actions; [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts) holds pure projections.
+- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns detail state, draft-preferred reads, mutations, and lifecycle actions; [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts) holds pure projections. `createService()` seeds `adminDetail` synchronously from the create response — every module save patches `adminDetail` via `prev ? patch(prev) : prev`, a no-op while `prev` is null, so the seed closes the create-hand-off window instead of leaving the first post-creation save racing the follow-up detail fetch.
 - `surface/` owns catalogue/card adapters and the registered Service drawer adapter; `presentation/` owns the Service Catalogue kit.
 - `drawer/` owns the Service composition, controller hooks, schema, bindings, and editors.
 - [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/register.ts) registers Service navigation, destination, data sources, catalogue kit, and drawer with Station Manager. It is imported only by the admin-station bundle entry and is not public-barrel API.
@@ -28,6 +28,10 @@ Station Manager supplies host-engine contracts and resolution only. Admin Statio
 - [ServicePools.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Support/ServicePools.php) is the public pool-write boundary used by Service and Package Tier saves.
 
 WordPress post/meta access stays cohesive here; there is no pass-through repository. Core post-type/taxonomy registrars declare entities but do not own behavior.
+
+## Disable/Enable mask
+
+Save stores module work; Publish (`/status` with `platform_status=active`, after settling) activates or settles it. Disable/Enable are a separate, distinct request shape — `/status` with `action: disable|enable` — that never settles a draft or writes `module_status`; they only mask/unmask the Service's platform-visible presentation. `ServiceController::updateDisabledMask` reuses `previous_platform_status` as the mask signal: while `platform_status` is `disabled`, a non-empty `previous_platform_status` means Disable was explicitly applied and captured what to restore; empty means the Service is `disabled` only because it has never been published. Enable restores exactly the captured value and clears the mask — it never manufactures `active`. Frontend: `useServiceStation`'s `resolveOverviewStatus`/`resolveInclusionsStatus`/`resolveFaqsStatus` and the shared `evaluateModule` notification engine (`drawer-kit/utils/moduleNotifications/shared.ts`) accept an opt-in `disabled` fact that renders every module pill as Disabled — including not-configured ones — ahead of any other state, mirroring `PackageManagerItem.disabled`'s explicit-fact pattern. Other stations never set this flag and are unaffected.
 
 ## Contract baseline
 
