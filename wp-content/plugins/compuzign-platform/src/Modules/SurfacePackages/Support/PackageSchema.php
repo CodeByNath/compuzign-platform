@@ -826,6 +826,11 @@ class PackageSchema
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
+                // Occupant-level selection mode: whether this Tier is offered as an
+                // exclusive normal choice (false) or as a stackable add-on alongside
+                // the customer's chosen normal Tier (true). Orthogonal to
+                // platform_status/module_status — never inferred from either.
+                'is_addon'            => (bool) ($occ['is_addon'] ?? false),
             ];
         }
 
@@ -846,6 +851,8 @@ class PackageSchema
             'features'            => $tier['features'] ?? [],
             'faq_refs'            => $tier['faq_refs'] ?? [],
             'enabled'             => isset($tier['enabled']) ? (bool) $tier['enabled'] : true,
+            // Legacy Phase 1 slots predate this field; default to a normal Tier.
+            'is_addon'            => (bool) ($tier['is_addon'] ?? false),
         ];
     }
 
@@ -885,6 +892,7 @@ class PackageSchema
             'faq_count'       => count($detail['faq_refs']),
             'enabled'         => $detail['enabled'],
             'configured'      => $configured,
+            'is_addon'        => $detail['is_addon'],
         ];
     }
 
@@ -911,6 +919,7 @@ class PackageSchema
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
+                'is_addon'            => (bool) ($occ['is_addon'] ?? false),
             ];
         }
 
@@ -920,6 +929,7 @@ class PackageSchema
             return null;
         }
         $tier['rate_sheet_id'] = self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []);
+        $tier['is_addon']      = (bool) ($tier['is_addon'] ?? false);
         return $tier;
     }
 
@@ -929,7 +939,7 @@ class PackageSchema
      * Does NOT write to history (history is reserved for future restore/swap).
      *
      * @param  array $tierSlot  Current tier slot (may be flat Phase 1, occupant Phase 2, or empty).
-     * @param  array $data      Flat tier fields (label, price, contact, billing_cycle, inclusions_override, features, faq_refs).
+     * @param  array $data      Flat tier fields (label, price, contact, billing_cycle, inclusions_override, features, faq_refs, is_addon).
      * @param  bool  $enabled   Maps to platform_status: active|disabled.
      * @return array            Updated tier slot in Phase 2 occupant format.
      */
@@ -963,6 +973,11 @@ class PackageSchema
             'current_occupant' => [
                 'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
                 'platform_status'     => $enabled ? 'active' : 'disabled',
+                // Selection-mode flag, orthogonal to platform_status: whether this
+                // occupant is offered as the customer's one normal Tier or as a
+                // stackable add-on. Defaults false — every occupant is a normal
+                // Tier unless a caller explicitly marks it an add-on.
+                'is_addon'            => (bool) ($data['is_addon'] ?? false),
                 'label'               => $data['label'] ?? '',
                 'ideal_for'           => $data['ideal_for'] ?? '',
                 'price'               => $data['price'] ?? null,
@@ -1004,13 +1019,13 @@ class PackageSchema
         return 'disabled';
     }
 
-    /** @return array{label: string, price: null, contact: false, billing_cycle: null, inclusions_override: array, features: array, faq_refs: array, enabled: false} */
+    /** @return array{label: string, price: null, contact: false, billing_cycle: null, inclusions_override: array, features: array, faq_refs: array, enabled: false, is_addon: false} */
     private static function emptyTierDetail(): array
     {
         return [
             'occupant_id' => null, 'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
-            'features' => [], 'faq_refs' => [], 'enabled' => false,
+            'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
         ];
     }
 
@@ -1467,6 +1482,10 @@ class PackageSchema
             'rate_sheet_items'    => $selections,
             'features'            => $occ['features'] ?? [],
             'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
+            // Draft-preferred like every other overview scalar: an edited-but-
+            // unsettled is_addon change wins, otherwise the settled occupant's
+            // existing value carries forward untouched.
+            'is_addon'            => $ov['is_addon']       ?? ($occ['is_addon']       ?? false),
         ];
         $enabled = self::isOccupantFormat($slot)
             ? (($occ['platform_status'] ?? 'active') === 'active')

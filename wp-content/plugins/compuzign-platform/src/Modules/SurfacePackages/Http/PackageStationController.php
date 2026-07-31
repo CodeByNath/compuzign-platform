@@ -907,6 +907,10 @@ class PackageStationController
                 'price'         => null,
                 'contact'       => $contact,
                 'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
+                // Selection-mode flag — normal Tier vs. stackable add-on. Carried
+                // through the existing Overview module save flow rather than a new
+                // endpoint; defaults false when the client omits it.
+                'is_addon'      => !empty($body['is_addon']),
             ];
             // The Tier's bound Rate Sheet is edited alongside overview so a switch
             // commits (clearing selections at settle) before new rows are chosen.
