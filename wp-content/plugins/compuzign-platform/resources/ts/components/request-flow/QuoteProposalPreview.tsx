@@ -1,5 +1,5 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
-import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, classifyQuoteItems, quoteItemKey } from '@/utils/quote';
 import type { QuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
@@ -19,14 +19,8 @@ export function QuoteProposalPreview({
   quoteDate,
   quoteRef,
 }: QuoteProposalPreviewProps) {
-  // Three explicitly distinct classifications, never merged: the customer's
-  // one normal Tier/promotion per Service; the legacy recommended bundle
-  // (still identified by its own negative serviceId, unchanged); and real
-  // Tier add-ons (identified by isAddon, never by serviceId sign).
-  const mainItems      = items.filter((item) => item.serviceId > 0 && !item.isAddon);
-  const bundleItems    = items.filter((item) => item.serviceId < 0);
-  const tierAddonItems = items.filter((item) => item.isAddon);
-  const totals     = calcQuoteTotals(items);
+  const { mainItems, bundleItems, tierAddonItems } = classifyQuoteItems(items);
+  const totals = calcQuoteTotals(items);
 
   const findService = (id: number) => services.find((s) => s.id === Math.abs(id));
 

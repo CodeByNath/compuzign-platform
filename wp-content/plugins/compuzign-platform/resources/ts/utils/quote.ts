@@ -60,6 +60,27 @@ export function removeServiceQuoteItems(items: QuoteItem[], serviceId: number): 
   return items.filter((q) => q.serviceId !== serviceId);
 }
 
+export interface ClassifiedQuoteItems {
+  mainItems: QuoteItem[];
+  bundleItems: QuoteItem[];
+  tierAddonItems: QuoteItem[];
+}
+
+/**
+ * The three explicitly distinct, never-merged cart-line classifications used
+ * by both OrderSummary and QuoteProposalPreview: the customer's one normal
+ * Tier/promotion per Service, the legacy recommended bundle (still its own
+ * negative serviceId, unchanged), and real Tier add-ons (isAddon, regardless
+ * of serviceId sign — never inferred from it).
+ */
+export function classifyQuoteItems(items: QuoteItem[]): ClassifiedQuoteItems {
+  return {
+    mainItems: items.filter((item) => item.serviceId > 0 && !item.isAddon),
+    bundleItems: items.filter((item) => item.serviceId < 0),
+    tierAddonItems: items.filter((item) => item.isAddon),
+  };
+}
+
 export interface QuoteTotals {
   pricedItems: QuoteItem[];
   unpricedItems: QuoteItem[];

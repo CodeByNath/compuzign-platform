@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
-import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, classifyQuoteItems, quoteItemKey } from '@/utils/quote';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
 import type { QuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
@@ -48,12 +48,8 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Three explicitly distinct classifications, never merged — see
-  // QuoteProposalPreview.tsx for the same split and its rationale.
-  const mainItems      = items.filter((item) => item.serviceId > 0 && !item.isAddon);
-  const bundleItems    = items.filter((item) => item.serviceId < 0);
-  const tierAddonItems = items.filter((item) => item.isAddon);
-  const totals     = calcQuoteTotals(items);
+  const { mainItems, bundleItems, tierAddonItems } = classifyQuoteItems(items);
+  const totals = calcQuoteTotals(items);
 
   const findService = (id: number) => services.find((s) => s.id === Math.abs(id));
 

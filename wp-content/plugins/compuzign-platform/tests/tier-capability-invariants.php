@@ -82,6 +82,7 @@ $behavioralMatrix = [
     'tier-instance-mutations.php',
     'tier-occupant-compatibility.php',
     'tier-occupant-is-addon.php',
+    'tier-addon-end-to-end.php',
     'tier-instance-guards.php',
     'tier-assignment-schema.php',
     'tier-assignment-family-flow.php',
