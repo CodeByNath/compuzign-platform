@@ -7,7 +7,7 @@ The former taxonomy grouping of Service Categories. **Not** a [Package Family](p
 Retired (Service Category Group audit). The Group catalogue station, its Details/Connections drawer, overview editor, and schema/table bindings were already removed with the retired Command Centre; this audit removed the remaining backend and frontend wiring that had no live consumer:
 
 - `AdminCategoryGroupsController.php` (the `/admin/category-groups` REST family) — deleted, deregistered from `AdminModule.php`.
-- [useServiceCategoryGroupStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useServiceCategoryGroupStation.ts) and every `ServiceCategoryGroup*` type/endpoint in `api/types/admin.ts` / `api/endpoints/admin.ts` — deleted (zero remaining consumers once the Category create/edit drawer's Group selector was removed).
+- `useServiceCategoryGroupStation.ts` (formerly `resources/ts/hooks/`) and every `ServiceCategoryGroup*` type/endpoint in `api/types/admin.ts` / `api/endpoints/admin.ts` — deleted (zero remaining consumers once the Category create/edit drawer's Group selector was removed).
 - `serviceCategoryGroupOverviewModule` in `drawer-kit/utils/moduleNotifications/category.ts` — deleted.
 - The Category station's own group-assignment mechanism (`group_id` on create, the `/admin/categories/{id}/group` route, `CategoryOverviewEditor`'s Group selector) — deleted. Category creation and editing carry Name and Description only; see [Categories](categories.md).
 
