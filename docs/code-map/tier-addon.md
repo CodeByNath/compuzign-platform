@@ -17,6 +17,10 @@
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) — `draftPreferredDetail` (exported for contract testing) merges a pending `is_addon` draft over the settled occupant, the same rule as every other Overview scalar.
 - [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) — splits the one projected Tier map into "Choose your Tier" (`!is_addon`, existing single-select `TierCard`) and "Optional add-ons" (`is_addon`, independent toggle), sharing one `TierCard` renderer so the visual language, CSS, and dark/light theming are defined exactly once. Renders no add-ons section when none exist. [ServiceCard.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/ServiceCard.tsx) owns `handleSelect` (normal, exclusive) and `handleToggleAddon` (independent); an add-on can never replace the normal selection. [ComparePlans.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/ComparePlans.tsx) excludes add-on Tiers from its comparison columns.
 
+### Admin Tier Workspace presentation
+
+No second identity — the admin engine reads the same settled values. [tierOccupantCard.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/tierOccupantCard.ts) labels the shared card `kind` "Package Tier"/"Package Add-on". [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/projection.ts) carries `isAddon`/`isPopular` on `WorkspaceTierSlot` and exposes pure `filterWorkspaceTierSlots` (`all`/`tiers`/`addons`; empty slots match only `all`) for the left-list filter in [TierNavigation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierNavigation.tsx) and [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx). [TierDetailPanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierDetailPanel.tsx) shows a Popular badge; `tierOverviewShell` ([tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/schema/bindings/tier.tsx)) reports Type/Popular as Overview rows.
+
 ## Quote cart identity
 
 [quote.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/quote.ts) is the single source of truth for cart-line identity and mutation, since `serviceId` alone stopped being unique once a Service can carry one normal line plus multiple add-on lines:
@@ -41,7 +45,7 @@
 
 ## Validation
 
-From the plugin root: `php tests/tier-occupant-is-addon.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-addon-end-to-end.php`, `php tests/request-schema-is-addon.php`, `npm run contract:tier-overview-is-addon`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-occupant-is-addon.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-addon-end-to-end.php`, `php tests/request-schema-is-addon.php`, `npm run contract:tier-overview-is-addon`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npm run contract:package-tier-workspace`, `npm run contract:drawer-module-entry`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 
