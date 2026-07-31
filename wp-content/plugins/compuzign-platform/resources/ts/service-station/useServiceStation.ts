@@ -30,8 +30,8 @@
  * flow only ever routes there once createService has returned the real id.
  */
 
-import { useEffect, useState, useCallback } from 'preact/hooks';
-import type { ServiceItem, ServiceInclusion, ServiceFaq, PlatformStatus } from '@/api/types/cost-builder';
+import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
+import type { Category, ServiceItem, ServiceInclusion, ServiceFaq, PlatformStatus } from '@/api/types/cost-builder';
 import {
   archiveService,
   createService as createServiceApi,
@@ -98,6 +98,31 @@ export interface PublishServiceResult {
 }
 
 const EMPTY_OVERVIEW_DRAFT: OverviewDraft = { title: '', excerpt: '', content: '', category_id: null };
+
+// Same eager-seed the create hand-off already relies on (see createService()
+// below), applied to an ordinary existing-Service open: everything the passed-in
+// ServiceItem already carries, projected into ServiceDetail's shape, with no
+// drafts (the authoritative fetch is what can tell us a draft exists). This
+// exists purely to give the mount-time detail fetch's in-flight window a real
+// `adminDetail` to patch against — see the mount effect below.
+function seedDetailFromItem(service: ServiceItem): ServiceDetail {
+  return {
+    success:                   true,
+    id:                        service.id,
+    title:                     service.title,
+    excerpt:                   service.excerpt,
+    content:                   service.content,
+    categories:                service.categories
+      .filter((c): c is Category & { id: number } => c.id !== null)
+      .map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description })),
+    inclusions:                service.inclusions,
+    faqs:                      service.faqs,
+    platform_status:           service.meta.platform_status,
+    previous_platform_status:  service.meta.previous_platform_status ?? '',
+    module_status:             service.meta.module_status as unknown as Record<string, string>,
+    drafts:                    { overview: null, inclusions: null, faqs: null },
+  };
+}
 
 // ── ServiceStation interface ───────────────────────────────────────────────────
 
@@ -192,10 +217,21 @@ export function useServiceStation(
 ): ServiceStation {
   const isNew = service === null;
 
-  const [adminDetail, setAdminDetail] = useState<ServiceDetail | null>(null);
+  const [adminDetail, setAdminDetail] = useState<ServiceDetail | null>(() => service ? seedDetailFromItem(service) : null);
   const [detailLoaded, setDetailLoaded] = useState(() => isNew);
   const [statusSaving, setStatusSaving] = useState(false);
   const [creatingPkg,  setCreatingPkg]  = useState(false);
+
+  // Set by every authoritative local mutation below (save/settle/publish/
+  // toggle/archive/trash) to mark the mount effect's in-flight detail fetch
+  // stale: once the client has applied a real response of its own, the
+  // earlier-dispatched GET — if it resolves afterward — reflects a snapshot
+  // that predates that mutation and must not clobber it. Reset per service id.
+  const detailFetchStaleRef = useRef(false);
+  const applyAdminDetail = useCallback((updater: (prev: ServiceDetail | null) => ServiceDetail | null) => {
+    detailFetchStaleRef.current = true;
+    setAdminDetail(updater);
+  }, []);
 
   // The pending Overview draft — the only module a not-yet-created Service can
   // edit. Inclusions/FAQs stay empty pools until the record exists, the same
@@ -207,8 +243,22 @@ export function useServiceStation(
   useEffect(() => {
     if (!service) return;
     setDetailLoaded(false);
+    detailFetchStaleRef.current = false;
+    // Seed adminDetail synchronously from the passed-in ServiceItem so a module
+    // Save that lands before this GET resolves always has a real `adminDetail`
+    // to patch (prev ? patch(prev, …) : prev is a no-op while prev is null) —
+    // the same window createService()'s own eager seed closes for the create
+    // hand-off, closed here for the ordinary "open an existing Service" case.
+    // A no-op when createService() already seeded it moments earlier.
+    setAdminDetail(prev => prev ?? seedDetailFromItem(service));
     fetchAdminServiceDetail(service.id)
-      .then(setAdminDetail)
+      .then((result) => {
+        // A save/settle/publish/toggle already applied its own authoritative
+        // response while this GET was in flight — that response is newer than
+        // whatever this GET saw, so applying it now would revert the record to
+        // a stale snapshot (dropped drafts, stale module_status/notifications).
+        if (!detailFetchStaleRef.current) setAdminDetail(result);
+      })
       .catch(() => {}) // non-fatal — falls back to CostBuilder data
       // Resolved (success or failure): authoritative detail attempt is done, so module
       // pills may stop showing the loading placeholder.
@@ -346,7 +396,7 @@ export function useServiceStation(
     try {
       const result = isActive ? await disableService(service.id) : await enableService(service.id);
       if (result.success) {
-        setAdminDetail(prev => prev ? {
+        applyAdminDetail(prev => prev ? {
           ...prev,
           platform_status:          result.service.platform_status,
           previous_platform_status: result.service.previous_platform_status,
@@ -363,7 +413,7 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service, isActive, onRefresh]);
+  }, [service, isActive, onRefresh, applyAdminDetail]);
 
   const archiveStation = useCallback(async (): Promise<ToggleActiveResult | null> => {
     if (!service) return null;
@@ -409,7 +459,7 @@ export function useServiceStation(
     try {
       const result = await settleAllServiceModules(service.id);
       if (result.success) {
-        setAdminDetail(prev => prev ? {
+        applyAdminDetail(prev => prev ? {
           ...prev,
           title:         result.service.title,
           excerpt:       result.service.excerpt,
@@ -432,7 +482,7 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service, onRefresh]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   const publishService = useCallback(async (): Promise<PublishServiceResult | null> => {
     if (!service) return null;
@@ -440,7 +490,7 @@ export function useServiceStation(
     try {
       const settleResult = await settleAllServiceModules(service.id);
       if (settleResult.success) {
-        setAdminDetail(prev => prev ? {
+        applyAdminDetail(prev => prev ? {
           ...prev,
           title:         settleResult.service.title,
           excerpt:       settleResult.service.excerpt,
@@ -468,7 +518,7 @@ export function useServiceStation(
     } finally {
       setStatusSaving(false);
     }
-  }, [service, onRefresh]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   // Module Save must not call the update endpoint against an id that does not
   // exist — while pending it only advances the local Overview draft, moving the
@@ -489,55 +539,55 @@ export function useServiceStation(
       category_ids: draft.category_id !== null ? [draft.category_id] : [],
     });
     if (!result.success) throw new Error('Failed to save changes.');
-    setAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', result.draft, result.module_status) : prev);
+    applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', result.draft, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service, onRefresh]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   const saveInclusions = useCallback(async (draft: InclusionsDraft): Promise<Record<string, string>> => {
     if (!service) return { overview: pendingModuleStatus, inclusions: 'not-configured', faqs: 'not-configured' };
     const result = await updateServiceInclusions(service.id, { inclusions: draft.items });
     if (!result.success) throw new Error('Failed to save inclusions.');
-    setAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', result.inclusions, result.module_status) : prev);
+    applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', result.inclusions, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service, onRefresh, pendingModuleStatus]);
+  }, [service, onRefresh, pendingModuleStatus, applyAdminDetail]);
 
   const saveFaqs = useCallback(async (draft: FaqsDraft): Promise<Record<string, string>> => {
     if (!service) return { overview: pendingModuleStatus, inclusions: 'not-configured', faqs: 'not-configured' };
     const result = await updateServiceFaqs(service.id, { faqs: draft.items });
     if (!result.success) throw new Error('Failed to save FAQs.');
-    setAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', result.faqs, result.module_status) : prev);
+    applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', result.faqs, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service, onRefresh, pendingModuleStatus]);
+  }, [service, onRefresh, pendingModuleStatus, applyAdminDetail]);
 
   const revertOverview = useCallback(async (): Promise<void> => {
     if (!service) return;
     const result = await revertServiceModule(service.id, 'overview');
     if (result.success) {
-      setAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', null, result.module_status) : prev);
+      applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', null, result.module_status) : prev);
       onRefresh?.();
     }
-  }, [service, onRefresh]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   const revertInclusions = useCallback(async (): Promise<void> => {
     if (!service) return;
     const result = await revertServiceModule(service.id, 'inclusions');
     if (result.success) {
-      setAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', null, result.module_status) : prev);
+      applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', null, result.module_status) : prev);
       onRefresh?.();
     }
-  }, [service, onRefresh]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   const revertFaqs = useCallback(async (): Promise<void> => {
     if (!service) return;
     const result = await revertServiceModule(service.id, 'faqs');
     if (result.success) {
-      setAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', null, result.module_status) : prev);
+      applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', null, result.module_status) : prev);
       onRefresh?.();
     }
-  }, [service, onRefresh]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   // The pending record's one authoritative creation. Persists the drafted
   // Overview as a brand-new Service and returns the server-issued record —

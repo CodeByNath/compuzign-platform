@@ -22,6 +22,7 @@
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
     "regression:service-create": "node scripts/service-create-regression.mjs",
     "regression:service-create-handoff": "node scripts/service-create-handoff-regression.mjs",
+    "regression:service-open-save-race": "node scripts/service-open-save-race-regression.mjs",
     "regression:service-disable-enable": "node scripts/service-disable-enable-regression.mjs",
     "regression:category-create": "node scripts/category-create-regression.mjs",
     "docs:check": "node scripts/docs-check.mjs",
