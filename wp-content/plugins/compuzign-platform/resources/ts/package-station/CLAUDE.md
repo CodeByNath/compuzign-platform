@@ -23,8 +23,8 @@ External consumers import only `index.ts`; the sole exception is a documented ty
 
 Host-engine contracts and helpers come from `@/station-manager`. Imports from `@/admin-station/presentation/` and `@/admin-station/shell/icons` remain legal consumption of Admin Station presentation/control capabilities. `register.ts` remains an entry-only module and must not enter the public barrel.
 
-Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Package Home Settings](../../../../../../docs/code-map/package-settings.md), [Tiers](../../../../../../docs/code-map/tiers.md), [Tier System Registration](../../../../../../docs/code-map/tier-registration.md), [Tier Capability](../../../../../../docs/code-map/tier-capability.md), and [Rate Sheet](../../../../../../docs/code-map/rate-sheet.md).
+Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Package Home Settings](../../../../../../docs/code-map/package-settings.md), [Tiers](../../../../../../docs/code-map/tiers.md), [Tier System Registration](../../../../../../docs/code-map/tier-registration.md), [Tier Capability](../../../../../../docs/code-map/tier-capability.md), [Tier Add-on Selection](../../../../../../docs/code-map/tier-addon.md), and [Rate Sheet](../../../../../../docs/code-map/rate-sheet.md).
 
 ## Validation
 
-From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-overview-is-addon`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

@@ -19,7 +19,7 @@ The request-flow components own only the open modal, contact draft, review step,
 - [ContactForm.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/ContactForm.tsx) renders company/contact/email/phone/notes fields and inline errors. Use it for customer detail inputs.
 - [OrderSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/OrderSummary.tsx) renders selected Services, tier pricing, totals, and review details. Use it for customer-facing quote review.
 - [QuoteProposalPreview.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteProposalPreview.tsx) renders printable proposal presentation. Use it for proposal layout and print content.
-- [quote.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/quote.ts) normalizes quote items and calculates totals. Use it for shared quote arithmetic.
+- [quote.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/quote.ts) normalizes quote items, calculates totals, and owns `classifyQuoteItems` — the one shared split into normal-Tier/promotion, legacy bundle, and Tier add-on lines both files render from; see [Tier Add-on Selection](tier-addon.md). Use it for shared quote arithmetic and classification.
 
 ## Backend and Persistence
 
@@ -35,8 +35,8 @@ Cost Builder opens the modal with a cart snapshot. The flow validates contact da
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/request-schema-is-addon.php`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 
-[Cost Builder](cost-builder.md) and [Lifecycle](lifecycle-system.md).
+[Cost Builder](cost-builder.md), [Tier Add-on Selection](tier-addon.md), and [Lifecycle](lifecycle-system.md).
