@@ -118,10 +118,21 @@ class AdminCategoriesController
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
                 'id'              => ['required' => true, 'type' => 'integer'],
+                // Optional now: mutually exclusive with `action` below. Publish/
+                // Archive/Trash send platform_status directly; Disable/Enable send
+                // action instead — see updateDisabledMask.
                 'platform_status' => [
-                    'required' => true,
+                    'required' => false,
                     'type'     => 'string',
                     'enum'     => CategoryMeta::ALLOWED_PLATFORM_STATUSES,
+                ],
+                // Disable/Enable are their own request shape, distinct from
+                // platform_status (which Publish also sends as 'active'). See
+                // ServiceController::updateStatus for the identical Service contract.
+                'action' => [
+                    'required' => false,
+                    'type'     => 'string',
+                    'enum'     => ['disable', 'enable'],
                 ],
             ],
         ]);
@@ -344,6 +355,10 @@ class AdminCategoriesController
     /**
      * Engine transition via StationLifecycle::applyStatus — previous_platform_status
      * is captured on bin entry and preserved on bin→bin moves (capturePrevious rule).
+     *
+     * Disable/Enable are a distinct request shape from platform_status, which
+     * Publish also sends as 'active' — the two must not be confused (Enable is
+     * not Publish). See updateDisabledMask, the identical Service contract.
      */
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -352,12 +367,20 @@ class AdminCategoriesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
         }
 
+        $termId = (int) $term->term_id;
+
+        if ($request->has_param('action')) {
+            return $this->updateDisabledMask($termId, (string) $request->get_param('action'));
+        }
+
+        if (!$request->has_param('platform_status')) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'No status parameter provided.'], 422);
+        }
+
         $target = sanitize_text_field((string) $request->get_param('platform_status'));
         if (!in_array($target, CategoryMeta::ALLOWED_PLATFORM_STATUSES, true)) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Invalid platform_status.'], 422);
         }
-
-        $termId = (int) $term->term_id;
 
         $change = StationLifecycle::applyStatus(
             CategoryMeta::status($termId),
@@ -369,6 +392,54 @@ class AdminCategoriesController
         return rest_ensure_response([
             'success'  => true,
             'category' => $this->categoryResponse($term),
+        ]);
+    }
+
+    /**
+     * Disable/Enable — a platform-visible presentation mask, never a lifecycle
+     * rewrite. Mirrors ServiceController::updateDisabledMask exactly: Disable
+     * never alters module_status; Enable never republishes on its own — it
+     * always clears the mask and leaves platform_status at 'disabled' (the
+     * same unmasked, pending-review appearance as a never-published Category),
+     * never 'active'. An admin must Publish separately to go live again.
+     *
+     * previous_platform_status is reused as the mask signal: while
+     * platform_status is 'disabled', a non-empty previous_platform_status means
+     * Disable was explicitly applied; empty means the Category is 'disabled'
+     * only because it has never been published, or because Enable just lifted
+     * the mask.
+     */
+    private function updateDisabledMask(int $termId, string $action): \WP_REST_Response
+    {
+        $meta    = CategoryMeta::read($termId);
+        $current = $meta['platform_status'];
+
+        if ($action === 'disable') {
+            if (!StationLifecycle::isLive($current)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Only an active or disabled Category can be disabled.'], 422);
+            }
+            // Capture what the Category was right before this Disable — but never
+            // clobber an existing mask (a Category already masked-disabled stays
+            // masked with its original captured value).
+            if ($current === StationLifecycle::STATUS_ACTIVE || $meta['previous_platform_status'] === '') {
+                $meta['previous_platform_status'] = $current;
+            }
+            $meta['platform_status'] = StationLifecycle::STATUS_DISABLED;
+        } elseif ($action === 'enable') {
+            if ($current !== StationLifecycle::STATUS_DISABLED) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Only a disabled Category can be enabled.'], 422);
+            }
+            $meta['platform_status']          = StationLifecycle::STATUS_DISABLED;
+            $meta['previous_platform_status'] = '';
+        } else {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Invalid action.'], 422);
+        }
+
+        CategoryMeta::write($termId, $meta);
+
+        return rest_ensure_response([
+            'success'  => true,
+            'category' => $this->categoryResponse(get_term($termId, CategoryMeta::TAXONOMY)),
         ]);
     }
 

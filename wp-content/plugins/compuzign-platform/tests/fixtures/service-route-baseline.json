@@ -111,6 +111,14 @@
             "callback": "updateStatus",
             "permission_callback": "requireAdmin",
             "args": {
+                "action": {
+                    "enum": [
+                        "disable",
+                        "enable"
+                    ],
+                    "required": false,
+                    "type": "string"
+                },
                 "id": {
                     "required": true,
                     "type": "integer"
@@ -122,7 +130,7 @@
                         "archived",
                         "trashed"
                     ],
-                    "required": true,
+                    "required": false,
                     "type": "string"
                 }
             }
