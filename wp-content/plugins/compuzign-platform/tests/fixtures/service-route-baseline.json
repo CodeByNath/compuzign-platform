@@ -1025,6 +1025,14 @@
             "callback": "updateStatus",
             "permission_callback": "requireAdmin",
             "args": {
+                "action": {
+                    "enum": [
+                        "disable",
+                        "enable"
+                    ],
+                    "required": false,
+                    "type": "string"
+                },
                 "id": {
                     "required": true,
                     "type": "integer"

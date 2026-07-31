@@ -152,6 +152,9 @@ final class ServiceSchema
             // Deprecated: kept for backward compat; ignored if platform_status is present.
             'is_active'   => ['required' => false, 'type' => 'boolean'],
             'post_status' => ['required' => false, 'type' => 'string', 'enum' => self::ALLOWED_POST_STATUSES],
+            // Disable/Enable are their own request shape, distinct from platform_status:
+            // 'active' (which Publish also sends). See ServiceController::updateStatus.
+            'action' => ['required' => false, 'type' => 'string', 'enum' => ['disable', 'enable']],
         ];
     }
 }

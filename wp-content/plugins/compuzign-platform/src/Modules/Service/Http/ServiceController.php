@@ -369,12 +369,13 @@ class ServiceController
         return rest_ensure_response([
             'success' => true,
             'service' => [
-                'id'              => $id,
-                'title'           => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'slug'            => $post->post_name,
-                'platform_status' => $meta['platform_status'] ?? 'disabled',
-                'module_status'   => $meta['module_status']   ?? ServiceSchema::defaultModuleStatus(),
-                'categories'      => $assignedCats,
+                'id'                       => $id,
+                'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'slug'                     => $post->post_name,
+                'platform_status'          => $meta['platform_status'] ?? 'disabled',
+                'previous_platform_status' => (string) ($meta['previous_platform_status'] ?? ''),
+                'module_status'            => $meta['module_status']   ?? ServiceSchema::defaultModuleStatus(),
+                'categories'               => $assignedCats,
             ],
             'drafts'  => [
                 'overview'   => $overviewDraft,
@@ -407,17 +408,18 @@ class ServiceController
         $faqDraft = get_post_meta($id, ServiceSchema::DRAFT_FAQS, true);
 
         return rest_ensure_response([
-            'success'         => true,
-            'id'              => $id,
-            'title'           => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-            'excerpt'         => $post->post_excerpt,
-            'content'         => $post->post_content,
-            'categories'      => $categories,
-            'inclusions'      => $inclusions,
-            'faqs'            => $faqs,
-            'platform_status' => MetaSchema::resolvePlatformStatus($meta, $post->post_status),
-            'module_status'   => $meta['module_status'] ?? ServiceSchema::defaultModuleStatus(),
-            'drafts'          => [
+            'success'                  => true,
+            'id'                       => $id,
+            'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'excerpt'                  => $post->post_excerpt,
+            'content'                  => $post->post_content,
+            'categories'               => $categories,
+            'inclusions'               => $inclusions,
+            'faqs'                     => $faqs,
+            'platform_status'          => MetaSchema::resolvePlatformStatus($meta, $post->post_status),
+            'previous_platform_status' => (string) ($meta['previous_platform_status'] ?? ''),
+            'module_status'            => $meta['module_status'] ?? ServiceSchema::defaultModuleStatus(),
+            'drafts'                   => [
                 'overview'   => is_array($ovDraft)  && !empty($ovDraft)  ? $ovDraft  : null,
                 'inclusions' => is_array($incDraft) && !empty($incDraft) ? $incDraft : null,
                 'faqs'       => is_array($faqDraft) && !empty($faqDraft) ? $faqDraft : null,
@@ -682,6 +684,14 @@ class ServiceController
         $meta = get_post_meta($id, ServiceSchema::META_KEY, true);
         $meta = is_array($meta) ? $meta : [];
 
+        // Disable/Enable are a distinct request shape from platform_status, which
+        // Publish also sends as 'active' — the two must not be confused (Enable is
+        // not Publish). This mask never touches module_status: Disable/Enable never
+        // alter draft or settlement truth, only the platform-visible presentation.
+        if ($request->has_param('action')) {
+            return $this->updateDisabledMask($id, $post, $meta, (string) $request->get_param('action'));
+        }
+
         if ($request->has_param('platform_status')) {
             $platformStatus = sanitize_text_field((string) $request->get_param('platform_status'));
             if (!in_array($platformStatus, MetaSchema::ALLOWED_PLATFORM_STATUSES, true)) {
@@ -721,12 +731,71 @@ class ServiceController
         return rest_ensure_response([
             'success' => true,
             'service' => [
-                'id'              => $id,
-                'platform_status' => $meta['platform_status'] ?? 'disabled',
-                'module_status'   => $meta['module_status']   ?? ServiceSchema::defaultModuleStatus(),
+                'id'                       => $id,
+                'platform_status'          => $meta['platform_status'] ?? 'disabled',
+                'previous_platform_status' => (string) ($meta['previous_platform_status'] ?? ''),
+                'module_status'            => $meta['module_status']   ?? ServiceSchema::defaultModuleStatus(),
                 // Deprecated fields retained for frontend transition period.
                 'post_status'     => $post->post_status,
                 'is_active'       => MetaSchema::resolvePlatformStatus($meta, $post->post_status) === 'active',
+            ],
+        ]);
+    }
+
+    /**
+     * Disable/Enable — a platform-visible presentation mask, never a lifecycle
+     * rewrite. Disable never alters module_status (drafts/settlement stay exactly
+     * as they were); Enable never publishes, settles, or activates pending
+     * content — it only lifts the mask Disable applied.
+     *
+     * previous_platform_status is reused as the mask signal: while
+     * platform_status === 'disabled', a non-empty previous_platform_status means
+     * "explicitly disabled — remember what to restore", distinct from a Service
+     * that is simply 'disabled' because it has never been published (empty
+     * previous_platform_status, the default at creation). Enable restores exactly
+     * that captured value and clears the mask; it never manufactures 'active'.
+     */
+    private function updateDisabledMask(int $id, \WP_Post $post, array $meta, string $action): \WP_REST_Response
+    {
+        $current = MetaSchema::resolvePlatformStatus($meta, $post->post_status);
+
+        if ($action === 'disable') {
+            if (!StationLifecycle::isLive($current)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Only an active or disabled Service can be disabled.'], 422);
+            }
+            // Capture what the Service was right before this Disable — but never
+            // clobber an existing mask (a Service already masked-disabled stays
+            // masked with its original captured value).
+            if ($current === 'active' || (string) ($meta['previous_platform_status'] ?? '') === '') {
+                $meta['previous_platform_status'] = $current;
+            }
+            $meta['platform_status'] = 'disabled';
+        } elseif ($action === 'enable') {
+            if ($current !== 'disabled') {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Only a disabled Service can be enabled.'], 422);
+            }
+            $restoreTo = in_array($meta['previous_platform_status'] ?? '', ['active', 'disabled'], true)
+                ? (string) $meta['previous_platform_status']
+                : 'disabled';
+            $meta['platform_status']          = $restoreTo;
+            $meta['previous_platform_status'] = '';
+        } else {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Invalid action.'], 422);
+        }
+
+        update_post_meta($id, ServiceSchema::META_KEY, $meta);
+        $meta = get_post_meta($id, ServiceSchema::META_KEY, true);
+        $meta = is_array($meta) ? $meta : [];
+
+        return rest_ensure_response([
+            'success' => true,
+            'service' => [
+                'id'                       => $id,
+                'platform_status'          => $meta['platform_status'] ?? 'disabled',
+                'previous_platform_status' => (string) ($meta['previous_platform_status'] ?? ''),
+                'module_status'            => $meta['module_status'] ?? ServiceSchema::defaultModuleStatus(),
+                'post_status'              => $post->post_status,
+                'is_active'                => MetaSchema::resolvePlatformStatus($meta, $post->post_status) === 'active',
             ],
         ]);
     }
