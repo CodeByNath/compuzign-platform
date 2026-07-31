@@ -358,6 +358,9 @@ export interface SurfaceTierSummary {
   faq_count: number;
   enabled: boolean;
   configured: boolean;
+  // Selection mode: false = exclusive normal Tier, true = stackable add-on.
+  // Orthogonal to `enabled`.
+  is_addon: boolean;
 }
 
 export interface SurfaceServiceRef {
@@ -411,6 +414,11 @@ export interface SurfaceTierDetail {
   features: string[];
   faq_refs: string[];
   enabled: boolean;
+  // Selection mode, orthogonal to `enabled`/platform_status: false selects
+  // this occupant as the customer's one exclusive normal Tier; true offers it
+  // as a stackable add-on alongside whichever normal Tier is chosen. Never
+  // inferred from lifecycle, Rate Sheet binding, or shell position.
+  is_addon: boolean;
   // Phase 2 (P3) additive read exposure: the tier's pending per-module drafts and
   // module lifecycle status, returned alongside the settled fields above. Optional
   // because pre-P3 responses (and locally-constructed fallbacks) omit them; the
@@ -431,6 +439,10 @@ export interface TierOverviewDraft {
   // The occupant's bound Rate Sheet. Edited in the overview module so a switch
   // commits (and clears selections) before new rows are chosen.
   rate_sheet_id?: string | null;
+  // Selection mode — see SurfaceTierDetail.is_addon. Optional here only
+  // because it rides the same generic draft payload shape; the editor always
+  // supplies an explicit boolean.
+  is_addon?: boolean;
 }
 
 export interface TierRateSheetSelection {

@@ -42,6 +42,7 @@ export function useTierModuleEditing({
         contact:       d.contact,
         billing_cycle: d.billing_cycle ?? 'monthly',
         rate_sheet_id: d.rate_sheet_id,
+        is_addon:      d.is_addon,
         popular:       pkg.popularTier === editingTierId,
         popular_label: pkg.popularTier === editingTierId ? pkg.popularLabel : '',
       });
@@ -80,6 +81,7 @@ export function useTierModuleEditing({
           contact:       false,
           billing_cycle: overviewDraft.billing_cycle,
           rate_sheet_id: overviewDraft.rate_sheet_id,
+          is_addon:      overviewDraft.is_addon,
         });
         ok = !!r?.success;
         if (ok) {

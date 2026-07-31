@@ -94,7 +94,9 @@ function normDetail(res: ServicePackageStationResponse): NormDetail {
 }
 
 // Draft-preferred detail: draft wins over the settled occupant per module.
-function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
+// Exported (alongside normTier's PackageStationTier type) so contract scripts
+// can exercise the real merge the drawer renders from, without mounting a hook.
+export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
   const ov = slot.drafts.overview;
   return {
     ...slot,
@@ -107,6 +109,10 @@ function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
     rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
+    // A pending is_addon change lives on the overview draft, same as label/
+    // billing_cycle; a draft that omits it (or no draft at all) keeps the
+    // settled occupant's value.
+    is_addon:            ov && ov.is_addon !== undefined ? ov.is_addon : slot.is_addon,
   };
 }
 

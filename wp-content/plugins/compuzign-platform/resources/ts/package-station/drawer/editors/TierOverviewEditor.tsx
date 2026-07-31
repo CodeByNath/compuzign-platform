@@ -46,6 +46,7 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
     value: sheet.id,
     label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
   }));
+  const isAddon: boolean = draft.is_addon ?? false;
 
   return (
     <div class="cz-tf-form">
@@ -91,6 +92,12 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         def={{ id: 'tier-ideal-for', type: 'textarea', label: 'Ideal For', rows: 3 }}
         value={draft.ideal_for}
         onChange={(ideal_for) => onChange({ ideal_for })}
+      />
+
+      <AdminField
+        def={{ id: 'tier-is-addon', type: 'checkbox', label: 'Make this Tier an add-on' }}
+        value={isAddon}
+        onChange={(is_addon) => onChange({ is_addon })}
       />
 
       <AdminField
