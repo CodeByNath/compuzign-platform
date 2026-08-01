@@ -1,5 +1,7 @@
 # Admin Station Drawer
 
+The host participates in the locked [Station and Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md): it transports native identity and the mounted footer slot, while the owning Station performs every create, save, settle, activate, mask, travel, and delete operation.
+
 Admin Station owns one entity-agnostic drawer shell. Station Manager resolves registrations; the owning Station supplies its adapter, composition, state, validation, and saves. Hosting never transfers authority.
 
 ## Registration and runtime
@@ -47,6 +49,10 @@ kit action with native record id
 - `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity, or the stable `'new'` sentinel resolved to `service: null`, and mounts the SAME composition either way.
 - `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id`, or the stable `'new'` sentinel to a local empty record, and mounts the SAME Package Family composition either way.
 - `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id`, whole-instance, fixed-slot, and Tier registration identities, and rejects foreign identity shapes.
+
+Package Family and Tier rows above are pending the locked lifecycle migration;
+the host transports their identities but does not make their current
+source-specific creation/travel rules conform.
 
 Each composition uses the shared `drawer-kit`; Category, Service, Package Family, and Tier writes remain in their owning hooks. Presentation components call no endpoints.
 

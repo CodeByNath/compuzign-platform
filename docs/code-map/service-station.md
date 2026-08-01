@@ -1,5 +1,8 @@
 # Service Station
 
+Service is one of the two current implementations of the locked [Station and
+Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md).
+
 ## Purpose and authority
 
 Service Station is the Service peer. It owns `cz_service` posts, direct `cz_service_category` relationships, Service meta and drafts, inclusion/FAQ pools, lifecycle, validation, endpoints, client state, catalogue presentation, and drawer editing. The consolidation changes code placement and registration, not routes, payloads, permissions, storage, or runtime behavior.
@@ -31,7 +34,7 @@ WordPress post/meta access stays cohesive here; there is no pass-through reposit
 
 ## Module and lifecycle states
 
-An empty or incomplete Overview is Pending dim with field guidance. Before Overview Save, child modules stay Pending dim, show Save-Overview guidance, and keep Edit locked because no Service ID exists. A complete Overview Save creates the record and shows Pending full with `Waiting for Service publication`; empty children then become editable Pending dim with their add-content prompt. A complete child save is Pending full with the same publication note. Publish settles every saved module draft, then activates the Service: settled configured modules become Active, while an empty/unconfigured child remains Pending dim.
+An empty or incomplete Overview is Pending dim with field guidance. Before Overview Save, child modules stay Pending dim, show Save-Overview guidance, and keep Edit locked because no Service ID exists. A complete Overview Save creates the record and shows Pending full with `Waiting for Service publication`; the returned ID is seeded into the same mounted drawer without a loading replacement. Empty children then become editable Pending dim with their add-content prompt. A complete child save is Pending full with the same publication note. Publish settles every eligible saved module draft, then activates the Service: settled configured modules become Active, while an empty/unconfigured child remains Pending dim.
 
 Disable/Enable use `/status` with `action: disable|enable`; they never settle, activate, or rewrite module status. `previous_platform_status` is the explicit Disable mask: while stored `platform_status` is `disabled`, a non-empty value means Disabled; empty means unmasked Pending. Disable makes all module pills Disabled. Enable clears the mask and returns configured modules to visual Pending full, while empty children remain Pending dim; it creates no new drafts. Archive/Trash Restore is outside the drawer and follows the same unmasked Pending re-entry, preserving module status and drafts/data. Publish is the only activation action.
 

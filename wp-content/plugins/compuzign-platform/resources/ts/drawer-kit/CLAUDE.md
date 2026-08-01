@@ -2,6 +2,13 @@
 
 Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
+The shared presentation layer implements the renderer side of the locked
+[Station and Drawer Lifecycle Contract](../../../../../../docs/architecture/StationDrawerLifecycleContract-v1.md).
+It may render pills, notifications, module shells, inline editors, and the
+record-footer grammar, but it must never create records, own lifecycle state,
+or infer Disabled from a merely unactivated record. Pending-dim/full semantics
+and identity handoff remain owning-Station responsibilities.
+
 ## Ownership and entry points
 
 `resources/ts/drawer-kit/` is the entity-agnostic presentation layer every Admin Station drawer renders through. It owns drawer content structure and appearance; it never owns persistence, validation, lifecycle or domain rules — those stay with the owning station.

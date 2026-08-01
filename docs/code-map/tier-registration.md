@@ -1,14 +1,16 @@
 # Tier System Registration
 
+**Pending migration.**
+
 ## Purpose and ownership
 
 Tier System registration is the **pending state** of the one Tier System lifecycle described in [Tiers](tiers.md), not a second Tier editor or a separate workflow. `tier-register:[familyId]` resolves into the SAME `TierSystemContent` composition the persisted `tier-instance:{id}` route mounts, so Overview, Rate Sheet Access, footer, and identity-transition mechanics are defined exactly once.
 
-A Tier system enters the pool with its own title and description. PHP mints its id and its five empty fixed slots. Nothing else is minted, filled, bound, or granted: registration fills no slot, grants no Rate Sheet access, and chains into no workflow. A published system is reached the ordinary way afterwards — by selecting its Package Family in the workspace engine, which resolves the assignment and loads those empty slots for individual Tier edits.
+Tier system enters the pool with its own title and description. PHP mints its id and its five empty fixed slots. Nothing else is minted, filled, bound, or granted: registration fills no slot, grants no Rate Sheet access, and chains into no workflow. A published system is reached the ordinary way afterwards — by selecting its Package Family in the workspace engine, which resolves the assignment and loads those empty slots for individual Tier edits.
 
 ## The address
 
-`tier-register:[familyId]` opens the `tier` drawer before any instance exists. It addresses no record, so it is decoded before any identity is resolved and never falls through to the occupant fallback. The optional segment carries only the Family the caller already had in hand; an empty segment means none was offered, not that one failed to resolve.
+`tier-register:[familyId]` opens the `tier` drawer before any instance exists. It addresses no record, so it is decoded before any identity is resolved and never falls through to the occupant fallback. The optional segment carries only the Family the caller had in hand; an empty segment means none was offered, not that one failed to resolve.
 
 Two callers, one composition. The Settings lane's Tiers launcher passes no Family; the workspace's no-assignment surface passes the Family it is showing, so the drawer opens with it selected.
 

@@ -1,5 +1,12 @@
 # Package Manager
 
+**Lifecycle contract status:** Pending migration. Package Manager's current
+Family, Tier, and Rate Sheet creation flows intentionally differ from the
+locked [Station and Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md):
+some records stage locally and create from a footer action or collection save.
+This is an inventory marker, not a license to copy the divergence into new
+Stations.
+
 ## Purpose and naming
 
 The **Package Manager is Package-internal supply configuration, not the platform Station Manager**. It models the sources, relationships, grouping decisions, and Rate Sheet data from which Package Tiers are configured. [Station Manager](station-manager.md) only coordinates registered capabilities; it owns none of this data or behavior.

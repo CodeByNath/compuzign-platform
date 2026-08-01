@@ -1,5 +1,7 @@
 # Package Station
 
+**Lifecycle contract status:** Pending migration.
+
 Package Station is a top-level peer with full Package-domain authority. It owns Package Families, Rate Sheets, Sources, Relationships, Tiers, grouping, quantity, pricing, Package contracts/endpoints/hooks, surfaces, presentation, drawers/editors/schema, validation, saves, and persistence.
 
 Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-station/`

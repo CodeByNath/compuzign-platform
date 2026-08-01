@@ -1,12 +1,14 @@
 # Tiers
 
+**Pending migration.**
+
 ## Purpose and ownership
 
-Package Station owns Tier instances, occupants, fixed slots, overview/pricing selections, inclusions, FAQs, publish/enabled/popular state, bin travel, validation, and persistence. Service records and pools are inputs; Service, Admin, and Station Manager own no Tier configuration. Operations address `(tier_instance_id, slotId)`.
+Package Station owns Tier instances, occupants, slots, overview/pricing selections, inclusions, FAQs, publish/enabled/popular state, bin travel, validation, and persistence. Service records and pools are inputs; Service, Admin, and Station Manager own no Tier configuration. Operations address `(tier_instance_id, slotId)`.
 
 Stable surface/drawer identity is string `occupant_id`; fixed `slotId` remains the mutation/storage address. Empty slots are not cards; identities are never coerced or substituted.
 
-An occupant binds to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears existing selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`.
+An occupant binds to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`.
 
 An occupant also carries `is_addon` — see [Tier Add-on Selection](tier-addon.md).
 

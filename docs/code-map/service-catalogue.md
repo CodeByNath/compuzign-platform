@@ -1,5 +1,7 @@
 # Service Catalogue
 
+Service Catalogue follows the locked [Station and Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md): Overview Save creates the persisted Pending Service, and Publish acts only on its returned ID.
+
 ## Purpose and ownership
 
 Service Station owns the family-first Service Catalogue: Service browsing, creation handoff, Service drawer intent, data projection, and presentation kit. Service posts, direct Categories, meta, and lifecycle remain Service-owned. Package Family relationships remain Package-owned.

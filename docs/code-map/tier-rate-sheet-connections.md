@@ -1,5 +1,8 @@
 # Focused-Tier Rate Sheet Connections
 
+**Pending migration.** These scoped Package drawers share Rate Sheet storage
+but do not yet claim the locked Station/Drawer lifecycle.
+
 ## Purpose and ownership
 
 Two registered drawer keys address what ONE focused Tier is connected to inside a Rate Sheet — the whole sheet, or one group in it. They are Package Station's, siblings of the `rate-sheet` drawer rather than a second Rate Sheet editor: the same controller, the same grid and groups presentation, scoped to one Tier.

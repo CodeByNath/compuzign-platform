@@ -2,6 +2,12 @@
 
 Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
+Service is a current conformance implementation of the locked [Station and
+Drawer Lifecycle Contract](../../../../../../docs/architecture/StationDrawerLifecycleContract-v1.md).
+Preserve its Overview-Save → returned-ID mounted handoff, child lock before a
+real ID, pending-dim/full notification states, explicit Disable mask, and
+Publish-as-settle/activate boundary when editing this peer.
+
 ## Ownership and entry points
 
 `resources/ts/service-station/` is the top-level Service peer's data, surface, presentation, and drawer boundary: it owns Service TypeScript contracts, endpoint implementations, station state, pure derivations, surface adapters, the catalogue kit, and Service drawer composition. It is not part of the Admin Station host — Service registers its capabilities with Station Manager, the Admin Station thin host renders the resolved presentation, and other peers consume Service only through `index.ts`.

@@ -1,5 +1,7 @@
 # Rate Sheet
 
+**Lifecycle contract status:** Pending migration.
+
 ## Purpose and ownership
 
 Rate Sheets are Package Station supply/pricing configuration: contracts, relationships, grouping, validation, Tier selections, pricing, API, and persistence. Station Manager coordinates surfaces and Admin hosts presentation; neither owns the rules or the data.

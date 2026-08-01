@@ -2,6 +2,13 @@
 
 Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
+**Lifecycle status:** Package Station is pending migration to the locked
+[Station and Drawer Lifecycle Contract](../../../../../../docs/architecture/StationDrawerLifecycleContract-v1.md).
+Its current Family/Tier/Rate Sheet creation, slot/occupant, and travel rules
+remain source-specific. Do not copy those differences into a new Station or
+describe Package drawers as Service/Category-conformant until the Code Maps
+and mounted regressions are updated.
+
 ## Ownership and entry points
 
 `resources/ts/package-station/` is the top-level Package peer's data, surface, presentation, and drawer boundary: it owns Package TypeScript contracts, endpoint implementations, station state, pure derivations, surface adapters, the Tier workspace presentation kit, and Package Family/Tier drawer composition. It is not part of the Admin Station host, and other peers consume Package only through `index.ts`.

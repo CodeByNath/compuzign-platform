@@ -1,5 +1,11 @@
 # Lifecycle and Module-State System
 
+The locked platform contract for station identity, module pills/notifications,
+drawer handoff, footer actions, and travel is [Station and Drawer Lifecycle
+Contract v1](../architecture/StationDrawerLifecycleContract-v1.md). This map
+describes the current implementation boundary; it does not promote Package
+Centre's still-pending lifecycle into the shared default.
+
 ## Ownership
 
 Each domain backend/controller owns canonical lifecycle transitions and persisted drafts. Its Station hook owns request-scoped loading, mutation state, and draft-preferred projections. Shared utilities derive status and notifications only; they never persist lifecycle state.
@@ -20,6 +26,15 @@ Station Manager has no lifecycle rules or records. Registering a source, kit, or
 - [usePackageFamilyStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageFamilyStation.ts) owns Package Family draft and lifecycle actions.
 - [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns Category's local-pending to persisted-Pending Overview Save hand-off, draft-preferred projection, Publish, and explicit Disable/Enable mask. The retired Service Category Group station's hook is gone: Category carries no group concept.
 - [usePromotionStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePromotionStation.ts) owns the current Promotion client lifecycle boundary; Promotion persistence remains in the Package repository.
+
+Service and Category are the conformance pair: a complete Overview Save creates
+the persisted Pending record, preserves the mounted drawer during returned-ID
+handoff, and leaves Publish to settle/activate that existing ID. Their raw
+unmasked `disabled` storage value is not the Disabled pill; only an explicit
+disable mask is Disabled, and Enable/Restore return to unmasked Pending.
+Package Family, Tier, Rate Sheet, and Promotion remain pending migrations with
+their existing source-specific creation/travel rules documented in the
+[lifecycle contract](../architecture/StationDrawerLifecycleContract-v1.md#8-conformance-and-pending-inventory).
 
 ## Backend authority
 

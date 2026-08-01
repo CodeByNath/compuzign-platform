@@ -1,5 +1,10 @@
 # Tier Capability Instances and Assignments
 
+**Lifecycle contract status:** Pending migration with Package Station. The
+assignment ledger and Tier-instance/occupant rules remain authoritative for
+current Package code, but they are not the locked Service/Category drawer
+creation and travel contract.
+
 ## Ownership and canonical shape
 
 Package Station owns Tier instances and explicit Package Family usage relationships. Family and instance are independent peers; removing their relationship preserves both.

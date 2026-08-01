@@ -1,5 +1,7 @@
 # Categories
 
+Category is the second current implementation of the locked [Station and Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md).
+
 ## Purpose and ownership
 
 Category owns numeric identity and Overview draft/lifecycle. Category carries no group concept — the retired Service Category Group selector and its `group_id` create/update payload were removed (Service Category Group audit); see [Service Category Groups](category-groups.md) for what was removed and what legacy data remains, ignored. Assigned Services are read-only projections; assignment stays Service-owned.
@@ -28,7 +30,7 @@ Category is a **neutral entity lifecycle mounted by Admin Station**, not Admin-o
 
 ## Invariants
 
-Overview and Connections use shared schema shells, status pills, notifications, module footers, inline editor, and canonical lifecycle footer. A new Overview is Pending-dim until named; its complete Save creates a raw disabled/unmasked Pending term and retains the publication notification. Only Publish settles and activates. Disable writes a reversible mask, so every module reads Disabled; Enable and archive/trash restore clear the mask and return to Pending rather than activating. Empty Description is authoritative: settlement deletes the owned description meta instead of retaining stale text. Dirty close/tab changes are guarded. Presentation makes no API calls. Category id is never stringified.
+Overview and Connections use shared schema shells, status pills, notifications, module footers, inline editor, and canonical lifecycle footer. A new Overview is Pending-dim until named; its complete Save creates a raw disabled/unmasked Pending term, seeds the returned identity in the same mounted drawer, and retains the publication notification. Only Publish settles and activates. Assigned Services is a read-only relationship projection, not a child editor. Disable writes a reversible mask, so every module reads Disabled; Enable and archive/trash restore clear the mask and return to Pending rather than activating. Empty Description is authoritative: settlement deletes the owned description meta instead of retaining stale text. Dirty close/tab changes are guarded. Presentation makes no API calls. Category id is never stringified.
 
 ## Validation
 

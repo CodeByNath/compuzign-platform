@@ -1,5 +1,10 @@
 # Drawer and Station System
 
+The locked cross-Station lifecycle, pill, notification, child-lock, footer,
+and travel contract is [Station and Drawer Lifecycle Contract v1](../architecture/StationDrawerLifecycleContract-v1.md).
+Service and Category conform today; Package Centre surfaces are explicitly
+pending migration there.
+
 ## Responsibility split
 
 The drawer system separates coordination, hosting, rendering, and persistence:
@@ -21,7 +26,8 @@ The drawer system separates coordination, hosting, rendering, and persistence:
 
 ## Module entry contract
 
-Platform-wide, for every drawer that presents modules. A drawer opens on its **Overview screen**, never in an editor:
+Platform-wide, for every drawer that presents modules. A drawer opens on its
+**Overview screen**, never in an editor:
 
 ```text
 drawer opens readable
@@ -43,9 +49,20 @@ Required consequences:
 - **Cancel returns to the readable module**; Close leaves.
 - **Create surfaces render the record's own module**, never copied fields.
 
+For a conforming new Station, complete Overview Save creates the persisted
+Pending record, seeds authoritative detail, and transfers the returned native
+ID into the same mounted drawer. Publish settles and activates that existing
+record; it is never the create boundary. A raw unmasked `platform_status: 'disabled'` is Pending, not Disabled. Disabled requires the explicit Disable
+mask; Enable and Restore clear it and return to Pending while preserving draft
+data. Service child modules are Edit-locked only until Overview Save has issued
+their ID; afterward child saves are authoritative Station writes.
+
 Enforced by `npm run contract:drawer-module-entry`, which executes each rule and reads the compositions for the wiring they need, and by `node scripts/module-state-snapshot.mjs`, which pins every exported rule's `{ status, notes }`. Surfaces under it: empty Tier slots ([Tiers](tiers.md)), whole-instance Tier Rate Sheet access ([Package Home Settings](package-settings.md)), Tier registration ([Tier System Registration](tier-registration.md)), Family creation (the mature drawer's `'new'` identity), and the Rate Sheet pool ([Rate Sheet](rate-sheet.md)).
 
-Recorded divergences are not precedent: Category modules and an absent `tierInclusionConnectionModule` relationship may derive Disabled.
+Package Family, Tier, Tier Inclusion, Rate Sheet, and Promotion compositions
+still have documented lifecycle differences and are pending this migration;
+they must not be copied as the platform default. The full inventory is in the
+contract's [conformance table](../architecture/StationDrawerLifecycleContract-v1.md#8-conformance-and-pending-inventory).
 
 ## Domain compositions and adapters
 

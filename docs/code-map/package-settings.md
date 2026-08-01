@@ -1,8 +1,10 @@
 # Package Home Settings
 
+**Pending migration.**
+
 ## Purpose and ownership
 
-Settings is the third lane of the Package Home Tier workspace lower deck: a read-and-launch surface. It summarises the whole focus the Family Group leads, opens configuration in the drawer that owns it, and launches the registered Package Manager creation flows. Package Home owns no draft, validation, endpoint, or save.
+Settings is third lane of the Package Home Tier workspace lower deck: a read-and-launch surface. It summarises the focus the Family Group leads, opens configuration in the drawer that owns it, and launches the registered Package Manager creation flows. Package Home owns no draft, validation, endpoint, or save.
 
 Its scope is the focus, not one Tier slot inside it: Connections reads what the focused **Tier** connects to, Settings what the focused **Package** is. Both name the same two categories, Stations and Tools, and render the same rows, so one record reports one identity, status, and target either way.
 

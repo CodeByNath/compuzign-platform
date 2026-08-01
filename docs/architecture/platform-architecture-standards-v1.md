@@ -61,6 +61,20 @@ Screen placement and source ownership are separate:
 
 Package Family, Category, Service, and Tier compositions mount in both hosts. Neither host may fork a reduced copy. Generic shells must not branch on entity; registries select entity adapters, and adapters preserve native record identity.
 
+### Locked Station and Drawer lifecycle
+
+[Station and Drawer Lifecycle Contract v1](StationDrawerLifecycleContract-v1.md)
+is the current cross-Station rule for module entry, status pills,
+notifications, drawer identity handoff, child-module locks, record footers,
+and travel. A complete Overview Save creates the persisted Pending record for a
+conforming new Station; the returned native ID is seeded and transferred into
+the same mounted drawer; Publish settles and activates that existing record.
+The contract distinguishes the unmasked Pending storage enum from the explicit
+Disable mask and requires Enable/Restore to return to unmasked Pending. Service
+and Category are the current conformance examples. Other Stations remain
+pending until their Code Maps say otherwise; do not copy their divergent
+creation or travel rules into a new Station.
+
 ## 6. Shared systems
 
 Shared code requires at least two genuine consumers, the same semantic responsibility, stable common behaviour, and no domain-authority leakage. Visual similarity and anticipated reuse do not qualify.

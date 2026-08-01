@@ -1,5 +1,9 @@
 # Promotions
 
+**Lifecycle contract status:** Pending migration. Promotion authoring is not
+currently mounted as a compliant Admin drawer; its Package-owned lifecycle and
+travel routes remain documented for the eventual migration.
+
 ## Purpose
 
 Creates and manages promotions as child records of the Package Station, with overview editing, lifecycle operations, and relation-provider participation.

@@ -20,6 +20,13 @@ Placement does not transfer authority. Peers register their own capabilities; Ad
 
 Each Station has sibling surfaces: **Station Home** for reading, browsing, monitoring, and showcase; and one first-level **Station Drawer** for editing. A drawer may use tabs but never nests another drawer. Closing returns to the same Home state. The shared interaction pattern does not create shared persistence authority.
 
+The locked cross-Station lifecycle and drawer contract is
+[Station and Drawer Lifecycle Contract v1](architecture/StationDrawerLifecycleContract-v1.md).
+Read it before creating or editing a Station, module, drawer, or record footer.
+Service and Category conform today; Package Centre, Tier, Rate Sheet, and
+Promotion surfaces are explicitly marked pending there until their source and
+documentation adopt the same Overview-Save → returned-ID → Publish handoff.
+
 ## Boot contract
 
 The Admin Station entry synchronously registers Service, Package, Admin capabilities, and Admin presentation policy; finalizes Station Manager; then registers the mounted app. Peer `register.ts` modules are entry-only. No resolver runs at module scope or before successful finalization. See [Station Manager](code-map/station-manager.md) for the exact order and invariants.

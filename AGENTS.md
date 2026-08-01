@@ -44,6 +44,22 @@ Read the nearest tool-specific or directory-local instruction file when the tool
 
 Source code is always authoritative. Documentation exists to navigate the implementation and preserve relevant context; it never replaces reading the code. If documentation conflicts with source, verify behavior from the implementation before changing anything, then correct the affected current-state documentation as part of the work. Historical records remain immutable.
 
+## Locked station/drawer lifecycle contract
+
+Before adding or changing a Station, module, drawer, or drawer footer, read
+[Station and Drawer Lifecycle Contract v1](docs/architecture/StationDrawerLifecycleContract-v1.md)
+and the owning Code Map and source. Service and Category are the current
+conforming examples. A complete Overview Save creates their persisted Pending
+record, hands the returned native ID into the same mounted drawer, and leaves
+Publish to settle and activate that existing record. The raw unmasked storage
+value `platform_status: 'disabled'` is not the Disabled pill; only an explicit
+Disable mask is Disabled. Enable and restore return to unmasked Pending while
+preserving drafts/data. Do not introduce create-on-Publish, a loading/remount
+identity handoff, presentation-owned endpoint orchestration, or a second
+status/notification/editor/footer system. Any Station that has not migrated
+must be marked **pending migration** in its Code Map and local instructions,
+not described as conforming.
+
 ## Code Maps
 
 Start at [`docs/code-map/000-README.md`](docs/code-map/000-README.md), select only the subsystem relevant to the task, and follow only necessary related-map links. Never load the entire Code Map.
