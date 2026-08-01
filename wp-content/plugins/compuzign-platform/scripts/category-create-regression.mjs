@@ -46,12 +46,15 @@ window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'te
 // ── Fetch mock — the only faked boundary ────────────────────────────────
 let createCategoryCalls = 0;
 let overviewSaveCalls = 0;
+let settleCalls = 0;
+const statusCalls = [];
 let lastCreatePayload = null;
 const CREATED_ID = 701;
 
 globalThis.fetch = (url, init = {}) => {
   const path = String(url);
   const method = (init?.method ?? 'GET').toUpperCase();
+  const headers = init?.headers ?? {};
 
   if (path.endsWith('/admin/categories') && method === 'GET') {
     return jsonResponse({ categories: [] });
@@ -85,6 +88,46 @@ globalThis.fetch = (url, init = {}) => {
       success: true,
       draft: { name: payload.name, description: payload.description ?? '' },
       module_status: { overview: 'pending' },
+    });
+  }
+  if (path.includes(`/admin/categories/${CREATED_ID}/overview/settle`) && method === 'POST') {
+    settleCalls += 1;
+    return jsonResponse({
+      success: true,
+      category: {
+        id: CREATED_ID,
+        name: lastCreatePayload.name,
+        slug: 'regression-test-category',
+        description: lastCreatePayload.description ?? '',
+        platform_status: 'disabled',
+        previous_platform_status: '',
+        module_status: { overview: 'settled' },
+        has_draft: false,
+        assigned_count: 0,
+      },
+    });
+  }
+  // The Publish button's activating call must arrive as POST carrying
+  // X-HTTP-Method-Override, never a raw PATCH — see apiClient.postAsPatch.
+  // A raw PATCH here is treated as unmocked (falls through to the rejection
+  // below) so a regression back to apiClient.patch fails this test loudly.
+  if (path.includes(`/admin/categories/${CREATED_ID}/status`) && method === 'POST'
+      && headers['X-HTTP-Method-Override'] === 'PATCH') {
+    const payload = JSON.parse(init.body);
+    statusCalls.push(payload);
+    return jsonResponse({
+      success: true,
+      category: {
+        id: CREATED_ID,
+        name: lastCreatePayload.name,
+        slug: 'regression-test-category',
+        description: lastCreatePayload.description ?? '',
+        platform_status: payload.platform_status ?? 'active',
+        previous_platform_status: '',
+        module_status: { overview: 'settled' },
+        has_draft: false,
+        assigned_count: 0,
+      },
     });
   }
   return Promise.reject(new Error(`Unexpected fetch in regression harness: ${method} ${path}`));
@@ -149,6 +192,13 @@ function Harness() {
 
 const container = document.createElement('div');
 document.body.appendChild(container);
+
+const footerContainer = document.createElement('div');
+document.body.appendChild(footerContainer);
+function renderFooterDom() {
+  render(lastFooter, footerContainer);
+  return footerContainer;
+}
 
 const HOST_LOADING_TEXT = 'Loading Category';
 let loadingTextSeenDuringLastWait = false;
@@ -256,6 +306,24 @@ check(
   overviewSaveCalls === 1,
   `overviewSaveCalls=${overviewSaveCalls}`,
 );
+
+console.log('5) A real second Publish click now activates the record — no refresh needed');
+const footerDom = renderFooterDom();
+const realPublishBtn = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
+check('a real "Publish" button is rendered in the footer for the created-but-Pending record', realPublishBtn != null);
+realPublishBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+const publishConfirmBtn = clickButtonWithText('Publish');
+check('the confirm dialog now reads "Publish", not "Create" (the record already exists)', publishConfirmBtn != null);
+result = await waitToSettle();
+check('publish settles within the observation window', result.settled, `ticks=${result.ticks}`);
+check('the Overview settle endpoint was called once', settleCalls === 1, `settleCalls=${settleCalls}`);
+check(
+  'the activating status call landed as POST + X-HTTP-Method-Override, not a raw PATCH (Hostinger response-mangling workaround)',
+  statusCalls.length === 1 && statusCalls[0].platform_status === 'active',
+  JSON.stringify(statusCalls),
+);
+check('the drawer reflects Active without any refresh', container.textContent.includes('Active'));
 
 console.log('');
 if (failures.length > 0) {
