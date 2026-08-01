@@ -1,10 +1,10 @@
 // Service create-publish hand-off mounted regression.
 //
-// One confirmed Publish from a pending drawer must complete the Service
-// Station transaction — create the real record, settle it with the returned
-// id, activate it, and seed final detail — before the controller swaps its
-// local identity. The same mounted drawer must then retain usable Overview,
-// notification, Inclusions, and FAQ bindings without a loading fetch.
+// A complete Overview Save from a pending drawer must create a persisted Pending
+// Service record with its Overview draft and seed detail before the controller
+// swaps local identity.
+// The same mounted drawer must then retain usable Overview, notification,
+// Inclusions, and FAQ bindings without a loading fetch; Publish happens later.
 //
 // Same harness technique as scripts/service-create-regression.mjs: mounts the
 // REAL ServiceDrawerHost composition (esbuild + happy-dom + Preact render);
@@ -274,7 +274,7 @@ function findModule(titleText) {
 
 console.log('Service create-hand-off regression\n');
 
-console.log('1) Mount, fill Overview, Publish → Create → Settle → Activate in one mounted drawer');
+console.log('1) Mount, fill Overview, and Save → Create persisted Pending Service record in one mounted drawer');
 render(h(Harness), container);
 await waitToSettle();
 
@@ -290,15 +290,10 @@ await sleep(20);
 clickButtonWithText('Save');
 await waitToSettle();
 
-check('the record footer exposes onPublish', typeof lastFooter?.props?.onPublish === 'function');
-lastFooter.props.onPublish();
-await sleep(20);
-const createButton = clickButtonWithText('Create');
-check('publish-confirm dialog offered Create', createButton != null);
 await waitToSettle();
 
 check('createService was called exactly once', createServiceCalls === 1, `createServiceCalls=${createServiceCalls}`);
-check('the returned record id was settled and activated before the identity hand-off', settleCalls === 1 && activationCalls === 1,
+check('the returned record remains un-settled and inactive before Publish', settleCalls === 0 && activationCalls === 0,
   `settleCalls=${settleCalls}, activationCalls=${activationCalls}`);
 check('the final detail seed keeps the hand-off out of a loading fetch', !detailFetchStarted && detailFetchCalls === 0);
 
@@ -306,7 +301,7 @@ check('the final detail seed keeps the hand-off out of a loading fetch', !detail
 // editor drafts proves that the authoritative station state survived the
 // identity hand-off rather than being reset to the initial empty pools.
 
-console.log('\n2) Re-save Overview after the completed hand-off — the station state remains live');
+console.log('\n2) Re-save Overview after the Pending-record hand-off — the station state remains live');
 clickButtonWithText('Edit');
 await sleep(20);
 const titleAfterCreate = container.querySelector('#cz-service-title');
@@ -404,7 +399,7 @@ check(
 clickButtonWithText('Cancel');
 await sleep(20);
 
-console.log('\n5) The Overview notification remains available after the completed hand-off');
+console.log('\n5) The Overview notification remains available after the Pending-record hand-off');
 const overviewModule = findModule('Service Overview');
 check('the Service Overview module is present', overviewModule != null);
 const overviewPillWhileLoading = overviewModule?.querySelector('.cz-module-status-pill');
@@ -418,13 +413,18 @@ check('the Overview pill is a clickable notification button (it has notes)', ove
 overviewPill?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await sleep(20);
 check(
-  'the Overview pill reads Pending — the post-publish draft remains editable',
+  'the Overview pill reads Pending — the saved Overview draft remains editable before Publish',
   overviewModuleFinal?.querySelector('.cz-module-status-pill')?.textContent.trim() === 'Pending',
   overviewModuleFinal?.querySelector('.cz-module-status-pill')?.textContent,
 );
 check(
   'the Overview notification panel remains mounted and populated after the hand-off',
   overviewModuleFinal?.querySelector('.cz-module-notes') != null,
+  overviewModuleFinal?.textContent,
+);
+check(
+  'the Pending Overview notification states that Service publication is still required',
+  overviewModuleFinal?.textContent.includes('Waiting for Service publication'),
   overviewModuleFinal?.textContent,
 );
 
@@ -434,5 +434,5 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('All checks passed — one confirmed Publish retains live Service drawer bindings through the final identity hand-off.');
+console.log('All checks passed — Overview Save retains live Service drawer bindings through the Pending-record identity hand-off.');
 process.exit(0);

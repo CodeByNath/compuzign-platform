@@ -191,6 +191,10 @@ export function useServiceModuleEditing({
 
   const handleSaveInclusions = useCallback(async () => {
     if (!inclusionsDraft) return;
+    if (inclusionsDraft.items.some((item) => !item.label.trim())) {
+      setSaveErr('Each inclusion needs a label.');
+      return;
+    }
     setSaving(true);
     setSaveErr(null);
     try {
@@ -208,6 +212,10 @@ export function useServiceModuleEditing({
 
   const handleSaveFaqs = useCallback(async () => {
     if (!faqsDraft) return;
+    if (faqsDraft.items.some((item) => !item.question.trim() || !item.answer.trim())) {
+      setSaveErr('Each FAQ needs a question and an answer.');
+      return;
+    }
     setSaving(true);
     setSaveErr(null);
     try {

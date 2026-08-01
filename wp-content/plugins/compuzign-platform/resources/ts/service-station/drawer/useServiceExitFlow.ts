@@ -39,8 +39,8 @@ export function useServiceExitFlow({
   //
   // 'new-service-draft' names a real persisted-but-unpublished post whose saved
   // draft survives the drawer closing — it does not apply to a pending (no
-  // backing post) Service, whose local draft is inherently ephemeral until
-  // Publish creates the record. A pending Service falls through to the plain
+  // backing post) Service, whose local draft is inherently ephemeral until a
+  // complete Overview Save creates the record. A pending Service falls through to the plain
   // dirty-editor guard, the same close behaviour Package Family's `'new'`
   // sentinel already has.
   const evaluateExit = (): boolean => {

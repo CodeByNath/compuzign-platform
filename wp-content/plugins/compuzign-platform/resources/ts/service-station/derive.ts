@@ -82,6 +82,9 @@ export function derivePendingOverviewNotes(draft: OverviewDraft): ModuleNote[] {
   if (!draft.title.trim())       notes.push({ id: 'overview.title.missing',    message: 'Title missing',       type: 'error' });
   if (draft.category_id === null) notes.push({ id: 'overview.category.missing', message: 'Category not selected', type: 'error' });
   if (!draft.content.trim())     notes.push({ id: 'overview.content.missing',  message: 'Description missing', type: 'error' });
+  if (notes.length === 0) {
+    notes.push({ id: 'overview.save-draft', message: 'Save Overview to create the pending Service record.', type: 'info' });
+  }
   return notes;
 }
 

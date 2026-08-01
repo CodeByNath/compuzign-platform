@@ -45,6 +45,8 @@ window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'te
 // ── Fetch mock — the only faked boundary ────────────────────────────────
 let createServiceCalls = 0;
 let overviewUpdateCalls = 0;
+let inclusionsUpdateCalls = 0;
+let faqsUpdateCalls = 0;
 let detailFetchCalls = 0;
 let settleCalls = 0;
 let activationCalls = 0;
@@ -83,6 +85,8 @@ globalThis.fetch = (url, init = {}) => {
       platform_status: 'disabled',
       module_status: { overview: 'pending', inclusions: 'not-configured', faqs: 'not-configured' },
       categories: payload.category_ids?.length ? [CATEGORY] : [],
+      inclusions: [],
+      faqs: [],
     };
     return jsonResponse({
       success: true,
@@ -97,7 +101,7 @@ globalThis.fetch = (url, init = {}) => {
   if (path.endsWith(`/admin/services/${CREATED_ID}/settle`) && method === 'POST') {
     settleCalls += 1;
     lifecycleIds.push(CREATED_ID);
-    serverService.module_status = { overview: 'settled', inclusions: 'not-configured', faqs: 'not-configured' };
+    serverService.module_status = { overview: 'settled', inclusions: 'settled', faqs: 'settled' };
     return jsonResponse({
       success: true,
       service: {
@@ -107,8 +111,8 @@ globalThis.fetch = (url, init = {}) => {
         content: 'A pending Service created by the regression harness.',
         categories: serverService.categories,
       },
-      inclusions: [],
-      faqs: [],
+      inclusions: serverService.inclusions,
+      faqs: serverService.faqs,
       module_status: serverService.module_status,
     });
   }
@@ -134,11 +138,27 @@ globalThis.fetch = (url, init = {}) => {
   if (path.includes(`/admin/services/${CREATED_ID}/overview`) && method === 'POST') {
     overviewUpdateCalls += 1;
     const payload = JSON.parse(init.body);
+    serverService.title = payload.title;
+    serverService.module_status = { ...serverService.module_status, overview: 'pending' };
     return jsonResponse({
       success: true,
       draft: { title: payload.title, excerpt: payload.excerpt ?? '', content: payload.content ?? '', category_ids: payload.category_ids ?? [] },
-      module_status: { overview: 'pending', inclusions: 'not-configured', faqs: 'not-configured' },
+      module_status: serverService.module_status,
     });
+  }
+  if (path.includes(`/admin/services/${CREATED_ID}/inclusions`) && method === 'POST') {
+    inclusionsUpdateCalls += 1;
+    const payload = JSON.parse(init.body);
+    serverService.inclusions = payload.inclusions ?? [];
+    serverService.module_status = { ...serverService.module_status, inclusions: 'pending' };
+    return jsonResponse({ success: true, inclusions: serverService.inclusions, module_status: serverService.module_status });
+  }
+  if (path.includes(`/admin/services/${CREATED_ID}/faqs`) && method === 'POST') {
+    faqsUpdateCalls += 1;
+    const payload = JSON.parse(init.body);
+    serverService.faqs = payload.faqs ?? [];
+    serverService.module_status = { ...serverService.module_status, faqs: 'pending' };
+    return jsonResponse({ success: true, faqs: serverService.faqs, module_status: serverService.module_status });
   }
   if (path.endsWith(`/admin/services/${CREATED_ID}`) && method === 'GET') {
     detailFetchCalls += 1;
@@ -268,7 +288,7 @@ check('a footer was registered on mount', setFooterCalls > 0);
 check('the Overview module is editable from the pending state (an Edit button is present)',
   [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Edit'));
 
-console.log('2) Fill the Overview draft through a real DOM edit session (Edit → type → Save)');
+console.log('2) Complete Overview and Save — this creates a persisted Pending Service record in place');
 clickButtonWithText('Edit');
 await sleep(20);
 const titleInput = container.querySelector('#cz-service-title');
@@ -288,64 +308,23 @@ await sleep(20);
 clickButtonWithText('Save');
 result = await waitToSettle();
 check(
-  'inline Save (local draft commit) settles and makes no create request',
-  result.settled && createServiceCalls === 0,
-  `settled=${result.settled}, createServiceCalls=${createServiceCalls}`,
+  'Overview Save creates exactly one persisted Pending Service record without settling or activating it',
+  result.settled && createServiceCalls === 1 && settleCalls === 0 && activationCalls === 0,
+  `settled=${result.settled}, create=${createServiceCalls}, settle=${settleCalls}, activate=${activationCalls}`,
 );
 check('the typed title is reflected in the rendered Overview', container.textContent.includes('Regression Test Service'));
-
-console.log('3) Invoke Publish, then confirm Create in the real dialog');
-check('captured footer exposes onPublish', typeof lastFooter?.props?.onPublish === 'function');
-lastFooter.props.onPublish();
+check('the returned Service id is handed off without a full loading replacement or detail fetch',
+  !loadingTextSeenDuringLastWait && detailFetchCalls === 0, `detailFetchCalls=${detailFetchCalls}`);
+const overviewModuleAfterSave = findModule('Service Overview');
+const overviewPillAfterSave = overviewModuleAfterSave?.querySelector('.cz-module-status-pill');
+check('Overview retains a clickable pending-draft notification after Save', overviewPillAfterSave?.tagName === 'BUTTON');
+overviewPillAfterSave?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await sleep(20);
-const createButton = clickButtonWithText('Create');
-check('the publish-confirm dialog rendered a "Create" action for the pending record', createButton != null);
-result = await waitToSettle();
-check('publish settles within the observation window', result.settled, `ticks=${result.ticks}`);
-check(
-  'ServiceDrawerHost never fell back to its full "Loading service…" state during Publish',
-  !loadingTextSeenDuringLastWait,
-);
-check('createService called exactly once', createServiceCalls === 1, `createServiceCalls=${createServiceCalls}`);
-check('the returned Service id was used to settle exactly once',
-  settleCalls === 1 && lifecycleIds[0] === CREATED_ID,
-  `settleCalls=${settleCalls}, lifecycleIds=${lifecycleIds.join(',')}`);
-check('the returned Service id was used to activate exactly once',
-  activationCalls === 1 && lifecycleIds[1] === CREATED_ID,
-  `activationCalls=${activationCalls}, lifecycleIds=${lifecycleIds.join(',')}`);
-check('the final record is active with a settled Overview before the drawer receives its real identity',
-  serverService.platform_status === 'active' && serverService.module_status.overview === 'settled',
-  `status=${serverService.platform_status}, overview=${serverService.module_status.overview}`);
-check('the final authoritative detail seed avoids a second loading fetch during the identity hand-off',
-  detailFetchCalls === 0, `detailFetchCalls=${detailFetchCalls}`);
-check('the created Service title is still rendered after Publish (same mounted composition, real id)',
-  container.textContent.includes('Regression Test Service'));
-check('the settled Overview is rendered immediately, not replaced by a loading module state',
-  findModule('Service Overview')?.textContent.includes('Loading') === false,
-  findModule('Service Overview')?.textContent);
-check('Inclusions and FAQs retain their module notification controls after the hand-off',
-  findModule('Included Features')?.querySelector('.cz-module-status-pill') != null &&
-  findModule('Common Questions')?.querySelector('.cz-module-status-pill') != null);
+check('Overview pending-draft notification panel stays mounted after identity hand-off', overviewModuleAfterSave?.querySelector('.cz-module-notes') != null);
+check('Overview Pending notification states that Service publication is still required',
+  overviewModuleAfterSave?.textContent.includes('Waiting for Service publication'));
 
-console.log('4) A second inline Save now routes through the real update endpoint (proves the real id is active)');
-clickButtonWithText('Edit');
-await sleep(20);
-const titleInputAfter = container.querySelector('#cz-service-title');
-check('the Overview editor reopens against the persisted record', titleInputAfter != null);
-if (titleInputAfter) {
-  titleInputAfter.value = 'Regression Test Service (updated)';
-  titleInputAfter.dispatchEvent(new window.Event('input', { bubbles: true }));
-  await sleep(20);
-}
-clickButtonWithText('Save');
-result = await waitToSettle();
-check(
-  'the post-creation Save calls the real per-id overview endpoint exactly once',
-  overviewUpdateCalls === 1,
-  `overviewUpdateCalls=${overviewUpdateCalls}`,
-);
-
-console.log('5) Inclusions and FAQs are editable immediately, and the retained footer still works');
+console.log('3) Inclusions persist before Publish and reject blank labels without closing');
 const inclusionsModule = findModule('Included Features');
 const inclusionsEdit = [...(inclusionsModule?.querySelectorAll('button') ?? [])]
   .find((button) => button.textContent.trim() === 'Edit');
@@ -353,11 +332,40 @@ inclusionsEdit?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 await sleep(20);
 const addInclusion = clickButtonWithText('+ Add inclusion');
 await sleep(20);
-check('Inclusions accepts input immediately after the one-click Publish hand-off',
-  addInclusion != null && container.querySelector('input[placeholder="Inclusion label"]') != null);
+const inclusionInput = container.querySelector('input[placeholder="Inclusion label"]');
+if (inclusionInput) {
+  inclusionInput.value = 'Daily automated backups';
+  inclusionInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+clickButtonWithText('Add');
+await sleep(20);
+clickButtonWithText('Save');
+await waitToSettle();
+check('Inclusions accepts nonblank input and persists it before Publish',
+  addInclusion != null && inclusionsUpdateCalls === 1 && settleCalls === 0 && serverService.inclusions[0]?.label === 'Daily automated backups',
+  `add=${addInclusion != null}, saves=${inclusionsUpdateCalls}, label=${serverService.inclusions[0]?.label}`);
+const savedInclusionsModule = findModule('Included Features');
+[...(savedInclusionsModule?.querySelectorAll('button') ?? [])].find((button) => button.textContent.trim() === 'Edit')
+  ?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+check('reopening Inclusions shows its saved value before Publish',
+  [...container.querySelectorAll('input.cz-tf-input')].some((input) => input.value === 'Daily automated backups'));
+const savedInclusionInput = [...container.querySelectorAll('input.cz-tf-input')]
+  .find((input) => input.value === 'Daily automated backups');
+if (savedInclusionInput) {
+  savedInclusionInput.value = '';
+  savedInclusionInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+clickButtonWithText('Save');
+await sleep(20);
+check('blank inclusion labels show an inline error and keep the editor open',
+  container.textContent.includes('Each inclusion needs a label.') && container.querySelector('input.cz-tf-input') != null && inclusionsUpdateCalls === 1);
 clickButtonWithText('Cancel');
 await sleep(20);
 
+console.log('4) FAQs persist before Publish and reject blank questions or answers without closing');
 const faqsModule = findModule('Common Questions');
 const faqsEdit = [...(faqsModule?.querySelectorAll('button') ?? [])]
   .find((button) => button.textContent.trim() === 'Edit');
@@ -365,13 +373,69 @@ faqsEdit?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await sleep(20);
 const addFaq = clickButtonWithText('+ Add FAQ');
 await sleep(20);
-check('FAQs accepts input immediately after the one-click Publish hand-off',
-  addFaq != null &&
-  container.querySelector('input[placeholder="Question"]') != null &&
-  container.querySelector('textarea[placeholder="Answer (optional)"]') != null);
+const faqQuestion = container.querySelector('input[placeholder="Question"]');
+const faqAnswer = container.querySelector('textarea[placeholder="Answer (optional)"]');
+if (faqQuestion && faqAnswer) {
+  faqQuestion.value = 'How often are backups taken?';
+  faqQuestion.dispatchEvent(new window.Event('input', { bubbles: true }));
+  faqAnswer.value = 'Every 24 hours.';
+  faqAnswer.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+clickButtonWithText('Add');
+await sleep(20);
+clickButtonWithText('Save');
+await waitToSettle();
+check('FAQs accept complete input and persist it before Publish',
+  addFaq != null && faqsUpdateCalls === 1 && settleCalls === 0 && serverService.faqs[0]?.question === 'How often are backups taken?',
+  `add=${addFaq != null}, saves=${faqsUpdateCalls}, question=${serverService.faqs[0]?.question}`);
+const savedFaqsModule = findModule('Common Questions');
+[...(savedFaqsModule?.querySelectorAll('button') ?? [])].find((button) => button.textContent.trim() === 'Edit')
+  ?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+check('reopening FAQs shows its saved values before Publish',
+  [...container.querySelectorAll('input[placeholder="Question"]')].some((input) => input.value === 'How often are backups taken?'));
+const savedFaqQuestion = container.querySelector('input[placeholder="Question"]');
+if (savedFaqQuestion) {
+  savedFaqQuestion.value = '';
+  savedFaqQuestion.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+clickButtonWithText('Save');
+await sleep(20);
+check('blank FAQ questions show an inline error and keep the editor open',
+  container.textContent.includes('Each FAQ needs a question and an answer.') && container.querySelector('input[placeholder="Question"]') != null && faqsUpdateCalls === 1);
+if (savedFaqQuestion) {
+  savedFaqQuestion.value = 'How often are backups taken?';
+  savedFaqQuestion.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+const savedFaqAnswer = container.querySelector('textarea[placeholder="Answer"]');
+if (savedFaqAnswer) {
+  savedFaqAnswer.value = '';
+  savedFaqAnswer.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+clickButtonWithText('Save');
+await sleep(20);
+check('blank FAQ answers show an inline error and keep the editor open',
+  container.textContent.includes('Each FAQ needs a question and an answer.') && container.querySelector('textarea[placeholder="Answer"]') != null && faqsUpdateCalls === 1);
 clickButtonWithText('Cancel');
 await sleep(20);
-await waitToSettle();
+
+console.log('5) Publish later settles the existing draft and activates it without creating another Service');
+check('the persisted Pending Service footer exposes Publish', typeof latestRecordFooter?.props?.onPublish === 'function');
+latestRecordFooter?.props?.onPublish();
+await sleep(20);
+const publishButton = clickButtonWithText('Publish');
+check('the Publish confirmation targets the existing Service', publishButton != null);
+result = await waitToSettle();
+check('Publish settles and activates the existing returned Service id',
+  result.settled && settleCalls === 1 && activationCalls === 1 && lifecycleIds[0] === CREATED_ID && lifecycleIds[1] === CREATED_ID);
+check('Publish does not create a second Service', createServiceCalls === 1, `createServiceCalls=${createServiceCalls}`);
+check('the final record is active and all saved modules are settled',
+  serverService.platform_status === 'active' && Object.values(serverService.module_status).every((status) => status === 'settled'));
+check('Publish keeps the mounted drawer out of a full loading replacement', !loadingTextSeenDuringLastWait);
 
 check('the retained record footer remains available immediately after hand-off', typeof latestRecordFooter?.props?.onClose === 'function');
 latestRecordFooter?.props?.onClose();
@@ -383,5 +447,5 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('All checks passed — one confirmed Publish creates, settles, and activates the Service in the same mounted drawer.');
+console.log('All checks passed — Overview Save creates the Pending Service record, child modules save before Publish, and Publish later settles and activates it.');
 process.exit(0);

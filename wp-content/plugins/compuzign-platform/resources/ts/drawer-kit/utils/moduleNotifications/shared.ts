@@ -68,7 +68,7 @@ export interface ModuleDefinition<T> {
 // Kept in one place because it was previously copy-pasted into all five generators.
 function lifecycleTail(key: string, ctx: NoteContext, includeDraft?: boolean): ModuleNote[] {
   if (ctx.platformStatus !== 'active')
-    return [{ id: `${key}.platform.inactive`, message: `Waiting for ${ctx.platformLabel ?? 'service'} activation`, type: 'info' }];
+    return [{ id: `${key}.platform.inactive`, message: `Waiting for ${ctx.platformLabel ?? 'service'} publication`, type: 'info' }];
   if (includeDraft && ctx.hasDraft)
     return [{ id: `${key}.module.draft`, message: 'Draft saved — settle to publish', type: 'info' }];
   if (ctx.moduleTransition === 'pending')

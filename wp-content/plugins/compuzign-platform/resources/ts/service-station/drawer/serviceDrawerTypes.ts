@@ -21,8 +21,9 @@ import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 // Service launcher opens this SAME composition against the stable `'new'`
 // recordId sentinel. No fake numeric id stands in for it anywhere: the
 // pending Overview draft lives in useServiceStation's own local state, and
-// `service` only becomes non-null once the footer's Publish creates the real
-// record (mirrors Package Family's `'new'` sentinel, without widening
+// `service` only becomes non-null once a complete Overview Save creates the
+// persisted Pending Service record with its Overview draft (mirrors Package
+// Family's `'new'` sentinel, without widening
 // ServiceItem.id to carry it).
 export interface ServiceDrawerContentProps {
   service:       ServiceItem | null;

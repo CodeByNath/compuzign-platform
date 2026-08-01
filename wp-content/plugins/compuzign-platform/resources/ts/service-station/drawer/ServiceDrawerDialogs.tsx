@@ -19,13 +19,13 @@ export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {
           <div class="cz-publish-confirm">
             <div class="cz-publish-confirm__header">
               <h3 class="cz-publish-confirm__title">
-                {isNew ? `Create ${serviceTitle}?` : c.isActive ? `Settle changes to ${serviceTitle}?` : `Ready to publish ${serviceTitle}?`}
+                {isNew ? `Save Overview before publishing ${serviceTitle}` : c.isActive ? `Settle changes to ${serviceTitle}?` : `Ready to publish ${serviceTitle}?`}
               </h3>
             </div>
             <div class="cz-publish-confirm__body">
               <p class="cz-publish-confirm__lead">
                 {isNew
-                  ? 'This creates, settles, and publishes the Service while keeping this drawer ready to edit.'
+                  ? 'Save a complete Overview to create the Pending Service record before publishing.'
                   : c.isActive
                   ? 'This confirms the current live content as the settled state for each module.'
                   : 'You are about to publish this service and make it visible in the catalog.'}
@@ -47,7 +47,7 @@ export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {
                 Cancel
               </button>
               <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={c.handleConfirmPublish} disabled={loading}>
-                {loading ? '…' : isNew ? 'Create' : c.isActive ? 'Settle' : 'Publish'}
+                {loading ? '…' : isNew ? 'Save Overview' : c.isActive ? 'Settle' : 'Publish'}
               </button>
             </div>
           </div>

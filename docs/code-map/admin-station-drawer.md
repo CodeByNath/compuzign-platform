@@ -1,10 +1,10 @@
 # Admin Station Drawer
 
-Admin Station owns one entity-agnostic drawer shell. Station Manager resolves drawer registrations; the owning Station supplies the record adapter, mature drawer composition, domain state, validation, and saves. Hosting a drawer never transfers authority to Admin Station or Station Manager.
+Admin Station owns one entity-agnostic drawer shell. Station Manager resolves registrations; the owning Station supplies its adapter, composition, state, validation, and saves. Hosting never transfers authority.
 
 ## Registration and runtime
 
-`station-manager/drawerTypes.ts` defines the open string key, native record identity, opening mode, an optional declared panel `size`, and the shell/content bridge. `station-manager/registry/drawerTemplates.ts` registers contracts and rejects duplicate keys or empty supported-mode lists. Unknown keys intentionally resolve to `null`, allowing the shell to render its neutral unavailable state.
+`drawerTypes.ts` defines key, native identity, mode, optional size, and shell bridge. `drawerTemplates.ts` registers contracts and rejects duplicate keys or empty modes. Unknown keys resolve to the shell's neutral unavailable state.
 
 Registration ownership is:
 
@@ -19,11 +19,11 @@ Registration ownership is:
 | `tier-rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
 | `tier-rate-sheet-group` | Package Station | Package Station | wide | view, edit |
 
-`DrawerMode` is `'view' | 'edit'`. There is no `create` mode: Family, Service, and Category creation each use their own drawer's stable `'new'` recordId sentinel, while Tier registration uses the `tier` drawer's registration address. Every `'new'`-sentinel host resolves to a `null` record — never a fabricated identity — and the owning station's own hook represents the pending state locally until its footer's Publish creates the real record.
+`DrawerMode` is `'view' | 'edit'`; there is no `create` mode. Family, Service, and Category use a stable `'new'` sentinel, while Tier uses its registration address. Each resolves to `null`, never a fabricated identity, and the owning station holds pending state locally. Service Overview Save creates and hands off its Pending record; Publish later settles and activates it.
 
 ## Drawer size
 
-`DrawerSize` is `'normal' | 'wide' | 'extra-wide'`, declared per registration via the optional `size` field (omitted means `normal`, so every prior registration is unchanged). `AdminStationDrawer` reads the resolved template's size and appends a `cz-station-drawer--{size}` modifier; Admin Station's `admin-station.css` maps each modifier to a width at `min-width: 720px` (and a further step for `extra-wide` at `1200px`). This is generic Admin presentation: the shell never branches on entity or template key to choose a width — a drawer that needs more room declares its own `size`. The base `max-width` and the `560px` full-width rule still apply, so a wide drawer yields to the viewport on small screens instead of clipping horizontally.
+`DrawerSize` is `'normal' | 'wide' | 'extra-wide'`, declared by each registration. `AdminStationDrawer` turns it into a CSS modifier; the generic shell never branches on entity type, and wide drawers still yield to the viewport.
 
 The runtime chain is:
 
@@ -37,7 +37,7 @@ kit action with native record id
   → onSaved refreshes only the originating wall
 ```
 
-`shell/drawer/AdminStationDrawer.tsx` owns overlay chrome, header, scrolling body, optional record footer, backdrop/Escape/header close, close-guard handling, scroll lock, and focus restoration. It never switches on entity type. Unsupported requested modes clamp to the first mode supported by the registered contract.
+`shell/drawer/AdminStationDrawer.tsx` owns chrome, close guards, scroll lock, focus restoration, and the optional footer. It never switches on entity type.
 
 `AdminStationDrawerContext.tsx` keeps one open drawer and preserves identity across mode changes. Closing clears both state and the originating-wall refetch handle; a late save then cannot refresh a wall the user has left.
 
@@ -48,7 +48,7 @@ kit action with native record id
 - `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id`, or the stable `'new'` sentinel to a local empty record, and mounts the SAME Package Family composition either way.
 - `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id`, whole-instance, fixed-slot, and Tier registration identities, and rejects foreign identity shapes.
 
-The mature compositions remain under `entity-drawers/category/`, `service-station/drawer/`, and `package-station/drawer/{package-family,tier}/`. They use the shared `drawer-kit` renderer and module/editor/footer contracts. Category mutations remain in `useCategoryStation`; Service mutations remain in `useServiceStation`; Package Family and Tier mutations remain in Package Station hooks. Presentation components call no endpoints.
+Each composition uses the shared `drawer-kit`; Category, Service, Package Family, and Tier writes remain in their owning hooks. Presentation components call no endpoints.
 
 ## Invariants
 

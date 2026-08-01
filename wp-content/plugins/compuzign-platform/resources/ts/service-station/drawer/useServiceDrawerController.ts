@@ -49,16 +49,16 @@ export function useServiceDrawerController({
   // derived platform_status/module_status stay live for the footer and pills.
   //
   // `null` — the Settings lane's Create Service launcher — addresses no
-  // backing post yet. useServiceStation represents that state locally; once
-  // its `createService()` completes the Service Station's create → settle →
-  // activate transaction and returns the final record; `setService` below
-  // replaces this `null` without replacing the mounted composition.
+  // backing post yet. A complete Overview Save asks Service Station to create
+  // the persisted Pending Service record with its Overview draft, then calls
+  // `setService` with its returned identity;
+  // this mounted composition continues without a replacement or loading mask.
   const [service, setService] = useState<ServiceItem | null>(seedService);
 
   const [tab, setTab] = useState<DrawerTabId>(initialTab ?? 'details');
   const [openPanel, setOpenPanel] = useState<string | null>(null);
 
-  const station = useServiceStation(service, packages, bridge.onMutationComplete);
+  const station = useServiceStation(service, packages, bridge.onMutationComplete, setService);
   const {
     platformStatus, isActive, isDisabledMasked, detailLoaded, canPublish, pendingModuleNames, moduleStatus,
     hasInclusionsDraft, hasFaqsDraft,
@@ -112,16 +112,9 @@ export function useServiceDrawerController({
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
-    // A pending Service addresses no stored post. Its one confirmed Publish
-    // delegates the complete create → settle → activate transaction to the
-    // Service Station, which can continue against the returned id before this
-    // controller swaps local identity. No second Publish/render callback is
-    // needed to finish the lifecycle.
-    if (!service) {
-      const created = await station.createService();
-      if (created) setService(created);
-      return;
-    }
+    // Publish never establishes a record identity: the footer is unavailable
+    // while Overview Save has not created the persisted Pending Service record.
+    if (!service) return;
     await (isActive ? lifecycle.handleSettleModules() : lifecycle.handlePublishService());
   }, [service, station, isActive, lifecycle.handleSettleModules, lifecycle.handlePublishService]);
 

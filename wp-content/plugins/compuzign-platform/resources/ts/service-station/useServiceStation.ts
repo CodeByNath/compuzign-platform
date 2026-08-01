@@ -26,8 +26,8 @@
  * resolveOverviewStatus/getOverviewNotes resolvers are hard-typed to a real
  * ServiceItem and are simply not called until one exists, mirroring their own
  * branches locally against the draft alone (see './derive'). Every id-bearing
- * action below is a no-op while `service` is null; the drawer's Save/Publish
- * flow only ever routes there once createService has returned the real id.
+ * action below is a no-op while `service` is null; a complete Overview Save
+ * creates the real id before child-module saves or Publish can route there.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
@@ -54,6 +54,7 @@ import type {
   OverviewDraft,
   InclusionsDraft,
   FaqsDraft,
+  CreateServiceResponse,
 } from './types';
 import type { SurfacePackageSummary } from '@/package-station';
 import { resolveOverviewStatus } from '@/drawer-kit/utils/moduleStatus';
@@ -99,8 +100,8 @@ export interface PublishServiceResult {
 
 const EMPTY_OVERVIEW_DRAFT: OverviewDraft = { title: '', excerpt: '', content: '', category_id: null };
 
-// Same eager-seed the create hand-off already relies on (see createService()
-// below), applied to an ordinary existing-Service open: everything the passed-in
+// Same eager-seed the pending Overview Save hand-off relies on, applied to an
+// ordinary existing-Service open: everything the passed-in
 // ServiceItem already carries, projected into ServiceDetail's shape, with no
 // drafts (the authoritative fetch is what can tell us a draft exists). This
 // exists purely to give the mount-time detail fetch's in-flight window a real
@@ -124,6 +125,33 @@ function seedDetailFromItem(service: ServiceItem): ServiceDetail {
   };
 }
 
+function buildCreatedPendingService(response: CreateServiceResponse): ServiceItem {
+  const overview = response.drafts.overview;
+  return {
+    id:           response.service.id,
+    title:        overview?.title ?? response.service.title,
+    slug:         response.service.slug,
+    excerpt:      overview?.excerpt ?? '',
+    content:      overview?.content ?? '',
+    categories:   response.service.categories,
+    inclusions:   [],
+    faqs:         [],
+    availability: { is_available: true, message: '' },
+    meta: {
+      platform_status:           response.service.platform_status as PlatformStatus,
+      previous_platform_status:  (response.service.previous_platform_status ?? '') as '' | 'active' | 'disabled',
+      module_status:             response.service.module_status as unknown as ServiceItem['meta']['module_status'],
+      short_description: '', long_description: '', billing_cycle: '', sla: '', uptime: '', notes: '',
+      popular_tier: null, popular_label: null, sort_order: 0,
+    },
+    pricing: {
+      tiers:  {} as ServiceItem['pricing']['tiers'],
+      bundle: { title: '', description: '', price: null },
+    },
+    promotion_tiers: [],
+  };
+}
+
 // ── ServiceStation interface ───────────────────────────────────────────────────
 
 export interface ServiceStation {
@@ -141,7 +169,7 @@ export interface ServiceStation {
   // instead of a status derived from the minimal catalog handoff. A pending
   // (no backing post) Service has nothing to fetch and reads true immediately.
   detailLoaded:   boolean;
-  // No backing post yet — Settings' Create Service launcher, before Publish.
+  // No backing post yet — Settings' Create Service launcher, before Overview Save.
   isNew:          boolean;
 
   // ── Module data (draft-preferred) ─────────────────────────────────────────
@@ -206,11 +234,6 @@ export interface ServiceStation {
   revertOverview:        () => Promise<void>;
   revertInclusions:      () => Promise<void>;
   revertFaqs:            () => Promise<void>;
-  // The pending record's one authoritative Publish transaction. It returns the
-  // final active Service only after create, settle, and activation have run
-  // against the returned id; the controller then replaces its local `null`
-  // identity without replacing the mounted composition.
-  createService:         () => Promise<ServiceItem | null>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -219,6 +242,7 @@ export function useServiceStation(
   service:    ServiceItem | null,
   packages:   SurfacePackageSummary[],
   onRefresh?: () => void,
+  onPendingServiceCreated?: (created: ServiceItem) => void,
 ): ServiceStation {
   const isNew = service === null;
 
@@ -233,12 +257,12 @@ export function useServiceStation(
   // earlier-dispatched GET — if it resolves afterward — reflects a snapshot
   // that predates that mutation and must not clobber it. Reset per service id.
   const detailFetchStaleRef = useRef(false);
-  // A pending Publish is different from an ordinary existing-record open: it
-  // has already assembled final detail inside createService before the drawer
-  // receives the newly issued id. This one-shot marker lets the id-change
+  // A pending Overview Save is different from an ordinary existing-record open:
+  // it has already assembled draft detail before the drawer receives the newly
+  // issued id. This one-shot marker lets the id-change
   // effect preserve that mounted hand-off without suppressing the normal
   // detail fetch for an existing Service whose minimal item was merely seeded.
-  const publishedPendingServiceIdRef = useRef<number | null>(null);
+  const pendingServiceHandoffIdRef = useRef<number | null>(null);
   const applyAdminDetail = useCallback((updater: (prev: ServiceDetail | null) => ServiceDetail | null) => {
     detailFetchStaleRef.current = true;
     setAdminDetail(updater);
@@ -253,13 +277,14 @@ export function useServiceStation(
 
   useEffect(() => {
     if (!service) return;
-    // A pending drawer's Publish transaction has already created, settled,
-    // activated, and seeded this exact record before it changes its local
-    // identity. Keep that final station detail mounted rather than treating
+    // A pending drawer's Overview Save has already created and seeded this
+    // exact persisted Pending record and its Overview draft before it changes its
+    // local identity. Keep that
+    // detail mounted rather than treating
     // the identity hand-off as a fresh drawer open (which would disconnect
     // bindings behind a loading state until another GET completes).
-    if (publishedPendingServiceIdRef.current === service.id) {
-      publishedPendingServiceIdRef.current = null;
+    if (pendingServiceHandoffIdRef.current === service.id) {
+      pendingServiceHandoffIdRef.current = null;
       setDetailLoaded(true);
       return;
     }
@@ -268,9 +293,9 @@ export function useServiceStation(
     // Seed adminDetail synchronously from the passed-in ServiceItem so a module
     // Save that lands before this GET resolves always has a real `adminDetail`
     // to patch (prev ? patch(prev, …) : prev is a no-op while prev is null) —
-    // the same window createService()'s own eager seed closes for the create
+    // the same window pending Overview Save's eager seed closes for the draft
     // hand-off, closed here for the ordinary "open an existing Service" case.
-    // A no-op when createService() already seeded it moments earlier.
+    // A no-op when that Save already seeded it moments earlier.
     setAdminDetail(prev => prev ?? seedDetailFromItem(service));
     fetchAdminServiceDetail(service.id)
       .then((result) => {
@@ -391,7 +416,9 @@ export function useServiceStation(
     adminDetail?.drafts.inclusions != null ||
     adminDetail?.drafts.faqs != null;
 
-  const canPublish = deriveCanPublish({ overviewStatus, inclusionsStatus, faqsStatus, isActive, hasContentDraft });
+  // A record has to exist before Publish can settle and activate it. Overview
+  // Save establishes that draft identity; Publish never creates one.
+  const canPublish = !isNew && deriveCanPublish({ overviewStatus, inclusionsStatus, faqsStatus, isActive, hasContentDraft });
 
   // ── Derived: surface layer + publish modal summaries (pure, in ./derive) ──
   const { configuredTierCount, pkgSummaryStatus, pkgSummaryCount, pkgSummaryDesc, pkgSummaryDescPending } =
@@ -550,17 +577,46 @@ export function useServiceStation(
     }
   }, [service, onRefresh, applyAdminDetail]);
 
-  // Module Save must not call the update endpoint against an id that does not
-  // exist — while pending it only advances the local Overview draft, moving the
-  // transition to 'pending' so the record footer's Publish gate (canPublish) can
-  // read it as ready. The drawer footer's own Publish is the sole authoritative
-  // write for this record, via `createService` below.
+  // A complete pending Overview Save establishes the real Pending Service record
+  // with its Overview draft. Once
+  // it has a server id, every later module save follows the ordinary Service
+  // endpoint path and Publish remains only the settle-and-activate operation.
   const saveOverview = useCallback(async (draft: OverviewDraft): Promise<Record<string, string>> => {
     if (!service) {
       setPendingOverview(draft);
       const status = derivePendingOverviewComplete(draft) ? 'pending' : 'not-configured';
       setPendingModuleStatus(status);
-      return { overview: status, inclusions: 'not-configured', faqs: 'not-configured' };
+      if (!derivePendingOverviewComplete(draft)) {
+        return { overview: status, inclusions: 'not-configured', faqs: 'not-configured' };
+      }
+
+      const response = await createServiceApi({
+        title:        draft.title,
+        excerpt:      draft.excerpt,
+        content:      draft.content,
+        category_ids: draft.category_id !== null ? [draft.category_id] : [],
+      });
+      if (!response.success) throw new Error('Could not create the pending Service record.');
+
+      const created = buildCreatedPendingService(response);
+      pendingServiceHandoffIdRef.current = created.id;
+      setAdminDetail({
+        success:                   true,
+        id:                        created.id,
+        title:                     created.title,
+        excerpt:                   created.excerpt,
+        content:                   created.content,
+        categories:                response.service.categories,
+        inclusions:                [],
+        faqs:                      [],
+        platform_status:           response.service.platform_status,
+        previous_platform_status:  response.service.previous_platform_status ?? '',
+        module_status:             response.service.module_status,
+        drafts:                    response.drafts,
+      });
+      onRefresh?.();
+      onPendingServiceCreated?.(created);
+      return response.service.module_status;
     }
     const result = await updateServiceOverview(service.id, {
       title:        draft.title,
@@ -572,25 +628,29 @@ export function useServiceStation(
     applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'overview', result.draft, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service, onRefresh, applyAdminDetail]);
+  }, [service, onRefresh, onPendingServiceCreated, applyAdminDetail]);
 
   const saveInclusions = useCallback(async (draft: InclusionsDraft): Promise<Record<string, string>> => {
-    if (!service) return { overview: pendingModuleStatus, inclusions: 'not-configured', faqs: 'not-configured' };
+    if (!service) throw new Error('Save a complete Service Overview before saving inclusions.');
+    if (draft.items.some((item) => !item.label.trim())) throw new Error('Each inclusion needs a label.');
     const result = await updateServiceInclusions(service.id, { inclusions: draft.items });
     if (!result.success) throw new Error('Failed to save inclusions.');
     applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'inclusions', result.inclusions, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service, onRefresh, pendingModuleStatus, applyAdminDetail]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   const saveFaqs = useCallback(async (draft: FaqsDraft): Promise<Record<string, string>> => {
-    if (!service) return { overview: pendingModuleStatus, inclusions: 'not-configured', faqs: 'not-configured' };
+    if (!service) throw new Error('Save a complete Service Overview before saving FAQs.');
+    if (draft.items.some((item) => !item.question.trim() || !item.answer.trim())) {
+      throw new Error('Each FAQ needs a question and an answer.');
+    }
     const result = await updateServiceFaqs(service.id, { faqs: draft.items });
     if (!result.success) throw new Error('Failed to save FAQs.');
     applyAdminDetail(prev => prev ? patchModuleDraft(prev, 'faqs', result.faqs, result.module_status) : prev);
     onRefresh?.();
     return result.module_status;
-  }, [service, onRefresh, pendingModuleStatus, applyAdminDetail]);
+  }, [service, onRefresh, applyAdminDetail]);
 
   const revertOverview = useCallback(async (): Promise<void> => {
     if (!service) return;
@@ -618,101 +678,6 @@ export function useServiceStation(
       onRefresh?.();
     }
   }, [service, onRefresh, applyAdminDetail]);
-
-  // The pending record's one authoritative Publish transaction. It creates the
-  // real Service, settles that real id, activates it, then seeds final detail
-  // before returning the final record for the drawer's in-place hand-off.
-  // Keeping this transaction in the station means the controller never needs
-  // a second render before it can continue lifecycle work against the new id.
-  const createService = useCallback(async (): Promise<ServiceItem | null> => {
-    setStatusSaving(true);
-    try {
-      const response = await createServiceApi({
-        title:        pendingOverview.title,
-        excerpt:      pendingOverview.excerpt,
-        content:      pendingOverview.content,
-        category_ids: pendingOverview.category_id !== null ? [pendingOverview.category_id] : [],
-      });
-      if (!response.success) throw new Error('Could not create the Service.');
-      const created: ServiceItem = {
-        id:           response.service.id,
-        title:        response.service.title,
-        slug:         response.service.slug,
-        excerpt:      pendingOverview.excerpt,
-        content:      pendingOverview.content,
-        categories:   response.service.categories,
-        inclusions:   [],
-        faqs:         [],
-        availability: { is_available: true, message: '' },
-        meta: {
-          platform_status:           response.service.platform_status as PlatformStatus,
-          previous_platform_status:  (response.service.previous_platform_status ?? '') as '' | 'active' | 'disabled',
-          module_status:             response.service.module_status as unknown as ServiceItem['meta']['module_status'],
-          short_description: '',
-          long_description:  '',
-          billing_cycle:     '',
-          sla:               '',
-          uptime:            '',
-          notes:             '',
-          popular_tier:      null,
-          popular_label:     null,
-          sort_order:        0,
-        },
-        pricing: {
-          tiers:  {} as ServiceItem['pricing']['tiers'],
-          bundle: { title: '', description: '', price: null },
-        },
-        promotion_tiers: [],
-      };
-      // This is the existing publish lifecycle, continued with the server id
-      // returned by create. Endpoint orchestration remains in the Service
-      // Station — the drawer controller only owns the local identity hand-off.
-      const settleResult = await settleAllServiceModules(created.id);
-      if (!settleResult.success) throw new Error('Could not settle the new Service.');
-
-      const statusResult = await updateServiceStatus(created.id, { platform_status: 'active' });
-      if (!statusResult.success) throw new Error('Could not activate the new Service.');
-
-      const finalModuleStatus = statusResult.service.module_status;
-
-      // Seed the final authoritative record before the controller turns its
-      // null identity into this ServiceItem. The matching-id branch in the
-      // detail effect preserves all mounted module bindings during hand-off.
-      publishedPendingServiceIdRef.current = created.id;
-      setAdminDetail({
-        success:                   true,
-        id:                        created.id,
-        title:                     settleResult.service.title,
-        excerpt:                   settleResult.service.excerpt,
-        content:                   settleResult.service.content,
-        categories:                settleResult.service.categories,
-        inclusions:                settleResult.inclusions,
-        faqs:                      settleResult.faqs,
-        platform_status:           statusResult.service.platform_status,
-        previous_platform_status:  statusResult.service.previous_platform_status,
-        module_status:             finalModuleStatus,
-        drafts:                    { overview: null, inclusions: null, faqs: null },
-      });
-      onRefresh?.();
-      return {
-        ...created,
-        title:      settleResult.service.title,
-        excerpt:    settleResult.service.excerpt,
-        content:    settleResult.service.content,
-        categories: settleResult.service.categories,
-        inclusions: settleResult.inclusions,
-        faqs:       settleResult.faqs,
-        meta: {
-          ...created.meta,
-          platform_status:          statusResult.service.platform_status as PlatformStatus,
-          previous_platform_status: statusResult.service.previous_platform_status as '' | 'active' | 'disabled',
-          module_status:            finalModuleStatus as unknown as ServiceItem['meta']['module_status'],
-        },
-      };
-    } finally {
-      setStatusSaving(false);
-    }
-  }, [pendingOverview, onRefresh]);
 
   return {
     platformStatus,
@@ -757,6 +722,5 @@ export function useServiceStation(
     revertOverview,
     revertInclusions,
     revertFaqs,
-    createService,
   };
 }

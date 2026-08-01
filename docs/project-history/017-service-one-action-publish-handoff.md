@@ -1,4 +1,4 @@
-# Service One-Action Publish Handoff
+# Service Draft Handoff from Overview Save
 
 ## Date
 
@@ -6,42 +6,42 @@
 
 ## Scope
 
-This repair restores the Service drawer's pending-record Publish lifecycle. It changes no Service REST route, backend lifecycle rule, generic drawer renderer, or presentation ownership. The work is confined to the Service Station state authority, its thin drawer controller hand-off, focused mounted regressions, and current-state documentation.
+This correction restores the Service drawer's pending-record draft lifecycle. It changes no Service REST route, backend lifecycle rule, generic drawer renderer, or presentation ownership. The work is confined to the Service Station state authority, its thin drawer controller hand-off, focused mounted regressions, and current-state documentation.
 
 ## Goal
 
-A confirmed Publish from a local pending Service must be one complete user action. It must create the real Service, continue lifecycle operations with the returned ID, settle required modules, activate the record, and leave the same mounted drawer immediately usable.
+A complete Overview Save from a local pending Service must create a persisted Pending Service record with its Overview draft, transfer the returned identity into the same mounted drawer, and leave all module editing immediately usable. Publish must remain a later operation that settles pending modules and activates that existing record. Storage uses the fixed `disabled` enum with no disable mask and an `overview: pending` module state; the UI renders that combination as Pending. Explicit Disable is the distinct masked user action.
 
 ## What Changed
 
-`useServiceStation` now completes the pending Publish transaction as create → settle → activate. It uses the ID returned by creation for the settle and status operations, then seeds `adminDetail` with the final authoritative overview, pools, module status, and platform status before returning the final `ServiceItem` to the controller.
+`useServiceStation` now creates the Pending Service record during a complete Overview Save. It uses the returned ID to build the persisted `ServiceItem` and synchronously seeds `adminDetail` with the authoritative saved Overview draft, pools, and module status before handing that record to the controller. Inclusions and FAQs then persist through their ordinary per-ID endpoints. Publish continues to settle all pending modules and activate the existing Service.
 
 `useServiceDrawerController` remains a coordinator. It still replaces its local `null` identity with the returned record, but it neither orchestrates endpoints nor waits for a later render to finish lifecycle work.
 
-A one-shot Service Station handoff marker identifies this specific pending-to-real identity transfer. When the drawer receives that final record, the detail effect retains the already-seeded detail and keeps `detailLoaded` true. Ordinary existing-Service opens still perform their normal detail fetch, so this exception does not weaken their stale-fetch protection.
+A one-shot Service Station handoff marker identifies this pending-to-real identity transfer. When the drawer receives the persisted Pending record, the detail effect retains the already-seeded detail and keeps `detailLoaded` true. Ordinary existing-Service opens still perform their normal detail fetch, so this exception does not weaken their stale-fetch protection.
 
-The mounted Service regressions now prove the complete action through the real drawer composition and Publish confirmation: exactly one create call; settle and activation using the returned ID; active final status with settled Overview; no full loading replacement or hand-off fetch; retained notification/module bindings; immediate Inclusions and FAQs editing; and usable record-footer actions. The existing open-and-save race regression remains in place for normal existing-record detail loading.
+The mounted Service regressions prove the complete sequence through the real drawer composition: exactly one create request at Overview Save; no early settle or activation; no full loading replacement or hand-off fetch; retained pending-draft notification/module bindings; immediate persisted Inclusions and FAQs; validation that keeps blank child entries open with inline errors; and later Publish settlement and activation using the same returned ID without a second create. The existing open-and-save race regression remains in place for normal existing-record detail loading.
 
 ## Final Architecture
 
 ```text
-pending drawer Publish
-  → Service Station createService()
-      → create Service
-      → settle returned Service ID
-      → activate returned Service ID
-      → final authoritative detail seed
+pending drawer Overview Save
+  → Service Station creates persisted Pending Service record with its Overview draft
+  → Service Station seeds authoritative pending detail
   → controller replaces null identity in the same mounted drawer
+  → child modules save with returned Service ID
+  → later Publish settles modules and activates that record
 ```
 
 The Service Station remains the sole Service write and lifecycle authority. The controller owns only local drawer identity and surface coordination; the generic host and presentation components remain endpoint-free.
 
 ## Decisions and Invariants
 
-- Publish is one confirmed lifecycle transaction, never a create-only first click followed by another Publish.
-- The returned server identity is used for every lifecycle operation after creation.
+- Overview Save, not Publish, is the creation boundary for a new Service.
+- The returned server identity is used for every later child-module and lifecycle operation.
 - Identity transfer must not clear module notifications, editor bindings, footer actions, or input readiness behind a loading state.
-- A final authoritative seed is sufficient for the pending Publish hand-off; it does not replace the normal existing-record detail fetch path.
+- A pending-draft authoritative seed is sufficient for the Overview Save hand-off; it does not replace the normal existing-record detail fetch path.
+- Child save requests never report success without a real Service ID, and blank inclusion labels or FAQ questions/answers keep their editor open with an inline error.
 - No second Service lifecycle system or presentation-owned endpoint orchestration is introduced.
 
 ## Validation
