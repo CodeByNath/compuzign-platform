@@ -10,6 +10,7 @@ export const CATEGORY_DRAWER_ENTITY: EntitySchema = {
   label: { singular: 'Category', plural: 'Categories' },
   identity: {
     idOf: (data: CategoryStationItem) => data.id,
+    platformIdOf: (data: CategoryStationItem) => data.platformId,
     titleOf: (data: CategoryStationItem) => data.name,
   },
   lifecycle: {

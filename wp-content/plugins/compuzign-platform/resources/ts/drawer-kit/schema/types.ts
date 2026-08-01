@@ -181,7 +181,11 @@ export interface ShellSlot {
 export interface EntitySchema {
   id: 'service' | 'tier' | 'promotion' | 'category' | 'bundle' | string;
   label: { singular: string; plural: string };
-  identity: { idOf: (d: any) => number | string; titleOf: (d: any) => string };
+  identity: {
+    idOf: (d: any) => number | string;
+    platformIdOf?: (d: any) => string;
+    titleOf: (d: any) => string;
+  };
 
   lifecycle: {
     participation: 'canonical' | 'travelling-instance' | 'shell-occupant';

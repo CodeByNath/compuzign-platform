@@ -24,8 +24,9 @@ export const SERVICE_ENTITY: EntitySchema = {
   id:    'service',
   label: { singular: 'Service', plural: 'Services' },
   identity: {
-    idOf:    (d: ServiceSummary) => d.id,
-    titleOf: (d: ServiceSummary) => d.title,
+    idOf:         (d: ServiceSummary) => d.id,
+    platformIdOf: (d: ServiceSummary) => d.platformId,
+    titleOf:      (d: ServiceSummary) => d.title,
   },
 
   lifecycle: {
