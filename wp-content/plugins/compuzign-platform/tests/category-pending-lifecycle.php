@@ -153,6 +153,29 @@ check_category($platformIdentifiers->validate(PlatformIdentifierPolicy::CATEGORY
 check_category(CategoryMeta::platformId($id) === $platformId, 'Category creation stores the same identifier in term meta');
 check_category($platformIdentifiers->lookupNative(PlatformIdentifierPolicy::CATEGORY, $id)?->platformId() === $platformId, 'Category creation finalizes the reverse native binding');
 
+$platformDetail = $controller->fetchCategoryByPlatformId(new WP_REST_Request(['platform_id' => $platformId]));
+check_category($platformDetail->get_status() === 200, 'Category Platform-ID route resolves a bound Category');
+check_category($platformDetail->get_data()['id'] === $id, 'Category Platform-ID route returns the native numeric identity');
+check_category($platformDetail->get_data()['platform_id'] === $platformId, 'Category Platform-ID route uses the authoritative Category projection');
+
+$serviceReservation = $platformIdentifiers->reserve(PlatformIdentifierPolicy::SERVICE);
+$serviceStoredId = '';
+$serviceBinding = $platformIdentifiers->assign(
+    $serviceReservation,
+    91,
+    static function () use (&$serviceStoredId): string {
+        return $serviceStoredId;
+    },
+    static function (int|string $nativeReference, string $claimed) use (&$serviceStoredId): void {
+        $serviceStoredId = $claimed;
+    }
+);
+$wrongEntityDetail = $controller->fetchCategoryByPlatformId(new WP_REST_Request(['platform_id' => $serviceBinding->platformId()]));
+check_category($wrongEntityDetail->get_status() === 404, 'Category Platform-ID route rejects a Service identifier');
+
+$missingDetail = $controller->fetchCategoryByPlatformId(new WP_REST_Request(['platform_id' => 'CZCZZZZZ']));
+check_category($missingDetail->get_status() === 404, 'Category Platform-ID route rejects a missing binding');
+
 check_category($created['category']['platform_status'] === 'disabled', 'Overview creation uses raw disabled/Pending storage');
 check_category($created['category']['previous_platform_status'] === '', 'new Pending Category has no Disable mask');
 check_category($created['category']['module_status']['overview'] === 'pending', 'Overview Save creates a pending draft');
@@ -201,5 +224,7 @@ check_category($trashed['category']['platform_id'] === $platformId, 'trash prese
 $deleted = $controller->permanentDeleteCategory(new WP_REST_Request(['id' => $id]))->get_data();
 check_category($deleted['platform_id'] === $platformId, 'permanent deletion returns the deleted Category identifier');
 check_category($platformIdentifiers->resolve($platformId)?->isDeleted() === true, 'permanent deletion retains the Category identifier tombstone');
+$deletedDetail = $controller->fetchCategoryByPlatformId(new WP_REST_Request(['platform_id' => $platformId]));
+check_category($deletedDetail->get_status() === 404, 'Category Platform-ID route does not expose a deleted tombstone');
 
 echo "\nAll Category pending lifecycle checks passed.\n";

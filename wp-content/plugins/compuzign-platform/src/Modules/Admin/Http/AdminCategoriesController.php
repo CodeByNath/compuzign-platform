@@ -74,6 +74,16 @@ class AdminCategoriesController
             ],
         ]);
 
+        // ── Station detail by permanent Platform identity ────────────────────
+        register_rest_route('compuzign/v1', '/admin/categories/(?P<platform_id>CZ[A-Z0-9]+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'fetchCategoryByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'platform_id' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
         // ── Station create (born unmasked Pending) ────────────────────────────
         register_rest_route('compuzign/v1', '/admin/categories', [
             'methods'             => 'POST',
@@ -235,6 +245,33 @@ class AdminCategoriesController
         }
 
         return rest_ensure_response(['categories' => $categories]);
+    }
+
+    public function fetchCategoryByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $platformId = (string) $request->get_param('platform_id');
+
+        try {
+            $binding = $this->platformIdentifiers->resolve($platformId);
+        } catch (PlatformIdentifierConflict) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Platform identifier binding is conflicting.'], 409);
+        }
+
+        if (
+            $binding === null
+            || !$binding->isBound()
+            || $binding->entityType() !== PlatformIdentifierPolicy::CATEGORY
+            || !is_int($binding->nativeReference())
+        ) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+        }
+
+        $category = $this->categoryResponse($this->findTerm($binding->nativeReference()));
+        if ($category === null) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
+        }
+
+        return rest_ensure_response($category);
     }
 
     /**
