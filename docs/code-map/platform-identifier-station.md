@@ -26,6 +26,8 @@ Station Manager and must never be registered there.
   contract failures.
 - `src/PlatformIdentifier/ExistingRecordAssignmentCommand.php` — bounded
   Service/Category-only WP-CLI backfill orchestration.
+- `src/PlatformIdentifier/TemporaryMigrationController.php` — temporary
+  authenticated live dry-check/batch surface; remove after verified completion.
 - `tests/platform-identifier-station.php` and
   `tests/platform-identifier-existing-assignment.php` — engine and backfill contracts.
 - `docs/platform-identifier-roadmap.md` — phased integration state.
@@ -60,6 +62,12 @@ Phase 3B registers
 active. `--limit` defaults to 100 and is capped at 500; `--cursor` defaults to
 zero. Each invocation returns JSON with processed/assigned/preserved/conflict
 counts, completion, and the next cursor. No Package or later type is accepted.
+
+While Phase 3C is active, Admin refresh reads temporary migration status and
+runs a zero-write Service/Category preflight. Explicit assignment processes one
+100-record owner batch through `assignExistingBatch()`, guarded by a 45-second
+atomic lock. Invalid, duplicate, or conflicting bindings stop assignment. The
+completion option remains after the temporary controller and notice are removed.
 
 Package Phase 4 is paused: Service is lifecycle-conformant, while Package
 Station remains pending migration. Package identity begins only after its

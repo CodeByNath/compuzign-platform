@@ -1,6 +1,6 @@
 # Platform Identifier Station Implementation Roadmap
 
-**Status:** Phase 3B command complete; real Service/Category backfill pending execution
+**Status:** Temporary live Service/Category migration deployed; dry check and assignment pending
 **Contract authority:** `src/PlatformIdentifier/` and `tests/platform-identifier-station.php`
 
 ## Locked contract
@@ -89,6 +89,15 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    Category uses its atomic term-meta claim, and reruns preserve valid IDs.
    Execute successive pages in the target WordPress runtime, then verify the
    Phase 3A GET routes with the returned/stored Platform IDs.
+3C. **Temporary live migration — active until one-time completion.** An
+   authenticated `PlatformAccess::CAP` REST action exposes status, zero-write
+   dry-run, and one 100-record Service-or-Category batch per request. Admin
+   Station shows one temporary notice, automatically dry-checks, blocks on any
+   conflict, and requires the explicit `Assign Platform IDs` action. Progress
+   and completion use non-autoloaded `cz_platform_identifier_migration_v1`;
+   each batch uses a 45-second atomic option lock. Remove the temporary REST/UI
+   wiring after live verification; retain assigned IDs, bindings, completion,
+   WP-CLI, owner routes, and schema identity.
 4. **Package Family Group — paused pending Package Station migration.** Service
    Station is locked and conformant; Package Station is explicitly pending
    migration. Its drawer, module pills, Enable/Disable, creation handoff,
@@ -116,6 +125,7 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | 3 | Category Station and inline creation, projection, immutability, duplicate-race handling, lifecycle preservation, lookup binding, and deletion tombstone complete | `6647568` | Existing-record assignment remains Phase 11. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
 | 3A | Optional additive schema identity and authenticated owner-specific Service/Category Platform-ID reads complete | `03de986`, `0a738c6`, `74a55c5` | Native numeric identity remains authoritative. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
 | 3B | Bounded, resumable Service/Category existing-record assignment command and focused contract complete | `ac0be8f` | Run pages and verify Platform-ID GETs in the target WordPress runtime. No local WP-CLI/runtime is present in this repository workspace. |
+| 3C | Temporary authenticated dry-run/batch REST action and Admin Station notice ready for live execution | `d87af20`, `056c4bd`, `073215b` | Remove only after conflict-free live completion and route/lifecycle verification. |
 | 4–12 | Pending | — | Package Phase 4 is paused until Package Station migration locks its owner, native record, creation handoff, lifecycle, drawer/module behaviour, and schema. |
 
 No Project History document has been created. That decision remains with the
