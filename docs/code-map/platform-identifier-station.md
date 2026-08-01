@@ -45,6 +45,14 @@ references support both WordPress-native and owner-defined stored identities.
 Service owns `cz_platform_id` post meta and `CZS` integration. Phase 3 injects
 the same instance through `AdminModule`; Category owns atomic
 `cz_platform_id` term-meta claims, both `CZC` creation paths, projection,
-immutable request rejection, and guarded hard deletion. The shared Station
-owns registry binding and tombstones only. Package, Tier, Promotion, and Rate
-Card integrations remain pending their roadmap phases.
+immutable request rejection, and guarded hard deletion. Intermediate Phase 3A
+adds authenticated owner-specific reads at
+`GET /admin/services/{platformId}` and `GET /admin/categories/{platformId}`.
+Each resolves here, rejects non-bound/conflicting/wrong-entity bindings, then
+calls its owner's existing projection by native numeric ID. The shared drawer
+schema carries optional `platformIdOf`; native `idOf` remains unchanged.
+
+Package Phase 4 is paused: Service is lifecycle-conformant, while Package
+Station remains pending migration. Package identity begins only after its
+owner, native record, creation handoff, lifecycle, drawer/module behaviour,
+Enable/Disable rules, and schema are locked. No Package runtime is integrated.

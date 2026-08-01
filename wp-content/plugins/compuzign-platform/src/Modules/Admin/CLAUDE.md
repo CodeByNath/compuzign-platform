@@ -11,6 +11,8 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 creation flows and owns the atomic `cz_platform_id` term-meta callback and all
 `platform_id` projections; the Station owns only permanent `CZC` reservation,
 binding, lookup, conflicts, and tombstones. Platform identity is output-only.
+The Category Platform-ID GET resolves through that Station and reuses the
+native-term authoritative projection; numeric identity remains unchanged.
 
 ## Boundaries
 
@@ -20,4 +22,8 @@ Read [Categories](../../../../../../docs/code-map/categories.md), [Category Grou
 
 ## Validation
 
-From the plugin root: `php tests/category-pending-lifecycle.php`, `php tests/category-inline-identity-race.php`, `php tests/category-create-group-id-payload-contract.php`, `npm run regression:category-create`, `npx tsc --noEmit`, and `npm run docs:check`.
+From the plugin root: `php tests/category-pending-lifecycle.php`,
+`php tests/category-inline-identity-race.php`,
+`php tests/category-create-group-id-payload-contract.php`,
+`npm run regression:category-create`, `npm run contract:platform-identity-schema`,
+`npx tsc --noEmit`, and `npm run docs:check`.

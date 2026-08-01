@@ -12,21 +12,29 @@ Category owns numeric identity and Overview draft/lifecycle. Category carries no
 `CZC` reservation, binding, lookup, conflict, and tombstone. Station creation
 still rejects duplicate names, while inline creation still returns the existing
 term and preserves or ensures its identity. Numeric IDs and routes are unchanged.
+The authenticated Platform-ID GET resolves only a bound Category and returns
+the existing `CategoryMeta`/`categoryResponse` projection by native term ID.
 
 ## Shared drawer composition
 
-- [CategoryDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/category/CategoryDrawerContent.tsx) assembles the shared `EntityDrawer`, Overview/Connections modules, inline editor, dialogs, and record footer.
+- [CategoryDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/category/CategoryDrawerContent.tsx) assembles the drawer, modules, editor, dialogs, and footer.
 - [useCategoryDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/category/useCategoryDrawerController.ts) owns tab/edit/dirty/panel/dialog state and coordinates authoritative actions. It renders no JSX.
 - [category.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/category.tsx) defines Category Overview and Assigned Services shells.
-- [category.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/category.ts) is the neutral drawer manifest.
+- [category.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/category.ts) is the neutral manifest. Optional `platformIdOf` exposes additive identity while `idOf` stays numeric.
 - [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/CategoryOverviewEditor.tsx) edits name and description through the shared inline editor.
 - [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell. Its stable `'new'` sentinel resolves to `category: null` — no fabricated CategoryStationItem — so the same composition opens on its ordinary Overview module with nothing to fetch. A complete Overview Save creates the persisted Pending Category and `useCategoryStation.ts` seeds that returned projection inside the mounted drawer; Publish later settles and activates that same id.
 
-## Ownership verdict and Admin Station's actual role
+## Ownership and host
 
-Category is a **neutral entity lifecycle mounted by Admin Station**, not Admin-owned business logic: `CategoryDrawerContent`, `useCategoryDrawerController`, `useCategoryStation`, the schema/bindings, and the inline editor are host-neutral and import no Admin Station module beyond legitimate shared presentation/icons. `Modules/Admin`'s `AdminCategoriesController.php`/`CategoryMeta.php` are the genuine, current, authoritative Category backend — not legacy residue; the name reflects that Category is philosophically an admin-only taxonomy concept, not that the module is stale. Admin Station's own contribution is strictly host/registration: `CategoryDrawerHost.tsx` (id resolution and mount) and the `category` key's registration in `admin-station/register.ts`. Screen placement under `admin-station/` does not transfer domain ownership.
+Category is a neutral lifecycle mounted by Admin Station. Its composition,
+controller, hook, schema/bindings, and editor are host-neutral.
+`AdminCategoriesController.php` and `CategoryMeta.php` are authoritative.
+Admin Station contributes only host/registration; placement does not transfer
+domain ownership.
 
-`ServiceCategoryCarousel` and its `service-categories` data source remain registered but are not bound to any placement — no surface binding names them (see [Service Catalogue](service-catalogue.md)'s Registration section for what the `service-lower-deck` binding does carry). **Service Home Connections is the active Category entry point today**: it reads the same authoritative Category list this carousel would, and its View action opens this same `category` drawer by real id.
+**Service Home Connections is the active Category entry point** and opens this
+drawer by native ID. The registered `ServiceCategoryCarousel` data source is
+currently unplaced.
 
 ## State and persistence
 

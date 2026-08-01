@@ -7,7 +7,8 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 This module owns `cz_service` lifecycle, Service meta/drafts, category relationships written by its handlers, and Service inclusion/FAQ pools.
 
 - `ServiceModule.php` — module wiring.
-- `Http/ServiceController.php` — the 14 Service routes and their validation/orchestration.
+- `Http/ServiceController.php` — Service routes and validation/orchestration,
+  including authenticated Platform-ID read delegation to numeric detail.
 - `Support/ServiceSchema.php` — Service keys, module vocabulary, sanitization, and route arguments.
 - `Support/ServicePools.php` — the one public pool-write contract used by Service and Package Tier saves.
 - `Core\Plugin` injects the shared `PlatformIdentifierStation`; Service owns
@@ -26,4 +27,6 @@ Read [Service Station](../../../../../../docs/code-map/service-station.md) and [
 
 ## Validation
 
-From the plugin root: `php tests/service-route-baseline.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/service-lifecycle-mask.php`,
+`php tests/service-route-baseline.php`, `npm run contract:platform-identity-schema`,
+`npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

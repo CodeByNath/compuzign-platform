@@ -128,6 +128,18 @@
             }
         },
         {
+            "route": "compuzign/v1/admin/categories/(?P<platform_id>CZ[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchCategoryByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
             "route": "compuzign/v1/admin/package-category-groups",
             "methods": "GET",
             "callback": "listGroups",
@@ -1034,6 +1046,18 @@
                         "draft"
                     ],
                     "required": false,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<platform_id>CZ[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchDetailByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
+                    "required": true,
                     "type": "string"
                 }
             }

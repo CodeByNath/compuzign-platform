@@ -1,6 +1,6 @@
 # Platform Identifier Station Implementation Roadmap
 
-**Status:** Phase 3 — Category integration complete; Phase 4 pending owner audit
+**Status:** Intermediate Phase 3A complete; Package Phase 4 paused pending lifecycle migration
 **Contract authority:** `src/PlatformIdentifier/` and `tests/platform-identifier-station.php`
 
 ## Locked contract
@@ -71,7 +71,21 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    TypeScript API, mounted Category, connections, build, lint, and docs checks
    pass. The combined route baseline still reports only its deferred Category
    status-argument fixture drift; no route was changed in this phase.
-4. **Package Family Group — pending owner/storage audit.** No files locked yet.
+3A. **Service and Category Platform routes and schema identity — complete.**
+   Extended the locked shared `EntitySchema.identity` contract with optional
+   `platformIdOf` while preserving numeric `idOf`. Service and Category inject
+   their existing application `platformId`; other entities remain unchanged.
+   Authenticated `GET /admin/services/{platformId}` and
+   `GET /admin/categories/{platformId}` routes resolve through
+   `PlatformIdentifierStation`, require a bound matching entity, reject
+   tombstones/conflicts/wrong entities, and delegate to each owner's existing
+   authoritative detail/projection path. Numeric routes, `recordId`, and mounted
+   drawer handoff remain unchanged.
+4. **Package Family Group — paused pending Package Station migration.** Service
+   Station is locked and conformant; Package Station is explicitly pending
+   migration. Its drawer, module pills, Enable/Disable, creation handoff,
+   lifecycle, owner/native record, and schema must adopt the locked contract
+   before Platform identity is added. Package runtime was not modified in 3A.
 5. **Tier Group — pending owner/storage audit.** No files locked yet.
 6. **Tier Add-on — pending owner/storage audit.** No files locked yet.
 7. **Tier Promotion — pending owner/storage audit.** No files locked yet.
@@ -92,7 +106,8 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | 1 | Contract and isolated engine complete; isolated PHP and documentation checks passed | `ac0067a` | Domain composition and all entity integration deliberately deferred |
 | 2 | Service creation, projection, immutability, lifecycle preservation, lookup binding, and deletion tombstone complete | `1ece5e6` | Existing-record assignment remains Phase 11. The combined route baseline has unrelated pre-existing Category status-argument drift; the broader module-state snapshot also has an unrelated undefined legacy definition. |
 | 3 | Category Station and inline creation, projection, immutability, duplicate-race handling, lifecycle preservation, lookup binding, and deletion tombstone complete | `6647568` | Existing-record assignment remains Phase 11. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
-| 4–12 | Pending | — | Must follow phase order and audit each real owner first |
+| 3A | Optional additive schema identity and authenticated owner-specific Service/Category Platform-ID reads complete | `03de986`, `0a738c6`, `74a55c5` | Native numeric identity remains authoritative. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
+| 4–12 | Pending | — | Package Phase 4 is paused until Package Station migration locks its owner, native record, creation handoff, lifecycle, drawer/module behaviour, and schema. |
 
 No Project History document has been created. That decision remains with the
 user after the implementation qualifies as a completed major milestone.
