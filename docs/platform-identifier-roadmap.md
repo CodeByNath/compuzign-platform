@@ -76,7 +76,7 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | Phase | Result | Commit | Blockers / deferred work |
 | --- | --- | --- | --- |
 | 1 | Contract and isolated engine complete; isolated PHP and documentation checks passed | `ac0067a` | Domain composition and all entity integration deliberately deferred |
-| 2 | Service creation, projection, immutability, lifecycle preservation, lookup binding, and deletion tombstone complete | Pending phase commit | Existing-record assignment remains Phase 11. The combined route baseline has unrelated pre-existing Category status-argument drift; the broader module-state snapshot also has an unrelated undefined legacy definition. |
+| 2 | Service creation, projection, immutability, lifecycle preservation, lookup binding, and deletion tombstone complete | `1ece5e6` | Existing-record assignment remains Phase 11. The combined route baseline has unrelated pre-existing Category status-argument drift; the broader module-state snapshot also has an unrelated undefined legacy definition. |
 | 3–12 | Pending | — | Must follow phase order and audit each real owner first |
 
 No Project History document has been created. That decision remains with the
