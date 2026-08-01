@@ -253,6 +253,7 @@ export interface CategoryOverviewDraft {
 // group concept — the retired Service Category Group selector is gone.
 export interface CategoryStationItem {
   id:                       number;
+  platformId:               string;
   name:                     string;
   slug:                     string;
   description:              string;
@@ -287,5 +288,5 @@ export interface CategoryOverviewSaveResponse {
 export interface CategoryDeleteResponse {
   success: boolean;
   deleted: number;
+  platformId: string;
 }
-

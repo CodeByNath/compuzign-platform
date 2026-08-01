@@ -26,6 +26,9 @@ namespace CompuZign\Platform\Modules\Admin\Support;
  *   - Transitions are computed by StationLifecycle (canonical participation,
  *     same as Service). This class never decides a transition — it persists
  *     engine results only.
+ *   - Permanent identity is separate scalar `cz_platform_id` term meta. This
+ *     owner exposes an atomic write-once claim and exact scalar read callback;
+ *     the Platform Identifier Station owns the registry around those callbacks.
  *   - WordPress owns the term itself: name/slug/relationships are never
  *     written here. The settled description lives in the CompuZign-owned
  *     `cz_category_description` term meta (the inline category flows'
@@ -38,6 +41,7 @@ namespace CompuZign\Platform\Modules\Admin\Support;
 final class CategoryMeta
 {
     public const META_KEY          = 'cz_category_meta';
+    public const PLATFORM_ID_META  = 'cz_platform_id';
     public const TAXONOMY          = 'cz_service_category';
     public const DESCRIPTION_META  = 'cz_category_description';
     public const SERVICE_POST_TYPE = 'cz_service';
@@ -260,6 +264,7 @@ final class CategoryMeta
 
         return [
             'id'                       => $termId,
+            'platform_id'              => self::platformId($termId),
             'name'                     => $draft !== null ? $draft['name'] : $settledName,
             'slug'                     => (string) $term->slug,
             'description'              => $draft !== null ? $draft['description'] : $settledDescription,
@@ -269,6 +274,21 @@ final class CategoryMeta
             'has_draft'                => $draft !== null,
             'station_role'             => $meta['station_role'],
         ];
+    }
+
+    // ── Permanent Platform identity ─────────────────────────────────────────
+
+    public static function platformId(int $termId): string
+    {
+        $stored = get_term_meta($termId, self::PLATFORM_ID_META, true);
+
+        return is_string($stored) ? $stored : '';
+    }
+
+    /** Atomic write-once claim; the Station performs the exact read-back. */
+    public static function claimPlatformId(int $termId, string $platformId): bool
+    {
+        return add_term_meta($termId, self::PLATFORM_ID_META, $platformId, true) !== false;
     }
 
     // ── Delete guard (D6) ─────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ export type TierId = 'basic' | 'standard' | 'premium' | 'enterprise' | 'ultimate
 
 export interface Category {
   id:           number | null;
+  platformId?:  string;
   name:         string;
   slug:         string;
   description?: string;

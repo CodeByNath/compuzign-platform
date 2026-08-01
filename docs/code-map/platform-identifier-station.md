@@ -41,9 +41,10 @@ references support both WordPress-native and owner-defined stored identities.
 
 ## Current integration status
 
-Phase 2 constructs one Station in `Core\Plugin` and injects it through
-`ServiceModule`. Service owns `cz_platform_id` post meta, `CZS` assignment,
-projection, immutable request rejection, and hard-delete notification; the
-shared Station owns its registry binding and tombstone. Category, Package,
-Tier, Promotion, and Rate Card integrations remain pending their roadmap
-phases.
+`Core\Plugin` constructs one Station. Phase 2 injects it through `ServiceModule`;
+Service owns `cz_platform_id` post meta and `CZS` integration. Phase 3 injects
+the same instance through `AdminModule`; Category owns atomic
+`cz_platform_id` term-meta claims, both `CZC` creation paths, projection,
+immutable request rejection, and guarded hard deletion. The shared Station
+owns registry binding and tombstones only. Package, Tier, Promotion, and Rate
+Card integrations remain pending their roadmap phases.

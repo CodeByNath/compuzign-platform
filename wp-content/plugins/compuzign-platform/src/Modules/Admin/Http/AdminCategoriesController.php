@@ -5,11 +5,13 @@
  *
  * CATEGORY_ROUTES          Category REST route registration
  * CATEGORY_HANDLERS        Listing, creation, modules, and lifecycle
+ * CATEGORY_IDENTITY        Platform ID collision, binding, and immutability
  * CATEGORY_AUTHORIZATION   Permission callback
  * CATEGORY_HELPERS         Term lookup and response projection
  *
  * Search: SECTION: CATEGORY_ROUTES
  *         SECTION: CATEGORY_HANDLERS
+ *         SECTION: CATEGORY_IDENTITY
  *         SECTION: CATEGORY_AUTHORIZATION
  *         SECTION: CATEGORY_HELPERS
  */
@@ -18,6 +20,11 @@ namespace CompuZign\Platform\Modules\Admin\Http;
 
 use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierBinding;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 /**
  * AdminCategoriesController — the Category station's REST family (S6 Phase B).
@@ -41,6 +48,8 @@ use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
  */
 class AdminCategoriesController
 {
+    public function __construct(private PlatformIdentifierStation $platformIdentifiers) {}
+
     public function register(): void
     {
         add_action('rest_api_init', [$this, 'registerRoutes']);
@@ -236,6 +245,10 @@ class AdminCategoriesController
      */
     public function createCategory(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
+
         $name        = (string) $request->get_param('name');
         $description = (string) ($request->get_param('description') ?? '');
 
@@ -243,12 +256,40 @@ class AdminCategoriesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Category name is required.'], 422);
         }
 
+        try {
+            $reservation = $this->platformIdentifiers->reserve(
+                PlatformIdentifierPolicy::CATEGORY,
+                fn(string $platformId): bool => $this->platformIdExists($platformId)
+            );
+        } catch (\Throwable) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'Could not reserve a permanent Category identifier.',
+            ], 500);
+        }
+
         $result = wp_insert_term($name, CategoryMeta::TAXONOMY);
         if (is_wp_error($result)) {
+            $this->retireReservation($reservation);
             return new \WP_REST_Response(['success' => false, 'message' => $result->get_error_message()], 422);
         }
 
         $termId = (int) $result['term_id'];
+
+        try {
+            $this->assignIdentifier($reservation, $termId);
+        } catch (\Throwable) {
+            $stored = CategoryMeta::platformId($termId);
+            if ($stored === '' || $stored === $reservation->platformId()) {
+                wp_delete_term($termId, CategoryMeta::TAXONOMY);
+            }
+            $this->retireReservation($reservation, $termId);
+            return new \WP_REST_Response([
+                'success'          => false,
+                'message'          => 'Category creation could not confirm its permanent identifier.',
+                'native_reference' => $termId,
+            ], 500);
+        }
 
         $this->writeDescription($termId, $description);
 
@@ -277,6 +318,9 @@ class AdminCategoriesController
     /** Save the overview draft (name, description) — canonical term untouched, overview marked pending. */
     public function saveOverview(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $term = $this->findTerm((int) $request->get_param('id'));
         if ($term === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
@@ -302,6 +346,9 @@ class AdminCategoriesController
      */
     public function settleOverview(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $term = $this->findTerm((int) $request->get_param('id'));
         if ($term === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
@@ -332,6 +379,9 @@ class AdminCategoriesController
     /** Discard the draft; module_status re-derives from the settled state. */
     public function revertOverview(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $term = $this->findTerm((int) $request->get_param('id'));
         if ($term === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
@@ -351,6 +401,9 @@ class AdminCategoriesController
      */
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $term = $this->findTerm((int) $request->get_param('id'));
         if ($term === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
@@ -382,6 +435,9 @@ class AdminCategoriesController
     /** Restore from archived/trashed — always lands 'disabled', never straight to active. */
     public function restoreCategory(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $term = $this->findTerm((int) $request->get_param('id'));
         if ($term === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
@@ -408,6 +464,9 @@ class AdminCategoriesController
      */
     public function permanentDeleteCategory(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $term = $this->findTerm((int) $request->get_param('id'));
         if ($term === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
@@ -428,13 +487,37 @@ class AdminCategoriesController
             ], 409);
         }
 
-        // Removes the term row and all its term meta (cz_category_meta included).
-        $deleted = wp_delete_term($termId, CategoryMeta::TAXONOMY);
-        if (is_wp_error($deleted)) {
-            return new \WP_REST_Response(['success' => false, 'message' => $deleted->get_error_message()], 422);
+        try {
+            $binding = $this->ensureIdentifier($termId);
+        } catch (PlatformIdentifierConflict) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'Category identity is conflicted and must be reconciled before permanent deletion.',
+            ], 409);
         }
 
-        return rest_ensure_response(['success' => true, 'deleted' => $termId]);
+        // Removes the term row and all its term meta (cz_category_meta included).
+        $deleted = wp_delete_term($termId, CategoryMeta::TAXONOMY);
+        if (is_wp_error($deleted) || $deleted === false) {
+            $message = is_wp_error($deleted) ? $deleted->get_error_message() : 'Category could not be permanently deleted.';
+            return new \WP_REST_Response(['success' => false, 'message' => $message], 422);
+        }
+
+        try {
+            $this->platformIdentifiers->markDeleted(PlatformIdentifierPolicy::CATEGORY, $termId);
+        } catch (PlatformIdentifierConflict) {
+            return new \WP_REST_Response([
+                'success'          => false,
+                'message'          => 'Category was deleted but its permanent identifier tombstone requires reconciliation.',
+                'native_reference' => $termId,
+            ], 500);
+        }
+
+        return rest_ensure_response([
+            'success'     => true,
+            'deleted'     => $termId,
+            'platform_id' => $binding->platformId(),
+        ]);
     }
 
     // ── Inline service category creation/update ───────────────────────────────
@@ -444,12 +527,28 @@ class AdminCategoriesController
 
     public function createServiceCategory(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
+
         $body = $request->get_json_params();
         $name = sanitize_text_field((string) ($body['name'] ?? ''));
         $desc = sanitize_textarea_field((string) ($body['description'] ?? ''));
 
         if ($name === '') {
             return rest_ensure_response(['success' => false, 'message' => 'Category name is required.']);
+        }
+
+        try {
+            $reservation = $this->platformIdentifiers->reserve(
+                PlatformIdentifierPolicy::CATEGORY,
+                fn(string $platformId): bool => $this->platformIdExists($platformId)
+            );
+        } catch (\Throwable) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'Could not reserve a permanent Category identifier.',
+            ], 500);
         }
 
         // Description is stored as CompuZign-owned term meta, not the native WP term description.
@@ -461,22 +560,48 @@ class AdminCategoriesController
                 $existingId = (int) $result->get_error_data();
                 $term       = get_term($existingId, CategoryMeta::TAXONOMY);
                 if ($term instanceof \WP_Term) {
+                    try {
+                        if (CategoryMeta::platformId($existingId) === '') {
+                            $binding = $this->assignIdentifier($reservation, $existingId);
+                        } else {
+                            $this->retireReservation($reservation);
+                            $binding = $this->ensureIdentifier($existingId);
+                        }
+                    } catch (PlatformIdentifierConflict) {
+                        $this->retireReservation($reservation, $existingId);
+                        return new \WP_REST_Response([
+                            'success' => false,
+                            'message' => 'The existing Category has a conflicting permanent identifier.',
+                        ], 409);
+                    }
+
                     return rest_ensure_response([
                         'success'  => true,
                         'existing' => true,
-                        'category' => [
-                            'id'          => (int) $term->term_id,
-                            'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                            'slug'        => $term->slug,
-                            'description' => get_term_meta((int) $term->term_id, 'cz_category_description', true) ?: '',
-                        ],
+                        'category' => $this->inlineCategoryResponse($term, $binding),
                     ]);
                 }
             }
+            $this->retireReservation($reservation);
             return rest_ensure_response(['success' => false, 'message' => $result->get_error_message()]);
         }
 
         $termId = (int) $result['term_id'];
+
+        try {
+            $binding = $this->assignIdentifier($reservation, $termId);
+        } catch (\Throwable) {
+            $stored = CategoryMeta::platformId($termId);
+            if ($stored === '' || $stored === $reservation->platformId()) {
+                wp_delete_term($termId, CategoryMeta::TAXONOMY);
+            }
+            $this->retireReservation($reservation, $termId);
+            return new \WP_REST_Response([
+                'success'          => false,
+                'message'          => 'Category creation could not confirm its permanent identifier.',
+                'native_reference' => $termId,
+            ], 500);
+        }
 
         $this->writeDescription($termId, $desc);
 
@@ -485,12 +610,7 @@ class AdminCategoriesController
         return rest_ensure_response([
             'success'  => true,
             'existing' => false,
-            'category' => [
-                'id'          => $termId,
-                'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'slug'        => $term->slug,
-                'description' => get_term_meta($termId, 'cz_category_description', true) ?: '',
-            ],
+            'category' => $this->inlineCategoryResponse($term, $binding),
         ]);
     }
 
@@ -498,6 +618,10 @@ class AdminCategoriesController
 
     public function updateServiceCategory(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
+
         $termId = (int) $request->get_param('id');
         $term   = get_term($termId, CategoryMeta::TAXONOMY);
 
@@ -521,13 +645,115 @@ class AdminCategoriesController
 
         return rest_ensure_response([
             'success'  => true,
-            'category' => [
-                'id'          => $termId,
-                'name'        => html_entity_decode($updated->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'slug'        => $updated->slug,
-                'description' => get_term_meta($termId, 'cz_category_description', true) ?: '',
-            ],
+            'category' => $this->inlineCategoryResponse($updated),
         ]);
+    }
+
+    // ===================================================================
+    // SECTION: CATEGORY_IDENTITY
+    // ===================================================================
+
+    private function assignIdentifier(
+        PlatformIdentifierReservation $reservation,
+        int $termId
+    ): PlatformIdentifierBinding {
+        return $this->platformIdentifiers->assign(
+            $reservation,
+            $termId,
+            static fn(int|string $nativeReference): string => CategoryMeta::platformId((int) $nativeReference),
+            static fn(int|string $nativeReference, string $platformId): bool => CategoryMeta::claimPlatformId(
+                (int) $nativeReference,
+                $platformId
+            )
+        );
+    }
+
+    private function ensureIdentifier(int $termId): PlatformIdentifierBinding
+    {
+        return $this->platformIdentifiers->ensure(
+            PlatformIdentifierPolicy::CATEGORY,
+            $termId,
+            static fn(int|string $nativeReference): string => CategoryMeta::platformId((int) $nativeReference),
+            static fn(int|string $nativeReference, string $platformId): bool => CategoryMeta::claimPlatformId(
+                (int) $nativeReference,
+                $platformId
+            ),
+            fn(string $platformId): bool => $this->platformIdExists($platformId)
+        );
+    }
+
+    private function platformIdExists(string $platformId): bool
+    {
+        $matches = get_terms([
+            'taxonomy'   => CategoryMeta::TAXONOMY,
+            'hide_empty' => false,
+            'fields'     => 'ids',
+            'number'     => 1,
+            'meta_key'   => CategoryMeta::PLATFORM_ID_META,
+            'meta_value' => $platformId,
+        ]);
+
+        return is_array($matches) && $matches !== [];
+    }
+
+    private function rejectPlatformIdMutation(\WP_REST_Request $request): ?\WP_REST_Response
+    {
+        $json = $request->get_json_params();
+        $json = is_array($json) ? $json : [];
+
+        foreach (['platform_id', 'platformId', CategoryMeta::PLATFORM_ID_META] as $field) {
+            if ($request->has_param($field) || array_key_exists($field, $json)) {
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'Platform identifiers are immutable and output-only.',
+                ], 422);
+            }
+        }
+
+        return null;
+    }
+
+    private function retireReservation(
+        PlatformIdentifierReservation $reservation,
+        ?int $nativeReference = null
+    ): void {
+        if ($nativeReference !== null) {
+            try {
+                $reverse = $this->platformIdentifiers->lookupNative(
+                    PlatformIdentifierPolicy::CATEGORY,
+                    $nativeReference
+                );
+                if ($reverse?->platformId() === $reservation->platformId()) {
+                    return;
+                }
+            } catch (\Throwable) {
+                // Continue to inspect the reservation's own forward record.
+            }
+        }
+
+        try {
+            $forward = $this->platformIdentifiers->resolve($reservation->platformId());
+            if ($forward?->status() === PlatformIdentifierStation::STATUS_RESERVED) {
+                $this->platformIdentifiers->retire($reservation);
+            }
+        } catch (\Throwable) {
+            // Preserve the first failure; never recycle an uncertain claim.
+        }
+    }
+
+    private function inlineCategoryResponse(
+        \WP_Term $term,
+        ?PlatformIdentifierBinding $binding = null
+    ): array {
+        $termId = (int) $term->term_id;
+
+        return [
+            'id'          => $termId,
+            'platform_id' => $binding?->platformId() ?? CategoryMeta::platformId($termId),
+            'name'        => html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'slug'        => $term->slug,
+            'description' => get_term_meta($termId, CategoryMeta::DESCRIPTION_META, true) ?: '',
+        ];
     }
 
     // ── Permissions ───────────────────────────────────────────────────────────

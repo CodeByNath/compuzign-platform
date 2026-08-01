@@ -6,6 +6,13 @@ Category is the second current implementation of the locked [Station and Drawer 
 
 Category owns numeric identity and Overview draft/lifecycle. Category carries no group concept — the retired Service Category Group selector and its `group_id` create/update payload were removed (Service Category Group audit); see [Service Category Groups](category-groups.md) for what was removed and what legacy data remains, ignored. Assigned Services are read-only projections; assignment stays Service-owned.
 
+`Core\Plugin` supplies the shared `PlatformIdentifierStation` through
+`AdminModule` to the Category controller. Category owns both native
+`wp_insert_term()` flows and atomically claims `cz_platform_id`; the Station owns
+`CZC` reservation, binding, lookup, conflict, and tombstone. Station creation
+still rejects duplicate names, while inline creation still returns the existing
+term and preserves or ensures its identity. Numeric IDs and routes are unchanged.
+
 ## Shared drawer composition
 
 - [CategoryDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/category/CategoryDrawerContent.tsx) assembles the shared `EntityDrawer`, Overview/Connections modules, inline editor, dialogs, and record footer.
@@ -25,8 +32,8 @@ Category is a **neutral entity lifecycle mounted by Admin Station**, not Admin-o
 
 - [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns draft-preferred local state, returned-ID hand-off, module evaluation, Overview create/save/revert/settle/publish, explicit Disable/Enable, archive/trash/restore/delete, and targeted mutation notification.
 - [AdminCategoriesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoriesController.php) owns Category routes.
-- [CategoryMeta.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/CategoryMeta.php) owns stored shape/readiness.
-- [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) owns typed endpoint calls.
+- [CategoryMeta.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/CategoryMeta.php) owns stored shape/readiness and the scalar Platform-ID term-meta callbacks.
+- [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) owns typed endpoint calls and maps backend `platform_id` to application `platformId`.
 
 ## Invariants
 
@@ -34,7 +41,7 @@ Overview and Connections use shared schema shells, status pills, notifications, 
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, `npm run regression:category-create`, `php tests/category-pending-lifecycle.php`, and `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npx tsx scripts/category-identifier-api-contract.ts`, `npm run build`, `npm run regression:category-create`, `php tests/category-pending-lifecycle.php`, `php tests/category-inline-identity-race.php`, `php tests/category-create-group-id-payload-contract.php`, and `npm run docs:check`. The unrelated module-state snapshot remains deferred.
 
 ## Related Code Maps
 

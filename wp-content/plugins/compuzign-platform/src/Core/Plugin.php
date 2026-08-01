@@ -36,7 +36,7 @@ final class Plugin
         (new HomepageModule())->register();
         (new RequestsModule())->register();
         (new ServiceModule($platformIdentifiers))->register();
-        (new AdminModule())->register();
+        (new AdminModule($platformIdentifiers))->register();
         (new AdminStationModule())->register();
 
         add_action('rest_api_init', [self::class, 'registerCoreRoutes']);

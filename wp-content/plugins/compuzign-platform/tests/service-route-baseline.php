@@ -79,7 +79,9 @@ $controllers = [
     static fn() => new \CompuZign\Platform\Modules\Service\Http\ServiceController(
         new \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation()
     ),
-    static fn() => new \CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController(),
+    static fn() => new \CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController(
+        new \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation()
+    ),
     static fn() => new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageFamiliesController(),
     static fn() => new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(
         new \CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository()

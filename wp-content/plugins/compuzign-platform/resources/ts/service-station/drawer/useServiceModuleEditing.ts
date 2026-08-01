@@ -154,6 +154,7 @@ export function useServiceModuleEditing({
     }
     const category: Category = {
       id:          result.category.id,
+      platformId:  result.category.platformId,
       name:        result.category.name,
       slug:        result.category.slug,
       description: result.category.description,

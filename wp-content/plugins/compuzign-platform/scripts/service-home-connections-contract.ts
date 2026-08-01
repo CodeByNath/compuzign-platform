@@ -18,6 +18,7 @@ function check(condition: unknown, message: string): asserts condition {
 function category(overrides: Partial<CategoryStationItem>): CategoryStationItem {
   return {
     id: 1,
+    platformId: 'CZC2A7KZ',
     name: 'Category',
     slug: 'category',
     description: '',
@@ -48,6 +49,7 @@ check(!rows.some((row) => row.id === unused.id), 'a Category with zero connected
 const connectedRow = rows.find((row) => row.id === connected.id);
 check(connectedRow != null, 'the connected Category projects a row');
 check(connectedRow!.name === connected.name, 'row name matches the authoritative Category name');
+check(connectedRow!.platformId === connected.platformId, 'row preserves immutable Category Platform identity');
 check(connectedRow!.connectedCount === connected.assigned_count, 'row count matches the authoritative assigned_count — nothing re-derived');
 check(connectedRow!.status === connected.platform_status, 'row status matches the authoritative platform_status');
 

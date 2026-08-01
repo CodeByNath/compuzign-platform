@@ -44,7 +44,9 @@ if (!function_exists('add_action')) {
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-(new \CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController())->registerRoutes();
+(new \CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController(
+    new \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation()
+))->registerRoutes();
 
 $createRoute = null;
 $groupRouteExists = false;

@@ -1,6 +1,6 @@
 # Platform Identifier Station Implementation Roadmap
 
-**Status:** Phase 2 — Service integration complete; Phase 3 pending
+**Status:** Phase 3 — Category integration complete; Phase 4 pending owner audit
 **Contract authority:** `src/PlatformIdentifier/` and `tests/platform-identifier-station.php`
 
 ## Locked contract
@@ -55,8 +55,22 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    mounted create/handoff/open-save/disable-enable regressions, build, and docs
    pass. The combined route baseline reports only its existing Category status
    argument drift; its Service routes report no change.
-3. **Category — pending.** Audit and integrate `CZC` in Category Station and
-   inline creation without changing term identity, lifecycle, or drawer flow.
+3. **Category — complete.** Reused the one engine composed in `Core\Plugin`
+   and injected it through `AdminModule` into `AdminCategoriesController`.
+   Both existing `wp_insert_term()` paths reserve `CZC`; Station duplicate
+   rejection and inline return-existing semantics remain intact. Category
+   atomically claims `cz_platform_id` term meta, verifies/binds before its
+   existing setup, retires unused reservations, projects output-only identity,
+   rejects identity mutation across every write, preserves identity through
+   lifecycle/drafts, and tombstones guarded hard deletion. Exact files:
+   `Core/Plugin.php`, `AdminModule.php`,
+   `AdminCategoriesController.php`, `CategoryMeta.php`, Category API types and
+   endpoint adapters, focused PHP lifecycle/inline/race contracts, mounted
+   Category fixture, generated admin bundle, local instructions, Code Maps, and
+   this roadmap. The locked identifier, Category payload/lifecycle/inline-race,
+   TypeScript API, mounted Category, connections, build, lint, and docs checks
+   pass. The combined route baseline still reports only its deferred Category
+   status-argument fixture drift; no route was changed in this phase.
 4. **Package Family Group — pending owner/storage audit.** No files locked yet.
 5. **Tier Group — pending owner/storage audit.** No files locked yet.
 6. **Tier Add-on — pending owner/storage audit.** No files locked yet.
@@ -77,7 +91,8 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | --- | --- | --- | --- |
 | 1 | Contract and isolated engine complete; isolated PHP and documentation checks passed | `ac0067a` | Domain composition and all entity integration deliberately deferred |
 | 2 | Service creation, projection, immutability, lifecycle preservation, lookup binding, and deletion tombstone complete | `1ece5e6` | Existing-record assignment remains Phase 11. The combined route baseline has unrelated pre-existing Category status-argument drift; the broader module-state snapshot also has an unrelated undefined legacy definition. |
-| 3–12 | Pending | — | Must follow phase order and audit each real owner first |
+| 3 | Category Station and inline creation, projection, immutability, duplicate-race handling, lifecycle preservation, lookup binding, and deletion tombstone complete | Pending phase commit | Existing-record assignment remains Phase 11. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
+| 4–12 | Pending | — | Must follow phase order and audit each real owner first |
 
 No Project History document has been created. That decision remains with the
 user after the implementation qualifies as a completed major milestone.

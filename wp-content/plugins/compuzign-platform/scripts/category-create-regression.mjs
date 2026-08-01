@@ -63,6 +63,7 @@ globalThis.fetch = (url, init = {}) => {
     createCalls += 1;
     serverCategory = {
       id: CREATED_ID,
+      platform_id: 'CZC2A7KZ',
       name: body.name,
       slug: 'regression-category',
       description: body.description ?? '',
@@ -310,6 +311,7 @@ check('republish settles', await settle());
 check('republish still creates no second Category', createCalls === 1, `createCalls=${createCalls}`);
 check('republish settles the saved draft and activates', settleCalls === 2 && activateCalls === 2, `settle=${settleCalls}, active=${activateCalls}`);
 check('server-side response retains the cleared Description', serverCategory.description === '', `description=${serverCategory.description}`);
+check('every mounted lifecycle response preserves the permanent Category identifier', serverCategory.platform_id === 'CZC2A7KZ', `platform_id=${serverCategory.platform_id}`);
 
 if (failures.length > 0) {
   console.error(`\nREGRESSION FAILED — ${failures.length} check(s):`);

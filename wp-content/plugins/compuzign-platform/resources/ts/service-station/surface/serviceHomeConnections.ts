@@ -21,6 +21,7 @@ import type { CategoryStationItem } from '@/api/types/admin';
 
 export interface ServiceHomeConnectionRow {
   id:               number;
+  platformId:       string;
   name:             string;
   connectedCount:   number;
   status:           CategoryStationItem['platform_status'];
@@ -29,6 +30,7 @@ export interface ServiceHomeConnectionRow {
 function toConnectionRow(category: CategoryStationItem): ServiceHomeConnectionRow {
   return {
     id:             category.id,
+    platformId:     category.platformId,
     name:           category.name,
     connectedCount: category.assigned_count,
     status:         category.platform_status,

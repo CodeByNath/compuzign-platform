@@ -6,6 +6,7 @@ use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController;
 use CompuZign\Platform\Modules\Admin\Http\AdminController;
 use CompuZign\Platform\Modules\Admin\Http\AdminRequestsController;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 /**
  * AdminModule wires the authenticated admin REST controllers. It owns backend
@@ -15,11 +16,13 @@ use CompuZign\Platform\Modules\Admin\Http\AdminRequestsController;
  */
 class AdminModule
 {
+    public function __construct(private PlatformIdentifierStation $platformIdentifiers) {}
+
     public function register(): void
     {
         (new AdminController())->register();
         (new AdminRequestsController())->register();
-        (new AdminCategoriesController())->register();
+        (new AdminCategoriesController($this->platformIdentifiers))->register();
         Health::register('admin', static fn() => true);
     }
 }
