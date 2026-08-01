@@ -195,6 +195,7 @@ if (!class_exists('WP_REST_Request')) {
         public function __construct(private array $params = []) {}
         public function get_param(string $key): mixed { return $this->params[$key] ?? null; }
         public function has_param(string $key): bool { return array_key_exists($key, $this->params); }
+        public function set_param(string $key, mixed $value): void { $this->params[$key] = $value; }
     }
 }
 if (!class_exists('WP_REST_Response')) {
@@ -272,6 +273,29 @@ $platformId = $created['service']['platform_id'];
 check_lifecycle($platformIdentifiers->validate(PlatformIdentifierPolicy::SERVICE, $platformId), 'Service creation returns a valid permanent CZS identifier');
 check_lifecycle(get_post_meta($id, ServiceSchema::PLATFORM_ID_META, true) === $platformId, 'Service creation stores the same identifier in post meta');
 check_lifecycle($platformIdentifiers->lookupNative(PlatformIdentifierPolicy::SERVICE, $id)?->platformId() === $platformId, 'Service creation finalizes the reverse native binding');
+
+$platformDetail = $controller->fetchDetailByPlatformId(new WP_REST_Request(['platform_id' => $platformId]));
+check_lifecycle($platformDetail->get_status() === 200, 'Service Platform-ID route resolves a bound Service');
+check_lifecycle($platformDetail->get_data()['id'] === $id, 'Service Platform-ID route delegates to the native numeric detail projection');
+check_lifecycle($platformDetail->get_data()['platform_id'] === $platformId, 'Service Platform-ID detail includes permanent identity');
+
+$categoryReservation = $platformIdentifiers->reserve(PlatformIdentifierPolicy::CATEGORY);
+$categoryStoredId = '';
+$categoryBinding = $platformIdentifiers->assign(
+    $categoryReservation,
+    77,
+    static function () use (&$categoryStoredId): string {
+        return $categoryStoredId;
+    },
+    static function (int|string $nativeReference, string $claimed) use (&$categoryStoredId): void {
+        $categoryStoredId = $claimed;
+    }
+);
+$wrongEntityDetail = $controller->fetchDetailByPlatformId(new WP_REST_Request(['platform_id' => $categoryBinding->platformId()]));
+check_lifecycle($wrongEntityDetail->get_status() === 404, 'Service Platform-ID route rejects a Category identifier');
+
+$missingDetail = $controller->fetchDetailByPlatformId(new WP_REST_Request(['platform_id' => 'CZSZZZZZ']));
+check_lifecycle($missingDetail->get_status() === 404, 'Service Platform-ID route rejects a missing binding');
 
 $controller->updateInclusions(new WP_REST_Request(['id' => $id, 'inclusions' => [['label' => 'Daily snapshots']]]));
 $controller->updateFaqs(new WP_REST_Request(['id' => $id, 'faqs' => [['question' => 'How often?', 'answer' => 'Daily.']]]));
@@ -356,5 +380,7 @@ $controller->updateStatus(new WP_REST_Request(['id' => $id3, 'platform_status' =
 $deleted = $controller->permanentDeleteService(new WP_REST_Request(['id' => $id3]))->get_data();
 check_lifecycle($deleted['platform_id'] === $created3['service']['platform_id'], 'permanent deletion returns the deleted permanent identity');
 check_lifecycle($platformIdentifiers->resolve($deleted['platform_id'])?->isDeleted() === true, 'permanent deletion retains the Platform identifier tombstone');
+$deletedDetail = $controller->fetchDetailByPlatformId(new WP_REST_Request(['platform_id' => $deleted['platform_id']]));
+check_lifecycle($deletedDetail->get_status() === 404, 'Service Platform-ID route does not expose a deleted tombstone');
 
 echo "\nAll Service Disable/Enable lifecycle checks passed.\n";

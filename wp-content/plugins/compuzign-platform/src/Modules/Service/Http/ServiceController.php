@@ -3,7 +3,7 @@
 /*
  * FILE INDEX
  *
- * SERVICE_ROUTES           The 14 cz_service REST route registrations
+ * SERVICE_ROUTES           The cz_service REST route registrations
  * CATALOGUE_HANDLERS       List, create, detail
  * DRAFT_HANDLERS           Overview/inclusions/faqs draft saves
  * SETTLE_HANDLERS          Per-module settle, bulk settle, revert
@@ -102,6 +102,16 @@ class ServiceController
             'callback'            => [$this, 'fetchDetail'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ServiceSchema::identity(),
+        ]);
+
+        // ── Admin detail by permanent Platform identity ──────────────────────
+        register_rest_route('compuzign/v1', '/admin/services/(?P<platform_id>CZ[A-Z0-9]+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'fetchDetailByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'platform_id' => ['required' => true, 'type' => 'string'],
+            ],
         ]);
 
         // ── Draft saves ───────────────────────────────────────────────────────
@@ -478,6 +488,30 @@ class ServiceController
                 'faqs'       => is_array($faqDraft) && !empty($faqDraft) ? $faqDraft : null,
             ],
         ]);
+    }
+
+    public function fetchDetailByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $platformId = (string) $request->get_param('platform_id');
+
+        try {
+            $binding = $this->platformIdentifiers->resolve($platformId);
+        } catch (PlatformIdentifierConflict) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Platform identifier binding is conflicting.'], 409);
+        }
+
+        if (
+            $binding === null
+            || !$binding->isBound()
+            || $binding->entityType() !== PlatformIdentifierPolicy::SERVICE
+            || !is_int($binding->nativeReference())
+        ) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service not found.'], 404);
+        }
+
+        $request->set_param('id', $binding->nativeReference());
+
+        return $this->fetchDetail($request);
     }
 
     // ===================================================================
