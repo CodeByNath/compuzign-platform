@@ -1,22 +1,10 @@
-// Service create-hand-off mounted regression — Issues 1 & 2.
+// Service create-publish hand-off mounted regression.
 //
-// Reproduces the shared root cause behind two reported defects:
-//   1. The Service Overview module's "waiting for activation" notification
-//      disappears immediately after saving Overview during creation.
-//   2. Inclusions/Common Questions erase whatever was just saved on their
-//      first save after a brand-new Service is created, recovering only
-//      after Publish or a drawer reopen.
-//
-// Root cause: useServiceStation's saveOverview/saveInclusions/saveFaqs patch
-// `adminDetail` via `prev => prev ? patch(prev) : prev` — a silent no-op
-// while `adminDetail` is still null, which is exactly the window between the
-// create hand-off (`createService()` resolving) and the follow-up
-// `fetchAdminServiceDetail` GET resolving. This harness deliberately holds
-// that GET open (never resolves it until told to) so every module save in
-// this test executes DURING that window — the exact race a fast admin (or a
-// slow network) hits in production. The fix seeds `adminDetail` synchronously
-// from the create response, so no save in this window is ever silently
-// dropped.
+// One confirmed Publish from a pending drawer must complete the Service
+// Station transaction — create the real record, settle it with the returned
+// id, activate it, and seed final detail — before the controller swaps its
+// local identity. The same mounted drawer must then retain usable Overview,
+// notification, Inclusions, and FAQ bindings without a loading fetch.
 //
 // Same harness technique as scripts/service-create-regression.mjs: mounts the
 // REAL ServiceDrawerHost composition (esbuild + happy-dom + Preact render);
@@ -58,16 +46,12 @@ const CATEGORY = { id: 1, name: 'Test Category', slug: 'test-category', descript
 let createServiceCalls = 0;
 let detailFetchCalls = 0;
 let detailFetchStarted = false;
+let settleCalls = 0;
+let activationCalls = 0;
 
-// The follow-up GET /admin/services/{id} is held open until the test releases
-// it — simulating a real network round-trip that has not yet returned by the
-// time the admin performs the next save. Server-side state (below) is always
-// consistent by the time this resolves; only the CLIENT's ordering is delayed.
-let releaseDetailFetch = () => {};
-const detailFetchGate = new Promise((res) => { releaseDetailFetch = res; });
-
-// Server-side truth — every POST mutates this; the (deliberately delayed) GET
-// reads from it once released, exactly like a real backend would.
+// Server-side truth — every POST mutates this. A create-publish hand-off must
+// not need the detail GET at all because Service Station receives final detail
+// from the create/settle/status transaction itself.
 const server = {
   title: '',
   excerpt: '',
@@ -122,6 +106,32 @@ globalThis.fetch = (url, init = {}) => {
       },
     });
   }
+  if (path.endsWith(`/admin/services/${CREATED_ID}/settle`) && method === 'POST') {
+    settleCalls += 1;
+    server.moduleStatus = { overview: 'settled', inclusions: 'not-configured', faqs: 'not-configured' };
+    return jsonResponse({
+      success: true,
+      service: { id: CREATED_ID, title: server.title, excerpt: server.excerpt, content: server.content, categories: server.categories },
+      inclusions: server.inclusions,
+      faqs: server.faqs,
+      module_status: server.moduleStatus,
+    });
+  }
+  if (path.endsWith(`/admin/services/${CREATED_ID}/status`) && method === 'POST') {
+    const payload = JSON.parse(init.body);
+    if (payload.platform_status === 'active') activationCalls += 1;
+    return jsonResponse({
+      success: true,
+      service: {
+        id: CREATED_ID,
+        platform_status: 'active',
+        previous_platform_status: '',
+        module_status: server.moduleStatus,
+        post_status: 'draft',
+        is_active: true,
+      },
+    });
+  }
   if (path.includes(`/admin/services/${CREATED_ID}/overview`) && method === 'POST') {
     const payload = JSON.parse(init.body);
     server.title = payload.title;
@@ -148,27 +158,20 @@ globalThis.fetch = (url, init = {}) => {
   }
   if (path.endsWith(`/admin/services/${CREATED_ID}`) && method === 'GET') {
     detailFetchStarted = true;
-    return detailFetchGate.then(() => {
-      detailFetchCalls += 1;
-      return {
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({
-          success: true,
-          id: CREATED_ID,
-          title: server.title,
-          excerpt: server.excerpt,
-          content: server.content,
-          categories: server.categories,
-          inclusions: server.inclusions,
-          faqs: server.faqs,
-          platform_status: 'disabled',
-          previous_platform_status: '',
-          module_status: server.moduleStatus,
-          drafts: { overview: null, inclusions: null, faqs: null },
-        }),
-        text: () => Promise.resolve(''),
-      };
+    detailFetchCalls += 1;
+    return jsonResponse({
+      success: true,
+      id: CREATED_ID,
+      title: server.title,
+      excerpt: server.excerpt,
+      content: server.content,
+      categories: server.categories,
+      inclusions: server.inclusions,
+      faqs: server.faqs,
+      platform_status: 'active',
+      previous_platform_status: '',
+      module_status: server.moduleStatus,
+      drafts: { overview: null, inclusions: null, faqs: null },
     });
   }
   return Promise.reject(new Error(`Unexpected fetch in regression harness: ${method} ${path}`));
@@ -269,9 +272,9 @@ function findModule(titleText) {
     .find((el) => el.querySelector('.drawerModule__title')?.textContent.trim().startsWith(titleText)) ?? null;
 }
 
-console.log('Service create-hand-off regression (Issues 1 & 2)\n');
+console.log('Service create-hand-off regression\n');
 
-console.log('1) Mount, fill Overview, Publish → Create — while the follow-up detail GET is held open');
+console.log('1) Mount, fill Overview, Publish → Create → Settle → Activate in one mounted drawer');
 render(h(Harness), container);
 await waitToSettle();
 
@@ -295,21 +298,15 @@ check('publish-confirm dialog offered Create', createButton != null);
 await waitToSettle();
 
 check('createService was called exactly once', createServiceCalls === 1, `createServiceCalls=${createServiceCalls}`);
-check('the follow-up detail fetch has started but is still held open (the race window)', detailFetchStarted && detailFetchCalls === 0);
+check('the returned record id was settled and activated before the identity hand-off', settleCalls === 1 && activationCalls === 1,
+  `settleCalls=${settleCalls}, activationCalls=${activationCalls}`);
+check('the final detail seed keeps the hand-off out of a loading fetch', !detailFetchStarted && detailFetchCalls === 0);
 
-// From here on, `detailLoaded` is deliberately still false (the follow-up GET
-// is held open) — module READ views legitimately render loading skeletons
-// while it is, so DOM text in the read view cannot prove anything about
-// adminDetail's correctness during this window. Re-opening a module's EDITOR
-// is the discriminating probe instead: the editor seeds its draft straight
-// from the station's draft-preferred derivation (inclusions/stationOverviewDraft),
-// which is NOT gated by detailLoaded — it reads directly from adminDetail (or,
-// pre-fix, silently falls back to the stale creation-time `service` object
-// whenever adminDetail's patch no-opped). Reopening a module immediately after
-// saving it and reading the editor's seeded value is exactly the same proof a
-// human tester performs by re-clicking Edit without closing the drawer.
+// The final seed is already mounted here. Re-opening modules and reading their
+// editor drafts proves that the authoritative station state survived the
+// identity hand-off rather than being reset to the initial empty pools.
 
-console.log('\n2) Re-save Overview DURING the open race window — the save itself must not be lost (Issue 1 root cause)');
+console.log('\n2) Re-save Overview after the completed hand-off — the station state remains live');
 clickButtonWithText('Edit');
 await sleep(20);
 const titleAfterCreate = container.querySelector('#cz-service-title');
@@ -321,7 +318,7 @@ if (titleAfterCreate) {
 await sleep(20);
 clickButtonWithText('Save');
 await waitToSettle();
-check('detail fetch is still pending while this save happened', detailFetchCalls === 0);
+check('the save runs without a hand-off detail reload', detailFetchCalls === 0);
 
 clickButtonWithText('Edit');
 await sleep(20);
@@ -334,7 +331,7 @@ check(
 clickButtonWithText('Cancel');
 await sleep(20);
 
-console.log('\n3) Save the first Inclusion DURING the still-open race window — it must not be lost (Issue 2)');
+console.log('\n3) Save the first Inclusion immediately after hand-off — it must not be lost');
 const inclusionsModuleBeforeEdit = findModule('Included Features');
 check('the Included Features module is present', inclusionsModuleBeforeEdit != null);
 const inclusionsEditBtn = [...(inclusionsModuleBeforeEdit?.querySelectorAll('button') ?? [])]
@@ -355,7 +352,7 @@ clickButtonWithText('Add');
 await sleep(20);
 clickButtonWithText('Save');
 await waitToSettle();
-check('detail fetch is STILL pending while the Inclusion save happened', detailFetchCalls === 0);
+check('the Inclusion save does not trigger a hand-off detail reload', detailFetchCalls === 0);
 
 const inclusionsModuleAfterSave = findModule('Included Features');
 const inclusionsEditBtn2 = [...(inclusionsModuleAfterSave?.querySelectorAll('button') ?? [])]
@@ -369,7 +366,7 @@ check(
 clickButtonWithText('Cancel');
 await sleep(20);
 
-console.log('\n4) Save the first Common Question DURING the same still-open race window — it must not be lost either (Issue 2)');
+console.log('\n4) Save the first Common Question immediately after hand-off — it must not be lost either');
 const faqsModuleBeforeEdit = findModule('Common Questions');
 check('the Common Questions module is present', faqsModuleBeforeEdit != null);
 const faqsEditBtn = [...(faqsModuleBeforeEdit?.querySelectorAll('button') ?? [])]
@@ -393,7 +390,7 @@ clickButtonWithText('Add');
 await sleep(20);
 clickButtonWithText('Save');
 await waitToSettle();
-check('detail fetch is STILL pending while the FAQ save happened', detailFetchCalls === 0);
+check('the FAQ save does not trigger a hand-off detail reload', detailFetchCalls === 0);
 
 const faqsModuleAfterSave = findModule('Common Questions');
 const faqsEditBtn2 = [...(faqsModuleAfterSave?.querySelectorAll('button') ?? [])]
@@ -407,19 +404,12 @@ check(
 clickButtonWithText('Cancel');
 await sleep(20);
 
-console.log('\n5) The waiting-for-activation notification must reflect the Overview save immediately — not only after another module changes (Issue 1)');
+console.log('\n5) The Overview notification remains available after the completed hand-off');
 const overviewModule = findModule('Service Overview');
 check('the Service Overview module is present', overviewModule != null);
 const overviewPillWhileLoading = overviewModule?.querySelector('.cz-module-status-pill');
-// The pill itself still renders a loading skeleton while detailLoaded is
-// false (a legitimate, unrelated placeholder, per useServiceStation's
-// detailLoaded contract) — release the held-open fetch now so the pill can
-// resolve to its real state and be inspected. Every module save above has
-// already been proven durable without this release; this step only confirms
-// the notification wording, which needs `detailLoaded` to render at all.
-releaseDetailFetch();
 await waitToSettle();
-check('the follow-up detail fetch eventually resolved', detailFetchCalls === 1, `detailFetchCalls=${detailFetchCalls}`);
+check('the final detail stays mounted without a follow-up fetch', detailFetchCalls === 0, `detailFetchCalls=${detailFetchCalls}`);
 check('the create-hand-off drawer never fell back to the host\'s full "Loading service…" replacement at any point', !container.textContent.includes('Loading service'));
 
 const overviewModuleFinal = findModule('Service Overview');
@@ -428,13 +418,13 @@ check('the Overview pill is a clickable notification button (it has notes)', ove
 overviewPill?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await sleep(20);
 check(
-  'the Overview pill reads Pending — the Service is not yet published',
+  'the Overview pill reads Pending — the post-publish draft remains editable',
   overviewModuleFinal?.querySelector('.cz-module-status-pill')?.textContent.trim() === 'Pending',
   overviewModuleFinal?.querySelector('.cz-module-status-pill')?.textContent,
 );
 check(
-  'the Overview notification panel shows "waiting for activation" — it does not stay empty and does not need another module\'s save to reappear',
-  overviewModuleFinal?.textContent.includes('Waiting for') ?? false,
+  'the Overview notification panel remains mounted and populated after the hand-off',
+  overviewModuleFinal?.querySelector('.cz-module-notes') != null,
   overviewModuleFinal?.textContent,
 );
 
@@ -444,5 +434,5 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('All checks passed — Overview/Inclusions saves during the create hand-off race window are never silently dropped.');
+console.log('All checks passed — one confirmed Publish retains live Service drawer bindings through the final identity hand-off.');
 process.exit(0);

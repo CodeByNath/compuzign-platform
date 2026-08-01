@@ -46,6 +46,9 @@ window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'te
 let createServiceCalls = 0;
 let overviewUpdateCalls = 0;
 let detailFetchCalls = 0;
+let settleCalls = 0;
+let activationCalls = 0;
+const lifecycleIds = [];
 const CREATED_ID = 501;
 const CATEGORY = { id: 1, name: 'Test Category', slug: 'test-category', description: '' };
 
@@ -88,6 +91,43 @@ globalThis.fetch = (url, init = {}) => {
         overview: { title: payload.title, excerpt: payload.excerpt ?? '', content: payload.content ?? '', category_ids: payload.category_ids ?? [] },
         inclusions: null,
         faqs: null,
+      },
+    });
+  }
+  if (path.endsWith(`/admin/services/${CREATED_ID}/settle`) && method === 'POST') {
+    settleCalls += 1;
+    lifecycleIds.push(CREATED_ID);
+    serverService.module_status = { overview: 'settled', inclusions: 'not-configured', faqs: 'not-configured' };
+    return jsonResponse({
+      success: true,
+      service: {
+        id: CREATED_ID,
+        title: serverService.title,
+        excerpt: '',
+        content: 'A pending Service created by the regression harness.',
+        categories: serverService.categories,
+      },
+      inclusions: [],
+      faqs: [],
+      module_status: serverService.module_status,
+    });
+  }
+  if (path.endsWith(`/admin/services/${CREATED_ID}/status`) && method === 'POST') {
+    const payload = JSON.parse(init.body);
+    if (payload.platform_status === 'active') {
+      activationCalls += 1;
+      lifecycleIds.push(CREATED_ID);
+      serverService.platform_status = 'active';
+    }
+    return jsonResponse({
+      success: true,
+      service: {
+        id: CREATED_ID,
+        platform_status: serverService.platform_status,
+        previous_platform_status: '',
+        module_status: serverService.module_status,
+        post_status: 'draft',
+        is_active: serverService.platform_status === 'active',
       },
     });
   }
@@ -139,7 +179,9 @@ const { useState, useMemo, useRef } = await import('preact/hooks');
 // ── Harness ──────────────────────────────────────────────────────────────
 let setFooterCalls = 0;
 let onSavedCalls = 0;
+let footerCloseCalls = 0;
 let lastFooter = null;
+let latestRecordFooter = null;
 
 function Harness() {
   const [, setFooterState] = useState(null);
@@ -149,9 +191,10 @@ function Harness() {
   const setFooter = useMemo(() => (footer) => {
     setFooterCalls += 1;
     lastFooter = footer;
+    if (footer) latestRecordFooter = footer;
     setFooterRef.current(footer);
   }, []);
-  const onClose = useMemo(() => () => {}, []);
+  const onClose = useMemo(() => () => { footerCloseCalls += 1; }, []);
   const onModeChange = useMemo(() => () => {}, []);
   const onSaved = useMemo(() => () => { onSavedCalls += 1; }, []);
   const setCloseGuard = useMemo(() => () => {}, []);
@@ -209,6 +252,11 @@ function clickButtonWithText(text) {
   return btn;
 }
 
+function findModule(titleText) {
+  return [...container.querySelectorAll('.drawerModule')]
+    .find((el) => el.querySelector('.drawerModule__title')?.textContent.trim().startsWith(titleText)) ?? null;
+}
+
 console.log('Service Home "Create Service" regression\n');
 
 console.log("1) Mount ServiceDrawerHost at recordId 'new' and let the initial catalogue fetch settle");
@@ -259,10 +307,25 @@ check(
   !loadingTextSeenDuringLastWait,
 );
 check('createService called exactly once', createServiceCalls === 1, `createServiceCalls=${createServiceCalls}`);
-check('the created Service detail was fetched once, in place, as the composition\'s own follow-up read',
-  detailFetchCalls === 1, `detailFetchCalls=${detailFetchCalls}`);
+check('the returned Service id was used to settle exactly once',
+  settleCalls === 1 && lifecycleIds[0] === CREATED_ID,
+  `settleCalls=${settleCalls}, lifecycleIds=${lifecycleIds.join(',')}`);
+check('the returned Service id was used to activate exactly once',
+  activationCalls === 1 && lifecycleIds[1] === CREATED_ID,
+  `activationCalls=${activationCalls}, lifecycleIds=${lifecycleIds.join(',')}`);
+check('the final record is active with a settled Overview before the drawer receives its real identity',
+  serverService.platform_status === 'active' && serverService.module_status.overview === 'settled',
+  `status=${serverService.platform_status}, overview=${serverService.module_status.overview}`);
+check('the final authoritative detail seed avoids a second loading fetch during the identity hand-off',
+  detailFetchCalls === 0, `detailFetchCalls=${detailFetchCalls}`);
 check('the created Service title is still rendered after Publish (same mounted composition, real id)',
   container.textContent.includes('Regression Test Service'));
+check('the settled Overview is rendered immediately, not replaced by a loading module state',
+  findModule('Service Overview')?.textContent.includes('Loading') === false,
+  findModule('Service Overview')?.textContent);
+check('Inclusions and FAQs retain their module notification controls after the hand-off',
+  findModule('Included Features')?.querySelector('.cz-module-status-pill') != null &&
+  findModule('Common Questions')?.querySelector('.cz-module-status-pill') != null);
 
 console.log('4) A second inline Save now routes through the real update endpoint (proves the real id is active)');
 clickButtonWithText('Edit');
@@ -282,11 +345,43 @@ check(
   `overviewUpdateCalls=${overviewUpdateCalls}`,
 );
 
+console.log('5) Inclusions and FAQs are editable immediately, and the retained footer still works');
+const inclusionsModule = findModule('Included Features');
+const inclusionsEdit = [...(inclusionsModule?.querySelectorAll('button') ?? [])]
+  .find((button) => button.textContent.trim() === 'Edit');
+inclusionsEdit?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+const addInclusion = clickButtonWithText('+ Add inclusion');
+await sleep(20);
+check('Inclusions accepts input immediately after the one-click Publish hand-off',
+  addInclusion != null && container.querySelector('input[placeholder="Inclusion label"]') != null);
+clickButtonWithText('Cancel');
+await sleep(20);
+
+const faqsModule = findModule('Common Questions');
+const faqsEdit = [...(faqsModule?.querySelectorAll('button') ?? [])]
+  .find((button) => button.textContent.trim() === 'Edit');
+faqsEdit?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+const addFaq = clickButtonWithText('+ Add FAQ');
+await sleep(20);
+check('FAQs accepts input immediately after the one-click Publish hand-off',
+  addFaq != null &&
+  container.querySelector('input[placeholder="Question"]') != null &&
+  container.querySelector('textarea[placeholder="Answer (optional)"]') != null);
+clickButtonWithText('Cancel');
+await sleep(20);
+await waitToSettle();
+
+check('the retained record footer remains available immediately after hand-off', typeof latestRecordFooter?.props?.onClose === 'function');
+latestRecordFooter?.props?.onClose();
+check('the retained record footer remains interactive immediately after hand-off', footerCloseCalls === 1);
+
 console.log('');
 if (failures.length > 0) {
   console.error(`REGRESSION FAILED — ${failures.length} check(s) did not hold:`);
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('All checks passed — Create Service opens the mature drawer pending, inline Save stays local, and Publish creates exactly once in place.');
+console.log('All checks passed — one confirmed Publish creates, settles, and activates the Service in the same mounted drawer.');
 process.exit(0);

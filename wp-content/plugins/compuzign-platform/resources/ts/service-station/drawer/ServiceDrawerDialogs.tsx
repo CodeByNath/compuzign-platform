@@ -25,7 +25,7 @@ export function ServiceDrawerDialogs({ c }: { c: ServiceDrawerController }) {
             <div class="cz-publish-confirm__body">
               <p class="cz-publish-confirm__lead">
                 {isNew
-                  ? 'This creates the Service and enables the standard drawer lifecycle to continue from its real record.'
+                  ? 'This creates, settles, and publishes the Service while keeping this drawer ready to edit.'
                   : c.isActive
                   ? 'This confirms the current live content as the settled state for each module.'
                   : 'You are about to publish this service and make it visible in the catalog.'}

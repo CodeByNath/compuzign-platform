@@ -50,9 +50,9 @@ export function useServiceDrawerController({
   //
   // `null` — the Settings lane's Create Service launcher — addresses no
   // backing post yet. useServiceStation represents that state locally; once
-  // its `createService()` returns the server-issued record, `setService`
-  // below replaces this `null` with the real ServiceItem and the SAME mounted
-  // composition continues as an ordinary persisted Service.
+  // its `createService()` completes the Service Station's create → settle →
+  // activate transaction and returns the final record; `setService` below
+  // replaces this `null` without replacing the mounted composition.
   const [service, setService] = useState<ServiceItem | null>(seedService);
 
   const [tab, setTab] = useState<DrawerTabId>(initialTab ?? 'details');
@@ -112,10 +112,11 @@ export function useServiceDrawerController({
 
   const handleConfirmPublish = useCallback(async () => {
     setShowPublishModal(false);
-    // A pending Service addresses no stored post: the footer's Publish is this
-    // record's one authoritative creation, not a settle/activate pair against
-    // an id that does not exist yet — mirrors Package Family's `'new'` guard
-    // on the same action.
+    // A pending Service addresses no stored post. Its one confirmed Publish
+    // delegates the complete create → settle → activate transaction to the
+    // Service Station, which can continue against the returned id before this
+    // controller swaps local identity. No second Publish/render callback is
+    // needed to finish the lifecycle.
     if (!service) {
       const created = await station.createService();
       if (created) setService(created);

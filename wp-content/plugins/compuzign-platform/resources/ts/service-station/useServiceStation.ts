@@ -206,11 +206,10 @@ export interface ServiceStation {
   revertOverview:        () => Promise<void>;
   revertInclusions:      () => Promise<void>;
   revertFaqs:            () => Promise<void>;
-  // The pending record's one authoritative creation. Persists the drafted
-  // Overview (staged locally by saveOverview above) as a brand-new Service and
-  // returns it; the caller (the drawer controller) replaces its local `null`
-  // identity with the result so the SAME mounted composition continues as an
-  // ordinary persisted Service from here — mirrors createFamily/createCategory.
+  // The pending record's one authoritative Publish transaction. It returns the
+  // final active Service only after create, settle, and activation have run
+  // against the returned id; the controller then replaces its local `null`
+  // identity without replacing the mounted composition.
   createService:         () => Promise<ServiceItem | null>;
 }
 
@@ -234,6 +233,12 @@ export function useServiceStation(
   // earlier-dispatched GET — if it resolves afterward — reflects a snapshot
   // that predates that mutation and must not clobber it. Reset per service id.
   const detailFetchStaleRef = useRef(false);
+  // A pending Publish is different from an ordinary existing-record open: it
+  // has already assembled final detail inside createService before the drawer
+  // receives the newly issued id. This one-shot marker lets the id-change
+  // effect preserve that mounted hand-off without suppressing the normal
+  // detail fetch for an existing Service whose minimal item was merely seeded.
+  const publishedPendingServiceIdRef = useRef<number | null>(null);
   const applyAdminDetail = useCallback((updater: (prev: ServiceDetail | null) => ServiceDetail | null) => {
     detailFetchStaleRef.current = true;
     setAdminDetail(updater);
@@ -248,6 +253,16 @@ export function useServiceStation(
 
   useEffect(() => {
     if (!service) return;
+    // A pending drawer's Publish transaction has already created, settled,
+    // activated, and seeded this exact record before it changes its local
+    // identity. Keep that final station detail mounted rather than treating
+    // the identity hand-off as a fresh drawer open (which would disconnect
+    // bindings behind a loading state until another GET completes).
+    if (publishedPendingServiceIdRef.current === service.id) {
+      publishedPendingServiceIdRef.current = null;
+      setDetailLoaded(true);
+      return;
+    }
     setDetailLoaded(false);
     detailFetchStaleRef.current = false;
     // Seed adminDetail synchronously from the passed-in ServiceItem so a module
@@ -604,11 +619,11 @@ export function useServiceStation(
     }
   }, [service, onRefresh, applyAdminDetail]);
 
-  // The pending record's one authoritative creation. Persists the drafted
-  // Overview as a brand-new Service and returns the server-issued record —
-  // the same "born disabled, overview pending" state as any other newly
-  // created Service, so every existing lifecycle/footer computation applies
-  // unchanged from here (mirrors createFamily/createCategory).
+  // The pending record's one authoritative Publish transaction. It creates the
+  // real Service, settles that real id, activates it, then seeds final detail
+  // before returning the final record for the drawer's in-place hand-off.
+  // Keeping this transaction in the station means the controller never needs
+  // a second render before it can continue lifecycle work against the new id.
   const createService = useCallback(async (): Promise<ServiceItem | null> => {
     setStatusSaving(true);
     try {
@@ -649,30 +664,51 @@ export function useServiceStation(
         },
         promotion_tiers: [],
       };
-      // Seed adminDetail synchronously from the create response instead of
-      // leaving it null until the follow-up fetchAdminServiceDetail resolves.
-      // Every module save below reads/patches adminDetail through
-      // `prev ? patchModuleDraft(prev, …) : prev` — while prev is null that
-      // patch is a silent no-op, which is exactly the window between hand-off
-      // and the async detail fetch. Seeding here closes that window: the very
-      // first Overview/Inclusions/FAQ save after creation always has a real
-      // adminDetail to patch, so its response is never dropped.
+      // This is the existing publish lifecycle, continued with the server id
+      // returned by create. Endpoint orchestration remains in the Service
+      // Station — the drawer controller only owns the local identity hand-off.
+      const settleResult = await settleAllServiceModules(created.id);
+      if (!settleResult.success) throw new Error('Could not settle the new Service.');
+
+      const statusResult = await updateServiceStatus(created.id, { platform_status: 'active' });
+      if (!statusResult.success) throw new Error('Could not activate the new Service.');
+
+      const finalModuleStatus = statusResult.service.module_status;
+
+      // Seed the final authoritative record before the controller turns its
+      // null identity into this ServiceItem. The matching-id branch in the
+      // detail effect preserves all mounted module bindings during hand-off.
+      publishedPendingServiceIdRef.current = created.id;
       setAdminDetail({
         success:                   true,
         id:                        created.id,
-        title:                     created.title,
-        excerpt:                   created.excerpt,
-        content:                   created.content,
-        categories:                response.service.categories,
-        inclusions:                [],
-        faqs:                      [],
-        platform_status:           response.service.platform_status,
-        previous_platform_status:  response.service.previous_platform_status ?? '',
-        module_status:             response.service.module_status,
-        drafts:                    response.drafts,
+        title:                     settleResult.service.title,
+        excerpt:                   settleResult.service.excerpt,
+        content:                   settleResult.service.content,
+        categories:                settleResult.service.categories,
+        inclusions:                settleResult.inclusions,
+        faqs:                      settleResult.faqs,
+        platform_status:           statusResult.service.platform_status,
+        previous_platform_status:  statusResult.service.previous_platform_status,
+        module_status:             finalModuleStatus,
+        drafts:                    { overview: null, inclusions: null, faqs: null },
       });
       onRefresh?.();
-      return created;
+      return {
+        ...created,
+        title:      settleResult.service.title,
+        excerpt:    settleResult.service.excerpt,
+        content:    settleResult.service.content,
+        categories: settleResult.service.categories,
+        inclusions: settleResult.inclusions,
+        faqs:       settleResult.faqs,
+        meta: {
+          ...created.meta,
+          platform_status:          statusResult.service.platform_status as PlatformStatus,
+          previous_platform_status: statusResult.service.previous_platform_status as '' | 'active' | 'disabled',
+          module_status:            finalModuleStatus as unknown as ServiceItem['meta']['module_status'],
+        },
+      };
     } finally {
       setStatusSaving(false);
     }
