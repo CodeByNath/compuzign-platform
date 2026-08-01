@@ -26,6 +26,7 @@ import { useAdminStation } from '../AdminStationContext';
 import { useAdminStationDrawer } from './drawer/AdminStationDrawerContext';
 import { StationPresentationShell } from '../presentation/StationPresentationShell';
 import { defaultHomeStation } from '@/station-manager/registry/surfaceBindings';
+import { PlatformIdentifierMigrationNotice } from './PlatformIdentifierMigrationNotice';
 
 export function AdminStationBody() {
   const { activeDestination } = useAdminStation();
@@ -37,6 +38,7 @@ export function AdminStationBody() {
 
   return (
     <main class="cz-admin-station__body">
+      <PlatformIdentifierMigrationNotice />
       <AdminStationHome
         presentation={{
           content: (

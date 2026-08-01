@@ -207,12 +207,26 @@
 
 .cz-admin-station__body {
   display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   /* !important needed: the frontend platform-canvas reset
      (atomic-engine/css/02-base.css) targets the bare `main` element with
      !important, which this <main> would otherwise lose to regardless of
      class specificity. */
   background: var(--station-surface) !important;
+}
+
+.cz-platform-id-migration {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-space-x);
+  margin: var(--station-space-x) auto 0;
+  padding: 12px 16px;
+  width: min(calc(100% - (2 * var(--station-space-x))), var(--station-content-max));
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
 }
 
 .cz-admin-station__footer {
