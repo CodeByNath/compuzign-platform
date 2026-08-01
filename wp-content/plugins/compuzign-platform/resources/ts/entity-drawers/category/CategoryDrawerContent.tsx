@@ -18,7 +18,6 @@ export function CategoryDrawerContent(props: CategoryDrawerContentProps) {
     bridge.setFooter(
       <CategoryDrawerFooter
         platformStatus={c.station.platformStatus}
-        isDisabledMasked={c.isDisabledMasked}
         isNewNeverPublished={c.isNewNeverPublished}
         hasBeenPublished={c.hasBeenPublished}
         canPublish={c.canPublish}
@@ -39,7 +38,6 @@ export function CategoryDrawerContent(props: CategoryDrawerContentProps) {
     bridge,
     c.editing,
     c.station.platformStatus,
-    c.isDisabledMasked,
     c.station.loading.status,
     c.station.loading.deleting,
     c.isNewNeverPublished,

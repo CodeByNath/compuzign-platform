@@ -93,31 +93,14 @@ export function revertCategoryOverview(categoryId: number): Promise<CategoryMuta
   return apiClient.post<CategoryMutationResponse>(`admin/categories/${categoryId}/overview/revert`, {});
 }
 
-// Engine transition — the write for Publish/Archive/Trash. Distinct from
-// disable/enableCategory below, which send `action` instead of platform_status
-// on the same route (mutually exclusive — see AdminCategoriesController::updateStatus).
-// Sent as POST + X-HTTP-Method-Override rather than a raw PATCH: this is the
-// Publish button's activating call, and a raw PATCH's response was observed
-// getting mangled in transit on the production host even though the write
-// itself landed — see apiClient.postAsPatch.
+// Engine transition — the only status write for categories.
 export function updateCategoryStatus(
   categoryId:     number,
   platformStatus: 'active' | 'disabled' | 'archived' | 'trashed',
 ): Promise<CategoryMutationResponse> {
-  return apiClient.postAsPatch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, {
+  return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, {
     platform_status: platformStatus,
   });
-}
-
-// Disable/Enable — a platform-visible presentation mask, never a status write
-// (mirrors disable/enableService). Distinct from updateCategoryStatus's
-// platform_status shape, which Publish also sends as 'active'.
-export function disableCategory(categoryId: number): Promise<CategoryMutationResponse> {
-  return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, { action: 'disable' });
-}
-
-export function enableCategory(categoryId: number): Promise<CategoryMutationResponse> {
-  return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, { action: 'enable' });
 }
 
 // Server-driven restore — resolves previous_platform_status, lands disabled.

@@ -25,20 +25,15 @@ export const categoryOverviewModule: ModuleDefinition<CategoryOverviewLike> = {
     if (!c.name.trim()) out.push({ id: 'category-overview.name.missing', message: 'Name missing', type: 'error' });
     return out;
   },
-  // Canonical 5-state resolution, now aligned with the service overview's
-  // stance (S6's original "deliberate divergence" — settled+inactive reading
-  // Disabled outright — is superseded by the Disable/Enable mask): settled +
-  // active → active; incomplete → pending-dim; complete-unsettled → pending-full;
-  // settled but platform not active → still pending-full, ready to Publish, not
-  // Disabled. Genuinely masked-Disabled is handled upstream by evaluateModule's
-  // `ctx.disabled` fact (see useCategoryStation's isDisabledMasked) — this
-  // resolver only ever runs when NOT masked, so the platform-inactive fallback
-  // below is exactly the "never published, or Enabled and awaiting Publish" case.
+  // Canonical 5-state resolution per the S6 blueprint: settled+active → active;
+  // incomplete → pending-dim; complete-unsettled → pending-full; platform
+  // disabled → disabled (the category is deliberately off, not awaiting first
+  // publish — deliberate divergence from the service overview's pending-full).
   resolveStatus: (c, ctx) => {
     if (ctx.moduleTransition === 'not-configured') return 'pending-dim';
     if (!c.name.trim())                            return 'pending-dim';
     if (ctx.moduleTransition === 'pending')        return 'pending-full';
-    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
+    return ctx.platformStatus === 'active' ? 'active' : 'disabled';
   },
 };
 

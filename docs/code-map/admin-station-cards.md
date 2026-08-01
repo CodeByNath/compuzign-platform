@@ -1,6 +1,6 @@
 # Admin Station Presentation Tools
 
-Admin Station owns the reusable presentation tools rendered inside its host: the generic card-wall kit, status disclosure, metrics, split actions, and section shell. Service Station and Package Station own their domain-specific sources and kits and may consume these Admin capabilities.
+Admin Station owns the reusable presentation tools rendered inside its host: the generic card-wall kit, Service Category carousel, status disclosure, metrics, split actions, and section shell. Service Station and Package Station own their domain-specific sources and kits and may consume these Admin capabilities.
 
 Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presentation/`
 
@@ -9,6 +9,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/admin-station/presenta
 - `category-groups/types.ts` defines `CategoryGroupCardItem` with native identity, display copy, optional status/notifications, metrics, and action descriptors.
 - `CategoryGroupCard.tsx` and `CategoryGroupCardGrid.tsx` are pure presentation and collection-state components.
 - `CategoryGroupCardsKit.tsx` adapts Station Manager's generic template-kit contract to that grid. It is registered as `category-group-cards` and is load-bearing for the Package Families wall.
+- `ServiceCategoryCarousel.tsx` is registered as `service-category-carousel`; it and the `service-categories` source are currently unbound.
 - `StationStatusPill.tsx` adapts shared module status/notification UI without defining domain status rules. `StationMetricBlock.tsx` and `StationSplitAction.tsx` provide repeated presentation patterns.
 - `StationPresentationShell.tsx` renders the ordered presentation bindings for one station and delegates each live surface to Station Manager.
 
@@ -22,7 +23,7 @@ These components fetch and save nothing. Kits receive `{ items, loading, error, 
 | Service Catalogue on Services | Service source + Service `service-catalogue` kit | numeric Service id |
 | Tier Workspace on Packages | Package source + Package `tier-workspace` kit | string `occupant_id` for drawer actions |
 
-Service cards and standalone Service Tier cards are registered but unbound. Promotions therefore has no presentation wall and renders the shell's neutral empty state.
+Service cards, standalone Service Tier cards, and Service Categories are registered but unbound. Promotions therefore has no presentation wall and renders the shell's neutral empty state.
 
 ## Peer presentation
 

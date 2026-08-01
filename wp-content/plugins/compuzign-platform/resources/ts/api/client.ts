@@ -27,7 +27,7 @@ function getConfig(): CompuZignConfig {
   return config;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const { apiRoot, nonce } = getConfig();
   const url = apiRoot.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
 
@@ -37,7 +37,6 @@ async function request<T>(method: string, path: string, body?: unknown, extraHea
     headers: {
       'Content-Type': 'application/json',
       'X-WP-Nonce': nonce,
-      ...extraHeaders,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
@@ -53,18 +52,11 @@ async function request<T>(method: string, path: string, body?: unknown, extraHea
 export const apiClient = {
   get: <T>(path: string): Promise<T> => request<T>('GET', path),
   post: <T>(path: string, body?: unknown): Promise<T> => request<T>('POST', path, body),
+  // PUT/PATCH serve the Category station family. Some hosts block these verbs;
+  // if Hostinger rejects them, switch these two to POST + an
+  // 'X-HTTP-Method-Override' header here (WP REST honours the override) —
+  // one-place change, no fetcher edits.
   put: <T>(path: string, body?: unknown): Promise<T> => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown): Promise<T> => request<T>('PATCH', path, body),
   delete: <T>(path: string): Promise<T> => request<T>('DELETE', path),
-  // PUT/PATCH serve the Category station family, and some hosts (confirmed:
-  // Hostinger) mishandle those verbs on their way back — the write lands, but
-  // the response the browser gets back is broken, so the drawer never learns
-  // the mutation actually succeeded. WP REST honours a same-origin POST
-  // carrying X-HTTP-Method-Override, dispatching to the exact same PATCH/PUT
-  // route handler, so this reaches identical backend behaviour over a plain
-  // POST on the wire. Category's PATCH-registered writes go through this;
-  // other stations (Service, Package Family, Tier) use their own verbs and
-  // are unaffected.
-  postAsPatch: <T>(path: string, body?: unknown): Promise<T> =>
-    request<T>('POST', path, body, { 'X-HTTP-Method-Override': 'PATCH' }),
 };

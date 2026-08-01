@@ -1,3 +1,4 @@
+import { registerDataSources } from '@/station-manager/registry/dataSources';
 import { registerDestinations } from '@/station-manager/registry/destinations';
 import { registerDrawerTemplates } from '@/station-manager/registry/drawerTemplates';
 import { registerNavItems } from '@/station-manager/registry/navigation';
@@ -7,8 +8,10 @@ import {
 } from '@/station-manager/registry/surfaceBindings';
 import { registerTemplateKits } from '@/station-manager/registry/templateKits';
 import { CategoryGroupCardsKit } from './presentation/category-groups/CategoryGroupCardsKit';
+import { ServiceCategoryCarousel } from './presentation/service-categories/ServiceCategoryCarousel';
 import { PromotionsIcon } from './shell/icons';
 import { CategoryDrawerHost } from './stations/serviceCategory/CategoryDrawerHost';
+import { useServiceCategoryCards } from './stations/serviceCategory/useServiceCategoryCards';
 
 export function registerAdminStation(): void {
   registerNavItems([
@@ -34,8 +37,13 @@ export function registerAdminStation(): void {
     },
   ]);
 
+  registerDataSources({
+    'service-categories': useServiceCategoryCards,
+  });
+
   registerTemplateKits({
     'category-group-cards': CategoryGroupCardsKit,
+    'service-category-carousel': ServiceCategoryCarousel,
   });
 
   registerDrawerTemplates([

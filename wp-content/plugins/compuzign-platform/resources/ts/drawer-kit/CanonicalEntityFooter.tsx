@@ -19,14 +19,6 @@ export interface CanonicalEntityFooterProps {
   onDelete: () => void;
   onPublish: () => void;
   onClose: () => void;
-  // The Disable action's platform-visible mask (see Category/Service's own
-  // isDisabledMasked) — drives the split action's label/target independently
-  // of raw platformStatus, so an Enabled-but-still-'disabled' record (Pending,
-  // real settled content) offers Disable again instead of a no-op "Enable".
-  // Optional and defaulted `true` (the original always-"Enable" behaviour) so
-  // callers that have not adopted the mask yet (Package Family, Tier System)
-  // are unaffected.
-  isDisabledMasked?: boolean;
 }
 
 export function CanonicalEntityFooter({
@@ -44,7 +36,6 @@ export function CanonicalEntityFooter({
   onDelete,
   onPublish,
   onClose,
-  isDisabledMasked = true,
 }: CanonicalEntityFooterProps) {
   if (platformStatus === 'archived') {
     return (
@@ -74,22 +65,14 @@ export function CanonicalEntityFooter({
     );
   }
 
-  // Never-published (nothing to disable/publish yet) offers Move to Trash; a
-  // masked record (explicit Disable applied, not yet Enabled) offers Enable;
-  // every other live state — genuinely active, or Enabled-and-Pending with
-  // real settled content — offers Disable. Enable is reachable only from a
-  // masked record, so it can never repeat itself: once it runs, the record is
-  // unmasked and this reads Disable again.
-  const statusLabel = isNewNeverPublished ? 'Move to Trash' : isDisabledMasked ? 'Enable' : 'Disable';
-
   return (
     <EntityActionFooter
       split={{
         id: 'status',
-        label: platformStatus === 'active' ? 'Disable' : statusLabel,
+        label: platformStatus === 'active' ? 'Disable' : isNewNeverPublished ? 'Move to Trash' : 'Enable',
         onSelect: isNewNeverPublished ? onTrash : onToggleActive,
         busy,
-        tone: platformStatus === 'active' || statusLabel !== 'Enable' ? 'danger' : 'secondary',
+        tone: platformStatus === 'active' || isNewNeverPublished ? 'danger' : 'secondary',
         open: splitOpen,
         onToggle: () => setSplitOpen((value) => !value),
         overflow: [
