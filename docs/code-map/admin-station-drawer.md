@@ -19,7 +19,7 @@ Registration ownership is:
 | `tier-rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
 | `tier-rate-sheet-group` | Package Station | Package Station | wide | view, edit |
 
-`DrawerMode` is `'view' | 'edit'`; there is no `create` mode. Family, Service, and Category use a stable `'new'` sentinel, while Tier uses its registration address. Each resolves to `null`, never a fabricated identity, and the owning station holds pending state locally. Service Overview Save creates and hands off its Pending record; Publish later settles and activates it.
+`DrawerMode` is `'view' | 'edit'`; there is no `create` mode. Family, Service, Category use a stable `'new'` sentinel, while Tier uses its registration address. Each resolves to `null`, never a fabricated identity, and its station holds pending state locally. Service Overview Save creates and hands off its Pending record; child actions stay locked until then, and Publish later settles and activates it.
 
 ## Drawer size
 
