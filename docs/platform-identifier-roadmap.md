@@ -1,6 +1,6 @@
 # Platform Identifier Station Implementation Roadmap
 
-**Status:** Intermediate Phase 3A complete; Package Phase 4 paused pending lifecycle migration
+**Status:** Phase 3B command complete; real Service/Category backfill pending execution
 **Contract authority:** `src/PlatformIdentifier/` and `tests/platform-identifier-station.php`
 
 ## Locked contract
@@ -81,6 +81,14 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    tombstones/conflicts/wrong entities, and delegate to each owner's existing
    authoritative detail/projection path. Numeric routes, `recordId`, and mounted
    drawer handoff remain unchanged.
+3B. **Existing Service and Category assignment — command complete.** The
+   bounded WP-CLI command is limited to these two integrated owners:
+   `wp compuzign platform-identifiers assign service --limit=100 --cursor=0`
+   or `category`. It returns JSON counts, conflicts, completion, and the next
+   cursor; limits are hard-capped at 500. Service uses atomic post-meta claims,
+   Category uses its atomic term-meta claim, and reruns preserve valid IDs.
+   Execute successive pages in the target WordPress runtime, then verify the
+   Phase 3A GET routes with the returned/stored Platform IDs.
 4. **Package Family Group — paused pending Package Station migration.** Service
    Station is locked and conformant; Package Station is explicitly pending
    migration. Its drawer, module pills, Enable/Disable, creation handoff,
@@ -92,9 +100,9 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 8. **Package Rate Card — pending owner/storage audit.** No files locked yet.
 9. **Package Rate Card Group — pending owner/storage audit.** No files locked yet.
 10. **Package Rate Card Item — pending owner/storage audit.** No files locked yet.
-11. **Existing-record assignment — pending.** Register the approved bounded
-    WP-CLI command only after every completed owner supplies enumeration and
-    scalar read/write callbacks.
+11. **Existing-record assignment — partially complete.** Service and Category
+    are enabled through Phase 3B. Later entity types remain unavailable until
+    their owner integrations and lifecycle contracts are complete.
 12. **Final verification/documentation — pending.** Cross-entity resolution,
     immutability, lifecycle, deletion, importer, projections, mounted
     regressions, TypeScript, Code Maps, and clean-tree verification.
@@ -107,6 +115,7 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | 2 | Service creation, projection, immutability, lifecycle preservation, lookup binding, and deletion tombstone complete | `1ece5e6` | Existing-record assignment remains Phase 11. The combined route baseline has unrelated pre-existing Category status-argument drift; the broader module-state snapshot also has an unrelated undefined legacy definition. |
 | 3 | Category Station and inline creation, projection, immutability, duplicate-race handling, lifecycle preservation, lookup binding, and deletion tombstone complete | `6647568` | Existing-record assignment remains Phase 11. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
 | 3A | Optional additive schema identity and authenticated owner-specific Service/Category Platform-ID reads complete | `03de986`, `0a738c6`, `74a55c5` | Native numeric identity remains authoritative. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
+| 3B | Bounded, resumable Service/Category existing-record assignment command and focused contract complete | `ac0be8f` | Run pages and verify Platform-ID GETs in the target WordPress runtime. No local WP-CLI/runtime is present in this repository workspace. |
 | 4–12 | Pending | — | Package Phase 4 is paused until Package Station migration locks its owner, native record, creation handoff, lifecycle, drawer/module behaviour, and schema. |
 
 No Project History document has been created. That decision remains with the

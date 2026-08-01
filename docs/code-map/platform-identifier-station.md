@@ -24,7 +24,10 @@ Station Manager and must never be registered there.
   `PlatformIdentifierBatchResult.php` — lookup and bounded-assignment results.
 - `src/PlatformIdentifier/PlatformIdentifierConflict.php` — fail-closed
   contract failures.
-- `tests/platform-identifier-station.php` — isolated locked contract.
+- `src/PlatformIdentifier/ExistingRecordAssignmentCommand.php` — bounded
+  Service/Category-only WP-CLI backfill orchestration.
+- `tests/platform-identifier-station.php` and
+  `tests/platform-identifier-existing-assignment.php` — engine and backfill contracts.
 - `docs/platform-identifier-roadmap.md` — phased integration state.
 
 ## Registry contract
@@ -51,6 +54,12 @@ adds authenticated owner-specific reads at
 Each resolves here, rejects non-bound/conflicting/wrong-entity bindings, then
 calls its owner's existing projection by native numeric ID. The shared drawer
 schema carries optional `platformIdOf`; native `idOf` remains unchanged.
+
+Phase 3B registers
+`wp compuzign platform-identifiers assign <service|category>` when WP-CLI is
+active. `--limit` defaults to 100 and is capped at 500; `--cursor` defaults to
+zero. Each invocation returns JSON with processed/assigned/preserved/conflict
+counts, completion, and the next cursor. No Package or later type is accepted.
 
 Package Phase 4 is paused: Service is lifecycle-conformant, while Package
 Station remains pending migration. Package identity begins only after its
