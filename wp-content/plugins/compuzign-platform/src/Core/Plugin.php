@@ -13,6 +13,7 @@ use CompuZign\Platform\Modules\SurfacePackages\SurfacePackagesModule;
 use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 use CompuZign\Platform\PlatformIdentifier\ExistingRecordAssignmentCommand;
+use CompuZign\Platform\PlatformIdentifier\TemporaryMigrationController;
 
 final class Plugin
 {
@@ -31,6 +32,7 @@ final class Plugin
         (new MailService())->register();
         (new AssetLoader())->register();
         $platformIdentifiers = new PlatformIdentifierStation();
+        (new TemporaryMigrationController($platformIdentifiers))->register();
         if (defined('WP_CLI') && WP_CLI) {
             \WP_CLI::add_command(
                 'compuzign platform-identifiers assign',
