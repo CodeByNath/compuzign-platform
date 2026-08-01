@@ -1,11 +1,11 @@
 // Service Home Connections — the authoritative Category projection for the
 // lower deck's Connections lane.
 //
-// Reuses the SAME authoritative Category list endpoint the Admin-owned
-// `ServiceCategoryCarousel` already reads (`fetchAdminCategories`), rather than
-// deriving categories or counts from the Service catalogue projection (which
-// carries only { id, name, slug } per Service and no connected-count, status,
-// or icon). No second Category data source, no second relationship model.
+// Reuses the SAME authoritative Category list endpoint (`fetchAdminCategories`)
+// rather than deriving categories or counts from the Service catalogue
+// projection (which carries only { id, name, slug } per Service and no
+// connected-count, status, or icon). No second Category data source, no
+// second relationship model.
 //
 // `fetchAdminCategories()` with no status filter already excludes archived and
 // trashed Categories (StationLifecycle::isBinned) and already excludes Service
