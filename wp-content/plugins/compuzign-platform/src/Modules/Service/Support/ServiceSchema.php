@@ -42,6 +42,7 @@ final class ServiceSchema
     public const DRAFT_OVERVIEW    = 'cz_service_overview_draft';
     public const DRAFT_INCLUSIONS  = 'cz_service_inclusions_draft';
     public const DRAFT_FAQS        = 'cz_service_faqs_draft';
+    public const PLATFORM_ID_META  = 'cz_platform_id';
 
     // ── Module vocabulary ────────────────────────────────────────────────────
     /** Settle order is significant: overview settles before the pools. */

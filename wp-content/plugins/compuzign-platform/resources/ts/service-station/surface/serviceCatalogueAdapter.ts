@@ -29,6 +29,7 @@ export function toServiceCatalogueItem(
 
   return {
     id:                 summary.id,
+    platformId:         summary.platformId,
     name:               decodeHtml(summary.title) || 'Untitled service',
     slug:               summary.slug,
     description:        decodeHtml(summary.excerpt ?? '').trim(),

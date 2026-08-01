@@ -38,6 +38,7 @@
  */
 export interface ServiceSummary {
   id:                        number;
+  platformId:                string;
   title:                     string;
   slug:                      string;
   // Settled list copy for browse-first catalogue surfaces. Optional during the
@@ -74,6 +75,7 @@ export interface ServiceCatalogResponse {
 export interface ServiceDetail {
   success:         boolean;
   id:              number;
+  platformId:      string;
   title:           string;
   excerpt:         string;
   content:         string;
@@ -202,7 +204,7 @@ export interface PoolSettleWarning {
 export interface ModuleSettleResponse {
   success:       boolean;
   module_status: Record<string, string>;
-  service:       { id: number; title: string; excerpt: string; content: string; categories: Array<{ id: number; name: string; slug: string }> };
+  service:       { id: number; platformId: string; title: string; excerpt: string; content: string; categories: Array<{ id: number; name: string; slug: string }> };
   inclusions:    ServiceInclusionItem[];
   faqs:          ServiceFaqItem[];
   // Present only when the settle orphaned still-referenced pool items.
@@ -232,6 +234,7 @@ export interface ServiceStatusResponse {
   success: boolean;
   service: {
     id: number;
+    platformId: string;
     platform_status: string;
     previous_platform_status: string;
     module_status: Record<string, string>;
@@ -246,6 +249,7 @@ export interface ServiceStatusResponse {
 export interface PermanentDeleteResponse {
   success: boolean;
   deleted: number;
+  platformId: string;
 }
 
 // ── CREATE ───────────────────────────────────────────────────────────────────
@@ -261,6 +265,7 @@ export interface CreateServiceResponse {
   success: boolean;
   service: {
     id:                        number;
+    platformId:                string;
     title:                     string;
     slug:                      string;
     platform_status:           string;

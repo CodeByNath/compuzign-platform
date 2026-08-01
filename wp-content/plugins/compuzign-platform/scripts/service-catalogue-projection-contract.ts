@@ -34,6 +34,7 @@ check(packageFamilies.map((family) => family.id).join(',') === 'pcg_kairos,pcg_a
 
 const service: ServiceCatalogueItem = {
   id: 42,
+  platformId: 'CZS2A7KZ',
   name: 'Virtual Machines',
   slug: 'virtual-machines',
   description: 'Managed compute.',
@@ -61,6 +62,7 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf
 const catalogue = source('resources/ts/service-station/presentation/ServiceCatalogue.tsx');
 const model = source('resources/ts/service-station/presentation/model.ts');
 const adapter = source('resources/ts/service-station/surface/serviceCatalogueAdapter.ts');
+const serviceApi = source('resources/ts/service-station/api.ts');
 const serviceTypes = source('resources/ts/service-station/types.ts').split('// ── DETAIL')[0];
 const serviceController = source('src/Modules/Service/Http/ServiceController.php')
   .split('public function listServices')[1]
@@ -79,6 +81,13 @@ check(packageController.includes("$projection['related_service_ids'] = PackageCa
 check(/is_int\(\$serviceId\)/.test(packageRelationships) && !/\(int\).*entity_id/.test(packageRelationships), 'Package relationship projection preserves native numeric Service identity');
 check(model.includes('family.id === selectedFamilyId'), 'Family matching is strict against native Family ID');
 check(catalogue.includes("onIntent(service.id, 'view')"), 'mature Service drawer intent keeps the native Service ID');
+check(adapter.includes('platformId:         summary.platformId'), 'catalogue adapter preserves immutable platform identity');
+check(
+  serviceApi.includes('const { platform_id, ...rest } = value')
+    && serviceApi.includes('platformId: platform_id')
+    && serviceApi.includes('response.stations.map(mapPlatformId)'),
+  'endpoint adapters map backend platform identity',
+);
 check(!/Number\(.*(?:service|family).*id|String\(.*(?:service|family).*id/i.test(`${catalogue}\n${model}\n${adapter}`), 'catalogue introduces no Service or Family ID coercion');
 
 console.log('Service catalogue projection contract checks passed.');

@@ -9,6 +9,7 @@
  * SETTLE_HANDLERS          Per-module settle, bulk settle, revert
  * LIFECYCLE_HANDLERS       Status, restore, permanent delete
  * POOL_HANDLERS            Immediate canonical inclusion/FAQ pool creation
+ * IDENTITY_HELPERS         Platform ID scalar read/collision/immutability
  * AUTHORIZATION            Permission callback
  * MODULE_HELPERS           Cross-station pool-settle reference guard
  *
@@ -48,10 +49,16 @@ use CompuZign\Platform\Modules\Service\Support\ServiceModules;
 use CompuZign\Platform\Modules\Service\Support\ServicePools;
 use CompuZign\Platform\Modules\Service\Support\ServiceSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 class ServiceController
 {
     private ?PackageRepository $packageRepository = null;
+
+    public function __construct(private PlatformIdentifierStation $platformIdentifiers) {}
 
     /**
      * Single Package Station authority (independent option storage). Resolved
@@ -280,6 +287,7 @@ class ServiceController
 
             $stations[] = [
                 'id'                       => $post->ID,
+                'platform_id'              => $this->platformId((int) $post->ID),
                 'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'slug'                     => $post->post_name,
                 'excerpt'                  => html_entity_decode(wp_strip_all_tags($post->post_excerpt), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
@@ -304,6 +312,10 @@ class ServiceController
 
     public function createService(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
+
         $title       = $request->get_param('title');
         $excerpt     = (string) ($request->get_param('excerpt') ?? '');
         $content     = (string) ($request->get_param('content') ?? '');
@@ -311,17 +323,56 @@ class ServiceController
                        ? array_values(array_map('intval', (array) $request->get_param('category_ids')))
                        : [];
 
-        // Step 1 — Connector born.
+        try {
+            $reservation = $this->platformIdentifiers->reserve(
+                PlatformIdentifierPolicy::SERVICE,
+                fn(string $platformId): bool => $this->platformIdExists($platformId)
+            );
+        } catch (\Throwable) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'Could not reserve a permanent Service identifier.',
+            ], 500);
+        }
+
+        // Step 1 — Connector born. Service still owns the post; the Platform
+        // Identifier Station supplies only the immutable scalar identity.
         // post_title written for slug generation (bootstrap only — title lives in the draft).
         // post_excerpt and post_content intentionally omitted — content lives in the draft.
         $id = wp_insert_post([
             'post_type'   => ServiceSchema::POST_TYPE,
             'post_status' => 'publish',
             'post_title'  => $title,
+            'meta_input'  => [
+                ServiceSchema::PLATFORM_ID_META => $reservation->platformId(),
+            ],
         ], true);
 
         if (is_wp_error($id)) {
+            $this->retireReservation($reservation);
             return rest_ensure_response(['success' => false, 'message' => $id->get_error_message()]);
+        }
+
+        $id = (int) $id;
+        try {
+            $binding = $this->platformIdentifiers->assign(
+                $reservation,
+                $id,
+                fn(int|string $nativeReference): string => $this->platformId((int) $nativeReference),
+                static fn(int|string $nativeReference, string $platformId): mixed => update_post_meta(
+                    (int) $nativeReference,
+                    ServiceSchema::PLATFORM_ID_META,
+                    $platformId
+                )
+            );
+        } catch (\Throwable) {
+            wp_delete_post($id, true);
+            $this->retireReservation($reservation, $id);
+            return new \WP_REST_Response([
+                'success'          => false,
+                'message'          => 'Service creation could not confirm its permanent identifier.',
+                'native_reference' => $id,
+            ], 500);
         }
 
         // Categories on the Connector — routing/filtering relationship.
@@ -370,6 +421,7 @@ class ServiceController
             'success' => true,
             'service' => [
                 'id'                       => $id,
+                'platform_id'              => $binding->platformId(),
                 'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'slug'                     => $post->post_name,
                 'platform_status'          => $meta['platform_status'] ?? 'disabled',
@@ -410,6 +462,7 @@ class ServiceController
         return rest_ensure_response([
             'success'                  => true,
             'id'                       => $id,
+            'platform_id'              => $this->platformId($id),
             'title'                    => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
             'excerpt'                  => $post->post_excerpt,
             'content'                  => $post->post_content,
@@ -432,6 +485,9 @@ class ServiceController
     // ===================================================================
     public function updateOverview(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id   = (int) $request->get_param('id');
         $post = get_post($id);
 
@@ -461,6 +517,9 @@ class ServiceController
 
     public function updateInclusions(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id   = (int) $request->get_param('id');
         $post = get_post($id);
 
@@ -495,6 +554,9 @@ class ServiceController
 
     public function updateFaqs(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id   = (int) $request->get_param('id');
         $post = get_post($id);
 
@@ -533,6 +595,9 @@ class ServiceController
     // ===================================================================
     public function settleModuleRoute(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id     = (int) $request->get_param('id');
         $module = (string) $request->get_param('module');
         $post   = get_post($id);
@@ -562,6 +627,7 @@ class ServiceController
             'module_status' => $moduleStatus,
             'service'       => [
                 'id'         => $id,
+                'platform_id' => $this->platformId($id),
                 'title'      => html_entity_decode($freshPost->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'excerpt'    => $freshPost->post_excerpt,
                 'content'    => $freshPost->post_content,
@@ -579,6 +645,9 @@ class ServiceController
 
     public function settleAll(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id   = (int) $request->get_param('id');
         $post = get_post($id);
 
@@ -616,6 +685,7 @@ class ServiceController
             'module_status' => $meta['module_status'] ?? ServiceSchema::defaultModuleStatus(),
             'service'       => [
                 'id'         => $id,
+                'platform_id' => $this->platformId($id),
                 'title'      => html_entity_decode($freshPost->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'excerpt'    => $freshPost->post_excerpt,
                 'content'    => $freshPost->post_content,
@@ -633,6 +703,9 @@ class ServiceController
 
     public function revertModule(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id     = (int) $request->get_param('id');
         $module = (string) $request->get_param('module');
         $post   = get_post($id);
@@ -674,6 +747,9 @@ class ServiceController
     // ===================================================================
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id   = (int) $request->get_param('id');
         $post = get_post($id);
 
@@ -732,6 +808,7 @@ class ServiceController
             'success' => true,
             'service' => [
                 'id'                       => $id,
+                'platform_id'              => $this->platformId($id),
                 'platform_status'          => $meta['platform_status'] ?? 'disabled',
                 'previous_platform_status' => (string) ($meta['previous_platform_status'] ?? ''),
                 'module_status'            => $meta['module_status']   ?? ServiceSchema::defaultModuleStatus(),
@@ -794,6 +871,7 @@ class ServiceController
             'success' => true,
             'service' => [
                 'id'                       => $id,
+                'platform_id'              => $this->platformId($id),
                 'platform_status'          => $meta['platform_status'] ?? 'disabled',
                 'previous_platform_status' => (string) ($meta['previous_platform_status'] ?? ''),
                 'module_status'            => $meta['module_status'] ?? ServiceSchema::defaultModuleStatus(),
@@ -810,6 +888,9 @@ class ServiceController
      */
     public function restoreService(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id   = (int) $request->get_param('id');
         $post = get_post($id);
 
@@ -837,6 +918,7 @@ class ServiceController
             'success' => true,
             'service' => [
                 'id'              => $id,
+                'platform_id'     => $this->platformId($id),
                 'platform_status' => $meta['platform_status'] ?? 'disabled',
                 'module_status'   => $meta['module_status']   ?? ServiceSchema::defaultModuleStatus(),
                 'post_status'     => $post->post_status,
@@ -852,6 +934,9 @@ class ServiceController
      */
     public function permanentDeleteService(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $id   = (int) $request->get_param('id');
         $post = get_post($id);
 
@@ -867,13 +952,49 @@ class ServiceController
             return new \WP_REST_Response(['success' => false, 'message' => 'Only trashed services can be permanently deleted.'], 422);
         }
 
+        try {
+            $binding = $this->platformIdentifiers->ensure(
+                PlatformIdentifierPolicy::SERVICE,
+                $id,
+                fn(int|string $nativeReference): string => $this->platformId((int) $nativeReference),
+                static fn(int|string $nativeReference, string $platformId): mixed => update_post_meta(
+                    (int) $nativeReference,
+                    ServiceSchema::PLATFORM_ID_META,
+                    $platformId
+                ),
+                fn(string $platformId): bool => $this->platformIdExists($platformId)
+            );
+        } catch (PlatformIdentifierConflict) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'Service identity is conflicted and must be reconciled before permanent deletion.',
+            ], 409);
+        }
+
         // Hard delete — removes the wp_posts row and all wp_postmeta rows automatically.
         // The Package Station lives in its own option storage, so deleting a
         // service can no longer destroy commercial data; any manager items
         // sourced from this service degrade to source_missing at read time.
-        wp_delete_post($id, true);
+        $deleted = wp_delete_post($id, true);
+        if (!$deleted) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Service could not be permanently deleted.'], 500);
+        }
 
-        return rest_ensure_response(['success' => true, 'deleted' => $id]);
+        try {
+            $this->platformIdentifiers->markDeleted(PlatformIdentifierPolicy::SERVICE, $id);
+        } catch (PlatformIdentifierConflict) {
+            return new \WP_REST_Response([
+                'success'          => false,
+                'message'          => 'Service was deleted but its permanent identifier tombstone requires reconciliation.',
+                'native_reference' => $id,
+            ], 500);
+        }
+
+        return rest_ensure_response([
+            'success'     => true,
+            'deleted'     => $id,
+            'platform_id' => $binding->platformId(),
+        ]);
     }
 
     // ===================================================================
@@ -889,6 +1010,9 @@ class ServiceController
      */
     public function createInclusionPoolItem(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $serviceId = (int) $request->get_param('id');
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== ServiceSchema::POST_TYPE) {
@@ -933,6 +1057,9 @@ class ServiceController
      */
     public function createFaqPoolItem(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) {
+            return $rejection;
+        }
         $serviceId = (int) $request->get_param('id');
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== ServiceSchema::POST_TYPE) {
@@ -974,6 +1101,72 @@ class ServiceController
             'existing' => false,
             'faq'      => ['id' => $addedIds[0] ?? $id, 'question' => $question, 'answer' => $answer],
         ]);
+    }
+
+    // ===================================================================
+    // SECTION: IDENTITY_HELPERS
+    // ===================================================================
+    private function platformId(int $serviceId): string
+    {
+        $stored = get_post_meta($serviceId, ServiceSchema::PLATFORM_ID_META, true);
+
+        return is_string($stored) ? $stored : '';
+    }
+
+    private function platformIdExists(string $platformId): bool
+    {
+        $matches = get_posts([
+            'post_type'              => ServiceSchema::POST_TYPE,
+            'post_status'            => 'any',
+            'numberposts'            => 1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+            'meta_key'               => ServiceSchema::PLATFORM_ID_META,
+            'meta_value'             => $platformId,
+        ]);
+
+        return is_array($matches) && $matches !== [];
+    }
+
+    private function rejectPlatformIdMutation(\WP_REST_Request $request): ?\WP_REST_Response
+    {
+        foreach (['platform_id', 'platformId', ServiceSchema::PLATFORM_ID_META] as $field) {
+            if ($request->has_param($field)) {
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'Platform identifiers are immutable and output-only.',
+                ], 422);
+            }
+        }
+
+        return null;
+    }
+
+    private function retireReservation(
+        PlatformIdentifierReservation $reservation,
+        ?int $nativeReference = null
+    ): void {
+        try {
+            if ($nativeReference !== null) {
+                $reverse = $this->platformIdentifiers->lookupNative(
+                    PlatformIdentifierPolicy::SERVICE,
+                    $nativeReference
+                );
+                if ($reverse !== null) {
+                    return;
+                }
+            }
+
+            $forward = $this->platformIdentifiers->resolve($reservation->platformId());
+            if ($forward?->status() === PlatformIdentifierStation::STATUS_RESERVED) {
+                $this->platformIdentifiers->retire($reservation);
+            }
+        } catch (\Throwable) {
+            // Preserve the first failure. A partially claimed registry record is
+            // intentionally left for explicit reconciliation, never reused.
+        }
     }
 
     // ===================================================================

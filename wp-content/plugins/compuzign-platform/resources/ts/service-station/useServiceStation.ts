@@ -111,6 +111,7 @@ function seedDetailFromItem(service: ServiceItem): ServiceDetail {
   return {
     success:                   true,
     id:                        service.id,
+    platformId:                service.platformId ?? '',
     title:                     service.title,
     excerpt:                   service.excerpt,
     content:                   service.content,
@@ -130,6 +131,7 @@ function buildCreatedPendingService(response: CreateServiceResponse): ServiceIte
   const overview = response.drafts.overview;
   return {
     id:           response.service.id,
+    platformId:   response.service.platformId,
     title:        overview?.title ?? response.service.title,
     slug:         response.service.slug,
     excerpt:      overview?.excerpt ?? '',
@@ -611,6 +613,7 @@ export function useServiceStation(
       setAdminDetail({
         success:                   true,
         id:                        created.id,
+        platformId:                created.platformId ?? '',
         title:                     created.title,
         excerpt:                   created.excerpt,
         content:                   created.content,

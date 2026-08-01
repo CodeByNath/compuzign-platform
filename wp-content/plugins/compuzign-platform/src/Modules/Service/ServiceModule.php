@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Modules\Service;
 
 use CompuZign\Platform\Modules\Service\Http\ServiceController;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 /**
  * Service module — backend only.
@@ -28,8 +29,10 @@ use CompuZign\Platform\Modules\Service\Http\ServiceController;
  */
 class ServiceModule
 {
+    public function __construct(private PlatformIdentifierStation $platformIdentifiers) {}
+
     public function register(): void
     {
-        (new ServiceController())->register();
+        (new ServiceController($this->platformIdentifiers))->register();
     }
 }

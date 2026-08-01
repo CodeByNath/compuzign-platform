@@ -38,23 +38,46 @@ import type {
   ServiceStatusResponse,
 } from './types';
 
+type WirePlatformId<T extends { platformId: string }> = Omit<T, 'platformId'> & { platform_id: string };
+type WireServiceCatalogResponse = Omit<ServiceCatalogResponse, 'stations'> & {
+  stations: Array<WirePlatformId<ServiceCatalogResponse['stations'][number]>>;
+};
+type WireCreateServiceResponse = Omit<CreateServiceResponse, 'service'> & {
+  service: WirePlatformId<CreateServiceResponse['service']>;
+};
+type WireModuleSettleResponse = Omit<ModuleSettleResponse, 'service'> & {
+  service: WirePlatformId<ModuleSettleResponse['service']>;
+};
+type WireServiceStatusResponse = Omit<ServiceStatusResponse, 'service'> & {
+  service: WirePlatformId<ServiceStatusResponse['service']>;
+};
+type WirePermanentDeleteResponse = Omit<PermanentDeleteResponse, 'platformId'> & { platform_id: string };
+
+function mapPlatformId<T extends { platformId: string }>(value: WirePlatformId<T>): T {
+  const { platform_id, ...rest } = value;
+  return { ...rest, platformId: platform_id } as unknown as T;
+}
+
 // ── Catalogue ────────────────────────────────────────────────────────────────
 
-export function fetchAdminCatalog(platformStatus?: 'archived' | 'trashed'): Promise<ServiceCatalogResponse> {
+export async function fetchAdminCatalog(platformStatus?: 'archived' | 'trashed'): Promise<ServiceCatalogResponse> {
   const path = platformStatus
     ? `admin/services?platform_status=${platformStatus}`
     : 'admin/services';
-  return apiClient.get<ServiceCatalogResponse>(path);
+  const response = await apiClient.get<WireServiceCatalogResponse>(path);
+  return { ...response, stations: response.stations.map(mapPlatformId) };
 }
 
 // ── Detail / create ──────────────────────────────────────────────────────────
 
-export function fetchAdminServiceDetail(serviceId: number): Promise<ServiceDetail> {
-  return apiClient.get<ServiceDetail>(`admin/services/${serviceId}`);
+export async function fetchAdminServiceDetail(serviceId: number): Promise<ServiceDetail> {
+  const response = await apiClient.get<WirePlatformId<ServiceDetail>>(`admin/services/${serviceId}`);
+  return mapPlatformId(response);
 }
 
-export function createService(payload: CreateServicePayload): Promise<CreateServiceResponse> {
-  return apiClient.post<CreateServiceResponse>('admin/services', payload);
+export async function createService(payload: CreateServicePayload): Promise<CreateServiceResponse> {
+  const response = await apiClient.post<WireCreateServiceResponse>('admin/services', payload);
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
 // ── Module draft saves ───────────────────────────────────────────────────────
@@ -82,15 +105,17 @@ export function updateServiceFaqs(
 
 // ── Settle / revert ──────────────────────────────────────────────────────────
 
-export function settleServiceModule(
+export async function settleServiceModule(
   serviceId: number,
   module: 'overview' | 'inclusions' | 'faqs',
 ): Promise<ModuleSettleResponse> {
-  return apiClient.post<ModuleSettleResponse>(`admin/services/${serviceId}/${module}/settle`);
+  const response = await apiClient.post<WireModuleSettleResponse>(`admin/services/${serviceId}/${module}/settle`);
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
-export function settleAllServiceModules(serviceId: number): Promise<ModuleSettleResponse> {
-  return apiClient.post<ModuleSettleResponse>(`admin/services/${serviceId}/settle`);
+export async function settleAllServiceModules(serviceId: number): Promise<ModuleSettleResponse> {
+  const response = await apiClient.post<WireModuleSettleResponse>(`admin/services/${serviceId}/settle`);
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
 export function revertServiceModule(
@@ -105,38 +130,46 @@ export function revertServiceModule(
 // updateServiceStatus is the general status write; archiveService and
 // trashService are fixed-transition conveniences over the same route.
 
-export function updateServiceStatus(
+export async function updateServiceStatus(
   serviceId: number,
   payload: ServiceStatusPayload,
 ): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, payload);
+  const response = await apiClient.post<WireServiceStatusResponse>(`admin/services/${serviceId}/status`, payload);
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
 // Disable/Enable — the platform-visible presentation mask (never a settle/
 // publish call). Distinct from updateServiceStatus's platform_status shape,
 // which Publish also uses for 'active': see ServiceController::updateDisabledMask.
-export function disableService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { action: 'disable' });
+export async function disableService(serviceId: number): Promise<ServiceStatusResponse> {
+  const response = await apiClient.post<WireServiceStatusResponse>(`admin/services/${serviceId}/status`, { action: 'disable' });
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
-export function enableService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { action: 'enable' });
+export async function enableService(serviceId: number): Promise<ServiceStatusResponse> {
+  const response = await apiClient.post<WireServiceStatusResponse>(`admin/services/${serviceId}/status`, { action: 'enable' });
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
-export function archiveService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'archived' });
+export async function archiveService(serviceId: number): Promise<ServiceStatusResponse> {
+  const response = await apiClient.post<WireServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'archived' });
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
-export function trashService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'trashed' });
+export async function trashService(serviceId: number): Promise<ServiceStatusResponse> {
+  const response = await apiClient.post<WireServiceStatusResponse>(`admin/services/${serviceId}/status`, { platform_status: 'trashed' });
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
-export function restoreService(serviceId: number): Promise<ServiceStatusResponse> {
-  return apiClient.post<ServiceStatusResponse>(`admin/services/${serviceId}/restore`);
+export async function restoreService(serviceId: number): Promise<ServiceStatusResponse> {
+  const response = await apiClient.post<WireServiceStatusResponse>(`admin/services/${serviceId}/restore`);
+  return { ...response, service: mapPlatformId(response.service) };
 }
 
-export function permanentDeleteService(serviceId: number): Promise<PermanentDeleteResponse> {
-  return apiClient.delete<PermanentDeleteResponse>(`admin/services/${serviceId}`);
+export async function permanentDeleteService(serviceId: number): Promise<PermanentDeleteResponse> {
+  const response = await apiClient.delete<WirePermanentDeleteResponse>(`admin/services/${serviceId}`);
+  const { platform_id, ...rest } = response;
+  return { ...rest, platformId: platform_id };
 }
 
 // ── Pools ────────────────────────────────────────────────────────────────────

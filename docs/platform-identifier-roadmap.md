@@ -1,6 +1,6 @@
 # Platform Identifier Station Implementation Roadmap
 
-**Status:** Phase 1 complete and contract-locked
+**Status:** Phase 2 — Service integration complete; Phase 3 pending
 **Contract authority:** `src/PlatformIdentifier/` and `tests/platform-identifier-station.php`
 
 ## Locked contract
@@ -42,10 +42,19 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    isolated tests, and Code Map. Files: `src/PlatformIdentifier/*`,
    `tests/platform-identifier-station.php`, this roadmap, and Code Map indexes.
    Required test: `php tests/platform-identifier-station.php`.
-2. **Service — pending.** Audit and integrate `CZS`; preserve Service routes,
-   numeric IDs, drafts, lifecycle, pools, drawer handoff, and importer boundary.
-   Expected owners: `ServiceModule`, `ServiceController`, `ServiceSchema`, and
-   Service TypeScript endpoint/contracts. Extend Service PHP and mounted tests.
+2. **Service — complete.** Composed one engine in `Core\Plugin`; injected it
+   through `ServiceModule` into `ServiceController`; reserve `CZS` before the
+   existing `wp_insert_post()` and carry it through `meta_input`; verify/bind
+   before existing Service setup; expose output-only identity in authoritative
+   projections; reject identity mutation; tombstone successful hard deletion.
+   Exact files: `Core/Plugin.php`, `ServiceModule.php`, `ServiceController.php`,
+   `ServiceSchema.php`, Service TypeScript contracts/API/state/seed/catalogue
+   adapters, focused PHP tests, mounted Service fixtures, generated admin bundle,
+   local instructions, and the Service/identifier Code Maps. Identifier and
+   lifecycle contracts, PHP lint, TypeScript, catalogue/connection contracts,
+   mounted create/handoff/open-save/disable-enable regressions, build, and docs
+   pass. The combined route baseline reports only its existing Category status
+   argument drift; its Service routes report no change.
 3. **Category — pending.** Audit and integrate `CZC` in Category Station and
    inline creation without changing term identity, lifecycle, or drawer flow.
 4. **Package Family Group — pending owner/storage audit.** No files locked yet.
@@ -67,7 +76,8 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | Phase | Result | Commit | Blockers / deferred work |
 | --- | --- | --- | --- |
 | 1 | Contract and isolated engine complete; isolated PHP and documentation checks passed | `ac0067a` | Domain composition and all entity integration deliberately deferred |
-| 2–12 | Pending | — | Must follow phase order and audit each real owner first |
+| 2 | Service creation, projection, immutability, lifecycle preservation, lookup binding, and deletion tombstone complete | Pending phase commit | Existing-record assignment remains Phase 11. The combined route baseline has unrelated pre-existing Category status-argument drift; the broader module-state snapshot also has an unrelated undefined legacy definition. |
+| 3–12 | Pending | — | Must follow phase order and audit each real owner first |
 
 No Project History document has been created. That decision remains with the
 user after the implementation qualifies as a completed major milestone.

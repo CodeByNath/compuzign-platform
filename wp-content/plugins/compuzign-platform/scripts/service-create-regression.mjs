@@ -52,6 +52,7 @@ let settleCalls = 0;
 let activationCalls = 0;
 const lifecycleIds = [];
 const CREATED_ID = 501;
+const PLATFORM_ID = 'CZS7K9Q2';
 const CATEGORY = { id: 1, name: 'Test Category', slug: 'test-category', description: '' };
 
 let serverService = null; // set once createService succeeds
@@ -80,6 +81,7 @@ globalThis.fetch = (url, init = {}) => {
     const payload = JSON.parse(init.body);
     serverService = {
       id: CREATED_ID,
+      platform_id: PLATFORM_ID,
       title: payload.title,
       slug: 'test-service',
       platform_status: 'disabled',
@@ -106,6 +108,7 @@ globalThis.fetch = (url, init = {}) => {
       success: true,
       service: {
         id: CREATED_ID,
+        platform_id: PLATFORM_ID,
         title: serverService.title,
         excerpt: '',
         content: 'A pending Service created by the regression harness.',
@@ -127,6 +130,7 @@ globalThis.fetch = (url, init = {}) => {
       success: true,
       service: {
         id: CREATED_ID,
+        platform_id: PLATFORM_ID,
         platform_status: serverService.platform_status,
         previous_platform_status: '',
         module_status: serverService.module_status,
@@ -165,6 +169,7 @@ globalThis.fetch = (url, init = {}) => {
     return jsonResponse({
       success: true,
       id: CREATED_ID,
+      platform_id: PLATFORM_ID,
       title: serverService?.title ?? '',
       excerpt: '',
       content: 'A pending Service created by the regression harness.',

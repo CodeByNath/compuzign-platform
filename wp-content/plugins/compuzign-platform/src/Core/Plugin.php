@@ -11,6 +11,7 @@ use CompuZign\Platform\Modules\Requests\RequestsModule;
 use CompuZign\Platform\Modules\Service\ServiceModule;
 use CompuZign\Platform\Modules\SurfacePackages\SurfacePackagesModule;
 use CompuZign\Platform\Core\Health;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 final class Plugin
 {
@@ -28,12 +29,13 @@ final class Plugin
         (new TaxonomyRegistrar())->register();
         (new MailService())->register();
         (new AssetLoader())->register();
+        $platformIdentifiers = new PlatformIdentifierStation();
         (new SurfacePackagesModule())->register();
         (new PromotionsModule())->register();
         (new CostBuilderModule())->register();
         (new HomepageModule())->register();
         (new RequestsModule())->register();
-        (new ServiceModule())->register();
+        (new ServiceModule($platformIdentifiers))->register();
         (new AdminModule())->register();
         (new AdminStationModule())->register();
 

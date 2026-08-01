@@ -41,7 +41,9 @@ references support both WordPress-native and owner-defined stored identities.
 
 ## Current integration status
 
-Phase 1 implements and tests the engine only. Nothing constructs the Station at
-runtime yet, and no domain projection or persistence path has changed. Service,
-Category, Package, Tier, Promotion, and Rate Card integrations remain pending
-their roadmap phases.
+Phase 2 constructs one Station in `Core\Plugin` and injects it through
+`ServiceModule`. Service owns `cz_platform_id` post meta, `CZS` assignment,
+projection, immutable request rejection, and hard-delete notification; the
+shared Station owns its registry binding and tombstone. Category, Package,
+Tier, Promotion, and Rate Card integrations remain pending their roadmap
+phases.

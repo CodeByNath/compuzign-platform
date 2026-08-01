@@ -13,6 +13,9 @@ Publish-as-settle/activate boundary when editing this peer.
 `resources/ts/service-station/` is the top-level Service peer's data, surface, presentation, and drawer boundary: it owns Service TypeScript contracts, endpoint implementations, station state, pure derivations, surface adapters, the catalogue kit, and Service drawer composition. It is not part of the Admin Station host — Service registers its capabilities with Station Manager, the Admin Station thin host renders the resolved presentation, and other peers consume Service only through `index.ts`.
 
 - `types.ts` — zero-import Service contracts; keep it cycle-safe. Catalogue summaries carry direct Service Categories only.
+- Permanent identity is `platformId` in application contracts. `api.ts` alone
+  maps backend `platform_id`; create/update payloads never expose it, and native
+  numeric `id` remains the drawer/route identity.
 - `api.ts` — the single implementation of Service-owned endpoint calls.
 - `useServiceStation.ts` — detail fetch, draft-preferred state, mutations, and lifecycle actions. Accepts `service: ServiceItem | null`; `null` (the Settings launcher's `'new'` sentinel) is represented by its own local pending Overview draft, never a fabricated ServiceItem — only Overview is editable until its complete Save creates a persisted Pending Service record with its Overview draft and final-seeds detail before the controller swaps to the returned identity; the unmasked `disabled` storage enum plus `overview: pending` renders as Pending, while explicit Disable is the separate masked action. Publish later settles and activates that real record.
 - `surface/serviceHomeConnections.ts` — the Connections lane's own data hook and row projection, reading the same authoritative Category list source the Admin-owned category carousel reads. No second Category endpoint, no derived counts.

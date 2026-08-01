@@ -54,6 +54,7 @@ window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'te
 
 // ── Fetch mock — the only faked boundary ────────────────────────────────
 const SERVICE_ID = 701;
+const PLATFORM_ID = 'CZS6R2VN';
 const CATEGORY = { id: 1, name: 'Test Category', slug: 'test-category', description: '' };
 
 // Server-side truth — a Service that has already been published, with every
@@ -92,6 +93,7 @@ globalThis.fetch = (url, init = {}) => {
       categories: [CATEGORY],
       stations: [{
         id: SERVICE_ID,
+        platform_id: PLATFORM_ID,
         title: server.title,
         slug: 'existing-published-service',
         platform_status: server.platformStatus,
@@ -111,6 +113,7 @@ globalThis.fetch = (url, init = {}) => {
     return jsonResponse({
       success: true,
       id: SERVICE_ID,
+      platform_id: PLATFORM_ID,
       title: server.title,
       excerpt: server.excerpt,
       content: server.content,
@@ -173,6 +176,7 @@ globalThis.fetch = (url, init = {}) => {
       success: true,
       service: {
         id: SERVICE_ID,
+        platform_id: PLATFORM_ID,
         platform_status: server.platformStatus,
         previous_platform_status: server.previousPlatformStatus,
         module_status: server.moduleStatus,

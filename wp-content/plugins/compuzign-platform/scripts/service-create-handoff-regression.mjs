@@ -41,6 +41,7 @@ window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'te
 
 // ── Fetch mock — the only faked boundary ────────────────────────────────
 const CREATED_ID = 601;
+const PLATFORM_ID = 'CZS4M8PX';
 const CATEGORY = { id: 1, name: 'Test Category', slug: 'test-category', description: '' };
 
 let createServiceCalls = 0;
@@ -92,6 +93,7 @@ globalThis.fetch = (url, init = {}) => {
       success: true,
       service: {
         id: CREATED_ID,
+        platform_id: PLATFORM_ID,
         title: server.title,
         slug: 'test-service',
         platform_status: 'disabled',
@@ -111,7 +113,7 @@ globalThis.fetch = (url, init = {}) => {
     server.moduleStatus = { overview: 'settled', inclusions: 'not-configured', faqs: 'not-configured' };
     return jsonResponse({
       success: true,
-      service: { id: CREATED_ID, title: server.title, excerpt: server.excerpt, content: server.content, categories: server.categories },
+      service: { id: CREATED_ID, platform_id: PLATFORM_ID, title: server.title, excerpt: server.excerpt, content: server.content, categories: server.categories },
       inclusions: server.inclusions,
       faqs: server.faqs,
       module_status: server.moduleStatus,
@@ -124,6 +126,7 @@ globalThis.fetch = (url, init = {}) => {
       success: true,
       service: {
         id: CREATED_ID,
+        platform_id: PLATFORM_ID,
         platform_status: 'active',
         previous_platform_status: '',
         module_status: server.moduleStatus,
@@ -162,6 +165,7 @@ globalThis.fetch = (url, init = {}) => {
     return jsonResponse({
       success: true,
       id: CREATED_ID,
+      platform_id: PLATFORM_ID,
       title: server.title,
       excerpt: server.excerpt,
       content: server.content,

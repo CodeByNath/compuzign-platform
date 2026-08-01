@@ -99,6 +99,9 @@ export interface ServiceAvailability {
 
 export interface ServiceItem {
   id: number;
+  // Present on authoritative admin Service projections. The public Cost Builder
+  // response deliberately does not expose permanent administration identity.
+  platformId?: string;
   title: string;
   slug: string;
   excerpt: string;

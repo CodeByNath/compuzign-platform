@@ -5,7 +5,7 @@ Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md)
 
 ## Purpose and authority
 
-Service Station is the Service peer. It owns `cz_service` posts, direct `cz_service_category` relationships, Service meta and drafts, inclusion/FAQ pools, lifecycle, validation, endpoints, client state, catalogue presentation, and drawer editing. The consolidation changes code placement and registration, not routes, payloads, permissions, storage, or runtime behavior.
+Service Station owns `cz_service` posts, direct `cz_service_category` relationships, Service meta and drafts, inclusion/FAQ pools, lifecycle, endpoints, client state, catalogue presentation, and drawer editing.
 
 Cost Builder separately owns `cz_service_pricing`. Package Station owns Package relationships, Package Families, Rate Sheets, and Tiers. A Service-shaped or Service-nested URL does not transfer authority.
 
@@ -14,7 +14,7 @@ Cost Builder separately owns `cz_service_pricing`. Package Station owns Package 
 [resources/ts/service-station/](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/CLAUDE.md) is the public frontend boundary:
 
 - `types.ts` and `api.ts` own Service contracts and endpoint calls.
-- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns detail state, draft-preferred reads, mutations, and lifecycle actions; [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts) holds pure projections. A complete pending Overview Save creates a persisted Pending Service record with its Overview draft and synchronously seeds authoritative detail; the controller then swaps to the returned ID without a loading reset. Storage records the fixed enum value `platform_status: 'disabled'` with no disable mask (`previous_platform_status: ''`) and `module_status.overview: 'pending'`; the UI renders that combination as full-opacity Pending, not Disabled. Inclusions and FAQs save against that ID, while Publish later settles pending modules and activates the existing record. Ordinary existing-record opens still fetch detail, and the one-shot handoff marker never suppresses that path.
+- [useServiceStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/useServiceStation.ts) owns detail state, draft-preferred reads, mutations, and lifecycle actions; [derive.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/derive.ts) holds pure projections. A complete pending Overview Save creates the Pending record and synchronously seeds detail, allowing the controller to adopt its ID without a loading reset. Storage uses `platform_status: 'disabled'`, no disable mask, and `module_status.overview: 'pending'`; the UI renders unmasked storage as full-opacity Pending. Child saves use that ID, while Publish settles drafts and activates the record. Existing-record opens still fetch detail.
 - `surface/` owns catalogue/card adapters and the registered Service drawer adapter; `presentation/` owns the Service Catalogue kit.
 - `drawer/` owns the Service composition, controller hooks, schema, bindings, and editors.
 - [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/service-station/register.ts) registers Service navigation, destination, data sources, catalogue kit, and drawer with Station Manager. It is imported only by the admin-station bundle entry and is not public-barrel API.
@@ -31,6 +31,13 @@ Station Manager supplies host-engine contracts and resolution only. Admin Statio
 - [ServicePools.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Support/ServicePools.php) is the public pool-write boundary used by Service and Package Tier saves.
 
 WordPress post/meta access stays cohesive here; there is no pass-through repository. Core post-type/taxonomy registrars declare entities but do not own behavior.
+
+`Core\Plugin` constructs one shared `PlatformIdentifierStation`, which
+`ServiceModule` injects into `ServiceController`. Creation reserves `CZS`
+identity before the existing insert. Service owns `cz_platform_id` post-meta
+and response projection; the Station owns reservation, binding, lookup,
+conflict, and deletion tombstone. Numeric routes and native IDs remain
+unchanged. Adapters map backend `platform_id` to application `platformId`.
 
 ## Module and lifecycle states
 

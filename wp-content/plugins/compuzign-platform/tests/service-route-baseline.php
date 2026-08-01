@@ -76,7 +76,9 @@ require_once __DIR__ . '/../vendor/autoload.php';
 // take constructor dependencies (the repositories they already used before the
 // move — construction here must mirror the module's real wiring).
 $controllers = [
-    static fn() => new \CompuZign\Platform\Modules\Service\Http\ServiceController(),
+    static fn() => new \CompuZign\Platform\Modules\Service\Http\ServiceController(
+        new \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation()
+    ),
     static fn() => new \CompuZign\Platform\Modules\Admin\Http\AdminCategoriesController(),
     static fn() => new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageFamiliesController(),
     static fn() => new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(

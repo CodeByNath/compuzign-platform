@@ -35,6 +35,7 @@ export function normalizeAdminCategories(cats: AdminCategory[]): Category[] {
 export function buildServiceItemForStationHandoff(summary: ServiceSummary): ServiceItem {
   return {
     id:         summary.id,
+    platformId: summary.platformId,
     title:      summary.title,
     slug:       summary.slug,
     excerpt:    '',

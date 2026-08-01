@@ -20,6 +20,7 @@ export interface ServiceCataloguePackageFamily {
  */
 export interface ServiceCatalogueItem {
   id:                 number;
+  platformId:         string;
   name:               string;
   slug:               string;
   description:        string;
