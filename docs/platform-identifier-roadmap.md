@@ -1,6 +1,6 @@
 # Platform Identifier Station Implementation Roadmap
 
-**Status:** Phase 1 complete in source; awaiting committed phase result
+**Status:** Phase 1 complete and contract-locked
 **Contract authority:** `src/PlatformIdentifier/` and `tests/platform-identifier-station.php`
 
 ## Locked contract
@@ -66,7 +66,7 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 
 | Phase | Result | Commit | Blockers / deferred work |
 | --- | --- | --- | --- |
-| 1 | Contract and isolated engine complete; verification recorded in phase commit | Pending commit | Domain composition and all entity integration deliberately deferred |
+| 1 | Contract and isolated engine complete; isolated PHP and documentation checks passed | `ac0067a` | Domain composition and all entity integration deliberately deferred |
 | 2–12 | Pending | — | Must follow phase order and audit each real owner first |
 
 No Project History document has been created. That decision remains with the
