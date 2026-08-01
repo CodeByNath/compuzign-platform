@@ -44,6 +44,10 @@ Only the registration/finalize system has current consumers. Tool identity, avai
 
 ## Shared and presentation boundaries
 
+- [Platform Identifier Station](code-map/platform-identifier-station.md) owns
+  permanent Platform identity policy, reservation, binding, lookup, and
+  tombstones. Domain Stations retain their native records and every domain
+  action; this backend Station is not part of the frontend Station Manager.
 - `resources/ts/drawer-kit/` owns generic rendering and interaction contracts, not entity authority.
 - `resources/ts/entity-drawers/` contains remaining host-neutral entity composition/shared chrome where documented by its Code Maps.
 - Admin-owned cards, grids, status primitives, icons, and generic drawer shell remain under `resources/ts/admin-station/`; visual reuse does not make them Manager-owned.

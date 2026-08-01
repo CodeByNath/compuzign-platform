@@ -39,6 +39,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 
 ### Public and shared systems
 
+- [Platform Identifier Station](platform-identifier-station.md)
 - [Homepage](homepage.md)
 - [Cost Builder](cost-builder.md)
 - [Quote Builder](quote-builder.md)
