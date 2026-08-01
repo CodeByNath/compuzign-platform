@@ -6,6 +6,8 @@ import {
   revertCategoryOverview,
   saveCategoryOverview,
   settleCategoryOverview,
+  disableCategory,
+  enableCategory,
   updateCategoryStatus,
 } from '@/api/endpoints/admin';
 import type { CategoryOverviewDraft, CategoryStationItem } from '@/api/types/admin';
@@ -29,7 +31,9 @@ export interface CategoryStation {
   // ── Identity ──────────────────────────────────────────────────────────────
   platformStatus: string;
   isActive:       boolean;
-  // No backing term yet — Settings' Create Category launcher, before Publish.
+  isDisabledMasked: boolean;
+  // No backing term yet — Settings' Create Category launcher, before Overview
+  // Save creates the persisted Pending term.
   isNew:          boolean;
 
   // ── Draft-preferred projection ────────────────────────────────────────────
@@ -69,10 +73,6 @@ export interface CategoryStation {
   trashStation:    () => Promise<CategoryStationItem | null>;
   restoreStation:  () => Promise<CategoryStationItem | null>;
   deleteStation:   () => Promise<boolean>;
-  // The pending record's one authoritative creation. Persists the drafted
-  // Overview (staged locally by saveOverview above) as a brand-new Category
-  // and returns the server-issued record — mirrors createFamily/createService.
-  createCategory:  () => Promise<CategoryStationItem | null>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -88,15 +88,16 @@ export function useCategoryStation(
   // seed never re-syncs — the host keeps resolving the stable `'new'` recordId
   // to `null` for the whole session, exactly like Package Family's `'new'`
   // sentinel never changes on the host side — so `created` transitions from
-  // `null` to the real record exactly once, via createCategory below, and stays
+  // `null` to the real record exactly once, via Overview Save below, and stays
   // there regardless of how many more times the host re-offers `null`.
   const [created, setCreated] = useState<CategoryStationItem | null>(category);
   const [statusSaving, setStatusSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // The pending Overview draft — the only thing a not-yet-created Category can
-  // hold. Group membership stays with the controller until creation (see
-  // createCategory's groupId argument).
+  // The pending Overview draft is the only state before a complete Overview
+  // Save creates the real Category. The returned response then becomes this
+  // same mounted station's authoritative identity; the host's `'new'` sentinel
+  // never needs to remount or fetch a replacement drawer.
   const [pendingDraft, setPendingDraft] = useState<CategoryOverviewDraft>({ name: '', description: '' });
   const [pendingModuleStatus, setPendingModuleStatus] = useState<'not-configured' | 'pending'>('not-configured');
 
@@ -109,6 +110,8 @@ export function useCategoryStation(
   // ── Derived: identity ──────────────────────────────────────────────────────
   const platformStatus = created?.platform_status ?? 'disabled';
   const isActive       = platformStatus === 'active';
+  const isDisabledMasked = platformStatus === 'disabled'
+    && (created?.previous_platform_status ?? '') !== '';
 
   const displayName        = created?.name ?? pendingDraft.name;
   const displayDescription = created?.description ?? pendingDraft.description;
@@ -126,6 +129,7 @@ export function useCategoryStation(
     platformLabel:    'Category',
     moduleTransition: moduleStatus.overview,
     hasDraft,
+    disabled:         isDisabledMasked,
   };
   // categoryOverviewModule takes plain { name, description, slug } data, not a
   // CategoryStationItem, so the pending and persisted paths both feed it the
@@ -143,16 +147,22 @@ export function useCategoryStation(
   const canPublish = !!displayName.trim();
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  // Every action below that addresses an existing term is a no-op while
-  // `created` is null: none of them are reachable from the pending drawer's
-  // footer/dialogs (only Overview edits and createCategory are).
+  // Every action below that addresses an existing term is unreachable until
+  // Overview Save has supplied the returned persisted identity.
 
   const saveOverview = useCallback(async (draft: CategoryOverviewDraft): Promise<Record<string, string>> => {
     if (!created) {
+      const response = await createCategoryApi({ name: draft.name, description: draft.description });
+      if (!response.success) throw new Error(response.message ?? 'Could not create the Category.');
+      // This is the pending-to-persisted hand-off: seed the returned record
+      // before the controller re-renders. The mounted drawer keeps its modules,
+      // notifications, and footer; no host identity change or loading state is
+      // involved.
+      setCreated(response.category);
       setPendingDraft(draft);
-      const status = draft.name.trim() ? 'pending' : 'not-configured';
-      setPendingModuleStatus(status);
-      return { overview: status };
+      setPendingModuleStatus('pending');
+      onRefresh?.();
+      return response.category.module_status;
     }
     const result = await saveCategoryOverview(created.id, draft);
     if (!result.success) throw new Error('Failed to save changes.');
@@ -234,7 +244,23 @@ export function useCategoryStation(
     }
   }, [created, onRefresh]);
 
-  const toggleActive   = useCallback(() => applyStatus(isActive ? 'disabled' : 'active'), [applyStatus, isActive]);
+  const toggleActive = useCallback(async (): Promise<CategoryStationItem | null> => {
+    if (!created) return null;
+    setStatusSaving(true);
+    try {
+      const result = isDisabledMasked
+        ? await enableCategory(created.id)
+        : await disableCategory(created.id);
+      if (result.success) {
+        setCreated(result.category);
+        onRefresh?.();
+        return result.category;
+      }
+      return null;
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [created, isDisabledMasked, onRefresh]);
   const archiveStation = useCallback(() => applyStatus('archived'), [applyStatus]);
   const trashStation   = useCallback(() => applyStatus('trashed'), [applyStatus]);
 
@@ -272,26 +298,10 @@ export function useCategoryStation(
     }
   }, [created, onRefresh]);
 
-  // The pending record's one authoritative creation. Persists the drafted
-  // Overview as a brand-new Category — the same "born disabled, overview
-  // pending" state as any other newly created Category, so every existing
-  // lifecycle/footer computation applies unchanged from here.
-  const createCategory = useCallback(async (): Promise<CategoryStationItem | null> => {
-    setStatusSaving(true);
-    try {
-      const response = await createCategoryApi({ name: pendingDraft.name, description: pendingDraft.description });
-      if (!response.success) throw new Error(response.message ?? 'Could not create the Category.');
-      setCreated(response.category);
-      onRefresh?.();
-      return response.category;
-    } finally {
-      setStatusSaving(false);
-    }
-  }, [pendingDraft, onRefresh]);
-
   return {
     platformStatus,
     isActive,
+    isDisabledMasked,
     isNew,
     category:      created,
     displayName,
@@ -315,6 +325,5 @@ export function useCategoryStation(
     trashStation,
     restoreStation,
     deleteStation,
-    createCategory,
   };
 }

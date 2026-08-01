@@ -129,14 +129,7 @@ export function useCategoryDrawerController({
 
   const handleConfirmPublish = useCallback(async () => {
     setConfirmDialog(null);
-    // A pending Category addresses no stored term: the footer's Publish is
-    // this record's one authoritative creation, not a settle/activate pair
-    // against an id that does not exist yet — mirrors Package Family's `'new'`
-    // guard on the same action.
-    if (!station.category) {
-      await runLifecycle(() => station.createCategory());
-      return;
-    }
+    if (!station.category) return;
     await runLifecycle(station.isActive ? station.settleModules : station.publishCategory);
   }, [runLifecycle, station]);
 
@@ -166,7 +159,7 @@ export function useCategoryDrawerController({
   }, [closeBypassingGuard, confirmDialog, runLifecycle, station]);
 
   const isActive = station.isActive;
-  const isNewNeverPublished = station.platformStatus === 'disabled' && station.moduleStatus.overview !== 'settled';
+  const isNewNeverPublished = station.category === null;
   const hasBeenPublished = isActive || station.moduleStatus.overview === 'settled';
   const canPublish = station.modules.overview.status === 'pending-full' || (isActive && station.hasDraft);
 
@@ -191,6 +184,7 @@ export function useCategoryDrawerController({
     state: evaluateModule(categoryServicesModule, counts, {
       platformStatus: station.platformStatus,
       platformLabel: 'Category',
+      disabled: station.isDisabledMasked,
     }),
     hasDraft: false,
     handlers: {},
@@ -217,6 +211,7 @@ export function useCategoryDrawerController({
     setExitDialog,
     actionError,
     isActive,
+    isDisabledMasked: station.isDisabledMasked,
     isNewNeverPublished,
     hasBeenPublished,
     canPublish,

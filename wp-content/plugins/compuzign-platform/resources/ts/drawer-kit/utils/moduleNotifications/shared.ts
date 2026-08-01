@@ -22,7 +22,7 @@ export interface NoteContext {
   parentReady?:      boolean;  // true once the parent module is complete
   parentLabel?:      string;   // parent name shown in the waiting note, e.g. 'Tier Overview'
   platformLabel?:    string;   // entity name used by the shared inactive-state note
-  // Explicit Disable mask (Service today — see ServiceMeta.previous_platform_status).
+  // Explicit Disable mask (Service and Category use previous_platform_status).
   // Never inferred from a record simply never activated. Only a station that sets
   // this opts in; every other domain leaves it undefined and is unaffected.
   disabled?:         boolean;

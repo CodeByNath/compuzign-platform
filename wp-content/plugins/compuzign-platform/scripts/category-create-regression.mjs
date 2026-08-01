@@ -1,21 +1,9 @@
-// Service Home "Create Category" mounted regression.
+// Category pending-draft lifecycle mounted regression.
 //
-// No component-mounting test framework (vitest/jest/testing-library) exists in
-// this repository — every other frontend "contract" here is a source-text
-// assertion, not a rendered check. Whether Create Category really opens the
-// mature, neutral Category drawer pending, whether inline Save really makes no
-// create call, and whether footer Publish really creates the record exactly
-// once and keeps the SAME composition mounted through the identity transition
-// cannot be proven or disproven that way, so this script mounts the REAL
-// CategoryDrawerHost composition — bundled with esbuild (the same technique
-// scripts/service-create-regression.mjs and
-// scripts/tier-system-footer-loop-regression.mjs already use) — into a real
-// DOM via happy-dom and Preact's own render(). Only the network boundary
-// (fetch) is faked; hooks, the controller, the composition, and the DOM are
-// the actual shipping code.
-//
-// Usage: npm run regression:category-create
-//    or: node scripts/category-create-regression.mjs
+// Mounts the real CategoryDrawerHost with Preact and happy-dom. Only fetch is
+// faked: the station, controller, footer, notification rules, and editors are
+// the shipping code. It locks the contract that Overview Save creates the
+// persisted Pending record in place; Publish is later settlement + activation.
 
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
@@ -25,12 +13,10 @@ import { Window } from 'happy-dom';
 
 const require = createRequire(import.meta.url);
 const { build } = require('esbuild');
-
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outFile = resolve(root, 'node_modules/.cache/cz-category-create-bundle.mjs');
 mkdirSync(dirname(outFile), { recursive: true });
 
-// ── DOM shim ─────────────────────────────────────────────────────────────
 const window = new Window({ url: 'https://cz-test.local/' });
 globalThis.window = window;
 globalThis.document = window.document;
@@ -40,66 +26,99 @@ globalThis.HTMLElement = window.HTMLElement;
 globalThis.Node = window.Node;
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
-
 window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'test-nonce' };
 
-// ── Fetch mock — the only faked boundary ────────────────────────────────
-let createCategoryCalls = 0;
+let createCalls = 0;
 let overviewSaveCalls = 0;
-let lastCreatePayload = null;
+let settleCalls = 0;
+let activateCalls = 0;
+let disableCalls = 0;
+let enableCalls = 0;
+const lifecycleIds = [];
 const CREATED_ID = 701;
+let serverCategory = null;
+
+function response(body) {
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve(body),
+    text: () => Promise.resolve(JSON.stringify(body)),
+  });
+}
+
+function categoryResponse() {
+  return { ...serverCategory, module_status: { ...serverCategory.module_status } };
+}
 
 globalThis.fetch = (url, init = {}) => {
   const path = String(url);
-  const method = (init?.method ?? 'GET').toUpperCase();
+  const method = (init.method ?? 'GET').toUpperCase();
+  const body = init.body ? JSON.parse(init.body) : {};
 
-  if (path.endsWith('/admin/categories') && method === 'GET') {
-    return jsonResponse({ categories: [] });
-  }
-  if (path.endsWith('/admin/services') && method === 'GET') {
-    return jsonResponse({ categories: [], stations: [] });
-  }
+  if (path.endsWith('/admin/categories') && method === 'GET') return response({ categories: [] });
+  if (path.endsWith('/admin/services') && method === 'GET') return response({ categories: [], stations: [] });
+
   if (path.endsWith('/admin/categories') && method === 'POST') {
-    createCategoryCalls += 1;
-    const payload = JSON.parse(init.body);
-    lastCreatePayload = payload;
-    return jsonResponse({
-      success: true,
-      category: {
-        id: CREATED_ID,
-        name: payload.name,
-        slug: 'regression-test-category',
-        description: payload.description ?? '',
-        platform_status: 'disabled',
-        previous_platform_status: '',
-        module_status: { overview: 'pending' },
-        has_draft: true,
-        assigned_count: 0,
-      },
-    });
-  }
-  if (path.includes(`/admin/categories/${CREATED_ID}/overview`) && method === 'PUT') {
-    overviewSaveCalls += 1;
-    const payload = JSON.parse(init.body);
-    return jsonResponse({
-      success: true,
-      draft: { name: payload.name, description: payload.description ?? '' },
+    createCalls += 1;
+    serverCategory = {
+      id: CREATED_ID,
+      name: body.name,
+      slug: 'regression-category',
+      description: body.description ?? '',
+      platform_status: 'disabled',
+      previous_platform_status: '',
       module_status: { overview: 'pending' },
-    });
+      has_draft: true,
+      assigned_count: 0,
+    };
+    return response({ success: true, category: categoryResponse() });
   }
-  return Promise.reject(new Error(`Unexpected fetch in regression harness: ${method} ${path}`));
 
-  function jsonResponse(body) {
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(body),
-      text: () => Promise.resolve(JSON.stringify(body)),
+  if (path.endsWith(`/admin/categories/${CREATED_ID}/overview`) && method === 'PUT') {
+    overviewSaveCalls += 1;
+    serverCategory.name = body.name;
+    serverCategory.description = body.description ?? '';
+    serverCategory.has_draft = true;
+    serverCategory.module_status = { overview: 'pending' };
+    return response({
+      success: true,
+      draft: { name: serverCategory.name, description: serverCategory.description },
+      module_status: { ...serverCategory.module_status },
     });
   }
+
+  if (path.endsWith(`/admin/categories/${CREATED_ID}/overview/settle`) && method === 'POST') {
+    settleCalls += 1;
+    lifecycleIds.push(CREATED_ID);
+    serverCategory.has_draft = false;
+    serverCategory.module_status = { overview: 'settled' };
+    return response({ success: true, category: categoryResponse() });
+  }
+
+  if (path.endsWith(`/admin/categories/${CREATED_ID}/status`) && method === 'PATCH') {
+    lifecycleIds.push(CREATED_ID);
+    if (body.platform_status === 'active') {
+      activateCalls += 1;
+      serverCategory.platform_status = 'active';
+      serverCategory.previous_platform_status = '';
+    } else if (body.action === 'disable') {
+      disableCalls += 1;
+      serverCategory.platform_status = 'disabled';
+      serverCategory.previous_platform_status = 'active';
+    } else if (body.action === 'enable') {
+      enableCalls += 1;
+      serverCategory.platform_status = 'disabled';
+      serverCategory.previous_platform_status = '';
+    } else {
+      return Promise.reject(new Error(`Unexpected Category status payload: ${JSON.stringify(body)}`));
+    }
+    return response({ success: true, category: categoryResponse() });
+  }
+
+  return Promise.reject(new Error(`Unexpected fetch in Category regression: ${method} ${path}`));
 };
 
-// ── Bundle the REAL composition ─────────────────────────────────────────
 await build({
   entryPoints: [resolve(root, 'resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx')],
   bundle: true,
@@ -114,154 +133,187 @@ await build({
 
 const { CategoryDrawerHost } = await import(pathToFileURL(outFile).href);
 const { h, render } = await import('preact');
-const { useState, useMemo, useRef } = await import('preact/hooks');
+const { useMemo, useRef, useState } = await import('preact/hooks');
 
-// ── Harness ──────────────────────────────────────────────────────────────
 let setFooterCalls = 0;
-let onSavedCalls = 0;
-let lastFooter = null;
+let latestFooter = null;
 
 function Harness() {
   const [, setFooterState] = useState(null);
   const setFooterRef = useRef(setFooterState);
   setFooterRef.current = setFooterState;
-
   const setFooter = useMemo(() => (footer) => {
     setFooterCalls += 1;
-    lastFooter = footer;
+    if (footer) latestFooter = footer;
     setFooterRef.current(footer);
   }, []);
-  const onClose = useMemo(() => () => {}, []);
-  const onModeChange = useMemo(() => () => {}, []);
-  const onSaved = useMemo(() => () => { onSavedCalls += 1; }, []);
-  const setCloseGuard = useMemo(() => () => {}, []);
-
+  const noop = useMemo(() => () => {}, []);
   return h(CategoryDrawerHost, {
-    recordId: 'new',
-    mode: 'view',
-    onClose,
-    onModeChange,
-    onSaved,
-    setFooter,
-    setCloseGuard,
+    recordId: 'new', mode: 'view', onClose: noop, onModeChange: noop,
+    onSaved: noop, setFooter, setCloseGuard: noop,
   });
 }
 
 const container = document.createElement('div');
 document.body.appendChild(container);
-
+const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 const HOST_LOADING_TEXT = 'Loading Category';
-let loadingTextSeenDuringLastWait = false;
+let loadingSeen = false;
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function waitToSettle(maxTicks = 400, quietTicksNeeded = 15) {
-  loadingTextSeenDuringLastWait = false;
+async function settle(maxTicks = 400, quietTicks = 15) {
+  loadingSeen = false;
   let quiet = 0;
   let previous = setFooterCalls;
   for (let tick = 0; tick < maxTicks; tick += 1) {
     await sleep(5);
-    if (container.textContent.includes(HOST_LOADING_TEXT)) loadingTextSeenDuringLastWait = true;
+    if (container.textContent.includes(HOST_LOADING_TEXT)) loadingSeen = true;
     if (setFooterCalls === previous) {
       quiet += 1;
-      if (quiet >= quietTicksNeeded) return { settled: true, ticks: tick };
+      if (quiet >= quietTicks) return true;
     } else {
       quiet = 0;
       previous = setFooterCalls;
     }
   }
-  return { settled: false, ticks: maxTicks };
+  return false;
 }
 
 const failures = [];
-function check(label, cond, detail) {
-  if (cond) {
-    console.log(`  ok — ${label}`);
-  } else {
+function check(label, condition, detail = '') {
+  if (condition) console.log(`  ok — ${label}`);
+  else {
     console.error(`  FAIL — ${label}${detail ? `: ${detail}` : ''}`);
     failures.push(label);
   }
 }
-
-function clickButtonWithText(text) {
-  const btn = [...container.querySelectorAll('button')].find((b) => b.textContent.trim() === text);
-  btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  return btn;
+function clickButton(text) {
+  const button = [...container.querySelectorAll('button')].find((item) => item.textContent.trim() === text);
+  button?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return button;
+}
+function overviewModule() {
+  return [...container.querySelectorAll('.drawerModule')]
+    .find((item) => item.querySelector('.drawerModule__title')?.textContent.trim() === 'Category Overview') ?? null;
+}
+function overviewPillText() {
+  return overviewModule()?.querySelector('.cz-module-status-pill')?.textContent.trim() ?? '';
+}
+function overviewIsDim() {
+  return overviewModule()?.querySelector('.drawerModule__status')?.classList.contains('drawerModule__status--dim') ?? false;
+}
+function modulePillTexts() {
+  return [...container.querySelectorAll('.cz-module-status-pill')].map((pill) => pill.textContent.trim());
+}
+async function revealOverviewNote(note) {
+  if (container.textContent.includes(note)) return;
+  overviewModule()?.querySelector('.cz-module-status-pill')?.dispatchEvent(
+    new window.MouseEvent('click', { bubbles: true }),
+  );
+  await sleep(10);
 }
 
-console.log('Service Home "Create Category" regression\n');
+console.log('Category pending-draft lifecycle regression\n');
 
-console.log("1) Mount CategoryDrawerHost at recordId 'new' and let the initial fetches settle");
+console.log('1) Open the real new-Category drawer');
 render(h(Harness), container);
-let result = await waitToSettle();
-check('mount settles within the observation window', result.settled, `ticks=${result.ticks}`);
-check('the pending drawer never rendered the host\'s full "Loading Category…" replacement', !loadingTextSeenDuringLastWait);
-check('a footer was registered on mount', setFooterCalls > 0);
-check('the Overview module is editable from the pending state (an Edit button is present)',
-  [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Edit'));
+check('mount settles', await settle());
+check('new Overview starts dim Pending', overviewPillText() === 'Pending', overviewPillText());
+check('new Overview has the dim Pending treatment', overviewIsDim());
+await revealOverviewNote('Edit and name this category.');
+check('new Overview explains that it needs a name', container.textContent.includes('Edit and name this category.'));
+check('new drawer is not replaced by a loading mask', !loadingSeen);
 
-console.log('2) Fill the Overview draft through a real DOM edit session (Edit → type → Save)');
-clickButtonWithText('Edit');
-await sleep(20);
+console.log('2) Save a complete Overview; this creates the persisted Pending Category');
+clickButton('Edit');
+await sleep(10);
 const nameInput = container.querySelector('#cz-category-name');
-check('the name field is present once the editor is open', nameInput != null);
-nameInput.value = 'Regression Test Category';
-nameInput.dispatchEvent(new window.Event('input', { bubbles: true }));
-await sleep(20);
-
-clickButtonWithText('Save');
-result = await waitToSettle();
-check(
-  'inline Save (local draft commit) settles and makes no create request',
-  result.settled && createCategoryCalls === 0,
-  `settled=${result.settled}, createCategoryCalls=${createCategoryCalls}`,
-);
-check('the typed name is reflected in the rendered Overview', container.textContent.includes('Regression Test Category'));
-
-console.log('3) Invoke Publish, then confirm Create in the real dialog');
-check('captured footer exposes onPublish', typeof lastFooter?.props?.onPublish === 'function');
-lastFooter.props.onPublish();
-await sleep(20);
-const createButton = clickButtonWithText('Create');
-check('the publish-confirm dialog rendered a "Create" action for the pending record', createButton != null);
-result = await waitToSettle();
-check('publish settles within the observation window', result.settled, `ticks=${result.ticks}`);
-check(
-  'CategoryDrawerHost never fell back to its full "Loading Category…" state during Publish',
-  !loadingTextSeenDuringLastWait,
-);
-check('createCategory called exactly once', createCategoryCalls === 1, `createCategoryCalls=${createCategoryCalls}`);
-check(
-  'the create payload carries no group_id (Service Category Group audit)',
-  lastCreatePayload !== null && !('group_id' in lastCreatePayload),
-  JSON.stringify(lastCreatePayload),
-);
-check('the created Category name is still rendered after Publish (same mounted composition, real id)',
-  container.textContent.includes('Regression Test Category'));
-
-console.log('4) A second inline Save now routes through the real update endpoint (proves the real id is active)');
-clickButtonWithText('Edit');
-await sleep(20);
-const nameInputAfter = container.querySelector('#cz-category-name');
-check('the Overview editor reopens against the persisted record', nameInputAfter != null);
-if (nameInputAfter) {
-  nameInputAfter.value = 'Regression Test Category (updated)';
-  nameInputAfter.dispatchEvent(new window.Event('input', { bubbles: true }));
-  await sleep(20);
+const descriptionInput = container.querySelector('#cz-category-description');
+check('Overview editor opened', nameInput !== null && descriptionInput !== null);
+if (nameInput) {
+  nameInput.value = 'Networking';
+  nameInput.dispatchEvent(new window.Event('input', { bubbles: true }));
 }
-clickButtonWithText('Save');
-result = await waitToSettle();
-check(
-  'the post-creation Save calls the real per-id overview endpoint exactly once',
-  overviewSaveCalls === 1,
-  `overviewSaveCalls=${overviewSaveCalls}`,
-);
+if (descriptionInput) {
+  descriptionInput.value = 'Network design and support.';
+  descriptionInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+clickButton('Save');
+check('Overview Save settles', await settle());
+check('Overview Save creates exactly one Category', createCalls === 1, `createCalls=${createCalls}`);
+check('Overview Save does not settle before Publish', settleCalls === 0, `settleCalls=${settleCalls}`);
+check('Overview Save does not activate before Publish', activateCalls === 0, `activateCalls=${activateCalls}`);
+check('the returned identity remains in the same mounted drawer', container.textContent.includes('Networking'));
+check('the hand-off does not substitute the loading mask', !loadingSeen);
+check('saved Overview is full Pending', overviewPillText() === 'Pending', overviewPillText());
+check('saved Overview no longer uses the dim Pending treatment', !overviewIsDim());
+await revealOverviewNote('Waiting for Category publication');
+check('saved Overview keeps the publication notification', container.textContent.includes('Waiting for Category publication'));
+check('the footer now offers Publish for the persisted record', typeof latestFooter?.props?.onPublish === 'function');
 
-console.log('');
+console.log('3) Publish settles the existing returned ID and activates it');
+latestFooter.props.onPublish();
+await sleep(10);
+const publishButton = clickButton('Publish');
+check('Publish confirmation is Publish, never Create', publishButton !== null);
+check('Publish settles', await settle());
+check('Publish did not create a second Category', createCalls === 1, `createCalls=${createCalls}`);
+check('Publish settled Overview once', settleCalls === 1, `settleCalls=${settleCalls}`);
+check('Publish activated once', activateCalls === 1, `activateCalls=${activateCalls}`);
+check('all Publish lifecycle requests use the returned ID', lifecycleIds.every((id) => id === CREATED_ID), JSON.stringify(lifecycleIds));
+check('published Overview is Active', overviewPillText() === 'Active', overviewPillText());
+
+console.log('4) Disable masks every Category module; Enable restores Pending without publishing');
+latestFooter.props.onToggleActive();
+check('Disable settles', await settle());
+check('Disable uses the explicit mask action', disableCalls === 1, `disableCalls=${disableCalls}`);
+check('Disabled Overview uses the Disabled pill', overviewPillText() === 'Disabled', overviewPillText());
+check('Disable masks every Category module pill', modulePillTexts().every((text) => text === 'Disabled'), modulePillTexts().join(', '));
+await revealOverviewNote('Category is disabled');
+check('Disabled Overview explains the explicit state', container.textContent.includes('Category is disabled'));
+check('footer marks the explicit disabled mask', latestFooter.props.isDisabledMasked === true);
+
+latestFooter.props.onToggleActive();
+check('Enable settles', await settle());
+check('Enable clears only the explicit mask', enableCalls === 1, `enableCalls=${enableCalls}`);
+check('Enable did not settle or activate', settleCalls === 1 && activateCalls === 1, `settle=${settleCalls}, active=${activateCalls}`);
+check('enabled Category returns to full Pending', overviewPillText() === 'Pending', overviewPillText());
+await revealOverviewNote('Waiting for Category publication');
+check('enabled Category again waits for publication', container.textContent.includes('Waiting for Category publication'));
+check('footer no longer treats the unmasked Pending record as disabled', latestFooter.props.isDisabledMasked === false);
+
+console.log('5) Clearing Description is an authoritative empty save, not stale text');
+clickButton('Edit');
+await sleep(10);
+const descriptionAfterEnable = container.querySelector('#cz-category-description');
+check('Overview editor reopens after Enable', descriptionAfterEnable !== null);
+if (descriptionAfterEnable) {
+  descriptionAfterEnable.value = '';
+  descriptionAfterEnable.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+await sleep(20);
+clickButton('Save');
+check('description clear Save settles', await settle());
+check('the persisted Overview endpoint receives the clear', overviewSaveCalls === 1, `overviewSaveCalls=${overviewSaveCalls}`);
+clickButton('Edit');
+await sleep(10);
+const reopenedDescription = container.querySelector('#cz-category-description');
+check('reopened Description is empty, not stale Networking text', reopenedDescription?.value === '', `value=${reopenedDescription?.value}`);
+clickButton('Cancel');
+await sleep(10);
+
+console.log('6) Publish again settles the saved empty Description and reactivates without creation');
+latestFooter.props.onPublish();
+await sleep(10);
+clickButton('Publish');
+check('republish settles', await settle());
+check('republish still creates no second Category', createCalls === 1, `createCalls=${createCalls}`);
+check('republish settles the saved draft and activates', settleCalls === 2 && activateCalls === 2, `settle=${settleCalls}, active=${activateCalls}`);
+check('server-side response retains the cleared Description', serverCategory.description === '', `description=${serverCategory.description}`);
+
 if (failures.length > 0) {
-  console.error(`REGRESSION FAILED — ${failures.length} check(s) did not hold:`);
-  for (const f of failures) console.error(`  - ${f}`);
+  console.error(`\nREGRESSION FAILED — ${failures.length} check(s):`);
+  failures.forEach((failure) => console.error(`  - ${failure}`));
   process.exit(1);
 }
-console.log('All checks passed — Create Category opens the mature drawer pending, inline Save stays local, and Publish creates exactly once in place.');
-process.exit(0);
+console.log('\nAll Category pending-draft lifecycle checks passed.');

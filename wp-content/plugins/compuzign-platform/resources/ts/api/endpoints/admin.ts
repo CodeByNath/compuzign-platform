@@ -66,8 +66,8 @@ export function fetchAdminCategories(platformStatus?: 'archived' | 'trashed'): P
   return apiClient.get<CategoryListResponse>(path);
 }
 
-// Station create (D3): born disabled; overview settles immediately when the
-// payload is complete. Duplicate names fail (no return-existing convenience).
+// Station create: born as an unmasked Pending record with its Overview draft.
+// Duplicate names fail (no return-existing convenience).
 export function createCategory(payload: {
   name:         string;
   description?: string;
@@ -101,6 +101,16 @@ export function updateCategoryStatus(
   return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, {
     platform_status: platformStatus,
   });
+}
+
+// Disable/Enable are an explicit presentation mask, distinct from the
+// platform_status shape Publish, Archive, and Trash use.
+export function disableCategory(categoryId: number): Promise<CategoryMutationResponse> {
+  return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, { action: 'disable' });
+}
+
+export function enableCategory(categoryId: number): Promise<CategoryMutationResponse> {
+  return apiClient.patch<CategoryMutationResponse>(`admin/categories/${categoryId}/status`, { action: 'enable' });
 }
 
 // Server-driven restore — resolves previous_platform_status, lands disabled.

@@ -30,8 +30,9 @@ use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
  * moved from AdminServicesController because they own Category terms rather
  * than the Service entity; their URLs and behaviour are unchanged. They keep
  * producing immediately-usable categories (D3: no meta = lazy active).
- * Station-created categories follow the station convention instead: born
- * 'disabled', activated by Publish.
+ * Station-created Categories persist as unmasked Pending records and Publish
+ * settles/activates them later. Explicit Disable is a separate presentation
+ * mask, never the name for the Pending storage state.
  *
  * Note both this class and Service\Http\ServiceController expose an
  * `updateStatus` handler. They are distinct routes (PATCH
@@ -64,7 +65,7 @@ class AdminCategoriesController
             ],
         ]);
 
-        // ── Station create (D3: born disabled) ────────────────────────────────
+        // ── Station create (born unmasked Pending) ────────────────────────────
         register_rest_route('compuzign/v1', '/admin/categories', [
             'methods'             => 'POST',
             'callback'            => [$this, 'createCategory'],
@@ -119,9 +120,14 @@ class AdminCategoriesController
             'args'                => [
                 'id'              => ['required' => true, 'type' => 'integer'],
                 'platform_status' => [
-                    'required' => true,
+                    'required' => false,
                     'type'     => 'string',
                     'enum'     => CategoryMeta::ALLOWED_PLATFORM_STATUSES,
+                ],
+                'action' => [
+                    'required' => false,
+                    'type'     => 'string',
+                    'enum'     => ['disable', 'enable'],
                 ],
             ],
         ]);
@@ -223,8 +229,8 @@ class AdminCategoriesController
     }
 
     /**
-     * Station create (D3): term + meta, born 'disabled'; overview settles
-     * immediately when the payload is complete, otherwise starts 'pending'.
+     * Station create: term + canonical fields + pending Overview draft. The
+     * complete Overview Save is the creation boundary; Publish settles it later.
      * Duplicates fail — the inline flow's return-existing convenience is a
      * service-edit affordance, not station behaviour.
      */
@@ -244,21 +250,19 @@ class AdminCategoriesController
 
         $termId = (int) $result['term_id'];
 
-        if ($description !== '') {
-            update_term_meta($termId, CategoryMeta::DESCRIPTION_META, $description);
-        }
+        $this->writeDescription($termId, $description);
 
-        // module_status.overview is always 'pending' on creation, regardless of
-        // completeness — matching ServiceController::createService exactly
-        // (bug fix: settling immediately when complete skipped the 'pending'
-        // transition, which is the only state categoryOverviewModule.resolveStatus
-        // maps to 'pending-full' — the state canPublish requires. A category
-        // that arrived already-'settled' fell through to 'disabled' and could
-        // never show Publish, only Enable).
+        // Keep the saved Overview as a pending draft even though its canonical
+        // term fields have been seeded. This preserves the Pending notification
+        // until Publish settles the module and activates the Category.
         CategoryMeta::write($termId, [
             'platform_status' => StationLifecycle::STATUS_DISABLED,
             'module_status'   => [
                 'overview' => StationLifecycle::MODULE_PENDING,
+            ],
+            'overview_draft' => [
+                'name'        => $name,
+                'description' => $description,
             ],
         ]);
 
@@ -314,7 +318,7 @@ class AdminCategoriesController
                     return new \WP_REST_Response(['success' => false, 'message' => $updated->get_error_message()], 422);
                 }
             }
-            update_term_meta($termId, CategoryMeta::DESCRIPTION_META, $draft['description']);
+            $this->writeDescription($termId, $draft['description']);
         }
 
         CategoryMeta::clearOverviewDraft($termId);
@@ -342,8 +346,8 @@ class AdminCategoriesController
     }
 
     /**
-     * Engine transition via StationLifecycle::applyStatus — previous_platform_status
-     * is captured on bin entry and preserved on bin→bin moves (capturePrevious rule).
+     * Engine transition via StationLifecycle::applyStatus, with explicit
+     * Disable/Enable kept as a separate mask request shape.
      */
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -352,12 +356,15 @@ class AdminCategoriesController
             return new \WP_REST_Response(['success' => false, 'message' => 'Category not found.'], 404);
         }
 
+        $termId = (int) $term->term_id;
+        if ($request->has_param('action')) {
+            return $this->updateDisabledMask($termId, (string) $request->get_param('action'));
+        }
+
         $target = sanitize_text_field((string) $request->get_param('platform_status'));
         if (!in_array($target, CategoryMeta::ALLOWED_PLATFORM_STATUSES, true)) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Invalid platform_status.'], 422);
         }
-
-        $termId = (int) $term->term_id;
 
         $change = StationLifecycle::applyStatus(
             CategoryMeta::status($termId),
@@ -471,9 +478,7 @@ class AdminCategoriesController
 
         $termId = (int) $result['term_id'];
 
-        if ($desc !== '') {
-            update_term_meta($termId, 'cz_category_description', $desc);
-        }
+        $this->writeDescription($termId, $desc);
 
         $term = get_term($termId, CategoryMeta::TAXONOMY);
 
@@ -509,7 +514,7 @@ class AdminCategoriesController
         }
 
         if ($desc !== null) {
-            update_term_meta($termId, 'cz_category_description', $desc);
+            $this->writeDescription($termId, $desc);
         }
 
         $updated = get_term($termId, CategoryMeta::TAXONOMY);
@@ -558,5 +563,49 @@ class AdminCategoriesController
         $projection['assigned_count'] = CategoryMeta::assignedServiceCount((int) $term->term_id);
 
         return $projection;
+    }
+
+    /** Explicit Disable is a reversible mask, not a publish/settle transition. */
+    private function updateDisabledMask(int $termId, string $action): \WP_REST_Response
+    {
+        $current  = CategoryMeta::status($termId);
+        $previous = CategoryMeta::previousStatus($termId);
+
+        if ($action === 'disable') {
+            if (!StationLifecycle::isLive($current)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Only an active or pending Category can be disabled.'], 422);
+            }
+            CategoryMeta::applyStatusChange($termId, [
+                'status'          => StationLifecycle::STATUS_DISABLED,
+                'previous_status' => $current === StationLifecycle::STATUS_ACTIVE || $previous === null ? $current : $previous,
+            ]);
+        } elseif ($action === 'enable') {
+            if ($current !== StationLifecycle::STATUS_DISABLED) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Only a disabled Category can be enabled.'], 422);
+            }
+            // Enable deliberately returns to the raw disabled/Pending storage
+            // state. It never settles drafts or activates the Category.
+            CategoryMeta::applyStatusChange($termId, [
+                'status'          => StationLifecycle::STATUS_DISABLED,
+                'previous_status' => null,
+            ]);
+        } else {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Invalid action.'], 422);
+        }
+
+        return rest_ensure_response([
+            'success'  => true,
+            'category' => $this->categoryResponse(get_term($termId, CategoryMeta::TAXONOMY)),
+        ]);
+    }
+
+    /** Empty is an authoritative Category description value, never stale meta. */
+    private function writeDescription(int $termId, string $description): void
+    {
+        if ($description === '') {
+            delete_term_meta($termId, CategoryMeta::DESCRIPTION_META);
+            return;
+        }
+        update_term_meta($termId, CategoryMeta::DESCRIPTION_META, $description);
     }
 }

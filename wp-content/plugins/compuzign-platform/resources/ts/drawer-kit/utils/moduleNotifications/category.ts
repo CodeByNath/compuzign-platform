@@ -25,21 +25,21 @@ export const categoryOverviewModule: ModuleDefinition<CategoryOverviewLike> = {
     if (!c.name.trim()) out.push({ id: 'category-overview.name.missing', message: 'Name missing', type: 'error' });
     return out;
   },
-  // Canonical 5-state resolution per the S6 blueprint: settled+active → active;
-  // incomplete → pending-dim; complete-unsettled → pending-full; platform
-  // disabled → disabled (the category is deliberately off, not awaiting first
-  // publish — deliberate divergence from the service overview's pending-full).
+  // A raw disabled platform state is the persisted Pending lifecycle value, not
+  // the Disabled pill. The shared evaluator applies that pill only when the
+  // owning station supplies its explicit Disable mask.
   resolveStatus: (c, ctx) => {
     if (ctx.moduleTransition === 'not-configured') return 'pending-dim';
     if (!c.name.trim())                            return 'pending-dim';
     if (ctx.moduleTransition === 'pending')        return 'pending-full';
-    return ctx.platformStatus === 'active' ? 'active' : 'disabled';
+    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
   },
 };
 
 // Category Services — the relation-summary gateway (D4). Pure synchronous
 // projection of assigned-service counts; no own lifecycle (Boundary Test), so
-// status follows the category's platform status. Precedent: tierFeaturesModule.
+// status follows the category's platform lifecycle. An empty relationship stays
+// dim; a populated relationship is Active only after Category publication.
 
 export interface CategoryServicesLike {
   total: number;
@@ -52,5 +52,8 @@ export const categoryServicesModule: ModuleDefinition<CategoryServicesLike> = {
   emptyPrompt: 'No Services are assigned to this Category yet.',
   isEmpty:     ({ total }) => total === 0,
   problems:    () => [],
-  resolveStatus: (_counts, ctx) => ctx.platformStatus === 'active' ? 'active' : 'disabled',
+  resolveStatus: (counts, ctx) => {
+    if (counts.total === 0) return 'pending-dim';
+    return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
+  },
 };

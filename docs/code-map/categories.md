@@ -11,7 +11,7 @@ Category owns numeric identity and Overview draft/lifecycle. Category carries no
 - [category.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/bindings/category.tsx) defines Category Overview and Assigned Services shells.
 - [category.ts](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/schema/entities/category.ts) is the neutral drawer manifest.
 - [CategoryOverviewEditor.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/entity-drawers/editors/CategoryOverviewEditor.tsx) edits name and description through the shared inline editor.
-- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell. It also resolves the stable `'new'` recordId sentinel to `category: null` — no fabricated CategoryStationItem — so the SAME composition opens on its ordinary Overview module with nothing to fetch; [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) represents that pending state with its own local Overview draft and exposes `createCategory()`, the footer Publish's one authoritative creation.
+- [CategoryDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/stations/serviceCategory/CategoryDrawerHost.tsx) is the Admin Station adapter; it resolves a native numeric id plus assigned Services and mounts the shared composition inside the one drawer shell. Its stable `'new'` sentinel resolves to `category: null` — no fabricated CategoryStationItem — so the same composition opens on its ordinary Overview module with nothing to fetch. A complete Overview Save creates the persisted Pending Category and `useCategoryStation.ts` seeds that returned projection inside the mounted drawer; Publish later settles and activates that same id.
 
 ## Ownership verdict and Admin Station's actual role
 
@@ -21,18 +21,18 @@ Category is a **neutral entity lifecycle mounted by Admin Station**, not Admin-o
 
 ## State and persistence
 
-- [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns draft-preferred local state, module evaluation, overview save/revert/settle/publish, status, archive/trash/restore/delete, and targeted mutation notification.
+- [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns draft-preferred local state, returned-ID hand-off, module evaluation, Overview create/save/revert/settle/publish, explicit Disable/Enable, archive/trash/restore/delete, and targeted mutation notification.
 - [AdminCategoriesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Http/AdminCategoriesController.php) owns Category routes.
 - [CategoryMeta.php](../../wp-content/plugins/compuzign-platform/src/Modules/Admin/Support/CategoryMeta.php) owns stored shape/readiness.
 - [admin.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/admin.ts) owns typed endpoint calls.
 
 ## Invariants
 
-Overview and Connections use shared schema shells, status pills, notifications, module footers, inline editor, and canonical lifecycle footer. Dirty close/tab changes are guarded. Presentation makes no API calls. Category id is never stringified.
+Overview and Connections use shared schema shells, status pills, notifications, module footers, inline editor, and canonical lifecycle footer. A new Overview is Pending-dim until named; its complete Save creates a raw disabled/unmasked Pending term and retains the publication notification. Only Publish settles and activates. Disable writes a reversible mask, so every module reads Disabled; Enable and archive/trash restore clear the mask and return to Pending rather than activating. Empty Description is authoritative: settlement deletes the owned description meta instead of retaining stale text. Dirty close/tab changes are guarded. Presentation makes no API calls. Category id is never stringified.
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, `npm run regression:category-create`, and `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `node scripts/module-state-snapshot.mjs`, `npm run regression:category-create`, `php tests/category-pending-lifecycle.php`, and `npm run docs:check`.
 
 ## Related Code Maps
 

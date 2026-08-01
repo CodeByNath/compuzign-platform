@@ -6,6 +6,10 @@ import { EntityActionFooter } from './EntityActionFooter';
 
 export interface CanonicalEntityFooterProps {
   platformStatus: string;
+  // A raw `disabled` value is also the unmasked Pending storage state. Only an
+  // explicit Disable action supplies this fact and changes the split action to
+  // Enable; omitted consumers retain the legacy platformStatus-only policy.
+  isDisabledMasked?: boolean;
   isNewNeverPublished: boolean;
   hasBeenPublished: boolean;
   canPublish: boolean;
@@ -23,6 +27,7 @@ export interface CanonicalEntityFooterProps {
 
 export function CanonicalEntityFooter({
   platformStatus,
+  isDisabledMasked,
   isNewNeverPublished,
   hasBeenPublished,
   canPublish,
@@ -37,6 +42,11 @@ export function CanonicalEntityFooter({
   onPublish,
   onClose,
 }: CanonicalEntityFooterProps) {
+  // Callers that predate the explicit-mask contract still use the original
+  // platform-status interpretation. Category opts in with `false` for its
+  // unmasked Pending state, which is the important distinction here.
+  const disabledMasked = isDisabledMasked ?? platformStatus === 'disabled';
+
   if (platformStatus === 'archived') {
     return (
       <EntityActionFooter
@@ -69,10 +79,10 @@ export function CanonicalEntityFooter({
     <EntityActionFooter
       split={{
         id: 'status',
-        label: platformStatus === 'active' ? 'Disable' : isNewNeverPublished ? 'Move to Trash' : 'Enable',
+        label: isNewNeverPublished ? 'Move to Trash' : disabledMasked ? 'Enable' : 'Disable',
         onSelect: isNewNeverPublished ? onTrash : onToggleActive,
         busy,
-        tone: platformStatus === 'active' || isNewNeverPublished ? 'danger' : 'secondary',
+        tone: disabledMasked ? 'secondary' : 'danger',
         open: splitOpen,
         onToggle: () => setSplitOpen((value) => !value),
         overflow: [

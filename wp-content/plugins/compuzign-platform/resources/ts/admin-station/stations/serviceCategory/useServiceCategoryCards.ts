@@ -26,6 +26,8 @@ export function useServiceCategoryCards() {
         platformStatus: category.platform_status,
         moduleTransition: category.module_status.overview,
         hasDraft: category.has_draft,
+        disabled: category.platform_status === 'disabled' && category.previous_platform_status !== '',
+        platformLabel: 'Category',
       });
       return {
         id: category.id,
