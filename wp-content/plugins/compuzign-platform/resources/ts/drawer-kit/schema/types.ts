@@ -57,7 +57,7 @@ export interface ShellBinding<T = unknown> {
   data: T;                            // draft-preferred module data (presentation projection)
   state: ModuleState;                 // from evaluateModule — status + notes
   hasDraft: boolean;
-  handlers: Record<string, () => void | Promise<void>>;  // keyed by action id
+  handlers: Partial<Record<string, () => void | Promise<void>>>;  // keyed by action id
   busy?: string | null;               // action id in flight
   connection?: StationConnectionDescriptor; // stable graph identity for Connections/Manager parity
 }

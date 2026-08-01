@@ -68,6 +68,7 @@ import {
   derivePendingOverviewComplete,
   derivePendingOverviewStatus,
   derivePendingOverviewNotes,
+  derivePendingChildNotes,
   deriveCanPublish,
   derivePackageSummary,
   deriveInclusionsSummary,
@@ -408,8 +409,15 @@ export function useServiceStation(
   const inclusionsStatus = resolveInclusionsStatus(inclusions, moduleStatus?.inclusions ?? 'not-configured', isActive, isDisabledMasked);
   const faqsStatus       = resolveFaqsStatus(faqs, moduleStatus?.faqs ?? 'not-configured', isActive, isDisabledMasked);
 
-  const inclusionsNotes = getInclusionsNotes(inclusions as unknown as ServiceInclusion[], noteCtxInclusions);
-  const faqsNotes       = getFaqsNotes(faqs as unknown as ServiceFaq[], noteCtxFaqs);
+  // Child modules have no persistence target until Overview Save creates the
+  // Service. Keep their ordinary Pending-dim shell visible but direct the
+  // admin to establish that identity first; the controller withholds Edit.
+  const inclusionsNotes = !service
+    ? derivePendingChildNotes('inclusions')
+    : getInclusionsNotes(inclusions as unknown as ServiceInclusion[], noteCtxInclusions);
+  const faqsNotes = !service
+    ? derivePendingChildNotes('faqs')
+    : getFaqsNotes(faqs as unknown as ServiceFaq[], noteCtxFaqs);
 
   // ── Derived: can publish ───────────────────────────────────────────────────
   const hasContentDraft =

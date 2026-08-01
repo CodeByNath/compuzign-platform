@@ -287,6 +287,19 @@ check('the pending drawer never rendered the host\'s full "Loading service…" r
 check('a footer was registered on mount', setFooterCalls > 0);
 check('the Overview module is editable from the pending state (an Edit button is present)',
   [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Edit'));
+const pendingInclusionsModule = findModule('Included Features');
+const pendingFaqsModule = findModule('Common Questions');
+const pendingInclusionsEdit = [...(pendingInclusionsModule?.querySelectorAll('button') ?? [])]
+  .find((button) => button.textContent.trim() === 'Edit');
+const pendingFaqsEdit = [...(pendingFaqsModule?.querySelectorAll('button') ?? [])]
+  .find((button) => button.textContent.trim() === 'Edit');
+check('child editors are locked until Overview Save creates the Service',
+  pendingInclusionsEdit?.disabled === true && pendingFaqsEdit?.disabled === true);
+const pendingInclusionsPill = pendingInclusionsModule?.querySelector('.cz-module-status-pill');
+pendingInclusionsPill?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+check('locked child notification directs the user to save Overview first',
+  pendingInclusionsModule?.textContent.includes('Save Service Overview before adding included features.'));
 
 console.log('2) Complete Overview and Save — this creates a persisted Pending Service record in place');
 clickButtonWithText('Edit');

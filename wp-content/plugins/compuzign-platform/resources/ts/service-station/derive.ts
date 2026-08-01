@@ -88,6 +88,16 @@ export function derivePendingOverviewNotes(draft: OverviewDraft): ModuleNote[] {
   return notes;
 }
 
+export function derivePendingChildNotes(module: 'inclusions' | 'faqs'): ModuleNote[] {
+  return [{
+    id:      `${module}.parent.create`,
+    message: module === 'inclusions'
+      ? 'Save Service Overview before adding included features.'
+      : 'Save Service Overview before adding common questions.',
+    type: 'info',
+  }];
+}
+
 // ── Module registry projections ───────────────────────────────────────────────
 
 export function derivePendingModules(

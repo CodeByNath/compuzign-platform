@@ -159,13 +159,20 @@ export function useServiceDrawerController({
     data:  { items: inclusions, serviceTitle: decodedServiceTitle },
     state: detailLoaded ? modules.inclusions : { status: 'loading', notes: [] },
     hasDraft: moduleStatus?.inclusions === 'pending' && hasInclusionsDraft,
-    handlers: { edit: editing.openInclusionsEditor, 'discard-draft': () => setDiscardConfirm('inclusions') },
+    // A child cannot open an editor until Overview Save has issued the Service
+    // id. The station supplies the matching Pending-dim guidance and remains
+    // the defensive write boundary if this presentation lock is bypassed.
+    handlers: service
+      ? { edit: editing.openInclusionsEditor, 'discard-draft': () => setDiscardConfirm('inclusions') }
+      : { 'discard-draft': () => setDiscardConfirm('inclusions') },
   };
   const faqsShellBinding: ShellBinding<ServiceFaqsShellData> = {
     data:  { items: faqs, serviceTitle: decodedServiceTitle },
     state: detailLoaded ? modules.faqs : { status: 'loading', notes: [] },
     hasDraft: moduleStatus?.faqs === 'pending' && hasFaqsDraft,
-    handlers: { edit: editing.openFaqsEditor, 'discard-draft': () => setDiscardConfirm('faqs') },
+    handlers: service
+      ? { edit: editing.openFaqsEditor, 'discard-draft': () => setDiscardConfirm('faqs') }
+      : { 'discard-draft': () => setDiscardConfirm('faqs') },
   };
 
   // Footer gate: Enable/Disable is meaningful once published at least once.
