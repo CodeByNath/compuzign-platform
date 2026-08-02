@@ -93,13 +93,23 @@ export function TierSystemContent({
     description: c.overview.description,
     familyLabel: c.familyLabel,
     reference:   c.instance?.tier_instance_id ?? null,
+    platformId:  c.instance?.cz_platform_id || null,
+    platformIdFallback: c.isPersisted ? 'Not assigned' : 'Assigned after Publish',
   };
+  const overviewState = evaluateModule(tierSystemOverviewModule, { titled: c.overview.title.trim().length > 0 }, {
+    platformStatus: c.instance?.status ?? 'draft',
+    platformLabel:  'Tier system',
+  });
+  if (c.isPersisted && c.instance?.status === 'disabled' && overviewState.status === 'pending-full') {
+    overviewState.notes = [{
+      id: 'tier-system-overview.occupants.activation',
+      message: 'This Tier Group becomes active through its active Tier occupants.',
+      type: 'info',
+    }];
+  }
   const overviewBinding: ShellBinding<TierSystemOverviewShellData> = {
     data: overviewData,
-    state: evaluateModule(tierSystemOverviewModule, { titled: c.overview.title.trim().length > 0 }, {
-      platformStatus: c.isPersisted ? 'active' : 'draft',
-      platformLabel:  'Tier system',
-    }),
+    state: overviewState,
     hasDraft: c.overviewHasUnappliedChanges,
     handlers: { edit: c.openOverviewEditor },
   };

@@ -12,6 +12,7 @@ export const TIER_SYSTEM_ENTITY: EntitySchema = {
   label: { singular: 'Tier System', plural: 'Tier Systems' },
   identity: {
     idOf: (data: { reference: string | null }) => data.reference ?? '',
+    platformIdOf: (data: { platformId: string | null }) => data.platformId ?? '',
     titleOf: (data: { title: string }) => data.title,
   },
   lifecycle: {

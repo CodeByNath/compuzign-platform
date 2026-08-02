@@ -28,6 +28,8 @@ export interface TierSystemOverviewShellData {
   familyLabel: string | null;
   /** Present only once the backend has minted it; never a placeholder id. */
   reference:   string | null;
+  platformId:  string | null;
+  platformIdFallback: string;
 }
 
 const OVERVIEW_ACTIONS: Record<string, ShellActionSchema> = {
@@ -65,6 +67,13 @@ export const tierSystemOverviewShell: ShellSchema<TierSystemOverviewShellData> =
       bind: (data): TextValue => ({
         value: data.reference ?? '',
         fallback: 'Minted on Publish',
+      }),
+    },
+    {
+      id: 'platform-id', element: 'text', label: 'Platform ID',
+      bind: (data): TextValue => ({
+        value: data.platformId ?? '',
+        fallback: data.platformIdFallback,
       }),
     },
   ],

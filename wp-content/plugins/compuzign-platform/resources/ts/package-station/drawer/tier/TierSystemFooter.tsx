@@ -8,7 +8,7 @@
 // have no safe backend seam to call. Extend this footer (or fold it into
 // CanonicalEntityFooter) once that backend work lands.
 
-import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
+import { SupportedActionFooter, type SupportedFooterAction } from '@/drawer-kit/SupportedActionFooter';
 import type { TierSystemFooterMode } from './useTierSystemController';
 
 interface TierSystemFooterProps {
@@ -29,30 +29,21 @@ export function TierSystemFooter({
   if (mode === 'none') return null;
 
   if (mode === 'pending') {
-    return (
-      <EntityActionFooter
-        close={{ id: 'close', label: 'Close', onSelect: onClose, disabled: saving }}
-        primary={{
-          id: 'publish', label: 'Publish', onSelect: onPublish,
-          disabled: saving || !canPublish, busy: saving, busyLabel: 'Publishing…',
-        }}
-      />
-    );
+    const actions: SupportedFooterAction[] = [
+      { id: 'close', label: 'Close', placement: 'close', onSelect: onClose, disabled: saving },
+      { id: 'publish', label: 'Publish', placement: 'primary', onSelect: onPublish,
+        disabled: saving || !canPublish, busy: saving, busyLabel: 'Publishing…' },
+    ];
+    return <SupportedActionFooter actions={actions} />;
   }
 
   // mode === 'persisted'
-  return (
-    <EntityActionFooter
-      split={{
-        id: 'delete', label: 'Delete', onSelect: onDelete,
-        busy: deleting, disabled: saving,
-        tone: 'danger', open: false, onToggle: () => {}, overflow: [],
-      }}
-      close={{ id: 'close', label: 'Close', onSelect: onClose, disabled: saving || deleting }}
-      primary={{
-        id: 'apply', label: 'Apply', onSelect: onApply,
-        disabled: saving || deleting || !canApply, busy: saving, busyLabel: 'Applying…',
-      }}
-    />
-  );
+  const actions: SupportedFooterAction[] = [
+    { id: 'delete', label: 'Delete', placement: 'split', onSelect: onDelete,
+      busy: deleting, disabled: saving, tone: 'danger' },
+    { id: 'close', label: 'Close', placement: 'close', onSelect: onClose, disabled: saving || deleting },
+    { id: 'apply', label: 'Apply', placement: 'primary', onSelect: onApply,
+      disabled: saving || deleting || !canApply, busy: saving, busyLabel: 'Applying…' },
+  ];
+  return <SupportedActionFooter actions={actions} />;
 }

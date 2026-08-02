@@ -289,9 +289,10 @@ check(
     && tierSystemController.includes("setEditingModule('rate-sheet-access')"),
   'Rate Sheet Access opens readable and enters editing only through Edit',
 );
+const tierAccessBinding = bodyBetween(tierSystemContent, 'const accessBinding', 'const name');
 check(
-  tierSystemContent.includes("platformStatus: 'active', platformLabel: 'Tier system' }),")
-    && !tierSystemContent.includes('platformStatus: c.instance'),
+  tierAccessBinding.includes("platformStatus: 'active', platformLabel: 'Tier system' }")
+    && !tierAccessBinding.includes('platformStatus: c.instance'),
   'the Rate Sheet Access module uses its own resolved-policy context rather than inheriting Tier System lifecycle notes',
 );
 
