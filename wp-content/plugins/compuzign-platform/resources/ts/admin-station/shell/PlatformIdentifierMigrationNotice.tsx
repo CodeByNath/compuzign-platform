@@ -5,8 +5,8 @@ import { ModuleNotificationPanel } from '@/drawer-kit/ui/ModuleNotificationPanel
 import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications/shared';
 import { Button } from '@/components/ui/Button';
 
-type EntityType = 'package_family_group' | 'tier_group' | 'tier' | 'tier_addon' | 'package_rate_card_group' | 'package_rate_card';
-const ENTITY_TYPES: EntityType[] = ['package_family_group', 'tier_group', 'tier', 'tier_addon', 'package_rate_card_group', 'package_rate_card'];
+type EntityType = 'package_family_group' | 'tier_group' | 'tier' | 'tier_addon' | 'package_rate_card_group' | 'package_rate_card' | 'package_rate_card_item';
+const ENTITY_TYPES: EntityType[] = ['package_family_group', 'tier_group', 'tier', 'tier_addon', 'package_rate_card_group', 'package_rate_card', 'package_rate_card_item'];
 interface Report { processed: number; would_assign: number; would_preserve: number; conflicts: Array<{ message: string }> }
 interface StatusResponse { complete: boolean; progress: Partial<Record<EntityType, { complete: boolean }>> }
 interface DryResponse { entity_type: EntityType; report: Report }
@@ -46,7 +46,7 @@ export function PlatformIdentifierMigrationNotice() {
     : conflicts.length > 0
       ? conflicts.map((conflict, index) => ({ id: `migration-conflict-${index}`, type: 'error', message: `${conflict.entityType}: ${conflict.message}` }))
       : [{ id: 'migration-required', type: 'info', message: reports
-          ? `Dry check: ${wouldAssign} Package/Tier records need Platform IDs; ${wouldPreserve} valid IDs will be preserved.`
+          ? `Dry check: ${wouldAssign} Package/Tier records and Rate Sheet rows need Platform IDs; ${wouldPreserve} valid IDs will be preserved.`
           : 'Checking existing Package and Tier Platform identifiers…' }];
 
   const assign = async () => {

@@ -70,6 +70,14 @@ $manager = PackageManagerSchema::defaultManager();
 $created = PackageCategoryGroups::create($manager['category_groups'], 'Alpha', '', 'pcg_alpha');
 $created = PackageCategoryGroups::create($created['groups'], 'Beta', '', 'pcg_beta', 'CZPGRAJ5F');
 $manager['category_groups'] = $created['groups'];
+$manager['rate_sheets'] = [[
+    'rate_sheet_id' => 'rs_legacy', 'cz_platform_id' => '', 'title' => 'Legacy', 'status' => 'active',
+    'groups' => [['group_id' => 'rate_group_a', 'cz_platform_id' => '', 'label' => 'A', 'sort_order' => 0]],
+    'items' => [
+        ['item_id' => 'rate_a', 'cz_platform_id' => '', 'source_item_id' => 'mgr_a', 'unit_price' => 10, 'per' => 'Per item', 'quantity' => 1, 'group_id' => 'rate_group_a', 'sort_order' => 0],
+        ['item_id' => 'rate_b', 'cz_platform_id' => 'CZPRCI22222', 'source_item_id' => 'mgr_b', 'unit_price' => 20, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null, 'sort_order' => 1],
+    ],
+]];
 $GLOBALS['mig_options'][PackageRepository::OPTION_KEY] = ['package_manager' => $manager, 'promotions' => []];
 
 $station = new PlatformIdentifierStation();
@@ -84,6 +92,7 @@ $GLOBALS['mig_options']['cz_package_family_identifier_migration_v1'] = [
     'complete' => true,
     'package_family_group' => ['complete' => true],
 ];
+$GLOBALS['mig_options']['cz_package_entity_identifier_migration_v2'] = ['complete' => true];
 $status = $controller->status(new WP_REST_Request())->get_data();
 migration_check($status['complete'] === false, 'expanded rollout does not inherit Package-Family-only completion');
 
@@ -96,8 +105,19 @@ $family = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_ty
 migration_check($family['entity_complete'] === true && $family['complete'] === false && str_starts_with($packages->familyPlatformId('pcg_alpha'), 'CZPG'), 'Family batch completes only its own scope and assigns the missing CZPG ID');
 migration_check($packages->familyPlatformId('pcg_beta') === 'CZPGRAJ5F', 'Family batch preserves CZPGRAJ5F exactly');
 migration_check($station->lookupNative(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_alpha')?->platformId() === $packages->familyPlatformId('pcg_alpha'), 'Family batch creates the reverse binding');
-migration_check($GLOBALS['mig_autoload']['cz_package_entity_identifier_migration_v2'] === 'no', 'expanded rollout progress option is non-autoloaded');
-migration_check(!isset($GLOBALS['mig_options']['cz_package_entity_identifier_migration_lock_v2']), 'short-lived expanded-rollout lock is released');
+migration_check($GLOBALS['mig_autoload']['cz_package_entity_identifier_migration_v3'] === 'no', 'final row rollout progress option is non-autoloaded');
+migration_check(!isset($GLOBALS['mig_options']['cz_package_entity_identifier_migration_lock_v3']), 'short-lived final-rollout lock is released');
+
+$rowReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference::rateSheetItem('rs_legacy', 'rate_b');
+$station->ensure(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, $rowReference,
+    fn(): string => $packages->rateSheetPlatformId($rowReference, 'item'),
+    fn(int|string $id, string $platformId): bool => $packages->claimRateSheetPlatformId((string) $id, $platformId, 'item'));
+$rowDry = $controller->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => 'package_rate_card_item']))->get_data();
+migration_check($rowDry['report']['processed'] === 2 && $rowDry['report']['would_assign'] === 1 && $rowDry['report']['would_preserve'] === 1, 'CZPRCI dry check enumerates bounded rate_sheet_id + item_id rows and preserves valid IDs');
+$rowBatch = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'package_rate_card_item']))->get_data();
+$rowAReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference::rateSheetItem('rs_legacy', 'rate_a');
+migration_check($rowBatch['entity_complete'] === true && str_starts_with($packages->rateSheetPlatformId($rowAReference, 'item'), 'CZPRCI'), 'final migration assigns missing legacy row CZPRCI');
+migration_check($packages->rateSheetPlatformId($rowReference, 'item') === 'CZPRCI22222', 'final migration preserves an existing valid CZPRCI exactly');
 
 $stored = $GLOBALS['mig_options'][PackageRepository::OPTION_KEY];
 $stored['package_manager']['category_groups'][0]['cz_platform_id'] = 'invalid';

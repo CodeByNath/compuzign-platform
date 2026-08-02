@@ -30,9 +30,10 @@ final class ExistingRecordAssignmentCommand
             'tier-addon',
             'rate-sheet-group',
             'rate-sheet',
+            'rate-sheet-item',
         ];
         if (!in_array($entityType, $selectors, true)) {
-            \WP_CLI::error('Entity must be service, category, package-family, tier-group, tier, tier-addon, rate-sheet-group, or rate-sheet.');
+            \WP_CLI::error('Entity must be service, category, package-family, tier-group, tier, tier-addon, rate-sheet-group, rate-sheet, or rate-sheet-item.');
         }
 
         $limit  = filter_var($assocArgs['limit'] ?? 100, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 500]]);
@@ -40,7 +41,7 @@ final class ExistingRecordAssignmentCommand
             \WP_CLI::error('Limit must be between 1 and 500.');
         }
 
-        if (in_array($entityType, ['package-family', 'tier-group', 'tier', 'tier-addon', 'rate-sheet-group', 'rate-sheet'], true)) {
+        if (in_array($entityType, ['package-family', 'tier-group', 'tier', 'tier-addon', 'rate-sheet-group', 'rate-sheet', 'rate-sheet-item'], true)) {
             $cursor = isset($assocArgs['cursor']) && (string) $assocArgs['cursor'] !== ''
                 ? (string) $assocArgs['cursor']
                 : null;
@@ -65,6 +66,7 @@ final class ExistingRecordAssignmentCommand
                 'tier-addon' => PlatformIdentifierPolicy::TIER_ADDON,
                 'rate-sheet-group' => PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP,
                 'rate-sheet' => PlatformIdentifierPolicy::PACKAGE_RATE_CARD,
+                'rate-sheet-item' => PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM,
                 default => $entityType,
             },
             'next_cursor' => $result->nextCursor(),
@@ -165,6 +167,7 @@ final class ExistingRecordAssignmentCommand
             'tier-addon' => $adapters->tierAddon(),
             'rate-sheet-group' => $adapters->rateSheetGroup(),
             'rate-sheet' => $adapters->rateSheet(),
+            'rate-sheet-item' => $adapters->rateSheetItem(),
             default => throw new \InvalidArgumentException('Unsupported Package Platform identifier selector.'),
         };
         return (new PackagePlatformIdentifierService($this->identifiers))->assignExisting($adapter, $cursor, $limit);

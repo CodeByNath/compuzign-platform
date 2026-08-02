@@ -15,8 +15,10 @@ final class TemporaryMigrationController
     // This expanded rollout must not inherit the completed Package-Family-only
     // v1 option. Keep its progress independent so every new entity scope gets
     // a real preflight and bounded assignment pass.
-    private const PROGRESS_OPTION = 'cz_package_entity_identifier_migration_v2';
-    private const LOCK_OPTION = 'cz_package_entity_identifier_migration_lock_v2';
+    // v3 deliberately does not inherit the completed v2 Package-entity pass:
+    // CZPRCI rows require one final independent live assignment and verification.
+    private const PROGRESS_OPTION = 'cz_package_entity_identifier_migration_v3';
+    private const LOCK_OPTION = 'cz_package_entity_identifier_migration_lock_v3';
     private const LIMIT = 100;
     private const LOCK_SECONDS = 45;
     private const ENTITY_TYPES = [
@@ -26,6 +28,7 @@ final class TemporaryMigrationController
         PlatformIdentifierPolicy::TIER_ADDON,
         PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP,
         PlatformIdentifierPolicy::PACKAGE_RATE_CARD,
+        PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM,
     ];
 
     public function __construct(
@@ -184,6 +187,7 @@ final class TemporaryMigrationController
             PlatformIdentifierPolicy::TIER_ADDON => $adapters->tierAddon(),
             PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP => $adapters->rateSheetGroup(),
             PlatformIdentifierPolicy::PACKAGE_RATE_CARD => $adapters->rateSheet(),
+            PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM => $adapters->rateSheetItem(),
             default => throw new \InvalidArgumentException('Unsupported migration entity scope.'),
         };
     }
