@@ -15,7 +15,8 @@ keeps the returned `group_id`/`CZPG` identity in the same mounted drawer;
 Publish never creates. Explicit Disable/Enable uses the shared mask. Do not
 extend those claims to Tier, Rate Sheet, Promotion, occupants, or capabilities.
 Backend canonical reads now cover Package Family, Tier Group, Tier, Tier
-Add-on, Rate Sheet, and Rate Sheet Group. Native mutations retain their
+Add-on, Rate Sheet, Rate Sheet Group, and Rate Sheet Item. Row identity is
+output-only and uses `(rate_sheet_id,item_id)`, never mutable `group_id`. Native mutations retain their
 existing Package addresses. Tier Group and Tier use the shared supported-action
 footer with controller-supplied actions; no status label may invent an action.
 Tier Add-on remains the same occupant's boolean role and optional dormant

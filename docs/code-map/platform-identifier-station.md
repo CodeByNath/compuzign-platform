@@ -63,9 +63,9 @@ active. `--limit` defaults to 100 and is capped at 500; `--cursor` defaults to
 zero. Each invocation returns JSON with processed/assigned/preserved/conflict
 counts, completion, and the next cursor.
 
-During the temporary Package entity rollout, Admin refresh reads independent v2
+During the final temporary Package entity rollout, Admin refresh reads independent v3
 progress and runs zero-write preflights for Package Family, Tier Group, Tier,
-Tier Add-on, Rate Sheet Group, and Rate Sheet. Explicit assignment processes
+Tier Add-on, Rate Sheet Group, Rate Sheet, and Rate Sheet Item. Explicit assignment processes
 100-record Package-owned string-cursor batches through `assignExistingBatch()`,
 guarded by a 45-second atomic lock. Invalid, duplicate, or conflicting bindings
 stop assignment; valid IDs are preserved. Completion hides the notice. The
@@ -83,8 +83,10 @@ The same WP-CLI command accepts `package-family`, using bounded lexically sorted
 string `group_id` pages and Package-owned immutable scalar callbacks.
 
 Package identity now also covers Tier Group (`CZTG`), primary Tier (`CZT`),
-Tier Add-on (`CZTA`), Rate Sheet (`CZPRC`), and Rate Sheet Group (`CZPRCG`).
+Tier Add-on (`CZTA`), Rate Sheet (`CZPRC`), Rate Sheet Group (`CZPRCG`), and
+Rate Sheet Item (`CZPRCI`).
 Tier and Add-on share one canonical instance-qualified occupant reference;
-Rate Sheet Group uses `(rate_sheet_id, group_id)`. Package adapters retain
+Rate Sheet Group uses `(rate_sheet_id, group_id)`; Rate Sheet Item uses only
+`(rate_sheet_id, item_id)`, so regrouping preserves identity. Package adapters retain
 storage/projection ownership and delegate registry work here. Tier Promotion
 (`CZTP`) remains deferred.

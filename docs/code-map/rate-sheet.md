@@ -5,14 +5,18 @@
 Platform identity is integrated without lifecycle migration. Rate Sheet uses
 `package_rate_card/CZPRC` against `rate_sheet_id`; each stored Rate Sheet Group
 uses `package_rate_card_group/CZPRCG` against qualified
-`(rate_sheet_id, group_id)`. New records bind at the existing Manager save
+`(rate_sheet_id, group_id)`; each inclusion row uses
+`package_rate_card_item/CZPRCI` against `(rate_sheet_id, item_id)`. `group_id`
+is deliberately excluded, so regrouping and group deletion preserve row identity.
+New records bind at the existing Manager save
 boundary, guarded deletion tombstones the removed identity, and durable CLI
-selectors assign legacy records. Existing authoring and lifecycle remain
-unchanged.
+selectors assign legacy records. Row removal tombstones only that row; sheet
+deletion orchestrates group, row, and sheet tombstones. Existing authoring and
+lifecycle remain unchanged.
 
 ## Purpose and ownership
 
-Rate Sheets are Package Station supply/pricing configuration: contracts, relationships, grouping, validation, Tier selections, pricing, API, and persistence. Station Manager coordinates surfaces and Admin hosts presentation; neither owns the rules or the data.
+Rate Sheets are Package Station supply/pricing configuration. Station Manager and Admin host presentation without owning rules or data.
 
 The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has stable `rate_sheet_id`, title, status, groups, and explicit priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Totals are derived; Services and pools remain Service-owned.
 
@@ -21,7 +25,7 @@ units are stored, and unknown values fail closed.
 
 ## Current implementation
 
-- [types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/types.ts) defines Rate Sheet rows, units, groups, and Tier selection contracts.
+- [types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/types.ts) defines Rate Sheet rows, output-only Platform IDs, units, groups, and Tier selection contracts.
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) calculates totals and reports unresolved, unavailable, invalid-option/quantity and missing-price issues.
 - [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts) derives labels for Package-owned relationship projections.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) resolves selections against the Package read model and owns Tier-module saves.
@@ -36,8 +40,8 @@ It is a **collection manager**, not a singleton: View lists sheets; Edit hosts c
 
 - [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts) — pure read-model ⇄ editor ⇄ save-payload mapping and summaries, preserving sheet, row/source and group ids; the backend mints blank ids. `rateSheetRowsWithKeys` restricts a sheet to an allow-list of `rowKey`s.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts) — local-edit collection controller; Save batches through `savePackageStationManager`, Cancel reverts, and shared `useHostService` supplies the host id.
-- [rateSheetParts.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/rateSheetParts.tsx) — the one implementation of `cz-rate-sheet-tool__groups` and `cz-rate-sheet-tool__grid`, readable and editable. Grids render the rows they are handed, so a scope may pass a subset; `allowRemove` keeps row deletion in the whole-sheet view. Its `InlineCreateSelect` is the one implementation of pick-or-create, used by both row dropdowns: an `__add__` sentinel swaps the select for an input, and only the value the controller settled on is selected on the row that asked. Presentation mints nothing.
-- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — View list and Edit collection editor over those parts. It calls no endpoint and mints no IDs. Every launcher opens it readable, Settings' Create Rate Sheet included: an empty pool reads Pending with its own message through `rateSheetCollectionModule`, and Edit opens the editor. See the Module entry contract in [Drawer System](drawer-system.md).
+- [rateSheetParts.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/rateSheetParts.tsx) — the shared readable/editable group and grid presentation. `allowRemove` keeps deletion in the whole-sheet view; presentation mints nothing.
+- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) — View list and Edit collection editor. It calls no endpoint and mints no IDs. See [Drawer System](drawer-system.md).
 
 ### Focused-Tier connection drawers
 

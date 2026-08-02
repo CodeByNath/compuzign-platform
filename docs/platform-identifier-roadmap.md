@@ -27,7 +27,7 @@ WordPress posts or terms. Platform IDs are output-only and never recycled.
 | `tier_promotion` | `CZTP` | Pending Phase 7 source audit |
 | `package_rate_card` | `CZPRC` | Pending Phase 8 source audit |
 | `package_rate_card_group` | `CZPRCG` | Pending Phase 9 source audit |
-| `package_rate_card_item` | `CZPRCI` | Pending Phase 10 source audit |
+| `package_rate_card_item` | `CZPRCI` | Package Station / `(rate_sheet_id,item_id)` |
 
 Every prefix receives five characters from
 `23456789ABCDEFGHJKMNPQRSTVWXYZ`. Forward records use
@@ -124,7 +124,11 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 9. **Package Rate Card Group — integrated for Rate Sheet
    Group.** The native reference is instance-qualified
    `(rate_sheet_id, group_id)`; existing lifecycle is unchanged.
-10. **Package Rate Card Item — pending owner/storage audit.** No files locked yet.
+10. **Package Rate Card Item — integrated for Rate Sheet inclusion rows.** The
+    native reference is `(rate_sheet_id,item_id)` and deliberately excludes
+    mutable `group_id`. Rows preserve identity through pricing, quantity, unit,
+    ordering, and regrouping changes; row removal tombstones only that row, and
+    Rate Sheet deletion orchestrates child row tombstones before the sheet.
 11. **Existing-record assignment — Package Family complete.** Service,
     Category, and Package Family are enabled. Later entity types remain
     unavailable until their owner integrations and lifecycle contracts are

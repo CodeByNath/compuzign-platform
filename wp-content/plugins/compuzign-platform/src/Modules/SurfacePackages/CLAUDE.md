@@ -16,7 +16,8 @@ shared `PlatformIdentifierStation` through `SurfacePackagesModule`; the Family
 row owns `cz_platform_id` and native string `group_id`, while the identifier
 Station owns `CZPG` reservation, binding, lookup, conflict, and tombstone only.
 Package identity also covers Tier Group `CZTG`, primary Tier `CZT`, secondary
-Add-on `CZTA`, Rate Sheet `CZPRC`, and Rate Sheet Group `CZPRCG`. Tier/Add-on
+Add-on `CZTA`, Rate Sheet `CZPRC`, Rate Sheet Group `CZPRCG`, and Rate Sheet
+Item `CZPRCI`. Tier/Add-on
 share one instance-qualified occupant native reference. Package adapters own
 storage/enumeration/projection callbacks and delegate registry work to the
 shared Station. Owner-specific read routes and durable CLI selectors exist for
