@@ -1042,6 +1042,29 @@ class PackageSchema
         ];
     }
 
+    /**
+     * First-save persistence boundary: mint a durable, unpublished
+     * current_occupant shell for a slot that has none yet, so a stable
+     * occupant_id and the shared occupant lifecycle (pills, notifications,
+     * footer, Disable/Enable) exist immediately after the first successful
+     * Overview module Save — before Publish. Carries no settled data (the
+     * Overview draft stays in drafts.overview until Publish settles it) and
+     * mints no Platform identifier; that remains the Publish/settle
+     * boundary, unchanged. No-op — returns $slot unchanged — once an
+     * occupant already exists, so later saves and existing occupants are
+     * never touched.
+     */
+    public static function ensurePendingOccupant(array $slot): array
+    {
+        if (self::isOccupantFormat($slot) && !empty($slot['current_occupant'])) {
+            return $slot;
+        }
+        $created = self::upsertOccupant($slot, [], false);
+        $slot['current_occupant'] = $created['current_occupant'];
+        $slot['history']          = $created['history'];
+        return $slot;
+    }
+
     /** Normalise a stored/inbound Rate Sheet id to a non-empty string or null. */
     private static function normaliseRateSheetId(mixed $rateSheetId): ?string
     {

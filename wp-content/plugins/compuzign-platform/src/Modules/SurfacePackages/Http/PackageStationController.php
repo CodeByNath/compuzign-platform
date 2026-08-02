@@ -1182,6 +1182,14 @@ class PackageStationController
         $slot = $PS::ensureTierLifecycle($instance['tiers'][$tierId] ?? []);
 
         if ($module === 'overview') {
+            // First-save persistence boundary: the first successful Overview
+            // Save on an empty slot mints a durable, unpublished
+            // current_occupant (stable occupant_id, no settled data, no
+            // Platform identifier) so the shared occupant lifecycle applies
+            // from here on. A no-op once an occupant already exists — see
+            // PackageSchema::ensurePendingOccupant.
+            $slot = $PS::ensurePendingOccupant($slot);
+
             $contact = !empty($body['contact']);
             $price   = null;
             if (!$contact && array_key_exists('price', $body) && $body['price'] !== null && $body['price'] !== '') {
