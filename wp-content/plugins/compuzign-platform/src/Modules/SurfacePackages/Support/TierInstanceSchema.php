@@ -148,6 +148,7 @@ final class TierInstanceSchema
 
         return [
             'tier_instance_id'       => $id,
+            'cz_platform_id'         => sanitize_text_field((string) ($instance['cz_platform_id'] ?? '')),
             'title'                  => sanitize_text_field((string) ($instance['title'] ?? '')),
             'description'            => sanitize_textarea_field((string) ($instance['description'] ?? '')),
             'status'                 => $status,

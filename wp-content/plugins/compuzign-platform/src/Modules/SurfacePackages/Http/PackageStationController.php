@@ -9,6 +9,11 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageStationSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierAdapters;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierService;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 /**
  * Package Station admin write/read endpoints — manager, tiers, occupant bin,
@@ -51,8 +56,18 @@ class PackageStationController
      */
     private const POST_TYPE = 'cz_service';
 
-    public function __construct(private PackageRepository $repository)
-    {
+    private PackagePlatformIdentifierService $platformIdentity;
+    private PackagePlatformIdentifierAdapters $identityAdapters;
+    private bool $identityEnabled;
+
+    public function __construct(
+        private PackageRepository $repository,
+        ?PlatformIdentifierStation $platformIdentifiers = null
+    ) {
+        $this->identityEnabled = $platformIdentifiers !== null;
+        $station = $platformIdentifiers ?? new PlatformIdentifierStation();
+        $this->platformIdentity = new PackagePlatformIdentifierService($station);
+        $this->identityAdapters = new PackagePlatformIdentifierAdapters($repository);
     }
 
     public function register(): void
@@ -99,6 +114,33 @@ class PackageStationController
             'methods'             => 'GET',
             'callback'            => [$this, 'listTierInstances'],
             'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
+        register_rest_route('compuzign/v1', '/admin/tier-groups/(?P<platform_id>CZTG[A-Z0-9]+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'fetchTierGroupByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => ['platform_id' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', '/admin/tiers/(?P<platform_id>CZT[A-Z0-9]+)', [
+            'methods' => 'GET', 'callback' => [$this, 'fetchTierByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => ['platform_id' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', '/admin/tier-addons/(?P<platform_id>CZTA[A-Z0-9]+)', [
+            'methods' => 'GET', 'callback' => [$this, 'fetchTierAddonByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => ['platform_id' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', '/admin/rate-sheets/(?P<platform_id>CZPRC[A-Z0-9]+)', [
+            'methods' => 'GET', 'callback' => [$this, 'fetchRateSheetByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => ['platform_id' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', '/admin/rate-sheet-groups/(?P<platform_id>CZPRCG[A-Z0-9]+)', [
+            'methods' => 'GET', 'callback' => [$this, 'fetchRateSheetGroupByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => ['platform_id' => ['required' => true, 'type' => 'string']],
         ]);
 
         register_rest_route('compuzign/v1', '/admin/package-station/tier-instances', [
@@ -305,8 +347,77 @@ class PackageStationController
         ]);
     }
 
+    public function fetchTierGroupByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $platformId = sanitize_text_field((string) $request->get_param('platform_id'));
+        try {
+            $instance = $this->platformIdentity->resolveProjection($this->identityAdapters->tierGroup(), $platformId);
+        } catch (\Throwable) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Tier Group identity is conflicting.'], 409);
+        }
+        if (!is_array($instance) || (string) ($instance['cz_platform_id'] ?? '') !== $platformId) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Tier Group not found.'], 404);
+        }
+        return rest_ensure_response(['success' => true, 'tier_instance' => $instance]);
+    }
+
+    public function fetchTierByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->fetchTierOccupantByPlatformId($request, false);
+    }
+
+    public function fetchTierAddonByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->fetchTierOccupantByPlatformId($request, true);
+    }
+
+    private function fetchTierOccupantByPlatformId(\WP_REST_Request $request, bool $addon): \WP_REST_Response
+    {
+        $platformId = sanitize_text_field((string) $request->get_param('platform_id'));
+        $adapter = $addon ? $this->identityAdapters->tierAddon() : $this->identityAdapters->tier();
+        try {
+            $projection = $this->platformIdentity->resolveProjection($adapter, $platformId);
+        } catch (\Throwable) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Tier identity is conflicting.'], 409);
+        }
+        if (!is_array($projection) || !is_array($projection['occupant'] ?? null)) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Tier not found.'], 404);
+        }
+        $stored = (string) ($projection['occupant'][$addon ? 'addon_platform_id' : 'cz_platform_id'] ?? '');
+        if ($stored !== $platformId) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Tier Platform identifier storage is conflicting.'], 409);
+        }
+        return rest_ensure_response(['success' => true, ...$projection]);
+    }
+
+    public function fetchRateSheetByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->fetchRateIdentityByPlatformId($request, false);
+    }
+
+    public function fetchRateSheetGroupByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->fetchRateIdentityByPlatformId($request, true);
+    }
+
+    private function fetchRateIdentityByPlatformId(\WP_REST_Request $request, bool $group): \WP_REST_Response
+    {
+        $platformId = sanitize_text_field((string) $request->get_param('platform_id'));
+        $adapter = $group ? $this->identityAdapters->rateSheetGroup() : $this->identityAdapters->rateSheet();
+        try { $projection = $this->platformIdentity->resolveProjection($adapter, $platformId); }
+        catch (\Throwable) { return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet identity is conflicting.'], 409); }
+        if (!is_array($projection) || !is_array($projection['record'] ?? null)) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet record not found.'], 404);
+        }
+        if ((string) ($projection['record']['cz_platform_id'] ?? '') !== $platformId) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet Platform identifier storage is conflicting.'], 409);
+        }
+        return rest_ensure_response(['success' => true, ...$projection]);
+    }
+
     public function createTierInstance(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
         $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
         $title = sanitize_text_field((string) $request->get_param('title'));
         if ($title === '') {
@@ -317,8 +428,17 @@ class PackageStationController
         }
         $body = $request->get_json_params();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $reservation = null;
+        if ($this->identityEnabled) {
+            try {
+                $reservation = $this->platformIdentity->reserve($this->identityAdapters->tierGroup());
+            } catch (\Throwable) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a permanent Tier Group identifier.'], 500);
+            }
+        }
         $instance = [
             'tier_instance_id' => TierInstanceSchema::mintInstanceId(),
+            'cz_platform_id' => $reservation?->platformId() ?? '',
             'title' => $title,
             'description' => sanitize_textarea_field((string) (is_array($body) ? ($body['description'] ?? '') : '')),
             'status' => 'disabled',
@@ -335,12 +455,31 @@ class PackageStationController
         $instance = TierInstanceSchema::findInstance($instances, $instance['tier_instance_id']);
         $station['tier_instances'] = $instances;
         $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances($instances);
-        $this->packages()->saveStation($station);
+        try {
+            $this->packages()->saveStation($station);
+        } catch (\Throwable) {
+            if ($reservation !== null) $this->retireReservation($reservation);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Tier Group could not be persisted.'], 500);
+        }
+        if ($reservation !== null) {
+            $nativeReference = PackagePlatformNativeReference::tierGroup((string) $instance['tier_instance_id']);
+            try {
+                $this->platformIdentity->bind($this->identityAdapters->tierGroup(), $reservation, $nativeReference);
+            } catch (\Throwable) {
+                $station['tier_instances'] = TierInstanceSchema::removeInstance($station['tier_instances'], (string) $instance['tier_instance_id']);
+                try { $this->packages()->saveStation($station); } catch (\Throwable) {
+                    return new \WP_REST_Response(['success' => false, 'message' => 'Tier Group identity binding failed and native rollback requires reconciliation.'], 500);
+                }
+                $this->retireReservation($reservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Tier Group creation could not confirm its permanent identifier.'], 500);
+            }
+        }
         return rest_ensure_response(['success' => true, 'tier_instance' => $instance]);
     }
 
     public function updateTierInstance(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
         $instanceId = sanitize_text_field((string) $request->get_param('instance'));
         $station = $this->packages()->loadStation() ?? $this->packages()->defaultStation();
         $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
@@ -418,7 +557,46 @@ class PackageStationController
         $station['tier_instances'] = TierInstanceSchema::removeInstance($station['tier_instances'], $instanceId);
         $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances($station['tier_instances']);
         $this->packages()->saveStation($station);
+        if ($this->identityEnabled && (string) ($instance['cz_platform_id'] ?? '') !== '') {
+            try {
+                $this->platformIdentity->tombstone(
+                    $this->identityAdapters->tierGroup(),
+                    PackagePlatformNativeReference::tierGroup($instanceId)
+                );
+            } catch (\Throwable) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Tier Group was deleted but its Platform identifier tombstone requires reconciliation.'], 500);
+            }
+        }
         return rest_ensure_response(['success' => true, 'deleted' => $instanceId]);
+    }
+
+    private function rejectPlatformIdMutation(\WP_REST_Request $request): ?\WP_REST_Response
+    {
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $fields = ['platform_id', 'platformId', PlatformIdentifierStation::META_KEY, 'addon_platform_id', 'addonPlatformId'];
+        foreach ($fields as $field) {
+            if ($request->get_param($field) !== null || $this->payloadContainsKey($body, $field)) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Platform identifiers are immutable and output-only.'], 422);
+            }
+        }
+        return null;
+    }
+
+    private function payloadContainsKey(array $payload, string $key): bool
+    {
+        if (array_key_exists($key, $payload)) return true;
+        foreach ($payload as $value) {
+            if (is_array($value) && $this->payloadContainsKey($value, $key)) return true;
+        }
+        return false;
+    }
+
+    private function retireReservation(\CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation $reservation): void
+    {
+        try { $this->platformIdentity->retire($reservation); } catch (\Throwable) {
+            // Never recycle an uncertain reservation.
+        }
     }
 
     private function instanceDeleteGuardResponse(string $code, string $message): \WP_REST_Response
@@ -585,6 +763,7 @@ class PackageStationController
      */
     public function savePackageStationManager(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
         $serviceId = (int) $request->get_param('id');
         $post      = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
@@ -678,10 +857,73 @@ class PackageStationController
             return rest_ensure_response(['success' => false, 'message' => $e->getMessage()]);
         }
 
+        $identityAssignments = [];
+        $identityDeletions = [];
+        if ($this->identityEnabled) {
+            $oldSheets = [];
+            $oldGroups = [];
+            foreach ($storedManager['rate_sheets'] as $sheet) {
+                $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
+                if ($sheetId === '') continue;
+                $oldSheets[$sheetId] = $sheet;
+                foreach ($sheet['groups'] as $group) {
+                    $groupId = (string) ($group['group_id'] ?? '');
+                    if ($groupId !== '') $oldGroups[$sheetId . "\0" . $groupId] = $group;
+                }
+            }
+            try {
+                foreach ($manager['rate_sheets'] as $sheetIndex => $sheet) {
+                    $sheetId = (string) $sheet['rate_sheet_id'];
+                    if (!isset($oldSheets[$sheetId])) {
+                        $reservation = $this->platformIdentity->reserve($this->identityAdapters->rateSheet());
+                        $manager['rate_sheets'][$sheetIndex]['cz_platform_id'] = $reservation->platformId();
+                        $identityAssignments[] = [$this->identityAdapters->rateSheet(), $reservation, PackagePlatformNativeReference::rateSheet($sheetId)];
+                    }
+                    foreach ($sheet['groups'] as $groupIndex => $group) {
+                        $groupId = (string) $group['group_id'];
+                        if (!isset($oldGroups[$sheetId . "\0" . $groupId])) {
+                            $reservation = $this->platformIdentity->reserve($this->identityAdapters->rateSheetGroup());
+                            $manager['rate_sheets'][$sheetIndex]['groups'][$groupIndex]['cz_platform_id'] = $reservation->platformId();
+                            $identityAssignments[] = [$this->identityAdapters->rateSheetGroup(), $reservation, PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId)];
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                foreach ($identityAssignments as [, $reservation]) $this->retireReservation($reservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve Rate Sheet Platform identifiers.'], 500);
+            }
+            $newSheetIds = array_fill_keys(array_map(static fn(array $sheet): string => (string) $sheet['rate_sheet_id'], $manager['rate_sheets']), true);
+            $newGroupKeys = [];
+            foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['groups'] as $group) $newGroupKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $group['group_id']] = true;
+            foreach ($oldGroups as $key => $group) if (!isset($newGroupKeys[$key]) && (string) ($group['cz_platform_id'] ?? '') !== '') {
+                [$sheetId, $groupId] = explode("\0", $key, 2);
+                $identityDeletions[] = [$this->identityAdapters->rateSheetGroup(), PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId)];
+            }
+            foreach ($oldSheets as $sheetId => $sheet) if (!isset($newSheetIds[$sheetId]) && (string) ($sheet['cz_platform_id'] ?? '') !== '') {
+                $identityDeletions[] = [$this->identityAdapters->rateSheet(), PackagePlatformNativeReference::rateSheet($sheetId)];
+            }
+        }
+
         // One postmeta write is the atomic storage boundary. Do not derive or
         // alter platform_status: the Manager owns no lifecycle.
         $station['package_manager'] = $manager;
-        $this->packages()->saveStation($station);
+        try {
+            $this->packages()->saveStation($station);
+        } catch (\Throwable) {
+            foreach ($identityAssignments as [, $reservation]) $this->retireReservation($reservation);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet changes could not be persisted.'], 500);
+        }
+        try {
+            foreach ($identityAssignments as [$adapter, $reservation, $nativeReference]) {
+                $this->platformIdentity->bind($adapter, $reservation, $nativeReference);
+            }
+            foreach ($identityDeletions as [$adapter, $nativeReference]) {
+                $this->platformIdentity->tombstone($adapter, $nativeReference);
+            }
+        } catch (\Throwable) {
+            foreach ($identityAssignments as [, $reservation]) $this->retireReservation($reservation);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet changes persisted, but Platform identifier reconciliation is required.'], 500);
+        }
 
         $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
         $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
@@ -698,6 +940,7 @@ class PackageStationController
 
     public function savePackageStationTier(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
         $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
 
@@ -870,6 +1113,7 @@ class PackageStationController
      */
     public function savePackageStationTierModule(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
         $serviceId = (int) $request->get_param('id');
         $tierId    = sanitize_key((string) $request->get_param('tier'));
         $module    = sanitize_key((string) $request->get_param('module'));
@@ -1147,6 +1391,26 @@ class PackageStationController
 
         $this->persistTierInstance($station, $instanceId, $result['station']);
 
+        $deletedOccupant = is_array($result['entry']['occupant'] ?? null) ? $result['entry']['occupant'] : [];
+        $deletedOccupantId = (string) ($deletedOccupant['id'] ?? '');
+        if ($this->identityEnabled && $deletedOccupantId !== '') {
+            $nativeReference = PackagePlatformNativeReference::tierOccupant($instanceId, $deletedOccupantId);
+            try {
+                if ((string) ($deletedOccupant['cz_platform_id'] ?? '') !== '') {
+                    $this->platformIdentity->tombstone($this->identityAdapters->tier(), $nativeReference);
+                }
+                if ((string) ($deletedOccupant['addon_platform_id'] ?? '') !== '') {
+                    $this->platformIdentity->tombstone($this->identityAdapters->tierAddon(), $nativeReference);
+                }
+            } catch (\Throwable) {
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'Tier occupant was deleted but its Platform identifier tombstone requires reconciliation.',
+                    'native_reference' => $nativeReference,
+                ], 500);
+            }
+        }
+
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'      => true,
             'bin_id'       => $binId,
@@ -1221,9 +1485,62 @@ class PackageStationController
         }
         [$station, $instanceId, $instance] = $context;
 
-        $slot = $PS::settleTierSlot($instance['tiers'][$tierId] ?? []);
+        $originalSlot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
+        $hadOccupant = is_array($originalSlot['current_occupant'] ?? null);
+        $slot = $PS::settleTierSlot($originalSlot);
+        $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+        $primaryReservation = null;
+        $addonReservation = null;
+        if ($this->identityEnabled && $occupant !== null) {
+            try {
+                if (!$hadOccupant && (string) ($occupant['cz_platform_id'] ?? '') === '') {
+                    $primaryReservation = $this->platformIdentity->reserve($this->identityAdapters->tier());
+                    $slot['current_occupant']['cz_platform_id'] = $primaryReservation->platformId();
+                }
+                if ((bool) ($occupant['is_addon'] ?? false) && (string) ($occupant['addon_platform_id'] ?? '') === '') {
+                    $addonReservation = $this->platformIdentity->reserve($this->identityAdapters->tierAddon());
+                    $slot['current_occupant']['addon_platform_id'] = $addonReservation->platformId();
+                }
+            } catch (\Throwable) {
+                if ($primaryReservation !== null) $this->retireReservation($primaryReservation);
+                if ($addonReservation !== null) $this->retireReservation($addonReservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Platform identifier.'], 500);
+            }
+        }
         $instance['tiers'][$tierId] = $slot;
-        $this->persistTierInstance($station, $instanceId, $instance);
+        try {
+            $this->persistTierInstance($station, $instanceId, $instance);
+        } catch (\Throwable) {
+            if ($primaryReservation !== null) $this->retireReservation($primaryReservation);
+            if ($addonReservation !== null) $this->retireReservation($addonReservation);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Tier settlement could not be persisted.'], 500);
+        }
+
+        if ($occupant !== null && ($primaryReservation !== null || $addonReservation !== null)) {
+            $nativeReference = PackagePlatformNativeReference::tierOccupant(
+                $instanceId,
+                (string) $slot['current_occupant']['id']
+            );
+            try {
+                if ($primaryReservation !== null) {
+                    $this->platformIdentity->bind($this->identityAdapters->tier(), $primaryReservation, $nativeReference);
+                }
+                if ($addonReservation !== null) {
+                    $this->platformIdentity->bind($this->identityAdapters->tierAddon(), $addonReservation, $nativeReference);
+                }
+            } catch (\Throwable) {
+                // A bound primary identity must never be detached from its
+                // occupant. Leave the persisted record intact for explicit
+                // reconciliation; only still-reserved claims are retired.
+                if ($primaryReservation !== null) $this->retireReservation($primaryReservation);
+                if ($addonReservation !== null) $this->retireReservation($addonReservation);
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'Tier settlement persisted, but Platform identifier binding requires reconciliation.',
+                    'native_reference' => $nativeReference,
+                ], 500);
+            }
+        }
 
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'       => true,

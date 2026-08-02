@@ -251,6 +251,7 @@ final class PackageManagerSchema
                 $seen[$id] = true;
                 $out[] = [
                     'rate_sheet_id' => $id,
+                    'cz_platform_id'=> sanitize_text_field((string) ($sheet['cz_platform_id'] ?? '')),
                     'title'         => $core['title'],
                     'status'        => self::sanitizeRateSheetStatus($sheet['status'] ?? null),
                     'groups'        => $core['groups'],
@@ -265,6 +266,7 @@ final class PackageManagerSchema
         if ($core !== null) {
             $out[] = [
                 'rate_sheet_id' => self::PRIMARY_RATE_SHEET_ID,
+                'cz_platform_id'=> sanitize_text_field((string) ($legacySingle['cz_platform_id'] ?? '')),
                 'title'         => $core['title'],
                 'status'        => 'active',
                 'groups'        => $core['groups'],
@@ -327,7 +329,7 @@ final class PackageManagerSchema
         }
 
         $title = sanitize_text_field((string) ($rateSheet['title'] ?? ''));
-        $groups = self::sanitizeGroups($rateSheet['groups'] ?? []);
+        $groups = self::sanitizeGroups($rateSheet['groups'] ?? [], true);
         $groupIds = array_column($groups, 'group_id');
         $items = [];
         $seen = [];
@@ -382,7 +384,7 @@ final class PackageManagerSchema
      * @param  mixed $groups
      * @return array<int, array{group_id: string, label: string, sort_order: int}>
      */
-    private static function sanitizeGroups(mixed $groups): array
+    private static function sanitizeGroups(mixed $groups, bool $withPlatformIdentity = false): array
     {
         if (!is_array($groups)) {
             return [];
@@ -399,11 +401,15 @@ final class PackageManagerSchema
                 continue;
             }
             $seen[$id] = true;
-            $out[] = [
+            $group = [
                 'group_id'   => $id,
                 'label'      => sanitize_text_field((string) ($g['label'] ?? '')),
                 'sort_order' => (int) ($g['sort_order'] ?? 0),
             ];
+            if ($withPlatformIdentity) {
+                $group['cz_platform_id'] = sanitize_text_field((string) ($g['cz_platform_id'] ?? ''));
+            }
+            $out[] = $group;
         }
         return $out;
     }
@@ -671,13 +677,24 @@ final class PackageManagerSchema
             if ($core === null) { continue; }
             $id = sanitize_text_field((string) ($submitted['rate_sheet_id'] ?? ''));
             if ($id === '') { $id = self::mintRateSheetId(); } // write-path mint
-            $sheetsById[$id] = self::reconcileRateSheetRows(
+            $reconciled = self::reconcileRateSheetRows(
                 $id,
                 self::sanitizeRateSheetStatus($submitted['status'] ?? null),
                 $core,
                 $liveIds,
                 $persistedById
             );
+            $existingSheet = $sheetsById[$id] ?? null;
+            $reconciled['cz_platform_id'] = (string) ($existingSheet['cz_platform_id'] ?? '');
+            $existingGroups = [];
+            foreach (is_array($existingSheet['groups'] ?? null) ? $existingSheet['groups'] : [] as $group) {
+                if (is_array($group)) $existingGroups[(string) ($group['group_id'] ?? '')] = (string) ($group['cz_platform_id'] ?? '');
+            }
+            foreach ($reconciled['groups'] as &$group) {
+                $group['cz_platform_id'] = $existingGroups[(string) $group['group_id']] ?? '';
+            }
+            unset($group);
+            $sheetsById[$id] = $reconciled;
         }
         foreach (is_array($rateSheetDeletions) ? $rateSheetDeletions : [] as $deleteId) {
             $deleteId = sanitize_text_field((string) $deleteId);
@@ -739,6 +756,7 @@ final class PackageManagerSchema
 
         return [
             'rate_sheet_id' => $rateSheetId,
+            'cz_platform_id'=> '',
             'title'         => $core['title'],
             'status'        => $status,
             'groups'        => $core['groups'],
@@ -987,7 +1005,19 @@ final class PackageManagerSchema
                 is_array($storedManager['category_groups'] ?? null) ? $storedManager['category_groups'] : []
             ),
             'items'             => $outItems,
-            'rate_sheets'       => is_array($storedManager['rate_sheets'] ?? null) ? $storedManager['rate_sheets'] : [],
+            'rate_sheets'       => array_map(
+                static function (array $sheet): array {
+                    $sheet['platform_id'] = (string) ($sheet['cz_platform_id'] ?? '');
+                    unset($sheet['cz_platform_id']);
+                    $sheet['groups'] = array_map(static function (array $group): array {
+                        $group['platform_id'] = (string) ($group['cz_platform_id'] ?? '');
+                        unset($group['cz_platform_id']);
+                        return $group;
+                    }, is_array($sheet['groups'] ?? null) ? $sheet['groups'] : []);
+                    return $sheet;
+                },
+                is_array($storedManager['rate_sheets'] ?? null) ? $storedManager['rate_sheets'] : []
+            ),
             // The full vocabulary a row's `per` may hold: the built-in seven
             // followed by whatever this Manager curated. The reader never infers
             // it from the rows it happens to see.

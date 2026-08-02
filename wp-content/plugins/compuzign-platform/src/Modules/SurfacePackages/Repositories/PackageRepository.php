@@ -21,6 +21,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference;
 
 /**
  * Single authority for Package Station storage.
@@ -255,6 +256,289 @@ class PackageRepository
             'next_cursor' => $items === [] ? $cursor : $items[array_key_last($items)],
             'complete' => count($ids) <= $limit,
         ];
+    }
+
+    /** Package-owned Tier Group scalar read using the canonical registry reference. */
+    public function tierGroupPlatformId(string $nativeReference): string
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-group', 1);
+        if ($parts === null) return '';
+        $station = $this->loadStation();
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+        return is_array($instance) ? (string) ($instance['cz_platform_id'] ?? '') : '';
+    }
+
+    /** Immutable Tier Group scalar claim used only by PlatformIdentifierStation. */
+    public function claimTierGroupPlatformId(string $nativeReference, string $platformId): bool
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-group', 1);
+        if ($parts === null) return false;
+        $station = $this->loadStation();
+        if (!is_array($station)) return false;
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+        if ($instance === null) return false;
+        $stored = (string) ($instance['cz_platform_id'] ?? '');
+        if ($stored !== '') return $stored === $platformId;
+        $instance['cz_platform_id'] = $platformId;
+        $station = TierInstanceSchema::withInstance($station, $parts[0], $instance);
+        $this->saveStation($station);
+        return $this->tierGroupPlatformId($nativeReference) === $platformId;
+    }
+
+    public function tierGroupPlatformIdExists(string $platformId): bool
+    {
+        $station = $this->loadStation();
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (is_array($instance) && ($instance['cz_platform_id'] ?? '') === $platformId) return true;
+        }
+        return false;
+    }
+
+    /** @return array{items:list<string>,next_cursor:string|null,complete:bool} */
+    public function tierGroupAssignmentPage(?string $cursor, int $limit): array
+    {
+        if ($limit < 1 || $limit > 500) {
+            throw new \InvalidArgumentException('Tier Group assignment limit must be between 1 and 500.');
+        }
+        $station = $this->loadStation();
+        $ids = [];
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            $id = is_array($instance) ? (string) ($instance['tier_instance_id'] ?? '') : '';
+            if ($id !== '' && ($cursor === null || strcmp($id, $cursor) > 0)) $ids[] = $id;
+        }
+        sort($ids, SORT_STRING);
+        $page = array_slice($ids, 0, $limit);
+        return [
+            'items' => array_map(static fn(string $id): string => PackagePlatformNativeReference::tierGroup($id), $page),
+            'next_cursor' => $page === [] ? $cursor : $page[array_key_last($page)],
+            'complete' => count($ids) <= $limit,
+        ];
+    }
+
+    public function tierGroupProjection(string $nativeReference): ?array
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-group', 1);
+        if ($parts === null) return null;
+        $station = $this->loadStation();
+        return TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+    }
+
+    public function tierOccupantPlatformId(string $nativeReference, bool $addon = false): string
+    {
+        $located = $this->locateTierOccupant($nativeReference);
+        if ($located === null) return '';
+        $key = $addon ? 'addon_platform_id' : 'cz_platform_id';
+        return (string) ($located['occupant'][$key] ?? '');
+    }
+
+    public function claimTierOccupantPlatformId(string $nativeReference, string $platformId, bool $addon = false): bool
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-occupant', 2);
+        if ($parts === null) return false;
+        $station = $this->loadStation();
+        if (!is_array($station)) return false;
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+        if ($instance === null) return false;
+        $key = $addon ? 'addon_platform_id' : 'cz_platform_id';
+        $matches = 0;
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
+            if (is_array($slot['current_occupant'] ?? null) && (string) ($slot['current_occupant']['id'] ?? '') === $parts[1]) {
+                $stored = (string) ($slot['current_occupant'][$key] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['tiers'][$slotId]['current_occupant'][$key] = $platformId;
+                $matches++;
+            }
+        }
+        foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $index => $entry) {
+            if (is_array($entry['occupant'] ?? null) && (string) ($entry['occupant']['id'] ?? '') === $parts[1]) {
+                $stored = (string) ($entry['occupant'][$key] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['occupant_bin'][$index]['occupant'][$key] = $platformId;
+                $matches++;
+            }
+        }
+        if ($matches !== 1) return false;
+        $station = TierInstanceSchema::withInstance($station, $parts[0], $instance);
+        $this->saveStation($station);
+        return $this->tierOccupantPlatformId($nativeReference, $addon) === $platformId;
+    }
+
+    public function tierOccupantPlatformIdExists(string $platformId, bool $addon = false): bool
+    {
+        $key = $addon ? 'addon_platform_id' : 'cz_platform_id';
+        $station = $this->loadStation();
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                if (is_array($slot['current_occupant'] ?? null) && ($slot['current_occupant'][$key] ?? '') === $platformId) return true;
+            }
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                if (is_array($entry['occupant'] ?? null) && ($entry['occupant'][$key] ?? '') === $platformId) return true;
+            }
+        }
+        return false;
+    }
+
+    /** @return array{items:list<string>,next_cursor:string|null,complete:bool} */
+    public function tierOccupantAssignmentPage(?string $cursor, int $limit, bool $addon = false): array
+    {
+        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier assignment limit must be between 1 and 500.');
+        $station = $this->loadStation();
+        $references = [];
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            $instanceId = (string) ($instance['tier_instance_id'] ?? '');
+            if ($instanceId === '') continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+                $this->appendEligibleOccupantReference($references, $instanceId, $occupant, $addon);
+            }
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+                $this->appendEligibleOccupantReference($references, $instanceId, $occupant, $addon);
+            }
+        }
+        $references = array_values(array_unique($references));
+        sort($references, SORT_STRING);
+        $eligible = array_values(array_filter($references, static fn(string $reference): bool => $cursor === null || strcmp($reference, $cursor) > 0));
+        $page = array_slice($eligible, 0, $limit);
+        return ['items' => $page, 'next_cursor' => $page === [] ? $cursor : $page[array_key_last($page)], 'complete' => count($eligible) <= $limit];
+    }
+
+    public function tierOccupantProjection(string $nativeReference): ?array
+    {
+        $located = $this->locateTierOccupant($nativeReference);
+        if ($located === null) return null;
+        return [
+            'tier_instance_id' => $located['tier_instance_id'],
+            'location' => $located['location'],
+            'is_addon' => (bool) ($located['occupant']['is_addon'] ?? false),
+            'occupant' => $located['occupant'],
+        ];
+    }
+
+    /** @return array{tier_instance_id:string,location:string,occupant:array}|null */
+    private function locateTierOccupant(string $nativeReference): ?array
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-occupant', 2);
+        if ($parts === null) return null;
+        $station = $this->loadStation();
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+        if ($instance === null) return null;
+        $matches = [];
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
+            $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+            if ($occupant !== null && (string) ($occupant['id'] ?? '') === $parts[1]) $matches[] = ['tier_instance_id' => $parts[0], 'location' => 'slot:' . $slotId, 'occupant' => $occupant];
+        }
+        foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+            $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+            if ($occupant !== null && (string) ($occupant['id'] ?? '') === $parts[1]) $matches[] = ['tier_instance_id' => $parts[0], 'location' => 'bin:' . (string) ($entry['bin_id'] ?? ''), 'occupant' => $occupant];
+        }
+        return count($matches) === 1 ? $matches[0] : null;
+    }
+
+    /** @param list<string> $references */
+    private function appendEligibleOccupantReference(array &$references, string $instanceId, ?array $occupant, bool $addon): void
+    {
+        if ($occupant === null) return;
+        $occupantId = (string) ($occupant['id'] ?? '');
+        if ($occupantId === '') return;
+        if ($addon && !((bool) ($occupant['is_addon'] ?? false) || (string) ($occupant['addon_platform_id'] ?? '') !== '')) return;
+        $references[] = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
+    }
+
+    public function rateSheetPlatformId(string $nativeReference, ?string $groupContext = null): string
+    {
+        $located = $this->locateRateSheetIdentity($nativeReference, $groupContext);
+        return $located === null ? '' : (string) ($located['record']['cz_platform_id'] ?? '');
+    }
+
+    public function claimRateSheetPlatformId(string $nativeReference, string $platformId, ?string $groupContext = null): bool
+    {
+        $located = $this->locateRateSheetIdentity($nativeReference, $groupContext);
+        if ($located === null) return false;
+        $stored = (string) ($located['record']['cz_platform_id'] ?? '');
+        if ($stored !== '') return $stored === $platformId;
+        $station = $this->loadStation();
+        if (!is_array($station)) return false;
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        foreach ($manager['rate_sheets'] as $sheetIndex => $sheet) {
+            if ((string) ($sheet['rate_sheet_id'] ?? '') !== $located['rate_sheet_id']) continue;
+            if ($groupContext === null) {
+                $manager['rate_sheets'][$sheetIndex]['cz_platform_id'] = $platformId;
+            } else {
+                foreach ($sheet['groups'] as $groupIndex => $group) {
+                    if ((string) ($group['group_id'] ?? '') === $located['group_id']) {
+                        $manager['rate_sheets'][$sheetIndex]['groups'][$groupIndex]['cz_platform_id'] = $platformId;
+                    }
+                }
+            }
+        }
+        $station['package_manager'] = $manager;
+        $this->saveStation($station);
+        return $this->rateSheetPlatformId($nativeReference, $groupContext) === $platformId;
+    }
+
+    public function rateSheetPlatformIdExists(string $platformId, ?string $groupContext = null): bool
+    {
+        $station = $this->loadStation();
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        foreach ($manager['rate_sheets'] as $sheet) {
+            if ($groupContext === null && ($sheet['cz_platform_id'] ?? '') === $platformId) return true;
+            if ($groupContext !== null) foreach ($sheet['groups'] as $group) {
+                if (($group['cz_platform_id'] ?? '') === $platformId) return true;
+            }
+        }
+        return false;
+    }
+
+    /** @return array{items:list<string>,next_cursor:string|null,complete:bool} */
+    public function rateSheetAssignmentPage(?string $cursor, int $limit, bool $groups = false): array
+    {
+        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Rate Sheet assignment limit must be between 1 and 500.');
+        $station = $this->loadStation();
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $references = [];
+        foreach ($manager['rate_sheets'] as $sheet) {
+            $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
+            if ($sheetId === '') continue;
+            if (!$groups) $references[] = PackagePlatformNativeReference::rateSheet($sheetId);
+            else foreach ($sheet['groups'] as $group) {
+                $groupId = (string) ($group['group_id'] ?? '');
+                if ($groupId !== '') $references[] = PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId);
+            }
+        }
+        sort($references, SORT_STRING);
+        $eligible = array_values(array_filter($references, static fn(string $reference): bool => $cursor === null || strcmp($reference, $cursor) > 0));
+        $page = array_slice($eligible, 0, $limit);
+        return ['items' => $page, 'next_cursor' => $page === [] ? $cursor : $page[array_key_last($page)], 'complete' => count($eligible) <= $limit];
+    }
+
+    public function rateSheetProjection(string $nativeReference, ?string $groupContext = null): ?array
+    {
+        return $this->locateRateSheetIdentity($nativeReference, $groupContext);
+    }
+
+    /** @return array{rate_sheet_id:string,group_id?:string,record:array}|null */
+    private function locateRateSheetIdentity(string $nativeReference, ?string $groupContext): ?array
+    {
+        $parts = PackagePlatformNativeReference::parse(
+            $nativeReference,
+            $groupContext === null ? 'rate-sheet' : 'rate-sheet-group',
+            $groupContext === null ? 1 : 2
+        );
+        if ($parts === null) return null;
+        $station = $this->loadStation();
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $sheet = PackageManagerSchema::findRateSheet($manager['rate_sheets'], $parts[0]);
+        if ($sheet === null) return null;
+        if ($groupContext === null) return ['rate_sheet_id' => $parts[0], 'record' => $sheet];
+        foreach ($sheet['groups'] as $group) {
+            if ((string) ($group['group_id'] ?? '') === $parts[1]) {
+                return ['rate_sheet_id' => $parts[0], 'group_id' => $parts[1], 'record' => $group];
+            }
+        }
+        return null;
     }
 
     /**

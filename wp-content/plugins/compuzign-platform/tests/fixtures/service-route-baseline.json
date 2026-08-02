@@ -111,6 +111,14 @@
             "callback": "updateStatus",
             "permission_callback": "requireAdmin",
             "args": {
+                "action": {
+                    "enum": [
+                        "disable",
+                        "enable"
+                    ],
+                    "required": false,
+                    "type": "string"
+                },
                 "id": {
                     "required": true,
                     "type": "integer"
@@ -122,7 +130,7 @@
                         "archived",
                         "trashed"
                     ],
-                    "required": true,
+                    "required": false,
                     "type": "string"
                 }
             }
@@ -362,6 +370,30 @@
             "permission_callback": "requireAdmin",
             "args": {
                 "instance": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/rate-sheet-groups/(?P<platform_id>CZPRCG[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchRateSheetGroupByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/rate-sheets/(?P<platform_id>CZPRC[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchRateSheetByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
                     "required": true,
                     "type": "string"
                 }
@@ -1074,6 +1106,42 @@
             "route": "compuzign/v1/admin/services/(?P<platform_id>CZ[A-Z0-9]+)",
             "methods": "GET",
             "callback": "fetchDetailByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/tier-addons/(?P<platform_id>CZTA[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchTierAddonByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/tier-groups/(?P<platform_id>CZTG[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchTierGroupByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/tiers/(?P<platform_id>CZT[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchTierByPlatformId",
             "permission_callback": "requireAdmin",
             "args": {
                 "platform_id": {

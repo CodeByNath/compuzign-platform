@@ -34,7 +34,10 @@ class SurfacePackagesModule
     {
         (new PackageFamiliesController($this->platformIdentifiers))->register();
         (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationReadController(new PackageRepository()))->register();
-        (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(new PackageRepository()))->register();
+        (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(
+            new PackageRepository(),
+            $this->platformIdentifiers
+        ))->register();
 
         Health::register('package_station', static function (): bool {
             $station = get_option(PackageRepository::OPTION_KEY, null);

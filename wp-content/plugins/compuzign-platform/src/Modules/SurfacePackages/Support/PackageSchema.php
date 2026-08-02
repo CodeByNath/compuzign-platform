@@ -815,6 +815,8 @@ class PackageSchema
             }
             return [
                 'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
+                'platform_id'          => (string) ($occ['cz_platform_id'] ?? ''),
+                'addon_platform_id'    => (string) ($occ['addon_platform_id'] ?? ''),
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
@@ -840,6 +842,8 @@ class PackageSchema
         }
         return [
             'occupant_id'          => null,
+            'platform_id'          => (string) ($tier['cz_platform_id'] ?? ''),
+            'addon_platform_id'    => (string) ($tier['addon_platform_id'] ?? ''),
             'label'               => $tier['label'] ?? '',
             'ideal_for'           => $tier['ideal_for'] ?? '',
             'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
@@ -948,11 +952,18 @@ class PackageSchema
         $history = [];
         $existingId = null;
         $existingRateSheetId = null;
+        $existingPlatformId = '';
+        $existingAddonPlatformId = '';
 
         if (self::isOccupantFormat($tierSlot)) {
             $history    = $tierSlot['history'] ?? [];
             $existingId = $tierSlot['current_occupant']['id'] ?? null;
             $existingRateSheetId = self::normaliseRateSheetId($tierSlot['current_occupant']['rate_sheet_id'] ?? null);
+            $existingPlatformId = (string) ($tierSlot['current_occupant']['cz_platform_id'] ?? '');
+            $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
+        } elseif (self::hasConfiguredContent($tierSlot)) {
+            $existingPlatformId = (string) ($tierSlot['cz_platform_id'] ?? '');
+            $existingAddonPlatformId = (string) ($tierSlot['addon_platform_id'] ?? '');
         }
 
         // The Tier's bound sheet: an explicit incoming id wins; when omitted the
@@ -972,6 +983,8 @@ class PackageSchema
         return [
             'current_occupant' => [
                 'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
+                'cz_platform_id'      => $existingPlatformId,
+                'addon_platform_id'   => $existingAddonPlatformId,
                 'platform_status'     => $enabled ? 'active' : 'disabled',
                 // Selection-mode flag, orthogonal to platform_status: whether this
                 // occupant is offered as the customer's one normal Tier or as a
@@ -1023,7 +1036,8 @@ class PackageSchema
     private static function emptyTierDetail(): array
     {
         return [
-            'occupant_id' => null, 'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
+            'occupant_id' => null, 'platform_id' => '', 'addon_platform_id' => '',
+            'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
         ];
