@@ -129,7 +129,11 @@ export function useTierDrawerController({
     const view = pkg.tierView(editingTierId);
     if (!view) return;
     setSaveErr(null);
-    const ok = await pkg.toggleTierEnabled(editingTierId, !view.detail.enabled);
+    // The toggle reverses the explicit Disable mask, not the published/active
+    // flag — a Pending, never-yet-published occupant is still offered Disable
+    // (see TierDrawerFooter's enabled prop, sourced from the same marker).
+    const nextEnabled = view.detail.is_explicitly_disabled === true;
+    const ok = await pkg.toggleTierEnabled(editingTierId, nextEnabled);
     if (ok) setSaveOk(true); else setSaveErr('Update failed.');
   };
   const handleRevertModule = async (module: 'overview' | 'features' | 'faqs') => {

@@ -27,6 +27,7 @@
     "contract:tier-occupant-card-drawer-unification": "tsx scripts/tier-occupant-card-drawer-unification-contract.ts",
     "contract:tier-overview-is-addon": "tsx scripts/tier-overview-is-addon-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
+    "regression:tier-occupant-lifecycle": "node scripts/tier-occupant-lifecycle-regression.mjs",
     "regression:service-create": "node scripts/service-create-regression.mjs",
     "regression:service-create-handoff": "node scripts/service-create-handoff-regression.mjs",
     "regression:service-open-save-race": "node scripts/service-open-save-race-regression.mjs",
