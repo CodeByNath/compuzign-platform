@@ -142,9 +142,16 @@ function jsonResponse(body) {
 const READ_PATH = `admin/services/${SERVICE_ID}/package-station/tier-instances/${INSTANCE_ID}/read`;
 const TIER_BASE = `admin/services/${SERVICE_ID}/package-station/tier-instances/${INSTANCE_ID}/tiers`;
 
+let tierAssignmentsCalls = 0;
+
 globalThis.fetch = (url, init = {}) => {
   const path = String(url);
   const method = (init?.method ?? 'GET').toUpperCase();
+
+  if (path.includes('tier-assignments')) {
+    tierAssignmentsCalls += 1;
+    return Promise.reject(new Error('Occupant configuration must never call tier-assignments — that endpoint is Tier Group/consumer assignment only.'));
+  }
 
   if (path.endsWith(READ_PATH) && method === 'GET') {
     return jsonResponse({
@@ -164,6 +171,18 @@ globalThis.fetch = (url, init = {}) => {
     const payload = JSON.parse(init.body ?? '{}');
     const t = tiers[tierId];
     if (module === 'overview') {
+      // Mirrors PackageSchema::ensurePendingOccupant — the first successful
+      // Overview Save on an empty slot mints a durable, unpublished
+      // current_occupant (stable occupant_id, no settled data, no Platform
+      // identifier). A no-op once an occupant already exists.
+      if (!t.settled) {
+        t.settled = {
+          occupant_id: `occ_${tierId}_first_save`, platform_id: '', addon_platform_id: '',
+          label: '', ideal_for: '', price: null, contact: false, billing_cycle: null,
+          rate_sheet_id: null, inclusions_override: [], rate_sheet_items: [], rate_sheet_selections: [],
+          features: [], faq_refs: [], enabled: false, is_explicitly_disabled: false, is_addon: false,
+        };
+      }
       t.drafts.overview = {
         label: payload.label ?? '', ideal_for: payload.ideal_for ?? '', price: null, contact: false,
         billing_cycle: payload.billing_cycle ?? '', rate_sheet_id: payload.rate_sheet_id, is_addon: !!payload.is_addon,
@@ -187,17 +206,23 @@ globalThis.fetch = (url, init = {}) => {
     // Mirrors PackageSchema::settleTierSlot — Publish alone activates and
     // clears the explicit marker, draft-preferred per module, regardless of
     // the marker/status beforehand (Publish after Enable reaches Active).
+    const isAddon = ov?.is_addon ?? base.is_addon;
     t.settled = {
       ...base,
       label: ov?.label ?? base.label,
       ideal_for: ov?.ideal_for ?? base.ideal_for,
       billing_cycle: ov?.billing_cycle ?? base.billing_cycle,
-      is_addon: ov?.is_addon ?? base.is_addon,
+      is_addon: isAddon,
       rate_sheet_id: ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : base.rate_sheet_id,
       rate_sheet_items: t.drafts.features ?? base.rate_sheet_items,
       faq_refs: t.drafts.faqs ?? base.faq_refs,
       enabled: true,
       is_explicitly_disabled: false,
+      // Mirrors settlePackageStationTier's first-settlement identity
+      // orchestration: CZT reserved once, on first settle; CZTA reserved
+      // once, only when is_addon, and reused (never re-reserved) afterward.
+      platform_id: base.platform_id || `CZT${tierId.toUpperCase()}`,
+      addon_platform_id: isAddon ? (base.addon_platform_id || `CZTA${tierId.toUpperCase()}`) : base.addon_platform_id,
     };
     t.drafts = emptyDrafts();
     t.module_status = settledModuleStatus();
@@ -394,6 +419,63 @@ async function runScenario(tierId, label) {
   check('the footer still offers Disable after republish', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
 }
 
+// First-save persistence boundary (empty slot → occupant created on Overview
+// Save, before Publish). `isAddon` proves the Add-on leg identically.
+async function runFirstSaveScenario(tierId, label, isAddon) {
+  console.log(`\n=== First-save persistence boundary — ${label} (slot: ${tierId}) ===`);
+
+  console.log('1) Mount a genuinely empty slot — no occupant, Publish disabled');
+  render(h(Harness, { initialTierId: tierId }), container);
+  await waitToSettle();
+  check('no occupant exists before any Save', tiers[tierId].settled === null);
+  let footerDom = renderFooterDom();
+  const publishBtnBefore = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
+  check('Publish is disabled before any content exists', publishBtnBefore?.disabled === true);
+  check('no Enable/Disable split renders for an unoccupied shell', footerDom.querySelector('.cz-footer-split__btn') == null);
+
+  console.log('\n2) First Overview Save — mints a pending occupant, settles nothing, assigns no identity');
+  const overviewEditBtn = editButtonFor('Tier Overview');
+  overviewEditBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  const labelInput = container.querySelector('#tier-label');
+  if (labelInput) { labelInput.value = `${label} Tier`; labelInput.dispatchEvent(new window.Event('input', { bubbles: true })); }
+  const cycleSelect = container.querySelector('#tier-billing-cycle');
+  if (cycleSelect) { cycleSelect.value = 'monthly'; cycleSelect.dispatchEvent(new window.Event('change', { bubbles: true })); }
+  if (isAddon) {
+    const addonCheckbox = container.querySelector('#tier-is-addon');
+    if (addonCheckbox) { addonCheckbox.checked = true; addonCheckbox.dispatchEvent(new window.Event('change', { bubbles: true })); }
+  }
+  await sleep(20);
+  clickButtonWithText('Save');
+  await waitToSettle();
+
+  check('a durable current_occupant now exists', tiers[tierId].settled !== null, JSON.stringify(tiers[tierId].settled));
+  const mintedOccupantId = tiers[tierId].settled?.occupant_id ?? null;
+  check('a stable occupant_id was minted', typeof mintedOccupantId === 'string' && mintedOccupantId.length > 0, mintedOccupantId);
+  check('the occupant is not active — first Save never settles or activates', tiers[tierId].settled?.enabled === false);
+  check('no CZT was assigned at first Save', !tiers[tierId].settled?.platform_id, tiers[tierId].settled?.platform_id);
+  check('no CZTA was assigned at first Save', !tiers[tierId].settled?.addon_platform_id, tiers[tierId].settled?.addon_platform_id);
+  check('no request was ever made to tier-assignments', tierAssignmentsCalls === 0, `tierAssignmentsCalls=${tierAssignmentsCalls}`);
+  check('the settle endpoint was never called by Save', settleCalls === 0, `settleCalls=${settleCalls}`);
+  check('Overview draft still exists', tiers[tierId].drafts.overview !== null);
+  check('module_status.overview is pending, not settled', tiers[tierId].module_status.overview === 'pending', tiers[tierId].module_status.overview);
+
+  console.log('\n3) Same mounted drawer now exposes the existing occupant lifecycle');
+  footerDom = renderFooterDom();
+  const publishBtnAfter = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
+  check('Publish is now enabled — the created occupant carries pending content', publishBtnAfter?.disabled === false);
+
+  console.log('\n4) Publish — settles the draft, activates the SAME occupant_id, assigns identity');
+  await clickPublish();
+  await waitToSettle();
+  check('the settle endpoint was called exactly once', settleCalls === 1, `settleCalls=${settleCalls}`);
+  check('Publish activates the occupant', tiers[tierId].settled?.enabled === true);
+  check('Publish preserves the occupant_id minted at first Save — no second identity', tiers[tierId].settled?.occupant_id === mintedOccupantId);
+  check('Publish assigns CZT', !!tiers[tierId].settled?.platform_id, tiers[tierId].settled?.platform_id);
+  check(`Publish ${isAddon ? 'assigns' : 'never assigns'} CZTA (is_addon=${isAddon})`, !!tiers[tierId].settled?.addon_platform_id === isAddon, tiers[tierId].settled?.addon_platform_id);
+  check('still no request was ever made to tier-assignments', tierAssignmentsCalls === 0, `tierAssignmentsCalls=${tierAssignmentsCalls}`);
+}
+
 console.log('Tier occupant lifecycle regression (blueprint acceptance matrix)\n');
 await runScenario('basic', 'Normal Tier');
 // Unmount between scenarios — Preact reuses the Harness instance across a
@@ -406,6 +488,16 @@ await runScenario('standard', 'Add-on Tier (identical lifecycle)');
 check('the Add-on occupant kept is_addon true throughout its lifecycle', tiers.standard.settled.is_addon === true);
 check('the normal Tier occupant is still is_addon false — no cross-occupant leakage', tiers.basic.settled.is_addon === false);
 check('occupant ids stayed stable across every transition', tiers.basic.settled.occupant_id === 'occ_basic' && tiers.standard.settled.occupant_id === 'occ_addon');
+
+render(null, container);
+setFooterCalls = 0; lastFooter = null;
+settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null;
+await runFirstSaveScenario('premium', 'Normal', false);
+
+render(null, container);
+setFooterCalls = 0; lastFooter = null;
+settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null;
+await runFirstSaveScenario('enterprise', 'Add-on', true);
 
 console.log('');
 if (failures.length > 0) {

@@ -305,13 +305,32 @@ export function usePackageStation(
   // Persist-through patch: patch the tier slot's draft + module_status in place from
   // the endpoint response, so derived values recompute without a refetch.
   const patchModule = useCallback((tierId: string, module: 'overview' | 'features' | 'faqs', res: TierLifecycleResponse) => {
-    setDetail(prev => prev ? {
-      ...prev,
-      station: {
-        ...prev.station,
-        tiers: patchTierModuleDraft(prev.station.tiers, tierId, module, res.drafts[module], res.module_status),
-      },
-    } : prev);
+    setDetail(prev => {
+      if (!prev) return prev;
+      const tiers = patchTierModuleDraft(prev.station.tiers, tierId, module, res.drafts[module], res.module_status);
+      const slot  = tiers[tierId];
+      return {
+        ...prev,
+        station: {
+          ...prev.station,
+          tiers: slot ? {
+            ...tiers,
+            // First-save persistence boundary: an Overview Save on an empty
+            // slot can mint the occupant's identity/marker for the first
+            // time (PackageSchema::ensurePendingOccupant) — hand the
+            // authoritative envelope off into the mounted drawer so it picks
+            // up occupant_id immediately, without a refetch or remount.
+            [tierId]: {
+              ...slot,
+              occupant_id:            res.tier.occupant_id,
+              platform_id:            res.tier.platform_id,
+              addon_platform_id:      res.tier.addon_platform_id,
+              is_explicitly_disabled: res.tier.is_explicitly_disabled ?? false,
+            },
+          } : tiers,
+        },
+      };
+    });
   }, []);
 
   const saveTierOverview = useCallback(async (tierId: string, draft: TierOverviewDraft) => {
