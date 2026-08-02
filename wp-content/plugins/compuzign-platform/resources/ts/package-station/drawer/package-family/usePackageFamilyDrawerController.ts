@@ -22,6 +22,25 @@ import type {
   PackageFamilyExitDialog,
 } from './packageFamilyDrawerTypes';
 
+export function derivePackageFamilyFooterState(
+  family: { group_id: string; platform_status: string; module_status: { overview: string } },
+  overviewStatus: string,
+  hasDraft: boolean,
+) {
+  const isActive = family.platform_status === 'active';
+  return {
+    // Category establishes the reference grammar: once Overview Save has
+    // issued a native identity, the record is no longer the local-new drawer,
+    // even though its raw storage status remains disabled/Pending.
+    isNewNeverPublished: family.group_id === '',
+    // Match Category's existing footer archive gate. No Package-only stored
+    // lifecycle-history field is introduced by this migration.
+    hasBeenPublished: isActive || family.module_status.overview === 'settled',
+    canPublish: family.group_id !== ''
+      && (overviewStatus === 'pending-full' || (isActive && hasDraft)),
+  };
+}
+
 export function usePackageFamilyDrawerController({
   family,
   initialTab,
@@ -157,11 +176,11 @@ export function usePackageFamilyDrawerController({
     }
   }, [closeBypassingGuard, confirmDialog, runLifecycle, station]);
 
-  const isNewNeverPublished = station.platformStatus === 'disabled'
-    && station.family.module_status.overview !== 'settled';
-  const hasBeenPublished = station.isActive || station.family.module_status.overview === 'settled';
-  const canPublish = station.modules.overview.status === 'pending-full'
-    || (station.isActive && station.hasDraft);
+  const { isNewNeverPublished, hasBeenPublished, canPublish } = derivePackageFamilyFooterState(
+    station.family,
+    station.modules.overview.status,
+    station.hasDraft,
+  );
 
   const overviewBinding: ShellBinding<PackageFamilyOverviewShellData> = {
     data: {
