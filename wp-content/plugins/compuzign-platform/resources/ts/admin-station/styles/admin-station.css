@@ -235,6 +235,18 @@
   border-top: 1px solid var(--station-border);
 }
 
+.cz-temporary-service-seed {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--station-grid-gap);
+  width: min(calc(100% - (2 * var(--station-space-x))), var(--station-content-max));
+  margin-inline: auto;
+  padding-block: var(--station-space-x);
+  color: var(--station-text-muted);
+  font-size: var(--station-text-sm);
+}
+
 /* ── Home body shell ────────────────────────────────────────────────────── */
 
 /* Centred, width-bounded twelve-column grid. Row 1 holds the presentation, row

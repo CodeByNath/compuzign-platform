@@ -20,6 +20,7 @@
     "contract:service-home-connections": "tsx scripts/service-home-connections-contract.ts",
     "contract:supported-action-footer": "tsx scripts/supported-action-footer-contract.ts",
     "contract:station-tabset": "tsx scripts/station-tabset-contract.ts",
+    "contract:temporary-service-catalogue-seed": "node scripts/temporary-service-catalogue-seed-contract.mjs",
     "contract:tier-instance-scope": "tsx scripts/tier-instance-scope-contract.ts",
     "contract:tier-instance-tool": "tsx scripts/tier-instance-tool-contract.ts",
     "contract:tier-occupant-admin": "tsx scripts/tier-occupant-admin-contract.ts",

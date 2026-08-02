@@ -65,7 +65,7 @@ export interface ServiceSummary {
 export interface ServiceCatalogResponse {
   // platform_status is additive (S6 Phase B): entries are scoped to live
   // categories (D7) and carry their lifecycle status for selector rendering.
-  categories: Array<{ id: number | null; name: string; slug: string; description: string; platform_status?: 'active' | 'disabled' }>;
+  categories: Array<{ id: number | null; platformId: string; name: string; slug: string; description: string; platform_status?: 'active' | 'disabled' }>;
   stations:   ServiceSummary[];
 }
 

@@ -32,6 +32,7 @@ Station Manager supplies host-engine contracts and resolution only. Admin Statio
 - [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php) owns Service catalogue, detail, module, lifecycle, and pool routes. Its authenticated Platform-ID GET resolves a bound Service, then calls the unchanged numeric `fetchDetail` projection.
 - [ServiceSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Support/ServiceSchema.php) owns Service keys, module vocabulary, sanitization, and REST arguments.
 - [ServicePools.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Support/ServicePools.php) is the public pool-write boundary used by Service and Package Tier saves.
+- `resources/ts/temporary-service-catalogue-seed/TemporaryServiceCatalogueSeedAction.tsx` is a temporary authenticated Admin action for the supplied ten-Service catalogue addition. It reads the current catalogue first and delegates Category, Service, Overview-repair, and Inclusion-draft mutations to their existing frontend API owners; remove it after the live run and idempotency verification.
 
 WordPress post/meta access stays cohesive here; there is no pass-through repository. Core post-type/taxonomy registrars declare entities but do not own behavior.
 
