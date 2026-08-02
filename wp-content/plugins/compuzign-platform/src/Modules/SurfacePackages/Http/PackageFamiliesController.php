@@ -53,6 +53,16 @@ class PackageFamiliesController
 
     public function registerRoutes(): void
     {
+        // ── Read by permanent external identity (native mutations unchanged) ─
+        register_rest_route('compuzign/v1', '/admin/package-families/(?P<platform_id>CZ[A-Z0-9]+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'fetchGroupByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'platform_id' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
         // ── Station list (admin only) ─────────────────────────────────────────
         register_rest_route('compuzign/v1', '/admin/package-category-groups', [
             'methods'             => 'GET',
@@ -153,6 +163,45 @@ class PackageFamiliesController
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
+
+    public function fetchGroupByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $platformId = (string) $request->get_param('platform_id');
+
+        try {
+            $binding = $this->platformIdentifiers->resolve($platformId);
+        } catch (PlatformIdentifierConflict) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'Platform identifier binding is conflicting.',
+            ], 409);
+        }
+
+        if (
+            $binding === null
+            || !$binding->isBound()
+            || $binding->entityType() !== PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP
+            || !is_string($binding->nativeReference())
+            || $binding->nativeReference() === ''
+        ) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Package Family not found.'], 404);
+        }
+
+        [$station, $manager] = $this->loadStationAndManager();
+        $groupId = $binding->nativeReference();
+        $group = PackageCategoryGroups::find($manager['category_groups'], $groupId);
+        if ($group === null) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Package Family not found.'], 404);
+        }
+        if ((string) ($group['cz_platform_id'] ?? '') !== $platformId) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'Package Family Platform identifier storage is conflicting.',
+            ], 409);
+        }
+
+        return $this->groupResponse($station, $groupId);
+    }
 
     public function listGroups(\WP_REST_Request $request): \WP_REST_Response
     {

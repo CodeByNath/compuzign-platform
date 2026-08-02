@@ -103,8 +103,9 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    existing-record Publish, and explicit Disable/Enable masking. New Families
    reserve and bind `CZPG` to Package-owned string `group_id`, store the scalar
    in `category_groups[]`, project it output-only, reject mutation, and tombstone
-   guarded hard deletion. The Platform-ID GET route vocabulary decision and
-   bounded existing-record assignment remain separate later phases. Package
+   guarded hard deletion. The approved authenticated read route is
+   `GET /admin/package-families/{platformId}`; bounded existing-record assignment
+   remains a separate later phase. Package
    Station remains pending overall because every other Package entity is unchanged.
 5. **Tier Group — pending owner/storage audit.** No files locked yet.
 6. **Tier Add-on — pending owner/storage audit.** No files locked yet.
@@ -129,7 +130,7 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | 3A | Optional additive schema identity and authenticated owner-specific Service/Category Platform-ID reads complete | `03de986`, `0a738c6`, `74a55c5` | Native numeric identity remains authoritative. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
 | 3B | Bounded, resumable Service/Category existing-record assignment command and focused contract complete | `ac0be8f` | Run pages and verify Platform-ID GETs in the target WordPress runtime. No local WP-CLI/runtime is present in this repository workspace. |
 | 3C | Temporary authenticated dry-run/batch REST action and Admin Station notice ready for live execution | `d87af20`, `056c4bd`, `073215b` | Remove only after conflict-free live completion and route/lifecycle verification. |
-| 4 | New-record integration complete | this implementation phase | Platform-ID GET route vocabulary and existing-record assignment deliberately remain pending. |
+| 4 | New-record integration complete | this implementation phase | Canonical read route complete; existing-record assignment remains pending. |
 | 5–12 | Pending | — | No Tier, add-on, Promotion, or Rate Card identity integration has begun. |
 
 No Project History document has been created. That decision remains with the

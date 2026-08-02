@@ -249,6 +249,14 @@
             "callback": "updateStatus",
             "permission_callback": "requireAdmin",
             "args": {
+                "action": {
+                    "enum": [
+                        "disable",
+                        "enable"
+                    ],
+                    "required": false,
+                    "type": "string"
+                },
                 "gid": {
                     "required": true,
                     "type": "string"
@@ -260,6 +268,18 @@
                         "archived",
                         "trashed"
                     ],
+                    "required": false,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/package-families/(?P<platform_id>CZ[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchGroupByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
                     "required": true,
                     "type": "string"
                 }

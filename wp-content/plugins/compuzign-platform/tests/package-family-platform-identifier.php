@@ -114,6 +114,6 @@ package_family_identifier_check(str_contains($controller, 'rejectPlatformIdMutat
 package_family_identifier_check(str_contains($controller, 'markDeleted(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP'), 'permanent deletion tombstones identity');
 package_family_identifier_check(str_contains($module, 'PackageFamiliesController($this->platformIdentifiers)'), 'SurfacePackages injects the shared Station into the controller');
 package_family_identifier_check(str_contains($plugin, 'SurfacePackagesModule($platformIdentifiers)'), 'Core supplies the one shared Station');
-package_family_identifier_check(!str_contains($controller, '/admin/package-families/'), 'Phase 7 adds no unresolved Platform-ID GET route');
+package_family_identifier_check(str_contains($controller, '/admin/package-families/'), 'approved canonical Platform-ID GET route is present');
 
 echo "Package Family Platform identifier contract passed.\n";

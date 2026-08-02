@@ -15,8 +15,9 @@ Package Family now conforms to the locked lifecycle. `Core\Plugin` injects the
 shared `PlatformIdentifierStation` through `SurfacePackagesModule`; the Family
 row owns `cz_platform_id` and native string `group_id`, while the identifier
 Station owns `CZPG` reservation, binding, lookup, conflict, and tombstone only.
-No Platform-ID GET route or existing-record assignment exists yet. No other
-Package entity receives identity or lifecycle changes from this integration.
+`GET /admin/package-families/{platformId}` is the sole Platform-ID route and is
+read-only; native mutations remain unchanged. Existing-record assignment is
+still separate. No other Package entity receives identity or lifecycle changes.
 
 ## Boundaries
 

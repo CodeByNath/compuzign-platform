@@ -74,5 +74,6 @@ shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`
 in its `category_groups[]` row and string native `group_id`. Creation reserves
 `CZPG`, persists the Pending Family, binds the returned native identity,
 projects output-only identity, rejects mutation, and tombstones guarded hard
-deletion. No Package Platform-ID GET route or existing-record assignment is
-registered, and no other Package entity is integrated.
+deletion. The authenticated read at `/admin/package-families/{platformId}`
+resolves only a bound matching Family before delegating to Package projection.
+No existing-record assignment is registered, and no other Package entity is integrated.

@@ -24,8 +24,8 @@ Backend root: `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts), [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts), [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts), and [vocabulary.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/vocabulary.ts) are Package-owned derivations and vocabulary.
 - Package Family alone carries output-only `CZPG` Platform identity. Its
   Package-owned row stores `cz_platform_id`; native `group_id` remains the
-  mutation address. The Platform-ID GET route and existing-record assignment
-  remain deliberately pending later decisions.
+  mutation address. `GET /admin/package-families/{platformId}` resolves a bound
+  identifier and returns the existing authoritative Family projection.
 
 ## Registration and presentation
 

@@ -14,6 +14,8 @@ Station. Its complete Overview Save creates the persisted Pending Family and
 keeps the returned `group_id`/`CZPG` identity in the same mounted drawer;
 Publish never creates. Explicit Disable/Enable uses the shared mask. Do not
 extend those claims to Tier, Rate Sheet, Promotion, occupants, or capabilities.
+The backend-only `GET /admin/package-families/{platformId}` is the canonical
+external identity read; native Package mutations remain on `group_id` routes.
 
 ## Ownership and entry points
 
