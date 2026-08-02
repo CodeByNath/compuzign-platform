@@ -11,6 +11,25 @@ assigns it once; normal-Tier settlement preserves it dormant; returning to
 Add-on reuses it. No separate Add-on lifecycle, drawer, endpoint family, or
 native record exists.
 
+## Locked architecture conformance
+
+Tier Add-on conforms through the exact same locked occupant architecture:
+
+```text
+the same Tier occupant
++ is_addon = true
++ optional dormant CZTA identity
+```
+
+It therefore uses the same registered drawer composition and shell, module
+placement, inline editors, Save-as-draft boundary, Pending dim/full pills,
+notification engine, same-mounted first-Save identity handoff, Publish
+settlement/activation, Disable/Enable transitions, lifecycle footer, and
+occupant-owned state described in [Tiers](tiers.md). First Overview Save creates
+the durable Pending occupant and assigns neither `CZT` nor `CZTA`; first Add-on
+Publish assigns both. It must not be modelled as a separate drawer, entity
+lifecycle, controller, footer, endpoint family, or Tier Group lifecycle.
+
 ## Backend
 
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) — `is_addon` lives on `current_occupant`, defaulting `false`, threaded through `upsertOccupant`, `normaliseTierSlot`, `summariseTierSlot`, and `extractTierForCostBuilder`. `settleTierSlot` draft-prefers it (`$ov['is_addon'] ?? $occ['is_addon']`) exactly like `label`/`billing_cycle`. It is not written by `archiveTierOccupant`/`restoreBinnedOccupant`/`trashBinnedOccupant`/`deleteBinnedOccupant` — those copy the whole stored occupant record, so the flag survives archive, restore, retarget, and swap for free.
@@ -24,19 +43,13 @@ native record exists.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) — `draftPreferredDetail` (exported for contract testing) merges a pending `is_addon` draft over the settled occupant, the same rule as every other Overview scalar.
 - [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) — splits the one projected Tier map into "Choose your Tier" (`!is_addon`, existing single-select `TierCard`) and "Optional add-ons" (`is_addon`, independent toggle), sharing one `TierCard` renderer so the visual language, CSS, and dark/light theming are defined exactly once. Renders no add-ons section when none exist. [ServiceCard.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/ServiceCard.tsx) owns `handleSelect` (normal, exclusive) and `handleToggleAddon` (independent); an add-on can never replace the normal selection. [ComparePlans.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/ComparePlans.tsx) excludes add-on Tiers from its comparison columns.
 
-### Admin Tier Workspace presentation
+### Admin presentation
 
-No second identity — the admin engine reads the same settled values. [tierOccupantCard.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/tierOccupantCard.ts) labels the shared card `kind` "Package Tier"/"Package Add-on". [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/projection.ts) carries `isAddon`/`isPopular` on `WorkspaceTierSlot` and exposes pure `filterWorkspaceTierSlots` (`all`/`tiers`/`addons`; empty slots match only `all`) for the left-list filter in [TierNavigation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierNavigation.tsx) and [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx). [TierDetailPanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierDetailPanel.tsx) shows a Popular badge; `tierOverviewShell` ([tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/schema/bindings/tier.tsx)) reports Type/Popular as Overview rows.
+The admin engine reads the same occupant. [tierOccupantCard.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/tierOccupantCard.ts) labels its kind. [projection.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/projection.ts) carries `isAddon`/`isPopular` and filters all/Tiers/Add-ons for [TierNavigation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierNavigation.tsx). [TierDetailPanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierDetailPanel.tsx) and [tier.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/schema/bindings/tier.tsx) present Popular and Type.
 
 ## Quote cart identity
 
-[quote.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/quote.ts) is the single source of truth for cart-line identity and mutation, since `serviceId` alone stopped being unique once a Service can carry one normal line plus multiple add-on lines:
-
-- `quoteItemKey` — `serviceId:primary` or `serviceId:addon:tierId`, used for every list key.
-- `replaceNormalQuoteItem` — replaces only the existing non-add-on line for a `serviceId` (a normal Tier, a promotion, or the legacy bundle); every add-on for that `serviceId` survives. This is why switching the normal Tier preserves selected add-ons.
-- `upsertAddonQuoteItem` / `removeAddonQuoteItem` — add-on lines, keyed by `serviceId` + `tierId`, independent of the normal line and of each other.
-- `removeServiceQuoteItems` — removes a whole Service's normal line and every add-on; also the correct behaviour for deselecting the normal Tier outright, since an add-on has nothing to attach to without one.
-- `classifyQuoteItems` supplies the shared main/bundle/add-on split to order and proposal presentation without inference between identities.
+[quote.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/quote.ts) owns cart identity and mutation. Normal lines use `serviceId:primary`; Add-ons use `serviceId:addon:tierId`. Normal replacement preserves Add-ons; Add-on upsert/removal is independent; whole-Service removal removes all lines; classification supplies the shared main/bundle/Add-on split.
 
 [RequestSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php) sanitises `isAddon` to a strict boolean, defaulting `false`.
 

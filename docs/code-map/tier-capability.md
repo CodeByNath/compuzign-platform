@@ -1,9 +1,9 @@
 # Tier Capability Instances and Assignments
 
-**Lifecycle contract status:** Pending migration with Package Station. The
-assignment ledger and Tier-instance/occupant rules remain authoritative for
-current Package code, but they are not the locked Service/Category drawer
-creation and travel contract.
+**Lifecycle contract status:** Tier Group / Tier System and its assignment
+ledger remain separate from the locked contract. Tier occupant and Tier Add-on
+conform through the occupant architecture documented in [Tiers](tiers.md); this
+map's instance/assignment rules are not promoted by that conformance.
 
 ## Ownership and canonical shape
 

@@ -1,11 +1,12 @@
 # Package Manager
 
 **Lifecycle contract status:** Pending migration. Package Manager's current
-Family, Tier, and Rate Sheet creation flows intentionally differ from the
+Tier Group / Tier System and Rate Sheet creation flows intentionally differ from the
 locked [Station and Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md):
 some records stage locally and create from a footer action or collection save.
 This is an inventory marker, not a license to copy the divergence into new
-Stations.
+Stations. Tier occupant and Tier Add-on are conforming and are documented in
+[Tiers](tiers.md); they are not part of this pending marker.
 
 ## Purpose and naming
 

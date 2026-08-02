@@ -2,13 +2,15 @@
 
 **Lifecycle contract status:** Pending migration.
 
-Package Family is the first conforming Package entity: complete Overview Save
-creates its persisted unmasked Pending record, seeds the returned string native
-identity into the same mounted drawer, and leaves Publish to settle/activate
-that existing record. Explicit Disable/Enable uses the shared mask grammar and
-Restore returns to unmasked Pending. Tier Group and Tier now adopt the shared
-registered drawer/module/footer architecture while preserving their explicit
-Package Publish/Apply and occupant-travel lifecycles. Package Station remains
+Package Family, Tier occupant, and Tier Add-on are conforming Package entities.
+Complete Overview Save creates the persisted Pending Family, seeds its returned
+string native identity into the same mounted drawer, and leaves Publish to
+settle/activate that existing Family. A Tier occupant's first Overview Save
+likewise creates a durable Pending occupant and hands `occupant_id` into the
+same mounted drawer; Publish settles/activates and first assigns `CZT`, plus
+`CZTA` when `is_addon = true`. Explicit Disable/Enable follows the shared
+grammar. Tier Group / Tier System retains its separate Package Publish/Apply
+lifecycle. Package Station remains
 pending overall because Promotion, Tier Inclusion, and other Package lifecycle
 surfaces are unchanged; Rate Sheet receives identity only.
 

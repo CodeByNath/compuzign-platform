@@ -2,18 +2,21 @@
 
 Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 
-**Lifecycle status:** Package Station is pending migration to the locked
+**Lifecycle status:** Package Station is partially conforming to the locked
 [Station and Drawer Lifecycle Contract](../../../../../../docs/architecture/StationDrawerLifecycleContract-v1.md).
-Its current Family/Tier/Rate Sheet creation, slot/occupant, and travel rules
-remain source-specific. Do not copy those differences into a new Station or
-describe Package drawers as Service/Category-conformant until the Code Maps
-and mounted regressions are updated.
+Package Family, Tier occupant, and Tier Add-on conform. Tier Group / Tier
+System, Rate Sheet, Promotion, and the remaining Package surfaces retain their
+source-specific inventory. Do not copy those differences into a new Station.
 
-Package Family is the first conforming exception within this still-pending
-Station. Its complete Overview Save creates the persisted Pending Family and
+Package Family's complete Overview Save creates the persisted Pending Family and
 keeps the returned `group_id`/`CZPG` identity in the same mounted drawer;
 Publish never creates. Explicit Disable/Enable uses the shared mask. Do not
-extend those claims to Tier, Rate Sheet, Promotion, occupants, or capabilities.
+extend those claims to Tier Group / Tier System, Rate Sheet, Promotion, or
+capabilities. Tier occupant and Tier Add-on separately conform: first Overview
+Save creates the durable Pending occupant and hands `occupant_id` into the same
+mounted drawer; Publish settles/activates and assigns `CZT`, plus `CZTA` for an
+Add-on. Add-on remains the same occupant with `is_addon = true`, never a second
+drawer, lifecycle, controller, footer, or endpoint family.
 Backend canonical reads now cover Package Family, Tier Group, Tier, Tier
 Add-on, Rate Sheet, Rate Sheet Group, and Rate Sheet Item. Row identity is
 output-only and uses `(rate_sheet_id,item_id)`, never mutable `group_id`. Native mutations retain their

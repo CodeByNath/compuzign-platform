@@ -1,6 +1,6 @@
 # Tiers
 
-**Locked drawer architecture adopted; Package occupant lifecycle preserved.**
+**Locked Station/Drawer architecture: conforming Tier occupant and Tier Add-on.**
 
 ## Purpose and ownership
 
@@ -19,23 +19,45 @@ An occupant binds to **one** Rate Sheet via overview's confirm-then-clear picker
 
 An occupant also carries `is_addon` — see [Tier Add-on Selection](tier-addon.md).
 
+## Locked creation and lifecycle
+
+The Tier occupant uses the shared registered composition, shared drawer shell,
+shared module placement, inline module editors, Save-as-draft, Pending
+dim/full pills, shared notification engine, and canonical lifecycle footer.
+The first successful Overview Save creates a durable Pending occupant, assigns
+`occupant_id`, retains the Overview draft with `module_status.overview =
+'pending'`, and hands that identity into the same mounted drawer. It assigns no
+`CZT` or `CZTA`.
+
+Publish is the settlement and activation boundary for that existing occupant:
+it settles eligible drafts, activates, assigns `CZT` on first Publish, and
+conditionally assigns `CZTA` on first Add-on Publish. Incomplete configuration
+is Pending dim; publication-ready saved draft is Pending full; Publish is
+Active; Disable is Disabled; Enable returns to Pending dim/full by readiness.
+Never-published occupants offer Move to Trash; previously published occupants
+retain Archive. Package Station remains the sole authority for occupant state.
+
+Tier Group / Tier System is a separate aggregate and is not promoted by this
+occupant conformance. Its registration and Publish/Apply contract remains in
+[Tier System Registration](tier-registration.md).
+
 ## Registration and presentation
 
 [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/register.ts) registers the workspace source, `tier-workspace` kit, and `tier` drawer. Admin's string-key Packages binding hosts them without acquiring Tier authority.
 
-The workspace is Package-owned:
+The Package-owned workspace entry points are:
 
-- [useTierInstances.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) separates instance/assignment state and mutations; [tierInstanceModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) projects list, eligibility, slots, sheet options, and inventory. It suggests no consumer: Family labels require assignments.
-- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) resolves the selected Family's exact assignment and opens only that instance. Directly opened unassigned instances use labelled management mode.
-- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) enriches focused-Tier inclusions with Service categories and projects the Tier's connections: `projectTierRateSheet` returns the one bound sheet with its stored id/status and row counts; `projectTierRateSheetGroups` returns only groups that sheet stores, keyed `(rate_sheet_id, group_id)` and inheriting its status. Ungrouped rows and retired group ids mint no group identity.
-- [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns transient slot/Focus/Grid selection. A Family holding no Tier system keeps its honest setup surface and registers one directly from there, handing its own id over to be pre-selected rather than relaying the user to Settings. Admin adapters navigate to Packages, then Package selects scope with focus/scroll/live feedback.
-- [TierLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx) presents Details/Connections/Settings through Package's `TierTabSet` skin over Admin's accessible `StationTabSet`. Connections preserves stored identity and owning routes; Settings remains read/launcher-only. See [Package Home Settings](package-settings.md).
-- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) decodes `(instance, occupant)`, empty `(instance, slot)`, or the registration address, and mounts the drawer. An empty slot opens the ordinary readable Overview screen — no explanation block and no opened editor: its empty Tier Overview module carries the Pending pill, that pill's guidance, and the Edit action into the existing editor, the cycle Included Features and Common Questions already follow. Never fabricated `occ_…` identity.
-- Registering a new Tier system happens in this same drawer at `tier-register:[familyId]`, resolving into the same composition the persisted route mounts. See [Tier System Registration](tier-registration.md).
+- [useTierInstances.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) and [tierInstanceModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) own instance/assignment mutations and projections.
+- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) resolves the selected Family's exact assignment; unassigned instances use labelled management mode.
+- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) projects focused-Tier connections using stored sheet/group identities only.
+- [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns transient slot/focus/grid selection.
+- [TierLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx) presents Details/Connections/Settings; Settings is read/launcher-only. See [Package Home Settings](package-settings.md).
+- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) decodes occupant, empty-slot, and registration addresses. Empty slots open readable Overview with Pending guidance and Edit, never fabricated identity.
+- Tier System registration uses `tier-register:[familyId]`; see [Tier System Registration](tier-registration.md).
 
 Family and Tier instance remain peers linked by assignment; neither stores or silently mutates the other.
 
-Public consumption follows exact assignments. Missing, inactive, unknown, or ambiguous resolution fails closed without `ti_primary` or another Family. One manager model preserves `(rate_sheet_id, item_id)`.
+Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`.
 
 ## Drawer, state, and persistence
 

@@ -3,8 +3,9 @@
 The locked platform contract for station identity, module pills/notifications,
 drawer handoff, footer actions, and travel is [Station and Drawer Lifecycle
 Contract v1](../architecture/StationDrawerLifecycleContract-v1.md). This map
-describes the current implementation boundary; it does not promote Package
-Centre's still-pending lifecycle into the shared default.
+describes the current implementation boundary. Package Family, Tier occupant,
+and Tier Add-on conform; this does not promote Tier Group / Tier System or the
+remaining Package surfaces.
 
 ## Ownership
 
@@ -27,13 +28,15 @@ Station Manager has no lifecycle rules or records. Registering a source, kit, or
 - [useCategoryStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCategoryStation.ts) owns Category's local-pending to persisted-Pending Overview Save hand-off, draft-preferred projection, Publish, and explicit Disable/Enable mask. The retired Service Category Group station's hook is gone: Category carries no group concept.
 - [usePromotionStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/usePromotionStation.ts) owns the current Promotion client lifecycle boundary; Promotion persistence remains in the Package repository.
 
-Service and Category are the conformance pair: a complete Overview Save creates
-the persisted Pending record, preserves the mounted drawer during returned-ID
-handoff, and leaves Publish to settle/activate that existing ID. Their raw
-unmasked `disabled` storage value is not the Disabled pill; only an explicit
-disable mask is Disabled, and Enable/Restore return to unmasked Pending.
-Package Family, Tier, Rate Sheet, and Promotion remain pending migrations with
-their existing source-specific creation/travel rules documented in the
+Service, Service Category, Package Family, Tier occupant, and Tier Add-on are
+the conforming inventory. A complete Overview Save creates the persisted
+Pending record/occupant, preserves the mounted drawer during native-ID handoff,
+and leaves Publish to settle/activate that existing identity. Tier uses
+`is_explicitly_disabled`; its Add-on is the same occupant with `is_addon = true`
+and optional dormant `CZTA`, not a second lifecycle. Explicit Disable is
+Disabled, while Enable/Restore return to Pending by module readiness.
+Tier Group / Tier System, Rate Sheet, and Promotion remain outside this
+promotion with their existing source-specific creation/travel rules in the
 [lifecycle contract](../architecture/StationDrawerLifecycleContract-v1.md#8-conformance-and-pending-inventory).
 
 ## Backend authority

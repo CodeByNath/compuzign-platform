@@ -2,8 +2,9 @@
 
 The locked cross-Station lifecycle, pill, notification, child-lock, footer,
 and travel contract is [Station and Drawer Lifecycle Contract v1](../architecture/StationDrawerLifecycleContract-v1.md).
-Service and Category conform today; Package Centre surfaces are explicitly
-pending migration there.
+Service, Service Category, Package Family, Tier occupant, and Tier Add-on
+conform today. Tier Group / Tier System and the remaining Package surfaces keep
+their separate inventory there.
 
 ## Responsibility split
 
@@ -14,7 +15,7 @@ The drawer system separates coordination, hosting, rendering, and persistence:
 - **Owning Stations** register drawer adapters and own their compositions, validation, lifecycle, and saves.
 - **Drawer Kit** supplies entity-neutral schema renderers and interaction primitives; it owns no records.
 
-[drawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/drawerTypes.ts) defines `DrawerMode`, `DrawerSize`, open string keys, and content props. [drawerTemplates.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/registry/drawerTemplates.ts) registers and resolves templates. [AdminStationDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/shell/drawer/AdminStationDrawer.tsx) hosts the resolved contract, applies its declared `size` as a generic width modifier, and delegates `recordId`, mode, close, footer, close guard, and originating-wall refresh. See [Admin Station Drawer](admin-station-drawer.md) for the size capability.
+[drawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/drawerTypes.ts) defines drawer contracts. [drawerTemplates.ts](../../wp-content/plugins/compuzign-platform/resources/ts/station-manager/registry/drawerTemplates.ts) resolves templates. [AdminStationDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/admin-station/shell/drawer/AdminStationDrawer.tsx) hosts them and delegates identity, mode, close, footer, guard, and refresh. See [Admin Station Drawer](admin-station-drawer.md).
 
 ## Shared Drawer Kit
 
@@ -60,9 +61,9 @@ their ID; afterward child saves are authoritative Station writes.
 
 Enforced by `npm run contract:drawer-module-entry`, which executes each rule and reads the compositions for the wiring they need, and by `node scripts/module-state-snapshot.mjs`, which pins every exported rule's `{ status, notes }`. Surfaces under it: empty Tier slots ([Tiers](tiers.md)), whole-instance Tier Rate Sheet access ([Package Home Settings](package-settings.md)), Tier registration ([Tier System Registration](tier-registration.md)), Family creation (the mature drawer's `'new'` identity), and the Rate Sheet pool ([Rate Sheet](rate-sheet.md)).
 
-Package Family, Tier Group, and Tier use the shared drawer/footer grammar;
-Tier Group and Tier retain their documented Package-owned lifecycle
-differences. Tier Inclusion, Rate Sheet lifecycle, and Promotion
+Package Family, Tier occupant, and Tier Add-on use the locked drawer/footer
+grammar. Tier Group / Tier System uses shared presentation but retains its
+separate Package-owned lifecycle. Tier Inclusion, Rate Sheet lifecycle, and Promotion
 still have documented lifecycle differences and remain pending migration;
 they must not be copied as the platform default. The full inventory is in the
 contract's [conformance table](../architecture/StationDrawerLifecycleContract-v1.md#8-conformance-and-pending-inventory).

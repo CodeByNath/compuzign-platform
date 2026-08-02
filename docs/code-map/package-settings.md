@@ -1,12 +1,14 @@
 # Package Home Settings
 
-**Pending migration.**
+**Tier Group / Tier System remains outside the locked promotion.** Tier
+occupant and Tier Add-on conformance does not change this aggregate Settings
+lifecycle.
 
 ## Purpose and ownership
 
-Settings is third lane of the Package Home Tier workspace lower deck: a read-and-launch surface. It summarises the focus the Family Group leads, opens configuration in the drawer that owns it, and launches the registered Package Manager creation flows. Package Home owns no draft, validation, endpoint, or save.
+Settings is the Package Home Tier workspace's read-and-launch lane. It opens owning drawers and registered Package Manager creation flows; Package Home owns no draft, endpoint, or save.
 
-Its scope is the focus, not one Tier slot inside it: Connections reads what the focused **Tier** connects to, Settings what the focused **Package** is. Both name the same two categories, Stations and Tools, and render the same rows, so one record reports one identity, status, and target either way.
+Its scope is the focused Package, not one Tier slot. Connections and Settings share Stations/Tools rows and record identity.
 
 Settings makes no relationship: it never assigns a Tier system to a Family, suggests a consumer, grants access during creation, binds a Rate Sheet to a slot, or keeps a second Tier inventory. Family assignment stays in the `package-family` capability module; slot binding in the `tier` occupant overview; whole-system Rate Sheet availability in the Tier-instance module of the registered `tier` drawer.
 
