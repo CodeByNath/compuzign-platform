@@ -30,7 +30,7 @@ export function PlatformIdentifierMigrationNotice() {
           if (active) setReports(Object.fromEntries(dryRuns.map((dry) => [dry.entity_type, dry.report])) as Record<EntityType, Report>);
         }
       })
-      .catch((reason: unknown) => active && setError(reason instanceof Error ? reason.message : 'Migration check failed.'));
+      .catch(() => active && setError('Platform ID migration check failed. Review the server log for details.'));
     return () => { active = false; };
   }, []);
 
@@ -63,8 +63,8 @@ export function PlatformIdentifierMigrationNotice() {
         }
       }
       if (complete) setStatus({ complete: true, progress: {} });
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Platform ID assignment stopped.');
+    } catch {
+      setError('Platform ID assignment stopped. Review the server log for details.');
     } finally { setBusy(false); }
   };
 

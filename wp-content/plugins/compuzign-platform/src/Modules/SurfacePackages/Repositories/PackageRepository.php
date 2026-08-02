@@ -447,15 +447,15 @@ class PackageRepository
         $references[] = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
     }
 
-    public function rateSheetPlatformId(string $nativeReference, ?string $groupContext = null): string
+    public function rateSheetPlatformId(string $nativeReference, string $scope = 'sheet'): string
     {
-        $located = $this->locateRateSheetIdentity($nativeReference, $groupContext);
+        $located = $this->locateRateSheetIdentity($nativeReference, $scope);
         return $located === null ? '' : (string) ($located['record']['cz_platform_id'] ?? '');
     }
 
-    public function claimRateSheetPlatformId(string $nativeReference, string $platformId, ?string $groupContext = null): bool
+    public function claimRateSheetPlatformId(string $nativeReference, string $platformId, string $scope = 'sheet'): bool
     {
-        $located = $this->locateRateSheetIdentity($nativeReference, $groupContext);
+        $located = $this->locateRateSheetIdentity($nativeReference, $scope);
         if ($located === null) return false;
         $stored = (string) ($located['record']['cz_platform_id'] ?? '');
         if ($stored !== '') return $stored === $platformId;
@@ -464,9 +464,9 @@ class PackageRepository
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         foreach ($manager['rate_sheets'] as $sheetIndex => $sheet) {
             if ((string) ($sheet['rate_sheet_id'] ?? '') !== $located['rate_sheet_id']) continue;
-            if ($groupContext === null) {
+            if ($scope === 'sheet') {
                 $manager['rate_sheets'][$sheetIndex]['cz_platform_id'] = $platformId;
-            } elseif ($groupContext === 'group') {
+            } elseif ($scope === 'group') {
                 foreach ($sheet['groups'] as $groupIndex => $group) {
                     if ((string) ($group['group_id'] ?? '') === $located['group_id']) {
                         $manager['rate_sheets'][$sheetIndex]['groups'][$groupIndex]['cz_platform_id'] = $platformId;
@@ -482,19 +482,19 @@ class PackageRepository
         }
         $station['package_manager'] = $manager;
         $this->saveStation($station);
-        return $this->rateSheetPlatformId($nativeReference, $groupContext) === $platformId;
+        return $this->rateSheetPlatformId($nativeReference, $scope) === $platformId;
     }
 
-    public function rateSheetPlatformIdExists(string $platformId, ?string $groupContext = null): bool
+    public function rateSheetPlatformIdExists(string $platformId, string $scope = 'sheet'): bool
     {
         $station = $this->loadStation();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         foreach ($manager['rate_sheets'] as $sheet) {
-            if ($groupContext === null && ($sheet['cz_platform_id'] ?? '') === $platformId) return true;
-            if ($groupContext === 'group') foreach ($sheet['groups'] as $group) {
+            if ($scope === 'sheet' && ($sheet['cz_platform_id'] ?? '') === $platformId) return true;
+            if ($scope === 'group') foreach ($sheet['groups'] as $group) {
                 if (($group['cz_platform_id'] ?? '') === $platformId) return true;
             }
-            if ($groupContext === 'item') foreach ($sheet['items'] as $item) {
+            if ($scope === 'item') foreach ($sheet['items'] as $item) {
                 if (($item['cz_platform_id'] ?? '') === $platformId) return true;
             }
         }
@@ -502,17 +502,18 @@ class PackageRepository
     }
 
     /** @return array{items:list<string>,next_cursor:string|null,complete:bool} */
-    public function rateSheetAssignmentPage(?string $cursor, int $limit, bool|string $scope = false): array
+    public function rateSheetAssignmentPage(?string $cursor, int $limit, string $scope): array
     {
         if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Rate Sheet assignment limit must be between 1 and 500.');
+        if (!in_array($scope, ['sheet', 'group', 'item'], true)) throw new \InvalidArgumentException('Rate Sheet assignment scope must be sheet, group, or item.');
         $station = $this->loadStation();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         $references = [];
         foreach ($manager['rate_sheets'] as $sheet) {
             $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
             if ($sheetId === '') continue;
-            if ($scope === false || $scope === null) $references[] = PackagePlatformNativeReference::rateSheet($sheetId);
-            elseif ($scope === true || $scope === 'group') foreach ($sheet['groups'] as $group) {
+            if ($scope === 'sheet') $references[] = PackagePlatformNativeReference::rateSheet($sheetId);
+            elseif ($scope === 'group') foreach ($sheet['groups'] as $group) {
                 $groupId = (string) ($group['group_id'] ?? '');
                 if ($groupId !== '') $references[] = PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId);
             }
@@ -527,31 +528,32 @@ class PackageRepository
         return ['items' => $page, 'next_cursor' => $page === [] ? $cursor : $page[array_key_last($page)], 'complete' => count($eligible) <= $limit];
     }
 
-    public function rateSheetProjection(string $nativeReference, ?string $groupContext = null): ?array
+    public function rateSheetProjection(string $nativeReference, string $scope = 'sheet'): ?array
     {
-        return $this->locateRateSheetIdentity($nativeReference, $groupContext);
+        return $this->locateRateSheetIdentity($nativeReference, $scope);
     }
 
     /** @return array{rate_sheet_id:string,group_id?:string,item_id?:string,record:array}|null */
-    private function locateRateSheetIdentity(string $nativeReference, ?string $groupContext): ?array
+    private function locateRateSheetIdentity(string $nativeReference, string $scope): ?array
     {
+        if (!in_array($scope, ['sheet', 'group', 'item'], true)) return null;
         $parts = PackagePlatformNativeReference::parse(
             $nativeReference,
-            $groupContext === null ? 'rate-sheet' : ($groupContext === 'group' ? 'rate-sheet-group' : 'rate-sheet-item'),
-            $groupContext === null ? 1 : 2
+            $scope === 'sheet' ? 'rate-sheet' : ($scope === 'group' ? 'rate-sheet-group' : 'rate-sheet-item'),
+            $scope === 'sheet' ? 1 : 2
         );
         if ($parts === null) return null;
         $station = $this->loadStation();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         $sheet = PackageManagerSchema::findRateSheet($manager['rate_sheets'], $parts[0]);
         if ($sheet === null) return null;
-        if ($groupContext === null) return ['rate_sheet_id' => $parts[0], 'record' => $sheet];
-        if ($groupContext === 'group') foreach ($sheet['groups'] as $group) {
+        if ($scope === 'sheet') return ['rate_sheet_id' => $parts[0], 'record' => $sheet];
+        if ($scope === 'group') foreach ($sheet['groups'] as $group) {
             if ((string) ($group['group_id'] ?? '') === $parts[1]) {
                 return ['rate_sheet_id' => $parts[0], 'group_id' => $parts[1], 'record' => $group];
             }
         }
-        if ($groupContext === 'item') foreach ($sheet['items'] as $item) {
+        if ($scope === 'item') foreach ($sheet['items'] as $item) {
             if ((string) ($item['item_id'] ?? '') === $parts[1]) {
                 return ['rate_sheet_id' => $parts[0], 'item_id' => $parts[1], 'record' => $item];
             }

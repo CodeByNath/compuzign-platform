@@ -55,6 +55,7 @@ class WP_REST_Response {
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierAdapters;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
@@ -95,6 +96,31 @@ $GLOBALS['mig_options']['cz_package_family_identifier_migration_v1'] = [
 $GLOBALS['mig_options']['cz_package_entity_identifier_migration_v2'] = ['complete' => true];
 $status = $controller->status(new WP_REST_Request())->get_data();
 migration_check($status['complete'] === false, 'expanded rollout does not inherit Package-Family-only completion');
+
+$temporaryScopes = [
+    PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP,
+    PlatformIdentifierPolicy::TIER_GROUP,
+    PlatformIdentifierPolicy::TIER,
+    PlatformIdentifierPolicy::TIER_ADDON,
+    PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP,
+    PlatformIdentifierPolicy::PACKAGE_RATE_CARD,
+    PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM,
+];
+$GLOBALS['mig_writes'] = 0;
+foreach ($temporaryScopes as $entityType) {
+    $response = $controller->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => $entityType]));
+    $payload = $response->get_data();
+    migration_check($response->get_status() === 200 && is_array($payload['report'] ?? null), "{$entityType} dry check returns normal JSON");
+}
+migration_check($GLOBALS['mig_writes'] === 0, 'every temporary migration dry check performs zero writes');
+
+$rateAdapters = new PackagePlatformIdentifierAdapters($packages);
+$sheetPage = $rateAdapters->rateSheet()->enumerate(null, 100);
+$groupPage = $rateAdapters->rateSheetGroup()->enumerate(null, 100);
+$itemPage = $rateAdapters->rateSheetItem()->enumerate(null, 100);
+migration_check(count($sheetPage['items']) === 1 && str_starts_with($sheetPage['items'][0], 'rate-sheet:'), 'Rate Sheet adapter passes explicit sheet scope only');
+migration_check(count($groupPage['items']) === 1 && str_starts_with($groupPage['items'][0], 'rate-sheet-group:'), 'Rate Sheet Group adapter passes explicit group scope only');
+migration_check(count($itemPage['items']) === 2 && count(array_filter($itemPage['items'], fn(string $id): bool => str_starts_with($id, 'rate-sheet-item:'))) === 2, 'Rate Sheet Item adapter passes explicit item scope only');
 
 $dry = $controller->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => 'package_family_group']))->get_data();
 migration_check($GLOBALS['mig_writes'] === 0, 'dry check performs zero writes');

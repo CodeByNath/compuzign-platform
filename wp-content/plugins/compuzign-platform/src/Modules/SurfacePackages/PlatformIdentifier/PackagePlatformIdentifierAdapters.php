@@ -54,12 +54,12 @@ final class PackagePlatformIdentifierAdapters
 
     public function rateSheet(): PackagePlatformIdentifierAdapter
     {
-        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD, false);
+        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD, 'sheet');
     }
 
     public function rateSheetGroup(): PackagePlatformIdentifierAdapter
     {
-        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP, true);
+        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP, 'group');
     }
 
     public function rateSheetItem(): PackagePlatformIdentifierAdapter
@@ -67,16 +67,15 @@ final class PackagePlatformIdentifierAdapters
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, 'item');
     }
 
-    private function rateSheetAdapter(string $entityType, bool|string $group): PackagePlatformIdentifierAdapter
+    private function rateSheetAdapter(string $entityType, string $scope): PackagePlatformIdentifierAdapter
     {
-        $context = $group === false ? null : ($group === true ? 'group' : (string) $group);
         return new PackagePlatformIdentifierAdapter(
             $entityType,
-            fn(int|string|null $cursor, int $limit): array => $this->packages->rateSheetAssignmentPage(is_string($cursor) && $cursor !== '' ? $cursor : null, $limit, $context),
-            fn(int|string $reference): string => $this->packages->rateSheetPlatformId((string) $reference, $context),
-            fn(int|string $reference, string $platformId): bool => $this->packages->claimRateSheetPlatformId((string) $reference, $platformId, $context),
-            fn(string $platformId): bool => $this->packages->rateSheetPlatformIdExists($platformId, $context),
-            fn(int|string $reference): ?array => $this->packages->rateSheetProjection((string) $reference, $context)
+            fn(int|string|null $cursor, int $limit): array => $this->packages->rateSheetAssignmentPage(is_string($cursor) && $cursor !== '' ? $cursor : null, $limit, $scope),
+            fn(int|string $reference): string => $this->packages->rateSheetPlatformId((string) $reference, $scope),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimRateSheetPlatformId((string) $reference, $platformId, $scope),
+            fn(string $platformId): bool => $this->packages->rateSheetPlatformIdExists($platformId, $scope),
+            fn(int|string $reference): ?array => $this->packages->rateSheetProjection((string) $reference, $scope)
         );
     }
 }
