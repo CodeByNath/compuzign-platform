@@ -215,8 +215,12 @@ final class PackageCategoryGroups
         if ($group === null) {
             throw new \InvalidArgumentException('Package Family not found.');
         }
+        $label = sanitize_text_field($label);
+        if ($label === '') {
+            throw new \InvalidArgumentException('Package Family name is required.');
+        }
         $group['overview_draft'] = [
-            'label'       => sanitize_text_field($label),
+            'label'       => $label,
             'description' => self::textarea($description),
         ];
         $group['module_status']['overview'] = StationLifecycle::MODULE_PENDING;

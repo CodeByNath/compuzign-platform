@@ -83,6 +83,15 @@ assertSameValue('Updated description.', $groups[0]['description'], 'settle commi
 assertSameValue(null, $groups[0]['overview_draft'], 'settle clears the draft');
 assertSameValue('settled', $groups[0]['module_status']['overview'], 'settle marks overview settled');
 
+assertThrows(
+    fn() => PCG::saveOverviewDraft($groups, 'pcg_kairos', '   ', 'Must not save.'),
+    \InvalidArgumentException::class,
+    'an existing Overview save rejects a blank name instead of reporting false success'
+);
+$groups = PCG::saveOverviewDraft($groups, 'pcg_kairos', 'KAIROS Prime', '');
+$groups = PCG::settleOverview($groups, 'pcg_kairos');
+assertSameValue('', $groups[0]['description'], 'an empty saved description authoritatively clears settled text');
+
 // ── Lifecycle: engine transitions only ────────────────────────────────────────
 
 $groups = PCG::applyStatus($groups, 'pcg_kairos', 'active');

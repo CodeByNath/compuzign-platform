@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   createPackageFamily,
   permanentDeletePackageFamily,
@@ -27,6 +27,8 @@ export function usePackageFamilyStation(
   const [family, setFamily] = useState(seed);
   const [statusSaving, setStatusSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const createInFlight = useRef<Promise<PackageFamilyItem> | null>(null);
 
   useEffect(() => setFamily(seed), [seed]);
 
@@ -62,21 +64,25 @@ export function usePackageFamilyStation(
     return response.group;
   }, []);
 
-  // A `group_id`-less family addresses no stored record yet. Module Save must
-  // not call the update endpoint against an id that does not exist — it only
-  // advances the local draft, moving the overview transition to 'pending' so
-  // the record footer's Publish gate (canPublish) can read it as ready. The
-  // drawer footer's own Create/Publish action is the sole authoritative write
-  // for this record, via `createFamily` below.
+  // A complete Overview Save is the persistence boundary. The first valid save
+  // creates one Package-owned Pending Family; every later save addresses that
+  // returned native identity through the existing Overview endpoint.
   const saveOverview = useCallback(async (draft: PackageFamilyOverviewDraft) => {
     if (family.group_id === '') {
-      setFamily((current) => ({
-        ...current,
-        label:       draft.name,
-        description: draft.description,
-        module_status: { ...current.module_status, overview: 'pending' },
-      }));
-      return family;
+      if (createInFlight.current) return createInFlight.current;
+      setCreating(true);
+      const request = createPackageFamily({ name: draft.name, description: draft.description })
+        .then((response) => {
+          const group = requireGroup(response, 'Could not create the Package Family.');
+          onMutationComplete?.();
+          return group;
+        })
+        .finally(() => {
+          createInFlight.current = null;
+          setCreating(false);
+        });
+      createInFlight.current = request;
+      return request;
     }
     const response = await savePackageFamilyOverview(family.group_id, draft);
     const group = requireGroup(response, 'Could not save the Package Family Overview.');
@@ -174,7 +180,7 @@ export function usePackageFamilyStation(
     hasDraft: family.has_draft,
     modules: { overview: overviewState, relationships: relationshipsState },
     relationshipData,
-    loading: { status: statusSaving, deleting },
+    loading: { status: statusSaving, deleting, creating },
     saveOverview,
     createFamily,
     revertOverview,
