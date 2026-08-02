@@ -184,7 +184,7 @@ export function setServicePackageStationTierEnabled(
   tierInstanceId: string,
   tierId:    string,
   enabled:   boolean,
-): Promise<{ success: boolean; tier_instance_id?: string; tier_id: string; enabled: boolean }> {
+): Promise<TierLifecycleResponse> {
   return apiClient.post(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/enabled`,
     { enabled },

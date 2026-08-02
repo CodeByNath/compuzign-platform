@@ -369,6 +369,9 @@ export interface SurfaceTierSummary {
   // Selection mode: false = exclusive normal Tier, true = stackable add-on.
   // Orthogonal to `enabled`.
   is_addon: boolean;
+  // The canonical Disabled fact — see SurfaceTierDetail.is_explicitly_disabled.
+  // Optional for the same pre-repair-response reason as drafts/module_status.
+  is_explicitly_disabled?: boolean;
 }
 
 export interface SurfaceServiceRef {
@@ -426,6 +429,12 @@ export interface SurfaceTierDetail {
   features: string[];
   faq_refs: string[];
   enabled: boolean;
+  // The canonical Disabled fact (PackageSchema::isExplicitlyDisabled): true
+  // only via an explicit Disable action, never inferred from `enabled`/
+  // platform_status — a Pending, never-yet-published occupant also carries
+  // `enabled: false` but is not Disabled. Optional for the same pre-repair-
+  // response reason as drafts/module_status below.
+  is_explicitly_disabled?: boolean;
   // Selection mode, orthogonal to `enabled`/platform_status: false selects
   // this occupant as the customer's one exclusive normal Tier; true offers it
   // as a stackable add-on alongside whichever normal Tier is chosen. Never

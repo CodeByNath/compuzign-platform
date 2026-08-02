@@ -206,11 +206,21 @@ for (const [name, state] of DERIVED) {
 
 // The other half of the same rule: an EXPLICIT disable does read Disabled, so the
 // pill agrees with the footer instead of hiding what the operator did.
+// Tier occupant modules mask via ctx.disabled (PackageSchema::isExplicitlyDisabled),
+// the same opt-in mechanism as every other domain — never inferred from an
+// occupant that is merely unpublished (enabled: false is Pending, not Disabled;
+// see docs/code-map/tier-occupant-lifecycle-repair.md).
 check(
-  evaluateModule(tierOverviewModule, { enabled: false, price: 25, billing_cycle: 'monthly', contact: false }, {
-    platformStatus: 'active',
+  evaluateModule(tierOverviewModule, { enabled: true, price: 25, billing_cycle: 'monthly', contact: false }, {
+    platformStatus: 'active', disabled: true,
   }).status === 'disabled',
   'an explicitly disabled Tier reads Disabled',
+);
+check(
+  evaluateModule(tierOverviewModule, { enabled: false, price: 25, billing_cycle: 'monthly', contact: false }, {
+    platformStatus: 'disabled', moduleTransition: 'settled',
+  }).status !== 'disabled',
+  'a merely unpublished (never-activated) Tier reads Pending, not Disabled',
 );
 check(
   evaluateModule(packageManagerItemModule, {

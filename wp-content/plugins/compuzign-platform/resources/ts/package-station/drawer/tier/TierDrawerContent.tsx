@@ -86,7 +86,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
 
   // ── Package overview (no tier open) ──────────────────────────────────────────
   if (!c.editingTierId) {
-    const pkgStatus = station.platform_status ?? 'disabled';
     return (
       <div class="cz-req-detail">
         <DrawerTabs active={c.overviewTab} onSelect={c.selectOverviewTab} />
@@ -129,7 +128,12 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
                   const faqCount   = detail?.faq_refs?.length ?? 0;
                   const featLabel  = `${inclCount} ${inclCount === 1 ? 'feature' : 'features'}`;
                   const faqLabel   = `${faqCount} ${faqCount === 1 ? 'common question' : 'common questions'}`;
-                  const tierNotes  = detail ? getTierNotes(detail, { platformStatus: pkgStatus }) : [];
+                  // Occupant truth, not the parent Tier Group/station status —
+                  // the same ctx usePackageStation.tierView derives per module.
+                  const tierNotes  = detail ? getTierNotes(detail, {
+                    platformStatus: detail.enabled ? 'active' : 'disabled',
+                    disabled:       detail.is_explicitly_disabled,
+                  }) : [];
                   return (
                     <ReadBlock
                       key={occupantId}

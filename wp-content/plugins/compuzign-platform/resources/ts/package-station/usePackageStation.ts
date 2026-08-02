@@ -245,12 +245,19 @@ export function usePackageStation(
       .filter((item) => item.source_type === 'faq' && item.resolved && item.source_id)
       .map((item) => item.source_id as string);
     const tierLike: TierLike = {
-      enabled:       dp.enabled,
-      price:         dp.price,
-      billing_cycle: dp.billing_cycle,
-      contact:       dp.contact,
+      enabled:                 dp.enabled,
+      is_explicitly_disabled:  dp.is_explicitly_disabled ?? false,
+      price:                   dp.price,
+      billing_cycle:           dp.billing_cycle,
+      contact:                 dp.contact,
     };
     const overviewComplete = (dp.price !== null || dp.contact) && !!dp.billing_cycle;
+    // This occupant's OWN published state and explicit mask — never the
+    // parent Tier Group/station status (Tier Group status is not occupant
+    // truth). Each module below also gets its own moduleTransition/hasDraft,
+    // so a draft on one module never leaks into a sibling's presentation.
+    const occupantPlatformStatus = tierLike.enabled ? 'active' : 'disabled';
+    const occupantDisabled       = tierLike.is_explicitly_disabled;
 
     return {
       detail:       dp,
@@ -258,16 +265,38 @@ export function usePackageStation(
       drafts:       slot.drafts,
       moduleStatus: slot.module_status,
       modules: {
-        overview: evaluateModule(tierOverviewModule, tierLike, { platformStatus }),
+        overview: evaluateModule(tierOverviewModule, tierLike, {
+          platformStatus:   occupantPlatformStatus,
+          moduleTransition: slot.module_status.overview,
+          hasDraft:         slot.drafts.overview !== null,
+          disabled:         occupantDisabled,
+          platformLabel:    'Tier',
+        }),
         features: evaluateModule(
           tierFeaturesModule,
           { count: dp.rate_sheet_items.length },
-          { platformStatus, parentReady: overviewComplete, parentLabel: 'Tier Overview' },
+          {
+            platformStatus:   occupantPlatformStatus,
+            moduleTransition: slot.module_status.features,
+            hasDraft:         slot.drafts.features !== null,
+            disabled:         occupantDisabled,
+            parentReady:      overviewComplete,
+            parentLabel:      'Tier Overview',
+            platformLabel:    'Tier',
+          },
         ),
         faqs: evaluateModule(
           tierFaqsModule,
           { count: dp.faq_refs.length },
-          { platformStatus, parentReady: overviewComplete, parentLabel: 'Tier Overview' },
+          {
+            platformStatus:   occupantPlatformStatus,
+            moduleTransition: slot.module_status.faqs,
+            hasDraft:         slot.drafts.faqs !== null,
+            disabled:         occupantDisabled,
+            parentReady:      overviewComplete,
+            parentLabel:      'Tier Overview',
+            platformLabel:    'Tier',
+          },
         ),
       },
     };
@@ -371,15 +400,19 @@ export function usePackageStation(
     try {
       const res = await setServicePackageStationTierEnabled(serviceId, tierInstanceId, tierId, enabled);
       if (res.success) {
-        setDetail(prev => {
-          if (!prev) return prev;
-          const slot = prev.station.tiers[tierId];
-          if (!slot) return prev;
-          return {
-            ...prev,
-            station: { ...prev.station, tiers: { ...prev.station.tiers, [tierId]: { ...slot, enabled } } },
-          };
-        });
+        // Authoritative occupant status, marker, drafts, and module statuses —
+        // patch the response, never a synthetic slot.enabled.
+        setDetail(prev => prev ? {
+          ...prev,
+          station: {
+            ...prev.station,
+            platform_status: res.platform_status ?? prev.station.platform_status,
+            tiers: {
+              ...prev.station.tiers,
+              [tierId]: normTier({ ...res.tier, drafts: res.drafts, module_status: res.module_status }),
+            },
+          },
+        } : prev);
         onRefresh?.();
       }
       return res.success;

@@ -48,7 +48,10 @@ export function buildTierFooterModel(
   const station = pkg.station;
   const svc     = pkg.service;
   const footerView = editingTierId ? pkg.tierView(editingTierId) : null;
-  const footerEnabled = footerView?.detail.enabled ?? false;
+  // The footer's Disable/Enable toggle reflects the explicit Disabled mask,
+  // not the published/active flag — a Pending, never-yet-published occupant
+  // still offers Disable, and after Enable the footer offers Disable again.
+  const footerEnabled = footerView ? !footerView.detail.is_explicitly_disabled : false;
   const footerHasContent = !!footerView && Object.values(footerView.moduleStatus).some((s) => s !== 'not-configured');
   const footerOccupied = !!(editingTierId && station) && slotOccupied(station.tiers[editingTierId]);
   const footerMode: TierFooterModel['footerMode'] =

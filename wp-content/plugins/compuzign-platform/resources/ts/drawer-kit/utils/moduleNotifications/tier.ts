@@ -22,6 +22,19 @@ function tierPricingProblems(key: string, t: TierLike | undefined): ModuleNote[]
     : [];
 }
 
+// Per-module occupant status: independent of the whole-tier pill. The explicit
+// Disable mask and the parent gate are already handled by evaluateModule
+// before resolveStatus runs (shared.ts), so this only decides between the
+// remaining four outcomes from THIS module's own completeness/transition —
+// own draft/pending reads Pending full; incomplete reads Pending dim; settled-
+// but-unpublished reads Pending full (with publication guidance); settled and
+// published reads Active. Mirrors resolvePackageManagerItemStatus's ordering.
+function resolveTierModuleStatus(complete: boolean, ctx: NoteContext): string {
+  if (ctx.moduleTransition === 'not-configured' || !complete) return 'pending-dim';
+  if (ctx.moduleTransition === 'pending') return 'pending-full';
+  return ctx.platformStatus === 'active' ? 'active' : 'pending-full';
+}
+
 // Whole-tier card used by the Package Overview list.
 export const tierModule: ModuleDefinition<TierLike | undefined> = {
   key:           'tier',
@@ -37,31 +50,36 @@ export const tierModule: ModuleDefinition<TierLike | undefined> = {
 // a "Waiting for Tier Overview." info note (supplied via ctx.parentLabel).
 
 export const tierOverviewModule: ModuleDefinition<TierLike | undefined> = {
-  key:           'tier-overview',
-  emptyPrompt:   'Edit and configure this tier.',
-  isEmpty:       tierIsEmpty,
-  problems:      (t) => tierPricingProblems('tier-overview', t),
-  resolveStatus: (t, ctx) => resolveTierStatus(t, { pkgStatus: ctx.platformStatus }),
+  key:                 'tier-overview',
+  emptyPrompt:         'Edit and configure this tier.',
+  isEmpty:             tierIsEmpty,
+  problems:            (t) => tierPricingProblems('tier-overview', t),
+  includeDraftInTail:  true,
+  resolveStatus: (t, ctx) => {
+    const hasPrice = !!t && (t.price !== null || !!t.contact);
+    const hasCycle = !!t && !!t.billing_cycle;
+    return resolveTierModuleStatus(hasPrice && hasCycle, ctx);
+  },
 };
 
 export const tierFeaturesModule: ModuleDefinition<{ count: number }> = {
-  key:            'tier-features',
-  requiresParent: true,
-  emptyPrompt:    'Edit and add features.',
-  isEmpty:        ({ count }) => count === 0,
-  problems:       () => [],
-  resolveStatus:  ({ count }, ctx) =>
-    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+  key:                'tier-features',
+  requiresParent:     true,
+  emptyPrompt:        'Edit and add features.',
+  isEmpty:            ({ count }) => count === 0,
+  problems:           () => [],
+  includeDraftInTail: true,
+  resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(count > 0, ctx),
 };
 
 export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
-  key:            'tier-faqs',
-  requiresParent: true,
-  emptyPrompt:    'Edit and add questions.',
-  isEmpty:        ({ count }) => count === 0,
-  problems:       () => [],
-  resolveStatus:  ({ count }, ctx) =>
-    count === 0 ? 'pending-dim' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full'),
+  key:                'tier-faqs',
+  requiresParent:     true,
+  emptyPrompt:        'Edit and add questions.',
+  isEmpty:            ({ count }) => count === 0,
+  problems:           () => [],
+  includeDraftInTail: true,
+  resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(count > 0, ctx),
 };
 
 // One inclusion as a single Tier uses it — the module behind the Inclusion

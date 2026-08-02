@@ -64,8 +64,13 @@ export function toTierOccupantCard({
       : `$${price.toFixed(2)} · ${detail?.billing_cycle ?? 'Not available'}`,
     icon:   TiersIcon,
     status: toTierCardStatus(view?.status ?? 'pending-dim'),
-    // The same notes the manager card shows, from the same generator.
-    notifications: detail ? getTierNotes(detail, { platformStatus }) : [],
+    // The same notes the manager card shows, from the same generator, using
+    // occupant truth (not the parent Tier Group/station status) — mirrors
+    // TierDrawerContent's package-overview list.
+    notifications: detail ? getTierNotes(detail, {
+      platformStatus: detail.enabled ? 'active' : 'disabled',
+      disabled:       detail.is_explicitly_disabled,
+    }) : [],
     metrics: [
       { id: 'features', label: 'Included features', value: inclusions, icon: PackagesIcon },
       { id: 'faqs',     label: 'Common questions',  value: faqs,       icon: RateSheetIcon },

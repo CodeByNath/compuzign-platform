@@ -35,7 +35,13 @@ import type { PillMeta } from '../schema/presentation';
 // Structural minimum for tier status resolution.
 // Satisfied by both SurfaceTierSummary (transit) and SurfaceTierDetail (catalog/management).
 export interface TierLike {
-  enabled:       boolean;
+  enabled:       boolean;  // true once platform_status === 'active' (Published)
+  // The canonical Disabled fact (PackageSchema::isExplicitlyDisabled). Never
+  // inferred from `enabled`/platform_status — a Pending, never-yet-published
+  // occupant also carries enabled: false but is not Disabled. Optional for
+  // the same pre-repair-response reason as the summary/detail source types;
+  // absence reads as not-explicitly-disabled (never Disabled by omission).
+  is_explicitly_disabled?: boolean;
   price:         number | null;
   billing_cycle: string | null;
   contact?:      boolean; // available in SurfaceTierDetail; absent in SurfaceTierSummary
@@ -123,19 +129,26 @@ export function resolvePackageStatus(pkg: SurfacePackageSummary | null): string 
 }
 
 export interface TierStatusOpts {
+  // Retained for call-site compatibility (e.g. resolveStationCommercialSummary);
+  // no longer consulted. Tier Group/station status is not occupant truth — the
+  // occupant's own `enabled`/`is_explicitly_disabled` alone decide its pill.
   pkgStatus: string;  // 'active' | 'disabled' | ...
 }
 
-export function resolveTierStatus(tier: TierLike | undefined, opts: TierStatusOpts): string {
+export function resolveTierStatus(tier: TierLike | undefined, _opts: TierStatusOpts): string {
   if (!tier) return 'pending-dim';
+  // The explicit Disable marker is occupant truth and takes precedence over
+  // every other check, including an unconfigured shell.
+  if (tier.is_explicitly_disabled) return 'disabled';
   const hasPrice = tier.price !== null || !!tier.contact;
   const hasCycle = !!tier.billing_cycle;
   // Fully unconfigured shell — including one whose occupant travelled to the
-  // bin (archive empties the shell, E1) — reads not-configured, never Disabled.
+  // bin (archive empties the shell, E1) — reads Pending dim, never Disabled.
   if (!hasPrice && !hasCycle) return 'pending-dim';
-  if (!tier.enabled) return 'disabled';
   if (!hasPrice || !hasCycle) return 'pending-dim';
-  return opts.pkgStatus === 'active' ? 'active' : 'pending-full';
+  // Active vs. Pending full is the occupant's own Publish state — never the
+  // parent Tier Group/station status.
+  return tier.enabled ? 'active' : 'pending-full';
 }
 
 // ── Package Station Manager resolvers (Phase B) ────────────────────────────────

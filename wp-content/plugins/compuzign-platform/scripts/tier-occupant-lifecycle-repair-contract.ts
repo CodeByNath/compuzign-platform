@@ -51,9 +51,22 @@ check(overviewState.status === 'active', 'a settled, published Overview module r
 const pendingCtx = { platformStatus: 'disabled', moduleTransition: 'pending', hasDraft: true, disabled: false, parentReady: overviewComplete, parentLabel: 'Tier Overview' };
 const editedOverviewState = evaluateModule(tierOverviewModule, readyUnpublished, pendingCtx);
 check(editedOverviewState.status === 'pending-full', 'ready module Save reads Pending full for that module');
+
+// The canonical draft-saved note is reachable for Tier occupant modules (it
+// was unreachable before this repair — includeDraftInTail was never set).
+// It surfaces once there is something live to contrast against: an already-
+// Active occupant with a fresh, unsettled edit on top. A never-published
+// occupant's own draft correctly reads publication guidance instead — there
+// is nothing live yet to say "not published" about.
+const liveEditCtx = { platformStatus: 'active', moduleTransition: 'pending', hasDraft: true, disabled: false, parentReady: overviewComplete, parentLabel: 'Tier Overview' };
+const liveEditState = evaluateModule(tierOverviewModule, published, liveEditCtx);
 check(
-  editedOverviewState.notes.some((n) => n.message === 'Draft saved — settle to publish'),
-  'ready module Save reuses the canonical draft-saved note text'
+  liveEditState.notes.some((n) => n.message === 'Draft saved — settle to publish'),
+  'an unsettled edit on an already-Active occupant reuses the canonical draft-saved note text'
+);
+check(
+  editedOverviewState.notes.some((n) => n.message.startsWith('Waiting for')),
+  'a never-published occupant\'s own pending draft reads publication guidance, not the draft-saved note'
 );
 
 // Siblings retain their own state — Features stays settled/active while
