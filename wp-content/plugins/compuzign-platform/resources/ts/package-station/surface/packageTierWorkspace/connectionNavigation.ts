@@ -35,6 +35,8 @@ export interface FamilyConnectionRow extends ConnectionRowBase {
   status:           CategoryGroupStatus;
   description:      string;
   assignedServices: number;
+  // The Family's own output-only Platform ID (CZPG); empty when unassigned.
+  platformId:       string;
 }
 
 export interface GroupConnectionRow extends ConnectionRowBase {
@@ -42,6 +44,10 @@ export interface GroupConnectionRow extends ConnectionRowBase {
   status:        PackageRateSheetStatus;
   connectedRows: number;
   coverage:      number;
+  // Of connectedRows, the ones sourced from an inclusion.
+  connectedInclusions: number;
+  // The group's own output-only Platform ID (CZPRCG); empty when unassigned.
+  platformId:    string;
 }
 
 export interface RateSheetConnectionRow extends ConnectionRowBase {
@@ -50,6 +56,8 @@ export interface RateSheetConnectionRow extends ConnectionRowBase {
   resolved:            boolean;
   connectedRows:       number;
   connectedInclusions: number;
+  // The sheet's own output-only Platform ID (CZPRC); empty when unresolved or unassigned.
+  platformId:          string;
 }
 
 export type ConnectionRow =
@@ -132,6 +140,7 @@ export function projectFamilyConnectionRows(
     status:           family.status,
     description:      family.description.trim(),
     assignedServices: family.dependents.services,
+    platformId:       family.platformId,
     target:           { kind: 'package-family', familyId: family.id },
     actions:          ['view', 'edit'],
   }];
@@ -153,6 +162,8 @@ export function projectConnectionNavigation({
     status:        group.status,
     connectedRows: group.connectedRows,
     coverage:      group.coverage,
+    connectedInclusions: group.connectedInclusions,
+    platformId:    group.platformId,
     target: {
       kind:        'rate-sheet-group',
       rateSheetId: group.rateSheetId,
@@ -170,6 +181,7 @@ export function projectConnectionNavigation({
     resolved:            rateSheet.resolved,
     connectedRows:       rateSheet.connectedRows,
     connectedInclusions: rateSheet.connectedInclusions,
+    platformId:          rateSheet.platformId,
     target:              { kind: 'rate-sheet', rateSheetId: rateSheet.rateSheetId },
     actions:             rateSheet.resolved ? ['view', 'edit'] : ['view'],
   }];

@@ -22,6 +22,9 @@ export interface WorkspaceFamilyScope {
   description: string;
   status: CategoryGroupStatus;
   dependents: { services: number; rate_sheet_rows: number; tier_selections: number };
+  // The Family's own output-only Platform ID (CZPG), carried through unchanged
+  // for presentation. Empty when the Family has none yet.
+  platformId: string;
 }
 
 /** One fixed Tier slot in the workspace. Empty slots have no occupant identity. */

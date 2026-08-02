@@ -81,6 +81,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       description: family.description,
       status: resolvePackageFamilyCardStatus(family),
       dependents: family.dependents,
+      platformId: family.platform_id,
     })), [tierInstances.families]);
 
   const selectedFamily = useMemo(() => directInstanceId === null

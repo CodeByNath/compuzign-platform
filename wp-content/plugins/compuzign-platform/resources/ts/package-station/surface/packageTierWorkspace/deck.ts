@@ -59,9 +59,11 @@ export interface DeckCategoryRelationship {
 /** The Rate Sheet the focused Tier is bound to, as the connections lane reads it. */
 export interface DeckRateSheet {
   rate_sheet_id: string;
+  // The sheet's own output-only Platform ID (CZPRC), carried through unchanged.
+  platform_id?: string;
   title:  string;
   status: PackageRateSheetStatus;
-  groups: { group_id: string; label: string; sort_order: number }[];
+  groups: { group_id: string; label: string; sort_order: number; platform_id?: string }[];
 }
 
 // ── Deck shapes ───────────────────────────────────────────────────────────────
@@ -100,10 +102,16 @@ export interface DeckInclusion {
 export interface DeckRateSheetGroupConnection {
   rateSheetId:   string;
   groupId:       string;
+  // The group's own output-only Platform ID (CZPRCG), carried through
+  // unchanged. Empty when the stored group has none.
+  platformId:    string;
   title:         string;       // stored group label
   status:        PackageRateSheetStatus; // inherited from the parent Rate Sheet
   connectedRows: number;       // resolved selections the focused Tier draws from this group
   coverage:      number;       // summed quantity the Tier commits across those rows
+  // Of those resolved selections, the ones sourced from an inclusion — the same
+  // inclusion/FAQ distinction the sheet connection already counts.
+  connectedInclusions: number;
 }
 
 /**
@@ -113,6 +121,9 @@ export interface DeckRateSheetGroupConnection {
  */
 export interface DeckRateSheetConnection {
   rateSheetId:         string;
+  // The sheet's own output-only Platform ID (CZPRC), carried through
+  // unchanged. Empty for an unresolved sheet, which stores none to carry.
+  platformId:          string;
   title:               string;
   status:              PackageRateSheetStatus | 'unresolved';
   resolved:            boolean;
@@ -212,14 +223,15 @@ export function projectTierRateSheetGroups(
   if (rateSheet === null) return [];
   const groupById = new Map(rateSheet.groups.map((group) => [group.group_id, group]));
 
-  const buckets = new Map<string, { connectedRows: number; coverage: number }>();
+  const buckets = new Map<string, { connectedRows: number; coverage: number; connectedInclusions: number }>();
   for (const selection of selections) {
     if (!selection.resolved) continue;
     const groupId = selection.group_id;
     if (groupId === null || !groupById.has(groupId)) continue;
-    const bucket = buckets.get(groupId) ?? { connectedRows: 0, coverage: 0 };
+    const bucket = buckets.get(groupId) ?? { connectedRows: 0, coverage: 0, connectedInclusions: 0 };
     bucket.connectedRows += 1;
     bucket.coverage += selection.quantity;
+    if (selection.source_type === 'inclusion') bucket.connectedInclusions += 1;
     buckets.set(groupId, bucket);
   }
 
@@ -227,10 +239,12 @@ export function projectTierRateSheetGroups(
     .map(([groupId, bucket]) => ({
       rateSheetId:   rateSheet.rate_sheet_id,
       groupId,
+      platformId:    groupById.get(groupId)!.platform_id ?? '',
       title:         groupById.get(groupId)!.label,
       status:        rateSheet.status,
       connectedRows: bucket.connectedRows,
       coverage:      bucket.coverage,
+      connectedInclusions: bucket.connectedInclusions,
     }))
     .sort((a, b) => {
       const aOrder = groupById.get(a.groupId)!.sort_order;
@@ -252,6 +266,7 @@ export function projectTierRateSheet(
   if (rateSheet === null) {
     return boundRateSheetId === null ? null : {
       rateSheetId:         boundRateSheetId,
+      platformId:          '',
       title:               'Unresolved Rate Sheet',
       status:              'unresolved',
       resolved:            false,
@@ -268,6 +283,7 @@ export function projectTierRateSheet(
   }
   return {
     rateSheetId: rateSheet.rate_sheet_id,
+    platformId:  rateSheet.platform_id ?? '',
     title:       rateSheet.title.trim() || 'Untitled Rate Sheet',
     status:      rateSheet.status,
     resolved:    true,

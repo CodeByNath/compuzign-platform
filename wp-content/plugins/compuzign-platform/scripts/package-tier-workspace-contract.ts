@@ -52,6 +52,7 @@ function family(id: string): WorkspaceFamilyScope {
     description: `${id} positioning`,
     status: 'active',
     dependents: { services: 1, rate_sheet_rows: 2, tier_selections: 3 },
+    platformId: `CZPG_${id.toUpperCase()}`,
   };
 }
 
@@ -234,9 +235,10 @@ const deckSelections: DeckSelection[] = [
 ];
 const rateSheet: DeckRateSheet = {
   rate_sheet_id: 'rs_kairos',
+  platform_id: 'CZPRC_KAIROS',
   title: 'KAIROS Rates',
   status: 'active',
-  groups: [{ group_id: 'grp', label: 'Infrastructure', sort_order: 0 }],
+  groups: [{ group_id: 'grp', label: 'Infrastructure', sort_order: 0, platform_id: 'CZPRCG_INFRA' }],
 };
 const inclusions = projectTierInclusions(deckSelections, categoryByRateItem);
 check(inclusions.length === 3 && inclusions[0].lineTotal === 140, 'lower-deck inclusion projection remains unchanged');
@@ -249,6 +251,14 @@ check(
   'a group connection carries both stored ids a scoped group drawer needs to address it',
 );
 check(groupConnections[0].status === 'active', 'a group reports its parent sheet status rather than an invented one');
+check(
+  groupConnections[0].platformId === 'CZPRCG_INFRA',
+  'a group connection carries the stored group\'s own Platform ID, never a synthesised one',
+);
+check(
+  groupConnections[0].connectedInclusions === 2,
+  'a group connection counts only its inclusion-sourced resolved rows, distinct from its total connectedRows',
+);
 check(
   projectTierRateSheetGroups(deckSelections, null).length === 0,
   'no bound Rate Sheet connects no groups',
@@ -270,6 +280,10 @@ check(
   sheetConnection !== null && sheetConnection.connectedRows === 3 && sheetConnection.connectedInclusions === 2,
   'the Rate Sheet connection counts the focused Tier\'s resolved rows and its inclusions separately',
 );
+check(
+  sheetConnection !== null && sheetConnection.platformId === 'CZPRC_KAIROS',
+  'the Rate Sheet connection carries the sheet\'s own stored Platform ID, never a synthesised one',
+);
 check(projectTierRateSheet(deckSelections, null) === null, 'an unbound Tier reports no Rate Sheet connection');
 
 const deck = projectTierDeck(deckSelections, categoryByRateItem, rateSheet);
@@ -282,6 +296,10 @@ check(
     && unresolvedSheet.status === 'unresolved'
     && unresolvedSheet.resolved === false,
   'a stale stored Rate Sheet binding remains visible by its canonical id instead of collapsing to unbound',
+);
+check(
+  unresolvedSheet?.platformId === '',
+  'an unresolved Rate Sheet carries no Platform ID rather than inventing one',
 );
 
 const accessSheets: PackageRateSheet[] = [
@@ -372,6 +390,14 @@ check(
   sheetTargetFromNavigation?.kind === 'rate-sheet'
     && sheetTargetFromNavigation.rateSheetId === 'rs_kairos',
   'the Rate Sheet row carries its canonical sheet id',
+);
+// Platform IDs reach presentation through the same rows — never invented from
+// a WordPress native id, slug, Service id, or Tier occupant id.
+check(
+  connectionNavigation[0].tabs[0].rows[0]?.platformId === kairos.platformId
+    && connectionNavigation[0].tabs[1].rows[0]?.platformId === 'CZPRCG_INFRA'
+    && connectionNavigation[1].tabs[0].rows[0]?.platformId === 'CZPRC_KAIROS',
+  'the Family, Group, and Rate Sheet rows each carry their own owning record\'s Platform ID',
 );
 const emptyConnectionNavigation = projectConnectionNavigation({
   family: null,
@@ -1222,6 +1248,18 @@ check(
     && connectionsSource.includes('id={panelId}'),
   'each accordion header is a real button with aria-expanded/aria-controls addressing a stable panel id',
 );
+// A decorative-only accordion — one that rotates the chevron but always
+// renders its rows — is the defect this guards against: the collapsed state
+// must gate the actual panel content, not only the chevron's CSS transform.
+check(
+  connectionsSource.includes('{isOpen && (')
+    && connectionsSource.includes('hidden={!isOpen}'),
+  'a collapsed section renders no panel content and carries the native hidden attribute, not just a rotated chevron',
+);
+check(
+  /\.cz-tier-deck__accordion-panel\[hidden\]\s*\{[^}]*display:\s*none/s.test(adminStationStyles),
+  'the accordion panel explicitly restates display: none under [hidden], since the base rule\'s display: flex sits at the same specificity as the UA hidden rule and would otherwise silently win',
+);
 check(
   connectionsSource.includes('No connections match the current filters.'),
   'a section with source rows but no filter matches shows the local filtered-empty message, distinct from the authoritative source empty state it replaces only when filters exclude every row',
@@ -1232,6 +1270,36 @@ check(
     && connectionRowSource.includes('cz-station-list__row--connection')
     && connectionRowSource.includes('TierDeckRowIdentity'),
   'connection rows retain canonical identity, primary View, supported secondary actions, and Station split actions',
+);
+// Family Group, Group, and Rate Sheet connections no longer share one generic
+// label/value layout: each gets its own field set built from the shared row
+// shell, every one of them showing the owning record's own Platform ID.
+check(
+  connectionRowSource.includes('function FamilyGroupConnectionFields')
+    && connectionRowSource.includes('function GroupConnectionFields')
+    && connectionRowSource.includes('function RateSheetConnectionFields')
+    && connectionRowSource.includes('function PlatformIdField'),
+  'Family Group, Group, and Rate Sheet connections render their own column fields rather than one generic layout',
+);
+check(
+  connectionRowSource.includes("<span class=\"cz-tier-deck__field-label\">Platform ID</span>")
+    && connectionRowSource.includes("<span class=\"cz-tier-deck__field-label\">Services</span>")
+    && connectionRowSource.includes("<span class=\"cz-tier-deck__field-label\">Inclusions</span>")
+    && !connectionRowSource.includes('Assigned Services')
+    && !connectionRowSource.includes('Connected inclusions')
+    && !connectionRowSource.includes('Connected rows')
+    && !connectionRowSource.includes('Coverage'),
+  'the required Platform ID / Services / Inclusions columns replace the retired generic Assigned Services, Connected rows, and Coverage cells',
+);
+check(
+  connectionRowSource.includes("const PLATFORM_ID_FALLBACK = 'Not assigned'")
+    && connectionRowSource.includes('platformId || PLATFORM_ID_FALLBACK'),
+  'a missing Platform ID renders the project\'s established "Not assigned" fallback, never an empty cell',
+);
+check(
+  connectionRowSource.includes('row.assignedServices ?? 0')
+    && connectionRowSource.includes('row.connectedInclusions ?? 0'),
+  'missing Services/Inclusions counts render as 0, never blank or a dash',
 );
 // A connected record reads the same at both scopes, so exactly one component
 // renders it. Neither lane may re-author those cells beside it.

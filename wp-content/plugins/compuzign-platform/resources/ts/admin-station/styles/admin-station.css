@@ -2772,6 +2772,14 @@ button.cz-station-status-pill {
   padding: 0 var(--station-card-pad) var(--station-card-pad);
 }
 
+/* An author rule at the same specificity as the UA `[hidden]` rule always wins
+   the cascade, so the block `display: flex` above silently defeats the native
+   `hidden` attribute unless restated here. A collapsed section must actually
+   disappear, not just rotate its chevron. */
+.cz-tier-deck__accordion-panel[hidden] {
+  display: none;
+}
+
 .cz-tier-deck__selector-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -164,16 +164,18 @@ function ConnectionAccordionSection({ section, isOpen, onToggle, onIntent }: {
         class="cz-tier-deck__accordion-panel"
         hidden={!isOpen}
       >
-        {section.rows.length === 0 ? (
-          <p class="cz-station-empty">{section.emptyState}</p>
-        ) : section.filteredRows.length === 0 ? (
-          <p class="cz-station-empty">No connections match the current filters.</p>
-        ) : (
-          <ul class="cz-station-list">
-            {section.filteredRows.map((row) => (
-              <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />
-            ))}
-          </ul>
+        {isOpen && (
+          section.rows.length === 0 ? (
+            <p class="cz-station-empty">{section.emptyState}</p>
+          ) : section.filteredRows.length === 0 ? (
+            <p class="cz-station-empty">No connections match the current filters.</p>
+          ) : (
+            <ul class="cz-station-list">
+              {section.filteredRows.map((row) => (
+                <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />
+              ))}
+            </ul>
+          )
         )}
       </div>
     </section>

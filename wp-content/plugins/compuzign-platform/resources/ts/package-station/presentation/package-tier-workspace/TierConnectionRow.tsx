@@ -8,12 +8,19 @@
 //
 // It owns selection of neither. The typed projection supplies the row and its
 // canonical target; this component renders it and forwards the chosen action.
+// Family Group, Group and Rate Sheet connections require their own visible
+// columns, so the shared row shell branches on `row.kind` into a
+// connection-type field set rather than forcing every kind through one
+// generic label/value layout.
 
 import type { VNode } from 'preact';
 import type {
   ConnectionActionId,
   ConnectionRow,
   ConnectionTarget,
+  FamilyConnectionRow,
+  GroupConnectionRow,
+  RateSheetConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import { RateSheetIcon, ServicesIcon } from '@/admin-station/shell/icons';
@@ -40,6 +47,57 @@ export function connectionStatus(status: string): { label: string; token: string
   };
 }
 
+// The project's established visible unavailable-value treatment for an
+// existing record whose Platform ID is not set — the same fallback the Rate
+// Sheet tool already shows for a stored sheet or group (RateSheetTool.tsx,
+// rateSheetParts.tsx). Never an empty cell.
+const PLATFORM_ID_FALLBACK = 'Not assigned';
+
+function PlatformIdField({ platformId }: { platformId: string }): VNode {
+  return (
+    <div class="cz-station-list__cell cz-tier-deck__field">
+      <span class="cz-tier-deck__field-label">Platform ID</span>
+      {platformId || PLATFORM_ID_FALLBACK}
+    </div>
+  );
+}
+
+function FamilyGroupConnectionFields({ row }: { row: FamilyConnectionRow }): VNode {
+  return (
+    <>
+      <PlatformIdField platformId={row.platformId} />
+      <div class="cz-station-list__cell cz-tier-deck__field">
+        <span class="cz-tier-deck__field-label">Services</span>
+        <span class="cz-tier-deck__money">{row.assignedServices ?? 0}</span>
+      </div>
+    </>
+  );
+}
+
+function GroupConnectionFields({ row }: { row: GroupConnectionRow }): VNode {
+  return (
+    <>
+      <PlatformIdField platformId={row.platformId} />
+      <div class="cz-station-list__cell cz-tier-deck__field">
+        <span class="cz-tier-deck__field-label">Inclusions</span>
+        <span class="cz-tier-deck__money">{row.connectedInclusions ?? 0}</span>
+      </div>
+    </>
+  );
+}
+
+function RateSheetConnectionFields({ row }: { row: RateSheetConnectionRow }): VNode {
+  return (
+    <>
+      <PlatformIdField platformId={row.platformId} />
+      <div class="cz-station-list__cell cz-tier-deck__field">
+        <span class="cz-tier-deck__field-label">Inclusions</span>
+        <span class="cz-tier-deck__money">{row.connectedInclusions ?? 0}</span>
+      </div>
+    </>
+  );
+}
+
 export function TierConnectionRow({ row, onIntent }: {
   row: ConnectionRow;
   onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
@@ -50,38 +108,11 @@ export function TierConnectionRow({ row, onIntent }: {
     <li class="cz-station-list__row cz-station-list__row--connection">
       <TierDeckRowIdentity icon={icon} name={row.name} reference={row.reference} compact />
       {row.kind === 'family' ? (
-        <>
-          <div class="cz-station-list__cell cz-tier-deck__field">
-            <span class="cz-tier-deck__field-label">Summary</span>
-            {row.description || '—'}
-          </div>
-          <div class="cz-station-list__cell cz-tier-deck__field">
-            <span class="cz-tier-deck__field-label">Assigned Services</span>
-            <span class="cz-tier-deck__money">{row.assignedServices}</span>
-          </div>
-        </>
+        <FamilyGroupConnectionFields row={row} />
       ) : row.kind === 'group' ? (
-        <>
-          <div class="cz-station-list__cell cz-tier-deck__field">
-            <span class="cz-tier-deck__field-label">Connected rows</span>
-            <span class="cz-tier-deck__money">{row.connectedRows}</span>
-          </div>
-          <div class="cz-station-list__cell cz-tier-deck__field">
-            <span class="cz-tier-deck__field-label">Coverage</span>
-            {row.coverage} selected
-          </div>
-        </>
+        <GroupConnectionFields row={row} />
       ) : (
-        <>
-          <div class="cz-station-list__cell cz-tier-deck__field">
-            <span class="cz-tier-deck__field-label">Connected inclusions</span>
-            <span class="cz-tier-deck__money">{row.connectedInclusions}</span>
-          </div>
-          <div class="cz-station-list__cell cz-tier-deck__field">
-            <span class="cz-tier-deck__field-label">Connected rows</span>
-            {row.connectedRows}
-          </div>
-        </>
+        <RateSheetConnectionFields row={row} />
       )}
       <span class="cz-station-list__cell">
         <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>
