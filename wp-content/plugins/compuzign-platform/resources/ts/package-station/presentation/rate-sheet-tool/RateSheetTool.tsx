@@ -198,6 +198,18 @@ function RateSheetReadCard({
   const summary = useMemo(() => summariseRateSheet(value, sourceCount), [value, sourceCount]);
   return (
     <ReadBlock title={value.title.trim() || 'Untitled Rate Sheet'} count={summary.rows} subtitle="Priced rows in this sheet." actions={actions}>
+      <div class="drawerModule__fields">
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Platform ID</p>
+          <p class="drawerModule__value">{value.platformId || (value.id ? 'Not assigned' : 'Assigned after Save')}</p>
+        </div>
+        {value.groups.map((group) => (
+          <div key={group.id} class="drawerModule__field">
+            <p class="drawerModule__label">{group.label || 'Untitled group'} Platform ID</p>
+            <p class="drawerModule__value">{group.platformId || 'Not assigned'}</p>
+          </div>
+        ))}
+      </div>
       {value.items.length === 0 ? (
         <div class="drawerModule__empty"><p class="drawerModule__empty-title">No priced rows yet</p></div>
       ) : (

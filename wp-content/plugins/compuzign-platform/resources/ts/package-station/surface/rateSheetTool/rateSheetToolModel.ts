@@ -32,6 +32,7 @@ import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 export interface RateSheetEditorGroup {
   id:    string;   // stored PackageManagerGroup.group_id
   label: string;
+  platformId?: string;
 }
 
 export interface RateSheetEditorRow {
@@ -52,6 +53,7 @@ export interface RateSheetEditorRow {
 
 export interface RateSheetEditorValue {
   id:     string;                        // stored rate_sheet_id, blank until minted on save
+  platformId?: string;
   title:  string;
   status: PackageRateSheetStatus;
   groups: RateSheetEditorGroup[];
@@ -95,7 +97,7 @@ function toEditorValue(
 ): RateSheetEditorValue {
   const groups = [...sheet.groups]
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map((group) => ({ id: group.group_id, label: group.label }));
+    .map((group) => ({ id: group.group_id, label: group.label, platformId: group.platform_id }));
   const groupIds = new Set(groups.map((group) => group.id));
 
   const items = [...sheet.items]
@@ -117,7 +119,7 @@ function toEditorValue(
       };
     });
 
-  return { id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status, groups, items };
+  return { id: sheet.rate_sheet_id, platformId: sheet.platform_id, title: sheet.title, status: sheet.status, groups, items };
 }
 
 /** Every stored sheet as an editor value, in stored order. */
@@ -322,7 +324,8 @@ export function duplicateEditorSheet(source: RateSheetEditorValue): RateSheetEdi
     id:     '',
     title:  source.title.trim() ? `Copy of ${source.title.trim()}` : 'Copy',
     status: 'active',
-    groups: source.groups.map((group) => ({ ...group })),
+    groups: source.groups.map((group) => ({ ...group, platformId: undefined })),
+    platformId: undefined,
     items:  source.items.map((row) => ({ ...row })),
   };
 }
