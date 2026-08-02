@@ -34,6 +34,11 @@ final class PackagePlatformNativeReference
         return self::composite('rate-sheet-group', [$rateSheetId, $groupId]);
     }
 
+    public static function rateSheetItem(string $rateSheetId, string $itemId): string
+    {
+        return self::composite('rate-sheet-item', [$rateSheetId, $itemId]);
+    }
+
     /** @return list<string>|null */
     public static function parse(string $reference, string $context, int $segments): ?array
     {

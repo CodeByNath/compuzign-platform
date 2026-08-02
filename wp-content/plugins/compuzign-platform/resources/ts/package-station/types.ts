@@ -273,6 +273,7 @@ export type PackageRateSheetUnit = string;
 
 export interface PackageRateSheetItem {
   item_id: string;
+  platform_id?: string;
   source_item_id: string;
   unit_price: number;
   per: PackageRateSheetUnit;

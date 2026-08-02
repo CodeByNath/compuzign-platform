@@ -62,12 +62,17 @@ final class PackagePlatformIdentifierAdapters
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP, true);
     }
 
-    private function rateSheetAdapter(string $entityType, bool $group): PackagePlatformIdentifierAdapter
+    public function rateSheetItem(): PackagePlatformIdentifierAdapter
     {
-        $context = $group ? 'group' : null;
+        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, 'item');
+    }
+
+    private function rateSheetAdapter(string $entityType, bool|string $group): PackagePlatformIdentifierAdapter
+    {
+        $context = $group === false ? null : ($group === true ? 'group' : (string) $group);
         return new PackagePlatformIdentifierAdapter(
             $entityType,
-            fn(int|string|null $cursor, int $limit): array => $this->packages->rateSheetAssignmentPage(is_string($cursor) && $cursor !== '' ? $cursor : null, $limit, $group),
+            fn(int|string|null $cursor, int $limit): array => $this->packages->rateSheetAssignmentPage(is_string($cursor) && $cursor !== '' ? $cursor : null, $limit, $context),
             fn(int|string $reference): string => $this->packages->rateSheetPlatformId((string) $reference, $context),
             fn(int|string $reference, string $platformId): bool => $this->packages->claimRateSheetPlatformId((string) $reference, $platformId, $context),
             fn(string $platformId): bool => $this->packages->rateSheetPlatformIdExists($platformId, $context),

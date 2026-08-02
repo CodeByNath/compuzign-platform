@@ -256,6 +256,27 @@ assertSameValue('compute', $rateModel['rate_sheets'][0]['items'][0]['group_id'],
 assertSameValue('Per VM', $rateModel['rate_sheets'][0]['items'][0]['per'], 'controlled Rate Sheet unit is preserved');
 assertSameValue(true, $rateModel['has_configuration'], 'Rate Sheet alone contributes Manager configuration');
 
+// CZPRCI is output-only owner storage. Repricing, quantity/unit/order changes,
+// and regrouping preserve it by (rate_sheet_id,item_id); deleting the group
+// merely makes the surviving row ungrouped.
+$withRateSheet['rate_sheets'][0]['items'][0]['cz_platform_id'] = 'CZPRCI22222';
+$rowChanged = PMS::commitConfiguration(
+    $withRateSheet, [], [], $expandedPool, $faqPool, [[
+        'rate_sheet_id' => 'rs_infra', 'title' => 'Infrastructure', 'status' => 'active',
+        'groups' => [],
+        'items' => [[
+            'item_id' => 'rate-1', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+            'unit_price' => 72, 'per' => 'Per item', 'quantity' => 4,
+            'group_id' => null, 'sort_order' => 9,
+        ]],
+    ]]
+);
+assertSameValue('CZPRCI22222', $rowChanged['rate_sheets'][0]['items'][0]['cz_platform_id'], 'row CZPRCI survives price, quantity, unit, order, and group changes');
+assertSameValue(null, $rowChanged['rate_sheets'][0]['items'][0]['group_id'], 'deleting a Rate Sheet Group preserves and ungroups its row');
+$rowChangedModel = PMS::buildReadModel(10, $rowChanged, $expandedPool, $faqPool, 'active');
+assertSameValue('CZPRCI22222', $rowChangedModel['rate_sheets'][0]['items'][0]['platform_id'], 'row identity is projected output-only');
+assertSameValue(false, array_key_exists('cz_platform_id', $rowChangedModel['rate_sheets'][0]['items'][0]), 'stored row scalar is not exposed as a writable field');
+
 // ── Curated unit vocabulary ──────────────────────────────────────────────────
 // The unit list is data. A row may only carry a unit the vocabulary knows, so a
 // row can never introduce one by using it.

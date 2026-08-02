@@ -45,6 +45,16 @@ check_package_reference(
     'the same group_id in different Rate Sheets cannot collide'
 );
 
+$item = NativeReference::rateSheetItem('rs:a', 'item:b');
+check_package_reference(
+    NativeReference::parse($item, 'rate-sheet-item', 2) === ['rs:a', 'item:b'],
+    'Rate Sheet row is qualified only by rate_sheet_id + item_id'
+);
+check_package_reference(
+    $item === NativeReference::rateSheetItem('rs:a', 'item:b'),
+    'mutable group assignment cannot alter a Rate Sheet row native reference'
+);
+
 $rejected = false;
 try {
     NativeReference::tierOccupant('', 'occ_a');

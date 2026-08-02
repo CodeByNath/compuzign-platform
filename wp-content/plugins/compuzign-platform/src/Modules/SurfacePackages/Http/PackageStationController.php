@@ -142,6 +142,11 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => ['platform_id' => ['required' => true, 'type' => 'string']],
         ]);
+        register_rest_route('compuzign/v1', '/admin/rate-sheet-items/(?P<platform_id>CZPRCI[A-Z0-9]+)', [
+            'methods' => 'GET', 'callback' => [$this, 'fetchRateSheetItemByPlatformId'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => ['platform_id' => ['required' => true, 'type' => 'string']],
+        ]);
 
         register_rest_route('compuzign/v1', '/admin/package-station/tier-instances', [
             'methods'             => 'POST',
@@ -400,10 +405,15 @@ class PackageStationController
         return $this->fetchRateIdentityByPlatformId($request, true);
     }
 
-    private function fetchRateIdentityByPlatformId(\WP_REST_Request $request, bool $group): \WP_REST_Response
+    public function fetchRateSheetItemByPlatformId(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->fetchRateIdentityByPlatformId($request, 'item');
+    }
+
+    private function fetchRateIdentityByPlatformId(\WP_REST_Request $request, bool|string $group): \WP_REST_Response
     {
         $platformId = sanitize_text_field((string) $request->get_param('platform_id'));
-        $adapter = $group ? $this->identityAdapters->rateSheetGroup() : $this->identityAdapters->rateSheet();
+        $adapter = $group === 'item' ? $this->identityAdapters->rateSheetItem() : ($group ? $this->identityAdapters->rateSheetGroup() : $this->identityAdapters->rateSheet());
         try { $projection = $this->platformIdentity->resolveProjection($adapter, $platformId); }
         catch (\Throwable) { return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet identity is conflicting.'], 409); }
         if (!is_array($projection) || !is_array($projection['record'] ?? null)) {
@@ -862,6 +872,7 @@ class PackageStationController
         if ($this->identityEnabled) {
             $oldSheets = [];
             $oldGroups = [];
+            $oldItems = [];
             foreach ($storedManager['rate_sheets'] as $sheet) {
                 $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
                 if ($sheetId === '') continue;
@@ -869,6 +880,10 @@ class PackageStationController
                 foreach ($sheet['groups'] as $group) {
                     $groupId = (string) ($group['group_id'] ?? '');
                     if ($groupId !== '') $oldGroups[$sheetId . "\0" . $groupId] = $group;
+                }
+                foreach ($sheet['items'] as $item) {
+                    $itemId = (string) ($item['item_id'] ?? '');
+                    if ($itemId !== '') $oldItems[$sheetId . "\0" . $itemId] = $item;
                 }
             }
             try {
@@ -887,6 +902,14 @@ class PackageStationController
                             $identityAssignments[] = [$this->identityAdapters->rateSheetGroup(), $reservation, PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId)];
                         }
                     }
+                    foreach ($sheet['items'] as $itemIndex => $item) {
+                        $itemId = (string) $item['item_id'];
+                        if (!isset($oldItems[$sheetId . "\0" . $itemId])) {
+                            $reservation = $this->platformIdentity->reserve($this->identityAdapters->rateSheetItem());
+                            $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $reservation->platformId();
+                            $identityAssignments[] = [$this->identityAdapters->rateSheetItem(), $reservation, PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];
+                        }
+                    }
                 }
             } catch (\Throwable) {
                 foreach ($identityAssignments as [, $reservation]) $this->retireReservation($reservation);
@@ -895,6 +918,12 @@ class PackageStationController
             $newSheetIds = array_fill_keys(array_map(static fn(array $sheet): string => (string) $sheet['rate_sheet_id'], $manager['rate_sheets']), true);
             $newGroupKeys = [];
             foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['groups'] as $group) $newGroupKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $group['group_id']] = true;
+            $newItemKeys = [];
+            foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['items'] as $item) $newItemKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $item['item_id']] = true;
+            foreach ($oldItems as $key => $item) if (!isset($newItemKeys[$key]) && (string) ($item['cz_platform_id'] ?? '') !== '') {
+                [$sheetId, $itemId] = explode("\0", $key, 2);
+                $identityDeletions[] = [$this->identityAdapters->rateSheetItem(), PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];
+            }
             foreach ($oldGroups as $key => $group) if (!isset($newGroupKeys[$key]) && (string) ($group['cz_platform_id'] ?? '') !== '') {
                 [$sheetId, $groupId] = explode("\0", $key, 2);
                 $identityDeletions[] = [$this->identityAdapters->rateSheetGroup(), PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId)];

@@ -37,6 +37,7 @@ export interface RateSheetEditorGroup {
 
 export interface RateSheetEditorRow {
   id:              string;               // stored PackageRateSheetItem.item_id (blank until saved)
+  platformId?:     string;
   optionId:        string;               // stored source_item_id → manager item_id (preserved)
   optionLabel:     string;               // Service-resolved supplied-content label (display only)
   unitPrice:       number;
@@ -107,6 +108,7 @@ function toEditorValue(
       const relationship = itemById.get(item.source_item_id);
       return {
         id:              item.item_id,
+        platformId:      item.platform_id,
         optionId:        item.source_item_id,
         optionLabel:     labelById.get(item.source_item_id) ?? '(missing source)',
         unitPrice:       item.unit_price,
@@ -299,6 +301,7 @@ export function addEditorRow(
   if (value.items.some((row) => row.optionId === option.id)) return value;
   const row: RateSheetEditorRow = {
     id: '', optionId: option.id, optionLabel: option.label,
+    platformId: undefined,
     unitPrice: 0, per: DEFAULT_UNIT, quantity: 1, groupId: null, sourceAvailable: true,
     sourceServiceId: option.sourceServiceId, sourceServiceTitle: option.sourceServiceTitle,
   };
@@ -326,7 +329,7 @@ export function duplicateEditorSheet(source: RateSheetEditorValue): RateSheetEdi
     status: 'active',
     groups: source.groups.map((group) => ({ ...group, platformId: undefined })),
     platformId: undefined,
-    items:  source.items.map((row) => ({ ...row })),
+    items:  source.items.map((row) => ({ ...row, platformId: undefined })),
   };
 }
 

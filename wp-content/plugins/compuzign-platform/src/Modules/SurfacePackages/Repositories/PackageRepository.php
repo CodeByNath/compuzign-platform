@@ -466,10 +466,16 @@ class PackageRepository
             if ((string) ($sheet['rate_sheet_id'] ?? '') !== $located['rate_sheet_id']) continue;
             if ($groupContext === null) {
                 $manager['rate_sheets'][$sheetIndex]['cz_platform_id'] = $platformId;
-            } else {
+            } elseif ($groupContext === 'group') {
                 foreach ($sheet['groups'] as $groupIndex => $group) {
                     if ((string) ($group['group_id'] ?? '') === $located['group_id']) {
                         $manager['rate_sheets'][$sheetIndex]['groups'][$groupIndex]['cz_platform_id'] = $platformId;
+                    }
+                }
+            } else {
+                foreach ($sheet['items'] as $itemIndex => $item) {
+                    if ((string) ($item['item_id'] ?? '') === $located['item_id']) {
+                        $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $platformId;
                     }
                 }
             }
@@ -485,15 +491,18 @@ class PackageRepository
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         foreach ($manager['rate_sheets'] as $sheet) {
             if ($groupContext === null && ($sheet['cz_platform_id'] ?? '') === $platformId) return true;
-            if ($groupContext !== null) foreach ($sheet['groups'] as $group) {
+            if ($groupContext === 'group') foreach ($sheet['groups'] as $group) {
                 if (($group['cz_platform_id'] ?? '') === $platformId) return true;
+            }
+            if ($groupContext === 'item') foreach ($sheet['items'] as $item) {
+                if (($item['cz_platform_id'] ?? '') === $platformId) return true;
             }
         }
         return false;
     }
 
     /** @return array{items:list<string>,next_cursor:string|null,complete:bool} */
-    public function rateSheetAssignmentPage(?string $cursor, int $limit, bool $groups = false): array
+    public function rateSheetAssignmentPage(?string $cursor, int $limit, bool|string $scope = false): array
     {
         if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Rate Sheet assignment limit must be between 1 and 500.');
         $station = $this->loadStation();
@@ -502,10 +511,14 @@ class PackageRepository
         foreach ($manager['rate_sheets'] as $sheet) {
             $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
             if ($sheetId === '') continue;
-            if (!$groups) $references[] = PackagePlatformNativeReference::rateSheet($sheetId);
-            else foreach ($sheet['groups'] as $group) {
+            if ($scope === false || $scope === null) $references[] = PackagePlatformNativeReference::rateSheet($sheetId);
+            elseif ($scope === true || $scope === 'group') foreach ($sheet['groups'] as $group) {
                 $groupId = (string) ($group['group_id'] ?? '');
                 if ($groupId !== '') $references[] = PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId);
+            }
+            else foreach ($sheet['items'] as $item) {
+                $itemId = (string) ($item['item_id'] ?? '');
+                if ($itemId !== '') $references[] = PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId);
             }
         }
         sort($references, SORT_STRING);
@@ -519,12 +532,12 @@ class PackageRepository
         return $this->locateRateSheetIdentity($nativeReference, $groupContext);
     }
 
-    /** @return array{rate_sheet_id:string,group_id?:string,record:array}|null */
+    /** @return array{rate_sheet_id:string,group_id?:string,item_id?:string,record:array}|null */
     private function locateRateSheetIdentity(string $nativeReference, ?string $groupContext): ?array
     {
         $parts = PackagePlatformNativeReference::parse(
             $nativeReference,
-            $groupContext === null ? 'rate-sheet' : 'rate-sheet-group',
+            $groupContext === null ? 'rate-sheet' : ($groupContext === 'group' ? 'rate-sheet-group' : 'rate-sheet-item'),
             $groupContext === null ? 1 : 2
         );
         if ($parts === null) return null;
@@ -533,9 +546,14 @@ class PackageRepository
         $sheet = PackageManagerSchema::findRateSheet($manager['rate_sheets'], $parts[0]);
         if ($sheet === null) return null;
         if ($groupContext === null) return ['rate_sheet_id' => $parts[0], 'record' => $sheet];
-        foreach ($sheet['groups'] as $group) {
+        if ($groupContext === 'group') foreach ($sheet['groups'] as $group) {
             if ((string) ($group['group_id'] ?? '') === $parts[1]) {
                 return ['rate_sheet_id' => $parts[0], 'group_id' => $parts[1], 'record' => $group];
+            }
+        }
+        if ($groupContext === 'item') foreach ($sheet['items'] as $item) {
+            if ((string) ($item['item_id'] ?? '') === $parts[1]) {
+                return ['rate_sheet_id' => $parts[0], 'item_id' => $parts[1], 'record' => $item];
             }
         }
         return null;

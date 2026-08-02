@@ -388,6 +388,18 @@
             }
         },
         {
+            "route": "compuzign/v1/admin/rate-sheet-items/(?P<platform_id>CZPRCI[A-Z0-9]+)",
+            "methods": "GET",
+            "callback": "fetchRateSheetItemByPlatformId",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "platform_id": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
             "route": "compuzign/v1/admin/rate-sheets/(?P<platform_id>CZPRC[A-Z0-9]+)",
             "methods": "GET",
             "callback": "fetchRateSheetByPlatformId",

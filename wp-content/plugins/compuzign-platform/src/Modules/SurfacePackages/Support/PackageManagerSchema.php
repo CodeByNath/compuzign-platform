@@ -360,6 +360,7 @@ final class PackageManagerSchema
             }
             $items[] = [
                 'item_id'       => $itemId,
+                'cz_platform_id'=> sanitize_text_field((string) ($item['cz_platform_id'] ?? '')),
                 'source_item_id'=> $sourceItemId,
                 'unit_price'    => max(0, (float) ($item['unit_price'] ?? 0)),
                 'per'           => $unit,
@@ -686,6 +687,14 @@ final class PackageManagerSchema
             );
             $existingSheet = $sheetsById[$id] ?? null;
             $reconciled['cz_platform_id'] = (string) ($existingSheet['cz_platform_id'] ?? '');
+            $existingItems = [];
+            foreach (is_array($existingSheet['items'] ?? null) ? $existingSheet['items'] : [] as $item) {
+                if (is_array($item)) $existingItems[(string) ($item['item_id'] ?? '')] = (string) ($item['cz_platform_id'] ?? '');
+            }
+            foreach ($reconciled['items'] as &$item) {
+                $item['cz_platform_id'] = $existingItems[(string) $item['item_id']] ?? '';
+            }
+            unset($item);
             $existingGroups = [];
             foreach (is_array($existingSheet['groups'] ?? null) ? $existingSheet['groups'] : [] as $group) {
                 if (is_array($group)) $existingGroups[(string) ($group['group_id'] ?? '')] = (string) ($group['cz_platform_id'] ?? '');
@@ -1014,6 +1023,11 @@ final class PackageManagerSchema
                         unset($group['cz_platform_id']);
                         return $group;
                     }, is_array($sheet['groups'] ?? null) ? $sheet['groups'] : []);
+                    $sheet['items'] = array_map(static function (array $item): array {
+                        $item['platform_id'] = (string) ($item['cz_platform_id'] ?? '');
+                        unset($item['cz_platform_id']);
+                        return $item;
+                    }, is_array($sheet['items'] ?? null) ? $sheet['items'] : []);
                     return $sheet;
                 },
                 is_array($storedManager['rate_sheets'] ?? null) ? $storedManager['rate_sheets'] : []
