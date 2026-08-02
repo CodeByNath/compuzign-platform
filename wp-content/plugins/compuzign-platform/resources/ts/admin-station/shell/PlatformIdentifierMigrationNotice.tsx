@@ -34,16 +34,9 @@ export function PlatformIdentifierMigrationNotice() {
     return () => { active = false; };
   }, []);
 
-  if (status?.complete) {
-    return (
-      <section class="cz-platform-id-migration" role="status" aria-live="polite">
-        <ModuleNotificationPanel
-          notes={[{ id: 'migration-complete', type: 'info', message: 'Package and Tier Platform ID assignment is complete.' }]}
-          variant="station"
-        />
-      </section>
-    );
-  }
+  // Completion is intentionally silent. The temporary runner remains mounted
+  // only so an administrator can verify the one-time rollout before removal.
+  if (status?.complete) return null;
 
   const conflicts = reports ? ENTITY_TYPES.flatMap((entityType) => reports[entityType].conflicts.map((conflict) => ({ ...conflict, entityType }))) : [];
   const wouldAssign = reports ? ENTITY_TYPES.reduce((total, entityType) => total + reports[entityType].would_assign, 0) : 0;

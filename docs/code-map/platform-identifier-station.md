@@ -63,12 +63,14 @@ active. `--limit` defaults to 100 and is capped at 500; `--cursor` defaults to
 zero. Each invocation returns JSON with processed/assigned/preserved/conflict
 counts, completion, and the next cursor.
 
-During the temporary Package Family rollout, Admin refresh reads migration
-status and runs a zero-write Package-Family-only preflight. Explicit assignment
-processes one 100-record Package-owned string-cursor batch through
-`assignExistingBatch()`, guarded by a 45-second atomic lock. Invalid, duplicate,
-or conflicting bindings stop assignment. The completion option remains after
-the temporary controller and notice are removed.
+During the temporary Package entity rollout, Admin refresh reads independent v2
+progress and runs zero-write preflights for Package Family, Tier Group, Tier,
+Tier Add-on, Rate Sheet Group, and Rate Sheet. Explicit assignment processes
+100-record Package-owned string-cursor batches through `assignExistingBatch()`,
+guarded by a 45-second atomic lock. Invalid, duplicate, or conflicting bindings
+stop assignment; valid IDs are preserved. Completion hides the notice. The
+temporary controller remains only until live allocation is verified. Promotion
+is excluded for its later dedicated rollout.
 
 Package Phase 4 began with Package Families. `Core\Plugin` injects the
 shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`

@@ -12,8 +12,11 @@ use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatfor
 /** Temporary REST migration surface. Remove after the live one-time assignment. */
 final class TemporaryMigrationController
 {
-    private const PROGRESS_OPTION = 'cz_package_family_identifier_migration_v1';
-    private const LOCK_OPTION = 'cz_package_family_identifier_migration_lock_v1';
+    // This expanded rollout must not inherit the completed Package-Family-only
+    // v1 option. Keep its progress independent so every new entity scope gets
+    // a real preflight and bounded assignment pass.
+    private const PROGRESS_OPTION = 'cz_package_entity_identifier_migration_v2';
+    private const LOCK_OPTION = 'cz_package_entity_identifier_migration_lock_v2';
     private const LIMIT = 100;
     private const LOCK_SECONDS = 45;
     private const ENTITY_TYPES = [

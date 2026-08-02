@@ -30,11 +30,12 @@ registered navigation → resolved destination → active station
 
 `AdminStationContext.tsx` holds only theme and selected destination state. `shell/AdminStationBody.tsx` selects the resolved station, falling back to Station Manager's default, and renders one `StationPresentationShell`. Successful drawer mutations refresh only the surface that opened the drawer.
 
-During the one-time Package Family Platform Identifier migration only,
+During the one-time Package entity Platform Identifier migration only,
 `shell/PlatformIdentifierMigrationNotice.tsx` checks temporary authenticated
 status on refresh, renders the existing notification primitive, runs the
-zero-write Package-Family-only preflight, and exposes one explicit assignment
-button. Remove this notice and its Body/CSS wiring after verified completion.
+zero-write scoped preflights, and exposes one explicit bounded-assignment
+button. Successful completion renders nothing. Remove this notice and its
+Body/CSS wiring only after verified live completion; Promotion is excluded.
 
 ## Backend and assets
 

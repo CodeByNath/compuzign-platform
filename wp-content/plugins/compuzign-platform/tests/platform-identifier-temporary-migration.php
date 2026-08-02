@@ -80,6 +80,13 @@ $station->ensure(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_beta',
 $controller = new TemporaryMigrationController($station, $packages);
 $GLOBALS['mig_writes'] = 0;
 
+$GLOBALS['mig_options']['cz_package_family_identifier_migration_v1'] = [
+    'complete' => true,
+    'package_family_group' => ['complete' => true],
+];
+$status = $controller->status(new WP_REST_Request())->get_data();
+migration_check($status['complete'] === false, 'expanded rollout does not inherit Package-Family-only completion');
+
 $dry = $controller->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => 'package_family_group']))->get_data();
 migration_check($GLOBALS['mig_writes'] === 0, 'dry check performs zero writes');
 migration_check($dry['entity_type'] === 'package_family_group' && $dry['report']['processed'] === 2, 'dry check reports only the requested Package Family scope');
@@ -89,8 +96,8 @@ $family = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_ty
 migration_check($family['entity_complete'] === true && $family['complete'] === false && str_starts_with($packages->familyPlatformId('pcg_alpha'), 'CZPG'), 'Family batch completes only its own scope and assigns the missing CZPG ID');
 migration_check($packages->familyPlatformId('pcg_beta') === 'CZPGRAJ5F', 'Family batch preserves CZPGRAJ5F exactly');
 migration_check($station->lookupNative(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_alpha')?->platformId() === $packages->familyPlatformId('pcg_alpha'), 'Family batch creates the reverse binding');
-migration_check($GLOBALS['mig_autoload']['cz_package_family_identifier_migration_v1'] === 'no', 'completion progress option is non-autoloaded');
-migration_check(!isset($GLOBALS['mig_options']['cz_package_family_identifier_migration_lock_v1']), 'short-lived atomic lock is released');
+migration_check($GLOBALS['mig_autoload']['cz_package_entity_identifier_migration_v2'] === 'no', 'expanded rollout progress option is non-autoloaded');
+migration_check(!isset($GLOBALS['mig_options']['cz_package_entity_identifier_migration_lock_v2']), 'short-lived expanded-rollout lock is released');
 
 $stored = $GLOBALS['mig_options'][PackageRepository::OPTION_KEY];
 $stored['package_manager']['category_groups'][0]['cz_platform_id'] = 'invalid';
