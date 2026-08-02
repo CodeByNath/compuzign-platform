@@ -4,6 +4,13 @@
 
 `is_addon` is an occupant-level presentation and selection-behaviour flag, owned by Package Station alongside every other occupant field in [Tiers](tiers.md). It does not change occupant identity, lifecycle, Rate Sheet ownership, Tier Instance assignment, or the five-shell invariant. A Tier System offers the customer one normal Tier (`is_addon: false`) plus zero or more add-on Tiers (`is_addon: true`) from that **same** Tier System. Same-Tier-System add-on compatibility is implicit — there is no compatibility ledger, no cross-Tier-Instance resolution, and no second occupant collection.
 
+The role has permanent secondary identity `tier_addon/CZTA` on that same
+occupant and the same instance-qualified native reference as primary
+`tier/CZT`. Draft Save never assigns it. First successful add-on settlement
+assigns it once; normal-Tier settlement preserves it dormant; returning to
+Add-on reuses it. No separate Add-on lifecycle, drawer, endpoint family, or
+native record exists.
+
 ## Backend
 
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) — `is_addon` lives on `current_occupant`, defaulting `false`, threaded through `upsertOccupant`, `normaliseTierSlot`, `summariseTierSlot`, and `extractTierForCostBuilder`. `settleTierSlot` draft-prefers it (`$ov['is_addon'] ?? $occ['is_addon']`) exactly like `label`/`billing_cycle`. It is not written by `archiveTierOccupant`/`restoreBinnedOccupant`/`trashBinnedOccupant`/`deleteBinnedOccupant` — those copy the whole stored occupant record, so the flag survives archive, restore, retarget, and swap for free.
@@ -29,23 +36,16 @@ No second identity — the admin engine reads the same settled values. [tierOccu
 - `replaceNormalQuoteItem` — replaces only the existing non-add-on line for a `serviceId` (a normal Tier, a promotion, or the legacy bundle); every add-on for that `serviceId` survives. This is why switching the normal Tier preserves selected add-ons.
 - `upsertAddonQuoteItem` / `removeAddonQuoteItem` — add-on lines, keyed by `serviceId` + `tierId`, independent of the normal line and of each other.
 - `removeServiceQuoteItems` — removes a whole Service's normal line and every add-on; also the correct behaviour for deselecting the normal Tier outright, since an add-on has nothing to attach to without one.
-- `classifyQuoteItems` — the one shared split into `mainItems` / `bundleItems` / `tierAddonItems`, used by both [OrderSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/OrderSummary.tsx) and [QuoteProposalPreview.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteProposalPreview.tsx). Classification is always by `isAddon` or by the legacy bundle's own negative `serviceId` — never by inferring one from the other.
+- `classifyQuoteItems` supplies the shared main/bundle/add-on split to order and proposal presentation without inference between identities.
 
 [RequestSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php) sanitises `isAddon` to a strict boolean, defaulting `false`.
-
-## Legacy recommended bundle
-
-[RecommendedBundle.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/RecommendedBundle.tsx) is unrelated and untouched: it still mints a synthetic negative `serviceId` and remains the only place that does. It is not a Tier occupant, carries no `is_addon` meaning beyond the literal `false` every `QuoteItem` now requires, and is classified into `bundleItems`, never `tierAddonItems`. New code must not use a negative `serviceId` for a real Tier add-on.
 
 ## Invariants
 
 - Every existing occupant defaults `is_addon: false`; no stored-data migration is required.
 - `is_addon` never changes `platform_status`, module `module_status`, occupant id, or Rate Sheet selections.
 - No compatibility ledger, cross-Tier-Instance resolution, sixth shell, or second occupant collection exists for this capability.
-
-## Validation
-
-From the plugin root: `php tests/tier-occupant-is-addon.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-addon-end-to-end.php`, `php tests/request-schema-is-addon.php`, `npm run contract:tier-overview-is-addon`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npm run contract:package-tier-workspace`, `npm run contract:drawer-module-entry`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+- The legacy recommended bundle remains unrelated; real Add-ons never use its synthetic negative Service identity.
 
 ## Related Code Maps
 

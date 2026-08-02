@@ -70,7 +70,7 @@ processes one 100-record Package-owned string-cursor batch through
 or conflicting bindings stop assignment. The completion option remains after
 the temporary controller and notice are removed.
 
-Package Phase 4 integrates new Package Families only. `Core\Plugin` injects the
+Package Phase 4 began with Package Families. `Core\Plugin` injects the
 shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`
 in its `category_groups[]` row and string native `group_id`. Creation reserves
 `CZPG`, persists the Pending Family, binds the returned native identity,
@@ -78,5 +78,11 @@ projects output-only identity, rejects mutation, and tombstones guarded hard
 deletion. The authenticated read at `/admin/package-families/{platformId}`
 resolves only a bound matching Family before delegating to Package projection.
 The same WP-CLI command accepts `package-family`, using bounded lexically sorted
-string `group_id` pages and Package-owned immutable scalar callbacks. No other
-Package entity is integrated.
+string `group_id` pages and Package-owned immutable scalar callbacks.
+
+Package identity now also covers Tier Group (`CZTG`), primary Tier (`CZT`),
+Tier Add-on (`CZTA`), Rate Sheet (`CZPRC`), and Rate Sheet Group (`CZPRCG`).
+Tier and Add-on share one canonical instance-qualified occupant reference;
+Rate Sheet Group uses `(rate_sheet_id, group_id)`. Package adapters retain
+storage/projection ownership and delegate registry work here. Tier Promotion
+(`CZTP`) remains deferred.

@@ -6,8 +6,11 @@ Package Family is the first conforming Package entity: complete Overview Save
 creates its persisted unmasked Pending record, seeds the returned string native
 identity into the same mounted drawer, and leaves Publish to settle/activate
 that existing record. Explicit Disable/Enable uses the shared mask grammar and
-Restore returns to unmasked Pending. Package Station remains pending overall:
-Tier, Rate Sheet, Promotion, occupants, and other Package entities are unchanged.
+Restore returns to unmasked Pending. Tier Group and Tier now adopt the shared
+registered drawer/module/footer architecture while preserving their explicit
+Package Publish/Apply and occupant-travel lifecycles. Package Station remains
+pending overall because Promotion, Tier Inclusion, and other Package lifecycle
+surfaces are unchanged; Rate Sheet receives identity only.
 
 Package Station is a top-level peer with full Package-domain authority. It owns Package Families, Rate Sheets, Sources, Relationships, Tiers, grouping, quantity, pricing, Package contracts/endpoints/hooks, surfaces, presentation, drawers/editors/schema, validation, saves, and persistence.
 
@@ -22,7 +25,11 @@ Backend root: `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages
 - `surface/` owns Family/Tier/workspace reads, assignment resolution, fixed-slot projection, connection navigation, and Rate Sheet access. `presentation/package-tier-workspace/` owns the Tier workspace kit and read/launcher-only [Settings](package-settings.md) lane. `drawer/` owns Family/Tier/Inclusion composition, controllers, editors, and schema.
 - `drawer/inclusion/` owns one Tier's Rate Sheet row use at `(tier_instance_id, slotId, item_id)`. Resolution stays within the slot's bound sheet; quantity writes through `saveTierFeatures`. Relationships remain read-only.
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts), [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts), [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts), and [vocabulary.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/vocabulary.ts) are Package-owned derivations and vocabulary.
-- Package Family alone carries output-only `CZPG` Platform identity. Its
+- Package Family carries output-only `CZPG` Platform identity. Tier Group uses
+  `CZTG`; settled occupants use primary `CZT` and optional permanent secondary
+  `CZTA`; Rate Sheet and Rate Sheet Group use `CZPRC` and `CZPRCG`. Occupant
+  identities share one instance-qualified native reference and travel with the
+  occupant. Rate identities preserve the existing Manager lifecycle. Family's
   Package-owned row stores `cz_platform_id`; native `group_id` remains the
   mutation address. `GET /admin/package-families/{platformId}` resolves a bound
   identifier and returns the existing authoritative Family projection. Bounded

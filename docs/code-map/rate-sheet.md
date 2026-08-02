@@ -2,13 +2,22 @@
 
 **Lifecycle contract status:** Pending migration.
 
+Platform identity is integrated without lifecycle migration. Rate Sheet uses
+`package_rate_card/CZPRC` against `rate_sheet_id`; each stored Rate Sheet Group
+uses `package_rate_card_group/CZPRCG` against qualified
+`(rate_sheet_id, group_id)`. New records bind at the existing Manager save
+boundary, guarded deletion tombstones the removed identity, and durable CLI
+selectors assign legacy records. Existing authoring and lifecycle remain
+unchanged.
+
 ## Purpose and ownership
 
 Rate Sheets are Package Station supply/pricing configuration: contracts, relationships, grouping, validation, Tier selections, pricing, API, and persistence. Station Manager coordinates surfaces and Admin hosts presentation; neither owns the rules or the data.
 
 The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has stable `rate_sheet_id`, title, status, groups, and explicit priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Totals are derived; Services and pools remain Service-owned.
 
-A row's `per` unit comes from a vocabulary that is **data**: `BUILT_IN_RATE_SHEET_UNITS` (seven constants, always offered, never removable) plus the curated `package_manager.rate_sheet_units[]`. Only the curated half is stored. Validation stays closed — `sanitizeRateSheet` drops a `per` the vocabulary does not know, so a row cannot introduce a unit by using one.
+A row's `per` uses the built-in plus curated unit vocabulary. Only curated
+units are stored, and unknown values fail closed.
 
 ## Current implementation
 
@@ -42,10 +51,6 @@ The `tier-rate-sheet` and `tier-rate-sheet-group` keys scope this same tool to O
 - [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) consumes active Service and Package pricing for public Cost Builder projection.
 
 Tier selections resolve within their bound sheet and derive totals/readiness. Live provenance remains read-model data, never selection storage.
-
-## Validation
-
-Run `php tests/tier-capability-invariants.php`, `npm run contract:rate-sheet-tool` (read/save mapping, summary/grouping projections, scoped row allow-list), `npm run contract:package-tier-workspace` (connection projections, routing tokens, lane composition), `npm run contract:drawer-module-entry`, `npx tsx scripts/tier-pricing-parity-contract.ts`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

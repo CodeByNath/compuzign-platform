@@ -22,6 +22,7 @@ WordPress posts or terms. Platform IDs are output-only and never recycled.
 | `category` | `CZC` | Category / `Modules/Admin` |
 | `package_family_group` | `CZPG` | Package Station / `Modules/SurfacePackages` |
 | `tier_group` | `CZTG` | Pending Phase 5 source audit |
+| `tier` | `CZT` | Package Station / instance-qualified occupant reference approved |
 | `tier_addon` | `CZTA` | Pending Phase 6 source audit |
 | `tier_promotion` | `CZTP` | Pending Phase 7 source audit |
 | `package_rate_card` | `CZPRC` | Pending Phase 8 source audit |
@@ -109,11 +110,20 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    `package-family` selector, with stable string `group_id` cursors, a default
    limit of 100, and a hard cap of 500. Package
    Station remains pending overall because every other Package entity is unchanged.
-5. **Tier Group — pending owner/storage audit.** No files locked yet.
-6. **Tier Add-on — pending owner/storage audit.** No files locked yet.
+5. **Tier Group — integrated.** Package Station owns the
+   `tier_instances[]` row, stored scalar `cz_platform_id`, and native
+   `tier_instance_id`, creation binding, read, assignment, and deletion tombstone.
+6. **Tier and Tier Add-on — integrated.** The primary Tier
+   identity is `tier/CZT`; the optional secondary identity is
+   `tier_addon/CZTA`. Both use the same canonical instance-qualified
+   `(tier_instance_id, occupant_id)` native reference and travel with the whole
+   occupant record, including travel and permanent-deletion tombstones.
 7. **Tier Promotion — pending owner/storage audit.** No files locked yet.
-8. **Package Rate Card — pending owner/storage audit.** No files locked yet.
-9. **Package Rate Card Group — pending owner/storage audit.** No files locked yet.
+8. **Package Rate Card — integrated for Rate Sheet.** The native reference is
+   `rate_sheet_id`; existing lifecycle is unchanged.
+9. **Package Rate Card Group — integrated for Rate Sheet
+   Group.** The native reference is instance-qualified
+   `(rate_sheet_id, group_id)`; existing lifecycle is unchanged.
 10. **Package Rate Card Item — pending owner/storage audit.** No files locked yet.
 11. **Existing-record assignment — Package Family complete.** Service,
     Category, and Package Family are enabled. Later entity types remain

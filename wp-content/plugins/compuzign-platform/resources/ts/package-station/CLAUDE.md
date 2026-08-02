@@ -14,8 +14,12 @@ Station. Its complete Overview Save creates the persisted Pending Family and
 keeps the returned `group_id`/`CZPG` identity in the same mounted drawer;
 Publish never creates. Explicit Disable/Enable uses the shared mask. Do not
 extend those claims to Tier, Rate Sheet, Promotion, occupants, or capabilities.
-The backend-only `GET /admin/package-families/{platformId}` is the canonical
-external identity read; native Package mutations remain on `group_id` routes.
+Backend canonical reads now cover Package Family, Tier Group, Tier, Tier
+Add-on, Rate Sheet, and Rate Sheet Group. Native mutations retain their
+existing Package addresses. Tier Group and Tier use the shared supported-action
+footer with controller-supplied actions; no status label may invent an action.
+Tier Add-on remains the same occupant's boolean role and optional dormant
+secondary identity. Promotion is unchanged and deferred.
 
 ## Ownership and entry points
 

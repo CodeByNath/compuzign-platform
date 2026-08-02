@@ -15,11 +15,12 @@ Package Family now conforms to the locked lifecycle. `Core\Plugin` injects the
 shared `PlatformIdentifierStation` through `SurfacePackagesModule`; the Family
 row owns `cz_platform_id` and native string `group_id`, while the identifier
 Station owns `CZPG` reservation, binding, lookup, conflict, and tombstone only.
-`GET /admin/package-families/{platformId}` is the sole Platform-ID route and is
-read-only; native mutations remain unchanged. Existing Family rows are assigned
-in bounded, resumable pages through the existing WP-CLI command's
-`package-family` selector and PackageRepository callbacks. No other Package
-entity receives identity or lifecycle changes.
+Package identity also covers Tier Group `CZTG`, primary Tier `CZT`, secondary
+Add-on `CZTA`, Rate Sheet `CZPRC`, and Rate Sheet Group `CZPRCG`. Tier/Add-on
+share one instance-qualified occupant native reference. Package adapters own
+storage/enumeration/projection callbacks and delegate registry work to the
+shared Station. Owner-specific read routes and durable CLI selectors exist for
+all five scopes. Promotion `CZTP` remains deferred.
 
 ## Boundaries
 

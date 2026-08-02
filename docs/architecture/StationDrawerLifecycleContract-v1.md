@@ -173,6 +173,8 @@ Code Maps **pending migration** instead of copying Service/Category claims.
 - **Category:** `categories.md`; Overview Save creates the persisted Pending
   Category, preserves the mounted handoff, keeps Assigned Services read-only,
   and Publish settles/activates that ID.
+- **Package Family:** `package-station.md`; Overview Save creates the persisted
+  Pending Family with native and `CZPG` identity in the same mounted drawer.
 - **Shared drawer ownership:** `drawer-system.md` and
   `admin-station-drawer.md`; the host is generic and the Station is the write
   boundary.
@@ -182,14 +184,12 @@ Code Maps **pending migration** instead of copying Service/Category claims.
 These are not evidence that the contract is optional. They are the explicit
 follow-up inventory and must not be described as conforming until migrated:
 
-- **Package Family / Package Manager:** `package-station.md`,
-  `package-manager.md`, and `tier-capability.md` still create a Family from a
-  footer action after local staging, rather than creating on complete Overview
-  Save.
 - **Tier System registration and Tier occupants:** `tier-registration.md`,
   `tiers.md`, `package-settings.md`, and `package-station.md` use registration
-  addresses, slot/occupant travel, and Publish/Apply creation; their
-  enable/disable/archive/restore rules are not the Service/Category contract.
+  addresses, slot/occupant travel, and Publish/Apply creation. They now use the
+  shared registered composition, pills, notifications, inline editors, and
+  explicit supported-action footer, but their approved Package lifecycle is
+  intentionally not the Service/Category Overview-Save lifecycle.
 - **Tier inclusion and Rate Sheet tools:** `rate-sheet.md`, `tier-addon.md`,
   `tier-rate-sheet-connections.md`, and the Package drawer maps describe
   relationship/collection editors with their own readiness and travel

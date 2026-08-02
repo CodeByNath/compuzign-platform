@@ -1,20 +1,22 @@
 # Tier System Registration
 
-**Pending migration.**
+**Shared drawer architecture adopted; Package aggregate lifecycle preserved.**
 
 ## Purpose and ownership
 
 Tier System registration is the **pending state** of the one Tier System lifecycle described in [Tiers](tiers.md), not a second Tier editor or a separate workflow. `tier-register:[familyId]` resolves into the SAME `TierSystemContent` composition the persisted `tier-instance:{id}` route mounts, so Overview, Rate Sheet Access, footer, and identity-transition mechanics are defined exactly once.
 
-Tier system enters the pool with its own title and description. PHP mints its id and its five empty fixed slots. Nothing else is minted, filled, bound, or granted: registration fills no slot, grants no Rate Sheet access, and chains into no workflow. A published system is reached the ordinary way afterwards — by selecting its Package Family in the workspace engine, which resolves the assignment and loads those empty slots for individual Tier edits.
+Tier system enters the pool with title, description, native ID, `CZTG`, and
+five empty slots. Registration fills no slot or Rate Sheet access.
 
 ## The address
 
 `tier-register:[familyId]` opens the `tier` drawer before any instance exists. It addresses no record, so it is decoded before any identity is resolved and never falls through to the occupant fallback. The optional segment carries only the Family the caller had in hand; an empty segment means none was offered, not that one failed to resolve.
 
-Two callers, one composition. The Settings lane's Tiers launcher passes no Family; the workspace's no-assignment surface passes the Family it is showing, so the drawer opens with it selected.
-
-The route stays separate only so `TierRegistrationHost` loads the Family collection just while pending; the ordinary occupant/slot route needs none. `TierInstanceSettingsHost` is the persisted counterpart, loading the instance and its Rate Sheet inventory. Both hand their data to the same composition and own no lifecycle logic.
+Settings passes no Family; the unassigned workspace passes its current Family.
+`TierRegistrationHost` loads pending Family choices, while
+`TierInstanceSettingsHost` loads persisted Rate Sheet inventory; both delegate
+to the same composition.
 
 ## A Family is not a field
 
@@ -25,6 +27,13 @@ The route stays separate only so `TierRegistrationHost` loads the Family collect
 - re-pointing is a delete then a create, because one assignment row exists per instance.
 
 The instance is authoritative either way. A failed ledger write leaves a published, unassigned Tier system, reported as such, rather than a half-written record. Only Families holding no Tier system are offered, and a pre-selected Family on the token is honoured only while it still holds none.
+
+Publish assigns permanent `tier_group/CZTG` to the returned
+`tier_instance_id` in the same mounted composition. Persisted empty groups
+consume their occupant-derived disabled storage fact as Pending presentation,
+with guidance that active occupants activate the group. Their explicit footer
+remains local Close/Publish and persisted Close/Apply/guarded Delete; unsupported
+Enable, Disable, Archive, Trash, and Restore actions are never inferred.
 
 ## Current implementation
 
@@ -42,10 +51,6 @@ The instance is authoritative either way. A failed ledger write leaves a publish
 - A Family is linked through the assignment ledger, never written onto the instance; a smuggled `consumer_id` or `family_id` is dropped by the schema.
 - Only Families holding no Tier system are selectable. An absent description is stored as empty rather than dropped.
 - The drawer continues in the same mounted composition after Publish — the pending identity is replaced by the returned `tier_instance_id` in local state, never by a routing change.
-
-## Validation
-
-Run `php tests/tier-instance-schema.php`, `php tests/tier-instance-update.php`, `php tests/tier-instance-guards.php`, `php tests/tier-capability-invariants.php`, `npm run contract:package-tier-workspace`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-tool`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 

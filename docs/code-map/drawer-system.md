@@ -22,6 +22,7 @@ The drawer system separates coordination, hosting, rendering, and persistence:
 - [entityDrawerHost.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/entityDrawerHost.ts) defines the host-neutral close/footer/guard/mutation bridge.
 - [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/InlineEditorShell.tsx) owns Save/Cancel, dirty confirmation, validation, loading, and errors.
 - [EntityActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityActionFooter.tsx) and [CanonicalEntityFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/CanonicalEntityFooter.tsx) provide footer grammar and lifecycle mapping.
+- [SupportedActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/SupportedActionFooter.tsx) renders explicit owner-supplied action descriptors. It receives no status and infers no lifecycle actions; Tier Group and Tier use it for their distinct supported sets.
 - [schema/types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/schema/types.ts) and `schema/{elements,shells}` define neutral entity, binding, placement, action, and edit-session contracts.
 
 ## Module entry contract
@@ -59,8 +60,10 @@ their ID; afterward child saves are authoritative Station writes.
 
 Enforced by `npm run contract:drawer-module-entry`, which executes each rule and reads the compositions for the wiring they need, and by `node scripts/module-state-snapshot.mjs`, which pins every exported rule's `{ status, notes }`. Surfaces under it: empty Tier slots ([Tiers](tiers.md)), whole-instance Tier Rate Sheet access ([Package Home Settings](package-settings.md)), Tier registration ([Tier System Registration](tier-registration.md)), Family creation (the mature drawer's `'new'` identity), and the Rate Sheet pool ([Rate Sheet](rate-sheet.md)).
 
-Package Family, Tier, Tier Inclusion, Rate Sheet, and Promotion compositions
-still have documented lifecycle differences and are pending this migration;
+Package Family, Tier Group, and Tier use the shared drawer/footer grammar;
+Tier Group and Tier retain their documented Package-owned lifecycle
+differences. Tier Inclusion, Rate Sheet lifecycle, and Promotion
+still have documented lifecycle differences and remain pending migration;
 they must not be copied as the platform default. The full inventory is in the
 contract's [conformance table](../architecture/StationDrawerLifecycleContract-v1.md#8-conformance-and-pending-inventory).
 
