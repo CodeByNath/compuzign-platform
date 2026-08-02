@@ -28,6 +28,8 @@ let failedCreates = 0;
 let shouldFailCreate = true;
 let settleCalls = 0;
 let activationCalls = 0;
+let disableCalls = 0;
+let enableCalls = 0;
 
 function response(body, ok = true, status = 200) {
   return Promise.resolve({
@@ -87,9 +89,18 @@ globalThis.fetch = (url, init = {}) => {
   }
   if (path.endsWith(`/admin/package-category-groups/${CREATED_ID}/status`) && method === 'PATCH') {
     if (body.platform_status === 'active') activationCalls += 1;
+    if (body.action === 'disable') disableCalls += 1;
+    if (body.action === 'enable') enableCalls += 1;
+    const disabled = body.action === 'disable';
+    const enabled = body.action === 'enable';
     return response({
       success: true,
-      group: { ...family('KAIROS', 'Updated after handoff.'), platform_status: 'active', module_status: { overview: 'settled' } },
+      group: {
+        ...family('KAIROS', 'Updated after handoff.'),
+        platform_status: disabled || enabled ? 'disabled' : 'active',
+        previous_platform_status: disabled ? 'active' : null,
+        module_status: { overview: 'settled' },
+      },
     });
   }
   return Promise.reject(new Error(`Unexpected Package Family fetch: ${method} ${path}`));
@@ -246,6 +257,21 @@ check('Publish settles', await settle());
 check('Publish settles the existing Family', settleCalls === 1, `settle=${settleCalls}`);
 check('Publish activates the existing Family', activationCalls === 1, `active=${activationCalls}`);
 check('Publish never calls create', createCalls === 2, `create=${createCalls}`);
+
+latestFooter.props.onToggleActive();
+check('Disable settles', await settle());
+check('Disable uses the explicit action', disableCalls === 1, `disable=${disableCalls}`);
+check('Disable masks every Family module', [...container.querySelectorAll('.cz-module-status-pill')]
+  .every((pill) => pill.textContent.trim() === 'Disabled'));
+check('footer receives the explicit mask', latestFooter.props.isDisabledMasked === true);
+
+latestFooter.props.onToggleActive();
+check('Enable settles', await settle());
+check('Enable uses the explicit action', enableCalls === 1, `enable=${enableCalls}`);
+check('Enable does not activate or settle again', activationCalls === 1 && settleCalls === 1);
+check('Enable returns Family modules to Pending', [...container.querySelectorAll('.cz-module-status-pill')]
+  .every((pill) => pill.textContent.trim() === 'Pending'));
+check('footer sees unmasked Pending after Enable', latestFooter.props.isDisabledMasked === false);
 
 if (failures.length) {
   console.error(`\nREGRESSION FAILED — ${failures.length} check(s)`);

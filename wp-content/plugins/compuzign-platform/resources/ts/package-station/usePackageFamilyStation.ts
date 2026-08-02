@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   createPackageFamily,
+  disablePackageFamily,
+  enablePackageFamily,
   permanentDeletePackageFamily,
   restorePackageFamily,
   revertPackageFamilyOverview,
@@ -48,6 +50,7 @@ export function usePackageFamilyStation(
       platformLabel: 'Package Family',
       moduleTransition: family.module_status.overview,
       hasDraft: family.has_draft,
+      disabled: family.platform_status === 'disabled' && family.previous_platform_status !== null,
     },
   ), [family]);
 
@@ -63,6 +66,7 @@ export function usePackageFamilyStation(
     {
       platformStatus: family.platform_status,
       platformLabel: 'Package Family',
+      disabled: family.platform_status === 'disabled' && family.previous_platform_status !== null,
     },
   ), [family.platform_status, relationshipData]);
 
@@ -168,11 +172,29 @@ export function usePackageFamilyStation(
   }, [family.group_id, onMutationComplete]);
 
   const isActive = family.platform_status === 'active';
+  const isDisabledMasked = family.platform_status === 'disabled'
+    && family.previous_platform_status !== null;
+
+  const toggleActive = useCallback(async () => {
+    if (family.group_id === '') return null;
+    setStatusSaving(true);
+    try {
+      const response = isDisabledMasked
+        ? await enablePackageFamily(family.group_id)
+        : await disablePackageFamily(family.group_id);
+      const group = requireGroup(response, `Could not ${isDisabledMasked ? 'enable' : 'disable'} the Package Family.`);
+      onMutationComplete?.();
+      return group;
+    } finally {
+      setStatusSaving(false);
+    }
+  }, [family.group_id, isDisabledMasked, onMutationComplete, requireGroup]);
 
   return {
     family,
     platformStatus: family.platform_status,
     isActive,
+    isDisabledMasked,
     hasDraft: family.has_draft,
     modules: { overview: overviewState, relationships: relationshipsState },
     relationshipData,
@@ -181,7 +203,7 @@ export function usePackageFamilyStation(
     revertOverview,
     settleOverview,
     publishFamily,
-    toggleActive: () => applyStatus(isActive ? 'disabled' : 'active'),
+    toggleActive,
     archiveFamily: () => applyStatus('archived'),
     trashFamily: () => applyStatus('trashed'),
     restoreFamily,

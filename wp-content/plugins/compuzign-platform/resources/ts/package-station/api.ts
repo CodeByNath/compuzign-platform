@@ -118,6 +118,18 @@ export function updatePackageFamilyStatus(
   });
 }
 
+export function disablePackageFamily(groupId: string): Promise<PackageFamilyMutationResponse> {
+  return apiClient.patch<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/status`, {
+    action: 'disable',
+  });
+}
+
+export function enablePackageFamily(groupId: string): Promise<PackageFamilyMutationResponse> {
+  return apiClient.patch<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/status`, {
+    action: 'enable',
+  });
+}
+
 // Server-driven restore — resolves previous_platform_status, lands disabled.
 export function restorePackageFamily(groupId: string): Promise<PackageFamilyMutationResponse> {
   return apiClient.post<PackageFamilyMutationResponse>(`admin/package-category-groups/${groupId}/restore`, {});

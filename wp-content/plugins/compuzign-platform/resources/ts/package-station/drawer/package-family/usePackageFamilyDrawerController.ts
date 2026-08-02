@@ -204,8 +204,9 @@ export function usePackageFamilyDrawerController({
     state: capabilities.loading
       ? { status: 'loading', notes: [] }
       : evaluateModule(packageFamilyCapabilitiesModule, capabilities.data, {
-          platformStatus: station.platformStatus,
-          platformLabel: 'Package Family',
+        platformStatus: station.platformStatus,
+        platformLabel: 'Package Family',
+        disabled: station.isDisabledMasked,
         }),
     hasDraft: false,
     busy: capabilities.busy ?? capabilities.removeConfirm.busyId,
@@ -248,6 +249,7 @@ export function usePackageFamilyDrawerController({
     setExitDialog,
     actionError,
     isNewNeverPublished,
+    isDisabledMasked: station.isDisabledMasked,
     hasBeenPublished,
     canPublish,
     overviewBinding,

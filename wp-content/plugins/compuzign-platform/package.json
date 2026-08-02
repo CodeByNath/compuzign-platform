@@ -28,6 +28,7 @@
     "regression:service-disable-enable": "node scripts/service-disable-enable-regression.mjs",
     "regression:category-create": "node scripts/category-create-regression.mjs",
     "regression:package-family-create-handoff": "node scripts/package-family-create-handoff-regression.mjs",
+    "regression:package-family-disable-enable": "node scripts/package-family-disable-enable-regression.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "dev": "vite"
   },

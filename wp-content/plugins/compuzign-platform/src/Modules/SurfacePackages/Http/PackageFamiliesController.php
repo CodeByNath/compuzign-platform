@@ -104,7 +104,7 @@ class PackageFamiliesController
             'args'                => [
                 'gid'             => ['required' => true, 'type' => 'string'],
                 'platform_status' => [
-                    'required' => true,
+                    'required' => false,
                     'type'     => 'string',
                     'enum'     => [
                         StationLifecycle::STATUS_ACTIVE,
@@ -112,6 +112,11 @@ class PackageFamiliesController
                         StationLifecycle::STATUS_ARCHIVED,
                         StationLifecycle::STATUS_TRASHED,
                     ],
+                ],
+                'action' => [
+                    'required' => false,
+                    'type'     => 'string',
+                    'enum'     => ['disable', 'enable'],
                 ],
             ],
         ]);
@@ -225,6 +230,11 @@ class PackageFamiliesController
 
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
     {
+        if ($request->has_param('action')) {
+            return $this->mutateGroup($request, fn(array $groups, string $gid): array => (
+                PackageCategoryGroups::applyDisabledMask($groups, $gid, (string) $request->get_param('action'))
+            ));
+        }
         $target = sanitize_text_field((string) $request->get_param('platform_status'));
         return $this->mutateGroup($request, fn(array $groups, string $gid): array => (
             PackageCategoryGroups::applyStatus($groups, $gid, $target)

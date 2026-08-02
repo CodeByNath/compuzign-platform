@@ -303,6 +303,38 @@ final class PackageCategoryGroups
         return self::replace($groups, $group);
     }
 
+    /** Explicit Disable/Enable mask; neither action publishes or settles. */
+    public static function applyDisabledMask(array $groups, string $groupId, string $action): array
+    {
+        $group = self::find($groups, $groupId);
+        if ($group === null) {
+            throw new \InvalidArgumentException('Package Family not found.');
+        }
+
+        $current = (string) $group['platform_status'];
+        $previous = $group['previous_platform_status'] ?? null;
+
+        if ($action === 'disable') {
+            if (!StationLifecycle::isLive($current)) {
+                throw new \InvalidArgumentException('Only an active or pending Package Family can be disabled.');
+            }
+            $group['platform_status'] = StationLifecycle::STATUS_DISABLED;
+            $group['previous_platform_status'] = $current === StationLifecycle::STATUS_ACTIVE || $previous === null
+                ? $current
+                : $previous;
+        } elseif ($action === 'enable') {
+            if ($current !== StationLifecycle::STATUS_DISABLED || $previous === null) {
+                throw new \InvalidArgumentException('Only an explicitly disabled Package Family can be enabled.');
+            }
+            $group['platform_status'] = StationLifecycle::STATUS_DISABLED;
+            $group['previous_platform_status'] = null;
+        } else {
+            throw new \InvalidArgumentException('Invalid action.');
+        }
+
+        return self::replace($groups, $group);
+    }
+
     /** restore: archived|trashed → disabled — never straight to active. */
     public static function restore(array $groups, string $groupId): array
     {
