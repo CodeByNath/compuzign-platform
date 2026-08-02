@@ -23,6 +23,7 @@
     "contract:tier-instance-scope": "tsx scripts/tier-instance-scope-contract.ts",
     "contract:tier-instance-tool": "tsx scripts/tier-instance-tool-contract.ts",
     "contract:tier-occupant-admin": "tsx scripts/tier-occupant-admin-contract.ts",
+    "contract:tier-occupant-lifecycle-repair": "tsx scripts/tier-occupant-lifecycle-repair-contract.ts",
     "contract:tier-overview-is-addon": "tsx scripts/tier-overview-is-addon-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
     "regression:service-create": "node scripts/service-create-regression.mjs",
