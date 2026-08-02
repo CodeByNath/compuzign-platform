@@ -8,7 +8,9 @@
 // text, browse selection, status selection, and accordion expansion only; it
 // fetches nothing, derives no relationship, encodes no route, and opens no
 // drawer directly. Its rows are the shared connected-record row, so the
-// whole-focus Settings lane presents the same record identically.
+// whole-focus Settings lane presents the same record identically — and its
+// sections render through the same `TierAccordionSection` Settings uses, so
+// both lanes share one collapsible-section system rather than two.
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
@@ -21,8 +23,9 @@ import type {
   ConnectionTarget,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { flattenConnectionSections } from '../../surface/packageTierWorkspace/connectionNavigation';
-import { ChevronDownIcon, SearchIcon } from '@/admin-station/shell/icons';
+import { SearchIcon } from '@/admin-station/shell/icons';
 import { connectionStatus, TierConnectionRow } from './TierConnectionRow';
+import { TierAccordionSection } from './TierAccordionSection';
 
 interface Props {
   navigation: ConnectionNavigationCategory[];
@@ -119,65 +122,28 @@ export function TierConnections({ navigation, onIntent }: Props): VNode {
 
       <div class="cz-tier-deck__accordion">
         {visibleSections.map((section) => (
-          <ConnectionAccordionSection
+          <TierAccordionSection
             key={section.id}
-            section={section}
+            id={`cz-tier-connections__${section.id}`}
+            label={section.label}
+            meta={<span class="cz-tier-deck__accordion-count">{section.filteredRows.length}</span>}
             isOpen={browse === section.id || expanded[section.id]}
             onToggle={() => setExpanded((current) => ({ ...current, [section.id]: !current[section.id] }))}
-            onIntent={onIntent}
-          />
+          >
+            {section.rows.length === 0 ? (
+              <p class="cz-station-empty">{section.emptyState}</p>
+            ) : section.filteredRows.length === 0 ? (
+              <p class="cz-station-empty">No connections match the current filters.</p>
+            ) : (
+              <ul class="cz-station-list">
+                {section.filteredRows.map((row) => (
+                  <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />
+                ))}
+              </ul>
+            )}
+          </TierAccordionSection>
         ))}
       </div>
     </div>
-  );
-}
-
-function ConnectionAccordionSection({ section, isOpen, onToggle, onIntent }: {
-  section: FilteredSection;
-  isOpen: boolean;
-  onToggle: () => void;
-  onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
-}): VNode {
-  const headerId = `cz-tier-connections__${section.id}-header`;
-  const panelId  = `cz-tier-connections__${section.id}-panel`;
-
-  return (
-    <section class="cz-tier-deck__accordion-section">
-      <h4 class="cz-tier-deck__accordion-heading">
-        <button
-          type="button"
-          id={headerId}
-          class="cz-tier-deck__accordion-trigger"
-          aria-expanded={isOpen}
-          aria-controls={panelId}
-          onClick={onToggle}
-        >
-          <span class="cz-tier-deck__accordion-chevron" aria-hidden="true"><ChevronDownIcon /></span>
-          <span class="cz-tier-deck__lane-title">{section.label}</span>
-          <span class="cz-tier-deck__accordion-count">{section.filteredRows.length}</span>
-        </button>
-      </h4>
-      <div
-        id={panelId}
-        role="region"
-        aria-labelledby={headerId}
-        class="cz-tier-deck__accordion-panel"
-        hidden={!isOpen}
-      >
-        {isOpen && (
-          section.rows.length === 0 ? (
-            <p class="cz-station-empty">{section.emptyState}</p>
-          ) : section.filteredRows.length === 0 ? (
-            <p class="cz-station-empty">No connections match the current filters.</p>
-          ) : (
-            <ul class="cz-station-list">
-              {section.filteredRows.map((row) => (
-                <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />
-              ))}
-            </ul>
-          )
-        )}
-      </div>
-    </section>
   );
 }

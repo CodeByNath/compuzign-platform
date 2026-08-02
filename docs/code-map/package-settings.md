@@ -18,22 +18,22 @@ Settings keeps no fixed-slot listing either — the engine above already lists e
 
 ```text
 Settings
-├── Focused Package (selector)
-│   ├── Stations (tab)       → Connected Family Group    → `package-family`
-│   └── Tools (tab)          → Rate Sheet Access         → Tier instance drawer
-└── Package Manager (selector)
-    ├── Stations (tab)       → Create Family             → `package-family` ('new')
+├── Focused Package (accordion section, open by default)
+│   ├── Stations             → Connected Family Group    → `package-family`
+│   └── Tools                → Rate Sheet Access         → Tier instance drawer
+└── Package Manager (accordion section, collapsed by default)
+    ├── Stations             → Create Family             → `package-family` ('new')
     │                        → Create Tier               → `tier` (`tier-register:`)
-    └── Tools (tab)          → Create Rate Sheet         → `rate-sheet`
+    └── Tools                → Create Rate Sheet         → `rate-sheet`
 ```
 
-Each selector holds exactly two sections, Package Manager exactly three creations. Groups has no entry: a group lives inside `rate_sheets[].groups[]`, with no pool or address outside its parent sheet. Tier Structure has no entry: the fixed slots are the engine's listing.
+Each accordion section holds exactly two sections, both shown at once when the section is open — there is no inner tab selecting one at a time. Package Manager exactly three creations. Groups has no entry: a group lives inside `rate_sheets[].groups[]`, with no pool or address outside its parent sheet. Tier Structure has no entry: the fixed slots are the engine's listing.
 
 ## Current implementation
 
 Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-station/`
 
-- [TierSystemSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) declares the two categories and their Stations/Tools sections. [TierTabSet.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierTabSet.tsx) supplies selector, tab, panel, ARIA, and keyboard behavior. `TierLowerDeck` keys Settings by Family, instance, slot, and occupant, so selection resets with context.
+- [TierSystemSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx) declares the two categories and their Stations/Tools sections, rendered through [TierAccordionSection.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierAccordionSection.tsx) — the same collapsible-section primitive Connections uses, owning the header button's `aria-expanded`/`aria-controls` and the panel's stable id. `TierLowerDeck` keys Settings by Family, instance, slot, and occupant, so selection resets with context.
 - [FocusedTierSettings.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx) renders the connected Stations list and the read-only Rate Sheet Access summary. Access offers View only; the connected Family Group offers the View/Edit its own drawer supports. Slot rows live in the engine: [TierNavigation.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierNavigation.tsx) lists every slot and [TierDetailPanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierDetailPanel.tsx) offers an occupant's View/Edit or an empty slot's Configure.
 - [TierConnectionRow.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierConnectionRow.tsx) is the one connected-record row both lanes render, and `projectFamilyConnectionRows` in [connectionNavigation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/connectionNavigation.ts) the one derivation behind both scopes. The row travels the deck's existing connection dispatcher into the `package-family` drawer, adding no target, intent, or drawer key.
 - [tierRateSheetAccessModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel.ts) is the pure read/edit/save projection. `[]` means all active sheets. Limited access must retain one active sheet; archived and unresolved stored IDs remain visible and removable. `needsReview` is shared by Home and the drawer.
@@ -48,8 +48,8 @@ Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-stati
 - The focused category is package-scoped. A per-Tier connection belongs to Connections, and neither lane re-authors the other's rows.
 - No new drawer key, action intent, endpoint, or persistence owner exists for Rate Sheet Access or the connected Family Group.
 - Every route carries stored IDs, never labels; malformed and missing identities fail closed.
-- Connections and Settings reuse one local tab contract and one connected-record row; their rows are the shared station list system, not a second row grammar.
-- Styles use existing `--station-*` tokens; no component theme overrides or retired disclosure/navigation selectors remain.
+- Connections and Settings reuse one accordion section contract and one connected-record row; their rows are the shared station list system, not a second row grammar.
+- Styles use existing `--station-*` tokens; no component theme overrides or retired disclosure/navigation/selector-card CSS remains.
 
 ## Validation
 

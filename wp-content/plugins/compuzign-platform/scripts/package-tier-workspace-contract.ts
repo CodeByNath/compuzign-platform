@@ -596,19 +596,33 @@ for (const forbidden of [
 }
 
 // ── Settings shell ────────────────────────────────────────────────────────────
-// Settings uses the same selector-card and nested-tab contract as Connections;
-// each context reset remounts it through the exact workspace scope key.
+// Settings uses the same TierAccordionSection contract as Connections; each
+// context reset remounts it through the exact workspace scope key. The retired
+// compact selector cards and nested tabs are gone from both lanes.
 check(
-  settingsSource.includes('variant="selectors"')
-    && settingsSource.includes('variant="nested"')
-    && settingsSource.includes('const [selectedGroupId, setSelectedGroupId]')
-    && settingsSource.includes('const [selectedSections, setSelectedSections]'),
-  'Settings uses compact category selectors and one valid nested-tab selection per category',
+  settingsSource.includes('<TierAccordionSection')
+    && settingsSource.includes("import { TierAccordionSection } from './TierAccordionSection'")
+    && settingsSource.includes('const [expanded, setExpanded]')
+    && !settingsSource.includes('variant="selectors"')
+    && !settingsSource.includes('variant="nested"')
+    && !settingsSource.includes('TierTabSet'),
+  'Settings renders its two groups through the shared accordion section and owns no selector-card/nested-tab state of its own',
 );
 check(
   !existsSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/TierSettingsNav.tsx'))
     && !existsSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/DeckDisclosure.tsx')),
   'the retired parallel Settings navigation and disclosure implementations are deleted',
+);
+check(
+  settingsSource.includes("'focused-package': true")
+    && settingsSource.includes("'package-manager': false"),
+  'Focused Package starts open and Package Manager starts collapsed, matching Connections\' primary-section-open convention',
+);
+check(
+  settingsSource.includes('group.sections.map((section) =>')
+    && !settingsSource.includes('selectedSection')
+    && !settingsSource.includes('requestedSection'),
+  'an open Settings group shows every one of its sections directly, with no inner tab selecting only one at a time',
 );
 check(
   settingsSource.includes('<h4 class="cz-tier-settings__leaf-title">{section.leaf}</h4>'),
@@ -1129,6 +1143,10 @@ const connectionsSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierConnections.tsx',
 ), 'utf8');
+const accordionSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierAccordionSection.tsx',
+), 'utf8');
 const connectionRowSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/package-tier-workspace/TierConnectionRow.tsx',
@@ -1145,9 +1163,8 @@ check(
 );
 
 check(
-  lowerDeckSource.includes('<TierTabSet') && settingsSource.includes('variant="selectors"')
-    && settingsSource.includes('variant="nested"'),
-  'one workspace tab contract renders the deck lanes and the Settings compact selectors and nested tabs',
+  lowerDeckSource.includes('<TierTabSet') && settingsSource.includes('<TierAccordionSection'),
+  'the deck lanes render through the shared tab contract, and Settings renders its groups through the shared accordion section',
 );
 check(
   tabSetSource.includes('<StationTabSet')
@@ -1175,12 +1192,17 @@ check(
     && stationTabSetSource.includes("'ArrowRight', 'ArrowDown'"),
   'the shared tab contract supports Arrow, Home, and End keyboard navigation',
 );
-// The three deck skins stay Package-owned: the shared primitive must never name
-// a Tier class, and the Package skin must never name a Tier lane.
+// The deck skin stays Package-owned: the shared primitive must never name a
+// Tier class. The retired nested/selector variants are gone from the skin
+// entirely, not merely unused, now that Connections and Settings both render
+// through TierAccordionSection instead.
 check(
   !stationTabSetSource.includes('cz-tier-')
-    && ['deck', 'nested', 'selectors'].every((variant) => tabSetSource.includes(`${variant}: {`)),
-  'the shared tab primitive carries no Tier class and the deck variants stay Package-owned',
+    && tabSetSource.includes('const DECK_CLASSES: StationTabSetClasses = {')
+    && !tabSetSource.includes("selectors: {")
+    && !tabSetSource.includes("nested: {")
+    && !tabSetSource.includes('TierTabVariant'),
+  'the shared tab primitive carries no Tier class, and the Package deck skin carries no retired selector/nested variant',
 );
 check(
   connectionsSource.includes('navigation: ConnectionNavigationCategory[]')
@@ -1242,23 +1264,38 @@ check(
     && connectionRowSource.includes('export function connectionStatus'),
   'the Status dropdown is populated from the statuses present in the projected rows, reusing the one status label formatter rather than a second inventory',
 );
+// The accordion header/panel wiring lives once, in the shared
+// TierAccordionSection both Connections and Settings render — not
+// re-implemented per lane, and not decorative: a decorative-only accordion
+// (one that rotates the chevron but always renders its rows) is the defect
+// this guards against, so the collapsed state must gate the actual panel
+// content, not only the chevron's CSS transform.
 check(
-  connectionsSource.includes('aria-expanded={isOpen}')
-    && connectionsSource.includes('aria-controls={panelId}')
-    && connectionsSource.includes('id={panelId}'),
-  'each accordion header is a real button with aria-expanded/aria-controls addressing a stable panel id',
+  accordionSource.includes('aria-expanded={isOpen}')
+    && accordionSource.includes('aria-controls={panelId}')
+    && accordionSource.includes('id={panelId}')
+    && accordionSource.includes('{isOpen && children}')
+    && accordionSource.includes('hidden={!isOpen}'),
+  'the shared accordion section is a real button with aria-expanded/aria-controls addressing a stable panel id, and a collapsed panel renders no children — not just a rotated chevron',
 );
-// A decorative-only accordion — one that rotates the chevron but always
-// renders its rows — is the defect this guards against: the collapsed state
-// must gate the actual panel content, not only the chevron's CSS transform.
 check(
-  connectionsSource.includes('{isOpen && (')
-    && connectionsSource.includes('hidden={!isOpen}'),
-  'a collapsed section renders no panel content and carries the native hidden attribute, not just a rotated chevron',
+  connectionsSource.includes('<TierAccordionSection')
+    && connectionsSource.includes("import { TierAccordionSection } from './TierAccordionSection'")
+    && !connectionsSource.includes('aria-expanded=')
+    && settingsSource.includes('<TierAccordionSection')
+    && !settingsSource.includes('aria-expanded='),
+  'Connections and Settings each delegate to the shared accordion section rather than re-implementing its header/panel wiring',
 );
 check(
   /\.cz-tier-deck__accordion-panel\[hidden\]\s*\{[^}]*display:\s*none/s.test(adminStationStyles),
   'the accordion panel explicitly restates display: none under [hidden], since the base rule\'s display: flex sits at the same specificity as the UA hidden rule and would otherwise silently win',
+);
+check(
+  !/\.cz-tier-deck__selector-/.test(adminStationStyles)
+    && !adminStationStyles.includes('.cz-tier-deck__connection-panel')
+    && !adminStationStyles.includes('.cz-tier-deck__tabs--nested')
+    && !adminStationStyles.includes('.cz-tier-deck__tabpanel {'),
+  'the retired selector-card, connection-panel, and nested-tab CSS is deleted rather than left dead beside the accordion system',
 );
 check(
   connectionsSource.includes('No connections match the current filters.'),
@@ -1362,8 +1399,10 @@ check(
 );
 check(
   lowerDeckSource.includes('<TierSystemSettings\n              key={connectionScopeKey}')
-    && connectionsSource.includes('<span class="cz-tier-deck__lane-title">{section.label}</span>'),
-  'Settings resets on the same exact context and each Connections accordion section preserves the lower-deck heading outline',
+    && accordionSource.includes('<span class="cz-tier-deck__lane-title">{label}</span>')
+    && connectionsSource.includes('label={section.label}')
+    && settingsSource.includes('label={group.title}'),
+  'Settings resets on the same exact context, and each accordion section preserves the lower-deck heading outline through the shared component',
 );
 check(
   workspaceSource.includes("target.kind === 'package-family'")

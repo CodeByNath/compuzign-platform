@@ -25,12 +25,8 @@ import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/pr
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import { projectFamilyConnectionRows } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
-import {
-  AppsIcon,
-  PackagesIcon,
-} from '@/admin-station/shell/icons';
 import { ConnectedStationsSummary, RateSheetAccessSummary } from './FocusedTierSettings';
-import { TierTabSet } from './TierTabSet';
+import { TierAccordionSection } from './TierAccordionSection';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
 type SettingsGroupId = 'focused-package' | 'package-manager';
@@ -73,7 +69,6 @@ interface SettingsSection {
 
 interface SettingsGroup {
   id: SettingsGroupId;
-  icon: VNode;
   title: string;
   note: string;
   summary: string;
@@ -106,7 +101,6 @@ export function TierSystemSettings({
     return [
       {
         id: 'focused-package',
-        icon: <PackagesIcon />,
         title: 'Focused Package',
         note: 'The whole focus this Package Family Group leads. One Tier slot\'s own connections stay in Connections above; Family assignment and slot configuration each remain in the drawer that owns them.',
         summary: [
@@ -142,7 +136,6 @@ export function TierSystemSettings({
       },
       {
         id: 'package-manager',
-        icon: <AppsIcon />,
         title: 'Package Manager',
         note: 'Opens each pool record in the drawer that owns it. Creation assigns, grants, and connects nothing.',
         summary: `${tool.families.length} Families · ${tool.instances.length} Tiers · ${rateSheets.length} Rate Sheets`,
@@ -185,61 +178,39 @@ export function TierSystemSettings({
     ];
   }, [access, currentRecord, error, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheets, tool.families.length, tool.instances.length]);
 
-  const [selectedGroupId, setSelectedGroupId] = useState<SettingsGroupId>('focused-package');
-  const [selectedSections, setSelectedSections] = useState<Record<SettingsGroupId, SettingsSectionId>>({
-    'focused-package': 'focused-stations',
-    'package-manager': 'pool-stations',
+  const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
+    'focused-package': true,
+    'package-manager': false,
   });
-  const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? groups[0];
 
   return (
     <div class="cz-tier-settings">
-      <TierTabSet
-        label="Settings categories"
-        items={groups.map((group) => ({
-          id: group.id,
-          label: group.title,
-          summary: group.summary,
-          icon: group.icon,
-        }))}
-        selectedId={selectedGroup.id}
-        onSelect={setSelectedGroupId}
-        variant="selectors"
-        renderPanel={(groupId) => {
-          const group = groups.find((entry) => entry.id === groupId) ?? groups[0];
-          const requestedSection = selectedSections[group.id];
-          const selectedSection = group.sections.find((section) => section.id === requestedSection) ?? group.sections[0];
-          return (
-            <>
-              <p class="cz-tier-settings__muted">{group.note}</p>
-              <TierTabSet
-                label={`${group.title} settings`}
-                items={group.sections.map((section) => ({
-                  id: section.id,
-                  label: section.title,
-                }))}
-                selectedId={selectedSection.id}
-                onSelect={(sectionId) => setSelectedSections((current) => ({ ...current, [group.id]: sectionId }))}
-                variant="nested"
-                renderPanel={(sectionId) => {
-                  const section = group.sections.find((entry) => entry.id === sectionId) ?? group.sections[0];
-                  return (
-                    <section class="cz-tier-settings__leaf">
-                      <div class="cz-tier-deck__lane-head">
-                        <div>
-                          <h4 class="cz-tier-settings__leaf-title">{section.leaf}</h4>
-                          <p class="cz-tier-deck__lane-note">{section.description}</p>
-                        </div>
-                      </div>
-                      {section.content}
-                    </section>
-                  );
-                }}
-              />
-            </>
-          );
-        }}
-      />
+      <div class="cz-tier-deck__accordion">
+        {groups.map((group) => (
+          <TierAccordionSection
+            key={group.id}
+            id={`cz-tier-settings__${group.id}`}
+            label={group.title}
+            meta={<span class="cz-tier-deck__accordion-summary">{group.summary}</span>}
+            isOpen={expanded[group.id]}
+            onToggle={() => setExpanded((current) => ({ ...current, [group.id]: !current[group.id] }))}
+          >
+            <p class="cz-tier-settings__muted">{group.note}</p>
+            {group.sections.map((section) => (
+              <section key={section.id} class="cz-tier-settings__leaf">
+                <div class="cz-tier-deck__lane-head">
+                  <div>
+                    <span class="cz-tier-deck__field-label">{section.title}</span>
+                    <h4 class="cz-tier-settings__leaf-title">{section.leaf}</h4>
+                    <p class="cz-tier-deck__lane-note">{section.description}</p>
+                  </div>
+                </div>
+                {section.content}
+              </section>
+            ))}
+          </TierAccordionSection>
+        ))}
+      </div>
       {tool.error && <p class="cz-station-empty" role="alert">{tool.error}</p>}
     </div>
   );

@@ -2569,19 +2569,6 @@ button.cz-station-status-pill {
   padding: 18px 20px 20px;
 }
 
-/* Nested tabs scroll instead of wrapping and sit flush inside the panel that
-   already carries the inset. */
-.cz-tier-deck__tabs--nested {
-  gap: var(--station-card-gap);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.cz-tier-deck__tabpanel {
-  gap: var(--station-card-gap);
-  padding-top: var(--station-card-pad);
-}
-
 /* Lane header — title and one honest line about what the lane shows. */
 .cz-tier-deck__lane-head {
   display: flex;
@@ -2734,6 +2721,10 @@ button.cz-station-status-pill {
 
 .cz-tier-deck__accordion-trigger .cz-tier-deck__lane-title {
   flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cz-tier-deck__accordion-chevron {
@@ -2780,110 +2771,16 @@ button.cz-station-status-pill {
   display: none;
 }
 
-.cz-tier-deck__selector-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--station-card-gap);
-}
-
-.cz-tier-deck__selector-card {
-  display: flex;
-  align-items: center;
-  gap: var(--station-card-gap);
-  min-width: 0;
-  padding: var(--station-card-pad);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
-  color: var(--station-text);
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.cz-tier-deck__selector-card:hover {
-  border-color: var(--station-accent-border);
-  background: var(--station-hover-bg);
-}
-
-.cz-tier-deck__selector-card:focus-visible {
-  outline: 2px solid var(--station-focus-ring);
-  outline-offset: 2px;
-}
-
-.cz-tier-deck__selector-card[aria-selected='true'] {
-  border-color: var(--station-accent-border);
-  background: var(--station-accent-soft-bg);
-  box-shadow: inset 3px 0 0 var(--station-accent);
-}
-
-.cz-tier-deck__selector-icon {
-  display: grid;
-  place-items: center;
+/* Settings' accordion header meta — a descriptive summary, not a numeric
+   count, so it wears muted text rather than the Connections count pill. */
+.cz-tier-deck__accordion-summary {
   flex: none;
-  width: var(--station-card-icon-size);
-  height: var(--station-card-icon-size);
-  border-radius: var(--station-card-icon-radius);
-  background: var(--station-accent-soft-bg);
-  color: var(--station-accent-fg);
-}
-
-.cz-tier-deck__selector-icon > svg {
-  width: var(--station-card-glyph-size);
-  height: var(--station-card-glyph-size);
-}
-
-.cz-tier-deck__selector-copy {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.cz-tier-deck__selector-title,
-.cz-tier-deck__selector-summary {
-  display: block;
-}
-
-.cz-tier-deck__selector-title {
-  color: var(--station-text);
-  font-size: var(--station-text-sm);
-  font-weight: 700;
-}
-
-.cz-tier-deck__selector-summary {
-  margin-top: 2px;
+  max-width: 60%;
+  overflow: hidden;
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
-  line-height: var(--station-line-snug);
-}
-
-.cz-tier-deck__selector-chevron {
-  display: grid;
-  place-items: center;
-  flex: none;
-  color: var(--station-text-muted);
-  transform: rotate(-90deg);
-  transition: transform 140ms ease;
-}
-
-.cz-tier-deck__selector-chevron > svg {
-  width: 16px;
-  height: 16px;
-}
-
-.cz-tier-deck__selector-card[aria-selected='true'] .cz-tier-deck__selector-chevron {
-  color: var(--station-accent-fg);
-  transform: rotate(0);
-}
-
-/* The selected category's panel is a framed card of its own, so it restates the
-   shared panel's spacing and adds the frame. */
-.cz-tier-deck__connection-panel {
-  gap: 20px;
-  padding: var(--station-card-pad);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface-elevated);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cz-tier-deck__identity {

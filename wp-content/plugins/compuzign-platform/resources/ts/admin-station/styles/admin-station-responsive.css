@@ -193,10 +193,6 @@
     grid-template-columns: 1fr;
   }
 
-  .cz-tier-deck__selector-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .cz-service-stat:nth-child(odd) {
     border-inline-start: 0;
   }

@@ -13,7 +13,10 @@
 //                  drawer that owns that record, never the Tier drawer.
 //   Settings     — the WHOLE focus the Package Family Group leads, in those same
 //                  Stations/Tools categories, plus the Package Manager
-//                  launchers. Mutation remains in each owning drawer.
+//                  launchers — two ordered accordion sections (Focused
+//                  Package, Package Manager) using the same collapsible
+//                  section Connections renders. Mutation remains in each
+//                  owning drawer.
 //
 // It is presentation-only: it receives derived workspace models plus intent
 // dispatchers and fetches nothing.
@@ -179,7 +182,6 @@ export function TierLowerDeck({
         items={TABS}
         selectedId={activeTab}
         onSelect={onTabChange}
-        variant="deck"
         renderPanel={(tabId) => {
           if (tabId === 'details') {
             return <DetailsLane deck={deck} hasFocusedTier={hasFocusedTier} onInclusionIntent={onInclusionIntent} />;
