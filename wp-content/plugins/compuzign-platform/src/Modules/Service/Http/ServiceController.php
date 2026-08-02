@@ -241,7 +241,6 @@ class ServiceController
             }
             $categories[] = [
                 'id'              => (int) $t->term_id,
-                'platform_id'     => CategoryMeta::platformId((int) $t->term_id),
                 'name'            => html_entity_decode($t->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'slug'            => $t->slug,
                 'description'     => get_term_meta((int) $t->term_id, 'cz_category_description', true) ?: '',

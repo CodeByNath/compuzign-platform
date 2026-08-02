@@ -39,9 +39,8 @@ import type {
 } from './types';
 
 type WirePlatformId<T extends { platformId: string }> = Omit<T, 'platformId'> & { platform_id: string };
-type WireServiceCatalogResponse = Omit<ServiceCatalogResponse, 'stations' | 'categories'> & {
+type WireServiceCatalogResponse = Omit<ServiceCatalogResponse, 'stations'> & {
   stations: Array<WirePlatformId<ServiceCatalogResponse['stations'][number]>>;
-  categories: Array<WirePlatformId<ServiceCatalogResponse['categories'][number]>>;
 };
 type WireCreateServiceResponse = Omit<CreateServiceResponse, 'service'> & {
   service: WirePlatformId<CreateServiceResponse['service']>;
@@ -66,11 +65,7 @@ export async function fetchAdminCatalog(platformStatus?: 'archived' | 'trashed')
     ? `admin/services?platform_status=${platformStatus}`
     : 'admin/services';
   const response = await apiClient.get<WireServiceCatalogResponse>(path);
-  return {
-    ...response,
-    stations: response.stations.map(mapPlatformId),
-    categories: response.categories.map(mapPlatformId),
-  };
+  return { ...response, stations: response.stations.map(mapPlatformId) };
 }
 
 // ── Detail / create ──────────────────────────────────────────────────────────
