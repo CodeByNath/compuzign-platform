@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace CompuZign\Platform\PlatformIdentifier;
 
-use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
-use CompuZign\Platform\Modules\Service\Support\ServiceSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
 /** Temporary REST migration surface. Remove after the live one-time assignment. */
 final class TemporaryMigrationController
 {
-    private const PROGRESS_OPTION = 'cz_platform_identifier_migration_v1';
-    private const LOCK_OPTION = 'cz_platform_identifier_migration_lock_v1';
+    private const PROGRESS_OPTION = 'cz_package_family_identifier_migration_v1';
+    private const LOCK_OPTION = 'cz_package_family_identifier_migration_lock_v1';
     private const LIMIT = 100;
     private const LOCK_SECONDS = 45;
 
-    public function __construct(private PlatformIdentifierStation $identifiers) {}
+    public function __construct(
+        private PlatformIdentifierStation $identifiers,
+        private ?PackageRepository $packages = null
+    ) {}
 
     public function register(): void { add_action('rest_api_init', [$this, 'registerRoutes']); }
 
@@ -25,7 +27,7 @@ final class TemporaryMigrationController
             ['methods' => 'GET', 'callback' => [$this, 'status'], 'permission_callback' => [$this, 'requireAdmin']],
             ['methods' => 'POST', 'callback' => [$this, 'run'], 'permission_callback' => [$this, 'requireAdmin'], 'args' => [
                 'action' => ['required' => true, 'type' => 'string', 'enum' => ['dry-run', 'assign']],
-                'entity_type' => ['required' => false, 'type' => 'string', 'enum' => [PlatformIdentifierPolicy::SERVICE, PlatformIdentifierPolicy::CATEGORY]],
+                'entity_type' => ['required' => false, 'type' => 'string', 'enum' => [PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP]],
             ]],
         ]);
     }
@@ -45,14 +47,13 @@ final class TemporaryMigrationController
     {
         if ($request->get_param('action') === 'dry-run') {
             return rest_ensure_response(['dry_run' => true, 'reports' => [
-                PlatformIdentifierPolicy::SERVICE => $this->dryCheck(PlatformIdentifierPolicy::SERVICE),
-                PlatformIdentifierPolicy::CATEGORY => $this->dryCheck(PlatformIdentifierPolicy::CATEGORY),
+                PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP => $this->dryCheck(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP),
             ]]);
         }
 
         $entityType = (string) $request->get_param('entity_type');
-        if (!in_array($entityType, [PlatformIdentifierPolicy::SERVICE, PlatformIdentifierPolicy::CATEGORY], true)) {
-            return new \WP_REST_Response(['message' => 'Only Service and Category migration is supported.'], 422);
+        if ($entityType !== PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP) {
+            return new \WP_REST_Response(['message' => 'Only Package Family migration is supported.'], 422);
         }
 
         $preflight = $this->dryCheck($entityType);
@@ -67,15 +68,16 @@ final class TemporaryMigrationController
 
         try {
             $progress = $this->progress();
-            $cursor = (int) ($progress[$entityType]['cursor'] ?? 0);
+            $cursor = isset($progress[$entityType]['cursor']) && is_string($progress[$entityType]['cursor'])
+                ? $progress[$entityType]['cursor']
+                : null;
             $result = $this->assignBatch($entityType, $cursor);
             if ($result->conflicts() !== []) {
                 return new \WP_REST_Response(['message' => 'Migration stopped on a batch conflict.', 'conflicts' => $result->conflicts()], 409);
             }
 
-            $progress[$entityType] = ['cursor' => (int) $result->nextCursor(), 'complete' => $result->complete()];
-            $progress['complete'] = (bool) ($progress[PlatformIdentifierPolicy::SERVICE]['complete'] ?? false)
-                && (bool) ($progress[PlatformIdentifierPolicy::CATEGORY]['complete'] ?? false);
+            $progress[$entityType] = ['cursor' => $result->nextCursor(), 'complete' => $result->complete()];
+            $progress['complete'] = $result->complete();
             if ($progress['complete']) $progress['completed_at'] = gmdate(DATE_ATOM);
             $this->writeProgress($progress);
 
@@ -119,52 +121,49 @@ final class TemporaryMigrationController
         return ['processed' => count($ids), 'would_assign' => $assign, 'would_preserve' => $preserve, 'conflicts' => $conflicts];
     }
 
-    private function assignBatch(string $entityType, int $cursor): PlatformIdentifierBatchResult
+    private function assignBatch(string $entityType, int|string|null $cursor): PlatformIdentifierBatchResult
     {
-        return $this->identifiers->assignExistingBatch($entityType, $cursor, self::LIMIT,
-            fn(int|string|null $offset, int $limit): array => $this->page($entityType, (int) $offset, $limit),
-            fn(int|string $id): string => $this->readId($entityType, (int) $id),
-            fn(int|string $id, string $platformId): mixed => $entityType === PlatformIdentifierPolicy::SERVICE
-                ? add_post_meta((int) $id, ServiceSchema::PLATFORM_ID_META, $platformId, true)
-                : CategoryMeta::claimPlatformId((int) $id, $platformId),
-            fn(string $platformId): bool => $this->storedIdExists($entityType, $platformId));
+        $packages = $this->packages();
+        return $this->identifiers->assignExistingBatch(
+            $entityType,
+            is_string($cursor) && $cursor !== '' ? $cursor : null,
+            self::LIMIT,
+            static fn(int|string|null $after, int $limit): array => $packages->familyAssignmentPage(
+                is_string($after) && $after !== '' ? $after : null,
+                $limit
+            ),
+            static fn(int|string $id): string => $packages->familyPlatformId((string) $id),
+            static fn(int|string $id, string $platformId): bool => $packages->claimFamilyPlatformId((string) $id, $platformId),
+            static fn(string $platformId): bool => $packages->familyPlatformIdExists($platformId)
+        );
     }
 
-    /** @return list<int> */
-    private function allIds(string $entityType): array { return $this->page($entityType, 0, -1)['items']; }
-    /** @return array{items:list<int>,next_cursor:int,complete:bool} */
-    private function page(string $entityType, int $offset, int $limit): array
+    /** @return list<string> */
+    private function allIds(string $entityType): array
     {
-        if ($entityType === PlatformIdentifierPolicy::SERVICE) {
-            $raw = get_posts(['post_type' => ServiceSchema::POST_TYPE, 'post_status' => 'any', 'numberposts' => $limit,
-                'offset' => $offset, 'orderby' => 'ID', 'order' => 'ASC', 'fields' => 'ids', 'no_found_rows' => true]);
-        } else {
-            $args = ['taxonomy' => CategoryMeta::TAXONOMY, 'hide_empty' => false, 'offset' => $offset,
-                'orderby' => 'term_id', 'order' => 'ASC', 'fields' => 'ids'];
-            if ($limit !== -1) $args['number'] = $limit;
-            $raw = get_terms($args);
-        }
-        $ids = array_map('intval', is_array($raw) ? $raw : []);
-        return ['items' => $ids, 'next_cursor' => $offset + count($ids), 'complete' => $limit === -1 || count($ids) < $limit];
+        $ids = [];
+        $cursor = null;
+        do {
+            $page = $this->packages()->familyAssignmentPage($cursor, 500);
+            $ids = [...$ids, ...$page['items']];
+            $cursor = $page['next_cursor'];
+        } while (!$page['complete']);
+        return $ids;
     }
 
-    private function readId(string $entityType, int $id): string
+    private function readId(string $entityType, int|string $id): string
     {
-        if ($entityType === PlatformIdentifierPolicy::CATEGORY) return CategoryMeta::platformId($id);
-        $value = get_post_meta($id, ServiceSchema::PLATFORM_ID_META, true);
-        return is_string($value) ? $value : '';
+        return $this->packages()->familyPlatformId((string) $id);
     }
 
     private function storedIdExists(string $entityType, string $platformId): bool
     {
-        if ($entityType === PlatformIdentifierPolicy::SERVICE) {
-            $matches = get_posts(['post_type' => ServiceSchema::POST_TYPE, 'post_status' => 'any', 'numberposts' => 1,
-                'fields' => 'ids', 'meta_key' => ServiceSchema::PLATFORM_ID_META, 'meta_value' => $platformId]);
-        } else {
-            $matches = get_terms(['taxonomy' => CategoryMeta::TAXONOMY, 'hide_empty' => false, 'number' => 1,
-                'fields' => 'ids', 'meta_key' => CategoryMeta::PLATFORM_ID_META, 'meta_value' => $platformId]);
-        }
-        return is_array($matches) && $matches !== [];
+        return $this->packages()->familyPlatformIdExists($platformId);
+    }
+
+    private function packages(): PackageRepository
+    {
+        return $this->packages ??= new PackageRepository();
     }
 
     /** @return array<string,mixed> */

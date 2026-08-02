@@ -63,11 +63,12 @@ active. `--limit` defaults to 100 and is capped at 500; `--cursor` defaults to
 zero. Each invocation returns JSON with processed/assigned/preserved/conflict
 counts, completion, and the next cursor.
 
-While Phase 3C is active, Admin refresh reads temporary migration status and
-runs a zero-write Service/Category preflight. Explicit assignment processes one
-100-record owner batch through `assignExistingBatch()`, guarded by a 45-second
-atomic lock. Invalid, duplicate, or conflicting bindings stop assignment. The
-completion option remains after the temporary controller and notice are removed.
+During the temporary Package Family rollout, Admin refresh reads migration
+status and runs a zero-write Package-Family-only preflight. Explicit assignment
+processes one 100-record Package-owned string-cursor batch through
+`assignExistingBatch()`, guarded by a 45-second atomic lock. Invalid, duplicate,
+or conflicting bindings stop assignment. The completion option remains after
+the temporary controller and notice are removed.
 
 Package Phase 4 integrates new Package Families only. `Core\Plugin` injects the
 shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`

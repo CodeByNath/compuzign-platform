@@ -40,6 +40,7 @@ function rest_ensure_response(mixed $value): WP_REST_Response { return $value in
 function current_user_can(string $capability): bool { return true; }
 function add_action(string $hook, callable $callback): void {}
 function register_rest_route(string $namespace, string $route, array $args): void {}
+function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
 
 class WP_REST_Request {
     public function __construct(private array $params = []) {}
@@ -53,7 +54,9 @@ class WP_REST_Response {
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use CompuZign\Platform\Modules\Service\Support\ServiceSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 use CompuZign\Platform\PlatformIdentifier\TemporaryMigrationController;
@@ -63,32 +66,39 @@ function migration_check(bool $condition, string $message): void {
     echo "  ok — {$message}\n";
 }
 
+$manager = PackageManagerSchema::defaultManager();
+$created = PackageCategoryGroups::create($manager['category_groups'], 'Alpha', '', 'pcg_alpha');
+$created = PackageCategoryGroups::create($created['groups'], 'Beta', '', 'pcg_beta', 'CZPGRAJ5F');
+$manager['category_groups'] = $created['groups'];
+$GLOBALS['mig_options'][PackageRepository::OPTION_KEY] = ['package_manager' => $manager, 'promotions' => []];
+
 $station = new PlatformIdentifierStation();
-$station->ensure(PlatformIdentifierPolicy::SERVICE, 660,
-    fn(): string => $GLOBALS['mig_posts'][660],
-    fn(int|string $id, string $platformId): int|false => add_post_meta((int) $id, ServiceSchema::PLATFORM_ID_META, $platformId, true));
-$controller = new TemporaryMigrationController($station);
+$packages = new PackageRepository();
+$station->ensure(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_beta',
+    fn(): string => $packages->familyPlatformId('pcg_beta'),
+    fn(int|string $id, string $platformId): bool => $packages->claimFamilyPlatformId((string) $id, $platformId));
+$controller = new TemporaryMigrationController($station, $packages);
 $GLOBALS['mig_writes'] = 0;
 
 $dry = $controller->run(new WP_REST_Request(['action' => 'dry-run']))->get_data();
 migration_check($GLOBALS['mig_writes'] === 0, 'dry check performs zero writes');
-migration_check($dry['reports']['service']['processed'] === 2, 'dry check reports all Services');
-migration_check($dry['reports']['service']['would_assign'] === 1 && $dry['reports']['service']['would_preserve'] === 1, 'dry check separates missing and preserved Service IDs');
-migration_check($dry['reports']['category']['would_assign'] === 1, 'dry check reports missing Category IDs');
+migration_check($dry['reports']['package_family_group']['processed'] === 2, 'dry check reports all Package Families');
+migration_check($dry['reports']['package_family_group']['would_assign'] === 1 && $dry['reports']['package_family_group']['would_preserve'] === 1, 'dry check separates missing and preserved Family IDs');
 
-$service = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'service']))->get_data();
-migration_check($service['conflicts'] === [] && str_starts_with($GLOBALS['mig_posts'][631], 'CZS'), 'Service batch assigns only the missing ID');
-migration_check($GLOBALS['mig_posts'][660] === 'CZSRAJ5F', 'Service batch preserves CZSRAJ5F exactly');
-migration_check($station->lookupNative(PlatformIdentifierPolicy::SERVICE, 631)?->platformId() === $GLOBALS['mig_posts'][631], 'Service batch creates the reverse binding');
+$family = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'package_family_group']))->get_data();
+migration_check($family['complete'] === true && str_starts_with($packages->familyPlatformId('pcg_alpha'), 'CZPG'), 'Family batch assigns only the missing CZPG ID');
+migration_check($packages->familyPlatformId('pcg_beta') === 'CZPGRAJ5F', 'Family batch preserves CZPGRAJ5F exactly');
+migration_check($station->lookupNative(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_alpha')?->platformId() === $packages->familyPlatformId('pcg_alpha'), 'Family batch creates the reverse binding');
+migration_check($GLOBALS['mig_autoload']['cz_package_family_identifier_migration_v1'] === 'no', 'completion progress option is non-autoloaded');
+migration_check(!isset($GLOBALS['mig_options']['cz_package_family_identifier_migration_lock_v1']), 'short-lived atomic lock is released');
 
-$category = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'category']))->get_data();
-migration_check($category['complete'] === true && str_starts_with($GLOBALS['mig_terms'][31], 'CZC'), 'Category batch completes the supported migration');
-migration_check($GLOBALS['mig_autoload']['cz_platform_identifier_migration_v1'] === 'no', 'completion progress option is non-autoloaded');
-migration_check(!isset($GLOBALS['mig_options']['cz_platform_identifier_migration_lock_v1']), 'short-lived atomic lock is released');
-
-$GLOBALS['mig_posts'][700] = 'invalid';
+$stored = $GLOBALS['mig_options'][PackageRepository::OPTION_KEY];
+$stored['package_manager']['category_groups'][0]['cz_platform_id'] = 'invalid';
+$GLOBALS['mig_options'][PackageRepository::OPTION_KEY] = $stored;
 $GLOBALS['mig_writes'] = 0;
-$blocked = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'service']));
+$blocked = (new TemporaryMigrationController($station, new PackageRepository()))->run(
+    new WP_REST_Request(['action' => 'assign', 'entity_type' => 'package_family_group'])
+);
 migration_check($blocked->get_status() === 409, 'invalid stored identity stops assignment');
 migration_check($GLOBALS['mig_writes'] === 0, 'conflict stop performs no migration writes');
 

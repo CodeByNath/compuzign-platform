@@ -44,7 +44,10 @@ export const packageFamilyOverviewShell: ShellSchema<PackageFamilyOverviewShellD
     },
     {
       id: 'platform-id', element: 'text', label: 'Platform ID',
-      bind: (data): TextValue => ({ value: data.platformId, fallback: 'Assigned when saved' }),
+      bind: (data): TextValue => ({
+        value: data.platformId,
+        fallback: data.groupId ? 'Not assigned' : 'Assigned after Overview save',
+      }),
     },
     {
       id: 'description', element: 'rich-text', label: 'Description',

@@ -5,7 +5,7 @@ import { ModuleNotificationPanel } from '@/drawer-kit/ui/ModuleNotificationPanel
 import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications/shared';
 import { Button } from '@/components/ui/Button';
 
-type EntityType = 'service' | 'category';
+type EntityType = 'package_family_group';
 interface Report { processed: number; would_assign: number; would_preserve: number; conflicts: Array<{ message: string }> }
 interface StatusResponse { complete: boolean; progress: Partial<Record<EntityType, { complete: boolean }>> }
 interface DryResponse { reports: Record<EntityType, Report> }
@@ -32,23 +32,33 @@ export function PlatformIdentifierMigrationNotice() {
     return () => { active = false; };
   }, []);
 
-  if (status?.complete) return null;
+  if (status?.complete) {
+    return (
+      <section class="cz-platform-id-migration" role="status" aria-live="polite">
+        <ModuleNotificationPanel
+          notes={[{ id: 'migration-complete', type: 'info', message: 'Package Family Platform ID assignment is complete.' }]}
+          variant="station"
+        />
+      </section>
+    );
+  }
 
-  const conflicts = reports ? [...reports.service.conflicts, ...reports.category.conflicts] : [];
+  const report = reports?.package_family_group;
+  const conflicts = report?.conflicts ?? [];
   const notes: ModuleNote[] = error
     ? [{ id: 'migration-error', type: 'error', message: error }]
     : conflicts.length > 0
       ? conflicts.map((conflict, index) => ({ id: `migration-conflict-${index}`, type: 'error', message: conflict.message }))
       : [{ id: 'migration-required', type: 'info', message: reports
-          ? `Dry check: ${reports.service.would_assign} Services and ${reports.category.would_assign} Categories need Platform IDs; ${reports.service.would_preserve + reports.category.would_preserve} valid IDs will be preserved.`
-          : 'Checking existing Service and Category Platform identifiers…' }];
+          ? `Dry check: ${report?.would_assign ?? 0} Package Families need Platform IDs; ${report?.would_preserve ?? 0} valid IDs will be preserved.`
+          : 'Checking existing Package Family Platform identifiers…' }];
 
   const assign = async () => {
     if (!reports || conflicts.length > 0) return;
     setBusy(true); setError('');
     try {
       let complete = false;
-      for (const entityType of ['service', 'category'] as EntityType[]) {
+      for (const entityType of ['package_family_group'] as EntityType[]) {
         let entityComplete = Boolean(status?.progress[entityType]?.complete);
         while (!entityComplete) {
           const result = await apiClient.post<BatchResponse>('admin/platform-identifiers/migration', { action: 'assign', entity_type: entityType });
@@ -67,7 +77,7 @@ export function PlatformIdentifierMigrationNotice() {
       <ModuleNotificationPanel notes={notes} variant="station" />
       {reports && conflicts.length === 0 && !error && (
         <Button disabled={busy} onClick={assign}>
-          {busy ? 'Assigning Platform IDs…' : 'Assign Platform IDs'}
+          {busy ? 'Assigning Package Family IDs…' : 'Assign Package Family IDs'}
         </Button>
       )}
     </section>
