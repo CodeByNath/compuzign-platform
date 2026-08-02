@@ -800,6 +800,27 @@ class PackageSchema
     }
 
     /**
+     * The canonical fact behind the Disabled pill: whether an administrator
+     * explicitly disabled this occupant. Not history — a plain boolean, never
+     * previous_platform_status/disable_mask. array_key_exists detects legacy
+     * occupants stored before this marker existed: a markerless Active
+     * occupant is not explicitly disabled (it remains Active); a markerless
+     * Disabled occupant is read conservatively as explicitly disabled so its
+     * presentation never silently changes. A missing occupant is never
+     * explicitly disabled.
+     */
+    public static function isExplicitlyDisabled(?array $occupant): bool
+    {
+        if ($occupant === null) {
+            return false;
+        }
+        if (array_key_exists('is_explicitly_disabled', $occupant)) {
+            return (bool) $occupant['is_explicitly_disabled'];
+        }
+        return ($occupant['platform_status'] ?? 'active') === 'disabled';
+    }
+
+    /**
      * Normalise a raw tier slot (Phase 1 flat OR Phase 2 occupant) to the
      * SurfaceTierDetail shape expected by admin API responses.
      * Returns the flat detail used by the frontend form. Occupant envelopes
@@ -833,6 +854,10 @@ class PackageSchema
                 // the customer's chosen normal Tier (true). Orthogonal to
                 // platform_status/module_status — never inferred from either.
                 'is_addon'            => (bool) ($occ['is_addon'] ?? false),
+                // Canonical Disabled fact — see isExplicitlyDisabled(). Never the
+                // raw unmasked platform_status: 'disabled' value, which a merely
+                // unpublished (Pending) occupant also carries.
+                'is_explicitly_disabled' => self::isExplicitlyDisabled($occ),
             ];
         }
 
@@ -857,6 +882,9 @@ class PackageSchema
             'enabled'             => isset($tier['enabled']) ? (bool) $tier['enabled'] : true,
             // Legacy Phase 1 slots predate this field; default to a normal Tier.
             'is_addon'            => (bool) ($tier['is_addon'] ?? false),
+            // Phase 1 flat slots predate the occupant marker entirely — no explicit
+            // Disable concept exists at this layer.
+            'is_explicitly_disabled' => false,
         ];
     }
 
@@ -897,6 +925,7 @@ class PackageSchema
             'enabled'         => $detail['enabled'],
             'configured'      => $configured,
             'is_addon'        => $detail['is_addon'],
+            'is_explicitly_disabled' => $detail['is_explicitly_disabled'],
         ];
     }
 
@@ -954,6 +983,7 @@ class PackageSchema
         $existingRateSheetId = null;
         $existingPlatformId = '';
         $existingAddonPlatformId = '';
+        $existingExplicitlyDisabled = false;
 
         if (self::isOccupantFormat($tierSlot)) {
             $history    = $tierSlot['history'] ?? [];
@@ -961,6 +991,7 @@ class PackageSchema
             $existingRateSheetId = self::normaliseRateSheetId($tierSlot['current_occupant']['rate_sheet_id'] ?? null);
             $existingPlatformId = (string) ($tierSlot['current_occupant']['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
+            $existingExplicitlyDisabled = self::isExplicitlyDisabled($tierSlot['current_occupant'] ?? null);
         } elseif (self::hasConfiguredContent($tierSlot)) {
             $existingPlatformId = (string) ($tierSlot['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['addon_platform_id'] ?? '');
@@ -986,6 +1017,11 @@ class PackageSchema
                 'cz_platform_id'      => $existingPlatformId,
                 'addon_platform_id'   => $existingAddonPlatformId,
                 'platform_status'     => $enabled ? 'active' : 'disabled',
+                // Preserved across every edit that is not itself a Disable/Enable/
+                // Publish/Restore transition (those write it directly). Defaults
+                // false for a genuinely new occupant — never disabled until an
+                // administrator explicitly disables it.
+                'is_explicitly_disabled' => $existingExplicitlyDisabled,
                 // Selection-mode flag, orthogonal to platform_status: whether this
                 // occupant is offered as the customer's one normal Tier or as a
                 // stackable add-on. Defaults false — every occupant is a normal
@@ -1339,6 +1375,10 @@ class PackageSchema
 
         $occupant                    = $entry['occupant'];
         $occupant['platform_status'] = 'disabled';
+        // Restore always clears the marker, even for an occupant that was
+        // explicitly Disabled at archive time — the same unmasked-Pending
+        // landing Enable produces.
+        $occupant['is_explicitly_disabled'] = false;
 
         $slot['current_occupant'] = $occupant;
         if (!isset($slot['history']) || !is_array($slot['history'])) {
@@ -1501,10 +1541,14 @@ class PackageSchema
             // existing value carries forward untouched.
             'is_addon'            => $ov['is_addon']       ?? ($occ['is_addon']       ?? false),
         ];
-        $enabled = self::isOccupantFormat($slot)
-            ? (($occ['platform_status'] ?? 'active') === 'active')
-            : (($occ['enabled'] ?? true) !== false);
 
-        return self::commitTierLifecycle(self::upsertOccupant($slot, $tierData, $enabled));
+        // Publish alone activates and clears the explicit Disable marker —
+        // Enable is a separate transition that never activates on its own, and
+        // Disable/Enable never touch this settle path.
+        $result = self::commitTierLifecycle(self::upsertOccupant($slot, $tierData, true));
+        if (is_array($result['current_occupant'] ?? null)) {
+            $result['current_occupant']['is_explicitly_disabled'] = false;
+        }
+        return $result;
     }
 }

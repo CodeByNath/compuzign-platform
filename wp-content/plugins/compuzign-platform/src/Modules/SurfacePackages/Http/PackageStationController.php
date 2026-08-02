@@ -1119,7 +1119,11 @@ class PackageStationController
 
         if ($PS::isOccupantFormat($tierSlot)) {
             if (!empty($tierSlot['current_occupant'])) {
-                $instance['tiers'][$tierId]['current_occupant']['platform_status'] = $enabled ? 'active' : 'disabled';
+                // Enable/Disable is the explicit-marker transition, never Publish:
+                // both land the occupant inactive/unmasked-or-masked (Pending or
+                // Disabled) — only settlePackageStationTier activates.
+                $instance['tiers'][$tierId]['current_occupant']['platform_status'] = 'disabled';
+                $instance['tiers'][$tierId]['current_occupant']['is_explicitly_disabled'] = !$enabled;
             }
         } else {
             if (!empty($tierSlot)) {
@@ -1127,10 +1131,19 @@ class PackageStationController
             }
         }
 
-        $this->persistTierInstance($station, $instanceId, $instance);
+        $station = $this->persistTierInstance($station, $instanceId, $instance);
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'], $instanceId) ?? $instance;
+        $slot = $PS::ensureTierLifecycle($instance['tiers'][$tierId] ?? []);
 
+        // Authoritative occupant status, marker, drafts, and module statuses —
+        // the frontend patches this response, never a synthetic slot.enabled.
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
-            'success' => true, 'tier_id' => $tierId, 'enabled' => $enabled,
+            'success'         => true,
+            'tier_id'         => $tierId,
+            'tier'            => $PS::normaliseTierSlot($slot),
+            'drafts'          => $slot['drafts'],
+            'module_status'   => $slot['module_status'],
+            'platform_status' => TierInstanceSchema::deriveInstanceStatus($instance),
         ]));
     }
 
