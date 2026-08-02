@@ -46,6 +46,8 @@ export interface TierOverviewShellData {
   billingCycle: string | null;
   isAddon:      boolean;         // occupant-level selection mode — see Tier Add-on Selection code map
   popular:      boolean;         // station-level presentation flag
+  platformId:   string;
+  addonPlatformId: string;
 }
 
 export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
@@ -84,6 +86,15 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     {
       id: 'popular', element: 'text', label: 'Popular',
       bind: (d): TextValue => ({ value: d.popular ? 'Yes' : 'No' }),
+    },
+    {
+      id: 'platform-id', element: 'text', label: 'Tier Platform ID',
+      bind: (d): TextValue => ({ value: d.platformId, fallback: 'Assigned after Publish' }),
+    },
+    {
+      id: 'addon-platform-id', element: 'text', label: 'Add-on Platform ID',
+      when: (d) => d.isAddon,
+      bind: (d): TextValue => ({ value: d.addonPlatformId, fallback: 'Assigned after Publish' }),
     },
   ],
   footer:  DETAILS_FOOTER,

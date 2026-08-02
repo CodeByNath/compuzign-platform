@@ -108,6 +108,8 @@ export function buildTierDetail(
       billingCycle: detail.billing_cycle,
       isAddon:      detail.is_addon,
       popular:      isPopular,
+      platformId:   detail.platform_id,
+      addonPlatformId: detail.addon_platform_id,
     },
     state:    view.modules.overview,
     hasDraft: view.drafts.overview !== null,

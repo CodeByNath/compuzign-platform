@@ -9,6 +9,8 @@ import type { InclusionItem, FaqItem } from '@/api/types/pools';
 // normalised SurfaceTierDetail.
 export interface BinnedOccupant {
   id?:                  string;
+  cz_platform_id?:      string;
+  addon_platform_id?:   string;
   platform_status?:     string;
   label?:               string;
   price?:               number | null;
@@ -78,6 +80,7 @@ export type PackageManagerModuleTransition = 'not-configured' | 'pending' | 'set
 
 export interface PackageManagerGroup {
   group_id:   string;
+  platform_id?: string;
   label:      string;
   sort_order: number;
 }
@@ -169,6 +172,7 @@ export type TierInstanceStatus = 'draft' | 'active' | 'disabled' | 'archived' | 
 /** Package-owned Tier capability instance. Consumer use is a separate assignment. */
 export interface TierInstanceSummary {
   tier_instance_id:       string;
+  platform_id:            string;
   title:                  string;
   description:            string;
   status:                 TierInstanceStatus;
@@ -183,6 +187,7 @@ export interface TierInstanceSummary {
 /** Stored instance shape returned by the Package-owned collection endpoint. */
 export interface TierInstanceRecord {
   tier_instance_id:       string;
+  cz_platform_id:         string;
   title:                  string;
   description:            string;
   status:                 TierInstanceStatus;
@@ -280,6 +285,7 @@ export type PackageRateSheetStatus = 'active' | 'archived';
 
 export interface PackageRateSheet {
   rate_sheet_id: string;
+  platform_id?: string;
   title: string;
   status: PackageRateSheetStatus;
   groups: PackageManagerGroup[];
@@ -401,6 +407,10 @@ export interface SurfaceTierDetail {
   // Stable identity of the settled occupant. Null identifies an empty shell;
   // the containing record key remains the slot id used by mutations.
   occupant_id: string | null;
+  /** Output-only permanent primary Tier identity. */
+  platform_id: string;
+  /** Output-only permanent Add-on identity; dormant while is_addon is false. */
+  addon_platform_id: string;
   label: string;
   ideal_for: string;
   price: number | null;

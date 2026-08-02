@@ -4,7 +4,7 @@
 // Publish once a tier is open. Rendered into the host's footer region through
 // the bridge.
 
-import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
+import { SupportedActionFooter, type SupportedFooterAction } from '@/drawer-kit/SupportedActionFooter';
 
 interface TierDrawerFooterProps {
   mode: 'close-only' | 'none' | 'tier-actions';
@@ -27,26 +27,22 @@ export function TierDrawerFooter({
   if (mode === 'none') return null;
 
   if (mode === 'close-only') {
-    return (
-      <EntityActionFooter close={{ id: 'close', label: 'Close', onSelect: onClose }} />
-    );
+    return <SupportedActionFooter actions={[
+      { id: 'close', label: 'Close', placement: 'close', onSelect: onClose },
+    ]} />;
   }
 
   // mode === 'tier-actions'
-  return (
-    <EntityActionFooter
-      split={occupied ? {
-        id: 'status',
-        label: enabled ? 'Disable' : 'Enable',
-        onSelect: onToggleEnabled,
-        busy: saving,
-        tone: enabled ? 'danger' : 'secondary',
-        open: splitOpen,
-        onToggle: () => setSplitOpen((value) => !value),
-        overflow: [{ id: 'archive', label: 'Archive', onSelect: onArchive, disabled: saving }],
-      } : null}
-      close={{ id: 'close', label: 'Close', onSelect: onClose, disabled: saving }}
-      primary={{ id: 'publish', label: 'Publish', onSelect: onPublish, disabled: saving || !hasContent, busy: saving, busyLabel: 'Saving…' }}
-    />
-  );
+  const actions: SupportedFooterAction[] = [
+    ...(occupied ? [{
+      id: 'status', label: enabled ? 'Disable' : 'Enable', placement: 'split' as const,
+      onSelect: onToggleEnabled, busy: saving, tone: enabled ? 'danger' as const : 'secondary' as const,
+      open: splitOpen, onToggle: () => setSplitOpen((value) => !value),
+      overflow: [{ id: 'archive', label: 'Archive', onSelect: onArchive, disabled: saving }],
+    }] : []),
+    { id: 'close', label: 'Close', placement: 'close', onSelect: onClose, disabled: saving },
+    { id: 'publish', label: 'Publish', placement: 'primary', onSelect: onPublish,
+      disabled: saving || !hasContent, busy: saving, busyLabel: 'Saving…' },
+  ];
+  return <SupportedActionFooter actions={actions} />;
 }

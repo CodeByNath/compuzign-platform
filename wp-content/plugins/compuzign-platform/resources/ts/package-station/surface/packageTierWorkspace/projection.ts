@@ -83,6 +83,7 @@ export function summarizeTierInstance(instance: TierInstanceRecord): TierInstanc
   ).length;
   return {
     tier_instance_id: instance.tier_instance_id,
+    platform_id: instance.cz_platform_id,
     title: instance.title,
     description: instance.description,
     status: instance.status,

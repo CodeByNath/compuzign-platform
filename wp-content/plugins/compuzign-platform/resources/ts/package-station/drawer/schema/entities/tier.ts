@@ -23,6 +23,7 @@ export const TIER_ENTITY: EntitySchema = {
     // (tier slot) it occupies, which the placement supplies; the occupant's
     // label is its display identity.
     idOf:    (d: SurfaceTierDetail) => d.label,
+    platformIdOf: (d: SurfaceTierDetail) => d.platform_id,
     titleOf: (d: SurfaceTierDetail) => d.label,
   },
 
