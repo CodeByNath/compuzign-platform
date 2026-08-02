@@ -16,8 +16,10 @@ shared `PlatformIdentifierStation` through `SurfacePackagesModule`; the Family
 row owns `cz_platform_id` and native string `group_id`, while the identifier
 Station owns `CZPG` reservation, binding, lookup, conflict, and tombstone only.
 `GET /admin/package-families/{platformId}` is the sole Platform-ID route and is
-read-only; native mutations remain unchanged. Existing-record assignment is
-still separate. No other Package entity receives identity or lifecycle changes.
+read-only; native mutations remain unchanged. Existing Family rows are assigned
+in bounded, resumable pages through the existing WP-CLI command's
+`package-family` selector and PackageRepository callbacks. No other Package
+entity receives identity or lifecycle changes.
 
 ## Boundaries
 

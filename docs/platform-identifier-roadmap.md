@@ -20,7 +20,7 @@ WordPress posts or terms. Platform IDs are output-only and never recycled.
 | --- | --- | --- |
 | `service` | `CZS` | Service Station / `Modules/Service` |
 | `category` | `CZC` | Category / `Modules/Admin` |
-| `package_family_group` | `CZPG` | Pending Phase 4 source audit |
+| `package_family_group` | `CZPG` | Package Station / `Modules/SurfacePackages` |
 | `tier_group` | `CZTG` | Pending Phase 5 source audit |
 | `tier_addon` | `CZTA` | Pending Phase 6 source audit |
 | `tier_promotion` | `CZTP` | Pending Phase 7 source audit |
@@ -104,8 +104,10 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    reserve and bind `CZPG` to Package-owned string `group_id`, store the scalar
    in `category_groups[]`, project it output-only, reject mutation, and tombstone
    guarded hard deletion. The approved authenticated read route is
-   `GET /admin/package-families/{platformId}`; bounded existing-record assignment
-   remains a separate later phase. Package
+   `GET /admin/package-families/{platformId}`. Bounded existing-record
+   assignment is available through the existing WP-CLI command's
+   `package-family` selector, with stable string `group_id` cursors, a default
+   limit of 100, and a hard cap of 500. Package
    Station remains pending overall because every other Package entity is unchanged.
 5. **Tier Group — pending owner/storage audit.** No files locked yet.
 6. **Tier Add-on — pending owner/storage audit.** No files locked yet.
@@ -113,9 +115,10 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 8. **Package Rate Card — pending owner/storage audit.** No files locked yet.
 9. **Package Rate Card Group — pending owner/storage audit.** No files locked yet.
 10. **Package Rate Card Item — pending owner/storage audit.** No files locked yet.
-11. **Existing-record assignment — partially complete.** Service and Category
-    are enabled through Phase 3B. Later entity types remain unavailable until
-    their owner integrations and lifecycle contracts are complete.
+11. **Existing-record assignment — Package Family complete.** Service,
+    Category, and Package Family are enabled. Later entity types remain
+    unavailable until their owner integrations and lifecycle contracts are
+    complete.
 12. **Final verification/documentation — pending.** Cross-entity resolution,
     immutability, lifecycle, deletion, importer, projections, mounted
     regressions, TypeScript, Code Maps, and clean-tree verification.
@@ -130,7 +133,8 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | 3A | Optional additive schema identity and authenticated owner-specific Service/Category Platform-ID reads complete | `03de986`, `0a738c6`, `74a55c5` | Native numeric identity remains authoritative. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
 | 3B | Bounded, resumable Service/Category existing-record assignment command and focused contract complete | `ac0be8f` | Run pages and verify Platform-ID GETs in the target WordPress runtime. No local WP-CLI/runtime is present in this repository workspace. |
 | 3C | Temporary authenticated dry-run/batch REST action and Admin Station notice ready for live execution | `d87af20`, `056c4bd`, `073215b` | Remove only after conflict-free live completion and route/lifecycle verification. |
-| 4 | New-record integration complete | this implementation phase | Canonical read route complete; existing-record assignment remains pending. |
+| 4 | New-record integration and canonical read route complete | `62f8917`, `a83123e` | Existing Package Family rows require the bounded Phase 11 command to be run in the target WordPress runtime. |
+| 11 (Package Family) | Bounded stable-string-cursor assignment complete | this assignment phase | Run successive pages in the target WordPress runtime, review conflicts, then verify the canonical GET route. |
 | 5–12 | Pending | — | No Tier, add-on, Promotion, or Rate Card identity integration has begun. |
 
 No Project History document has been created. That decision remains with the

@@ -227,6 +227,37 @@ class PackageRepository
     }
 
     /**
+     * Bounded, stable native Family identities for Platform-ID assignment.
+     * The cursor is the last processed string group_id, not a mutable offset.
+     *
+     * @return array{items: list<string>, next_cursor: string|null, complete: bool}
+     */
+    public function familyAssignmentPage(?string $cursor, int $limit): array
+    {
+        if ($limit < 1 || $limit > 500) {
+            throw new \InvalidArgumentException('Package Family assignment limit must be between 1 and 500.');
+        }
+
+        $station = $this->loadStation();
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $ids = [];
+        foreach ($manager['category_groups'] as $group) {
+            $groupId = is_array($group) ? (string) ($group['group_id'] ?? '') : '';
+            if ($groupId !== '' && ($cursor === null || strcmp($groupId, $cursor) > 0)) {
+                $ids[] = $groupId;
+            }
+        }
+        sort($ids, SORT_STRING);
+
+        $items = array_slice($ids, 0, $limit);
+        return [
+            'items' => $items,
+            'next_cursor' => $items === [] ? $cursor : $items[array_key_last($items)],
+            'complete' => count($ids) <= $limit,
+        ];
+    }
+
+    /**
      * Every Rate Sheet identity protected by any instance lifecycle envelope.
      * Duplicate discoveries collapse into the returned id set.
      *

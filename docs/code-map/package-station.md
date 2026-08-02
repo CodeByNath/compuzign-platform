@@ -25,7 +25,10 @@ Backend root: `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages
 - Package Family alone carries output-only `CZPG` Platform identity. Its
   Package-owned row stores `cz_platform_id`; native `group_id` remains the
   mutation address. `GET /admin/package-families/{platformId}` resolves a bound
-  identifier and returns the existing authoritative Family projection.
+  identifier and returns the existing authoritative Family projection. Bounded
+  existing-row assignment is available through
+  `wp compuzign platform-identifiers assign package-family`; PackageRepository
+  owns stable string-cursor enumeration and scalar read/claim/collision checks.
 
 ## Registration and presentation
 
@@ -37,7 +40,7 @@ Imports from Admin presentation/icons are legal capability consumption. Station 
 
 ## Backend authority
 
-[PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) owns `cz_package_station`, Rate Sheet usage scans, and the assignment-resolved Service index. Mutations lift and remove legacy Tier keys before persisting canonical `tier_instances[]`; established load bridges remain separate. [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations, [PackageStationReadController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationReadController.php) owns assigned-instance summaries, and [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) owns Family reads/lifecycle. `Support/` owns schemas, lifecycle/guards, Tier instances, and assignments. See [Tier Capability](tier-capability.md).
+[PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) owns `cz_package_station`, Family identity assignment callbacks, Rate Sheet usage scans, and the assignment-resolved Service index. Mutations lift and remove legacy Tier keys before persisting canonical `tier_instances[]`; established load bridges remain separate. [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations, [PackageStationReadController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationReadController.php) owns assigned-instance summaries, and [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) owns Family reads/lifecycle. `Support/` owns schemas, lifecycle/guards, Tier instances, and assignments. See [Tier Capability](tier-capability.md).
 
 The Package Manager is Package-internal supply configuration, not the platform Station Manager.
 

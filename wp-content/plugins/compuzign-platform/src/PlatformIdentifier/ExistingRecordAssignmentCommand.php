@@ -6,31 +6,52 @@ namespace CompuZign\Platform\PlatformIdentifier;
 
 use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Service\Support\ServiceSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
 final class ExistingRecordAssignmentCommand
 {
-    public function __construct(private PlatformIdentifierStation $identifiers) {}
+    public function __construct(
+        private PlatformIdentifierStation $identifiers,
+        private ?PackageRepository $packages = null
+    ) {}
 
     /** @param list<string> $args @param array<string, mixed> $assocArgs */
     public function __invoke(array $args, array $assocArgs): void
     {
         $entityType = (string) ($args[0] ?? '');
-        if (!in_array($entityType, [PlatformIdentifierPolicy::SERVICE, PlatformIdentifierPolicy::CATEGORY], true)) {
-            \WP_CLI::error('Entity must be service or category.');
+        $selectors = [
+            PlatformIdentifierPolicy::SERVICE,
+            PlatformIdentifierPolicy::CATEGORY,
+            'package-family',
+        ];
+        if (!in_array($entityType, $selectors, true)) {
+            \WP_CLI::error('Entity must be service, category, or package-family.');
         }
 
-        $cursor = filter_var($assocArgs['cursor'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
         $limit  = filter_var($assocArgs['limit'] ?? 100, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 500]]);
-        if ($cursor === false || $limit === false) {
-            \WP_CLI::error('Cursor must be non-negative and limit must be between 1 and 500.');
+        if ($limit === false) {
+            \WP_CLI::error('Limit must be between 1 and 500.');
         }
 
-        $result = $entityType === PlatformIdentifierPolicy::SERVICE
-            ? $this->assignServices($cursor, $limit)
-            : $this->assignCategories($cursor, $limit);
+        if ($entityType === 'package-family') {
+            $cursor = isset($assocArgs['cursor']) && (string) $assocArgs['cursor'] !== ''
+                ? (string) $assocArgs['cursor']
+                : null;
+            $result = $this->assignPackageFamilies($cursor, $limit);
+        } else {
+            $cursor = filter_var($assocArgs['cursor'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            if ($cursor === false) {
+                \WP_CLI::error('Cursor must be non-negative for service and category assignment.');
+            }
+            $result = $entityType === PlatformIdentifierPolicy::SERVICE
+                ? $this->assignServices($cursor, $limit)
+                : $this->assignCategories($cursor, $limit);
+        }
 
         \WP_CLI::log((string) json_encode([
-            'entity_type' => $entityType,
+            'entity_type' => $entityType === 'package-family'
+                ? PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP
+                : $entityType,
             'next_cursor' => $result->nextCursor(),
             'complete' => $result->complete(),
             'processed' => $result->processed(),
@@ -98,6 +119,24 @@ final class ExistingRecordAssignmentCommand
                 ]);
                 return is_array($matches) && $matches !== [];
             }
+        );
+    }
+
+    private function assignPackageFamilies(?string $cursor, int $limit): PlatformIdentifierBatchResult
+    {
+        $packages = $this->packages ??= new PackageRepository();
+
+        return $this->identifiers->assignExistingBatch(
+            PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP,
+            $cursor,
+            $limit,
+            static fn(int|string|null $after, int $pageSize): array => $packages->familyAssignmentPage(
+                is_string($after) && $after !== '' ? $after : null,
+                $pageSize
+            ),
+            static fn(int|string $groupId): string => $packages->familyPlatformId((string) $groupId),
+            static fn(int|string $groupId, string $platformId): bool => $packages->claimFamilyPlatformId((string) $groupId, $platformId),
+            static fn(string $platformId): bool => $packages->familyPlatformIdExists($platformId)
         );
     }
 }

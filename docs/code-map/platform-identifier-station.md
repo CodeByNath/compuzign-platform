@@ -25,7 +25,7 @@ Station Manager and must never be registered there.
 - `src/PlatformIdentifier/PlatformIdentifierConflict.php` — fail-closed
   contract failures.
 - `src/PlatformIdentifier/ExistingRecordAssignmentCommand.php` — bounded
-  Service/Category-only WP-CLI backfill orchestration.
+  Service, Category, and Package Family WP-CLI backfill orchestration.
 - `src/PlatformIdentifier/TemporaryMigrationController.php` — temporary
   authenticated live dry-check/batch surface; remove after verified completion.
 - `tests/platform-identifier-station.php` and
@@ -61,7 +61,7 @@ Phase 3B registers
 `wp compuzign platform-identifiers assign <service|category>` when WP-CLI is
 active. `--limit` defaults to 100 and is capped at 500; `--cursor` defaults to
 zero. Each invocation returns JSON with processed/assigned/preserved/conflict
-counts, completion, and the next cursor. No Package or later type is accepted.
+counts, completion, and the next cursor.
 
 While Phase 3C is active, Admin refresh reads temporary migration status and
 runs a zero-write Service/Category preflight. Explicit assignment processes one
@@ -76,4 +76,6 @@ in its `category_groups[]` row and string native `group_id`. Creation reserves
 projects output-only identity, rejects mutation, and tombstones guarded hard
 deletion. The authenticated read at `/admin/package-families/{platformId}`
 resolves only a bound matching Family before delegating to Package projection.
-No existing-record assignment is registered, and no other Package entity is integrated.
+The same WP-CLI command accepts `package-family`, using bounded lexically sorted
+string `group_id` pages and Package-owned immutable scalar callbacks. No other
+Package entity is integrated.
