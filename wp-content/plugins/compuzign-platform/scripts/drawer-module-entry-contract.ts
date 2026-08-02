@@ -300,6 +300,10 @@ check(
 // PackageFamilyDrawerContent an existing Family uses.
 const familyDrawerController = source('resources/ts/package-station/drawer/package-family/usePackageFamilyDrawerController.ts');
 check(
+  !familyDrawerController.includes('station.createFamily'),
+  'Package Family Publish owns no create-on-Publish branch',
+);
+check(
   familyDrawerController.includes('const [editing, setEditing] = useState(false)'),
   'Family creation opens readable, never in its editor',
 );

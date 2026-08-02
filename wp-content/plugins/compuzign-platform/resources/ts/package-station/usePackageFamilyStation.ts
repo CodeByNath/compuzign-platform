@@ -98,18 +98,6 @@ export function usePackageFamilyStation(
     return group;
   }, [family, onMutationComplete, requireGroup]);
 
-  // The drawer footer's authoritative creation. Persists the drafted overview
-  // (staged locally by saveOverview above) as a brand-new Package Family and
-  // replaces the local seed with the real, server-issued record — the same
-  // "born disabled, overview pending" state as any other newly created Family,
-  // so every existing lifecycle/footer computation applies unchanged from here.
-  const createFamily = useCallback(async () => {
-    const response = await createPackageFamily({ name: family.label, description: family.description });
-    const group = requireGroup(response, 'Could not create the Package Family.');
-    onMutationComplete?.();
-    return group;
-  }, [family.label, family.description, onMutationComplete, requireGroup]);
-
   const revertOverview = useCallback(async () => {
     const response = await revertPackageFamilyOverview(family.group_id);
     const group = requireGroup(response, 'Could not discard the Package Family draft.');
@@ -190,7 +178,6 @@ export function usePackageFamilyStation(
     relationshipData,
     loading: { status: statusSaving, deleting, creating },
     saveOverview,
-    createFamily,
     revertOverview,
     settleOverview,
     publishFamily,

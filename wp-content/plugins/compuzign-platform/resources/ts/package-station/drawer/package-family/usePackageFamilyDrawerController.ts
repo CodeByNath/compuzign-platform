@@ -141,13 +141,9 @@ export function usePackageFamilyDrawerController({
 
   const handleConfirmPublish = useCallback(async () => {
     setConfirmDialog(null);
-    // A `group_id`-less family addresses no stored record: the footer's
-    // Publish is this record's one authoritative creation, not a settle/
-    // activate pair against an id that does not exist yet.
-    if (station.family.group_id === '') {
-      await runLifecycle(station.createFamily);
-      return;
-    }
+    // Publish never establishes identity. Complete Overview Save must already
+    // have returned the real Package-owned Family record.
+    if (station.family.group_id === '') return;
     await runLifecycle(station.isActive ? station.settleOverview : station.publishFamily);
   }, [runLifecycle, station]);
 

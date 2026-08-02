@@ -26,6 +26,8 @@ let createCalls = 0;
 let updateCalls = 0;
 let failedCreates = 0;
 let shouldFailCreate = true;
+let settleCalls = 0;
+let activationCalls = 0;
 
 function response(body, ok = true, status = 200) {
   return Promise.resolve({
@@ -78,6 +80,17 @@ globalThis.fetch = (url, init = {}) => {
   if (path.endsWith(`/admin/package-category-groups/${CREATED_ID}/overview`) && method === 'PUT') {
     updateCalls += 1;
     return response({ success: true, group: { ...family(body.name, body.description ?? ''), has_draft: true } });
+  }
+  if (path.endsWith(`/admin/package-category-groups/${CREATED_ID}/overview/settle`) && method === 'POST') {
+    settleCalls += 1;
+    return response({ success: true, group: { ...family('KAIROS', 'Updated after handoff.'), module_status: { overview: 'settled' } } });
+  }
+  if (path.endsWith(`/admin/package-category-groups/${CREATED_ID}/status`) && method === 'PATCH') {
+    if (body.platform_status === 'active') activationCalls += 1;
+    return response({
+      success: true,
+      group: { ...family('KAIROS', 'Updated after handoff.'), platform_status: 'active', module_status: { overview: 'settled' } },
+    });
   }
   return Promise.reject(new Error(`Unexpected Package Family fetch: ${method} ${path}`));
 };
@@ -168,6 +181,12 @@ function clickButton(text) {
   button?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return button;
 }
+function clickDialogButton(text) {
+  const button = [...container.querySelectorAll('.cz-publish-confirm button')]
+    .find((item) => item.textContent.trim() === text);
+  button?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return button;
+}
 function setField(selector, value) {
   const field = container.querySelector(selector);
   if (field) {
@@ -218,6 +237,15 @@ clickButton('Save');
 check('existing save settles', await settle());
 check('post-handoff save uses the Overview endpoint', updateCalls === 1, `update=${updateCalls}`);
 check('post-handoff save does not create again', createCalls === 2, `create=${createCalls}`);
+
+latestFooter.props.onPublish();
+await sleep(10);
+check('Publish confirmation never exposes Create', clickDialogButton('Create') == null);
+check('Publish confirmation exposes Publish', clickDialogButton('Publish') !== null);
+check('Publish settles', await settle());
+check('Publish settles the existing Family', settleCalls === 1, `settle=${settleCalls}`);
+check('Publish activates the existing Family', activationCalls === 1, `active=${activationCalls}`);
+check('Publish never calls create', createCalls === 2, `create=${createCalls}`);
 
 if (failures.length) {
   console.error(`\nREGRESSION FAILED — ${failures.length} check(s)`);
