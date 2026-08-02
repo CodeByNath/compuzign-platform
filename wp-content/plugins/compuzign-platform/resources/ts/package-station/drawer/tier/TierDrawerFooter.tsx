@@ -11,6 +11,11 @@ interface TierDrawerFooterProps {
   occupied: boolean;
   enabled: boolean;
   hasContent: boolean;
+  // Whether this persisted occupant has ever been settled/activated by a
+  // real Publish. Never-published (occupied: true, hasBeenPublished: false)
+  // offers Move to Trash — there is nothing settled worth preserving in the
+  // bin. Previously published keeps the existing Archive action.
+  hasBeenPublished: boolean;
   saving: boolean;
   splitOpen: boolean;
   setSplitOpen: (next: boolean | ((prev: boolean) => boolean)) => void;
@@ -21,7 +26,7 @@ interface TierDrawerFooterProps {
 }
 
 export function TierDrawerFooter({
-  mode, occupied, enabled, hasContent, saving, splitOpen, setSplitOpen,
+  mode, occupied, enabled, hasContent, hasBeenPublished, saving, splitOpen, setSplitOpen,
   onToggleEnabled, onArchive, onPublish, onClose,
 }: TierDrawerFooterProps) {
   if (mode === 'none') return null;
@@ -38,7 +43,11 @@ export function TierDrawerFooter({
       id: 'status', label: enabled ? 'Disable' : 'Enable', placement: 'split' as const,
       onSelect: onToggleEnabled, busy: saving, tone: enabled ? 'danger' as const : 'secondary' as const,
       open: splitOpen, onToggle: () => setSplitOpen((value) => !value),
-      overflow: [{ id: 'archive', label: 'Archive', onSelect: onArchive, disabled: saving }],
+      overflow: [
+        hasBeenPublished
+          ? { id: 'archive', label: 'Archive', onSelect: onArchive, disabled: saving }
+          : { id: 'trash', label: 'Move to Trash', onSelect: onArchive, disabled: saving },
+      ],
     }] : []),
     { id: 'close', label: 'Close', placement: 'close', onSelect: onClose, disabled: saving },
     { id: 'publish', label: 'Publish', placement: 'primary', onSelect: onPublish,

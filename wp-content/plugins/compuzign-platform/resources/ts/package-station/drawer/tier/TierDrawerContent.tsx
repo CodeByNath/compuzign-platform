@@ -44,6 +44,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         occupied={c.footerOccupied}
         enabled={c.footerEnabled}
         hasContent={c.footerHasContent}
+        hasBeenPublished={c.footerHasBeenPublished}
         saving={c.pkg.saving}
         splitOpen={c.splitOpen}
         setSplitOpen={c.setSplitOpen}
@@ -55,7 +56,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     );
     return () => bridge.setFooter(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [c.footerMode, c.footerOccupied, c.footerEnabled, c.footerHasContent, c.pkg.saving, c.splitOpen, bridge]);
+  }, [c.footerMode, c.footerOccupied, c.footerEnabled, c.footerHasContent, c.footerHasBeenPublished, c.pkg.saving, c.splitOpen, bridge]);
 
   if (!c.pkg.detailLoaded) return <AsyncLoading label="Loading tiers…" />;
 

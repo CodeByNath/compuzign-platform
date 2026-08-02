@@ -342,6 +342,19 @@ async function clickPublish() {
   await sleep(20);
   clickButtonWithText('Publish', container);
 }
+// Reads the split control's overflow menu label — opens it (chevron click),
+// reads the one item, closes it again so later footer clicks aren't blocked
+// by an open menu overlay.
+async function overflowItemLabel() {
+  let footerDom = renderFooterDom();
+  footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  footerDom = renderFooterDom();
+  const label = footerDom.querySelector('.cz-footer-split__menu .cz-footer-split__item')?.textContent.trim() ?? null;
+  footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  return label;
+}
 function allPillsRead(label) {
   return pillLabel('Tier Overview') === label && pillLabel('Included Features') === label && pillLabel('Common Questions') === label;
 }
@@ -357,6 +370,7 @@ async function runScenario(tierId, label) {
 
   let footerDom = renderFooterDom();
   check('the real rendered split button reads "Disable" while published and not masked', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
+  check('a previously-published occupant\'s footer is unchanged — overflow still offers Archive, not Move to Trash', await overflowItemLabel() === 'Archive', await overflowItemLabel());
 
   console.log('\n2) Ready module Save — only the edited module changes, and it reads Pending full (not settled/Active)');
   const overviewEditBtn = editButtonFor('Tier Overview');
@@ -460,10 +474,30 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   check('Overview draft still exists', tiers[tierId].drafts.overview !== null);
   check('module_status.overview is pending, not settled', tiers[tierId].module_status.overview === 'pending', tiers[tierId].module_status.overview);
 
-  console.log('\n3) Same mounted drawer now exposes the existing occupant lifecycle');
+  console.log('\n3) Same mounted drawer now exposes the existing occupant lifecycle — before any Publish');
   footerDom = renderFooterDom();
   const publishBtnAfter = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
   check('Publish is now enabled — the created occupant carries pending content', publishBtnAfter?.disabled === false);
+  check(
+    'Disable is immediately available on a persisted-but-never-published occupant',
+    footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable',
+    footerDom.querySelector('.cz-footer-split__btn')?.textContent,
+  );
+  check('the overflow offers Move to Trash, not Archive, before any Publish', await overflowItemLabel() === 'Move to Trash', await overflowItemLabel());
+
+  console.log('\n3b) Disable → Disabled; Enable and Move to Trash remain available; no Publish occurred');
+  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await waitToSettle();
+  check('every module pill reads Disabled', allPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Included Features')} faqs=${pillLabel('Common Questions')}`);
+  check('the settle endpoint was never called by Disable', settleCalls === 0, `settleCalls=${settleCalls}`);
+  footerDom = renderFooterDom();
+  check('Enable remains available after Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
+  check('Move to Trash remains available while explicitly Disabled', await overflowItemLabel() === 'Move to Trash', await overflowItemLabel());
+
+  // Re-enable so the rest of this scenario continues from unmasked Pending.
+  footerDom = renderFooterDom();
+  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await waitToSettle();
 
   console.log('\n4) Publish — settles the draft, activates the SAME occupant_id, assigns identity');
   await clickPublish();

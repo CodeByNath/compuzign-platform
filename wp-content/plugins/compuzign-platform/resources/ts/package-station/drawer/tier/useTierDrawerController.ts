@@ -165,7 +165,7 @@ export function useTierDrawerController({
   const requestClose = () => bridge.close();
 
   // ── Derived models (pure builders) ──────────────────────────────────────────
-  const { footerMode, footerEnabled, footerHasContent, footerOccupied } =
+  const { footerMode, footerEnabled, footerHasContent, footerOccupied, footerHasBeenPublished } =
     buildTierFooterModel(pkg, editingTierId, editingSection);
 
   const tierDetail = buildTierDetail(pkg, editingTierId, {
@@ -198,7 +198,7 @@ export function useTierDrawerController({
     binPrompt: travel.binPrompt, setBinPrompt: travel.setBinPrompt,
     // footer + dialogs
     requestClose, splitOpen, setSplitOpen, confirmModal, setConfirmModal,
-    footerMode, footerEnabled, footerHasContent, footerOccupied,
+    footerMode, footerEnabled, footerHasContent, footerOccupied, footerHasBeenPublished,
     // connections binding factory
     serviceConnectionBinding: () => serviceConnectionBinding(serviceItem, svc!, serviceBack),
   };
