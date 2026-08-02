@@ -126,6 +126,7 @@ export interface ActiveTierSlots {
 
 export interface PackageFamilyItem {
   group_id:                 string;
+  platform_id:              string;
   label:                    string;
   description:              string;
   platform_status:          PackageFamilyStatus;

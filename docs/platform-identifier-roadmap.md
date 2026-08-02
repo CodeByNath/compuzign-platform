@@ -98,11 +98,14 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
    each batch uses a 45-second atomic option lock. Remove the temporary REST/UI
    wiring after live verification; retain assigned IDs, bindings, completion,
    WP-CLI, owner routes, and schema identity.
-4. **Package Family Group — paused pending Package Station migration.** Service
-   Station is locked and conformant; Package Station is explicitly pending
-   migration. Its drawer, module pills, Enable/Disable, creation handoff,
-   lifecycle, owner/native record, and schema must adopt the locked contract
-   before Platform identity is added. Package runtime was not modified in 3A.
+4. **Package Family Group — new-record integration complete.** Package Family
+   now conforms to Overview-Save creation, same-mounted returned identity,
+   existing-record Publish, and explicit Disable/Enable masking. New Families
+   reserve and bind `CZPG` to Package-owned string `group_id`, store the scalar
+   in `category_groups[]`, project it output-only, reject mutation, and tombstone
+   guarded hard deletion. The Platform-ID GET route vocabulary decision and
+   bounded existing-record assignment remain separate later phases. Package
+   Station remains pending overall because every other Package entity is unchanged.
 5. **Tier Group — pending owner/storage audit.** No files locked yet.
 6. **Tier Add-on — pending owner/storage audit.** No files locked yet.
 7. **Tier Promotion — pending owner/storage audit.** No files locked yet.
@@ -126,7 +129,8 @@ States are only `reserved`, `bound`, `retired`, and `deleted`.
 | 3A | Optional additive schema identity and authenticated owner-specific Service/Category Platform-ID reads complete | `03de986`, `0a738c6`, `74a55c5` | Native numeric identity remains authoritative. Deferred route-fixture drift and module-state snapshot failure remain untouched. |
 | 3B | Bounded, resumable Service/Category existing-record assignment command and focused contract complete | `ac0be8f` | Run pages and verify Platform-ID GETs in the target WordPress runtime. No local WP-CLI/runtime is present in this repository workspace. |
 | 3C | Temporary authenticated dry-run/batch REST action and Admin Station notice ready for live execution | `d87af20`, `056c4bd`, `073215b` | Remove only after conflict-free live completion and route/lifecycle verification. |
-| 4–12 | Pending | — | Package Phase 4 is paused until Package Station migration locks its owner, native record, creation handoff, lifecycle, drawer/module behaviour, and schema. |
+| 4 | New-record integration complete | this implementation phase | Platform-ID GET route vocabulary and existing-record assignment deliberately remain pending. |
+| 5–12 | Pending | — | No Tier, add-on, Promotion, or Rate Card identity integration has begun. |
 
 No Project History document has been created. That decision remains with the
 user after the implementation qualifies as a completed major milestone.

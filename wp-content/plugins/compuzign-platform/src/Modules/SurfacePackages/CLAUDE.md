@@ -11,6 +11,13 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `Repositories/PackageRepository.php` — `cz_package_station` persistence, request cache, relationships, Promotions, read-only legacy Tier lift, canonical `saveStation` mutation writes, load bridges that never retire on read, all-instance Rate Sheet usage guards, and assignment-resolved Cost Builder indexing.
 - `Support/TierInstanceSchema.php` (Package-owned Tier capability-instance envelope, with no consumer/Family fields), `TierAssignmentSchema.php` (the separate Package Family ↔ Tier Instance usage edge), `PackageManagerSchema.php` (manager shape + the `rate_sheets[]` collection: migration, upsert/delete commit, per-Tier projection), `PackageSchema.php` (occupant compatibility, lifecycle, Tier↔Rate-Sheet binding + clear-on-switch), `PackageCategoryGroups.php` (Package Family rules), and `PackageStationSchema.php` (only the shared `sanitizeSourceRelationships` and `evaluateTierPricing` helpers — not the aggregate/shape authority).
 
+Package Family now conforms to the locked lifecycle. `Core\Plugin` injects the
+shared `PlatformIdentifierStation` through `SurfacePackagesModule`; the Family
+row owns `cz_platform_id` and native string `group_id`, while the identifier
+Station owns `CZPG` reservation, binding, lookup, conflict, and tombstone only.
+No Platform-ID GET route or existing-record assignment exists yet. No other
+Package entity receives identity or lifecycle changes from this integration.
+
 ## Boundaries
 
 Service-scoped URLs use Service only as navigation context; canonical Tier reads/mutations include `tier-instances/{instance}` before slot/bin resolution. The assignment ledger and Tier-instance collection use global Package-owned routes. This module retains Package persistence. `occupant_id` is stable projection/UI identity, while `(tier_instance_id, slotId)` is the mutation/storage address. Tier pool writes go through `Service\Support\ServicePools`; do not touch Service pool meta directly or import `ServiceController`. Promotions persist through `PackageRepository` but their routes belong to `Modules/Promotions`.

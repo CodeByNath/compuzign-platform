@@ -67,6 +67,7 @@ final class PackageCategoryGroups
 
             $out[] = [
                 'group_id'                 => $id,
+                'cz_platform_id'           => sanitize_text_field((string) ($group['cz_platform_id'] ?? '')),
                 'label'                    => sanitize_text_field((string) ($group['label'] ?? '')),
                 'description'              => self::textarea((string) ($group['description'] ?? '')),
                 'platform_status'          => $status,
@@ -161,7 +162,13 @@ final class PackageCategoryGroups
      *
      * @return array{groups: array, group: array}
      */
-    public static function create(array $groups, string $label, string $description = '', ?string $groupId = null): array
+    public static function create(
+        array $groups,
+        string $label,
+        string $description = '',
+        ?string $groupId = null,
+        string $platformId = ''
+    ): array
     {
         $label = sanitize_text_field($label);
         if ($label === '') {
@@ -176,6 +183,7 @@ final class PackageCategoryGroups
 
         $group = [
             'group_id'                 => $groupId,
+            'cz_platform_id'           => sanitize_text_field($platformId),
             'label'                    => $label,
             'description'              => self::textarea($description),
             'platform_status'          => StationLifecycle::STATUS_DISABLED,
@@ -387,6 +395,7 @@ final class PackageCategoryGroups
         $draft = is_array($group['overview_draft'] ?? null) ? $group['overview_draft'] : null;
         return [
             'group_id'                 => (string) $group['group_id'],
+            'platform_id'              => (string) ($group['cz_platform_id'] ?? ''),
             'label'                    => $draft !== null && ($draft['label'] ?? '') !== '' ? $draft['label'] : (string) $group['label'],
             'description'              => $draft !== null ? (string) ($draft['description'] ?? '') : (string) $group['description'],
             'platform_status'          => (string) $group['platform_status'],

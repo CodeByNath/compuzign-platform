@@ -11,6 +11,7 @@ export const PACKAGE_FAMILY_ENTITY: EntitySchema = {
   label: { singular: 'Package Family', plural: 'Package Families' },
   identity: {
     idOf: (data: PackageFamilyItem) => data.group_id,
+    platformIdOf: (data: PackageFamilyItem) => data.platform_id,
     titleOf: (data: PackageFamilyItem) => data.label,
   },
   lifecycle: {

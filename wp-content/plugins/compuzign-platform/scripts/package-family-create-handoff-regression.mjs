@@ -43,6 +43,7 @@ function response(body, ok = true, status = 200) {
 function family(name, description) {
   return {
     group_id: CREATED_ID,
+    platform_id: 'CZPG2A7KZ',
     label: name,
     description,
     platform_status: 'disabled',
@@ -149,7 +150,7 @@ function Harness() {
   }), [noop, onSaved, setFooter]);
   return h(PackageFamilyDrawerContent, {
     family: {
-      group_id: '', label: '', description: '', platform_status: 'disabled',
+      group_id: '', platform_id: '', label: '', description: '', platform_status: 'disabled',
       previous_platform_status: null, module_status: { overview: 'not-configured' },
       has_draft: false, sort_order: 0, assigned_service_count: 0,
       dependents: { services: 0, rate_sheet_rows: 0, tier_selections: 0 },
@@ -231,6 +232,7 @@ clickButton('Save');
 check('successful create settles', await settle());
 check('successful retry creates exactly once', createCalls === 2, `create=${createCalls}`);
 check('authoritative native identity appears immediately', container.textContent.includes(CREATED_ID));
+check('authoritative Platform identity appears immediately', container.textContent.includes('CZPG2A7KZ'));
 check('editor closes only after success', container.querySelector('#cz-package-family-name') === null);
 check('Overview remains Pending', overviewModule()?.textContent.includes('Pending'));
 overviewModule()?.querySelector('.cz-module-status-pill')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));

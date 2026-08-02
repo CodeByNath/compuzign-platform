@@ -18,6 +18,7 @@ function check(condition: unknown, message: string): asserts condition {
 }
 
 const familyRow = (group_id: string, label: string, related_service_ids: number[]): PackageFamilyListItem => ({
+  platform_id: '',
   group_id,
   label,
   related_service_ids,

@@ -9,11 +9,18 @@ remain source-specific. Do not copy those differences into a new Station or
 describe Package drawers as Service/Category-conformant until the Code Maps
 and mounted regressions are updated.
 
+Package Family is the first conforming exception within this still-pending
+Station. Its complete Overview Save creates the persisted Pending Family and
+keeps the returned `group_id`/`CZPG` identity in the same mounted drawer;
+Publish never creates. Explicit Disable/Enable uses the shared mask. Do not
+extend those claims to Tier, Rate Sheet, Promotion, occupants, or capabilities.
+
 ## Ownership and entry points
 
 `resources/ts/package-station/` is the top-level Package peer's data, surface, presentation, and drawer boundary: it owns Package TypeScript contracts, endpoint implementations, station state, pure derivations, surface adapters, the Tier workspace presentation kit, and Package Family/Tier drawer composition. It is not part of the Admin Station host, and other peers consume Package only through `index.ts`.
 
-- `types.ts` — Package contracts. Shared pool and Cost Builder contracts remain in `api/types/`; `PromotionTier` remains Promotion-owned in `api/types/admin.ts` and is imported type-only solely to preserve the existing `SurfacePackageSummary` contract.
+- `types.ts` — Package contracts. `PackageFamilyItem.platform_id` is output-only;
+  native `group_id` remains the mutation identity. Shared pool and Cost Builder contracts remain in `api/types/`; `PromotionTier` remains Promotion-owned in `api/types/admin.ts` and is imported type-only solely to preserve the existing `SurfacePackageSummary` contract.
 - `api.ts` — the single implementation of Package-owned endpoint calls.
 - `usePackageStation.ts`, `usePackageFamilyStation.ts`, and `useSurfacePackages.ts` — Package and Package Family state, mutations, and surface reads.
 - `tierOccupants.ts`, `rateSheetLabels.ts`, and `evaluateTierPricing.ts` — Package-owned pure projections, labels, and pricing evaluation.

@@ -69,7 +69,10 @@ runs a zero-write Service/Category preflight. Explicit assignment processes one
 atomic lock. Invalid, duplicate, or conflicting bindings stop assignment. The
 completion option remains after the temporary controller and notice are removed.
 
-Package Phase 4 is paused: Service is lifecycle-conformant, while Package
-Station remains pending migration. Package identity begins only after its
-owner, native record, creation handoff, lifecycle, drawer/module behaviour,
-Enable/Disable rules, and schema are locked. No Package runtime is integrated.
+Package Phase 4 integrates new Package Families only. `Core\Plugin` injects the
+shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`
+in its `category_groups[]` row and string native `group_id`. Creation reserves
+`CZPG`, persists the Pending Family, binds the returned native identity,
+projects output-only identity, rejects mutation, and tombstones guarded hard
+deletion. No Package Platform-ID GET route or existing-record assignment is
+registered, and no other Package entity is integrated.

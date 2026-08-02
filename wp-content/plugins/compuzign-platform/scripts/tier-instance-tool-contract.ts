@@ -35,6 +35,7 @@ function family(
   tierSelections = 0,
 ): PackageFamilyListItem {
   return {
+    platform_id: '',
     group_id: id,
     label: id.toUpperCase(),
     description: '',

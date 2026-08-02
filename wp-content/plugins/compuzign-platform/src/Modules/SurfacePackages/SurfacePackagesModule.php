@@ -8,6 +8,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 /**
  * Surface Packages module.
@@ -21,9 +22,17 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
  */
 class SurfacePackagesModule
 {
+    private PlatformIdentifierStation $platformIdentifiers;
+
+    /** Optional construction is retained for isolated legacy contract harnesses. */
+    public function __construct(?PlatformIdentifierStation $platformIdentifiers = null)
+    {
+        $this->platformIdentifiers = $platformIdentifiers ?? new PlatformIdentifierStation();
+    }
+
     public function register(): void
     {
-        (new PackageFamiliesController())->register();
+        (new PackageFamiliesController($this->platformIdentifiers))->register();
         (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationReadController(new PackageRepository()))->register();
         (new \CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController(new PackageRepository()))->register();
 

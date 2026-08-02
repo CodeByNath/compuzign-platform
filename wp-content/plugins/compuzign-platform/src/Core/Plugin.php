@@ -39,7 +39,7 @@ final class Plugin
                 new ExistingRecordAssignmentCommand($platformIdentifiers)
             );
         }
-        (new SurfacePackagesModule())->register();
+        (new SurfacePackagesModule($platformIdentifiers))->register();
         (new PromotionsModule())->register();
         (new CostBuilderModule())->register();
         (new HomepageModule())->register();

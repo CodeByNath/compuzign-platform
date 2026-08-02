@@ -18,6 +18,7 @@ const OVERVIEW_ACTIONS: Record<string, ShellActionSchema> = {
 
 export interface PackageFamilyOverviewShellData {
   groupId: string;
+  platformId: string;
   name: string;
   description: string;
 }
@@ -40,6 +41,10 @@ export const packageFamilyOverviewShell: ShellSchema<PackageFamilyOverviewShellD
       // minted one.
       id: 'group-id', element: 'text', label: 'Group ID',
       bind: (data): TextValue => ({ value: data.groupId, fallback: 'Minted when saved' }),
+    },
+    {
+      id: 'platform-id', element: 'text', label: 'Platform ID',
+      bind: (data): TextValue => ({ value: data.platformId, fallback: 'Assigned when saved' }),
     },
     {
       id: 'description', element: 'rich-text', label: 'Description',

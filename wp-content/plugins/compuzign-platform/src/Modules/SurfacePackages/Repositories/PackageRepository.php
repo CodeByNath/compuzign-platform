@@ -20,6 +20,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
 
 /**
  * Single authority for Package Station storage.
@@ -187,6 +188,42 @@ class PackageRepository
             'package_manager'         => PackageManagerSchema::defaultManager(),
             'legacy_host_service_id'  => 0,
         ];
+    }
+
+    /** Package-owned scalar identity read for one native Family reference. */
+    public function familyPlatformId(string $groupId): string
+    {
+        $station = $this->loadStation();
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $group = PackageCategoryGroups::find($manager['category_groups'], $groupId);
+        return is_array($group) ? (string) ($group['cz_platform_id'] ?? '') : '';
+    }
+
+    /** Immutable scalar claim used by PlatformIdentifierStation assignment. */
+    public function claimFamilyPlatformId(string $groupId, string $platformId): bool
+    {
+        $station = $this->loadStation();
+        if (!is_array($station)) return false;
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $group = PackageCategoryGroups::find($manager['category_groups'], $groupId);
+        if ($group === null) return false;
+        $stored = (string) ($group['cz_platform_id'] ?? '');
+        if ($stored !== '') return $stored === $platformId;
+        $group['cz_platform_id'] = $platformId;
+        $manager['category_groups'] = PackageCategoryGroups::replace($manager['category_groups'], $group);
+        $station['package_manager'] = $manager;
+        $this->saveStation($station);
+        return $this->familyPlatformId($groupId) === $platformId;
+    }
+
+    public function familyPlatformIdExists(string $platformId): bool
+    {
+        $station = $this->loadStation();
+        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        foreach ($manager['category_groups'] as $group) {
+            if (is_array($group) && ($group['cz_platform_id'] ?? '') === $platformId) return true;
+        }
+        return false;
     }
 
     /**

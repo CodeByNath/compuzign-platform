@@ -21,6 +21,7 @@ function check(condition: unknown, message: string): asserts condition {
 
 function family(): PackageFamilyItem {
   return {
+    platform_id: '',
     group_id: 'pcg_kairos', label: 'KAIROS', description: '', platform_status: 'active',
     previous_platform_status: null, module_status: { overview: 'settled' }, has_draft: false,
     sort_order: 0, assigned_service_count: 0,

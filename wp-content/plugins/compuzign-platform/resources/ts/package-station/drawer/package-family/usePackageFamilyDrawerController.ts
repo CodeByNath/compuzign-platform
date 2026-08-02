@@ -181,6 +181,7 @@ export function usePackageFamilyDrawerController({
   const overviewBinding: ShellBinding<PackageFamilyOverviewShellData> = {
     data: {
       groupId: station.family.group_id,
+      platformId: station.family.platform_id,
       name: station.family.label,
       description: station.family.description,
     },

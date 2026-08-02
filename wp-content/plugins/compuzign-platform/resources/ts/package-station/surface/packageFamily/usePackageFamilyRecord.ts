@@ -38,6 +38,7 @@ export interface PackageFamilyRecordResult {
 
 export const NEW_PACKAGE_FAMILY_SEED: PackageFamilyItem = {
   group_id:                 '',
+  platform_id:              '',
   label:                    '',
   description:              '',
   platform_status:          'disabled',
