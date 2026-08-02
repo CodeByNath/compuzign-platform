@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace CompuZign\Platform\PlatformIdentifier;
 
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierAdapter;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierAdapters;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierService;
 
 /** Temporary REST migration surface. Remove after the live one-time assignment. */
 final class TemporaryMigrationController
@@ -13,6 +16,14 @@ final class TemporaryMigrationController
     private const LOCK_OPTION = 'cz_package_family_identifier_migration_lock_v1';
     private const LIMIT = 100;
     private const LOCK_SECONDS = 45;
+    private const ENTITY_TYPES = [
+        PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP,
+        PlatformIdentifierPolicy::TIER_GROUP,
+        PlatformIdentifierPolicy::TIER,
+        PlatformIdentifierPolicy::TIER_ADDON,
+        PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP,
+        PlatformIdentifierPolicy::PACKAGE_RATE_CARD,
+    ];
 
     public function __construct(
         private PlatformIdentifierStation $identifiers,
@@ -27,7 +38,7 @@ final class TemporaryMigrationController
             ['methods' => 'GET', 'callback' => [$this, 'status'], 'permission_callback' => [$this, 'requireAdmin']],
             ['methods' => 'POST', 'callback' => [$this, 'run'], 'permission_callback' => [$this, 'requireAdmin'], 'args' => [
                 'action' => ['required' => true, 'type' => 'string', 'enum' => ['dry-run', 'assign']],
-                'entity_type' => ['required' => false, 'type' => 'string', 'enum' => [PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP]],
+                'entity_type' => ['required' => true, 'type' => 'string', 'enum' => self::ENTITY_TYPES],
             ]],
         ]);
     }
@@ -45,15 +56,12 @@ final class TemporaryMigrationController
 
     public function run(\WP_REST_Request $request): \WP_REST_Response
     {
-        if ($request->get_param('action') === 'dry-run') {
-            return rest_ensure_response(['dry_run' => true, 'reports' => [
-                PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP => $this->dryCheck(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP),
-            ]]);
-        }
-
         $entityType = (string) $request->get_param('entity_type');
-        if ($entityType !== PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP) {
-            return new \WP_REST_Response(['message' => 'Only Package Family migration is supported.'], 422);
+        if (!in_array($entityType, self::ENTITY_TYPES, true)) {
+            return new \WP_REST_Response(['message' => 'A supported entity scope is required.'], 422);
+        }
+        if ($request->get_param('action') === 'dry-run') {
+            return rest_ensure_response(['dry_run' => true, 'entity_type' => $entityType, 'report' => $this->dryCheck($entityType)]);
         }
 
         $preflight = $this->dryCheck($entityType);
@@ -76,8 +84,16 @@ final class TemporaryMigrationController
                 return new \WP_REST_Response(['message' => 'Migration stopped on a batch conflict.', 'conflicts' => $result->conflicts()], 409);
             }
 
-            $progress[$entityType] = ['cursor' => $result->nextCursor(), 'complete' => $result->complete()];
-            $progress['complete'] = $result->complete();
+            $previous = is_array($progress[$entityType] ?? null) ? $progress[$entityType] : [];
+            $progress[$entityType] = [
+                'cursor' => $result->nextCursor(),
+                'complete' => $result->complete(),
+                'processed' => (int) ($previous['processed'] ?? 0) + $result->processed(),
+                'assigned' => (int) ($previous['assigned'] ?? 0) + $result->assigned(),
+                'preserved' => (int) ($previous['preserved'] ?? 0) + $result->preserved(),
+                'conflicts' => [],
+            ];
+            $progress['complete'] = $this->allScopesComplete($progress);
             if ($progress['complete']) $progress['completed_at'] = gmdate(DATE_ATOM);
             $this->writeProgress($progress);
 
@@ -93,10 +109,11 @@ final class TemporaryMigrationController
     /** @return array{processed:int,would_assign:int,would_preserve:int,conflicts:list<array<string,mixed>>} */
     private function dryCheck(string $entityType): array
     {
+        $adapter = $this->adapterFor($entityType);
         $ids = $this->allIds($entityType);
         $seen = []; $assign = 0; $preserve = 0; $conflicts = [];
         foreach ($ids as $id) {
-            $stored = $this->readId($entityType, $id);
+            $stored = (string) $adapter->readStored($id);
             if ($stored === '') { $assign++; continue; }
             if (!$this->identifiers->validate($entityType, $stored)) {
                 $conflicts[] = ['native_reference' => $id, 'message' => 'Invalid stored Platform ID.']; continue;
@@ -123,42 +140,58 @@ final class TemporaryMigrationController
 
     private function assignBatch(string $entityType, int|string|null $cursor): PlatformIdentifierBatchResult
     {
-        $packages = $this->packages();
-        return $this->identifiers->assignExistingBatch(
-            $entityType,
+        return (new PackagePlatformIdentifierService($this->identifiers))->assignExisting(
+            $this->adapterFor($entityType),
             is_string($cursor) && $cursor !== '' ? $cursor : null,
-            self::LIMIT,
-            static fn(int|string|null $after, int $limit): array => $packages->familyAssignmentPage(
-                is_string($after) && $after !== '' ? $after : null,
-                $limit
-            ),
-            static fn(int|string $id): string => $packages->familyPlatformId((string) $id),
-            static fn(int|string $id, string $platformId): bool => $packages->claimFamilyPlatformId((string) $id, $platformId),
-            static fn(string $platformId): bool => $packages->familyPlatformIdExists($platformId)
+            self::LIMIT
         );
     }
 
     /** @return list<string> */
     private function allIds(string $entityType): array
     {
+        $adapter = $this->adapterFor($entityType);
         $ids = [];
         $cursor = null;
         do {
-            $page = $this->packages()->familyAssignmentPage($cursor, 500);
+            $page = $adapter->enumerate($cursor, 500);
             $ids = [...$ids, ...$page['items']];
             $cursor = $page['next_cursor'];
         } while (!$page['complete']);
         return $ids;
     }
 
-    private function readId(string $entityType, int|string $id): string
+    private function adapterFor(string $entityType): PackagePlatformIdentifierAdapter
     {
-        return $this->packages()->familyPlatformId((string) $id);
+        $packages = $this->packages();
+        if ($entityType === PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP) {
+            return new PackagePlatformIdentifierAdapter(
+                $entityType,
+                fn(int|string|null $cursor, int $limit): array => $packages->familyAssignmentPage(is_string($cursor) && $cursor !== '' ? $cursor : null, $limit),
+                fn(int|string $reference): string => $packages->familyPlatformId((string) $reference),
+                fn(int|string $reference, string $platformId): bool => $packages->claimFamilyPlatformId((string) $reference, $platformId),
+                fn(string $platformId): bool => $packages->familyPlatformIdExists($platformId),
+                fn(int|string $reference): mixed => null
+            );
+        }
+        $adapters = new PackagePlatformIdentifierAdapters($packages);
+        return match ($entityType) {
+            PlatformIdentifierPolicy::TIER_GROUP => $adapters->tierGroup(),
+            PlatformIdentifierPolicy::TIER => $adapters->tier(),
+            PlatformIdentifierPolicy::TIER_ADDON => $adapters->tierAddon(),
+            PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP => $adapters->rateSheetGroup(),
+            PlatformIdentifierPolicy::PACKAGE_RATE_CARD => $adapters->rateSheet(),
+            default => throw new \InvalidArgumentException('Unsupported migration entity scope.'),
+        };
     }
 
-    private function storedIdExists(string $entityType, string $platformId): bool
+    /** @param array<string,mixed> $progress */
+    private function allScopesComplete(array $progress): bool
     {
-        return $this->packages()->familyPlatformIdExists($platformId);
+        foreach (self::ENTITY_TYPES as $entityType) {
+            if (empty($progress[$entityType]['complete'])) return false;
+        }
+        return true;
     }
 
     private function packages(): PackageRepository

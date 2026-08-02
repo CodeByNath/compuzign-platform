@@ -7,6 +7,8 @@ namespace CompuZign\Platform\PlatformIdentifier;
 use CompuZign\Platform\Modules\Admin\Support\CategoryMeta;
 use CompuZign\Platform\Modules\Service\Support\ServiceSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierAdapters;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierService;
 
 final class ExistingRecordAssignmentCommand
 {
@@ -23,9 +25,14 @@ final class ExistingRecordAssignmentCommand
             PlatformIdentifierPolicy::SERVICE,
             PlatformIdentifierPolicy::CATEGORY,
             'package-family',
+            'tier-group',
+            'tier',
+            'tier-addon',
+            'rate-sheet-group',
+            'rate-sheet',
         ];
         if (!in_array($entityType, $selectors, true)) {
-            \WP_CLI::error('Entity must be service, category, or package-family.');
+            \WP_CLI::error('Entity must be service, category, package-family, tier-group, tier, tier-addon, rate-sheet-group, or rate-sheet.');
         }
 
         $limit  = filter_var($assocArgs['limit'] ?? 100, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 500]]);
@@ -33,11 +40,13 @@ final class ExistingRecordAssignmentCommand
             \WP_CLI::error('Limit must be between 1 and 500.');
         }
 
-        if ($entityType === 'package-family') {
+        if (in_array($entityType, ['package-family', 'tier-group', 'tier', 'tier-addon', 'rate-sheet-group', 'rate-sheet'], true)) {
             $cursor = isset($assocArgs['cursor']) && (string) $assocArgs['cursor'] !== ''
                 ? (string) $assocArgs['cursor']
                 : null;
-            $result = $this->assignPackageFamilies($cursor, $limit);
+            $result = $entityType === 'package-family'
+                ? $this->assignPackageFamilies($cursor, $limit)
+                : $this->assignPackageEntity($entityType, $cursor, $limit);
         } else {
             $cursor = filter_var($assocArgs['cursor'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
             if ($cursor === false) {
@@ -49,9 +58,15 @@ final class ExistingRecordAssignmentCommand
         }
 
         \WP_CLI::log((string) json_encode([
-            'entity_type' => $entityType === 'package-family'
-                ? PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP
-                : $entityType,
+            'entity_type' => match ($entityType) {
+                'package-family' => PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP,
+                'tier-group' => PlatformIdentifierPolicy::TIER_GROUP,
+                'tier' => PlatformIdentifierPolicy::TIER,
+                'tier-addon' => PlatformIdentifierPolicy::TIER_ADDON,
+                'rate-sheet-group' => PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP,
+                'rate-sheet' => PlatformIdentifierPolicy::PACKAGE_RATE_CARD,
+                default => $entityType,
+            },
             'next_cursor' => $result->nextCursor(),
             'complete' => $result->complete(),
             'processed' => $result->processed(),
@@ -138,5 +153,20 @@ final class ExistingRecordAssignmentCommand
             static fn(int|string $groupId, string $platformId): bool => $packages->claimFamilyPlatformId((string) $groupId, $platformId),
             static fn(string $platformId): bool => $packages->familyPlatformIdExists($platformId)
         );
+    }
+
+    private function assignPackageEntity(string $selector, ?string $cursor, int $limit): PlatformIdentifierBatchResult
+    {
+        $packages = $this->packages ??= new PackageRepository();
+        $adapters = new PackagePlatformIdentifierAdapters($packages);
+        $adapter = match ($selector) {
+            'tier-group' => $adapters->tierGroup(),
+            'tier' => $adapters->tier(),
+            'tier-addon' => $adapters->tierAddon(),
+            'rate-sheet-group' => $adapters->rateSheetGroup(),
+            'rate-sheet' => $adapters->rateSheet(),
+            default => throw new \InvalidArgumentException('Unsupported Package Platform identifier selector.'),
+        };
+        return (new PackagePlatformIdentifierService($this->identifiers))->assignExisting($adapter, $cursor, $limit);
     }
 }

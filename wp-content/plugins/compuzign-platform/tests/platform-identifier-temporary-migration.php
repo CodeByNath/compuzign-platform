@@ -80,13 +80,13 @@ $station->ensure(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_beta',
 $controller = new TemporaryMigrationController($station, $packages);
 $GLOBALS['mig_writes'] = 0;
 
-$dry = $controller->run(new WP_REST_Request(['action' => 'dry-run']))->get_data();
+$dry = $controller->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => 'package_family_group']))->get_data();
 migration_check($GLOBALS['mig_writes'] === 0, 'dry check performs zero writes');
-migration_check($dry['reports']['package_family_group']['processed'] === 2, 'dry check reports all Package Families');
-migration_check($dry['reports']['package_family_group']['would_assign'] === 1 && $dry['reports']['package_family_group']['would_preserve'] === 1, 'dry check separates missing and preserved Family IDs');
+migration_check($dry['entity_type'] === 'package_family_group' && $dry['report']['processed'] === 2, 'dry check reports only the requested Package Family scope');
+migration_check($dry['report']['would_assign'] === 1 && $dry['report']['would_preserve'] === 1, 'dry check separates missing and preserved Family IDs');
 
 $family = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'package_family_group']))->get_data();
-migration_check($family['complete'] === true && str_starts_with($packages->familyPlatformId('pcg_alpha'), 'CZPG'), 'Family batch assigns only the missing CZPG ID');
+migration_check($family['entity_complete'] === true && $family['complete'] === false && str_starts_with($packages->familyPlatformId('pcg_alpha'), 'CZPG'), 'Family batch completes only its own scope and assigns the missing CZPG ID');
 migration_check($packages->familyPlatformId('pcg_beta') === 'CZPGRAJ5F', 'Family batch preserves CZPGRAJ5F exactly');
 migration_check($station->lookupNative(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_alpha')?->platformId() === $packages->familyPlatformId('pcg_alpha'), 'Family batch creates the reverse binding');
 migration_check($GLOBALS['mig_autoload']['cz_package_family_identifier_migration_v1'] === 'no', 'completion progress option is non-autoloaded');

@@ -81,6 +81,7 @@ $expected = [
     'category'                 => 'CZC',
     'package_family_group'     => 'CZPG',
     'tier_group'               => 'CZTG',
+    'tier'                     => 'CZT',
     'tier_addon'               => 'CZTA',
     'tier_promotion'           => 'CZTP',
     'package_rate_card'        => 'CZPRC',
