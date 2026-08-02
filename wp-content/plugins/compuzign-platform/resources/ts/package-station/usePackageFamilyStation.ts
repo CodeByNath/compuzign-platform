@@ -30,7 +30,15 @@ export function usePackageFamilyStation(
   const [creating, setCreating] = useState(false);
   const createInFlight = useRef<Promise<PackageFamilyItem> | null>(null);
 
-  useEffect(() => setFamily(seed), [seed]);
+  useEffect(() => {
+    setFamily((current) => {
+      // The host intentionally keeps resolving recordId "new" to the local
+      // seed for this mounted session. Once Overview Save has installed the
+      // authoritative returned identity, a host refresh must not rewind it.
+      if (current.group_id !== '' && seed.group_id === '') return current;
+      return seed;
+    });
+  }, [seed]);
 
   const overviewState = useMemo(() => evaluateModule(
     packageFamilyOverviewModule,
