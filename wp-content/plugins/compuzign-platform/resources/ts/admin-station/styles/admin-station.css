@@ -2684,11 +2684,92 @@ button.cz-station-status-pill {
 /* Details, Connections and Settings rows are the station list system above; this
    deck declares no list surface of its own. What follows is cell content only. */
 
-/* Connections — one selected category card exposes one focused content panel. */
+/* Connections — one continuous browser: the toolbar above, three ordered
+   accordion sections below. */
 .cz-tier-deck__connections {
   display: flex;
   flex-direction: column;
   gap: var(--station-card-gap);
+}
+
+.cz-tier-deck__accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cz-tier-deck__accordion-section {
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+  overflow: hidden;
+}
+
+.cz-tier-deck__accordion-heading {
+  margin: 0;
+}
+
+.cz-tier-deck__accordion-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: var(--station-card-pad);
+  border: none;
+  background: transparent;
+  color: var(--station-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.cz-tier-deck__accordion-trigger:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-tier-deck__accordion-trigger:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: -2px;
+}
+
+.cz-tier-deck__accordion-trigger .cz-tier-deck__lane-title {
+  flex: 1 1 auto;
+}
+
+.cz-tier-deck__accordion-chevron {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--station-text-muted);
+  transform: rotate(-90deg);
+  transition: transform 140ms ease;
+}
+
+.cz-tier-deck__accordion-chevron > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cz-tier-deck__accordion-trigger[aria-expanded='true'] .cz-tier-deck__accordion-chevron {
+  color: var(--station-accent-fg);
+  transform: rotate(0);
+}
+
+.cz-tier-deck__accordion-count {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+}
+
+.cz-tier-deck__accordion-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  padding: 0 var(--station-card-pad) var(--station-card-pad);
 }
 
 .cz-tier-deck__selector-grid {

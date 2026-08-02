@@ -6,10 +6,11 @@
 //
 //   Details      — the Tier's inclusion rows: Service-owned identity/category and
 //                  Rate Sheet-derived pricing, filterable by search/category/status.
-//   Connections  — what the focused Tier is connected TO, through compact
-//                  Stations/Tools selectors and nested tabs. Each row reports
-//                  its stored identity and opens the drawer that owns that
-//                  record, never the Tier drawer.
+//   Connections  — what the focused Tier is connected TO, as one continuous
+//                  browser: a search/browse/status filter bar above three
+//                  ordered accordion sections (Family Group, Groups, Rate
+//                  Sheet). Each row reports its stored identity and opens the
+//                  drawer that owns that record, never the Tier drawer.
 //   Settings     — the WHOLE focus the Package Family Group leads, in those same
 //                  Stations/Tools categories, plus the Package Manager
 //                  launchers. Mutation remains in each owning drawer.

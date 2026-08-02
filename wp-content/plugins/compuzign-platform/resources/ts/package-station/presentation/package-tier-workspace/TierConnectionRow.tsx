@@ -33,7 +33,7 @@ const CONNECTION_STATUS_TOKEN: Record<string, string> = {
   'pending-full': 'pending',
 };
 
-function connectionStatus(status: string): { label: string; token: string } {
+export function connectionStatus(status: string): { label: string; token: string } {
   return {
     label: status.replace(/-/g, ' ').replace(/^./, (first) => first.toUpperCase()),
     token: CONNECTION_STATUS_TOKEN[status] ?? 'pending',

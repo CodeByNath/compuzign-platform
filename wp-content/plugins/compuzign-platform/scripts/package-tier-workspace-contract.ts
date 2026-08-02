@@ -1119,9 +1119,9 @@ check(
 );
 
 check(
-  lowerDeckSource.includes('<TierTabSet') && connectionsSource.includes('variant="selectors"')
-    && connectionsSource.includes('variant="nested"'),
-  'one workspace tab contract renders the deck lanes, compact selectors, and nested connection tabs',
+  lowerDeckSource.includes('<TierTabSet') && settingsSource.includes('variant="selectors"')
+    && settingsSource.includes('variant="nested"'),
+  'one workspace tab contract renders the deck lanes and the Settings compact selectors and nested tabs',
 );
 check(
   tabSetSource.includes('<StationTabSet')
@@ -1158,8 +1158,8 @@ check(
 );
 check(
   connectionsSource.includes('navigation: ConnectionNavigationCategory[]')
-    && connectionsSource.includes('tab.rows.length === 0')
-    && connectionsSource.includes('{tab.emptyState}')
+    && connectionsSource.includes('section.rows.length === 0')
+    && connectionsSource.includes('{section.emptyState}')
     && connectionRowSource.includes('row.target'),
   'Connections renders the typed projection rows and honest empty state, then dispatches the canonical target',
 );
@@ -1170,6 +1170,61 @@ check(
     && !connectionsSource.includes('groups: DeckRateSheetGroupConnection')
     && !connectionsSource.includes('rateSheet: DeckRateSheetConnection'),
   'Connections owns no domain derivation, raw domain collections, or placeholder entity rows',
+);
+
+// ── Connections: one continuous browser, not the retired card/tab layer ────────
+// The Stations/Tools selector cards and their nested Family Groups/Groups/Rate
+// Sheets tabs are gone from Connections: it renders the same rows through one
+// filter bar and three ordered accordion sections instead. The authoritative
+// projection still supplies every row — flattenConnectionSections only reshapes
+// the existing category/tab arrays it already returns.
+check(
+  connectionsSource.includes('flattenConnectionSections(navigation)')
+    && !connectionsSource.includes('<TierTabSet')
+    && !connectionsSource.includes('variant="selectors"')
+    && !connectionsSource.includes('variant="nested"')
+    && !connectionsSource.includes('cz-tier-deck__selector')
+    && !connectionsSource.includes('AppsIcon')
+    && !connectionsSource.includes('PackagesIcon'),
+  'Connections renders one continuous browser through the flattened three-section projection, never the retired Stations/Tools selector-card and nested-tab layer',
+);
+check(
+  connectionNavigationSource.includes("export type ConnectionSectionId = 'family-group' | 'groups' | 'rate-sheet'")
+    && connectionNavigationSource.includes('export function flattenConnectionSections')
+    && connectionNavigationSource.indexOf("id: 'family-group'") < connectionNavigationSource.indexOf("id: 'groups'")
+    && connectionNavigationSource.indexOf("id: 'groups'") < connectionNavigationSource.indexOf("id: 'rate-sheet'"),
+  'the flattened three sections are exposed by the authoritative connection projection, always in the fixed Family Group, Groups, Rate Sheet order',
+);
+check(
+  connectionsSource.includes("'family-group': true")
+    && /groups:\s*false/.test(connectionsSource)
+    && /'rate-sheet':\s*false/.test(connectionsSource),
+  'Family Group starts open and Groups/Rate Sheet start collapsed',
+);
+check(
+  connectionsSource.includes('placeholder="Search connections…"')
+    && connectionsSource.includes('aria-label="Search connections"')
+    && connectionsSource.includes("label: 'All connections'")
+    && connectionsSource.includes("label: 'Family Group'")
+    && connectionsSource.includes("label: 'Groups'")
+    && connectionsSource.includes("label: 'Rate Sheet'")
+    && connectionsSource.includes('aria-label="Filter by status"'),
+  'the filter bar offers Search connections…, the Browse options in the required order, and a Status filter',
+);
+check(
+  connectionsSource.includes('connectionStatus(row.status).label')
+    && connectionRowSource.includes('export function connectionStatus'),
+  'the Status dropdown is populated from the statuses present in the projected rows, reusing the one status label formatter rather than a second inventory',
+);
+check(
+  connectionsSource.includes('aria-expanded={isOpen}')
+    && connectionsSource.includes('aria-controls={panelId}')
+    && connectionsSource.includes('id={panelId}'),
+  'each accordion header is a real button with aria-expanded/aria-controls addressing a stable panel id',
+);
+check(
+  connectionsSource.includes('No connections match the current filters.'),
+  'a section with source rows but no filter matches shows the local filtered-empty message, distinct from the authoritative source empty state it replaces only when filters exclude every row',
 );
 check(
   connectionRowSource.includes('StationSplitAction')
@@ -1239,8 +1294,8 @@ check(
 );
 check(
   lowerDeckSource.includes('<TierSystemSettings\n              key={connectionScopeKey}')
-    && connectionsSource.includes('<h4 class="cz-tier-deck__lane-title">{tab.title}</h4>'),
-  'Settings resets on the same exact context and nested connection panels preserve the lower-deck heading outline',
+    && connectionsSource.includes('<span class="cz-tier-deck__lane-title">{section.label}</span>'),
+  'Settings resets on the same exact context and each Connections accordion section preserves the lower-deck heading outline',
 );
 check(
   workspaceSource.includes("target.kind === 'package-family'")

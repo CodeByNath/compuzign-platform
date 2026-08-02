@@ -74,6 +74,34 @@ export interface ConnectionNavigationCategory {
   tabs:        ConnectionNavigationTab[];
 }
 
+// The Connections lane's flat presentation of the same three tabs, in the
+// fixed Family Group / Groups / Rate Sheet order the lower-deck browser
+// renders. It reshapes the existing category/tab projection into one ordered
+// list; it derives no relationship, row, status or target of its own.
+export type ConnectionSectionId = 'family-group' | 'groups' | 'rate-sheet';
+
+export interface ConnectionSection {
+  id:         ConnectionSectionId;
+  label:      string;
+  rows:       ConnectionRow[];
+  emptyState: string;
+}
+
+export function flattenConnectionSections(
+  categories: ConnectionNavigationCategory[],
+): ConnectionSection[] {
+  const stations = categories.find((category) => category.id === 'stations');
+  const tools = categories.find((category) => category.id === 'tools');
+  const familyTab    = stations?.tabs.find((tab) => tab.id === 'family-groups');
+  const groupsTab     = stations?.tabs.find((tab) => tab.id === 'groups');
+  const rateSheetTab = tools?.tabs.find((tab) => tab.id === 'rate-sheets');
+  return [
+    { id: 'family-group', label: 'Family Group', rows: familyTab?.rows ?? [],    emptyState: familyTab?.emptyState ?? '' },
+    { id: 'groups',       label: 'Groups',       rows: groupsTab?.rows ?? [],     emptyState: groupsTab?.emptyState ?? '' },
+    { id: 'rate-sheet',   label: 'Rate Sheet',   rows: rateSheetTab?.rows ?? [], emptyState: rateSheetTab?.emptyState ?? '' },
+  ];
+}
+
 export interface ConnectionNavigationInput {
   family: WorkspaceFamilyScope | null;
   groups: readonly DeckRateSheetGroupConnection[];
