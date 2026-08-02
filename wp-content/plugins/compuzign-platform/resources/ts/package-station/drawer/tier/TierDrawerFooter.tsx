@@ -8,7 +8,6 @@ import { SupportedActionFooter, type SupportedFooterAction } from '@/drawer-kit/
 
 interface TierDrawerFooterProps {
   mode: 'close-only' | 'none' | 'tier-actions';
-  occupied: boolean;
   enabled: boolean;
   hasContent: boolean;
   // Whether this persisted occupant has ever been settled/activated by a
@@ -26,7 +25,7 @@ interface TierDrawerFooterProps {
 }
 
 export function TierDrawerFooter({
-  mode, occupied, enabled, hasContent, hasBeenPublished, saving, splitOpen, setSplitOpen,
+  mode, enabled, hasContent, hasBeenPublished, saving, splitOpen, setSplitOpen,
   onToggleEnabled, onArchive, onPublish, onClose,
 }: TierDrawerFooterProps) {
   if (mode === 'none') return null;
@@ -38,17 +37,17 @@ export function TierDrawerFooter({
   }
 
   // mode === 'tier-actions'
+  const statusLabel = !hasBeenPublished ? 'Move to Trash' : enabled ? 'Disable' : 'Enable';
   const actions: SupportedFooterAction[] = [
-    ...(occupied ? [{
-      id: 'status', label: enabled ? 'Disable' : 'Enable', placement: 'split' as const,
-      onSelect: onToggleEnabled, busy: saving, tone: enabled ? 'danger' as const : 'secondary' as const,
+    {
+      id: 'status', label: statusLabel, placement: 'split' as const,
+      onSelect: hasBeenPublished ? onToggleEnabled : onArchive,
+      busy: saving, tone: statusLabel === 'Enable' ? 'secondary' as const : 'danger' as const,
       open: splitOpen, onToggle: () => setSplitOpen((value) => !value),
-      overflow: [
-        hasBeenPublished
-          ? { id: 'archive', label: 'Archive', onSelect: onArchive, disabled: saving }
-          : { id: 'trash', label: 'Move to Trash', onSelect: onArchive, disabled: saving },
-      ],
-    }] : []),
+      overflow: hasBeenPublished
+        ? [{ id: 'archive', label: 'Archive', onSelect: onArchive, disabled: saving }]
+        : [],
+    },
     { id: 'close', label: 'Close', placement: 'close', onSelect: onClose, disabled: saving },
     { id: 'publish', label: 'Publish', placement: 'primary', onSelect: onPublish,
       disabled: saving || !hasContent, busy: saving, busyLabel: 'Saving…' },

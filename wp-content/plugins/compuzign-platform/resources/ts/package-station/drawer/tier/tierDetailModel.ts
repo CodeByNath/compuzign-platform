@@ -37,13 +37,9 @@ export interface TierFooterModel {
   footerMode:          'close-only' | 'none' | 'tier-actions';
   footerEnabled:       boolean;
   footerHasContent:    boolean;
-  footerOccupied:      boolean;
   // Whether this persisted occupant has ever been settled/activated by a real
-  // Publish — distinct from footerOccupied (which is true the moment first
-  // Save mints current_occupant). Drives the overflow lifecycle-removal
-  // action's label: a never-published occupant has nothing settled worth
-  // preserving, so it offers Move to Trash; a previously-published one keeps
-  // the existing Archive action.
+  // Publish. Drives the mature lifecycle split: never-published offers Move
+  // to Trash; explicitly disabled offers Enable; otherwise Disable.
   footerHasBeenPublished: boolean;
 }
 
@@ -60,12 +56,6 @@ export function buildTierFooterModel(
   // still offers Disable, and after Enable the footer offers Disable again.
   const footerEnabled = footerView ? !footerView.detail.is_explicitly_disabled : false;
   const footerHasContent = !!footerView && Object.values(footerView.moduleStatus).some((s) => s !== 'not-configured');
-  // The authoritative persisted-occupant fact — current_occupant/occupant_id
-  // — not slotOccupied's settled-content-completeness heuristic (that stays
-  // in use for bin swap/target conflict checks in TierBinList, unchanged).
-  // A first-Save pending occupant is a real, persisted, addressable record
-  // with empty settled fields; it must not read as unoccupied.
-  const footerOccupied = !!footerView?.detail.occupant_id;
   const footerHasBeenPublished = !!footerView && (
     footerView.detail.enabled || footerView.moduleStatus.overview === 'settled'
   );
@@ -74,7 +64,7 @@ export function buildTierFooterModel(
     : editingSection != null ? 'none'
     : !editingTierId ? 'close-only'
     : 'tier-actions';
-  return { footerMode, footerEnabled, footerHasContent, footerOccupied, footerHasBeenPublished };
+  return { footerMode, footerEnabled, footerHasContent, footerHasBeenPublished };
 }
 
 export interface TierDetailHandlers {

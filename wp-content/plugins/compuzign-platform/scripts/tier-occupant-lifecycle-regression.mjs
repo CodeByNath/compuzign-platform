@@ -445,7 +445,7 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   let footerDom = renderFooterDom();
   const publishBtnBefore = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
   check('Publish is disabled before any content exists', publishBtnBefore?.disabled === true);
-  check('no Enable/Disable split renders for an unoccupied shell', footerDom.querySelector('.cz-footer-split__btn') == null);
+  check('tier-actions always renders the mature lifecycle split', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Move to Trash');
 
   console.log('\n2) First Overview Save — mints a pending occupant, settles nothing, assigns no identity');
   const overviewEditBtn = editButtonFor('Tier Overview');
@@ -478,26 +478,7 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   footerDom = renderFooterDom();
   const publishBtnAfter = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
   check('Publish is now enabled — the created occupant carries pending content', publishBtnAfter?.disabled === false);
-  check(
-    'Disable is immediately available on a persisted-but-never-published occupant',
-    footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable',
-    footerDom.querySelector('.cz-footer-split__btn')?.textContent,
-  );
-  check('the overflow offers Move to Trash, not Archive, before any Publish', await overflowItemLabel() === 'Move to Trash', await overflowItemLabel());
-
-  console.log('\n3b) Disable → Disabled; Enable and Move to Trash remain available; no Publish occurred');
-  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  await waitToSettle();
-  check('every module pill reads Disabled', allPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Included Features')} faqs=${pillLabel('Common Questions')}`);
-  check('the settle endpoint was never called by Disable', settleCalls === 0, `settleCalls=${settleCalls}`);
-  footerDom = renderFooterDom();
-  check('Enable remains available after Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
-  check('Move to Trash remains available while explicitly Disabled', await overflowItemLabel() === 'Move to Trash', await overflowItemLabel());
-
-  // Re-enable so the rest of this scenario continues from unmasked Pending.
-  footerDom = renderFooterDom();
-  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  await waitToSettle();
+  check('Move to Trash is visible for the persisted never-published occupant', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Move to Trash');
 
   console.log('\n4) Publish — settles the draft, activates the SAME occupant_id, assigns identity');
   await clickPublish();
@@ -508,6 +489,21 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   check('Publish assigns CZT', !!tiers[tierId].settled?.platform_id, tiers[tierId].settled?.platform_id);
   check(`Publish ${isAddon ? 'assigns' : 'never assigns'} CZTA (is_addon=${isAddon})`, !!tiers[tierId].settled?.addon_platform_id === isAddon, tiers[tierId].settled?.addon_platform_id);
   check('still no request was ever made to tier-assignments', tierAssignmentsCalls === 0, `tierAssignmentsCalls=${tierAssignmentsCalls}`);
+
+  console.log('\n5) Published occupant follows Service Disable / Enable policy and retains Archive');
+  footerDom = renderFooterDom();
+  check('Publish changes the split action to Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable');
+  check('the previously-published occupant retains Archive in overflow', await overflowItemLabel() === 'Archive');
+  footerDom = renderFooterDom();
+  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await waitToSettle();
+  check('Disable masks every module', allPillsRead('Disabled'));
+  footerDom = renderFooterDom();
+  check('the explicit mask changes the split action to Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable');
+  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await waitToSettle();
+  footerDom = renderFooterDom();
+  check('Enable returns the split action to Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable');
 }
 
 console.log('Tier occupant lifecycle regression (blueprint acceptance matrix)\n');
