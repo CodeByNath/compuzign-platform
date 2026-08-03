@@ -1,18 +1,20 @@
-// Package Home Settings — compact category and section navigation.
+// Package Home Settings — per-record-type accordion navigation.
 //
 // Settings is scoped to the WHOLE focus the Package Family Group leads, not to
 // one Tier slot inside it: the Connections lane beside it already reads that
-// narrower Tier scope. Both lanes name the same two categories, Stations and
-// Tools, so the focused Package reports its connected Family Group and the Rate
-// Sheet access its Tier system grants under the same headings.
+// narrower Tier scope. Four ordered sections, one per Package-owned record
+// type — Family Groups, Tier Groups, Groups, Rate Sheets — each showing what
+// this focus is connected to (or configures) for that type, plus its pool
+// creation launcher where one exists. A Rate Sheet Group has no pool of its
+// own (it lives inside `rate_sheets[].groups[]`), so Groups reports only the
+// existing pool count, never a fabricated creation entry.
 //
 // It presents no Tier slot inventory: the engine above already lists every fixed
 // slot with the same occupant/slot drawer dispatch, so a second listing here
 // would restate that surface rather than add one.
 //
-// Package Manager remains a launcher, in those same two categories: Station
-// records (Family, Tier system) and Tool records (Rate Sheet). It holds no
-// record draft, validation, endpoint, or save and pre-selects no relationship.
+// Package Manager launches remain launchers: they hold no record draft,
+// validation, endpoint, or save and pre-select no relationship.
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
@@ -29,8 +31,8 @@ import { ConnectedStationsSummary, RateSheetAccessSummary } from './FocusedTierS
 import { TierAccordionSection } from './TierAccordionSection';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
-type SettingsGroupId = 'focused-package' | 'package-manager';
-type SettingsSectionId = 'focused-stations' | 'focused-tools' | 'pool-stations' | 'pool-tools';
+type SettingsGroupId = 'family-groups' | 'tier-groups' | 'groups' | 'rate-sheets';
+type SettingsSectionId = 'connected' | 'pool';
 
 interface Props {
   tool: TierInstancesToolState;
@@ -100,26 +102,44 @@ export function TierSystemSettings({
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     return [
       {
-        id: 'focused-package',
-        title: 'Focused Package',
-        note: 'The whole focus this Package Family Group leads. One Tier slot\'s own connections stay in Connections above; Family assignment and slot configuration each remain in the drawer that owns them.',
-        summary: [
-          familyRows[0]?.name ?? 'No Family Group',
-          currentRecord ? access?.summary ?? 'Access unavailable' : 'No Tier system',
-        ].join(' · '),
+        id: 'family-groups',
+        title: 'Family Groups',
+        note: 'The Package Family this focus is connected to, and the pool it comes from. Assignment itself remains in the drawer that owns it.',
+        summary: `${familyRows[0]?.name ?? 'No Family Group'} · ${tool.families.length} in pool`,
         sections: [
           {
-            id: 'focused-stations',
-            title: 'Stations',
-            description: 'Package Station records this focus is connected to.',
+            id: 'connected',
+            title: 'Connected',
+            description: 'The Package Family this focus is connected to.',
             leaf: 'Connected Family Group',
             content: (
               <ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />
             ),
           },
           {
-            id: 'focused-tools',
-            title: 'Tools',
+            id: 'pool',
+            title: 'Pool',
+            description: `The Package Family pool · ${tool.families.length} in pool.`,
+            leaf: 'Create a Family',
+            content: (
+              <PoolLauncher
+                label="Create Family"
+                note="Opens the readable Package Family creation module. Its drawer owns the fields and save; the new Family starts with no Services or Tier system."
+                onLaunch={() => onPoolIntent('family')}
+              />
+            ),
+          },
+        ],
+      },
+      {
+        id: 'tier-groups',
+        title: 'Tier Groups',
+        note: 'The focused Tier system\'s Rate Sheet access, and the Tier system pool it comes from. Slot configuration remains in the drawer that owns it.',
+        summary: `${currentRecord ? access?.summary ?? 'Access unavailable' : 'No Tier system'} · ${tool.instances.length} in pool`,
+        sections: [
+          {
+            id: 'connected',
+            title: 'Connected',
             description: 'Which Rate Sheets this Tier system may make available to its Tier slots.',
             leaf: 'Rate Sheet Access',
             content: (
@@ -132,39 +152,51 @@ export function TierSystemSettings({
               />
             ),
           },
+          {
+            id: 'pool',
+            title: 'Pool',
+            description: `The Tier system pool · ${tool.instances.length} in pool.`,
+            leaf: 'Create a Tier',
+            content: (
+              <PoolLauncher
+                label="Create Tier"
+                note="Opens the readable Tier registration module. Its drawer owns registration; no Family or slot is pre-selected here."
+                onLaunch={() => onPoolIntent('tier')}
+              />
+            ),
+          },
         ],
       },
       {
-        id: 'package-manager',
-        title: 'Package Manager',
-        note: 'Opens each pool record in the drawer that owns it. Creation assigns, grants, and connects nothing.',
-        summary: `${tool.families.length} Families · ${tool.instances.length} Tiers · ${rateSheets.length} Rate Sheets`,
+        id: 'groups',
+        title: 'Groups',
+        note: 'Rate Sheet groups stored inside the Rate Sheet pool. A group lives inside its parent sheet, so it has no independent pool or creation of its own — Edit owns New Group inside the sheet\'s own group tool.',
+        summary: `${groupCount} ${groupCount === 1 ? 'group' : 'groups'}`,
         sections: [
           {
-            id: 'pool-stations',
-            title: 'Stations',
-            description: `The Package Family and Tier system pools · ${tool.families.length} Families · ${tool.instances.length} Tiers.`,
-            leaf: 'Create a Station record',
+            id: 'pool',
+            title: 'Pool',
+            description: 'Groups stored across every Rate Sheet in the pool.',
+            leaf: 'Rate Sheet Groups',
             content: (
-              <div class="cz-tier-settings__launchers">
-                <PoolLauncher
-                  label="Create Family"
-                  note="Opens the readable Package Family creation module. Its drawer owns the fields and save; the new Family starts with no Services or Tier system."
-                  onLaunch={() => onPoolIntent('family')}
-                />
-                <PoolLauncher
-                  label="Create Tier"
-                  note="Opens the readable Tier registration module. Its drawer owns registration; no Family or slot is pre-selected here."
-                  onLaunch={() => onPoolIntent('tier')}
-                />
-              </div>
+              <p class="cz-tier-settings__muted">
+                {groupCount} {groupCount === 1 ? 'group' : 'groups'} stored across {rateSheets.length} {rateSheets.length === 1 ? 'Rate Sheet' : 'Rate Sheets'} in the pool.
+              </p>
             ),
           },
+        ],
+      },
+      {
+        id: 'rate-sheets',
+        title: 'Rate Sheets',
+        note: 'The Rate Sheet pool. Editing a sheet\'s rows and groups remains in the drawer that owns it.',
+        summary: `${rateSheets.length} in pool`,
+        sections: [
           {
-            id: 'pool-tools',
-            title: 'Tools',
-            description: `The Rate Sheet pool and the groups stored inside each sheet · ${rateSheets.length} in pool · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}.`,
-            leaf: 'Create a Tool record',
+            id: 'pool',
+            title: 'Pool',
+            description: `The Rate Sheet pool · ${rateSheets.length} in pool.`,
+            leaf: 'Create a Rate Sheet',
             content: (
               <PoolLauncher
                 label="Create Rate Sheet"
@@ -179,8 +211,10 @@ export function TierSystemSettings({
   }, [access, currentRecord, error, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheets, tool.families.length, tool.instances.length]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
-    'focused-package': true,
-    'package-manager': false,
+    'family-groups': true,
+    'tier-groups':   false,
+    'groups':        false,
+    'rate-sheets':   false,
   });
 
   return (

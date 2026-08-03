@@ -614,9 +614,11 @@ check(
   'the retired parallel Settings navigation and disclosure implementations are deleted',
 );
 check(
-  settingsSource.includes("'focused-package': true")
-    && settingsSource.includes("'package-manager': false"),
-  'Focused Package starts open and Package Manager starts collapsed, matching Connections\' primary-section-open convention',
+  settingsSource.includes("'family-groups': true")
+    && settingsSource.includes("'tier-groups':   false")
+    && settingsSource.includes("'groups':        false")
+    && settingsSource.includes("'rate-sheets':   false"),
+  'Family Groups starts open and Tier Groups/Groups/Rate Sheets start collapsed, matching Connections\' primary-section-open convention',
 );
 check(
   settingsSource.includes('group.sections.map((section) =>')
@@ -629,24 +631,39 @@ check(
   'the selected Settings leaf enters the lower deck outline at the correct heading rank',
 );
 
-// The required hierarchy. The focused category is the WHOLE focus the Package
-// Family Group leads — not one Tier slot inside it — and it reports that focus
-// in the same two categories Connections uses: the Stations it is connected to,
-// and the Tools it may use. Exactly two sections, and the fixed Tier slots stay
-// the engine's listing, which Settings does not restate beside it.
-const focusedGroup = settingsSource.slice(
-  settingsSource.indexOf("id: 'focused-package'"),
-  settingsSource.indexOf("id: 'package-manager'"),
-);
-const focusedTitles = [...focusedGroup.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+// The required hierarchy: one ordered accordion group per Package-owned record
+// type — Family Groups, Tier Groups, Groups, Rate Sheets — not the Stations/
+// Tools axis Connections uses. The fixed Tier slots stay the engine's listing,
+// which Settings does not restate beside it.
 check(
-  focusedTitles.join(',') === 'Focused Package,Stations,Tools',
-  'the focused category is package-focused and holds exactly the Stations and Tools sections',
+  settingsSource.indexOf("id: 'family-groups'") < settingsSource.indexOf("id: 'tier-groups'")
+    && settingsSource.indexOf("id: 'tier-groups'") < settingsSource.indexOf("id: 'groups'")
+    && settingsSource.indexOf("id: 'groups'") < settingsSource.indexOf("id: 'rate-sheets'"),
+  'Settings presents its four groups in the required order: Family Groups, Tier Groups, Groups, Rate Sheets',
 );
-const focusedLeaves = [...focusedGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
+const familyGroupsBlock = settingsSource.slice(
+  settingsSource.indexOf("id: 'family-groups'"),
+  settingsSource.indexOf("id: 'tier-groups'"),
+);
+const tierGroupsBlock = settingsSource.slice(
+  settingsSource.indexOf("id: 'tier-groups'"),
+  settingsSource.indexOf("id: 'groups'"),
+);
+const rateSheetGroupsBlock = settingsSource.slice(
+  settingsSource.indexOf("id: 'groups'"),
+  settingsSource.indexOf("id: 'rate-sheets'"),
+);
+const rateSheetsBlock = settingsSource.slice(settingsSource.indexOf("id: 'rate-sheets'"));
+
+const familyGroupsTitles = [...familyGroupsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
-  focusedLeaves.join(',') === 'Connected Family Group,Rate Sheet Access',
-  'the focused category holds exactly the connected Family Group and the whole-system access section',
+  familyGroupsTitles.join(',') === 'Family Groups,Connected,Pool',
+  'Family Groups holds exactly its Connected and Pool sections',
+);
+const familyGroupsLeaves = [...familyGroupsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
+check(
+  familyGroupsLeaves.join(',') === 'Connected Family Group,Create a Family',
+  'Family Groups reports the connected Family Group and its pool creation',
 );
 // The connected Family Group is the workspace's ONE connection projection, and
 // it travels the existing connection dispatcher into the drawer that owns the
@@ -654,8 +671,9 @@ check(
 check(
   settingsSource.includes("import { projectFamilyConnectionRows } from '../../surface/packageTierWorkspace/connectionNavigation'")
     && settingsSource.includes('projectFamilyConnectionRows(family)')
-    && focusedGroup.includes('<ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />'),
-  'Settings reports the connected Family Group from the shared projection through the shared connection dispatcher',
+    && familyGroupsBlock.includes('<ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />')
+    && familyGroupsBlock.includes("onPoolIntent('family')"),
+  'Family Groups reports the connected Family Group from the shared projection through the shared connection dispatcher, and launches the Family pool creation',
 );
 const connectionNavigationSource = readFileSync(resolve(
   root,
@@ -666,6 +684,52 @@ check(
     && connectionNavigationSource.includes('const familyRows = projectFamilyConnectionRows(family)'),
   'one derivation builds the connected Family row for both the Tier and the whole-focus scope',
 );
+
+const tierGroupsTitles = [...tierGroupsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+check(
+  tierGroupsTitles.join(',') === 'Tier Groups,Connected,Pool',
+  'Tier Groups holds exactly its Connected and Pool sections',
+);
+const tierGroupsLeaves = [...tierGroupsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
+check(
+  tierGroupsLeaves.join(',') === 'Rate Sheet Access,Create a Tier',
+  'Tier Groups reports the Tier system\'s Rate Sheet access and its pool creation',
+);
+check(
+  tierGroupsBlock.includes('onView={onInstanceIntent}')
+    && tierGroupsBlock.includes("onPoolIntent('tier')"),
+  'Tier Groups reports Rate Sheet Access as read-only View and launches the Tier pool creation',
+);
+
+// Groups is read-only: a Rate Sheet Group lives inside `rate_sheets[].groups[]`,
+// so it has no pool, address, or creation apart from the sheet holding it — the
+// same design invariant Package Manager previously encoded by omitting it.
+const rateSheetGroupsTitles = [...rateSheetGroupsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+check(
+  rateSheetGroupsTitles.join(',') === 'Groups,Pool',
+  'Groups holds exactly its read-only Pool section, with no Connected section — nothing is connected to a Rate Sheet Group at whole-focus scope',
+);
+check(
+  !rateSheetGroupsBlock.includes('onPoolIntent(')
+    && !rateSheetGroupsBlock.includes('PoolLauncher'),
+  'Groups offers no creation launcher of its own',
+);
+
+const rateSheetsTitles = [...rateSheetsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+check(
+  rateSheetsTitles.join(',') === 'Rate Sheets,Pool',
+  'Rate Sheets holds exactly its Pool section',
+);
+const rateSheetsLeaves = [...rateSheetsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
+check(
+  rateSheetsLeaves.join(',') === 'Create a Rate Sheet',
+  'Rate Sheets names the record kind its Pool section creates',
+);
+check(
+  rateSheetsBlock.includes("onPoolIntent('rate-sheet')"),
+  'Rate Sheets launches the Rate Sheet pool creation',
+);
+
 // The engine above lists every fixed slot and dispatches the occupant and slot
 // drawer routes. A second slot listing in Settings addressed the SAME focused
 // instance through the SAME routes, so removing it removed a duplicate view and
@@ -686,51 +750,21 @@ for (const retired of [
   );
 }
 
-// ── Package Manager launches; it does not create ──────────────────────────────
-// Package Manager offers the same two categories as the focus above it —
-// Stations and Tools — and inside them the three pool creations, each a launcher
-// into the drawer that owns the record rather than a form. Groups is absent by
-// design: a group is stored inside `rate_sheets[].groups[]`, so it has no pool
-// and no address apart from the sheet holding it, and the Rate Sheet drawer
-// already authors it. A fourth creation could only re-open that same drawer.
-const managerGroup = settingsSource.slice(settingsSource.indexOf("id: 'package-manager'"));
-const managerTitles = [...managerGroup.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+// ── Pool launches; Settings does not create ────────────────────────────────────
+// Exactly the three pool creations, each a launcher into the drawer that owns
+// the record rather than a form, and no fourth: a group is stored inside
+// `rate_sheets[].groups[]`, so it has no pool and no address apart from the
+// sheet holding it, and the Rate Sheet drawer already authors it.
+const settingsLaunchers = [...settingsSource.matchAll(/label="(Create [^"]+)"/g)].map((match) => match[1]);
 check(
-  managerTitles.join(',') === 'Package Manager,Stations,Tools',
-  'Package Manager holds exactly the Stations and Tools sections',
+  settingsLaunchers.join(',') === 'Create Family,Create Tier,Create Rate Sheet',
+  'Settings offers exactly the three pool creations, in the required order, and no fourth',
 );
-const managerLeaves = [...managerGroup.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
+const settingsPoolIntents = [...settingsSource.matchAll(/onPoolIntent\('([^']+)'\)/g)].map((match) => match[1]);
 check(
-  managerLeaves.join(',') === 'Create a Station record,Create a Tool record',
-  'each Package Manager section names the record kind it creates',
-);
-const managerLaunchers = [...managerGroup.matchAll(/label="(Create [^"]+)"/g)].map((match) => match[1]);
-check(
-  managerLaunchers.join(',') === 'Create Family,Create Tier,Create Rate Sheet',
-  'Package Manager offers exactly the three pool creations, in the required order',
-);
-check(
-  settingsSource.indexOf("id: 'focused-package'") < settingsSource.indexOf("id: 'package-manager'"),
-  'Settings presents the focused Package before Package Manager',
-);
-const poolIntents = [...managerGroup.matchAll(/onPoolIntent\('([^']+)'\)/g)].map((match) => match[1]);
-check(
-  poolIntents.join(',') === 'family,tier,rate-sheet',
+  settingsPoolIntents.join(',') === 'family,tier,rate-sheet',
   'every pool subject launches a drawer rather than rendering a creation form, and no fourth subject exists',
 );
-// Two categories per selector, at both levels, is the shape itself: the deck
-// selector renders whatever `sections` declares, so counting them here is what
-// keeps a third tab from growing back beside them.
-for (const [name, group] of [
-  ['the focused Package', focusedGroup],
-  ['Package Manager', managerGroup],
-] as const) {
-  const sectionTitles = [...group.matchAll(/title: '([^']+)'/g)].map((match) => match[1]).slice(1);
-  check(
-    sectionTitles.join(',') === 'Stations,Tools',
-    `${name} presents exactly the two Stations and Tools sections`,
-  );
-}
 
 // The Settings lane holds no mutation authority of its own. It dispatches a
 // subject or exact instance identity and owns no endpoint, draft, save, or form.
