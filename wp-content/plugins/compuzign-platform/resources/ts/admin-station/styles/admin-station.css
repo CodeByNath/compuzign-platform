@@ -2906,6 +2906,14 @@ button.cz-station-status-pill {
   width: 100%;
 }
 
+/* The field system's select sizes to a form column by default; here it sits
+   beside a button in a right-aligned row, so it sizes to its own content
+   instead of forcing the row onto two lines. */
+.cz-tier-settings__toolbar .cz-tf-select {
+  width: auto;
+  max-width: fit-content;
+}
+
 /* Each open group contributes one full-width settings leaf. */
 .cz-tier-settings__leaf {
   display: flex;
@@ -2944,20 +2952,8 @@ button.cz-station-status-pill {
 /* A Settings row is a deck row with one summary field: identity, that field, the
    record's state, and its actions. The five-column connection row still serves
    the slot list, which carries two. */
-.cz-tier-settings__leaf .cz-station-list,
-.cz-tier-settings__leaf .cz-tier-settings__launcher {
+.cz-tier-settings__leaf .cz-station-list {
   width: 100%;
-}
-
-/* A launcher is one sentence and one button. It deliberately does not look like
-   a form: there is nothing here to fill in, because the drawer it opens owns
-   every field, the validation and the save. */
-.cz-tier-settings__launcher {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  max-width: 62ch;
 }
 
 /* ── Rate Sheet authoring tool ───────────────────────────────────────────── */

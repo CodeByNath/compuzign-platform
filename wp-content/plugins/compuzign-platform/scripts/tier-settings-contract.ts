@@ -74,7 +74,7 @@ check(
     && !settingsSource.includes('variant="selectors"')
     && !settingsSource.includes('variant="nested"')
     && !settingsSource.includes('TierTabSet'),
-  'Settings renders its two groups through the shared accordion section and owns no selector-card/nested-tab state of its own',
+  'Settings renders its groups through the shared accordion section and owns no selector-card/nested-tab state of its own',
 );
 check(
   !existsSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/TierSettingsNav.tsx'))
@@ -84,9 +84,9 @@ check(
 check(
   settingsSource.includes("'family-groups': true")
     && settingsSource.includes("'tier-groups':   false")
-    && settingsSource.includes("'groups':        false")
-    && settingsSource.includes("'rate-sheets':   false"),
-  'Family Groups starts open and Tier Groups/Groups/Rate Sheets start collapsed, matching Connections\' primary-section-open convention',
+    && settingsSource.includes("'rate-sheets':   false")
+    && !settingsSource.includes("'groups':"),
+  'Family Groups starts open and Tier Groups/Rate Sheets start collapsed, matching Connections\' primary-section-open convention; Groups no longer exists as its own accordion entry',
 );
 check(
   settingsSource.includes('group.sections.map((section) =>')
@@ -100,14 +100,16 @@ check(
 );
 
 // The required hierarchy: one ordered accordion group per Package-owned record
-// type — Family Groups, Tier Groups, Groups, Rate Sheets — not the Stations/
-// Tools axis Connections uses. The fixed Tier slots stay the engine's listing,
-// which Settings does not restate beside it.
+// type — Family Groups, Tier Groups, Rate Sheets — not the Stations/Tools axis
+// Connections uses. Groups is no longer a fourth top-level section: a Rate
+// Sheet Group has no address apart from the sheet holding it, so its
+// read-only count moved inside Rate Sheets. The fixed Tier slots stay the
+// engine's listing, which Settings does not restate beside it.
 check(
   settingsSource.indexOf("id: 'family-groups'") < settingsSource.indexOf("id: 'tier-groups'")
-    && settingsSource.indexOf("id: 'tier-groups'") < settingsSource.indexOf("id: 'groups'")
-    && settingsSource.indexOf("id: 'groups'") < settingsSource.indexOf("id: 'rate-sheets'"),
-  'Settings presents its four groups in the required order: Family Groups, Tier Groups, Groups, Rate Sheets',
+    && settingsSource.indexOf("id: 'tier-groups'") < settingsSource.indexOf("id: 'rate-sheets'")
+    && !settingsSource.includes("id: 'groups'"),
+  'Settings presents its three groups in the required order: Family Groups, Tier Groups, Rate Sheets — with no separate Groups section',
 );
 const familyGroupsBlock = settingsSource.slice(
   settingsSource.indexOf("id: 'family-groups'"),
@@ -115,10 +117,6 @@ const familyGroupsBlock = settingsSource.slice(
 );
 const tierGroupsBlock = settingsSource.slice(
   settingsSource.indexOf("id: 'tier-groups'"),
-  settingsSource.indexOf("id: 'groups'"),
-);
-const rateSheetGroupsBlock = settingsSource.slice(
-  settingsSource.indexOf("id: 'groups'"),
   settingsSource.indexOf("id: 'rate-sheets'"),
 );
 const rateSheetsBlock = settingsSource.slice(settingsSource.indexOf("id: 'rate-sheets'"));
@@ -157,10 +155,11 @@ check(
 );
 check(
   settingsSource.includes('{group.toolbar}')
-    && !tierGroupsBlock.includes('toolbar:')
-    && !rateSheetGroupsBlock.includes('toolbar:')
-    && !rateSheetsBlock.includes('toolbar:'),
-  'only Family Groups carries a toolbar; Tier Groups, Groups, and Rate Sheets keep their unchanged bottom-of-panel launcher',
+    && familyGroupsBlock.includes('toolbar:')
+    && tierGroupsBlock.includes('toolbar:')
+    && rateSheetsBlock.includes('toolbar:')
+    && !settingsSource.includes('PoolLauncher'),
+  'every one of the three groups carries a top-of-panel toolbar; the retired PoolLauncher leaf is gone entirely',
 );
 // The connected Family Group is the workspace's ONE connection projection, and
 // it travels the existing connection dispatcher into the drawer that owns the
@@ -182,15 +181,31 @@ check(
   'one derivation builds the connected Family row for both the Tier and the whole-focus scope',
 );
 
+// Tier Groups follows Family Groups' exact cleaning: its Connected
+// sub-section carries no kicker, heading, or description above it, and the
+// bottom Pool leaf is gone — its launcher moved into the top toolbar too.
 const tierGroupsTitles = [...tierGroupsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
-  tierGroupsTitles.join(',') === 'Tier Groups,Connected,Pool',
-  'Tier Groups holds exactly its Connected and Pool sections',
+  tierGroupsTitles.join(',') === 'Tier Groups',
+  'Tier Groups holds only its Connected section (heading text removed) — the Pool leaf is retired in favour of the top toolbar',
 );
 const tierGroupsLeaves = [...tierGroupsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
-  tierGroupsLeaves.join(',') === 'Rate Sheet Access,Create a Tier',
-  'Tier Groups reports the Tier system\'s Rate Sheet access and its pool creation',
+  tierGroupsLeaves.length === 0,
+  'Tier Groups carries no leaf heading: Connected is unlabelled and Pool no longer exists as a separate section',
+);
+check(
+  /id: 'connected',\s*title: '',\s*description: '',\s*leaf: '',\s*hideHeading: true,/.test(tierGroupsBlock)
+    && !tierGroupsBlock.includes("note: 'The focused Tier system's Rate Sheet access"),
+  'Tier Groups\' Connected section and group note carry no heading text, only the connected-record content',
+);
+check(
+  tierGroupsBlock.includes("toolbar: (")
+    && tierGroupsBlock.includes("value={tierGroupFilter}")
+    && settingsSource.includes("useState<TierGroupFilter>('focused')")
+    && tierGroupsBlock.includes('+ New Tier Group')
+    && !tierGroupsBlock.includes('<PoolLauncher'),
+  'Tier Groups\' toolbar carries the Focused-default status filter and the renamed + New Tier Group action, not a PoolLauncher leaf',
 );
 check(
   tierGroupsBlock.includes('onView={onInstanceIntent}')
@@ -198,33 +213,39 @@ check(
   'Tier Groups reports Rate Sheet Access as read-only View and launches the Tier pool creation',
 );
 
-// Groups is read-only: a Rate Sheet Group lives inside `rate_sheets[].groups[]`,
-// so it has no pool, address, or creation apart from the sheet holding it — the
-// same design invariant Package Manager previously encoded by omitting it.
-const rateSheetGroupsTitles = [...rateSheetGroupsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
-check(
-  rateSheetGroupsTitles.join(',') === 'Groups,Pool',
-  'Groups holds exactly its read-only Pool section, with no Connected section — nothing is connected to a Rate Sheet Group at whole-focus scope',
-);
-check(
-  !rateSheetGroupsBlock.includes('onPoolIntent(')
-    && !rateSheetGroupsBlock.includes('PoolLauncher'),
-  'Groups offers no creation launcher of its own',
-);
-
+// Rate Sheets follows the same cleaning Family Groups and Tier Groups
+// received, and additionally absorbs Groups: a Rate Sheet Group lives inside
+// `rate_sheets[].groups[]`, so it has no pool, address, or creation apart from
+// the sheet holding it — there is no reason for it to stand as a fourth
+// top-level section, so its read-only count reports directly inside Rate
+// Sheets instead.
 const rateSheetsTitles = [...rateSheetsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
-  rateSheetsTitles.join(',') === 'Rate Sheets,Pool',
-  'Rate Sheets holds exactly its Pool section',
+  rateSheetsTitles.join(',') === 'Rate Sheets',
+  'Rate Sheets holds only its unlabelled group-count section (heading text removed) — the Pool leaf is retired in favour of the top toolbar',
 );
 const rateSheetsLeaves = [...rateSheetsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
-  rateSheetsLeaves.join(',') === 'Create a Rate Sheet',
-  'Rate Sheets names the record kind its Pool section creates',
+  rateSheetsLeaves.length === 0,
+  'Rate Sheets carries no leaf heading: its group count is unlabelled and Pool no longer exists as a separate section',
 );
 check(
-  rateSheetsBlock.includes("onPoolIntent('rate-sheet')"),
-  'Rate Sheets launches the Rate Sheet pool creation',
+  /id: 'pool',\s*title: '',\s*description: '',\s*leaf: '',\s*hideHeading: true,/.test(rateSheetsBlock)
+    && !rateSheetsBlock.includes("note: 'The Rate Sheet pool"),
+  'Rate Sheets\' group-count section and group note carry no heading text, only the read-only group count',
+);
+check(
+  rateSheetsBlock.includes("toolbar: (")
+    && rateSheetsBlock.includes("value={rateSheetFilter}")
+    && settingsSource.includes("useState<RateSheetFilter>('focused')")
+    && rateSheetsBlock.includes('+ New Rate Sheet')
+    && rateSheetsBlock.includes("onPoolIntent('rate-sheet')"),
+  'Rate Sheets\' toolbar carries the Focused-default status filter and the renamed + New Rate Sheet action, not a PoolLauncher leaf',
+);
+check(
+  !rateSheetsBlock.includes('onPoolIntent(\'groups\')')
+    && rateSheetsBlock.includes('groupCount'),
+  'the Rate Sheet Group count moved inside Rate Sheets stays read-only, with no creation launcher of its own',
 );
 
 // The engine above lists every fixed slot and dispatches the occupant and slot
@@ -251,14 +272,16 @@ for (const retired of [
 // the record rather than a form, and no fourth: a group is stored inside
 // `rate_sheets[].groups[]`, so it has no pool and no address apart from the
 // sheet holding it, and the Rate Sheet drawer already authors it.
-// Family's launcher moved into its toolbar and no longer uses PoolLauncher's
-// `label` attribute, so it surfaces through its own literal button text
-// instead of this PoolLauncher-only regex.
+// All three launchers now live in their group's toolbar and no longer use
+// PoolLauncher's `label` attribute (PoolLauncher itself is retired), so they
+// surface through their own literal button text instead of a label regex.
 const settingsLaunchers = [...settingsSource.matchAll(/label="(Create [^"]+)"/g)].map((match) => match[1]);
 check(
-  settingsLaunchers.join(',') === 'Create Tier,Create Rate Sheet'
-    && settingsSource.includes('+ New Family'),
-  'Settings offers exactly the three pool creations, in the required order, and no fourth — Family Groups\' as + New Family, the rest as PoolLauncher',
+  settingsLaunchers.length === 0
+    && settingsSource.includes('+ New Family')
+    && settingsSource.includes('+ New Tier Group')
+    && settingsSource.includes('+ New Rate Sheet'),
+  'Settings offers exactly the three pool creations, in the required order, and no fourth — each as its group\'s own toolbar button, not a PoolLauncher leaf',
 );
 const settingsPoolIntents = [...settingsSource.matchAll(/onPoolIntent\('([^']+)'\)/g)].map((match) => match[1]);
 check(

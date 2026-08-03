@@ -766,7 +766,6 @@
   background-position: right 12px center;
   padding-right: 32px;
   cursor: pointer;
-  max-width: fit-content;
 }
 
 .cz-tf-select--unset {

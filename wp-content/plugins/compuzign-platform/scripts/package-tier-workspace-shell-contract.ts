@@ -75,10 +75,14 @@ check(
   !workspacePresentation.includes('Open Tier tool'),
   'the workspace never offers a no-op Open Tier tool action',
 );
+// Settings' description prose is retired (Tier Groups received the same
+// text-stripping the Family Groups toolbar did), so the whole-system-vs-slot
+// distinction now rests on the row identity and its instance-id reference,
+// not a descriptive sentence.
 check(
-  workspacePresentation.includes('Which Rate Sheets this Tier system may make available to its Tier slots.')
-    && workspacePresentation.includes('Rate Sheet Access'),
-  'Rate Sheet access is described as whole-system availability rather than a slot binding',
+  workspacePresentation.includes('name="Rate Sheet Access"')
+    && workspacePresentation.includes('reference={record.tier_instance_id}'),
+  'Rate Sheet access is identified by the whole Tier instance, never a slot',
 );
 
 // The engine keeps the slot listing this Settings section used to duplicate: it
