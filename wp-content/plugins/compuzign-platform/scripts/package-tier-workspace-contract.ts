@@ -656,22 +656,43 @@ const rateSheetGroupsBlock = settingsSource.slice(
 const rateSheetsBlock = settingsSource.slice(settingsSource.indexOf("id: 'rate-sheets'"));
 
 // The Connected sub-section renders its row with no kicker, heading, or
-// description above it — those three strings are removed, not merely hidden,
-// so its title/leaf regex matches come up empty and only Pool's remain.
+// description above it — those three strings are removed, not merely hidden —
+// and the bottom Pool leaf is gone too: its launcher moved into the top
+// toolbar, so Family Groups' title/leaf regex matches now come up empty.
 const familyGroupsTitles = [...familyGroupsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
-  familyGroupsTitles.join(',') === 'Family Groups,Pool',
-  'Family Groups holds its Connected and Pool sections, with Connected\'s heading text removed',
+  familyGroupsTitles.join(',') === 'Family Groups',
+  'Family Groups holds only its Connected section (heading text removed) — the Pool leaf is retired in favour of the top toolbar',
 );
 const familyGroupsLeaves = [...familyGroupsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
-  familyGroupsLeaves.join(',') === 'Create a Family',
-  'Family Groups reports its pool creation; the connected row carries no leaf heading',
+  familyGroupsLeaves.length === 0,
+  'Family Groups carries no leaf heading: Connected is unlabelled and Pool no longer exists as a separate section',
 );
 check(
   /id: 'connected',\s*title: '',\s*description: '',\s*leaf: '',\s*hideHeading: true,/.test(familyGroupsBlock)
     && !familyGroupsBlock.includes("note: 'The Package Family this focus is connected to"),
   'Family Groups\' Connected section and group note carry no heading text, only the connected-record content',
+);
+// Family Groups' toolbar: a presentational status filter (Focused/All/Active/
+// Pending/Disabled, defaulting to Focused) plus the relocated, renamed pool
+// launcher — a real button, not a second copy of the retired PoolLauncher
+// leaf. Every other group keeps its unchanged bottom-of-panel PoolLauncher.
+check(
+  familyGroupsBlock.includes("toolbar: (")
+    && familyGroupsBlock.includes("value={familyGroupFilter}")
+    && settingsSource.includes("useState<FamilyGroupFilter>('focused')")
+    && ['focused', 'all', 'active', 'pending', 'disabled'].every((id) => settingsSource.includes(`id: '${id}'`))
+    && familyGroupsBlock.includes('+ New Family')
+    && !familyGroupsBlock.includes('<PoolLauncher'),
+  'Family Groups\' toolbar carries the Focused-default status filter and the renamed + New Family action, not a PoolLauncher leaf',
+);
+check(
+  settingsSource.includes('{group.toolbar}')
+    && !tierGroupsBlock.includes('toolbar:')
+    && !rateSheetGroupsBlock.includes('toolbar:')
+    && !rateSheetsBlock.includes('toolbar:'),
+  'only Family Groups carries a toolbar; Tier Groups, Groups, and Rate Sheets keep their unchanged bottom-of-panel launcher',
 );
 // The connected Family Group is the workspace's ONE connection projection, and
 // it travels the existing connection dispatcher into the drawer that owns the
@@ -763,10 +784,14 @@ for (const retired of [
 // the record rather than a form, and no fourth: a group is stored inside
 // `rate_sheets[].groups[]`, so it has no pool and no address apart from the
 // sheet holding it, and the Rate Sheet drawer already authors it.
+// Family's launcher moved into its toolbar and no longer uses PoolLauncher's
+// `label` attribute, so it surfaces through its own literal button text
+// instead of this PoolLauncher-only regex.
 const settingsLaunchers = [...settingsSource.matchAll(/label="(Create [^"]+)"/g)].map((match) => match[1]);
 check(
-  settingsLaunchers.join(',') === 'Create Family,Create Tier,Create Rate Sheet',
-  'Settings offers exactly the three pool creations, in the required order, and no fourth',
+  settingsLaunchers.join(',') === 'Create Tier,Create Rate Sheet'
+    && settingsSource.includes('+ New Family'),
+  'Settings offers exactly the three pool creations, in the required order, and no fourth — Family Groups\' as + New Family, the rest as PoolLauncher',
 );
 const settingsPoolIntents = [...settingsSource.matchAll(/onPoolIntent\('([^']+)'\)/g)].map((match) => match[1]);
 check(

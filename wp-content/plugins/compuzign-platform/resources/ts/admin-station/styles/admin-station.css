@@ -2888,14 +2888,25 @@ button.cz-station-status-pill {
   justify-content: flex-end;
 }
 
-/* Settings follows the same full-width selector → nested-tab flow as Connections. */
+/* Settings follows the same full-width accordion-section flow as Connections. */
 .cz-tier-settings {
   display: flex;
   flex-direction: column;
   gap: var(--station-card-gap);
 }
 
-/* The selected nested tab contributes one full-width settings leaf. */
+/* A group's top-of-panel control row — a filter plus its primary action,
+   right-aligned as one unit above the group's note and sections. */
+.cz-tier-settings__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Each open group contributes one full-width settings leaf. */
 .cz-tier-settings__leaf {
   display: flex;
   flex-direction: column;

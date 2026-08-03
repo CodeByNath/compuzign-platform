@@ -34,6 +34,18 @@ export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
 type SettingsGroupId = 'family-groups' | 'tier-groups' | 'groups' | 'rate-sheets';
 type SettingsSectionId = 'connected' | 'pool';
 
+// Family Groups' own filter, presentational only: it narrows nothing yet,
+// because this scope carries only the one connected Family Group row —
+// showing the wider pool by status is a later step, not this one.
+const FAMILY_GROUP_FILTERS = [
+  { id: 'focused',  label: 'Focused' },
+  { id: 'all',      label: 'All' },
+  { id: 'active',   label: 'Active' },
+  { id: 'pending',  label: 'Pending' },
+  { id: 'disabled', label: 'Disabled' },
+] as const;
+type FamilyGroupFilter = typeof FAMILY_GROUP_FILTERS[number]['id'];
+
 interface Props {
   tool: TierInstancesToolState;
   family: WorkspaceFamilyScope | null;
@@ -78,6 +90,9 @@ interface SettingsGroup {
   note: string;
   summary: string;
   sections: SettingsSection[];
+  // A top-of-panel control row, above the note and sections. Only Family
+  // Groups carries one today.
+  toolbar?: VNode;
 }
 
 export function TierSystemSettings({
@@ -101,6 +116,7 @@ export function TierSystemSettings({
   // The connected Family Group is the workspace's own connection projection, so
   // Settings and Connections report one record, one status and one target.
   const familyRows = useMemo(() => projectFamilyConnectionRows(family), [family]);
+  const [familyGroupFilter, setFamilyGroupFilter] = useState<FamilyGroupFilter>('focused');
   const groups = useMemo<SettingsGroup[]>(() => {
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     return [
@@ -109,6 +125,25 @@ export function TierSystemSettings({
         title: 'Family Groups',
         note: '',
         summary: `${familyRows[0]?.name ?? 'No Family Group'} · ${tool.families.length} in pool`,
+        toolbar: (
+          <div class="cz-tier-settings__toolbar">
+            <select
+              class="cz-tf-control cz-tf-select"
+              value={familyGroupFilter}
+              aria-label="Filter Family Groups"
+              onChange={(event) => setFamilyGroupFilter((event.currentTarget as HTMLSelectElement).value as FamilyGroupFilter)}
+            >
+              {FAMILY_GROUP_FILTERS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+            <button
+              type="button"
+              class="cz-tier-deck__button cz-tier-deck__button--primary"
+              onClick={() => onPoolIntent('family')}
+            >
+              + New Family
+            </button>
+          </div>
+        ),
         sections: [
           {
             id: 'connected',
@@ -118,19 +153,6 @@ export function TierSystemSettings({
             hideHeading: true,
             content: (
               <ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />
-            ),
-          },
-          {
-            id: 'pool',
-            title: 'Pool',
-            description: `The Package Family pool · ${tool.families.length} in pool.`,
-            leaf: 'Create a Family',
-            content: (
-              <PoolLauncher
-                label="Create Family"
-                note="Opens the readable Package Family creation module. Its drawer owns the fields and save; the new Family starts with no Services or Tier system."
-                onLaunch={() => onPoolIntent('family')}
-              />
             ),
           },
         ],
@@ -212,7 +234,7 @@ export function TierSystemSettings({
         ],
       },
     ];
-  }, [access, currentRecord, error, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheets, tool.families.length, tool.instances.length]);
+  }, [access, currentRecord, error, familyGroupFilter, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheets, tool.families.length, tool.instances.length]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,
@@ -233,6 +255,7 @@ export function TierSystemSettings({
             isOpen={expanded[group.id]}
             onToggle={() => setExpanded((current) => ({ ...current, [group.id]: !current[group.id] }))}
           >
+            {group.toolbar}
             {group.note && <p class="cz-tier-settings__muted">{group.note}</p>}
             {group.sections.map((section) => (
               <section key={section.id} class="cz-tier-settings__leaf">
