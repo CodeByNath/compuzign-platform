@@ -655,15 +655,23 @@ const rateSheetGroupsBlock = settingsSource.slice(
 );
 const rateSheetsBlock = settingsSource.slice(settingsSource.indexOf("id: 'rate-sheets'"));
 
+// The Connected sub-section renders its row with no kicker, heading, or
+// description above it — those three strings are removed, not merely hidden,
+// so its title/leaf regex matches come up empty and only Pool's remain.
 const familyGroupsTitles = [...familyGroupsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
-  familyGroupsTitles.join(',') === 'Family Groups,Connected,Pool',
-  'Family Groups holds exactly its Connected and Pool sections',
+  familyGroupsTitles.join(',') === 'Family Groups,Pool',
+  'Family Groups holds its Connected and Pool sections, with Connected\'s heading text removed',
 );
 const familyGroupsLeaves = [...familyGroupsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
-  familyGroupsLeaves.join(',') === 'Connected Family Group,Create a Family',
-  'Family Groups reports the connected Family Group and its pool creation',
+  familyGroupsLeaves.join(',') === 'Create a Family',
+  'Family Groups reports its pool creation; the connected row carries no leaf heading',
+);
+check(
+  /id: 'connected',\s*title: '',\s*description: '',\s*leaf: '',\s*hideHeading: true,/.test(familyGroupsBlock)
+    && !familyGroupsBlock.includes("note: 'The Package Family this focus is connected to"),
+  'Family Groups\' Connected section and group note carry no heading text, only the connected-record content',
 );
 // The connected Family Group is the workspace's ONE connection projection, and
 // it travels the existing connection dispatcher into the drawer that owns the

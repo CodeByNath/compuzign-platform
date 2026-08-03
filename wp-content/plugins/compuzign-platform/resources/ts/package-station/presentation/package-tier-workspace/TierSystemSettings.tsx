@@ -67,6 +67,9 @@ interface SettingsSection {
   description: string;
   leaf: string;
   content: VNode;
+  // When true, the section renders only its content — no kicker, heading, or
+  // description above it.
+  hideHeading?: boolean;
 }
 
 interface SettingsGroup {
@@ -104,14 +107,15 @@ export function TierSystemSettings({
       {
         id: 'family-groups',
         title: 'Family Groups',
-        note: 'The Package Family this focus is connected to, and the pool it comes from. Assignment itself remains in the drawer that owns it.',
+        note: '',
         summary: `${familyRows[0]?.name ?? 'No Family Group'} · ${tool.families.length} in pool`,
         sections: [
           {
             id: 'connected',
-            title: 'Connected',
-            description: 'The Package Family this focus is connected to.',
-            leaf: 'Connected Family Group',
+            title: '',
+            description: '',
+            leaf: '',
+            hideHeading: true,
             content: (
               <ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />
             ),
@@ -229,16 +233,18 @@ export function TierSystemSettings({
             isOpen={expanded[group.id]}
             onToggle={() => setExpanded((current) => ({ ...current, [group.id]: !current[group.id] }))}
           >
-            <p class="cz-tier-settings__muted">{group.note}</p>
+            {group.note && <p class="cz-tier-settings__muted">{group.note}</p>}
             {group.sections.map((section) => (
               <section key={section.id} class="cz-tier-settings__leaf">
-                <div class="cz-tier-deck__lane-head">
-                  <div>
-                    <span class="cz-tier-deck__field-label">{section.title}</span>
-                    <h4 class="cz-tier-settings__leaf-title">{section.leaf}</h4>
-                    <p class="cz-tier-deck__lane-note">{section.description}</p>
+                {!section.hideHeading && (
+                  <div class="cz-tier-deck__lane-head">
+                    <div>
+                      <span class="cz-tier-deck__field-label">{section.title}</span>
+                      <h4 class="cz-tier-settings__leaf-title">{section.leaf}</h4>
+                      <p class="cz-tier-deck__lane-note">{section.description}</p>
+                    </div>
                   </div>
-                </div>
+                )}
                 {section.content}
               </section>
             ))}
