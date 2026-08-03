@@ -32,7 +32,7 @@ Neither station's lane content, deck layout, rows, or models are shared. Only th
 
 ## Validation
 
-From the plugin root: `npm run contract:station-tabset`, `npm run contract:package-tier-workspace`, `npm run contract:admin-station-css`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`. Keyboard, focus, and dark/light rendering need browser inspection when a WordPress runtime is available.
+From the plugin root: `npm run contract:station-tabset`, `npm run contract:tier-connections`, `npm run contract:admin-station-css`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`. Keyboard, focus, and dark/light rendering need browser inspection when a WordPress runtime is available.
 
 ## Related Code Maps
 

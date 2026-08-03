@@ -51,4 +51,4 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Pac
 
 ## Validation
 
-From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-overview-is-addon`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:package-tier-workspace-shell`, `npm run contract:tier-connections`, `npm run contract:tier-settings`, `npm run contract:tier-system-drawer`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-overview-is-addon`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

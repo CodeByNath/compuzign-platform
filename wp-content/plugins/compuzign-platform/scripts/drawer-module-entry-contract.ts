@@ -333,7 +333,7 @@ check(
 );
 
 // The Tier System footer is now the mature Publish/Apply/Delete footer (see
-// package-tier-workspace-contract.ts for the full action-set assertions);
+// tier-system-drawer-contract.ts for the full action-set assertions);
 // this contract's own concern is only the entry-state / editor-reachability
 // rule, already covered above for both the Overview and Rate Sheet Access
 // modules on the one shared composition.

@@ -46,7 +46,7 @@ The lower deck's parallel `cz-tier-deck__list`, `__list--compact`, `__row`, `__r
 
 ## Validation
 
-Run `npm run contract:admin-station-css` (every declared class is emitted, and feature CSS paints no control), `npm run contract:package-tier-workspace` (the deck's three lanes use the shared classes, bring across no table, and cannot reintroduce the retired names), `npm run contract:station-tabset` (Service Home's own Connections/Settings lanes use the shared classes and import no Package presentation), `npm run build`, and `npm run docs:check` from the plugin root. Browser inspection when a WordPress runtime is available.
+Run `npm run contract:admin-station-css` (every declared class is emitted, and feature CSS paints no control), `npm run contract:package-tier-workspace-shell` (the deck's three lanes use the shared classes, bring across no table, and cannot reintroduce the retired names), `npm run contract:station-tabset` (Service Home's own Connections/Settings lanes use the shared classes and import no Package presentation), `npm run build`, and `npm run docs:check` from the plugin root. Browser inspection when a WordPress runtime is available.
 
 ## Related Code Maps
 

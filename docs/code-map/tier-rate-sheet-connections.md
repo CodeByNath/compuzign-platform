@@ -31,7 +31,7 @@ Both are opened from the focused-Tier Connections lane and require a fully resol
 
 ## Validation
 
-Run `npm run contract:rate-sheet-tool`, `npm run contract:package-tier-workspace`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `npm run contract:rate-sheet-tool`, `npm run contract:tier-connections`, `php tests/tier-pricing-parity.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 
