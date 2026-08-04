@@ -116,8 +116,10 @@ function RateSheetConnectionFields({ row }: { row: RateSheetConnectionRow }): VN
     <>
       <PlatformIdField platformId={row.platformId} />
       <div class="cz-station-list__cell cz-tier-deck__field">
-        <span class="cz-tier-deck__field-label">Inclusions</span>
-        <span class="cz-tier-deck__money">{row.connectedInclusions ?? 0}</span>
+        <span class="cz-tier-deck__field-label">{row.groupCount === undefined ? 'Inclusions' : 'Inclusions / Groups'}</span>
+        <span class="cz-tier-deck__money">
+          {row.groupCount === undefined ? (row.connectedInclusions ?? 0) : `${row.connectedInclusions ?? 0}/${row.groupCount}`}
+        </span>
       </div>
     </>
   );

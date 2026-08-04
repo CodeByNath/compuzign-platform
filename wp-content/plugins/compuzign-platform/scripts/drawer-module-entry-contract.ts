@@ -358,12 +358,15 @@ check(
   'the Rate Sheets module passes its notes and panel toggle to ReadBlock',
 );
 
-// No launcher may open a drawer straight into its editor. Creation intents are
-// ordinary `view` opens; the module's Edit does the rest.
+// Rate Sheet is the documented pending-migration exception: its Settings
+// launcher enters the existing collection editor and creates one local sheet.
+// It adds no second editor or persistence boundary.
 const adminRegister = source('resources/ts/admin-station/register.ts');
 check(
-  adminRegister.includes("{ id: 'create-rate-sheet', target: 'drawer', mode: 'view', drawerTemplateKey: 'rate-sheet' }"),
-  'Create Rate Sheet opens the Rate Sheet drawer readable, not in its editor',
+  adminRegister.includes("{ id: 'create-rate-sheet', target: 'drawer', mode: 'edit', drawerTemplateKey: 'rate-sheet' }")
+    && rateSheetTool.includes("recordId === 'new'")
+    && rateSheetTool.includes('controller.createSheet()'),
+  'Create Rate Sheet enters the existing editor and creates through its controller',
 );
 
 // The Family create surface renders the Family's OWN module — literally

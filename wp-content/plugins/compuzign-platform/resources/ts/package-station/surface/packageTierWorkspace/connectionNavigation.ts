@@ -7,6 +7,7 @@
 
 import type { CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
 import type {
+  PackageRateSheet,
   PackageRateSheetStatus,
   TierInstanceRecord,
   TierInstanceStatus,
@@ -25,7 +26,8 @@ export type ConnectionTarget =
   | { kind: 'package-family'; familyId: string }
   | { kind: 'tier-instance'; instanceId: string }
   | { kind: 'rate-sheet-group'; rateSheetId: string; groupId: string }
-  | { kind: 'rate-sheet'; rateSheetId: string };
+  | { kind: 'rate-sheet'; rateSheetId: string }
+  | { kind: 'standalone-rate-sheet'; platformId: string };
 
 interface ConnectionRowBase {
   id:        string;
@@ -74,12 +76,13 @@ export interface GroupConnectionRow extends ConnectionRowBase {
 
 export interface RateSheetConnectionRow extends ConnectionRowBase {
   kind:                'rate-sheet';
-  status:              PackageRateSheetStatus | 'unresolved';
+  status:              PackageRateSheetStatus | 'disabled' | 'pending' | 'unresolved';
   resolved:            boolean;
   connectedRows:       number;
   connectedInclusions: number;
   // The sheet's own output-only Platform ID (CZPRC); empty when unresolved or unassigned.
   platformId:          string;
+  groupCount?:         number;
 }
 
 export type ConnectionRow =
@@ -213,6 +216,28 @@ export function projectTierGroupConnectionRows(
     target:     { kind: 'tier-instance', instanceId: instance.tier_instance_id },
     actions:    ['view', 'edit'],
   }];
+}
+
+/** Standalone Rate Sheets for Package Settings. Their Platform ID is the
+ * public drawer address; the existing editor keeps using its native key after
+ * that address is resolved. */
+export function projectRateSheetPoolRows(
+  sheets: readonly PackageRateSheet[],
+): RateSheetConnectionRow[] {
+  return sheets.map((sheet) => ({
+    id:                  sheet.rate_sheet_id,
+    kind:                'rate-sheet',
+    name:                sheet.title.trim() || 'Untitled Rate Sheet',
+    reference:           sheet.platform_id || sheet.rate_sheet_id,
+    status:              sheet.status === 'archived' ? 'disabled' : 'active',
+    resolved:            true,
+    connectedRows:       sheet.items.length,
+    connectedInclusions: sheet.items.length,
+    groupCount:           sheet.groups.length,
+    platformId:          sheet.platform_id ?? '',
+    target:               { kind: 'standalone-rate-sheet', platformId: sheet.platform_id ?? '' },
+    actions:              ['view', 'edit'],
+  }));
 }
 
 export function projectConnectionNavigation({

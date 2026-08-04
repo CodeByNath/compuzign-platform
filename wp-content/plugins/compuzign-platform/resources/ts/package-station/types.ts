@@ -331,6 +331,12 @@ export interface PackageManagerResponse {
   manager: PackageManagerReadModel;
 }
 
+export interface RateSheetIdentityResponse {
+  success: boolean;
+  rate_sheet_id: string;
+  record: PackageRateSheet & { cz_platform_id?: string };
+}
+
 export interface PackageManagerItemDecision {
   item_id:          string;
   source_type:      PackageManagerSourceType;

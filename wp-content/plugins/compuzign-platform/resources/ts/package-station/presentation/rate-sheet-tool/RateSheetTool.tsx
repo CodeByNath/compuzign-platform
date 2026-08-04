@@ -11,10 +11,9 @@
 // footer; Edit hands the collection editor to the shared `InlineEditorShell`,
 // which owns Save / Cancel and the dirty-cancel confirm — one footer, one save.
 //
-// Every launcher opens it READABLE, including Settings' Create Rate Sheet: the
-// Rate Sheets module states the pool, carries its own Pending pill and that
-// pill's message, and its Edit opens the editor where sheets are created. No
-// launcher opens the editor directly.
+// A pool launcher opens the readable collection. A standalone Platform-ID row
+// resolves to one compact read card, and Settings' `new` launcher enters this
+// same editor with one empty sheet selected.
 //
 // Presentation only. Every read, edit, and save lives on the controller the
 // Package-owned `useRateSheetTool` hook supplies; this file calls no endpoint and
@@ -30,6 +29,7 @@ import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { evaluateModule, rateSheetCollectionModule } from '@/drawer-kit/utils/moduleNotifications';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
+import { fetchRateSheetByPlatformId } from '../../api';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 import { summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
@@ -59,7 +59,7 @@ export function RateSheetDrawerContent(props: DrawerContentProps): VNode {
 // ── SECTION: mode routing, footer, and close guard ────────────────────────────
 
 function RateSheetDrawerBody({
-  controller, mode, onClose, onModeChange, onSaved, setFooter, setCloseGuard,
+  controller, recordId, mode, onClose, onModeChange, onSaved, setFooter, setCloseGuard,
 }: DrawerContentProps & { controller: RateSheetToolController }): VNode {
   const editing = mode === 'edit';
   const { dirty, saving, saveError } = controller;
@@ -68,6 +68,26 @@ function RateSheetDrawerBody({
   const modeRef  = useRef(onModeChange); modeRef.current  = onModeChange;
 
   const explicitSave = useRef(false);
+  const openedAddress = useRef<string | number | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (openedAddress.current === recordId) return;
+    openedAddress.current = recordId;
+    setAddressError(null);
+    if (recordId === 'new') {
+      controller.createSheet();
+      return;
+    }
+    if (typeof recordId !== 'string' || !recordId.startsWith('CZPRC')) return;
+    fetchRateSheetByPlatformId(recordId)
+      .then((response) => {
+        if (response.success) controller.openSheet(response.rate_sheet_id);
+      })
+      .catch((err) => {
+        setAddressError(err instanceof Error ? err.message : 'Could not resolve this Rate Sheet.');
+      });
+  }, [controller, recordId]);
   const wasSaving = useRef(false);
   useEffect(() => {
     if (wasSaving.current && !saving) {
@@ -105,6 +125,7 @@ function RateSheetDrawerBody({
     return () => setFooter(null);
   }, [setFooter, editing, onClose, requestEdit]);
 
+  if (addressError) return <div class="cz-station-drawer__state" role="alert">{addressError}</div>;
   if (editing) {
     return (
       <InlineEditorShell
@@ -120,14 +141,14 @@ function RateSheetDrawerBody({
       </InlineEditorShell>
     );
   }
-  return <RateSheetCollectionView controller={controller} onEdit={requestEdit} />;
+  return <RateSheetCollectionView controller={controller} onEdit={requestEdit} focused={typeof recordId === 'string' && recordId.startsWith('CZPRC')} />;
 }
 
 // ── SECTION: view mode (the list) ─────────────────────────────────────────────
 
 function RateSheetCollectionView({
-  controller, onEdit,
-}: { controller: RateSheetToolController; onEdit: () => void }): VNode {
+  controller, onEdit, focused,
+}: { controller: RateSheetToolController; onEdit: () => void; focused: boolean }): VNode {
   const { list, connectedServiceIds } = controller;
   const editAction = [{ id: 'edit', label: 'Edit', onSelect: onEdit }];
   // The module's own lifecycle and notification panel, resolved by the shared
@@ -144,6 +165,11 @@ function RateSheetCollectionView({
     panelOpen,
     onTogglePanel: () => setPanelOpen((open) => !open),
   };
+
+  if (focused) {
+    if (!controller.selected) return <div class="cz-station-drawer__state" aria-busy="true">Resolving Rate Sheet…</div>;
+    return <div class="cz-req-detail"><RateSheetReadCard value={controller.selected} sourceCount={connectedServiceIds.length} actions={editAction} /></div>;
+  }
 
   if (list.length === 0) {
     return (
@@ -197,11 +223,19 @@ function RateSheetReadCard({
 }: { value: RateSheetEditorValue; sourceCount: number; actions: { id: string; label: string; onSelect: () => void }[] }): VNode {
   const summary = useMemo(() => summariseRateSheet(value, sourceCount), [value, sourceCount]);
   return (
-    <ReadBlock title={value.title.trim() || 'Untitled Rate Sheet'} count={summary.rows} subtitle="Priced rows in this sheet." actions={actions}>
+    <ReadBlock title={value.title.trim() || 'Untitled Rate Sheet'} count={summary.rows} subtitle="Priced rows in this sheet." status={value.status === 'archived' ? 'disabled' : 'active'} actions={actions}>
       <div class="drawerModule__fields">
         <div class="drawerModule__field">
           <p class="drawerModule__label">Platform ID</p>
           <p class="drawerModule__value">{value.platformId || (value.id ? 'Not assigned' : 'Assigned after Save')}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Summary</p>
+          <p class="drawerModule__value">{plural(summary.rows, 'inclusion')} · {plural(summary.groups, 'group')}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Per / unit</p>
+          <p class="drawerModule__value">{[...new Set(value.items.map((row) => row.per))].join(', ') || 'No units configured'}</p>
         </div>
         {value.groups.map((group) => (
           <div key={group.id} class="drawerModule__field">

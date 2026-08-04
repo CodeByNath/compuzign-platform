@@ -219,7 +219,7 @@ check(
 // filtered by the PARENT's own lifecycle state.
 check(
   tierGroupsBlock.includes('<TierGroupPoolSummary rows={tierGroupRows}')
-    && settingsSource.includes("import {\n  projectFamilyConnectionRows,\n  projectTierGroupConnectionRows,\n} from '../../surface/packageTierWorkspace/connectionNavigation'")
+    && settingsSource.includes('projectTierGroupConnectionRows,')
     && settingsSource.includes('ordered.flatMap((candidate) => projectTierGroupConnectionRows(candidate))'),
   'Tier Groups lists the parent Tier Group records through the shared projection, not a child access row',
 );
@@ -260,8 +260,7 @@ check(
 // while its error reports in the always-visible Settings-level error area, so a
 // failed read is stated whether or not that collapsed section is expanded.
 check(
-  rateSheetsBlock.includes('content: settingsLoading')
-    && rateSheetsBlock.includes('<p class="cz-station-empty" aria-busy="true">Loading Rate Sheets…</p>')
+  rateSheetsBlock.includes('loading={settingsLoading}')
     && !tierGroupsBlock.includes('settingsLoading')
     && !familyGroupsBlock.includes('settingsLoading'),
   'the Package Manager read\'s loading state shows only on the content it actually backs',
@@ -322,9 +321,8 @@ for (const retired of [
   );
 }
 check(
-  !settingsSource.includes('projectTierRateSheetAccess')
-    && !settingsSource.includes('RateSheetAccessSummary'),
-  'the Settings lane no longer derives or renders Rate Sheet access for the Tier Groups list',
+  !tierGroupsBlock.includes('RateSheetAccessSummary'),
+  'the Tier Groups list no longer renders the retired child Rate Sheet Access row',
 );
 check(
   tierGroupsBlock.includes('onIntent={onConnectionIntent}')
@@ -473,39 +471,43 @@ check(
   'the Tier Group row maps the storage lifecycle onto the shared pill vocabulary',
 );
 
-// Rate Sheets follows the same cleaning Family Groups and Tier Groups
-// received, and additionally absorbs Groups: a Rate Sheet Group lives inside
-// `rate_sheets[].groups[]`, so it has no pool, address, or creation apart from
-// the sheet holding it — there is no reason for it to stand as a fourth
-// top-level section, so its read-only count reports directly inside Rate
-// Sheets instead.
+// Rate Sheets lists standalone sheets through the shared connected-record row.
+// Groups remain nested summaries and are authored only in the sheet editor.
 const rateSheetsTitles = [...rateSheetsBlock.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
 check(
   rateSheetsTitles.join(',') === 'Rate Sheets',
-  'Rate Sheets holds only its unlabelled group-count section (heading text removed) — the Pool leaf is retired in favour of the top toolbar',
+  'Rate Sheets holds one unlabelled pool section beneath its toolbar',
 );
 const rateSheetsLeaves = [...rateSheetsBlock.matchAll(/leaf: '([^']+)'/g)].map((match) => match[1]);
 check(
   rateSheetsLeaves.length === 0,
-  'Rate Sheets carries no leaf heading: its group count is unlabelled and Pool no longer exists as a separate section',
+  'Rate Sheets carries no redundant leaf heading',
 );
 check(
   /id: 'pool',\s*title: '',\s*description: '',\s*leaf: '',\s*hideHeading: true,/.test(rateSheetsBlock)
     && !rateSheetsBlock.includes("note: 'The Rate Sheet pool"),
-  'Rate Sheets\' group-count section and group note carry no heading text, only the read-only group count',
+  'Rate Sheets\' list section and group note carry no redundant heading text',
 );
 check(
   rateSheetsBlock.includes("toolbar: (")
     && rateSheetsBlock.includes("value={rateSheetFilter}")
-    && settingsSource.includes("useState<RateSheetFilter>('focused')")
-    && rateSheetsBlock.includes('+ New Rate Sheet')
+    && settingsSource.includes("useState<RateSheetFilter>('all')")
+    && rateSheetsBlock.includes('+ Rate Sheet')
     && rateSheetsBlock.includes("onPoolIntent('rate-sheet')"),
-  'Rate Sheets\' toolbar carries the Focused-default status filter and the renamed + New Rate Sheet action, not a PoolLauncher leaf',
+  'Rate Sheets\' toolbar carries the status filter and + Rate Sheet action',
 );
 check(
   !rateSheetsBlock.includes('onPoolIntent(\'groups\')')
-    && rateSheetsBlock.includes('groupCount'),
-  'the Rate Sheet Group count moved inside Rate Sheets stays read-only, with no creation launcher of its own',
+    && settingsSource.includes('projectRateSheetPoolRows')
+    && rateSheetsBlock.includes('<RateSheetPoolSummary rows={rateSheetRows}'),
+  'standalone Rate Sheets use the shared row projection and Groups have no separate launcher',
+);
+check(
+  rateSheetsBlock.includes('placeholder="Search by Rate Sheet name / Platform ID"')
+    && rateSheetsBlock.includes('aria-label="Tier Group context"')
+    && settingsSource.includes('projectTierRateSheetAccess(contextInstance, rateSheets)')
+    && settingsSource.includes("sheet.status === 'archived' ? 'disabled' : 'active'"),
+  'Rate Sheets supports name/Platform-ID search, canonical Tier Group access context, and active-view status mapping',
 );
 
 // The engine above lists every fixed slot and dispatches the occupant and slot
@@ -540,7 +542,7 @@ check(
   settingsLaunchers.length === 0
     && settingsSource.includes('+ Family Group')
     && settingsSource.includes('+ Tier Group')
-    && settingsSource.includes('+ New Rate Sheet'),
+    && settingsSource.includes('+ Rate Sheet'),
   'Settings offers exactly the three pool creations, in the required order, and no fourth — each as its group\'s own toolbar button, not a PoolLauncher leaf',
 );
 const settingsPoolIntents = [...settingsSource.matchAll(/onPoolIntent\('([^']+)'\)/g)].map((match) => match[1]);

@@ -245,4 +245,28 @@ check(
   'only the value the controller settled on is selected on the row that asked',
 );
 
+const drawerSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx',
+), 'utf8');
+const apiSource = readFileSync(resolve(root, 'resources/ts/package-station/api.ts'), 'utf8');
+check(
+  drawerSource.includes("recordId === 'new'")
+    && drawerSource.includes('controller.createSheet()')
+    && drawerSource.includes('openedAddress.current === recordId'),
+  'the new drawer address creates one sheet through the existing controller with a rerender guard',
+);
+check(
+  drawerSource.includes('fetchRateSheetByPlatformId(recordId)')
+    && drawerSource.includes('controller.openSheet(response.rate_sheet_id)')
+    && apiSource.includes('admin/rate-sheets/${encodeURIComponent(platformId)}'),
+  'a standalone Platform ID resolves through the canonical read before opening the native editor key',
+);
+check(
+  drawerSource.includes('if (focused)')
+    && drawerSource.includes('<RateSheetReadCard value={controller.selected}')
+    && drawerSource.includes('<RateSheetCollectionEditor controller={controller} />'),
+  'standalone View is one compact read card while Edit reuses the complete collection editor',
+);
+
 console.log('Rate Sheet tool contract checks passed.');

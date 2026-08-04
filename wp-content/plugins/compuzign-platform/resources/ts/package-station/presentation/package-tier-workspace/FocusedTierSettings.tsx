@@ -17,6 +17,7 @@ import type {
   ConnectionActionId,
   ConnectionTarget,
   FamilyConnectionRow,
+  RateSheetConnectionRow,
   TierGroupConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import type { TierRateSheetAccessProjection } from '../../surface/tierInstance/tierRateSheetAccessModel';
@@ -74,6 +75,16 @@ export function TierGroupPoolSummary({ rows, loading, onIntent }: {
       {rows.map((row) => <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />)}
     </ul>
   );
+}
+
+export function RateSheetPoolSummary({ rows, loading, onIntent }: {
+  rows: RateSheetConnectionRow[];
+  loading: boolean;
+  onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
+}): VNode {
+  if (loading) return <p class="cz-station-empty" aria-busy="true">Loading Rate Sheets…</p>;
+  if (rows.length === 0) return <p class="cz-station-empty">No Rate Sheet matches this context and filter.</p>;
+  return <ul class="cz-station-list">{rows.map((row) => <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />)}</ul>;
 }
 
 export function RateSheetAccessSummary({

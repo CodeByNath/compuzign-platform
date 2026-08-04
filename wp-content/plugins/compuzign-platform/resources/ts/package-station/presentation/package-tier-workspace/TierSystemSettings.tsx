@@ -23,15 +23,18 @@ import type {
   ConnectionActionId,
   ConnectionTarget,
   FamilyConnectionRow,
+  RateSheetConnectionRow,
   TierGroupConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import {
   projectFamilyConnectionRows,
+  projectRateSheetPoolRows,
   projectTierGroupConnectionRows,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
-import { ConnectedStationsSummary, TierGroupPoolSummary } from './FocusedTierSettings';
+import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
+import { ConnectedStationsSummary, RateSheetPoolSummary, TierGroupPoolSummary } from './FocusedTierSettings';
 import { TierAccordionSection } from './TierAccordionSection';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
@@ -64,11 +67,9 @@ const TIER_GROUP_FILTERS = [
 ] as const;
 type TierGroupFilter = typeof TIER_GROUP_FILTERS[number]['id'];
 
-// Rate Sheets' own filter, presentational only, same as Family Groups' and
-// Tier Groups': it narrows nothing yet, because this scope carries only the
-// read-only Rate Sheet Group count.
+// Rate Sheets use active-view presentation states. Stored `archived` maps to
+// Disabled at this list boundary; storage values remain unchanged.
 const RATE_SHEET_FILTERS = [
-  { id: 'focused',  label: 'Focused' },
   { id: 'all',      label: 'All' },
   { id: 'active',   label: 'Active' },
   { id: 'pending',  label: 'Pending' },
@@ -191,7 +192,29 @@ export function TierSystemSettings({
     () => presentableInstances.filter((instance) => instance.status === 'active').length,
     [presentableInstances],
   );
-  const [rateSheetFilter, setRateSheetFilter] = useState<RateSheetFilter>('focused');
+  const [rateSheetSearch, setRateSheetSearch] = useState('');
+  const [rateSheetContext, setRateSheetContext] = useState('focused');
+  const [rateSheetFilter, setRateSheetFilter] = useState<RateSheetFilter>('all');
+  const contextInstance = rateSheetContext === 'all'
+    ? null
+    : rateSheetContext === 'focused'
+      ? (focusedInstanceId ? presentableInstances.find((candidate) => candidate.tier_instance_id === focusedInstanceId) ?? null : null)
+      : presentableInstances.find((candidate) => candidate.tier_instance_id === rateSheetContext) ?? null;
+  const contextualSheets = useMemo(() => {
+    if (rateSheetContext === 'all') return rateSheets;
+    if (contextInstance === null) return [];
+    const projection = projectTierRateSheetAccess(contextInstance, rateSheets);
+    const allowedIds = new Set(projection.rows.filter((row) => row.allowed && row.status !== 'unresolved').map((row) => row.rateSheetId));
+    return rateSheets.filter((sheet) => allowedIds.has(sheet.rate_sheet_id));
+  }, [contextInstance, rateSheetContext, rateSheets]);
+  const rateSheetRows = useMemo<RateSheetConnectionRow[]>(() => {
+    const query = rateSheetSearch.trim().toLowerCase();
+    return projectRateSheetPoolRows(contextualSheets.filter((sheet) => {
+      const status = sheet.status === 'archived' ? 'disabled' : 'active';
+      if (rateSheetFilter !== 'all' && status !== rateSheetFilter) return false;
+      return query === '' || sheet.title.toLowerCase().includes(query) || (sheet.platform_id ?? '').toLowerCase().includes(query);
+    })).filter((row) => row.platformId !== '');
+  }, [contextualSheets, rateSheetFilter, rateSheetSearch]);
   const groups = useMemo<SettingsGroup[]>(() => {
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     return [
@@ -276,6 +299,26 @@ export function TierSystemSettings({
         summary: `${rateSheets.length} in pool · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}`,
         toolbar: (
           <div class="cz-tier-settings__toolbar">
+            <input
+              class="cz-tf-control cz-tf-input cz-tier-settings__search"
+              type="search"
+              value={rateSheetSearch}
+              placeholder="Search by Rate Sheet name / Platform ID"
+              aria-label="Search Rate Sheets by name or Platform ID"
+              onInput={(event) => setRateSheetSearch((event.currentTarget as HTMLInputElement).value)}
+            />
+            <select
+              class="cz-tf-control cz-tf-select"
+              value={rateSheetContext}
+              aria-label="Tier Group context"
+              onChange={(event) => setRateSheetContext((event.currentTarget as HTMLSelectElement).value)}
+            >
+              <option value="focused">Focused Tier Group</option>
+              <option value="all">All Tier Groups</option>
+              {presentableInstances.map((instance) => (
+                <option key={instance.tier_instance_id} value={instance.tier_instance_id}>{instance.title}</option>
+              ))}
+            </select>
             <select
               class="cz-tf-control cz-tf-select"
               value={rateSheetFilter}
@@ -289,7 +332,7 @@ export function TierSystemSettings({
               class="cz-tier-deck__button cz-tier-deck__button--primary"
               onClick={() => onPoolIntent('rate-sheet')}
             >
-              + New Rate Sheet
+              + Rate Sheet
             </button>
           </div>
         ),
@@ -300,20 +343,12 @@ export function TierSystemSettings({
             description: '',
             leaf: '',
             hideHeading: true,
-            // The group count is Package Manager-backed, so it — and nothing
-            // else in this lane — reports that read's loading state.
-            content: settingsLoading
-              ? <p class="cz-station-empty" aria-busy="true">Loading Rate Sheets…</p>
-              : (
-                <p class="cz-tier-settings__muted">
-                  {groupCount} {groupCount === 1 ? 'group' : 'groups'}
-                </p>
-              ),
+            content: <RateSheetPoolSummary rows={rateSheetRows} loading={settingsLoading} onIntent={onConnectionIntent} />,
           },
         ],
       },
     ];
-  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetFilter, rateSheets, presentableInstances.length, settingsLoading, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
+  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetContext, rateSheetFilter, rateSheetRows, rateSheetSearch, rateSheets, presentableInstances, settingsLoading, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,

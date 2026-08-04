@@ -180,6 +180,10 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       dispatchTierInstanceIntent(target.instanceId, actionId);
       return;
     }
+    if (target.kind === 'standalone-rate-sheet') {
+      if (target.platformId) onIntent(target.platformId, actionId === 'edit' ? 'edit-rate-sheet' : 'view-rate-sheet');
+      return;
+    }
     if (instanceId === null || selectedSlot === null) return;
     if (target.kind === 'rate-sheet-group') {
       onIntent(

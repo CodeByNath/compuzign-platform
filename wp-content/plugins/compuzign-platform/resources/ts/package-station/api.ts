@@ -23,7 +23,12 @@ import type {
   TierInstancesResponse,
   TierInstanceMutationResponse,
   TierInstanceDeleteResponse,
+  RateSheetIdentityResponse,
 } from './types';
+
+export function fetchRateSheetByPlatformId(platformId: string): Promise<RateSheetIdentityResponse> {
+  return apiClient.get<RateSheetIdentityResponse>(`admin/rate-sheets/${encodeURIComponent(platformId)}`);
+}
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
   return apiClient.get<TierInstancesResponse>('admin/package-station/tier-instances');
