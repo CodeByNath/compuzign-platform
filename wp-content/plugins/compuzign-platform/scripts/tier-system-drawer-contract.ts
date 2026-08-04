@@ -187,6 +187,26 @@ check(
   tierSystemController.includes('tool.deleteInstance'),
   'delete goes through the existing guarded tier-instance delete endpoint via useTierInstances',
 );
+const tierInstancesToolSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/tierInstance/useTierInstances.ts',
+), 'utf8');
+const deleteInstanceBody = bodyBetween(
+  tierInstancesToolSource,
+  'const deleteInstance = useCallback',
+  'const assignInstance = useCallback',
+);
+check(
+  deleteInstanceBody.includes("Promise<string | null>")
+    && !deleteInstanceBody.includes('setError(')
+    && !deleteInstanceBody.includes('refetch()')
+    && !deleteInstanceBody.includes('setInstances('),
+  'guarded delete returns its own dialog error and does not replace or refetch the still-mounted drawer record',
+);
+check(
+  tierSystemController.indexOf('bridge.close();') < tierSystemController.indexOf('bridge.onMutationComplete?.();', tierSystemController.indexOf('const confirmDelete')),
+  'successful Tier Group deletion closes its drawer before refreshing the opener',
+);
 check(
   tierSystemSource.includes('deleteDialogOpen') && tierSystemSource.includes('confirmDelete'),
   'delete is gated behind an explicit confirmation dialog',

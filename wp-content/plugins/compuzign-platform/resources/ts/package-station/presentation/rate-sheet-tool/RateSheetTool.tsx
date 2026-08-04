@@ -114,7 +114,14 @@ function RateSheetDrawerBody({
   const leaveEdit = useCallback(() => {
     controller.discard();
     if (recordId === 'new') onClose();
-    else onModeChange('view');
+    else {
+      // `discard()` restores the authoritative collection and clears its
+      // selection. A focused route must immediately reselect its own native
+      // key before returning to View; the guarded mount effect intentionally
+      // does not run a second time for the same address.
+      if (typeof recordId === 'string' && recordId !== '') controller.openSheet(recordId);
+      onModeChange('view');
+    }
   }, [controller, onClose, onModeChange, recordId]);
   const save = useCallback(async () => { explicitSave.current = true; await controller.save(focused); }, [controller, focused]);
 
@@ -124,7 +131,7 @@ function RateSheetDrawerBody({
     setFooter(
       <EntityActionFooter
         close={{ id: 'close', label: 'Close', onSelect: onClose }}
-        primary={{ id: 'edit', label: focused ? 'Edit Rate Sheet' : 'Edit Rate Sheets', onSelect: requestEdit }}
+        primary={focused ? undefined : { id: 'edit', label: 'Edit Rate Sheets', onSelect: requestEdit }}
       />,
     );
     return () => setFooter(null);

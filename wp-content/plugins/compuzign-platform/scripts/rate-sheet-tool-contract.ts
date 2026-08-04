@@ -293,6 +293,16 @@ check(
   'the focused overview uses the Service Overview module-card header, field, status, and footer grammar',
 );
 check(
+  drawerSource.includes("primary={focused ? undefined : { id: 'edit', label: 'Edit Rate Sheets', onSelect: requestEdit }}")
+    && !drawerSource.includes("label: 'Edit Rate Sheet'"),
+  'the focused drawer footer is Close-only because the module card owns its Edit action',
+);
+check(
+  drawerSource.includes("if (typeof recordId === 'string' && recordId !== '') controller.openSheet(recordId);")
+    && drawerSource.indexOf('controller.discard();') < drawerSource.indexOf("controller.openSheet(recordId);"),
+  'focused Cancel restores the route selection after discard instead of looping on Preparing Rate Sheet',
+);
+check(
   !drawerSource.includes('>Create Group</button>')
     && partsSource.includes('const EDIT_SENTINEL')
     && partsSource.includes('editLabel="Edit Group values"')

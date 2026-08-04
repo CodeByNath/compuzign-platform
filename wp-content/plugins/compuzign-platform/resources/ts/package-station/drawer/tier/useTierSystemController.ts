@@ -299,14 +299,14 @@ export function useTierSystemController({
     setDeleting(true);
     setDeleteError(null);
     try {
-      const deleted = await tool.deleteInstance(instance.tier_instance_id);
-      if (!deleted) {
-        setDeleteError(guardMessage(tool.error, 'Could not permanently delete the Tier system.'));
+      const deleteFailure = await tool.deleteInstance(instance.tier_instance_id);
+      if (deleteFailure !== null) {
+        setDeleteError(guardMessage(deleteFailure, 'Could not permanently delete the Tier system.'));
         return;
       }
       setDeleteDialogOpen(false);
-      bridge.onMutationComplete?.();
       bridge.close();
+      bridge.onMutationComplete?.();
     } finally {
       setDeleting(false);
     }

@@ -49,8 +49,8 @@ export interface TierInstancesToolState {
   ) => Promise<TierInstanceRecord | null>;
   assignInstance: (instanceId: string, familyId: string) => Promise<boolean>;
   unassignInstance: (instanceId: string) => Promise<boolean>;
-  /** Guarded permanent delete. Backend rejects with 409 while assigned, occupied, binned, or drafted. */
-  deleteInstance: (instanceId: string) => Promise<boolean>;
+  /** Guarded permanent delete. Null succeeds; a string is the endpoint error for the owning dialog. */
+  deleteInstance: (instanceId: string) => Promise<string | null>;
   refetch: () => void;
 }
 
@@ -184,22 +184,21 @@ export function useTierInstances(): TierInstancesToolState {
     }
   }, []);
 
-  const deleteInstance = useCallback(async (instanceId: string): Promise<boolean> => {
+  const deleteInstance = useCallback(async (instanceId: string): Promise<string | null> => {
     setSaving(true);
-    setError(null);
     try {
       const response = await deleteTierInstance(instanceId);
-      if (!response.success) return false;
-      setInstances((current) => current.filter((row) => row.tier_instance_id !== instanceId));
-      refetch();
-      return true;
+      if (!response.success) return 'Unable to delete the Tier instance.';
+      // The owning drawer closes on success and refreshes its opener. Do not
+      // remove/refetch this mounted drawer's own record first: that replaces
+      // its confirmation UI with a missing-record or unrelated GET error.
+      return null;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Unable to delete the Tier instance.');
-      return false;
+      return cause instanceof Error ? cause.message : 'Unable to delete the Tier instance.';
     } finally {
       setSaving(false);
     }
-  }, [refetch]);
+  }, []);
 
   const assignInstance = useCallback(async (instanceId: string, familyId: string): Promise<boolean> => {
     setSaving(true);
