@@ -252,6 +252,40 @@ check(
   !/{ id: 'archived'/.test(settingsSource) && !/{ id: 'trashed'/.test(settingsSource),
   'no Archived or Trashed filter option exists in the Settings toolbars',
 );
+// ── The Package Manager read reports its own state, in its own places ────────
+// Two reads back this lane and they are not interchangeable. The Tier instance
+// collection (`tool`) backs the Tier Groups list; the Package Manager read backs
+// `rateSheets`. Its loading state therefore belongs to the Rate Sheets section
+// alone — attaching it to Tier Groups would report the wrong read's progress —
+// while its error reports in the always-visible Settings-level error area, so a
+// failed read is stated whether or not that collapsed section is expanded.
+check(
+  rateSheetsBlock.includes('content: settingsLoading')
+    && rateSheetsBlock.includes('<p class="cz-station-empty" aria-busy="true">Loading Rate Sheets…</p>')
+    && !tierGroupsBlock.includes('settingsLoading')
+    && !familyGroupsBlock.includes('settingsLoading'),
+  'the Package Manager read\'s loading state shows only on the content it actually backs',
+);
+check(
+  settingsSource.includes('{settingsError && <p class="cz-station-empty" role="alert">{settingsError}</p>}')
+    && settingsSource.includes('{tool.error && <p class="cz-station-empty" role="alert">{tool.error}</p>}'),
+  'the Package Manager read\'s error is visible in the Settings-level error area, beside the Tier pool\'s own',
+);
+// Tier Groups keeps reading the Tier collection's own load state, not the
+// Package Manager read's.
+check(
+  tierGroupsBlock.includes('loading={tool.loading}'),
+  'the Tier Groups list reports the Tier instance collection\'s own loading state',
+);
+// Re-surfacing the read's state restored no dispatcher: the Tier Group row still
+// travels the shared connection dispatcher, and the old instance-only prop and
+// its Rate Sheet Access row stay retired.
+check(
+  !settingsSource.includes('onInstanceIntent')
+    && !settingsSource.includes('RateSheetAccessSummary'),
+  'the retired instance-only dispatcher and Rate Sheet Access row are not restored',
+);
+
 // The summary counts the same pool the list presents, so "in pool" can never
 // report records the rows below it exclude.
 check(

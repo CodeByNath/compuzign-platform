@@ -82,11 +82,19 @@ interface Props {
   families: WorkspaceFamilyScope[];
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
+  // The Package Manager read's own state, named for the read rather than the
+  // lane so it cannot be mistaken for the Tier pool's. `rateSheets` above is the
+  // only content in this lane that read backs, so the loading state belongs to
+  // the Rate Sheets section alone — Tier Groups reads `tool.loading`, the Tier
+  // instance collection's own state, and must not borrow this one. The error is
+  // not section-scoped: a failed read is worth stating whether or not that
+  // section is expanded, so it reports in the always-visible Settings-level
+  // error area beside the Tier pool's error.
+  settingsLoading: boolean;
+  settingsError: string | null;
   // One dispatcher serves both lists: a Family Group row and a Tier Group row
   // each carry their own canonical target, and the workspace resolves each to
-  // the drawer that owns it. The Package Manager read's loading/error state and
-  // the instance-only dispatcher left with the Rate Sheet Access row that used
-  // them — the parent Tier Group pool tracks its own load through `tool`.
+  // the drawer that owns it.
   onConnectionIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
   onPoolIntent: (subject: PoolSubject) => void;
 }
@@ -118,6 +126,8 @@ export function TierSystemSettings({
   families,
   workspaceInstance,
   rateSheets,
+  settingsLoading,
+  settingsError,
   onConnectionIntent,
   onPoolIntent,
 }: Props): VNode {
@@ -290,16 +300,20 @@ export function TierSystemSettings({
             description: '',
             leaf: '',
             hideHeading: true,
-            content: (
-              <p class="cz-tier-settings__muted">
-                {groupCount} {groupCount === 1 ? 'group' : 'groups'}
-              </p>
-            ),
+            // The group count is Package Manager-backed, so it — and nothing
+            // else in this lane — reports that read's loading state.
+            content: settingsLoading
+              ? <p class="cz-station-empty" aria-busy="true">Loading Rate Sheets…</p>
+              : (
+                <p class="cz-tier-settings__muted">
+                  {groupCount} {groupCount === 1 ? 'group' : 'groups'}
+                </p>
+              ),
           },
         ],
       },
     ];
-  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetFilter, rateSheets, presentableInstances.length, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
+  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetFilter, rateSheets, presentableInstances.length, settingsLoading, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,
@@ -339,6 +353,7 @@ export function TierSystemSettings({
         ))}
       </div>
       {tool.error && <p class="cz-station-empty" role="alert">{tool.error}</p>}
+      {settingsError && <p class="cz-station-empty" role="alert">{settingsError}</p>}
     </div>
   );
 }

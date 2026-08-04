@@ -339,6 +339,8 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           tierTool={tool.tierInstances}
           workspaceInstance={tool.workspaceInstance}
           rateSheets={tool.rateSheets}
+          settingsLoading={tool.settingsLoading}
+          settingsError={tool.settingsError}
           onInclusionIntent={(itemId, actionId) => {
             if (selectedSlot) dispatchInclusionIntent(selectedSlot.slotId, itemId, actionId);
           }}

@@ -86,6 +86,10 @@ interface Props {
   tierTool: TierInstancesToolState;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
+  // The Package Manager read's state, forwarded to Settings: its Rate Sheets
+  // section is the only Package Manager-backed content in this deck.
+  settingsLoading: boolean;
+  settingsError: string | null;
   // Dispatches a registered action id for ONE inclusion the focused Tier
   // selects. `itemId` is the Tier's Rate Sheet selection key, carried straight
   // from the row; the orchestrator scopes it to the instance and slot.
@@ -149,6 +153,8 @@ export function TierLowerDeck({
   tierTool,
   workspaceInstance,
   rateSheets,
+  settingsLoading,
+  settingsError,
   onInclusionIntent,
   onConnectionIntent,
   onPoolIntent,
@@ -207,6 +213,8 @@ export function TierLowerDeck({
               families={families}
               workspaceInstance={workspaceInstance}
               rateSheets={rateSheets}
+              settingsLoading={settingsLoading}
+              settingsError={settingsError}
               onConnectionIntent={onConnectionIntent}
               onPoolIntent={onPoolIntent}
             />
