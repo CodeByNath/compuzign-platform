@@ -2965,6 +2965,36 @@ button.cz-station-status-pill {
   gap: 10px;
 }
 
+.cz-rate-sheet-tool__focused-head {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.cz-rate-sheet-tool__inline-values {
+  display: flex;
+  min-width: 240px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+}
+
+.cz-rate-sheet-tool__inline-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 782px) {
+  .cz-rate-sheet-tool__focused-head {
+    grid-template-columns: 1fr;
+  }
+}
+
 .cz-rate-sheet-tool__group-create,
 .cz-rate-sheet-tool__group-row {
   display: flex;

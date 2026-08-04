@@ -181,7 +181,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       return;
     }
     if (target.kind === 'standalone-rate-sheet') {
-      if (target.platformId) onIntent(target.platformId, actionId === 'edit' ? 'edit-rate-sheet' : 'view-rate-sheet');
+      if (target.platformId && target.rateSheetId) onIntent(target.rateSheetId, actionId === 'edit' ? 'edit-rate-sheet' : 'view-rate-sheet');
       return;
     }
     if (instanceId === null || selectedSlot === null) return;

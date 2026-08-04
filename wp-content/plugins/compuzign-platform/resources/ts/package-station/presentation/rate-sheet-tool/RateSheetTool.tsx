@@ -11,9 +11,10 @@
 // footer; Edit hands the collection editor to the shared `InlineEditorShell`,
 // which owns Save / Cancel and the dirty-cancel confirm — one footer, one save.
 //
-// A pool launcher opens the readable collection. A standalone Platform-ID row
-// resolves to one compact read card, and Settings' `new` launcher enters this
-// same editor with one empty sheet selected.
+// A pool launcher opens the readable collection. A standalone Settings row
+// carries the already-loaded native key behind its visible Platform identity
+// and opens one compact read card; `new` enters the same one-sheet editor with
+// one empty sheet selected.
 //
 // Presentation only. Every read, edit, and save lives on the controller the
 // Package-owned `useRateSheetTool` hook supplies; this file calls no endpoint and
@@ -29,11 +30,10 @@ import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { evaluateModule, rateSheetCollectionModule } from '@/drawer-kit/utils/moduleNotifications';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
-import { fetchRateSheetByPlatformId } from '../../api';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 import { summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
-import { RateSheetGridEditor, RateSheetGridRead, RateSheetGroupsEditor } from './rateSheetParts';
+import { RateSheetGridEditor } from './rateSheetParts';
 
 const plural = (count: number, singular: string, pluralForm = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralForm}`;
@@ -62,6 +62,7 @@ function RateSheetDrawerBody({
   controller, recordId, mode, onClose, onModeChange, onSaved, setFooter, setCloseGuard,
 }: DrawerContentProps & { controller: RateSheetToolController }): VNode {
   const editing = mode === 'edit';
+  const focused = recordId === 'new' || (typeof recordId === 'string' && recordId !== '');
   const { dirty, saving, saveError } = controller;
 
   const savedRef = useRef(onSaved);      savedRef.current = onSaved;
@@ -79,14 +80,13 @@ function RateSheetDrawerBody({
       controller.createSheet();
       return;
     }
-    if (typeof recordId !== 'string' || !recordId.startsWith('CZPRC')) return;
-    fetchRateSheetByPlatformId(recordId)
-      .then((response) => {
-        if (response.success) controller.openSheet(response.rate_sheet_id);
-      })
-      .catch((err) => {
-        setAddressError(err instanceof Error ? err.message : 'Could not resolve this Rate Sheet.');
-      });
+    if (typeof recordId !== 'string' || recordId === '') return;
+    const match = controller.list.find((sheet) => sheet.id === recordId);
+    if (!match) {
+      setAddressError('This Rate Sheet is no longer available in the Package Manager collection.');
+      return;
+    }
+    controller.openSheet(match.key);
   }, [controller, recordId]);
   const wasSaving = useRef(false);
   useEffect(() => {
@@ -110,8 +110,12 @@ function RateSheetDrawerBody({
   }, [setCloseGuard, dirty]);
 
   const requestEdit = useCallback(() => onModeChange('edit'), [onModeChange]);
-  const leaveEdit = useCallback(() => { controller.discard(); onModeChange('view'); }, [controller, onModeChange]);
-  const save = useCallback(async () => { explicitSave.current = true; await controller.save(); }, [controller]);
+  const leaveEdit = useCallback(() => {
+    controller.discard();
+    if (recordId === 'new') onClose();
+    else onModeChange('view');
+  }, [controller, onClose, onModeChange, recordId]);
+  const save = useCallback(async () => { explicitSave.current = true; await controller.save(focused); }, [controller, focused]);
 
   useEffect(() => {
     if (!setFooter) return;
@@ -119,37 +123,47 @@ function RateSheetDrawerBody({
     setFooter(
       <EntityActionFooter
         close={{ id: 'close', label: 'Close', onSelect: onClose }}
-        primary={{ id: 'edit', label: 'Edit Rate Sheets', onSelect: requestEdit }}
+        primary={{ id: 'edit', label: focused ? 'Edit Rate Sheet' : 'Edit Rate Sheets', onSelect: requestEdit }}
       />,
     );
     return () => setFooter(null);
-  }, [setFooter, editing, onClose, requestEdit]);
+  }, [setFooter, editing, focused, onClose, requestEdit]);
 
   if (addressError) return <div class="cz-station-drawer__state" role="alert">{addressError}</div>;
+  if (focused && !controller.selected) {
+    const addressExists = recordId === 'new' || controller.list.some((sheet) => sheet.id === recordId);
+    return addressExists
+      ? <div class="cz-station-drawer__state" aria-busy="true">Preparing Rate Sheet…</div>
+      : <div class="cz-station-drawer__state" role="alert">This Rate Sheet could not be selected.</div>;
+  }
   if (editing) {
     return (
       <InlineEditorShell
-        title="Rate Sheets"
+        title={focused ? (controller.selected?.title.trim() || 'New Rate Sheet') : 'Rate Sheets'}
         onSave={save}
         onCancel={leaveEdit}
         saving={saving}
         saveErr={saveError}
         isDirty={dirty}
-        saveDisabled={!dirty}
+        saveDisabled={!dirty || (focused && !controller.selected?.title.trim())}
       >
-        <RateSheetCollectionEditor controller={controller} />
+        {focused && controller.selected
+          ? <FocusedRateSheetEditor controller={controller} value={controller.selected} />
+          : <RateSheetCollectionEditor controller={controller} />}
       </InlineEditorShell>
     );
   }
-  return <RateSheetCollectionView controller={controller} onEdit={requestEdit} focused={typeof recordId === 'string' && recordId.startsWith('CZPRC')} />;
+  return focused && controller.selected
+    ? <FocusedRateSheetRead value={controller.selected} onEdit={requestEdit} />
+    : <RateSheetCollectionView controller={controller} onEdit={requestEdit} />;
 }
 
 // ── SECTION: view mode (the list) ─────────────────────────────────────────────
 
 function RateSheetCollectionView({
-  controller, onEdit, focused,
-}: { controller: RateSheetToolController; onEdit: () => void; focused: boolean }): VNode {
-  const { list, connectedServiceIds } = controller;
+  controller, onEdit,
+}: { controller: RateSheetToolController; onEdit: () => void }): VNode {
+  const { list } = controller;
   const editAction = [{ id: 'edit', label: 'Edit', onSelect: onEdit }];
   // The module's own lifecycle and notification panel, resolved by the shared
   // engine and opened from its pill — the same cycle every other module follows,
@@ -165,11 +179,6 @@ function RateSheetCollectionView({
     panelOpen,
     onTogglePanel: () => setPanelOpen((open) => !open),
   };
-
-  if (focused) {
-    if (!controller.selected) return <div class="cz-station-drawer__state" aria-busy="true">Resolving Rate Sheet…</div>;
-    return <div class="cz-req-detail"><RateSheetReadCard value={controller.selected} sourceCount={connectedServiceIds.length} actions={editAction} /></div>;
-  }
 
   if (list.length === 0) {
     return (
@@ -208,52 +217,84 @@ function RateSheetCollectionView({
       </ReadBlock>
 
       {controller.selected && (
-        <RateSheetReadCard
-          value={controller.selected}
-          sourceCount={connectedServiceIds.length}
-          actions={editAction}
-        />
+        <FocusedRateSheetRead value={controller.selected} onEdit={onEdit} />
       )}
     </div>
   );
 }
 
-function RateSheetReadCard({
-  value, sourceCount, actions,
-}: { value: RateSheetEditorValue; sourceCount: number; actions: { id: string; label: string; onSelect: () => void }[] }): VNode {
-  const summary = useMemo(() => summariseRateSheet(value, sourceCount), [value, sourceCount]);
+function FocusedRateSheetRead({
+  value, onEdit,
+}: { value: RateSheetEditorValue; onEdit: () => void }): VNode {
+  const summary = useMemo(() => summariseRateSheet(value, 0), [value]);
+  const perValues = useMemo(() => [...new Set(value.items.map((row) => row.per))], [value.items]);
   return (
-    <ReadBlock title={value.title.trim() || 'Untitled Rate Sheet'} count={summary.rows} subtitle="Priced rows in this sheet." status={value.status === 'archived' ? 'disabled' : 'active'} actions={actions}>
+    <div class="cz-req-detail">
+    <ReadBlock
+      title={value.title.trim() || 'Untitled Rate Sheet'}
+      subtitle={value.platformId || (value.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}
+      icon={<RateSheetIcon />}
+      scopeClass="drawerOverview"
+      status={value.status === 'archived' ? 'disabled' : 'active'}
+      actions={[{ id: 'edit', label: 'Edit Rate Sheet', onSelect: onEdit }]}
+    >
       <div class="drawerModule__fields">
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Platform ID</p>
-          <p class="drawerModule__value">{value.platformId || (value.id ? 'Not assigned' : 'Assigned after Save')}</p>
+          <p class="drawerModule__label">Inclusions</p>
+          <p class="drawerModule__value">{summary.rows}</p>
         </div>
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Summary</p>
-          <p class="drawerModule__value">{plural(summary.rows, 'inclusion')} · {plural(summary.groups, 'group')}</p>
+          <p class="drawerModule__label">Groups</p>
+          <p class="drawerModule__value">{summary.groups}</p>
         </div>
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Per / unit</p>
-          <p class="drawerModule__value">{[...new Set(value.items.map((row) => row.per))].join(', ') || 'No units configured'}</p>
+          <p class="drawerModule__label">Per values</p>
+          <p class="drawerModule__value">{perValues.length}{perValues.length > 0 ? ` · ${perValues.join(', ')}` : ''}</p>
         </div>
-        {value.groups.map((group) => (
-          <div key={group.id} class="drawerModule__field">
-            <p class="drawerModule__label">{group.label || 'Untitled group'} Platform ID</p>
-            <p class="drawerModule__value">{group.platformId || 'Not assigned'}</p>
-          </div>
-        ))}
       </div>
-      {value.items.length === 0 ? (
-        <div class="drawerModule__empty"><p class="drawerModule__empty-title">No priced rows yet</p></div>
-      ) : (
-        <RateSheetGridRead rows={value.items} groups={value.groups} />
-      )}
     </ReadBlock>
+    </div>
   );
 }
 
 // ── SECTION: edit mode (the collection editor) ────────────────────────────────
+
+function FocusedRateSheetEditor({ controller, value }: {
+  controller: RateSheetToolController;
+  value: RateSheetEditorValue;
+}): VNode {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const selectedKey = controller.selectedKey;
+  return (
+    <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
+      <div class="cz-rate-sheet-tool__focused-head">
+        <input
+          class="cz-tf-control cz-tf-input"
+          value={value.title}
+          placeholder="Rate Sheet title"
+          aria-label="Rate Sheet title"
+          onInput={(event) => controller.setTitle((event.currentTarget as HTMLInputElement).value)}
+        />
+        <select
+          class="cz-tf-control cz-tf-select"
+          value={value.status}
+          aria-label="Rate Sheet status"
+          onChange={(event) => {
+            if (selectedKey) controller.setSheetStatus(selectedKey, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived');
+          }}
+        >
+          <option value="active">Active</option>
+          <option value="archived">Disabled</option>
+        </select>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setPickerOpen((open) => !open)}>
+          {pickerOpen ? 'Close Services' : 'Add Source Service'}
+        </button>
+      </div>
+      {pickerOpen && <SourcePicker controller={controller} onDone={() => setPickerOpen(false)} />}
+      <RateSheetSheetEditor controller={controller} value={value} indented={false} />
+    </div>
+  );
+}
 
 function RateSheetCollectionEditor({ controller }: { controller: RateSheetToolController }): VNode {
   const { list, selectedKey } = controller;
@@ -307,45 +348,29 @@ function RateSheetCollectionEditor({ controller }: { controller: RateSheetToolCo
               Delete
             </button>
           </div>
-          {sheet.key === selectedKey && controller.selected && <RateSheetSheetEditor controller={controller} value={controller.selected} />}
+          {sheet.key === selectedKey && controller.selected && <RateSheetSheetEditor controller={controller} value={controller.selected} indented />}
         </div>
       ))}
     </div>
   );
 }
 
-function RateSheetSheetEditor({ controller, value }: { controller: RateSheetToolController; value: RateSheetEditorValue }): VNode {
+function RateSheetSheetEditor({ controller, value, indented }: {
+  controller: RateSheetToolController;
+  value: RateSheetEditorValue;
+  indented: boolean;
+}): VNode {
   const { units, options } = controller;
-  const [creatingGroup, setCreatingGroup] = useState(false);
-  const [groupLabel, setGroupLabel] = useState('');
   const [addOpen, setAddOpen] = useState(false);
-
-  const submitGroup = () => {
-    if (!groupLabel.trim()) return;
-    controller.createGroup(groupLabel);
-    setGroupLabel('');
-    setCreatingGroup(false);
-  };
 
   const usedSources = new Set(value.items.map((row) => row.optionId));
   const available = options.filter((option) => !usedSources.has(option.id));
 
   return (
-    <div class="cz-rate-sheet-tool__sheet" style="padding-left: var(--cz-space-3)">
+    <div class="cz-rate-sheet-tool__sheet" style={indented ? 'padding-left: var(--cz-space-3)' : undefined}>
       <div class="cz-rate-sheet-tool__toolbar">
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setCreatingGroup(true)}>Create Group</button>
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setAddOpen((open) => !open)}>{addOpen ? 'Close Rows' : 'Add Row'}</button>
       </div>
-
-      {creatingGroup && (
-        <div class="cz-rate-sheet-tool__group-create">
-          <input class="cz-tf-control cz-tf-input" value={groupLabel} placeholder="New group name" autoFocus aria-label="New group name"
-            onInput={(event) => setGroupLabel((event.currentTarget as HTMLInputElement).value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submitGroup(); } if (event.key === 'Escape') { setCreatingGroup(false); setGroupLabel(''); } }} />
-          <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={submitGroup} disabled={!groupLabel.trim()}>Add Group</button>
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => { setCreatingGroup(false); setGroupLabel(''); }}>Cancel</button>
-        </div>
-      )}
 
       {addOpen && (
         <div class="cz-rate-sheet-tool__picker">
@@ -363,10 +388,6 @@ function RateSheetSheetEditor({ controller, value }: { controller: RateSheetTool
             </div>
           )}
         </div>
-      )}
-
-      {value.groups.length > 0 && (
-        <RateSheetGroupsEditor groups={value.groups} commands={controller} />
       )}
 
       {value.items.length === 0 ? (

@@ -249,7 +249,10 @@ const drawerSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx',
 ), 'utf8');
-const apiSource = readFileSync(resolve(root, 'resources/ts/package-station/api.ts'), 'utf8');
+const controllerSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts',
+), 'utf8');
 check(
   drawerSource.includes("recordId === 'new'")
     && drawerSource.includes('controller.createSheet()')
@@ -257,16 +260,39 @@ check(
   'the new drawer address creates one sheet through the existing controller with a rerender guard',
 );
 check(
-  drawerSource.includes('fetchRateSheetByPlatformId(recordId)')
-    && drawerSource.includes('controller.openSheet(response.rate_sheet_id)')
-    && apiSource.includes('admin/rate-sheets/${encodeURIComponent(platformId)}'),
-  'a standalone Platform ID resolves through the canonical read before opening the native editor key',
+  drawerSource.includes('controller.list.find((sheet) => sheet.id === recordId)')
+    && drawerSource.includes('controller.openSheet(match.key)')
+    && !drawerSource.includes('fetchRateSheetByPlatformId'),
+  'a Settings row opens the already-loaded native sheet without a second request',
 );
 check(
-  drawerSource.includes('if (focused)')
-    && drawerSource.includes('<RateSheetReadCard value={controller.selected}')
-    && drawerSource.includes('<RateSheetCollectionEditor controller={controller} />'),
-  'standalone View is one compact read card while Edit reuses the complete collection editor',
+  drawerSource.includes('? <FocusedRateSheetEditor controller={controller} value={controller.selected} />')
+    && drawerSource.includes(': <RateSheetCollectionEditor controller={controller} />')
+    && drawerSource.includes('? <FocusedRateSheetRead value={controller.selected} onEdit={requestEdit} />'),
+  'focused View and Edit use one-sheet presentations and never fall through to the collection editor',
+);
+const focusedRead = drawerSource.slice(
+  drawerSource.indexOf('function FocusedRateSheetRead'),
+  drawerSource.indexOf('// ── SECTION: edit mode'),
+);
+check(
+  !focusedRead.includes('RateSheetGridRead')
+    && !focusedRead.includes('value.groups.map')
+    && focusedRead.includes('Per values'),
+  'the focused overview is summary-only, with no row table or child identity dump',
+);
+check(
+  !drawerSource.includes('>Create Group</button>')
+    && partsSource.includes('const EDIT_SENTINEL')
+    && partsSource.includes('editLabel="Edit Group values"')
+    && partsSource.includes('editLabel="Edit Per values"'),
+  'Group and Per create/edit actions live in their row dropdowns, not a separate Group panel',
+);
+check(
+  controllerSource.includes('renameUnit: (unit, label) =>')
+    && controllerSource.includes('items: sheet.items.map((row) => row.per === unit ? { ...row, per: next } : row)')
+    && controllerSource.includes('BUILT_IN_RATE_SHEET_UNITS as readonly string[]).includes(unit)'),
+  'curated Per rename updates the manager vocabulary and every referencing row while built-ins remain immutable',
 );
 
 console.log('Rate Sheet tool contract checks passed.');

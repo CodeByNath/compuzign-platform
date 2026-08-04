@@ -17,6 +17,7 @@
 
 import { useState } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
+import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageRateSheetUnit } from '../../types';
 import { rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
@@ -49,6 +50,9 @@ export interface RateSheetRowCommands {
   createGroup:     (label: string) => string | null;
   /** Adds a unit to the Manager vocabulary and returns the settled label. */
   createUnit:      (label: string) => PackageRateSheetUnit | null;
+  renameUnit:      (unit: PackageRateSheetUnit, label: string) => PackageRateSheetUnit | null;
+  renameGroup:     (groupId: string, label: string) => void;
+  deleteGroup:     (groupId: string) => void;
 }
 
 // ── SECTION: inline create ────────────────────────────────────────────────────
@@ -65,20 +69,27 @@ export interface RateSheetRowCommands {
  * commits so a click elsewhere does not silently discard the name.
  */
 const ADD_SENTINEL = '__add__';
+const EDIT_SENTINEL = '__edit__';
 
 function InlineCreateSelect({
-  value, disabled, ariaLabel, addLabel, placeholder, children, onSelect, onCreate,
+  value, disabled, ariaLabel, addLabel, editLabel, editValues, placeholder, children,
+  onSelect, onCreate, onRename, onDelete,
 }: {
   value:       string;
   disabled:    boolean;
   ariaLabel:   string;
   addLabel:    string;
+  editLabel:   string;
+  editValues:  readonly { value: string; label: string }[];
   placeholder: string;
   children:    ComponentChildren;
   onSelect:    (next: string) => void;
   onCreate:    (label: string) => string | null;
+  onRename:    (value: string, label: string) => void;
+  onDelete?:   (value: string) => void;
 }): VNode {
   const [adding, setAdding] = useState(false);
+  const [managing, setManaging] = useState(false);
   const [draft, setDraft] = useState('');
 
   const commit = () => {
@@ -106,6 +117,34 @@ function InlineCreateSelect({
     );
   }
 
+
+  if (managing) {
+    return (
+      <div class="cz-rate-sheet-tool__inline-values" aria-label={editLabel}>
+        {editValues.length === 0 ? (
+          <span class="cz-rate-sheet-tool__picker-note">No editable values.</span>
+        ) : editValues.map((entry) => (
+          <div key={entry.value} class="cz-rate-sheet-tool__inline-value">
+            <input
+              class="cz-tf-control cz-tf-input"
+              defaultValue={entry.label}
+              aria-label={`Rename ${entry.label}`}
+              onBlur={(event) => onRename(entry.value, (event.currentTarget as HTMLInputElement).value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') (event.currentTarget as HTMLInputElement).blur();
+                if (event.key === 'Escape') setManaging(false);
+              }}
+            />
+            {onDelete && (
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => onDelete(entry.value)}>Delete</button>
+            )}
+          </div>
+        ))}
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setManaging(false)}>Done</button>
+      </div>
+    );
+  }
+
   return (
     <select
       class="cz-tf-control cz-tf-select"
@@ -115,11 +154,14 @@ function InlineCreateSelect({
       onChange={(event) => {
         const next = (event.currentTarget as HTMLSelectElement).value;
         if (next === ADD_SENTINEL) { setAdding(true); return; }
+        if (next === EDIT_SENTINEL) { setManaging(true); return; }
         onSelect(next);
       }}
     >
       {children}
+      <option disabled>────────────</option>
       <option value={ADD_SENTINEL}>{addLabel}</option>
+      <option value={EDIT_SENTINEL}>{editLabel}</option>
     </select>
   );
 }
@@ -254,9 +296,14 @@ function RateSheetEditRow({
           disabled={disabled}
           ariaLabel={`Unit for ${row.optionLabel}`}
           addLabel="+ Add new unit"
+          editLabel="Edit Per values"
+          editValues={units
+            .filter((unit) => !(BUILT_IN_RATE_SHEET_UNITS as readonly string[]).includes(unit))
+            .map((unit) => ({ value: unit, label: unit }))}
           placeholder="New unit name"
           onSelect={(next) => commands.setRowPer(key, next)}
           onCreate={commands.createUnit}
+          onRename={(unit, label) => { commands.renameUnit(unit, label); }}
         >
           {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
         </InlineCreateSelect>
@@ -272,9 +319,13 @@ function RateSheetEditRow({
           disabled={disabled}
           ariaLabel={`Group for ${row.optionLabel}`}
           addLabel="+ Add new group"
+          editLabel="Edit Group values"
+          editValues={groups.map((group) => ({ value: group.id, label: group.label }))}
           placeholder="New group name"
           onSelect={(next) => commands.setRowGroup(key, next === '' ? null : next)}
           onCreate={commands.createGroup}
+          onRename={commands.renameGroup}
+          onDelete={commands.deleteGroup}
         >
           <option value="">Ungrouped</option>
           {groups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}

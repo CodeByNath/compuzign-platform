@@ -27,7 +27,7 @@ export type ConnectionTarget =
   | { kind: 'tier-instance'; instanceId: string }
   | { kind: 'rate-sheet-group'; rateSheetId: string; groupId: string }
   | { kind: 'rate-sheet'; rateSheetId: string }
-  | { kind: 'standalone-rate-sheet'; platformId: string };
+  | { kind: 'standalone-rate-sheet'; rateSheetId: string; platformId: string };
 
 interface ConnectionRowBase {
   id:        string;
@@ -235,7 +235,7 @@ export function projectRateSheetPoolRows(
     connectedInclusions: sheet.items.length,
     groupCount:           sheet.groups.length,
     platformId:          sheet.platform_id ?? '',
-    target:               { kind: 'standalone-rate-sheet', platformId: sheet.platform_id ?? '' },
+    target:               { kind: 'standalone-rate-sheet', rateSheetId: sheet.rate_sheet_id, platformId: sheet.platform_id ?? '' },
     actions:              ['view', 'edit'],
   }));
 }

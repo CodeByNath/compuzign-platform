@@ -83,11 +83,13 @@ export interface RateSheetToolController {
   setRowPer:            (rowId: string, per: PackageRateSheetUnit) => void;
   /** Adds a unit to the Manager vocabulary. Returns the settled label, or null if blank. */
   createUnit:           (label: string) => PackageRateSheetUnit | null;
+  /** Renames one curated literal unit across the vocabulary and all sheet rows. */
+  renameUnit:           (unit: PackageRateSheetUnit, label: string) => PackageRateSheetUnit | null;
   setRowQuantity:       (rowId: string, quantity: number) => void;
   setRowGroup:          (rowId: string, groupId: string | null) => void;
   // Persisting actions.
   connectServices:      (serviceIds: number[]) => Promise<void>;
-  save:                 () => Promise<void>;
+  save:                 (preserveSelection?: boolean) => Promise<void>;
   discard:              () => void;
 }
 
@@ -173,6 +175,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       nextDeletions: string[],
       sources: PackageManagerReadModel['sources'],
       nextUnits: PackageRateSheetUnit[],
+      preserveSelection = false,
     ) => {
       if (readModel == null || hostServiceId == null) return;
       setSaving(true);
@@ -183,15 +186,35 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
           buildManagerSavePayload(readModel, nextSheets, nextDeletions, sources, nextUnits),
         );
         if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return; }
+        const selectedBeforeSave = preserveSelection
+          ? nextSheets.find((sheet) => sheet.key === selectedKey) ?? null
+          : null;
+        const existingIds = new Set(readModel.rate_sheets.map((sheet) => sheet.rate_sheet_id));
         applyReadModel(response.manager);
-        setSelectedKey(null);
+        if (selectedBeforeSave === null) {
+          setSelectedKey(null);
+        } else if (selectedBeforeSave.id !== '') {
+          const stillExists = response.manager.rate_sheets.some((sheet) => sheet.rate_sheet_id === selectedBeforeSave.id);
+          setSelectedKey(stillExists ? selectedBeforeSave.id : null);
+        } else {
+          const created = response.manager.rate_sheets.find((sheet) => !existingIds.has(sheet.rate_sheet_id));
+          if (created) {
+            setSelectedKey(created.rate_sheet_id);
+          } else {
+            // An empty new sheet is intentionally omitted by the save mapper.
+            // Keep that local draft mounted after a source-connection save.
+            setSheets((current) => [...current, selectedBeforeSave as WorkingSheet]);
+            setSelectedKey((selectedBeforeSave as WorkingSheet).key);
+            setDirty(true);
+          }
+        }
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : 'Could not save the Rate Sheets.');
       } finally {
         setSaving(false);
       }
     },
-    [readModel, hostServiceId, applyReadModel],
+    [readModel, hostServiceId, applyReadModel, selectedKey],
   );
 
   const list = useMemo<RateSheetListRow[]>(
@@ -265,7 +288,10 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       editSelected(() => value);
       return groupId;
     },
-    renameGroup: (groupId, label) => editSelected((value) => renameEditorGroup(value, groupId, label)),
+    renameGroup: (groupId, label) => {
+      const next = label.trim();
+      if (next !== '') editSelected((value) => renameEditorGroup(value, groupId, next));
+    },
     deleteGroup: (groupId) => editSelected((value) => deleteEditorGroup(value, groupId)),
     addRow: (optionId) => {
       const option = (readModel ? rateSheetOptions(readModel) : []).find((o) => o.id === optionId);
@@ -289,13 +315,28 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       setSaveError(null);
       return next;
     },
+    renameUnit: (unit, label) => {
+      if ((BUILT_IN_RATE_SHEET_UNITS as readonly string[]).includes(unit)) return null;
+      const next = label.trim();
+      if (next === '') return null;
+      const collision = units.find((candidate) => candidate !== unit && candidate.toLowerCase() === next.toLowerCase());
+      if (collision !== undefined) return null;
+      setUnits((current) => current.map((candidate) => candidate === unit ? next : candidate));
+      setSheets((current) => current.map((sheet) => ({
+        ...sheet,
+        items: sheet.items.map((row) => row.per === unit ? { ...row, per: next } : row),
+      })));
+      setDirty(true);
+      setSaveError(null);
+      return next;
+    },
     connectServices: async (serviceIds) => {
       if (readModel == null) return;
-      await persist(sheets, deletions, connectSourceServices(readModel.sources, serviceIds), units);
+      await persist(sheets, deletions, connectSourceServices(readModel.sources, serviceIds), units, true);
     },
-    save: async () => {
+    save: async (preserveSelection = false) => {
       if (readModel == null) return;
-      await persist(sheets, deletions, readModel.sources, units);
+      await persist(sheets, deletions, readModel.sources, units, preserveSelection);
     },
     discard: () => { if (readModel) applyReadModel(readModel); setSelectedKey(null); },
   }), [
