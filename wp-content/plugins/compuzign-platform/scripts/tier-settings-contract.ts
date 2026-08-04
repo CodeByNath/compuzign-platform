@@ -150,9 +150,9 @@ check(
     && familyGroupsBlock.includes("value={familyGroupFilter}")
     && settingsSource.includes("useState<FamilyGroupFilter>('all')")
     && ['focused', 'all', 'active', 'pending', 'disabled'].every((id) => settingsSource.includes(`id: '${id}'`))
-    && familyGroupsBlock.includes('+ New Family')
+    && familyGroupsBlock.includes('+ Family Group')
     && !familyGroupsBlock.includes('<PoolLauncher'),
-  'Family Groups\' toolbar carries the All-default status filter and the renamed + New Family action, not a PoolLauncher leaf',
+  'Family Groups\' toolbar carries the All-default status filter and the renamed + Family Group action, not a PoolLauncher leaf',
 );
 check(
   settingsSource.includes('{group.toolbar}')
@@ -206,9 +206,9 @@ check(
     && tierGroupsBlock.includes("value={tierGroupFilter}")
     && settingsSource.includes("useState<TierGroupFilter>('all')")
     && ['focused', 'all', 'active', 'pending', 'disabled'].every((id) => settingsSource.includes(`id: '${id}'`))
-    && tierGroupsBlock.includes('+ New Tier Group')
+    && tierGroupsBlock.includes('+ Tier Group')
     && !tierGroupsBlock.includes('<PoolLauncher'),
-  'Tier Groups\' toolbar carries the All-default status filter and the renamed + New Tier Group action, not a PoolLauncher leaf',
+  'Tier Groups\' toolbar carries the All-default status filter and the renamed + Tier Group action, not a PoolLauncher leaf',
 );
 
 // ── Tier Groups lists the PARENT Tier Group / Tier System records ─────────────
@@ -227,11 +227,37 @@ check(
 // PARENT's lifecycle state — `draft` is the system's Pending, so it maps rather
 // than leaking the storage enum into the filter vocabulary.
 check(
-  settingsSource.includes('const pool = tool.instances.filter((candidate) => {')
+  settingsSource.includes('const pool = presentableInstances.filter((candidate) => {')
     && settingsSource.includes("if (tierGroupFilter === 'all') return true;")
     && settingsSource.includes("if (tierGroupFilter === 'pending') return candidate.status === 'draft';")
     && settingsSource.includes('return candidate.status === tierGroupFilter;'),
-  'Tier Groups filters the complete parent Tier Group pool by the parent\'s own lifecycle state',
+  'Tier Groups filters the presentable parent Tier Group pool by the parent\'s own lifecycle state',
+);
+// ── The normal list is live records only ─────────────────────────────────────
+// Archived and trashed Tier Groups are binned, not normal pool records. They are
+// excluded BEFORE any filter or sort runs, so `All` cannot surface one, `Focused`
+// cannot pin one first, and no travel pill can reach this list. Restoring or
+// purging a binned system belongs to the dedicated archive/trash job, which this
+// section does not do.
+check(
+  settingsSource.includes('const presentableInstances = useMemo(')
+    && /candidate\.status !== 'archived' && candidate\.status !== 'trashed'/.test(settingsSource)
+    && settingsSource.indexOf('presentableInstances = useMemo(')
+      < settingsSource.indexOf('const pool = presentableInstances.filter'),
+  'archived and trashed Tier Groups leave the pool before any filter or sort sees them',
+);
+// The filter list stays at the three live lifecycle states — adding an Archived
+// or Trashed option would offer a filter that can never match a row.
+check(
+  !/{ id: 'archived'/.test(settingsSource) && !/{ id: 'trashed'/.test(settingsSource),
+  'no Archived or Trashed filter option exists in the Settings toolbars',
+);
+// The summary counts the same pool the list presents, so "in pool" can never
+// report records the rows below it exclude.
+check(
+  tierGroupsBlock.includes('${presentableInstances.length} in pool')
+    && settingsSource.includes("presentableInstances.filter((instance) => instance.status === 'active').length"),
+  'the Tier Groups summary counts the presented pool, not the stored one',
 );
 // Focused-first ordering, on the same stable-sort shape Family Groups uses: the
 // comparator moves only the focused system and returns 0 for every other pair,
@@ -244,8 +270,7 @@ check(
 );
 // The accordion summary reports the real parent pool, never an access policy.
 check(
-  tierGroupsBlock.includes('summary: `${activeTierGroups} active · ${tool.instances.length} in pool`')
-    && settingsSource.includes("tool.instances.filter((instance) => instance.status === 'active').length"),
+  tierGroupsBlock.includes('summary: `${activeTierGroups} active · ${presentableInstances.length} in pool`'),
   'the Tier Groups summary counts real parent Tier Groups rather than reporting a Rate Sheet access policy',
 );
 // The retired child-access presentation is gone from the Tier Groups list: its
@@ -268,9 +293,9 @@ check(
   'the Settings lane no longer derives or renders Rate Sheet access for the Tier Groups list',
 );
 check(
-  tierGroupsBlock.includes('onView={onInstanceIntent}')
+  tierGroupsBlock.includes('onIntent={onConnectionIntent}')
     && tierGroupsBlock.includes("onPoolIntent('tier')"),
-  'Tier Groups opens the parent system through the existing instance dispatcher and launches the Tier pool creation',
+  'Tier Groups opens the parent system through the shared connection dispatcher and launches the Tier pool creation',
 );
 
 // ── The Tier Group row reuses the Family Groups row system ────────────────────
@@ -299,9 +324,71 @@ check(
 // — the pill through the same `connectionStatus` token map every other kind uses.
 check(
   connectionRowSource.includes('<TierDeckRowIdentity icon={icon} name={row.name} reference={row.reference} compact />')
-    && connectionRowSource.includes('<span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>')
+    && connectionRowSource.includes('<span class={`cz-module-status-pill ${meta.cls}`}>{meta.label}</span>')
     && connectionRowSource.includes('const meta = connectionStatus(row.status);'),
   'the Tier Group row renders its title, Platform ID and lifecycle pill through the shared row, not a bespoke layout',
+);
+
+// ── One pill, owned by the Presentation Status Contract ──────────────────────
+// presentation.ts is the single place a status maps to a label and class. This
+// file previously kept its own token map and derived the label by un-hyphenating
+// the status, which printed the resolver's internal keys as "Pending dim" and
+// "Pending full" — the dim/full split is an opacity flavour, not a state. The
+// contract collapses both to Pending, so no row may name either.
+check(
+  connectionRowSource.includes("from '@/drawer-kit/schema/presentation'")
+    && connectionRowSource.includes('PILL_META[status]')
+    && !connectionRowSource.includes('CONNECTION_STATUS_TOKEN')
+    && !/replace\(\/-\/g, ' '\)/.test(connectionRowSource),
+  'the connected-record row delegates every status label and class to the Presentation Status Contract',
+);
+const workspacePresentationFiles = sourceFiles(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace',
+)).filter((path) => /\.tsx?$/.test(path));
+for (const dimFullLabel of ['Pending dim', 'Pending full', 'Pending-dim', 'Pending-full']) {
+  check(
+    !workspacePresentation.includes(dimFullLabel),
+    `no workspace lane presents "${dimFullLabel}" as a status: dim/full is opacity, not a state name`,
+  );
+}
+// One pill implementation across all three lanes — the deck's own pill class is
+// retired, so Details, Connections and Settings cannot drift in size or shape.
+check(
+  workspacePresentationFiles.every((path) => !readFileSync(path, 'utf8').includes('cz-tier-deck__status')),
+  'the retired cz-tier-deck__status pill is gone from every workspace lane',
+);
+const stationCss = readFileSync(resolve(root, 'resources/ts/admin-station/styles/admin-station.css'), 'utf8');
+check(
+  !/^\.cz-tier-deck__status/m.test(stationCss)
+    && stationCss.includes('.cz-station-list__cell > .cz-module-status-pill'),
+  'the retired pill\'s rules are deleted and only the shared pill\'s grid placement remains in the station sheet',
+);
+
+// ── The Tier Group row reports its registered occupants ──────────────────────
+// Tiers and Add-ons are one occupant population split by selection mode, read as
+// `4/1` in the same column position the other kinds use for their count — so the
+// Family Group and Tier Group lists carry the same five cells and align exactly.
+check(
+  connectionRowSource.includes('<span class="cz-tier-deck__field-label">Tiers / Add-ons</span>')
+    && connectionRowSource.includes('{row.tierCount}/{row.addonCount}'),
+  'the Tier Group row reports Tiers/Add-ons in the shared count column',
+);
+// Registration is the fact counted, so no lifecycle status filters it, and the
+// split reads the occupant's own stored selection mode rather than inferring it.
+check(
+  connectionNavigationSource.includes('.map((slot) => slot?.current_occupant ?? null)')
+    && connectionNavigationSource.includes('occupant.is_addon === true')
+    && connectionNavigationSource.includes('tierCount:  occupants.length - addonCount,')
+    && !/current_occupant[\s\S]{0,200}platform_status/.test(connectionNavigationSource),
+  'the Tiers/Add-ons split counts every registered occupant by its own selection mode, filtered by no status',
+);
+// Both list rows offer the same actions, so the shared split control renders the
+// same shape in both — a single action would render a bare primary with no menu.
+check(
+  connectionNavigationSource.includes("actions:    ['view', 'edit'],")
+    && /actions:\s+\['view', 'edit'\],/.test(connectionNavigationSource),
+  'the Tier Group row offers the same view/edit actions the Family Group row does',
 );
 // The same split-action control the Family Group row uses, driven by the row's
 // own declared actions — no second button component, no redesigned CSS.
@@ -322,17 +409,16 @@ const workspaceSource = readFileSync(resolve(
 check(
   connectionNavigationSource.includes("| { kind: 'tier-instance'; instanceId: string }")
     && connectionNavigationSource.includes('export function projectTierGroupConnectionRows')
-    && connectionNavigationSource.includes("target:     { kind: 'tier-instance', instanceId: instance.tier_instance_id },")
-    && connectionNavigationSource.includes("actions:    ['view'],"),
-  'a parent Tier Group row targets the system itself and offers the read-only View action',
+    && connectionNavigationSource.includes("target:     { kind: 'tier-instance', instanceId: instance.tier_instance_id },"),
+  'a parent Tier Group row targets the system itself, not an occupant or slot',
 );
 check(
   workspaceSource.includes("if (target.kind === 'tier-instance') {")
-    && workspaceSource.includes('dispatchTierInstanceIntent(target.instanceId);')
-    && workspaceSource.includes('onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), \'view\');')
+    && workspaceSource.includes('dispatchTierInstanceIntent(target.instanceId, actionId);')
+    && workspaceSource.includes('onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), actionId);')
     && workspaceSource.indexOf("target.kind === 'tier-instance'")
       < workspaceSource.indexOf('if (instanceId === null || selectedSlot === null) return;'),
-  'the Tier Group target opens the existing whole-instance Tier drawer and settles before the slot-scoped guard',
+  'the Tier Group target opens the existing whole-instance Tier drawer, carrying its action, before the slot-scoped guard',
 );
 // The row's Platform ID is the engine's shared scalar key, carried through
 // output-only. Package owns storage and projection; the prefix vocabulary
@@ -418,8 +504,8 @@ for (const retired of [
 const settingsLaunchers = [...settingsSource.matchAll(/label="(Create [^"]+)"/g)].map((match) => match[1]);
 check(
   settingsLaunchers.length === 0
-    && settingsSource.includes('+ New Family')
-    && settingsSource.includes('+ New Tier Group')
+    && settingsSource.includes('+ Family Group')
+    && settingsSource.includes('+ Tier Group')
     && settingsSource.includes('+ New Rate Sheet'),
   'Settings offers exactly the three pool creations, in the required order, and no fourth — each as its group\'s own toolbar button, not a PoolLauncher leaf',
 );

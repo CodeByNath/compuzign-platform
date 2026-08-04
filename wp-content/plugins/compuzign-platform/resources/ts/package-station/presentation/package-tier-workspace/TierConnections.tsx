@@ -67,15 +67,16 @@ export function TierConnections({ navigation, onIntent }: Props): VNode {
   const [expanded, setExpanded] = useState<Record<ConnectionSectionId, boolean>>(INITIAL_EXPANDED);
 
   // Status options come from the rows the projection actually supplies, never
-  // a second hard-coded inventory.
+  // a second hard-coded inventory. They are collected by the PILL LABEL, not the
+  // raw status: the resolver's `pending-dim`/`pending-full` are one Pending state
+  // at two opacities, so keying by status would offer Pending twice and have each
+  // option filter away half the rows it names.
   const statuses = useMemo(() => {
-    const present = new Map<string, string>();
+    const present = new Set<string>();
     for (const section of sections) {
-      for (const row of section.rows) {
-        if (!present.has(row.status)) present.set(row.status, connectionStatus(row.status).label);
-      }
+      for (const row of section.rows) present.add(connectionStatus(row.status).label);
     }
-    return [...present.entries()];
+    return [...present];
   }, [sections]);
 
   const needle = query.trim().toLowerCase();
@@ -83,7 +84,9 @@ export function TierConnections({ navigation, onIntent }: Props): VNode {
     .filter((section) => browse === 'all' || browse === section.id)
     .map((section) => ({
       ...section,
-      filteredRows: section.rows.filter((row) => matchesSearch(row, needle) && (!status || row.status === status)),
+      filteredRows: section.rows.filter((row) => (
+        matchesSearch(row, needle) && (!status || connectionStatus(row.status).label === status)
+      )),
     }));
 
   return (
@@ -116,7 +119,7 @@ export function TierConnections({ navigation, onIntent }: Props): VNode {
           onChange={(event) => setStatus((event.currentTarget as HTMLSelectElement).value)}
         >
           <option value="">All statuses</option>
-          {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {statuses.map((label) => <option key={label} value={label}>{label}</option>)}
         </select>
       </div>
 

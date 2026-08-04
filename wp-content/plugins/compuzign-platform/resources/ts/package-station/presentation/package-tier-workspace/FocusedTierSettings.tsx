@@ -20,6 +20,7 @@ import type {
   TierGroupConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import type { TierRateSheetAccessProjection } from '../../surface/tierInstance/tierRateSheetAccessModel';
+import { PRESENTATION_PILL } from '@/drawer-kit/schema/presentation';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import { TierConnectionRow } from './TierConnectionRow';
@@ -57,10 +58,10 @@ export function ConnectedStationsSummary({ rows, onIntent }: {
  * through the instance dispatcher the workspace already owns — never one of the
  * system's Tier occupants or fixed slots, and never a route of this lane's own.
  */
-export function TierGroupPoolSummary({ rows, loading, onView }: {
+export function TierGroupPoolSummary({ rows, loading, onIntent }: {
   rows: TierGroupConnectionRow[];
   loading: boolean;
-  onView: (instanceId: string) => void;
+  onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
 }): VNode {
   if (loading) {
     return <p class="cz-station-empty" aria-busy="true">Loading Tier Groups…</p>;
@@ -70,15 +71,7 @@ export function TierGroupPoolSummary({ rows, loading, onView }: {
   }
   return (
     <ul class="cz-station-list">
-      {rows.map((row) => (
-        <TierConnectionRow
-          key={row.id}
-          row={row}
-          onIntent={(target) => {
-            if (target.kind === 'tier-instance') onView(target.instanceId);
-          }}
-        />
-      ))}
+      {rows.map((row) => <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />)}
     </ul>
   );
 }
@@ -119,7 +112,9 @@ export function RateSheetAccessSummary({
           {projection.summary}
         </div>
         <span class="cz-station-list__cell">
-          <span class="cz-tier-deck__status" data-status={projection.needsReview ? 'pending' : 'active'}>
+          <span class={`cz-module-status-pill ${
+            projection.needsReview ? PRESENTATION_PILL.pending.cls : PRESENTATION_PILL.active.cls
+          }`}>
             {projection.needsReview ? 'Review' : 'Configured'}
           </span>
         </span>

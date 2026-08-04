@@ -21,7 +21,7 @@
 // It is presentation-only: it receives derived workspace models plus intent
 // dispatchers and fetches nothing.
 //
-// Four intent scopes, deliberately separate — a row dispatches the scope it
+// Three intent scopes, deliberately separate — a row dispatches the scope it
 // actually addresses, and every one of them carries a stored id, never a label.
 // None of them addresses a Tier slot: slot configuration is dispatched by the
 // engine above, which owns the slot listing this deck deliberately does not
@@ -35,8 +35,6 @@
 //     the existing owning drawer route. Connections dispatches it for the
 //     focused Tier and Settings for the whole focus; one dispatcher serves both
 //     because a connected record's owning drawer does not change with scope.
-//   - Instance-scoped (`onInstanceIntent`) — Settings forwards the exact Tier
-//     instance id to its whole-system module in the registered Tier drawer.
 //   - Pool-scoped (`onPoolIntent`) — a Settings launcher forwards only the pool
 //     subject, because the record it creates does not exist yet.
 //
@@ -58,6 +56,7 @@ import type {
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import type { PoolSubject } from './TierSystemSettings';
+import { PRESENTATION_PILL } from '@/drawer-kit/schema/presentation';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import {
   PackagesIcon,
@@ -87,8 +86,6 @@ interface Props {
   tierTool: TierInstancesToolState;
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
-  settingsLoading: boolean;
-  settingsError: string | null;
   // Dispatches a registered action id for ONE inclusion the focused Tier
   // selects. `itemId` is the Tier's Rate Sheet selection key, carried straight
   // from the row; the orchestrator scopes it to the instance and slot.
@@ -97,9 +94,6 @@ interface Props {
   // forwards the Family's own group_id; the orchestrator routes it to the mature
   // `package-family` drawer.
   onConnectionIntent: (target: ConnectionTarget, actionId: 'view' | 'edit') => void;
-  // Opens the whole Tier-system Settings module. Package Home remains readable
-  // and carries only the stored instance identity into the registered drawer.
-  onInstanceIntent: (instanceId: string) => void;
   // Opens the drawer that owns one pool subject's creation. The Settings lane
   // launches; it never carries the record, so no identity crosses this deck.
   onPoolIntent: (subject: PoolSubject) => void;
@@ -116,9 +110,14 @@ const TABS: { id: DeckTab; label: string }[] = [
 
 // The two honest inclusion states, from the selection's own resolution. Not the
 // mockup's Active/Draft — a Tier selection has no draft lifecycle of its own.
+// An inclusion reports RESOLUTION, not lifecycle: `Unresolved` is a real fact
+// about a row that cannot resolve, and no lifecycle pill says it. So the label
+// stays domain-owned here while the shape comes from the shared module pill —
+// the same pill the Connections and Settings rows render, so the three lanes
+// read as one list system rather than three pill implementations.
 const STATUS_META = {
-  active:     { label: 'Active',     token: 'active' },
-  unresolved: { label: 'Unresolved', token: 'pending' },
+  active:     { label: 'Active',     cls: PRESENTATION_PILL.active.cls  },
+  unresolved: { label: 'Unresolved', cls: PRESENTATION_PILL.pending.cls },
 } as const;
 type StatusToken = keyof typeof STATUS_META;
 
@@ -150,11 +149,8 @@ export function TierLowerDeck({
   tierTool,
   workspaceInstance,
   rateSheets,
-  settingsLoading,
-  settingsError,
   onInclusionIntent,
   onConnectionIntent,
-  onInstanceIntent,
   onPoolIntent,
   onTabChange,
 }: Props): VNode {
@@ -211,10 +207,7 @@ export function TierLowerDeck({
               families={families}
               workspaceInstance={workspaceInstance}
               rateSheets={rateSheets}
-              loading={settingsLoading}
-              error={settingsError}
               onConnectionIntent={onConnectionIntent}
-              onInstanceIntent={onInstanceIntent}
               onPoolIntent={onPoolIntent}
             />
           );
@@ -352,7 +345,7 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
         {inclusion.quantity}
       </div>
       <span class="cz-station-list__cell">
-        <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>
+        <span class={`cz-module-status-pill ${meta.cls}`}>{meta.label}</span>
       </span>
       <div class="cz-station-list__cell cz-tier-deck__row-actions">
         {/* The row closes over its OWN selection key, so the dispatched intent

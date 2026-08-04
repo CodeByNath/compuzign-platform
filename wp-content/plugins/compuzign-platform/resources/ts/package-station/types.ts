@@ -12,6 +12,11 @@ export interface BinnedOccupant {
   cz_platform_id?:      string;
   addon_platform_id?:   string;
   platform_status?:     string;
+  // Occupant-level selection mode, stored on the occupant and carried through
+  // `ensureTierLifecycle()` untouched: false is an exclusive normal Tier, true a
+  // stackable Add-on. Optional because pre-occupant-write slots omit it, which
+  // reads as a normal Tier — never inferred from lifecycle or shell position.
+  is_addon?:            boolean;
   label?:               string;
   price?:               number | null;
   contact?:             boolean;

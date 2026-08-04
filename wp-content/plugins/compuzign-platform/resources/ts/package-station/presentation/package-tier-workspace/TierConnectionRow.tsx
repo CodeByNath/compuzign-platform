@@ -23,6 +23,13 @@ import type {
   RateSheetConnectionRow,
   TierGroupConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
+import type { PillMeta } from '@/drawer-kit/schema/presentation';
+import {
+  PILL_FALLBACK,
+  PILL_META,
+  PRESENTATION_PILL,
+  TRAVEL_PILL,
+} from '@/drawer-kit/schema/presentation';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
 import { RateSheetIcon, ServicesIcon, TiersIcon } from '@/admin-station/shell/icons';
 import { TierDeckRowIdentity } from './TierDeckRowIdentity';
@@ -32,22 +39,21 @@ const ACTION_LABELS: Record<ConnectionActionId, string> = {
   edit: 'Edit',
 };
 
-const CONNECTION_STATUS_TOKEN: Record<string, string> = {
-  active:         'active',
-  archived:       'inactive',
-  disabled:       'inactive',
-  trashed:        'inactive',
-  pending:        'pending',
-  unresolved:     'pending',
-  'pending-dim':  'pending',
-  'pending-full': 'pending',
-};
-
-export function connectionStatus(status: string): { label: string; token: string } {
-  return {
-    label: status.replace(/-/g, ' ').replace(/^./, (first) => first.toUpperCase()),
-    token: CONNECTION_STATUS_TOKEN[status] ?? 'pending',
-  };
+// The Presentation Status Contract owns every status→label/class mapping in the
+// platform; this file defines none. It previously carried its own token map and
+// derived the label by un-hyphenating the status, so the resolver's internal
+// `pending-dim`/`pending-full` keys surfaced verbatim as user-facing state
+// names. That split is an opacity flavour, not a state a record can be in: the
+// contract collapses both to Pending, so delegating removes those labels.
+//
+// Archived and Trashed are travel data labels, not lifecycle pills: these pool
+// lists show binned records, so TRAVEL_PILL names them honestly rather than
+// flattening them into Disabled. Anything else falls back to Pending.
+export function connectionStatus(status: string): PillMeta {
+  return PILL_META[status]                                        // 5-state resolver keys
+    ?? PRESENTATION_PILL[status as keyof typeof PRESENTATION_PILL] // canonical 3-state
+    ?? TRAVEL_PILL[status as keyof typeof TRAVEL_PILL]             // bin/travel data labels
+    ?? PILL_FALLBACK;
 }
 
 // The project's established visible unavailable-value treatment for an
@@ -77,11 +83,20 @@ function FamilyGroupConnectionFields({ row }: { row: FamilyConnectionRow }): VNo
   );
 }
 
-// A parent Tier Group reports its Platform ID and nothing else beside it: its
-// occupant and Rate Sheet counts belong to the system's own drawer and to the
-// engine above, not to this row's identity.
+// A parent Tier Group reports how much of itself is registered, in the same
+// column position the other kinds use for their count. Tiers and Add-ons are one
+// occupant population split by selection mode, so they read as one `4/1` value
+// rather than two columns that would break the shared row's alignment.
 function TierGroupConnectionFields({ row }: { row: TierGroupConnectionRow }): VNode {
-  return <PlatformIdField platformId={row.platformId} />;
+  return (
+    <>
+      <PlatformIdField platformId={row.platformId} />
+      <div class="cz-station-list__cell cz-tier-deck__field">
+        <span class="cz-tier-deck__field-label">Tiers / Add-ons</span>
+        <span class="cz-tier-deck__money">{row.tierCount}/{row.addonCount}</span>
+      </div>
+    </>
+  );
 }
 
 function GroupConnectionFields({ row }: { row: GroupConnectionRow }): VNode {
@@ -129,7 +144,7 @@ export function TierConnectionRow({ row, onIntent }: {
         <RateSheetConnectionFields row={row} />
       )}
       <span class="cz-station-list__cell">
-        <span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>
+        <span class={`cz-module-status-pill ${meta.cls}`}>{meta.label}</span>
       </span>
       <div class="cz-station-list__cell cz-tier-deck__row-actions">
         <StationSplitAction

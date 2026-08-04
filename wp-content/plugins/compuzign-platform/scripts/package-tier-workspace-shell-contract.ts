@@ -199,10 +199,18 @@ const focusedSectionsSource = readFileSync(resolve(
   'resources/ts/package-station/presentation/package-tier-workspace/FocusedTierSettings.tsx',
 ), 'utf8');
 
+// The whole-instance token still travels, but the ACTION travels with it: a
+// Tier Group row offers View and Edit like every other record row, and the
+// binding's `tier` drawer declares both modes, so a hardcoded 'view' would have
+// opened Edit readable. Settings no longer needs an instance-only dispatcher —
+// the row carries a canonical `tier-instance` target through the same
+// connection dispatcher the Family Group row uses.
 check(
-  workspaceSource.includes("onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), 'view')")
-    && settingsSource.includes('onView={onInstanceIntent}'),
-  'Settings dispatches the exact whole-instance token through ordinary View into the registered Tier drawer',
+  workspaceSource.includes('onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), actionId)')
+    && workspaceSource.includes("dispatchTierInstanceIntent(target.instanceId, actionId)")
+    && settingsSource.includes('onIntent={onConnectionIntent}')
+    && !settingsSource.includes('onInstanceIntent'),
+  'Settings dispatches the exact whole-instance token, with its action, into the registered Tier drawer',
 );
 
 // ── One list system ───────────────────────────────────────────────────────────

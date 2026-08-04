@@ -2859,32 +2859,14 @@ button.cz-station-status-pill {
   font-weight: 700;
 }
 
-.cz-tier-deck__status {
+/* The deck's own `cz-tier-deck__status` pill is retired: every workspace lane
+   now renders the shared `cz-module-status-pill` from drawer-kit.css, so the
+   Details, Connections and Settings rows carry one pill implementation at one
+   size instead of three. Only its grid placement belongs here — a list cell is
+   `display: grid`, so without this the pill would stretch to the column width
+   rather than sizing to its own text. Appearance stays in drawer-kit.css. */
+.cz-station-list__cell > .cz-module-status-pill {
   justify-self: start;
-  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
-  border: 1px solid transparent;
-  border-radius: var(--station-pill-radius);
-  font-size: var(--station-text-xs);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.cz-tier-deck__status[data-status="active"] {
-  background: var(--station-status-active-bg);
-  border-color: var(--station-status-active-border);
-  color: var(--station-status-active-fg);
-}
-
-.cz-tier-deck__status[data-status="pending"] {
-  background: var(--station-status-pending-bg);
-  border-color: var(--station-status-pending-border);
-  color: var(--station-status-pending-fg);
-}
-
-.cz-tier-deck__status[data-status="inactive"] {
-  background: var(--station-status-inactive-bg);
-  border-color: var(--station-status-inactive-border);
-  color: var(--station-status-inactive-fg);
 }
 
 .cz-tier-deck__row-actions {

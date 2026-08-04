@@ -54,6 +54,11 @@ export interface TierGroupConnectionRow extends ConnectionRowBase {
   status:     TierGroupRowStatus;
   // The system's own output-only Platform ID (CZTG); empty when unassigned.
   platformId: string;
+  // How many of the system's five slots are registered, split by the occupant's
+  // own selection mode. Registration is the fact being counted, so an occupant
+  // counts whatever its lifecycle status is.
+  tierCount:  number;
+  addonCount: number;
 }
 
 export interface GroupConnectionRow extends ConnectionRowBase {
@@ -187,15 +192,26 @@ const TIER_GROUP_ROW_STATUS: Record<TierInstanceStatus, TierGroupRowStatus> = {
 export function projectTierGroupConnectionRows(
   instance: TierInstanceRecord | null,
 ): TierGroupConnectionRow[] {
-  return instance === null ? [] : [{
+  if (instance === null) return [];
+  // Registered occupants, split by selection mode. The occupant's presence in a
+  // slot is the registration, so no lifecycle status filters this count — a
+  // Pending or Disabled occupant is still registered. Binned occupants are not:
+  // they have left their slot.
+  const occupants = Object.values(instance.tiers)
+    .map((slot) => slot?.current_occupant ?? null)
+    .filter((occupant): occupant is NonNullable<typeof occupant> => occupant !== null);
+  const addonCount = occupants.filter((occupant) => occupant.is_addon === true).length;
+  return [{
     id:         instance.tier_instance_id,
     kind:       'tier-group',
     name:       instance.title,
     reference:  instance.tier_instance_id,
     status:     TIER_GROUP_ROW_STATUS[instance.status] ?? 'pending',
     platformId: instance.cz_platform_id,
+    tierCount:  occupants.length - addonCount,
+    addonCount,
     target:     { kind: 'tier-instance', instanceId: instance.tier_instance_id },
-    actions:    ['view'],
+    actions:    ['view', 'edit'],
   }];
 }
 

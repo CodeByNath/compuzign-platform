@@ -160,8 +160,12 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     onIntent('new', subject === 'family' ? 'create-package-family' : 'create-rate-sheet');
   };
 
-  const dispatchTierInstanceIntent = (targetInstanceId: string) => {
-    onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), 'view');
+  // The whole-instance address. The action travels with it: a Tier Group row
+  // offers View and Edit like every other record row, and the binding's `tier`
+  // drawer declares both modes, so forwarding the id alone would silently open
+  // Edit readable.
+  const dispatchTierInstanceIntent = (targetInstanceId: string, actionId: string = 'view') => {
+    onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), actionId);
   };
 
   const dispatchConnectionIntent = (target: ConnectionTarget, actionId: 'view' | 'edit') => {
@@ -173,7 +177,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     // instance dispatcher above and needs no focused slot — it must therefore
     // settle before the slot-scoped guard, exactly as the Family target does.
     if (target.kind === 'tier-instance') {
-      dispatchTierInstanceIntent(target.instanceId);
+      dispatchTierInstanceIntent(target.instanceId, actionId);
       return;
     }
     if (instanceId === null || selectedSlot === null) return;
@@ -335,13 +339,10 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           tierTool={tool.tierInstances}
           workspaceInstance={tool.workspaceInstance}
           rateSheets={tool.rateSheets}
-          settingsLoading={tool.settingsLoading}
-          settingsError={tool.settingsError}
           onInclusionIntent={(itemId, actionId) => {
             if (selectedSlot) dispatchInclusionIntent(selectedSlot.slotId, itemId, actionId);
           }}
           onConnectionIntent={dispatchConnectionIntent}
-          onInstanceIntent={dispatchTierInstanceIntent}
           onPoolIntent={dispatchPoolIntent}
           onTabChange={setDeckTab}
         />

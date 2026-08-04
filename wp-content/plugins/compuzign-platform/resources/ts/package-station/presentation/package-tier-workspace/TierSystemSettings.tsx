@@ -82,13 +82,12 @@ interface Props {
   families: WorkspaceFamilyScope[];
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
-  // The Package Manager read's state. Rate Sheet Access consumed it while it sat
-  // in the Tier Groups list; the parent Tier Group pool tracks its own load
-  // through `tool`, so these stay on the prop contract without a reader here.
-  loading: boolean;
-  error: string | null;
+  // One dispatcher serves both lists: a Family Group row and a Tier Group row
+  // each carry their own canonical target, and the workspace resolves each to
+  // the drawer that owns it. The Package Manager read's loading/error state and
+  // the instance-only dispatcher left with the Rate Sheet Access row that used
+  // them — the parent Tier Group pool tracks its own load through `tool`.
   onConnectionIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
-  onInstanceIntent: (instanceId: string) => void;
   onPoolIntent: (subject: PoolSubject) => void;
 }
 
@@ -120,7 +119,6 @@ export function TierSystemSettings({
   workspaceInstance,
   rateSheets,
   onConnectionIntent,
-  onInstanceIntent,
   onPoolIntent,
 }: Props): VNode {
   // The connected Family Group is the workspace's own connection projection, so
@@ -150,8 +148,21 @@ export function TierSystemSettings({
   // present in that narrowed pool — kept first and the rest left in their
   // existing stable order. Focused shows only the focused system.
   const focusedInstanceId = workspaceInstance?.tier_instance_id ?? null;
+  // The pool this section presents: the three live lifecycle states only. A
+  // binned Tier Group is not a normal record of the pool — restoring, purging or
+  // even reading one is the archive/trash job's work, which this section does not
+  // do — so both bin states are excluded here, BEFORE any filter or sort sees
+  // them. That is what keeps `All` honest (it means all presentable, not all
+  // stored), keeps the filter list to the three live states, and leaves no path
+  // for a travel pill to reach this list.
+  const presentableInstances = useMemo(
+    () => tool.instances.filter((candidate) => (
+      candidate.status !== 'archived' && candidate.status !== 'trashed'
+    )),
+    [tool.instances],
+  );
   const tierGroupRows = useMemo<TierGroupConnectionRow[]>(() => {
-    const pool = tool.instances.filter((candidate) => {
+    const pool = presentableInstances.filter((candidate) => {
       if (tierGroupFilter === 'all') return true;
       if (tierGroupFilter === 'focused') return candidate.tier_instance_id === focusedInstanceId;
       if (tierGroupFilter === 'pending') return candidate.status === 'draft';
@@ -163,11 +174,12 @@ export function TierSystemSettings({
         ))
       : pool;
     return ordered.flatMap((candidate) => projectTierGroupConnectionRows(candidate));
-  }, [focusedInstanceId, tierGroupFilter, tool.instances]);
-  // The accordion summary reports the real parent pool, not an access policy.
+  }, [focusedInstanceId, presentableInstances, tierGroupFilter]);
+  // The accordion summary counts the same pool the section lists, so "in pool"
+  // never reports records the list below it excludes.
   const activeTierGroups = useMemo(
-    () => tool.instances.filter((instance) => instance.status === 'active').length,
-    [tool.instances],
+    () => presentableInstances.filter((instance) => instance.status === 'active').length,
+    [presentableInstances],
   );
   const [rateSheetFilter, setRateSheetFilter] = useState<RateSheetFilter>('focused');
   const groups = useMemo<SettingsGroup[]>(() => {
@@ -193,7 +205,7 @@ export function TierSystemSettings({
               class="cz-tier-deck__button cz-tier-deck__button--primary"
               onClick={() => onPoolIntent('family')}
             >
-              + New Family
+              + Family Group
             </button>
           </div>
         ),
@@ -214,7 +226,7 @@ export function TierSystemSettings({
         id: 'tier-groups',
         title: 'Tier Groups',
         note: '',
-        summary: `${activeTierGroups} active · ${tool.instances.length} in pool`,
+        summary: `${activeTierGroups} active · ${presentableInstances.length} in pool`,
         toolbar: (
           <div class="cz-tier-settings__toolbar">
             <select
@@ -230,7 +242,7 @@ export function TierSystemSettings({
               class="cz-tier-deck__button cz-tier-deck__button--primary"
               onClick={() => onPoolIntent('tier')}
             >
-              + New Tier Group
+              + Tier Group
             </button>
           </div>
         ),
@@ -242,7 +254,7 @@ export function TierSystemSettings({
             leaf: '',
             hideHeading: true,
             content: (
-              <TierGroupPoolSummary rows={tierGroupRows} loading={tool.loading} onView={onInstanceIntent} />
+              <TierGroupPoolSummary rows={tierGroupRows} loading={tool.loading} onIntent={onConnectionIntent} />
             ),
           },
         ],
@@ -287,7 +299,7 @@ export function TierSystemSettings({
         ],
       },
     ];
-  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheetFilter, rateSheets, tierGroupFilter, tierGroupRows, tool.families.length, tool.instances.length, tool.loading]);
+  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetFilter, rateSheets, presentableInstances.length, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,
