@@ -22,6 +22,7 @@ import type { PackageRateSheet, TierInstanceSummary } from '../../types';
 import type {
   ConnectionActionId,
   ConnectionTarget,
+  FamilyConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
@@ -73,6 +74,7 @@ type RateSheetFilter = typeof RATE_SHEET_FILTERS[number]['id'];
 interface Props {
   tool: TierInstancesToolState;
   family: WorkspaceFamilyScope | null;
+  families: WorkspaceFamilyScope[];
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
   loading: boolean;
@@ -106,6 +108,7 @@ interface SettingsGroup {
 export function TierSystemSettings({
   tool,
   family,
+  families,
   workspaceInstance,
   rateSheets,
   loading,
@@ -123,8 +126,25 @@ export function TierSystemSettings({
   );
   // The connected Family Group is the workspace's own connection projection, so
   // Settings and Connections report one record, one status and one target.
-  const familyRows = useMemo(() => projectFamilyConnectionRows(family), [family]);
+  const connectedFamilyRow = useMemo(() => projectFamilyConnectionRows(family), [family]);
   const [familyGroupFilter, setFamilyGroupFilter] = useState<FamilyGroupFilter>('focused');
+  // The Family Groups list: Focused shows only the connected row above; every
+  // other filter narrows the whole loaded Family pool by status, with the
+  // focused Family — when it is present in that narrowed pool — kept first and
+  // the rest left in their existing stable order.
+  const familyRows = useMemo<FamilyConnectionRow[]>(() => {
+    if (familyGroupFilter === 'focused') return connectedFamilyRow;
+    const focusedId = family?.id ?? null;
+    const pool = families.filter((candidate) => {
+      if (familyGroupFilter === 'all') return true;
+      if (familyGroupFilter === 'pending') return candidate.status === 'pending-dim' || candidate.status === 'pending-full';
+      return candidate.status === familyGroupFilter;
+    });
+    const ordered = focusedId
+      ? [...pool].sort((a, b) => (a.id === focusedId ? -1 : b.id === focusedId ? 1 : 0))
+      : pool;
+    return ordered.flatMap((candidate) => projectFamilyConnectionRows(candidate));
+  }, [connectedFamilyRow, family, familyGroupFilter, families]);
   const [tierGroupFilter, setTierGroupFilter] = useState<TierGroupFilter>('focused');
   const [rateSheetFilter, setRateSheetFilter] = useState<RateSheetFilter>('focused');
   const groups = useMemo<SettingsGroup[]>(() => {
@@ -134,7 +154,7 @@ export function TierSystemSettings({
         id: 'family-groups',
         title: 'Family Groups',
         note: '',
-        summary: `${familyRows[0]?.name ?? 'No Family Group'} · ${tool.families.length} in pool`,
+        summary: `${connectedFamilyRow[0]?.name ?? 'No Family Group'} · ${tool.families.length} in pool`,
         toolbar: (
           <div class="cz-tier-settings__toolbar">
             <select
@@ -250,7 +270,7 @@ export function TierSystemSettings({
         ],
       },
     ];
-  }, [access, currentRecord, error, familyGroupFilter, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheetFilter, rateSheets, tierGroupFilter, tool.families.length, tool.instances.length]);
+  }, [access, connectedFamilyRow, currentRecord, error, familyGroupFilter, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheetFilter, rateSheets, tierGroupFilter, tool.families.length, tool.instances.length]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,

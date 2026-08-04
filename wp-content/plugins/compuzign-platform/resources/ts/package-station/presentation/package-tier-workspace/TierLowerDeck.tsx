@@ -77,6 +77,7 @@ interface Props {
   // system is being operated directly. Settings reports it as this focus's
   // connected Station; the deck derives no assignment of its own.
   family:     WorkspaceFamilyScope | null;
+  families:   WorkspaceFamilyScope[];
   tierName:   string;
   deck:       TierDeck;
   connectionNavigation: ConnectionNavigationCategory[];
@@ -139,6 +140,7 @@ const ROW_ACTIONS = [
 export function TierLowerDeck({
   familyName,
   family,
+  families,
   tierName,
   deck,
   connectionNavigation,
@@ -162,19 +164,25 @@ export function TierLowerDeck({
         <div class="cz-tier-deck__context">
           <span class="cz-tier-deck__context-icon" aria-hidden="true"><TiersIcon /></span>
           <div>
-            <h3 class="cz-tier-deck__context-name">{tierName}</h3>
-            <p class="cz-tier-deck__context-scope">
-              {workspaceInstance ? `Focused from ${familyName}` : `Setting up ${familyName}`}
-            </p>
+            <h3 class="cz-tier-deck__context-name">
+              {activeTab === 'settings' ? 'Package Manager' : tierName}
+            </h3>
+            {activeTab !== 'settings' && (
+              <p class="cz-tier-deck__context-scope">
+                {workspaceInstance ? `Focused from ${familyName}` : `Setting up ${familyName}`}
+              </p>
+            )}
           </div>
         </div>
-        <span class="cz-tier-deck__scope-note">
-          {hasFocusedTier
-            ? 'Auto-scoped from the Tier Engine'
-            : workspaceInstance
-              ? 'No focused Tier'
-              : 'No Tier system assigned'}
-        </span>
+        {activeTab !== 'settings' && (
+          <span class="cz-tier-deck__scope-note">
+            {hasFocusedTier
+              ? 'Auto-scoped from the Tier Engine'
+              : workspaceInstance
+                ? 'No focused Tier'
+                : 'No Tier system assigned'}
+          </span>
+        )}
       </div>
 
       <TierTabSet
@@ -200,6 +208,7 @@ export function TierLowerDeck({
               key={connectionScopeKey}
               tool={tierTool}
               family={family}
+              families={families}
               workspaceInstance={workspaceInstance}
               rateSheets={rateSheets}
               loading={settingsLoading}

@@ -2710,8 +2710,12 @@ button.cz-station-status-pill {
   cursor: pointer;
 }
 
+/* Lighten on hover, never darken: a darker hover reads as recessed and makes an
+   un-hovered (but expanded) row look more prominent by comparison. The elevated
+   surface token is already the project's "raised, lighter" surface in both
+   themes, so a hovered row reads as coming forward instead of sinking back. */
 .cz-tier-deck__accordion-trigger:hover {
-  background: var(--station-hover-bg);
+  background: var(--station-surface-elevated);
 }
 
 .cz-tier-deck__accordion-trigger:focus-visible {
