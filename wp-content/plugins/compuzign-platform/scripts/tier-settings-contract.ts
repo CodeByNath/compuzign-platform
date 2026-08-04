@@ -334,6 +334,16 @@ check(
       < workspaceSource.indexOf('if (instanceId === null || selectedSlot === null) return;'),
   'the Tier Group target opens the existing whole-instance Tier drawer and settles before the slot-scoped guard',
 );
+// The row's Platform ID is the engine's shared scalar key, carried through
+// output-only. Package owns storage and projection; the prefix vocabulary
+// belongs to PlatformIdentifierPolicy, which `contract:platform-identity-schema`
+// locks this file's `CZTG` reference against.
+check(
+  connectionNavigationSource.includes('platformId: instance.cz_platform_id,')
+    && connectionNavigationSource.includes('(CZTG); empty when unassigned')
+    && !connectionNavigationSource.includes('cz_platform_id ='),
+  'the Tier Group row reads the engine\'s cz_platform_id output-only and mints no identity',
+);
 // `draft` is the parent system's Pending; the bin states keep their own names
 // rather than being flattened into Disabled.
 check(
