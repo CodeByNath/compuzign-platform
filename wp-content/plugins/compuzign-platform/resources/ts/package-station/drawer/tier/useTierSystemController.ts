@@ -305,6 +305,9 @@ export function useTierSystemController({
         return;
       }
       setDeleteDialogOpen(false);
+      // This terminal action was already confirmed by the delete dialog.
+      // Bypass the draft close prompt after the record no longer exists.
+      bridge.setCloseGuard(null);
       bridge.close();
       bridge.onMutationComplete?.();
     } finally {

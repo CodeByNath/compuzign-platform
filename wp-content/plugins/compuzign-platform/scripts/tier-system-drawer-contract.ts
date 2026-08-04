@@ -208,6 +208,15 @@ check(
   'successful Tier Group deletion closes its drawer before refreshing the opener',
 );
 check(
+  tierSystemController.indexOf('bridge.setCloseGuard(null);', tierSystemController.indexOf('const confirmDelete'))
+    < tierSystemController.indexOf('bridge.close();', tierSystemController.indexOf('const confirmDelete')),
+  'confirmed Tier Group deletion clears the draft close guard before its terminal drawer close',
+);
+check(
+  !deleteInstanceBody.includes('setSaving('),
+  'Tier Group deletion uses its owning dialog busy state without replacing the record footer',
+);
+check(
   tierSystemSource.includes('deleteDialogOpen') && tierSystemSource.includes('confirmDelete'),
   'delete is gated behind an explicit confirmation dialog',
 );

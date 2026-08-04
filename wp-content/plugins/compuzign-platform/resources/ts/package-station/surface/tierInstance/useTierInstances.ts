@@ -185,7 +185,6 @@ export function useTierInstances(): TierInstancesToolState {
   }, []);
 
   const deleteInstance = useCallback(async (instanceId: string): Promise<string | null> => {
-    setSaving(true);
     try {
       const response = await deleteTierInstance(instanceId);
       if (!response.success) return 'Unable to delete the Tier instance.';
@@ -195,8 +194,6 @@ export function useTierInstances(): TierInstancesToolState {
       return null;
     } catch (cause) {
       return cause instanceof Error ? cause.message : 'Unable to delete the Tier instance.';
-    } finally {
-      setSaving(false);
     }
   }, []);
 
