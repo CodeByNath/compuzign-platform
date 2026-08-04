@@ -35,9 +35,9 @@ export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
 type SettingsGroupId = 'family-groups' | 'tier-groups' | 'rate-sheets';
 type SettingsSectionId = 'connected' | 'pool';
 
-// Family Groups' own filter, presentational only: it narrows nothing yet,
-// because this scope carries only the one connected Family Group row —
-// showing the wider pool by status is a later step, not this one.
+// Family Groups' own filter. Default is the full loaded Family pool (`all`),
+// focused family first, remaining families in their existing stable order;
+// `focused` narrows the list back down to the one connected Family Group row.
 const FAMILY_GROUP_FILTERS = [
   { id: 'focused',  label: 'Focused' },
   { id: 'all',      label: 'All' },
@@ -127,7 +127,7 @@ export function TierSystemSettings({
   // The connected Family Group is the workspace's own connection projection, so
   // Settings and Connections report one record, one status and one target.
   const connectedFamilyRow = useMemo(() => projectFamilyConnectionRows(family), [family]);
-  const [familyGroupFilter, setFamilyGroupFilter] = useState<FamilyGroupFilter>('focused');
+  const [familyGroupFilter, setFamilyGroupFilter] = useState<FamilyGroupFilter>('all');
   // The Family Groups list: Focused shows only the connected row above; every
   // other filter narrows the whole loaded Family pool by status, with the
   // focused Family — when it is present in that narrowed pool — kept first and

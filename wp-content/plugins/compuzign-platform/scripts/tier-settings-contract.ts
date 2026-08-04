@@ -141,17 +141,18 @@ check(
   'Family Groups\' Connected section and group note carry no heading text, only the connected-record content',
 );
 // Family Groups' toolbar: a presentational status filter (Focused/All/Active/
-// Pending/Disabled, defaulting to Focused) plus the relocated, renamed pool
-// launcher — a real button, not a second copy of the retired PoolLauncher
-// leaf. Every other group keeps its unchanged bottom-of-panel PoolLauncher.
+// Pending/Disabled, defaulting to All — the full loaded Family pool, focused
+// family first) plus the relocated, renamed pool launcher — a real button,
+// not a second copy of the retired PoolLauncher leaf. Every other group keeps
+// its unchanged bottom-of-panel PoolLauncher.
 check(
   familyGroupsBlock.includes("toolbar: (")
     && familyGroupsBlock.includes("value={familyGroupFilter}")
-    && settingsSource.includes("useState<FamilyGroupFilter>('focused')")
+    && settingsSource.includes("useState<FamilyGroupFilter>('all')")
     && ['focused', 'all', 'active', 'pending', 'disabled'].every((id) => settingsSource.includes(`id: '${id}'`))
     && familyGroupsBlock.includes('+ New Family')
     && !familyGroupsBlock.includes('<PoolLauncher'),
-  'Family Groups\' toolbar carries the Focused-default status filter and the renamed + New Family action, not a PoolLauncher leaf',
+  'Family Groups\' toolbar carries the All-default status filter and the renamed + New Family action, not a PoolLauncher leaf',
 );
 check(
   settingsSource.includes('{group.toolbar}')
