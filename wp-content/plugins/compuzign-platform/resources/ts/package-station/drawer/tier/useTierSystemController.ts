@@ -297,7 +297,6 @@ export function useTierSystemController({
   const confirmDelete = useCallback(async () => {
     if (instance === null) return;
     setDeleting(true);
-    setDeleteError(null);
     try {
       const deleteFailure = await tool.deleteInstance(instance.tier_instance_id);
       if (deleteFailure !== null) {

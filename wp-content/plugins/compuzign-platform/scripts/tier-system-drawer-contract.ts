@@ -216,6 +216,15 @@ check(
   !deleteInstanceBody.includes('setSaving('),
   'Tier Group deletion uses its owning dialog busy state without replacing the record footer',
 );
+const confirmDeleteBody = bodyBetween(
+  tierSystemController,
+  'const confirmDelete = useCallback',
+  'const isDirty =',
+);
+check(
+  !confirmDeleteBody.includes('setDeleteError(null)'),
+  'retrying a blocked Tier Group deletion keeps its error visible so the dialog does not jump',
+);
 check(
   tierSystemSource.includes('deleteDialogOpen') && tierSystemSource.includes('confirmDelete'),
   'delete is gated behind an explicit confirmation dialog',
