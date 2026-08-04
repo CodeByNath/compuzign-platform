@@ -282,6 +282,17 @@ check(
   'the focused overview is summary-only, with no row table or child identity dump',
 );
 check(
+  focusedRead.includes('title="Rate Sheet"')
+    && focusedRead.includes('subtitle="Pricing configuration and inclusion summary for this Rate Sheet."')
+    && focusedRead.includes('icon={MODULE_ICONS.overview}')
+    && focusedRead.includes('iconVariant="drawerModule__icon--overview"')
+    && focusedRead.includes('scopeClass="drawerOverview"')
+    && focusedRead.includes("actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}")
+    && focusedRead.includes('<p class="drawerModule__label">Name</p>')
+    && focusedRead.includes('<p class="drawerModule__label">Platform ID</p>'),
+  'the focused overview uses the Service Overview module-card header, field, status, and footer grammar',
+);
+check(
   !drawerSource.includes('>Create Group</button>')
     && partsSource.includes('const EDIT_SENTINEL')
     && partsSource.includes('editLabel="Edit Group values"')

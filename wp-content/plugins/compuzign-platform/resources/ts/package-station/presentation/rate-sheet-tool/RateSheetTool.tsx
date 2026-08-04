@@ -27,6 +27,7 @@ import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 import { EntityActionFooter } from '@/drawer-kit/EntityActionFooter';
 import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
+import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { evaluateModule, rateSheetCollectionModule } from '@/drawer-kit/utils/moduleNotifications';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
@@ -230,15 +231,24 @@ function FocusedRateSheetRead({
   const perValues = useMemo(() => [...new Set(value.items.map((row) => row.per))], [value.items]);
   return (
     <div class="cz-req-detail">
-    <ReadBlock
-      title={value.title.trim() || 'Untitled Rate Sheet'}
-      subtitle={value.platformId || (value.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}
-      icon={<RateSheetIcon />}
-      scopeClass="drawerOverview"
-      status={value.status === 'archived' ? 'disabled' : 'active'}
-      actions={[{ id: 'edit', label: 'Edit Rate Sheet', onSelect: onEdit }]}
-    >
-      <div class="drawerModule__fields">
+      <ReadBlock
+        title="Rate Sheet"
+        subtitle="Pricing configuration and inclusion summary for this Rate Sheet."
+        icon={MODULE_ICONS.overview}
+        iconVariant="drawerModule__icon--overview"
+        scopeClass="drawerOverview"
+        status={value.status === 'archived' ? 'disabled' : 'active'}
+        actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}
+      >
+        <div class="drawerModule__fields">
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Name</p>
+          <p class="drawerModule__value">{value.title.trim() || 'Untitled Rate Sheet'}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Platform ID</p>
+          <p class="drawerModule__value">{value.platformId || (value.id ? 'Not assigned' : 'Assigned after Save')}</p>
+        </div>
         <div class="drawerModule__field">
           <p class="drawerModule__label">Inclusions</p>
           <p class="drawerModule__value">{summary.rows}</p>
@@ -251,8 +261,8 @@ function FocusedRateSheetRead({
           <p class="drawerModule__label">Per values</p>
           <p class="drawerModule__value">{perValues.length}{perValues.length > 0 ? ` · ${perValues.join(', ')}` : ''}</p>
         </div>
-      </div>
-    </ReadBlock>
+        </div>
+      </ReadBlock>
     </div>
   );
 }
