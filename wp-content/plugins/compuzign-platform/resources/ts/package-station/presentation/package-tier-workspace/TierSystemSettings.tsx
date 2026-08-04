@@ -23,12 +23,15 @@ import type {
   ConnectionActionId,
   ConnectionTarget,
   FamilyConnectionRow,
+  TierGroupConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
-import { projectFamilyConnectionRows } from '../../surface/packageTierWorkspace/connectionNavigation';
-import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
-import { ConnectedStationsSummary, RateSheetAccessSummary } from './FocusedTierSettings';
+import {
+  projectFamilyConnectionRows,
+  projectTierGroupConnectionRows,
+} from '../../surface/packageTierWorkspace/connectionNavigation';
+import { ConnectedStationsSummary, TierGroupPoolSummary } from './FocusedTierSettings';
 import { TierAccordionSection } from './TierAccordionSection';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
@@ -47,9 +50,11 @@ const FAMILY_GROUP_FILTERS = [
 ] as const;
 type FamilyGroupFilter = typeof FAMILY_GROUP_FILTERS[number]['id'];
 
-// Tier Groups' own filter, presentational only, same as Family Groups': it
-// narrows nothing yet, because this scope carries only the one connected
-// Rate Sheet Access row.
+// Tier Groups' own filter, on the same system as Family Groups': the default is
+// the whole loaded parent Tier Group pool (`all`), focused system first,
+// remaining systems in their existing stable order. Every filter reads the
+// PARENT Tier Group's own lifecycle state — never an occupant's, a slot's, or a
+// Rate Sheet access policy's.
 const TIER_GROUP_FILTERS = [
   { id: 'focused',  label: 'Focused' },
   { id: 'all',      label: 'All' },
@@ -77,6 +82,9 @@ interface Props {
   families: WorkspaceFamilyScope[];
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
+  // The Package Manager read's state. Rate Sheet Access consumed it while it sat
+  // in the Tier Groups list; the parent Tier Group pool tracks its own load
+  // through `tool`, so these stay on the prop contract without a reader here.
   loading: boolean;
   error: string | null;
   onConnectionIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
@@ -111,19 +119,10 @@ export function TierSystemSettings({
   families,
   workspaceInstance,
   rateSheets,
-  loading,
-  error,
   onConnectionIntent,
   onInstanceIntent,
   onPoolIntent,
 }: Props): VNode {
-  const currentRecord = workspaceInstance
-    ? tool.instances.find((instance) => instance.tier_instance_id === workspaceInstance.tier_instance_id) ?? null
-    : null;
-  const access = useMemo(
-    () => currentRecord ? projectTierRateSheetAccess(currentRecord, rateSheets) : null,
-    [currentRecord, rateSheets],
-  );
   // The connected Family Group is the workspace's own connection projection, so
   // Settings and Connections report one record, one status and one target.
   const connectedFamilyRow = useMemo(() => projectFamilyConnectionRows(family), [family]);
@@ -145,7 +144,31 @@ export function TierSystemSettings({
       : pool;
     return ordered.flatMap((candidate) => projectFamilyConnectionRows(candidate));
   }, [connectedFamilyRow, family, familyGroupFilter, families]);
-  const [tierGroupFilter, setTierGroupFilter] = useState<TierGroupFilter>('focused');
+  const [tierGroupFilter, setTierGroupFilter] = useState<TierGroupFilter>('all');
+  // The Tier Groups list: the parent Tier Group / Tier System records themselves,
+  // narrowed by their own lifecycle state, with the focused system — when it is
+  // present in that narrowed pool — kept first and the rest left in their
+  // existing stable order. Focused shows only the focused system.
+  const focusedInstanceId = workspaceInstance?.tier_instance_id ?? null;
+  const tierGroupRows = useMemo<TierGroupConnectionRow[]>(() => {
+    const pool = tool.instances.filter((candidate) => {
+      if (tierGroupFilter === 'all') return true;
+      if (tierGroupFilter === 'focused') return candidate.tier_instance_id === focusedInstanceId;
+      if (tierGroupFilter === 'pending') return candidate.status === 'draft';
+      return candidate.status === tierGroupFilter;
+    });
+    const ordered = focusedInstanceId
+      ? [...pool].sort((a, b) => (
+          a.tier_instance_id === focusedInstanceId ? -1 : b.tier_instance_id === focusedInstanceId ? 1 : 0
+        ))
+      : pool;
+    return ordered.flatMap((candidate) => projectTierGroupConnectionRows(candidate));
+  }, [focusedInstanceId, tierGroupFilter, tool.instances]);
+  // The accordion summary reports the real parent pool, not an access policy.
+  const activeTierGroups = useMemo(
+    () => tool.instances.filter((instance) => instance.status === 'active').length,
+    [tool.instances],
+  );
   const [rateSheetFilter, setRateSheetFilter] = useState<RateSheetFilter>('focused');
   const groups = useMemo<SettingsGroup[]>(() => {
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
@@ -191,7 +214,7 @@ export function TierSystemSettings({
         id: 'tier-groups',
         title: 'Tier Groups',
         note: '',
-        summary: `${currentRecord ? access?.summary ?? 'Access unavailable' : 'No Tier system'} · ${tool.instances.length} in pool`,
+        summary: `${activeTierGroups} active · ${tool.instances.length} in pool`,
         toolbar: (
           <div class="cz-tier-settings__toolbar">
             <select
@@ -219,13 +242,7 @@ export function TierSystemSettings({
             leaf: '',
             hideHeading: true,
             content: (
-              <RateSheetAccessSummary
-                record={currentRecord}
-                projection={access}
-                loading={loading}
-                error={error}
-                onView={onInstanceIntent}
-              />
+              <TierGroupPoolSummary rows={tierGroupRows} loading={tool.loading} onView={onInstanceIntent} />
             ),
           },
         ],
@@ -270,7 +287,7 @@ export function TierSystemSettings({
         ],
       },
     ];
-  }, [access, connectedFamilyRow, currentRecord, error, familyGroupFilter, familyRows, loading, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheetFilter, rateSheets, tierGroupFilter, tool.families.length, tool.instances.length]);
+  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onInstanceIntent, onPoolIntent, rateSheetFilter, rateSheets, tierGroupFilter, tierGroupRows, tool.families.length, tool.instances.length, tool.loading]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,

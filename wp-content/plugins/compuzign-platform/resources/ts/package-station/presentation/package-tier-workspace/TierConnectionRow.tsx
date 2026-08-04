@@ -21,9 +21,10 @@ import type {
   FamilyConnectionRow,
   GroupConnectionRow,
   RateSheetConnectionRow,
+  TierGroupConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
-import { RateSheetIcon, ServicesIcon } from '@/admin-station/shell/icons';
+import { RateSheetIcon, ServicesIcon, TiersIcon } from '@/admin-station/shell/icons';
 import { TierDeckRowIdentity } from './TierDeckRowIdentity';
 
 const ACTION_LABELS: Record<ConnectionActionId, string> = {
@@ -35,6 +36,8 @@ const CONNECTION_STATUS_TOKEN: Record<string, string> = {
   active:         'active',
   archived:       'inactive',
   disabled:       'inactive',
+  trashed:        'inactive',
+  pending:        'pending',
   unresolved:     'pending',
   'pending-dim':  'pending',
   'pending-full': 'pending',
@@ -74,6 +77,13 @@ function FamilyGroupConnectionFields({ row }: { row: FamilyConnectionRow }): VNo
   );
 }
 
+// A parent Tier Group reports its Platform ID and nothing else beside it: its
+// occupant and Rate Sheet counts belong to the system's own drawer and to the
+// engine above, not to this row's identity.
+function TierGroupConnectionFields({ row }: { row: TierGroupConnectionRow }): VNode {
+  return <PlatformIdField platformId={row.platformId} />;
+}
+
 function GroupConnectionFields({ row }: { row: GroupConnectionRow }): VNode {
   return (
     <>
@@ -102,13 +112,17 @@ export function TierConnectionRow({ row, onIntent }: {
   row: ConnectionRow;
   onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
 }): VNode {
-  const icon = row.kind === 'family' ? <ServicesIcon /> : <RateSheetIcon />;
+  const icon = row.kind === 'family'
+    ? <ServicesIcon />
+    : row.kind === 'tier-group' ? <TiersIcon /> : <RateSheetIcon />;
   const meta = connectionStatus(row.status);
   return (
     <li class="cz-station-list__row cz-station-list__row--connection">
       <TierDeckRowIdentity icon={icon} name={row.name} reference={row.reference} compact />
       {row.kind === 'family' ? (
         <FamilyGroupConnectionFields row={row} />
+      ) : row.kind === 'tier-group' ? (
+        <TierGroupConnectionFields row={row} />
       ) : row.kind === 'group' ? (
         <GroupConnectionFields row={row} />
       ) : (

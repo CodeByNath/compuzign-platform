@@ -17,6 +17,7 @@ import type {
   ConnectionActionId,
   ConnectionTarget,
   FamilyConnectionRow,
+  TierGroupConnectionRow,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import type { TierRateSheetAccessProjection } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
@@ -43,6 +44,41 @@ export function ConnectedStationsSummary({ rows, onIntent }: {
   return (
     <ul class="cz-station-list">
       {rows.map((row) => <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />)}
+    </ul>
+  );
+}
+
+/**
+ * The Tier Group pool, listed as the parent Tier System records themselves.
+ *
+ * It renders the same shared connected-record row the Family Group list uses, so
+ * a Tier Group reports the same identity/Platform ID/status-pill/split-action
+ * grammar as every other Package-owned record. View addresses the parent system
+ * through the instance dispatcher the workspace already owns — never one of the
+ * system's Tier occupants or fixed slots, and never a route of this lane's own.
+ */
+export function TierGroupPoolSummary({ rows, loading, onView }: {
+  rows: TierGroupConnectionRow[];
+  loading: boolean;
+  onView: (instanceId: string) => void;
+}): VNode {
+  if (loading) {
+    return <p class="cz-station-empty" aria-busy="true">Loading Tier Groups…</p>;
+  }
+  if (rows.length === 0) {
+    return <p class="cz-station-empty">No Tier Group matches this filter.</p>;
+  }
+  return (
+    <ul class="cz-station-list">
+      {rows.map((row) => (
+        <TierConnectionRow
+          key={row.id}
+          row={row}
+          onIntent={(target) => {
+            if (target.kind === 'tier-instance') onView(target.instanceId);
+          }}
+        />
+      ))}
     </ul>
   );
 }

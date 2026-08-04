@@ -6,7 +6,11 @@
 // renders, mutates, and encodes no route.
 
 import type { CategoryGroupStatus } from '@/admin-station/presentation/category-groups/types';
-import type { PackageRateSheetStatus } from '../../types';
+import type {
+  PackageRateSheetStatus,
+  TierInstanceRecord,
+  TierInstanceStatus,
+} from '../../types';
 import type {
   DeckRateSheetConnection,
   DeckRateSheetGroupConnection,
@@ -19,6 +23,7 @@ export type ConnectionActionId = 'view' | 'edit';
 
 export type ConnectionTarget =
   | { kind: 'package-family'; familyId: string }
+  | { kind: 'tier-instance'; instanceId: string }
   | { kind: 'rate-sheet-group'; rateSheetId: string; groupId: string }
   | { kind: 'rate-sheet'; rateSheetId: string };
 
@@ -37,6 +42,18 @@ export interface FamilyConnectionRow extends ConnectionRowBase {
   assignedServices: number;
   // The Family's own output-only Platform ID (CZPG); empty when unassigned.
   platformId:       string;
+}
+
+// The lifecycle vocabulary a parent Tier Group row reports. It is the shared
+// pill vocabulary, not the storage enum: a `draft` Tier system is Pending, and
+// the bin states keep their own names rather than borrowing Disabled.
+export type TierGroupRowStatus = 'active' | 'pending' | 'disabled' | 'archived' | 'trashed';
+
+export interface TierGroupConnectionRow extends ConnectionRowBase {
+  kind:       'tier-group';
+  status:     TierGroupRowStatus;
+  // The system's own output-only Platform ID (CZTG); empty when unassigned.
+  platformId: string;
 }
 
 export interface GroupConnectionRow extends ConnectionRowBase {
@@ -62,6 +79,7 @@ export interface RateSheetConnectionRow extends ConnectionRowBase {
 
 export type ConnectionRow =
   | FamilyConnectionRow
+  | TierGroupConnectionRow
   | GroupConnectionRow
   | RateSheetConnectionRow;
 
@@ -143,6 +161,41 @@ export function projectFamilyConnectionRows(
     platformId:       family.platformId,
     target:           { kind: 'package-family', familyId: family.id },
     actions:          ['view', 'edit'],
+  }];
+}
+
+// Storage lifecycle → the shared pill vocabulary. `draft` is the Tier system's
+// pending state, so it reports Pending; the two bin states keep their own
+// names rather than being flattened into Disabled.
+const TIER_GROUP_ROW_STATUS: Record<TierInstanceStatus, TierGroupRowStatus> = {
+  draft:    'pending',
+  active:   'active',
+  disabled: 'disabled',
+  archived: 'archived',
+  trashed:  'trashed',
+};
+
+/**
+ * One parent Tier Group / Tier System row.
+ *
+ * The Settings lane lists the whole Tier Group pool through this derivation, the
+ * same way it lists the Family pool through `projectFamilyConnectionRows`. The
+ * row addresses the parent system itself — never one of its Tier occupants or
+ * fixed slots — so its target carries the instance id the registered Tier drawer
+ * already opens, and it mints no route, status or action of its own.
+ */
+export function projectTierGroupConnectionRows(
+  instance: TierInstanceRecord | null,
+): TierGroupConnectionRow[] {
+  return instance === null ? [] : [{
+    id:         instance.tier_instance_id,
+    kind:       'tier-group',
+    name:       instance.title,
+    reference:  instance.tier_instance_id,
+    status:     TIER_GROUP_ROW_STATUS[instance.status] ?? 'pending',
+    platformId: instance.cz_platform_id,
+    target:     { kind: 'tier-instance', instanceId: instance.tier_instance_id },
+    actions:    ['view'],
   }];
 }
 

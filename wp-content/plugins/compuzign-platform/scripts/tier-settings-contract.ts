@@ -166,7 +166,8 @@ check(
 // it travels the existing connection dispatcher into the drawer that owns the
 // record. Settings mints no second row, target, or intent for it.
 check(
-  settingsSource.includes("import { projectFamilyConnectionRows } from '../../surface/packageTierWorkspace/connectionNavigation'")
+  settingsSource.includes('projectFamilyConnectionRows,')
+    && settingsSource.includes("} from '../../surface/packageTierWorkspace/connectionNavigation'")
     && settingsSource.includes('projectFamilyConnectionRows(family)')
     && familyGroupsBlock.includes('<ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />')
     && familyGroupsBlock.includes("onPoolIntent('family')"),
@@ -203,15 +204,143 @@ check(
 check(
   tierGroupsBlock.includes("toolbar: (")
     && tierGroupsBlock.includes("value={tierGroupFilter}")
-    && settingsSource.includes("useState<TierGroupFilter>('focused')")
+    && settingsSource.includes("useState<TierGroupFilter>('all')")
+    && ['focused', 'all', 'active', 'pending', 'disabled'].every((id) => settingsSource.includes(`id: '${id}'`))
     && tierGroupsBlock.includes('+ New Tier Group')
     && !tierGroupsBlock.includes('<PoolLauncher'),
-  'Tier Groups\' toolbar carries the Focused-default status filter and the renamed + New Tier Group action, not a PoolLauncher leaf',
+  'Tier Groups\' toolbar carries the All-default status filter and the renamed + New Tier Group action, not a PoolLauncher leaf',
+);
+
+// ── Tier Groups lists the PARENT Tier Group / Tier System records ─────────────
+// The section previously showed one child access row (Rate Sheet Access /
+// Policy / Configured), which reported a policy rather than the records the
+// section is named for. It now lists the parent systems themselves on the same
+// list system Family Groups uses: whole pool by default, focused system first,
+// filtered by the PARENT's own lifecycle state.
+check(
+  tierGroupsBlock.includes('<TierGroupPoolSummary rows={tierGroupRows}')
+    && settingsSource.includes("import {\n  projectFamilyConnectionRows,\n  projectTierGroupConnectionRows,\n} from '../../surface/packageTierWorkspace/connectionNavigation'")
+    && settingsSource.includes('ordered.flatMap((candidate) => projectTierGroupConnectionRows(candidate))'),
+  'Tier Groups lists the parent Tier Group records through the shared projection, not a child access row',
+);
+// The whole loaded parent pool is the source, and every filter reads the
+// PARENT's lifecycle state — `draft` is the system's Pending, so it maps rather
+// than leaking the storage enum into the filter vocabulary.
+check(
+  settingsSource.includes('const pool = tool.instances.filter((candidate) => {')
+    && settingsSource.includes("if (tierGroupFilter === 'all') return true;")
+    && settingsSource.includes("if (tierGroupFilter === 'pending') return candidate.status === 'draft';")
+    && settingsSource.includes('return candidate.status === tierGroupFilter;'),
+  'Tier Groups filters the complete parent Tier Group pool by the parent\'s own lifecycle state',
+);
+// Focused-first ordering, on the same stable-sort shape Family Groups uses: the
+// comparator moves only the focused system and returns 0 for every other pair,
+// so the remaining systems keep their existing order.
+check(
+  settingsSource.includes('const focusedInstanceId = workspaceInstance?.tier_instance_id ?? null;')
+    && settingsSource.includes("if (tierGroupFilter === 'focused') return candidate.tier_instance_id === focusedInstanceId;")
+    && /a\.tier_instance_id === focusedInstanceId \? -1 : b\.tier_instance_id === focusedInstanceId \? 1 : 0/.test(settingsSource),
+  'the focused Tier Group sorts first and the rest keep their existing stable order',
+);
+// The accordion summary reports the real parent pool, never an access policy.
+check(
+  tierGroupsBlock.includes('summary: `${activeTierGroups} active · ${tool.instances.length} in pool`')
+    && settingsSource.includes("tool.instances.filter((instance) => instance.status === 'active').length"),
+  'the Tier Groups summary counts real parent Tier Groups rather than reporting a Rate Sheet access policy',
+);
+// The retired child-access presentation is gone from the Tier Groups list: its
+// row identity, policy column, and status words leave with it.
+for (const retired of [
+  '<RateSheetAccessSummary',
+  'Rate Sheet Access',
+  'Policy',
+  'Configured',
+  'Review',
+]) {
+  check(
+    !tierGroupsBlock.includes(retired),
+    `the Tier Groups list no longer presents ${retired}`,
+  );
+}
+check(
+  !settingsSource.includes('projectTierRateSheetAccess')
+    && !settingsSource.includes('RateSheetAccessSummary'),
+  'the Settings lane no longer derives or renders Rate Sheet access for the Tier Groups list',
 );
 check(
   tierGroupsBlock.includes('onView={onInstanceIntent}')
     && tierGroupsBlock.includes("onPoolIntent('tier')"),
-  'Tier Groups reports Rate Sheet Access as read-only View and launches the Tier pool creation',
+  'Tier Groups opens the parent system through the existing instance dispatcher and launches the Tier pool creation',
+);
+
+// ── The Tier Group row reuses the Family Groups row system ────────────────────
+// One row grammar, one status derivation, one action control. The parent Tier
+// Group renders through the SAME shared connected-record row the Family Group
+// list renders, so it reports the same identity/Platform ID/status-pill/
+// split-action columns rather than a second row layout of its own.
+const connectionRowSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierConnectionRow.tsx',
+), 'utf8');
+check(
+  focusedSectionsSource.includes('export function TierGroupPoolSummary')
+    && focusedSectionsSource.includes('<ul class="cz-station-list">')
+    && /<TierConnectionRow\s+key={row\.id}\s+row={row}/.test(focusedSectionsSource),
+  'the Tier Group pool renders through the shared connected-record row, on the shared station list',
+);
+check(
+  connectionRowSource.includes('function TierGroupConnectionFields')
+    && connectionRowSource.includes("row.kind === 'tier-group' ? (")
+    && connectionRowSource.includes('<TierGroupConnectionFields row={row} />')
+    && connectionRowSource.includes('<PlatformIdField platformId={row.platformId} />'),
+  'the shared row branches into a Tier Group field set carrying the Platform ID',
+);
+// Title, Platform ID and the shared lifecycle pill all come from the shared row
+// — the pill through the same `connectionStatus` token map every other kind uses.
+check(
+  connectionRowSource.includes('<TierDeckRowIdentity icon={icon} name={row.name} reference={row.reference} compact />')
+    && connectionRowSource.includes('<span class="cz-tier-deck__status" data-status={meta.token}>{meta.label}</span>')
+    && connectionRowSource.includes('const meta = connectionStatus(row.status);'),
+  'the Tier Group row renders its title, Platform ID and lifecycle pill through the shared row, not a bespoke layout',
+);
+// The same split-action control the Family Group row uses, driven by the row's
+// own declared actions — no second button component, no redesigned CSS.
+check(
+  connectionRowSource.includes('<StationSplitAction')
+    && connectionRowSource.includes('actions={row.actions.map((actionId) => ({ id: actionId, label: ACTION_LABELS[actionId] }))}')
+    && !focusedSectionsSource.includes('cz-tier-deck__button')
+    && !/class="[^"]*"\s*>\s*View\s*</.test(focusedSectionsSource),
+  'the Tier Group row uses the shared split-action control, not a plain View button of its own',
+);
+// The parent Tier Group's canonical target is the SYSTEM, and it resolves
+// through the whole-instance drawer the workspace already registered — never an
+// individual Tier occupant or fixed slot, and never a new route.
+const workspaceSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx',
+), 'utf8');
+check(
+  connectionNavigationSource.includes("| { kind: 'tier-instance'; instanceId: string }")
+    && connectionNavigationSource.includes('export function projectTierGroupConnectionRows')
+    && connectionNavigationSource.includes("target:     { kind: 'tier-instance', instanceId: instance.tier_instance_id },")
+    && connectionNavigationSource.includes("actions:    ['view'],"),
+  'a parent Tier Group row targets the system itself and offers the read-only View action',
+);
+check(
+  workspaceSource.includes("if (target.kind === 'tier-instance') {")
+    && workspaceSource.includes('dispatchTierInstanceIntent(target.instanceId);')
+    && workspaceSource.includes('onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), \'view\');')
+    && workspaceSource.indexOf("target.kind === 'tier-instance'")
+      < workspaceSource.indexOf('if (instanceId === null || selectedSlot === null) return;'),
+  'the Tier Group target opens the existing whole-instance Tier drawer and settles before the slot-scoped guard',
+);
+// `draft` is the parent system's Pending; the bin states keep their own names
+// rather than being flattened into Disabled.
+check(
+  connectionNavigationSource.includes("export type TierGroupRowStatus = 'active' | 'pending' | 'disabled' | 'archived' | 'trashed'")
+    && /draft:\s+'pending',/.test(connectionNavigationSource)
+    && /disabled:\s+'disabled',/.test(connectionNavigationSource),
+  'the Tier Group row maps the storage lifecycle onto the shared pill vocabulary',
 );
 
 // Rate Sheets follows the same cleaning Family Groups and Tier Groups

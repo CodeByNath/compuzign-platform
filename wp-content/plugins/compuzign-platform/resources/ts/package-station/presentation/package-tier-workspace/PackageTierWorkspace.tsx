@@ -169,6 +169,13 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       onIntent(target.familyId, actionId === 'edit' ? 'edit-family' : 'view-family');
       return;
     }
+    // A parent Tier Group addresses the whole system, so it resolves through the
+    // instance dispatcher above and needs no focused slot — it must therefore
+    // settle before the slot-scoped guard, exactly as the Family target does.
+    if (target.kind === 'tier-instance') {
+      dispatchTierInstanceIntent(target.instanceId);
+      return;
+    }
     if (instanceId === null || selectedSlot === null) return;
     if (target.kind === 'rate-sheet-group') {
       onIntent(
