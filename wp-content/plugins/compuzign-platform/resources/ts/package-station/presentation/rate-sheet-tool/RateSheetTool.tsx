@@ -9,7 +9,12 @@
 // It keeps the SAME mature drawer flow: View / Edit is the registered drawer mode.
 // View lists the sheets through shared `ReadBlock` cards and publishes the record
 // footer; Edit hands the collection editor to the shared `InlineEditorShell`,
-// which owns Save / Cancel and the dirty-cancel confirm — one footer, one save.
+// which owns Save / Cancel and the dirty-cancel confirm for sheet-level fields
+// (title, status, groups, source connections). Each grid row locks/unlocks on
+// its own through `RateSheetGridEditor`'s `lockCommands` and persists its own
+// Save/Remove/Delete immediately through the SAME full-manager save — so the
+// footer Save is disabled whenever a row is active, keeping exactly one
+// visible "Save" action at a time.
 //
 // A pool launcher opens the readable collection. A standalone Settings row
 // carries the already-loaded native key behind its visible Platform identity
@@ -153,7 +158,7 @@ function RateSheetDrawerBody({
         saving={saving}
         saveErr={saveError}
         isDirty={dirty}
-        saveDisabled={!dirty || (focused && !controller.selected?.title.trim())}
+        saveDisabled={!dirty || (focused && !controller.selected?.title.trim()) || controller.editingRowId !== null}
       >
         {focused && controller.selected
           ? <FocusedRateSheetEditor controller={controller} value={controller.selected} />
@@ -383,10 +388,15 @@ function RateSheetSheetEditor({ controller, value, indented }: {
   const usedSources = new Set(value.items.map((row) => row.optionId));
   const available = options.filter((option) => !usedSources.has(option.id));
 
+  // Add Row is disabled while another row is being edited — only one row may
+  // be unlocked at a time, and a newly added row starts unlocked itself.
+  const rowLocked = controller.editingRowId !== null;
+
   return (
     <div class="cz-rate-sheet-tool__sheet" style={indented ? 'padding-left: var(--cz-space-3)' : undefined}>
       <div class="cz-rate-sheet-tool__toolbar">
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setAddOpen((open) => !open)}>{addOpen ? 'Close Rows' : 'Add Row'}</button>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
+          onClick={() => setAddOpen((open) => !open)}>{addOpen ? 'Close Rows' : 'Add Row'}</button>
       </div>
 
       {addOpen && (
@@ -399,7 +409,8 @@ function RateSheetSheetEditor({ controller, value, indented }: {
               {available.map((option) => (
                 <label key={option.id} class="cz-rate-sheet-tool__candidate">
                   <span>{option.label}</span>
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => controller.addRow(option.id)}>Add</button>
+                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
+                    onClick={() => controller.addRow(option.id)}>Add</button>
                 </label>
               ))}
             </div>
@@ -410,7 +421,7 @@ function RateSheetSheetEditor({ controller, value, indented }: {
       {value.items.length === 0 ? (
         <p class="cz-station-empty">No priced rows yet. Use Add Row to price a connected source's supplied content.</p>
       ) : (
-        <RateSheetGridEditor rows={value.items} groups={value.groups} units={units} commands={controller} />
+        <RateSheetGridEditor rows={value.items} groups={value.groups} units={units} commands={controller} lockCommands={controller} />
       )}
     </div>
   );

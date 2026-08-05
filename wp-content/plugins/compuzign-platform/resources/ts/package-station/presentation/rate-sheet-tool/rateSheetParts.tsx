@@ -55,6 +55,25 @@ export interface RateSheetRowCommands {
   deleteGroup:     (groupId: string) => void;
 }
 
+/**
+ * The standalone Rate Sheet drawer's one-row-at-a-time lock. Optional and
+ * additive: when a caller doesn't pass it, `RateSheetGridEditor` renders
+ * exactly as it always has (every row live-editable, plain Remove) — this is
+ * what keeps the focused-Tier connection drawers (`TierRateSheetDrawer.tsx`,
+ * `allowRemove={false}`) byte-for-byte unchanged. `RateSheetToolController`
+ * satisfies this directly; Save/Remove/Delete all persist through the same
+ * full-manager save the controller already uses, never a row-scoped endpoint.
+ */
+export interface RateSheetRowLockCommands {
+  editingRowId:         string | null;
+  saving:                boolean;
+  saveError:             string | null;
+  beginRowEdit:          (rowId: string) => void;
+  cancelRowEdit:         () => void;
+  saveActiveRow:         () => Promise<void>;
+  removeRowImmediately:  (rowId: string) => Promise<void>;
+}
+
 // ── SECTION: inline create ────────────────────────────────────────────────────
 
 /**
@@ -230,15 +249,21 @@ export function RateSheetGridRead({
  * holds the whole sheet; a scope showing one Tier's rows omits it and keeps
  * repricing and regrouping. The capability is not reduced — it stays where the
  * whole sheet is visible.
+ *
+ * `lockCommands` opts into the standalone Rate Sheet drawer's one-row-lock
+ * editor (Edit/Save/Cancel/Remove/Delete). Omitted, every row stays live-
+ * editable exactly as before — the focused-Tier connection drawers rely on
+ * that default and never pass it.
  */
 export function RateSheetGridEditor({
-  rows, groups, units, commands, allowRemove = true,
+  rows, groups, units, commands, allowRemove = true, lockCommands,
 }: {
   rows:     readonly RateSheetEditorRow[];
   groups:   readonly RateSheetEditorGroup[];
   units:    readonly PackageRateSheetUnit[];
   commands: RateSheetRowCommands;
   allowRemove?: boolean;
+  lockCommands?: RateSheetRowLockCommands;
 }): VNode {
   return (
     <div class="cz-rate-sheet-tool__grid-wrap">
@@ -250,7 +275,7 @@ export function RateSheetGridEditor({
             <th scope="col">Per</th>
             <th scope="col">Qty</th>
             <th scope="col">Group</th>
-            {allowRemove && <th scope="col" aria-label="Remove"></th>}
+            {allowRemove && <th scope="col" aria-label="Row actions"></th>}
           </tr>
         </thead>
         <tbody>
@@ -262,6 +287,7 @@ export function RateSheetGridEditor({
               units={units}
               commands={commands}
               allowRemove={allowRemove}
+              lockCommands={lockCommands}
             />
           ))}
         </tbody>
@@ -270,19 +296,21 @@ export function RateSheetGridEditor({
   );
 }
 
-function RateSheetEditRow({
-  row, groups, units, commands, allowRemove,
+/** The five data cells, identical whether the row is live-editable (no lock)
+ *  or the active row of a locked grid. Extracted once so the locked editor
+ *  never re-authors the same inputs the always-editable grid already has. */
+function RateSheetRowFieldCells({
+  row, groups, units, commands, disabled,
 }: {
   row:      RateSheetEditorRow;
   groups:   readonly RateSheetEditorGroup[];
   units:    readonly PackageRateSheetUnit[];
   commands: RateSheetRowCommands;
-  allowRemove: boolean;
+  disabled: boolean;
 }): VNode {
   const key = rowKey(row);
-  const disabled = !row.sourceAvailable;
   return (
-    <tr>
+    <>
       <td class="cz-rate-sheet-tool__cell-name">
         <div class="cz-rate-sheet-tool__cell-name-stack">
           <span>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</span>
@@ -335,6 +363,110 @@ function RateSheetEditRow({
           {groups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
         </InlineCreateSelect>
       </td>
+    </>
+  );
+}
+
+/** The same five cells, read-only — a locked row's presentation. */
+function RateSheetRowReadCells({
+  row, groups,
+}: {
+  row:    RateSheetEditorRow;
+  groups: readonly RateSheetEditorGroup[];
+}): VNode {
+  return (
+    <>
+      <td class="cz-rate-sheet-tool__cell-name">
+        <div class="cz-rate-sheet-tool__cell-name-stack">
+          <span>{row.optionLabel}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
+          <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
+        </div>
+      </td>
+      <td>{formatUnitPrice(row.unitPrice)}</td>
+      <td>{row.per}</td>
+      <td>{row.quantity}</td>
+      <td>{groups.find((group) => group.id === row.groupId)?.label ?? 'Ungrouped'}</td>
+    </>
+  );
+}
+
+function RateSheetEditRow({
+  row, groups, units, commands, allowRemove, lockCommands,
+}: {
+  row:      RateSheetEditorRow;
+  groups:   readonly RateSheetEditorGroup[];
+  units:    readonly PackageRateSheetUnit[];
+  commands: RateSheetRowCommands;
+  allowRemove: boolean;
+  lockCommands?: RateSheetRowLockCommands;
+}): VNode {
+  const key = rowKey(row);
+  const disabled = !row.sourceAvailable;
+
+  if (lockCommands) {
+    const isActive = lockCommands.editingRowId === key;
+
+    if (!isActive) {
+      // Locked (default) state: read-only fields, Edit + Remove. Edit is
+      // refused while another row is already active; Remove persists
+      // immediately (through the same full-manager save), so it is refused
+      // too — a second in-flight mutation while one is already resolving
+      // would race the same save transaction.
+      const otherRowActive = lockCommands.editingRowId !== null;
+      const busy = otherRowActive || lockCommands.saving;
+      return (
+        <tr>
+          <RateSheetRowReadCells row={row} groups={groups} />
+          {allowRemove && (
+            <td>
+              <div style="display:flex;gap:var(--cz-space-2)">
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  aria-label={`Edit ${row.optionLabel}`} disabled={busy}
+                  onClick={() => lockCommands.beginRowEdit(key)}>Edit</button>
+                <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  aria-label={`Remove ${row.optionLabel}`} disabled={busy}
+                  onClick={() => { void lockCommands.removeRowImmediately(key); }}>Remove</button>
+              </div>
+            </td>
+          )}
+        </tr>
+      );
+    }
+
+    // Editing (active) state: live fields, same commands as the always-
+    // editable grid. Save/Delete persist through the full-manager save;
+    // Cancel is local only. A not-yet-saved row (blank `id`) has no Delete —
+    // Cancel is its only way to discard, since it represents nothing
+    // committed yet.
+    const isNewRow = row.id === '';
+    return (
+      <tr>
+        <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} />
+        {allowRemove && (
+          <td>
+            <div style="display:flex;gap:var(--cz-space-2)">
+              <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm"
+                aria-label={`Save ${row.optionLabel}`} disabled={lockCommands.saving}
+                onClick={() => { void lockCommands.saveActiveRow(); }}>{lockCommands.saving ? 'Saving…' : 'Save'}</button>
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                aria-label={`Cancel editing ${row.optionLabel}`} disabled={lockCommands.saving}
+                onClick={() => lockCommands.cancelRowEdit()}>Cancel</button>
+              {!isNewRow && (
+                <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
+                  aria-label={`Delete ${row.optionLabel}`} disabled={lockCommands.saving}
+                  onClick={() => { void lockCommands.removeRowImmediately(key); }}>Delete</button>
+              )}
+            </div>
+          </td>
+        )}
+      </tr>
+    );
+  }
+
+  // No lock offered: the original always-editable row, unchanged.
+  return (
+    <tr>
+      <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} />
       {allowRemove && (
         <td>
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.optionLabel}`} onClick={() => commands.removeRow(key)}>Remove</button>

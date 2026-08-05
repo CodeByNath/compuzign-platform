@@ -321,7 +321,7 @@ check(
 // collection or clear dirty — otherwise a transient identity-reconciliation
 // failure on the backend would look like a clean save on the surface.
 check(
-  controllerSource.includes("if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return; }"),
+  controllerSource.includes("if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return false; }"),
   'a failed save sets saveError and returns without touching the working sheets, selection, or dirty flag',
 );
 check(
@@ -335,6 +335,44 @@ check(
 check(
   (drawerSource.match(/modeRef\.current\('view'\)/g) ?? []).length === 1,
   'exactly one call switches the drawer to View — the one already proven to sit behind the saveError guard',
+);
+
+// ── Row-lock editing is opt-in — the Tier-scoped consumer never wires it ──────
+// `RateSheetGridEditor`'s `lockCommands` prop is additive: omitted, every row
+// renders exactly as it always has. TierRateSheetDrawer.tsx scopes the SAME
+// `RateSheetToolController` to one Tier's connection and must stay on that
+// default — proven here by absence rather than by mounting the Tier drawer's
+// full usePackageStation/instance-detail dependency chain, which the row-lock
+// mounted regression (npm run regression:rate-sheet-row-lock) does not need.
+const tierDrawerSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/rate-sheet-tool/TierRateSheetDrawer.tsx',
+), 'utf8');
+check(
+  !tierDrawerSource.includes('lockCommands'),
+  'the focused-Tier connection drawer never passes lockCommands — its grid stays live-editable, unchanged by the Rate Sheet row lock',
+);
+check(
+  partsSource.includes('function RateSheetEditRow({') && partsSource.includes('if (lockCommands) {'),
+  'the locked/editing row UI is gated behind an explicit lockCommands branch, not the default render path',
+);
+
+// ── The shared InlineEditorShell stays entity-agnostic ────────────────────────
+// Row Save persists immediately, so the Rate Sheet drawer disables its OWN
+// footer Save via the `saveDisabled` prop it already controlled — the shared
+// shell component itself must carry no row-lock awareness, or every other
+// consumer (Tier, Package Family, Tier System, …) would inherit it too.
+const inlineEditorShellSource = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/InlineEditorShell.tsx',
+), 'utf8');
+check(
+  !inlineEditorShellSource.includes('editingRowId') && !inlineEditorShellSource.includes('lockCommands'),
+  'InlineEditorShell has no row-lock awareness — every other editor keeps its existing Save-to-View behaviour untouched',
+);
+check(
+  drawerSource.includes('controller.editingRowId !== null'),
+  'the Rate Sheet drawer disables its own footer Save while a row is active, through its own saveDisabled prop — not a shared-shell change',
 );
 
 console.log('Rate Sheet tool contract checks passed.');

@@ -34,9 +34,10 @@ import {
   rateSheetOptions,
   removeEditorRow,
   renameEditorGroup,
+  rowKey,
   toRateSheetEditorList,
 } from './rateSheetToolModel';
-import type { RateSheetEditorValue, RateSheetOption } from './rateSheetToolModel';
+import type { RateSheetEditorRow, RateSheetEditorValue, RateSheetOption } from './rateSheetToolModel';
 
 /** A row in the Rate Sheet list. */
 export interface RateSheetListRow {
@@ -91,6 +92,17 @@ export interface RateSheetToolController {
   connectServices:      (serviceIds: number[]) => Promise<void>;
   save:                 (preserveSelection?: boolean) => Promise<void>;
   discard:              () => void;
+  // Row-lock editing — the standalone Rate Sheet drawer's one-row-at-a-time
+  // Edit/Save/Cancel/Delete lifecycle. Row Save and Remove/Delete persist
+  // immediately through this SAME `save`/`persist` full-manager path; there is
+  // no row-scoped endpoint and no second meaning of "Save". Tier-scoped
+  // consumers of this controller simply never call these.
+  editingRowId:         string | null;
+  editingRowSnapshot:   RateSheetEditorRow | null;
+  beginRowEdit:         (rowId: string) => void;
+  cancelRowEdit:        () => void;
+  saveActiveRow:        () => Promise<void>;
+  removeRowImmediately: (rowId: string) => Promise<void>;
 }
 
 interface WorkingSheet extends RateSheetEditorValue {
@@ -121,6 +133,13 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
 
   const [saving, setSaving]         = useState(false);
   const [saveError, setSaveError]   = useState<string | null>(null);
+
+  // Row-lock editing state. Rate-Sheet-only, presentation-adjacent: which row
+  // (by rowKey) is unlocked, and the values to restore on Cancel. A blank
+  // snapshot id means the active row is a not-yet-saved row — Cancel removes
+  // it instead of reverting it.
+  const [editingRowId, setEditingRowId]             = useState<string | null>(null);
+  const [editingRowSnapshot, setEditingRowSnapshot] = useState<RateSheetEditorRow | null>(null);
 
   const [catalog, setCatalog]             = useState<ServiceSummary[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -176,8 +195,8 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       sources: PackageManagerReadModel['sources'],
       nextUnits: PackageRateSheetUnit[],
       preserveSelection = false,
-    ) => {
-      if (readModel == null || hostServiceId == null) return;
+    ): Promise<boolean> => {
+      if (readModel == null || hostServiceId == null) return false;
       setSaving(true);
       setSaveError(null);
       try {
@@ -185,7 +204,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
           hostServiceId,
           buildManagerSavePayload(readModel, nextSheets, nextDeletions, sources, nextUnits),
         );
-        if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return; }
+        if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return false; }
         const selectedBeforeSave = preserveSelection
           ? nextSheets.find((sheet) => sheet.key === selectedKey) ?? null
           : null;
@@ -208,8 +227,10 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
             setDirty(true);
           }
         }
+        return true;
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : 'Could not save the Rate Sheets.');
+        return false;
       } finally {
         setSaving(false);
       }
@@ -294,8 +315,19 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     },
     deleteGroup: (groupId) => editSelected((value) => deleteEditorGroup(value, groupId)),
     addRow: (optionId) => {
+      // One row unlocked at a time: a new row starts editable, so refuse to
+      // add one while another row is already being edited (mirrors the guard
+      // `beginRowEdit` applies to an existing row).
+      if (editingRowId !== null) return;
       const option = (readModel ? rateSheetOptions(readModel) : []).find((o) => o.id === optionId);
-      if (option) editSelected((value) => addEditorRow(value, option));
+      if (!option) return;
+      editSelected((value) => addEditorRow(value, option));
+      // The new row's key is deterministic (`new:${optionId}`) — set directly
+      // rather than reading it back from `selected`, which still reflects the
+      // pre-add render at this point in the same event handler.
+      setEditingRowId(`new:${optionId}`);
+      setEditingRowSnapshot(null);
+      setSaveError(null);
     },
     removeRow: (rowId) => editSelected((value) => removeEditorRow(value, rowId)),
     setRowUnitPrice: (rowId, unitPrice) => editSelected((value) => patchEditorRow(value, rowId, { unitPrice: Math.max(0, unitPrice) })),
@@ -338,9 +370,88 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       if (readModel == null) return;
       await persist(sheets, deletions, readModel.sources, units, preserveSelection);
     },
-    discard: () => { if (readModel) applyReadModel(readModel); setSelectedKey(null); },
+    discard: () => {
+      if (readModel) applyReadModel(readModel);
+      setSelectedKey(null);
+      setEditingRowId(null);
+      setEditingRowSnapshot(null);
+    },
+    editingRowId,
+    editingRowSnapshot,
+    beginRowEdit: (rowId) => {
+      // Refuse a second row: only one may be unlocked at a time.
+      if (editingRowId !== null) return;
+      const row = selected?.items.find((item) => rowKey(item) === rowId) ?? null;
+      if (!row) return;
+      setEditingRowId(rowId);
+      setEditingRowSnapshot(row);
+      setSaveError(null);
+    },
+    cancelRowEdit: () => {
+      if (editingRowId === null) return;
+      const targetId = editingRowId;
+      const snapshot = editingRowSnapshot;
+      if (snapshot && snapshot.id !== '') {
+        // Existing row: restore its last-saved values. This is a local revert
+        // only — no API call — matching every other Cancel in this drawer.
+        editSelected((value) => patchEditorRow(value, targetId, {
+          unitPrice: snapshot.unitPrice,
+          per:       snapshot.per,
+          quantity:  snapshot.quantity,
+          groupId:   snapshot.groupId,
+        }));
+      } else {
+        // Not-yet-saved row: it represents nothing persisted, so Cancel
+        // discards it entirely rather than "restoring" it to a prior state
+        // that never existed server-side.
+        editSelected((value) => removeEditorRow(value, targetId));
+      }
+      setEditingRowId(null);
+      setEditingRowSnapshot(null);
+      setSaveError(null);
+    },
+    saveActiveRow: async () => {
+      if (editingRowId === null || readModel == null) return;
+      // Validate: the active row must still exist in the current draft.
+      const activeRow = selected?.items.find((item) => rowKey(item) === editingRowId) ?? null;
+      if (!activeRow) return;
+      // Persist through the SAME full-manager save the footer uses — no
+      // row-scoped endpoint. `preserveSelection` re-resolves the current
+      // sheet's canonical id/key from the response, which also covers saving
+      // a brand-new row on a brand-new (not yet persisted) sheet.
+      const ok = await persist(sheets, deletions, readModel.sources, units, true);
+      if (ok) {
+        // The returned model is already the new baseline (`applyReadModel`
+        // ran inside `persist`); locking just means "no row is active".
+        setEditingRowId(null);
+        setEditingRowSnapshot(null);
+      }
+      // On failure `saveError` is already set by `persist`, and `sheets` was
+      // left untouched, so the row stays editable with its draft intact.
+    },
+    removeRowImmediately: async (rowId) => {
+      if (readModel == null || selectedKey == null) return;
+      // Only one mutating row action at a time — the same lock Edit obeys.
+      if (editingRowId !== null && editingRowId !== rowId) return;
+      if (!window.confirm('Remove this row? This saves immediately and cannot be undone from here.')) return;
+      // Compute the post-removal sheets locally rather than relying on
+      // `removeRow` + the shared `sheets` state: that setState is async, so a
+      // `persist` call made right after it in the same handler would still
+      // see the row present. The local draft is left untouched until the API
+      // call resolves, so a failed remove never makes the row merely look
+      // deleted — `applyReadModel` on success is what the grid actually
+      // renders from.
+      const nextSheets = sheets.map((sheet) =>
+        sheet.key === selectedKey ? { ...removeEditorRow(sheet, rowId), key: sheet.key } : sheet);
+      const ok = await persist(nextSheets, deletions, readModel.sources, units, true);
+      if (ok && editingRowId === rowId) {
+        setEditingRowId(null);
+        setEditingRowSnapshot(null);
+      }
+    },
   }), [
     hostServiceId, list, selected, selectedKey, readModel, sheets, deletions, units, dirty, saving, saveError,
+    editingRowId, editingRowSnapshot,
     catalog, catalogLoading, catalogError, loadCatalog, editSelected, persist, applyReadModel,
   ]);
 
