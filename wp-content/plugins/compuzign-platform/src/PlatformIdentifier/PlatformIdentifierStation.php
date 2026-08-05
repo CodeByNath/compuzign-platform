@@ -410,6 +410,26 @@ final class PlatformIdentifierStation
         if (!is_array($existing)) {
             throw PlatformIdentifierConflict::registry('native reverse claim could not be read after an atomic collision.');
         }
+
+        // A native reference address is reused whenever its prior occupant is
+        // removed and a new one is later created at the same address (e.g. a
+        // Rate Sheet row deleted, then a row re-added for the same source). The
+        // reverse key is stable and content-addressed by (entity_type,
+        // native_reference) alone, so that address's earlier claim is still
+        // sitting here under a DIFFERENT, already-tombstoned platform id.
+        // markDeleted() is what marks a claim as properly released — once it
+        // has, the address is free for a completely different identifier to
+        // claim fresh; requiring an exact record match (as for every other
+        // status below) would permanently strand this address on its first
+        // reuse, no matter how the failure is retried.
+        if (($existing['status'] ?? null) === self::STATUS_DELETED
+            && ($existing['entity_type'] ?? null) === $entityType
+            && ($existing['native_reference'] ?? null) === $nativeReference
+        ) {
+            $this->writeAndVerify($key, $record);
+            return;
+        }
+
         $this->assertBindingRecord($existing, $entityType, $nativeReference, $platformId);
         if (($existing['status'] ?? null) !== $status) {
             throw PlatformIdentifierConflict::registry('native reverse binding has a conflicting state.');

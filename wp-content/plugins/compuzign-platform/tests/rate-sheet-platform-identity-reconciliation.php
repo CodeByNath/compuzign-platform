@@ -4,14 +4,39 @@ declare(strict_types=1);
 
 /*
  * Regression coverage for the Rate Sheet save/Platform-identity reconciliation
- * defect: adding a new Rate Sheet row and pressing Save could persist the row
- * (with its reserved cz_platform_id already written onto it) and THEN fail to
- * bind that identifier, at which point the old code retired the reservation
- * anyway — leaving the already-persisted row pointing at a dead registry
- * record, and a same-payload retry skipped reconciliation entirely because it
- * only checked whether cz_platform_id was populated, never whether it was
- * actually bound. See docs/code-map/rate-sheet.md and
- * PackageStationController::savePackageStationManager.
+ * defect.
+ *
+ * ROOT CAUSE (confirmed by reproducing the exact first-save failure and
+ * capturing the underlying, previously-swallowed exception — see the "re-add
+ * a removed row" test below): PlatformIdentifierStation::claimReverse() keys
+ * a native reference's reverse binding purely by (entity_type,
+ * native_reference) — the (rate_sheet_id, item_id) address, not by which
+ * platform id currently occupies it. Deleting a Rate Sheet row tombstones
+ * that reverse record (status -> 'deleted') but leaves it in place at that
+ * address. Re-adding a row for the same source later derives the SAME
+ * (rate_sheet_id, item_id) address (item_id is a pure hash of source_item_id)
+ * but reserves a BRAND NEW random platform id. assign()'s claimReverse() then
+ * finds the address already occupied by the old, different, tombstoned id and
+ * threw "record identity or version does not match the requested identifier"
+ * — always, deterministically, on the very first Save, because the address
+ * had already been used and released once. The generic controller catch
+ * swallowed that exception into "...reconciliation is required."
+ *
+ * This is why a bare "retry reconciliation" (resuming the same still-reserved
+ * platform id and calling bind() again) does NOT fix this specific cause: the
+ * SAME stale reverse record blocks every retry identically, forever — it is a
+ * permanent address conflict, not a transient one. The actual fix is in
+ * PlatformIdentifierStation::claimReverse(): a reverse record already marked
+ * STATUS_DELETED for this exact (entity_type, native_reference) is a properly
+ * released address, and a completely different identifier may claim it fresh.
+ *
+ * The separate reconciliation/self-healing behaviour (never retiring a
+ * reservation whose id is already persisted; resuming/reconciling a
+ * genuinely-transient bind failure on retry) remains in
+ * PackageStationController and is still covered by the tests below — it
+ * protects against real partial failures (e.g. a write that fails after the
+ * postmeta save), which are a different, legitimate failure mode from this
+ * permanent address collision.
  *
  * This exercises the real PlatformIdentifierStation, PackagePlatformIdentifierService/
  * Adapters, PackageRepository, and PackageManagerSchema — only WordPress core
@@ -240,11 +265,14 @@ check_rate_sheet_reconciliation(PlatformIdentifierPolicy::validate(PlatformIdent
 check_rate_sheet_reconciliation($rsprOptions['cz_platform_identifier_v1_' . $freshIdentifier]['status'] === PlatformIdentifierStation::STATUS_BOUND, 'the replacement id is bound');
 check_rate_sheet_reconciliation($rsprOptions['cz_platform_identifier_v1_' . $deadIdentifier]['status'] === PlatformIdentifierStation::STATUS_RETIRED, 'the old dead record is left inert, never reused or resurrected');
 
-// ── TEST 4 — a genuine binding failure after persistence does not retire the
-//    reservation it already wrote onto the row, and a same-payload retry
-//    resumes and completes that exact identifier (no data loss, no "invalid"
-//    identifier left claimed, no save-twice workaround needed beyond the
-//    literal retry the caller already intends).
+// ── TEST 4 — a genuinely TRANSIENT binding failure after persistence (e.g. an
+//    unrelated concurrent claim on the same address, still fully occupied and
+//    not tombstoned) does not retire the reservation it already wrote onto
+//    the row, and a same-payload retry resumes and completes that exact
+//    identifier once the transient cause is gone. This is the reconciliation/
+//    self-healing safety net for real partial failures — a DIFFERENT failure
+//    class from TEST 5 below, which is the actual, permanent, always-
+//    reproducing defect this investigation traced and fixed.
 $rsprOptions = [];
 $rsprOptions['cz_package_station'] = [...rspr_default_station(), 'package_manager' => [...PackageManagerSchema::defaultManager(), 'items' => $sourceItems]];
 $conflictSheetId = 'rs_conflict';
@@ -287,6 +315,66 @@ check_rate_sheet_reconciliation($persistedAfterRetry === $persistedAfterFailure,
 check_rate_sheet_reconciliation(
     $rsprOptions['cz_platform_identifier_v1_' . $persistedAfterRetry]['status'] === PlatformIdentifierStation::STATUS_BOUND,
     'the identifier is now genuinely bound after reconciliation'
+);
+
+// ── TEST 5 — THE ACTUAL DEFECT: a brand new row saves and binds on the very
+//    first request, with no prior failure or corruption seeded — the row's
+//    source was simply added to this sheet before, removed, and is now being
+//    added back. This is a completely ordinary "add a Rate Sheet row" Save,
+//    reproduced through the same real reserve/save/bind path every other Save
+//    goes through; nothing here is artificially forced. Before the
+//    claimReverse() fix, this failed with status 500 on the FIRST attempt,
+//    every time, deterministically — not a transient/environment-dependent
+//    failure — because the row's (rate_sheet_id, item_id) address already
+//    held a tombstoned reverse record from its earlier removal, and a fresh
+//    reservation's different platform id could never satisfy that record's
+//    exact-identity check. A retry with the OLD reconciliation-only fix would
+//    have hit the identical permanent conflict forever; only the claimReverse()
+//    fix (a tombstoned address is reclaimable) makes the FIRST request work.
+$rsprOptions = [];
+$rsprOptions['cz_package_station'] = [...rspr_default_station(), 'package_manager' => [...PackageManagerSchema::defaultManager(), 'items' => $sourceItems]];
+$readdSheetId = 'rs_readd';
+
+$readdController = rspr_new_controller();
+$create = $readdController->savePackageStationManager(new WP_REST_Request(['id' => 626], rspr_base_body([
+    ['rate_sheet_id' => $readdSheetId, 'title' => 'Readd Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [['source_item_id' => $itemA, 'unit_price' => 10, 'per' => 'Per VM', 'quantity' => 1, 'group_id' => null]]],
+])));
+check_rate_sheet_reconciliation($create->get_status() === 200, 'setup: the row saves successfully the first time it is added');
+
+$remove = $readdController->savePackageStationManager(new WP_REST_Request(['id' => 626], rspr_base_body([
+    ['rate_sheet_id' => $readdSheetId, 'title' => 'Readd Sheet', 'status' => 'active', 'groups' => [], 'items' => []],
+])));
+check_rate_sheet_reconciliation($remove->get_status() === 200, 'setup: removing the row (tombstoning its identity) succeeds');
+
+$reAddBody = rspr_base_body([
+    ['rate_sheet_id' => $readdSheetId, 'title' => 'Readd Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [['source_item_id' => $itemA, 'unit_price' => 15, 'per' => 'Per VM', 'quantity' => 1, 'group_id' => null]]],
+]);
+$reAdd = $readdController->savePackageStationManager(new WP_REST_Request(['id' => 626], $reAddBody));
+check_rate_sheet_reconciliation($reAdd->get_status() === 200, 'a normal newly added row (its source previously used, then removed, in this sheet) succeeds on the FIRST Save — the actual reported defect');
+check_rate_sheet_reconciliation((bool) ($reAdd->get_data()['success'] ?? false), 'the first request reports success, not a reconciliation failure');
+
+$reAddSheet = $reAdd->get_data()['manager']['rate_sheets'][0];
+$reAddItem = $reAddSheet['items'][0];
+check_rate_sheet_reconciliation((float) ($reAddItem['unit_price'] ?? 0) === 15.0, 'the row is genuinely persisted (its new price took), not merely echoed back');
+check_rate_sheet_reconciliation(
+    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, (string) ($reAddItem['platform_id'] ?? '')),
+    'its Platform ID is active immediately, requiring no second Save'
+);
+$reAddPlatformId = $reAddItem['platform_id'];
+check_rate_sheet_reconciliation(
+    $rsprOptions['cz_platform_identifier_v1_' . $reAddPlatformId]['status'] === PlatformIdentifierStation::STATUS_BOUND,
+    'the identifier is bound in the registry, not left reserved'
+);
+
+// A same-payload retry (equivalent to pressing Save again) must also succeed
+// and must not mint yet another identifier — the row is already fully bound.
+$reAddRetry = $readdController->savePackageStationManager(new WP_REST_Request(['id' => 626], $reAddBody));
+check_rate_sheet_reconciliation($reAddRetry->get_status() === 200, 'a redundant retry of the same payload remains harmless');
+check_rate_sheet_reconciliation(
+    $reAddRetry->get_data()['manager']['rate_sheets'][0]['items'][0]['platform_id'] === $reAddPlatformId,
+    'the identifier stays stable across a redundant resave — no churn from a false "needs reconciliation" read'
 );
 
 echo "Rate Sheet Platform identity reconciliation: OK\n";
