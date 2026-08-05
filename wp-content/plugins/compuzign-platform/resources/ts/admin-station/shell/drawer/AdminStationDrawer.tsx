@@ -17,7 +17,18 @@ import type { ComponentChildren } from 'preact';
 import { useAdminStationDrawer } from './AdminStationDrawerContext';
 import type { OpenDrawerState } from './AdminStationDrawerContext';
 import { resolveDrawerTemplate } from '@/station-manager/registry/drawerTemplates';
-import type { DrawerMode } from '@/station-manager/drawerTypes';
+import type { DrawerMode, DrawerSize, DrawerTemplateRegistration } from '@/station-manager/drawerTypes';
+
+// The registered size resolved for one mode. A template that declares a
+// single size uses it for every mode; a template that declares one size per
+// mode resolves the mode actually rendering, falling back to `normal` for a
+// mode the map omits — so a template that declares none, or declares only
+// the other mode, is unchanged from today's single-size behaviour.
+function resolveDrawerSize(size: DrawerTemplateRegistration['size'], mode: DrawerMode): DrawerSize {
+  if (!size) return 'normal';
+  if (typeof size === 'string') return size;
+  return size[mode] ?? 'normal';
+}
 
 export function AdminStationDrawer() {
   const { open, close } = useAdminStationDrawer();
@@ -78,10 +89,18 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
 
   const template = resolveDrawerTemplate(open.drawerTemplateKey);
 
+  // The mode that will actually render — clamped to what the template
+  // supports, exactly as `ResolvedDrawer` clamps it below — so a mode-keyed
+  // size resolves against the real mode, never a requested one the template
+  // does not support.
+  const effectiveMode: DrawerMode = template?.supportedModes.includes(open.mode)
+    ? open.mode
+    : (template?.supportedModes[0] ?? open.mode);
+
   // The registered size, mapped to the shell's own width modifier. Generic
   // presentation: the shell reads a declared key and never names a template —
   // a drawer that needs more room declares `size` in its own registration.
-  const size = template?.size ?? 'normal';
+  const size = resolveDrawerSize(template?.size, effectiveMode);
 
   return (
     <div class="cz-station-drawer-layer">

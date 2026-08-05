@@ -81,12 +81,13 @@ export function registerPackageStation(): void {
       // A normal registered Package drawer, not a special one: it supports the
       // same view → edit mode flow as `package-family` and `tier`, so it opens
       // readable and switches to authoring through the shell's own mode control.
-      // The pricing grid needs more horizontal room than a record drawer, which
-      // it declares with the generic `size` key rather than any bespoke width.
+      // View reads at the normal record-drawer width; only Edit's pricing grid
+      // needs the wider pricing-table room, which it declares with the generic
+      // mode-keyed `size` rather than any bespoke width.
       key: 'rate-sheet',
       title: 'Rate Sheet',
       supportedModes: ['view', 'edit'],
-      size: 'extra-wide',
+      size: { view: 'normal', edit: 'extra-wide' },
       content: RateSheetDrawerContent,
     },
     {

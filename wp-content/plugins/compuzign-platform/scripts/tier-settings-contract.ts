@@ -488,13 +488,20 @@ check(
     && !rateSheetsBlock.includes("note: 'The Rate Sheet pool"),
   'Rate Sheets\' list section and group note carry no redundant heading text',
 );
+// Rate Sheets' toolbar matches Family Groups' and Tier Groups' exactly: one
+// unified status filter (Focused/All/Active/Pending/Disabled, defaulting to
+// All) plus the pool launcher — no separate search field or Tier Group
+// context dropdown of its own.
 check(
   rateSheetsBlock.includes("toolbar: (")
     && rateSheetsBlock.includes("value={rateSheetFilter}")
     && settingsSource.includes("useState<RateSheetFilter>('all')")
+    && ['focused', 'all', 'active', 'pending', 'disabled'].every((id) => settingsSource.includes(`id: '${id}'`))
     && rateSheetsBlock.includes('+ Rate Sheet')
-    && rateSheetsBlock.includes("onPoolIntent('rate-sheet')"),
-  'Rate Sheets\' toolbar carries the status filter and + Rate Sheet action',
+    && rateSheetsBlock.includes("onPoolIntent('rate-sheet')")
+    && !rateSheetsBlock.includes('cz-tier-settings__search')
+    && !rateSheetsBlock.includes('Tier Group context'),
+  'Rate Sheets\' toolbar carries the All-default status filter and the + Rate Sheet action, matching Family Groups\' and Tier Groups\' single-control toolbar — no search field or separate Tier Group context dropdown',
 );
 check(
   !rateSheetsBlock.includes('onPoolIntent(\'groups\')')
@@ -502,12 +509,17 @@ check(
     && rateSheetsBlock.includes('<RateSheetPoolSummary rows={rateSheetRows}'),
   'standalone Rate Sheets use the shared row projection and Groups have no separate launcher',
 );
+// `Focused` reads the same canonical Tier Group access projection the Tier
+// system's Rate Sheet Access module authors, so the two never disagree.
+// `Active`/`Disabled` read the active-view presentation mapping; the model
+// carries no persisted Pending state for a Rate Sheet, so `Pending` reports
+// empty rather than inventing one.
 check(
-  rateSheetsBlock.includes('placeholder="Search by Rate Sheet name / Platform ID"')
-    && rateSheetsBlock.includes('aria-label="Tier Group context"')
-    && settingsSource.includes('projectTierRateSheetAccess(contextInstance, rateSheets)')
+  settingsSource.includes("if (rateSheetFilter === 'focused') return projectRateSheetPoolRows(focusedRateSheets)")
+    && settingsSource.includes("if (rateSheetFilter === 'pending') return [];")
+    && settingsSource.includes('projectTierRateSheetAccess(focusedRateSheetInstance, rateSheets)')
     && settingsSource.includes("sheet.status === 'archived' ? 'disabled' : 'active'"),
-  'Rate Sheets supports name/Platform-ID search, canonical Tier Group access context, and active-view status mapping',
+  'Rate Sheets\' Focused filter reads the canonical Tier Group access projection, Pending reports empty rather than inventing a lifecycle state, and Active/Disabled read the active-view mapping',
 );
 
 // The engine above lists every fixed slot and dispatches the occupant and slot

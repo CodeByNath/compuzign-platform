@@ -83,7 +83,7 @@ export function RateSheetPoolSummary({ rows, loading, onIntent }: {
   onIntent: (target: ConnectionTarget, actionId: ConnectionActionId) => void;
 }): VNode {
   if (loading) return <p class="cz-station-empty" aria-busy="true">Loading Rate Sheets…</p>;
-  if (rows.length === 0) return <p class="cz-station-empty">No Rate Sheet matches this context and filter.</p>;
+  if (rows.length === 0) return <p class="cz-station-empty">No Rate Sheet matches this filter.</p>;
   return <ul class="cz-station-list">{rows.map((row) => <TierConnectionRow key={row.id} row={row} onIntent={onIntent} />)}</ul>;
 }
 

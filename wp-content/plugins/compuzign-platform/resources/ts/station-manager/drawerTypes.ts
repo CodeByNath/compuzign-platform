@@ -20,6 +20,12 @@ export type DrawerMode = 'view' | 'edit';
 // its own registration, and the size stays generic Admin presentation.
 export type DrawerSize = 'normal' | 'wide' | 'extra-wide';
 
+// A registration may need a different size per mode — a pricing grid needs
+// more room in Edit than in a summary View. Keyed by DrawerMode so the shell
+// can resolve it once it knows which mode actually rendered; a mode absent
+// from the map falls back to `normal`, matching an entirely absent `size`.
+export type DrawerSizeByMode = Partial<Record<DrawerMode, DrawerSize>>;
+
 // Registered drawer template keys are open so Stations can register their own
 // drawer contracts without changing the coordinator.
 export type DrawerTemplateKey = string;
@@ -65,7 +71,9 @@ export interface DrawerTemplateRegistration {
   // Neutral header title, entity-named in data (not by a shell branch).
   title:          string;
   supportedModes: DrawerMode[];
-  // Optional declared panel size. Omitted means `normal`.
-  size?:          DrawerSize;
+  // Optional declared panel size: one size for every mode, or one size per
+  // mode for a drawer whose content needs more room in one mode than another.
+  // Omitted, or a mode missing from the map, means `normal`.
+  size?:          DrawerSize | DrawerSizeByMode;
   content:        DrawerContent;
 }

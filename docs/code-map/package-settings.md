@@ -22,13 +22,13 @@ Settings
 │   ├── toolbar: [Focused|All|Active|Pending|Disabled] [+ Tier Group] → `tier` (`tier-register:`)
 │   └── (no heading text) → parent Tier Group pool list → Tier instance drawer
 └── Rate Sheets (accordion section, collapsed by default)
-    ├── toolbar: [name/Platform-ID search] [Tier Group context] [All|Active|Pending|Disabled] [+ Rate Sheet]
+    ├── toolbar: [Focused|All|Active|Pending|Disabled] [+ Rate Sheet]
     └── standalone Rate Sheet rows → `rate-sheet` using the loaded native key behind the visible `CZPRC`
 ```
 
-One ordered accordion section per Package-owned record type, not Connections' Stations/Tools axis. Exactly three pool creations. Groups is not a fourth section: each group remains edited and summarised inside its owning standalone Rate Sheet. Tier Structure has no entry: fixed slots are the engine's listing. Rate Sheets defaults to the focused parent Tier Group's canonical `allowed_rate_sheet_ids` policy (`[]` means all active), can switch Tier Group context, and maps stored `archived` to the active-view Disabled presentation without changing storage.
+One ordered accordion section per Package-owned record type, not Connections' Stations/Tools axis. Exactly three pool creations. Groups is not a fourth section: each group remains edited and summarised inside its owning standalone Rate Sheet. Tier Structure has no entry: fixed slots are the engine's listing. All three toolbars share one control system: a status filter plus the pool launcher — Rate Sheets carries no search field or Tier Group context dropdown.
 
-Family Groups and Tier Groups both default to `All` — the complete Package Family / parent Tier Group pool, focused record first, the rest in existing stable order. `Focused` narrows to that one record; `Active`/`Pending`/`Disabled` filter the same pool by the record's own lifecycle state, where a Tier Group's `draft` is its Pending. Rate Sheet filtering applies the active-view mapping above.
+All three default to `All` — the complete pool, focused record(s) first, existing stable order after. `Focused` narrows to the connected/parent record for Family/Tier Groups, or to the sheets the focused parent Tier Group's `allowed_rate_sheet_ids` policy allows for Rate Sheets — the same projection `TierSystemContent.tsx`'s Rate Sheet Access module authors. `Active`/`Disabled` filter by lifecycle state, mapping a Rate Sheet's stored `archived` to Disabled without changing storage. `Pending` reads a Tier Group's `draft`; a Rate Sheet has none persisted, so it reports empty.
 
 ## Current implementation
 
@@ -40,7 +40,7 @@ Frontend root: `wp-content/plugins/compuzign-platform/resources/ts/package-stati
 - [tierRateSheetAccessModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel.ts) is the pure read/edit/save projection. `[]` means all active sheets; limited access retains one active sheet, and archived/unresolved IDs stay visible and removable.
 - `tier-instance:{tier_instance_id}` is the strict whole-instance route in [tierDrawerTypes.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/tierDrawerTypes.ts), resolved by [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) before occupant fallback.
 - [TierSystemContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierSystemContent.tsx) implements the module → Edit → `InlineEditorShell` cycle for Rate Sheet Access, persisted by `useTierInstances.updateInstance` via footer Apply. See [Tier System Registration](tier-registration.md).
-- Pool launchers dispatch only a `PoolSubject`. `+ Rate Sheet` opens the existing `rate-sheet` drawer at `'new'` in its one-sheet editor. A stored row already carries both identities from the Manager read; dispatch uses its native editor key and performs no second request.
+- Pool launchers dispatch only a `PoolSubject`. `+ Rate Sheet` opens the existing `rate-sheet` drawer at `'new'` in its one-sheet editor. A stored row already carries both identities; dispatch uses its native editor key, no second request. `rate-sheet` declares size per mode — normal for View, extra-wide for Edit; see [Admin Station Drawer](admin-station-drawer.md).
 
 ## Invariants
 

@@ -17,7 +17,7 @@ Registration ownership is:
 | `package-family` | Package Station | Package Station | normal | view, edit |
 | `tier` | Package Station | Package Station | normal | view, edit |
 | `tier-inclusion` | Package Station | Package Station | normal | view, edit |
-| `rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
+| `rate-sheet` | Package Station | Package Station | normal (view) / extra-wide (edit) | view, edit |
 | `tier-rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
 | `tier-rate-sheet-group` | Package Station | Package Station | wide | view, edit |
 
@@ -25,7 +25,7 @@ Registration ownership is:
 
 ## Drawer size
 
-`DrawerSize` is `'normal' | 'wide' | 'extra-wide'`, declared by each registration. `AdminStationDrawer` turns it into a CSS modifier; the generic shell never branches on entity type, and wide drawers still yield to the viewport.
+`DrawerSize` is `'normal' | 'wide' | 'extra-wide'`. A registration declares either one size for every mode, or a `DrawerSizeByMode` map (a size per `DrawerMode`) for content that needs more room in one mode than another — a mode the map omits, like an entirely absent `size`, resolves to `normal`. `AdminStationDrawer` resolves the declared size against the mode that will actually render (clamped to the template's supported modes, exactly as content rendering is) and turns it into a CSS modifier; the generic shell never branches on entity type, and wide drawers still yield to the viewport. `rate-sheet` is the one mode-keyed registration today: its View mounts a compact overview at the normal record-drawer width, while Edit — the pricing grid, whether opened focused, via `'new'`, or as the whole collection — needs the wider table room.
 
 The runtime chain is:
 

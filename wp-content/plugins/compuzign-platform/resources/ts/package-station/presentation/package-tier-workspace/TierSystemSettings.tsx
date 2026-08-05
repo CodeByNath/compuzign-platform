@@ -67,9 +67,17 @@ const TIER_GROUP_FILTERS = [
 ] as const;
 type TierGroupFilter = typeof TIER_GROUP_FILTERS[number]['id'];
 
-// Rate Sheets use active-view presentation states. Stored `archived` maps to
-// Disabled at this list boundary; storage values remain unchanged.
+// Rate Sheets' own filter, on the same system as Family Groups' and Tier
+// Groups': the default is the whole loaded standalone pool (`all`), focused
+// Tier Group's allowed sheets first, remaining sheets in their existing
+// stable order. `focused` narrows the list to the sheets the currently
+// focused parent Tier Group's canonical Rate Sheet access allows. Filters use
+// active-view presentation states — stored `archived` maps to Disabled at
+// this list boundary; storage values remain unchanged. The model has no
+// persisted Pending state for a Rate Sheet, so `pending` reports empty
+// rather than inventing one.
 const RATE_SHEET_FILTERS = [
+  { id: 'focused',  label: 'Focused' },
   { id: 'all',      label: 'All' },
   { id: 'active',   label: 'Active' },
   { id: 'pending',  label: 'Pending' },
@@ -192,29 +200,39 @@ export function TierSystemSettings({
     () => presentableInstances.filter((instance) => instance.status === 'active').length,
     [presentableInstances],
   );
-  const [rateSheetSearch, setRateSheetSearch] = useState('');
-  const [rateSheetContext, setRateSheetContext] = useState('focused');
   const [rateSheetFilter, setRateSheetFilter] = useState<RateSheetFilter>('all');
-  const contextInstance = rateSheetContext === 'all'
-    ? null
-    : rateSheetContext === 'focused'
-      ? (focusedInstanceId ? presentableInstances.find((candidate) => candidate.tier_instance_id === focusedInstanceId) ?? null : null)
-      : presentableInstances.find((candidate) => candidate.tier_instance_id === rateSheetContext) ?? null;
-  const contextualSheets = useMemo(() => {
-    if (rateSheetContext === 'all') return rateSheets;
-    if (contextInstance === null) return [];
-    const projection = projectTierRateSheetAccess(contextInstance, rateSheets);
+  // The focused parent Tier Group's own allowed sheets, read through the
+  // existing canonical access projection — the same one the Tier system's
+  // Rate Sheet Access module authors, so `Focused` never disagrees with it.
+  const focusedRateSheetInstance = focusedInstanceId
+    ? presentableInstances.find((candidate) => candidate.tier_instance_id === focusedInstanceId) ?? null
+    : null;
+  const focusedRateSheets = useMemo(() => {
+    if (focusedRateSheetInstance === null) return [];
+    const projection = projectTierRateSheetAccess(focusedRateSheetInstance, rateSheets);
     const allowedIds = new Set(projection.rows.filter((row) => row.allowed && row.status !== 'unresolved').map((row) => row.rateSheetId));
     return rateSheets.filter((sheet) => allowedIds.has(sheet.rate_sheet_id));
-  }, [contextInstance, rateSheetContext, rateSheets]);
+  }, [focusedRateSheetInstance, rateSheets]);
   const rateSheetRows = useMemo<RateSheetConnectionRow[]>(() => {
-    const query = rateSheetSearch.trim().toLowerCase();
-    return projectRateSheetPoolRows(contextualSheets.filter((sheet) => {
+    if (rateSheetFilter === 'focused') return projectRateSheetPoolRows(focusedRateSheets).filter((row) => row.platformId !== '');
+    // The model carries no persisted Pending state for a Rate Sheet — report
+    // empty rather than inventing one.
+    if (rateSheetFilter === 'pending') return [];
+    const pool = rateSheets.filter((sheet) => {
+      if (rateSheetFilter === 'all') return true;
       const status = sheet.status === 'archived' ? 'disabled' : 'active';
-      if (rateSheetFilter !== 'all' && status !== rateSheetFilter) return false;
-      return query === '' || sheet.title.toLowerCase().includes(query) || (sheet.platform_id ?? '').toLowerCase().includes(query);
-    })).filter((row) => row.platformId !== '');
-  }, [contextualSheets, rateSheetFilter, rateSheetSearch]);
+      return status === rateSheetFilter;
+    });
+    const focusedIds = new Set(focusedRateSheets.map((sheet) => sheet.rate_sheet_id));
+    const ordered = rateSheetFilter === 'all' && focusedIds.size > 0
+      ? [...pool].sort((a, b) => {
+          const aFocused = focusedIds.has(a.rate_sheet_id);
+          const bFocused = focusedIds.has(b.rate_sheet_id);
+          return aFocused === bFocused ? 0 : aFocused ? -1 : 1;
+        })
+      : pool;
+    return projectRateSheetPoolRows(ordered).filter((row) => row.platformId !== '');
+  }, [focusedRateSheets, rateSheetFilter, rateSheets]);
   const groups = useMemo<SettingsGroup[]>(() => {
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     return [
@@ -299,26 +317,6 @@ export function TierSystemSettings({
         summary: `${rateSheets.length} in pool · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}`,
         toolbar: (
           <div class="cz-tier-settings__toolbar">
-            <input
-              class="cz-tf-control cz-tf-input cz-tier-settings__search"
-              type="search"
-              value={rateSheetSearch}
-              placeholder="Search by Rate Sheet name / Platform ID"
-              aria-label="Search Rate Sheets by name or Platform ID"
-              onInput={(event) => setRateSheetSearch((event.currentTarget as HTMLInputElement).value)}
-            />
-            <select
-              class="cz-tf-control cz-tf-select"
-              value={rateSheetContext}
-              aria-label="Tier Group context"
-              onChange={(event) => setRateSheetContext((event.currentTarget as HTMLSelectElement).value)}
-            >
-              <option value="focused">Focused Tier Group</option>
-              <option value="all">All Tier Groups</option>
-              {presentableInstances.map((instance) => (
-                <option key={instance.tier_instance_id} value={instance.tier_instance_id}>{instance.title}</option>
-              ))}
-            </select>
             <select
               class="cz-tf-control cz-tf-select"
               value={rateSheetFilter}
@@ -348,7 +346,7 @@ export function TierSystemSettings({
         ],
       },
     ];
-  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetContext, rateSheetFilter, rateSheetRows, rateSheetSearch, rateSheets, presentableInstances, settingsLoading, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
+  }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetFilter, rateSheetRows, rateSheets, presentableInstances, settingsLoading, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,
