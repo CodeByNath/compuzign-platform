@@ -205,8 +205,10 @@ export function RateSheetGridRead({
           {rows.map((row) => (
             <tr key={rowKey(row)}>
               <td class="cz-rate-sheet-tool__cell-name">
-                <span>{row.optionLabel}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
-                <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
+                <div class="cz-rate-sheet-tool__cell-name-stack">
+                  <span>{row.optionLabel}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
+                  <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
+                </div>
               </td>
               <td>{formatUnitPrice(row.unitPrice)}</td>
               <td>{row.per}</td>
@@ -282,8 +284,10 @@ function RateSheetEditRow({
   return (
     <tr>
       <td class="cz-rate-sheet-tool__cell-name">
-        <span>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</span>
-        <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
+        <div class="cz-rate-sheet-tool__cell-name-stack">
+          <span>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</span>
+          <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
+        </div>
       </td>
       <td>
         <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}

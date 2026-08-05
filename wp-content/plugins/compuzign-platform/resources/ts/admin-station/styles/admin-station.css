@@ -3048,6 +3048,17 @@ button.cz-station-status-pill {
   font-weight: 600;
 }
 
+.cz-rate-sheet-tool__cell-name-stack {
+  display: grid;
+  gap: 2px;
+}
+
+.cz-rate-sheet-tool__cell-name-stack small {
+  font-weight: 400;
+  font-size: var(--station-text-xs);
+  color: var(--station-text-muted);
+}
+
 .cz-rate-sheet-tool__grid .cz-tf-input,
 .cz-rate-sheet-tool__grid .cz-tf-select {
   min-width: 88px;
