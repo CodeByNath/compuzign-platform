@@ -44,6 +44,12 @@ final class PackagePlatformIdentifierService
         $this->identifiers->retire($reservation);
     }
 
+    /** Registry status for an already-issued platform id, independent of any native reference. */
+    public function resolve(string $platformId): ?PlatformIdentifierBinding
+    {
+        return $this->identifiers->resolve($platformId);
+    }
+
     public function assignExisting(
         PackagePlatformIdentifierAdapter $adapter,
         int|string|null $cursor,

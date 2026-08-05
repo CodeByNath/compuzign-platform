@@ -12,8 +12,11 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference;
 use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierAdapters;
 use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierService;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifier;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
+use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatformIdentifierAdapter;
 
 /**
  * Package Station admin write/read endpoints — manager, tiers, occupant bin,
@@ -609,6 +612,44 @@ class PackageStationController
         }
     }
 
+    /**
+     * True when a row already carries a platform id that the identity registry
+     * does not (yet) show as bound — either it never finished binding after a
+     * prior save that persisted the row but failed reconciliation, or the
+     * registry has no record of it at all. A row with no platform id at all is
+     * handled by the caller's own new-row branch, not this check.
+     */
+    private function identityNeedsReconciliation(string $existingPlatformId): bool
+    {
+        if ($existingPlatformId === '') return false;
+        $binding = $this->platformIdentity->resolve($existingPlatformId);
+        return $binding === null || !$binding->isBound();
+    }
+
+    /**
+     * The reservation to bind for a row that already carries a platform id
+     * needing reconciliation. A still-open reservation (the row's own prior
+     * save persisted the id but never completed binding) is resumed under its
+     * existing identifier, so a recovered row keeps the id it already showed
+     * the administrator. Anything else (no registry record, or one already
+     * retired/deleted) cannot be resumed, so a fresh identifier is minted and
+     * the caller must overwrite the row's stale one.
+     */
+    private function reservationForReconciliation(
+        PackagePlatformIdentifierAdapter $adapter,
+        string $existingPlatformId
+    ): PlatformIdentifierReservation {
+        $binding = $this->platformIdentity->resolve($existingPlatformId);
+        if ($binding !== null
+            && $binding->status() === PlatformIdentifierStation::STATUS_RESERVED
+            && $binding->entityType() === $adapter->entityType()
+        ) {
+            return new PlatformIdentifierReservation(new PlatformIdentifier($adapter->entityType(), $existingPlatformId));
+        }
+
+        return $this->platformIdentity->reserve($adapter);
+    }
+
     private function instanceDeleteGuardResponse(string $code, string $message): \WP_REST_Response
     {
         return new \WP_REST_Response(['success' => false, 'code' => $code, 'message' => $message], 409);
@@ -869,6 +910,15 @@ class PackageStationController
 
         $identityAssignments = [];
         $identityDeletions = [];
+        // Platform ids resumed from a row's own prior save (see
+        // reservationForReconciliation()) are already referenced by
+        // currently-persisted station data — from THIS request's perspective
+        // that data is pre-existing, so retiring one of these on any failure
+        // path below would tear a live reference out from under a row that
+        // was already showing it to the administrator. Only a reservation
+        // minted fresh in this request, never yet written to storage, is
+        // ever safe to retire.
+        $resumedPlatformIds = [];
         if ($this->identityEnabled) {
             $oldSheets = [];
             $oldGroups = [];
@@ -893,6 +943,13 @@ class PackageStationController
                         $reservation = $this->platformIdentity->reserve($this->identityAdapters->rateSheet());
                         $manager['rate_sheets'][$sheetIndex]['cz_platform_id'] = $reservation->platformId();
                         $identityAssignments[] = [$this->identityAdapters->rateSheet(), $reservation, PackagePlatformNativeReference::rateSheet($sheetId)];
+                    } elseif ($this->identityNeedsReconciliation((string) ($sheet['cz_platform_id'] ?? ''))) {
+                        $adapter = $this->identityAdapters->rateSheet();
+                        $existingPlatformId = (string) $sheet['cz_platform_id'];
+                        $reservation = $this->reservationForReconciliation($adapter, $existingPlatformId);
+                        if ($reservation->platformId() === $existingPlatformId) $resumedPlatformIds[$existingPlatformId] = true;
+                        $manager['rate_sheets'][$sheetIndex]['cz_platform_id'] = $reservation->platformId();
+                        $identityAssignments[] = [$adapter, $reservation, PackagePlatformNativeReference::rateSheet($sheetId)];
                     }
                     foreach ($sheet['groups'] as $groupIndex => $group) {
                         $groupId = (string) $group['group_id'];
@@ -900,6 +957,13 @@ class PackageStationController
                             $reservation = $this->platformIdentity->reserve($this->identityAdapters->rateSheetGroup());
                             $manager['rate_sheets'][$sheetIndex]['groups'][$groupIndex]['cz_platform_id'] = $reservation->platformId();
                             $identityAssignments[] = [$this->identityAdapters->rateSheetGroup(), $reservation, PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId)];
+                        } elseif ($this->identityNeedsReconciliation((string) ($group['cz_platform_id'] ?? ''))) {
+                            $adapter = $this->identityAdapters->rateSheetGroup();
+                            $existingPlatformId = (string) $group['cz_platform_id'];
+                            $reservation = $this->reservationForReconciliation($adapter, $existingPlatformId);
+                            if ($reservation->platformId() === $existingPlatformId) $resumedPlatformIds[$existingPlatformId] = true;
+                            $manager['rate_sheets'][$sheetIndex]['groups'][$groupIndex]['cz_platform_id'] = $reservation->platformId();
+                            $identityAssignments[] = [$adapter, $reservation, PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId)];
                         }
                     }
                     foreach ($sheet['items'] as $itemIndex => $item) {
@@ -908,11 +972,20 @@ class PackageStationController
                             $reservation = $this->platformIdentity->reserve($this->identityAdapters->rateSheetItem());
                             $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $reservation->platformId();
                             $identityAssignments[] = [$this->identityAdapters->rateSheetItem(), $reservation, PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];
+                        } elseif ($this->identityNeedsReconciliation((string) ($item['cz_platform_id'] ?? ''))) {
+                            $adapter = $this->identityAdapters->rateSheetItem();
+                            $existingPlatformId = (string) $item['cz_platform_id'];
+                            $reservation = $this->reservationForReconciliation($adapter, $existingPlatformId);
+                            if ($reservation->platformId() === $existingPlatformId) $resumedPlatformIds[$existingPlatformId] = true;
+                            $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $reservation->platformId();
+                            $identityAssignments[] = [$adapter, $reservation, PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];
                         }
                     }
                 }
             } catch (\Throwable) {
-                foreach ($identityAssignments as [, $reservation]) $this->retireReservation($reservation);
+                foreach ($identityAssignments as [, $reservation]) {
+                    if (!isset($resumedPlatformIds[$reservation->platformId()])) $this->retireReservation($reservation);
+                }
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve Rate Sheet Platform identifiers.'], 500);
             }
             $newSheetIds = array_fill_keys(array_map(static fn(array $sheet): string => (string) $sheet['rate_sheet_id'], $manager['rate_sheets']), true);
@@ -939,7 +1012,9 @@ class PackageStationController
         try {
             $this->packages()->saveStation($station);
         } catch (\Throwable) {
-            foreach ($identityAssignments as [, $reservation]) $this->retireReservation($reservation);
+            foreach ($identityAssignments as [, $reservation]) {
+                if (!isset($resumedPlatformIds[$reservation->platformId()])) $this->retireReservation($reservation);
+            }
             return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet changes could not be persisted.'], 500);
         }
         try {
@@ -950,7 +1025,13 @@ class PackageStationController
                 $this->platformIdentity->tombstone($adapter, $nativeReference);
             }
         } catch (\Throwable) {
-            foreach ($identityAssignments as [, $reservation]) $this->retireReservation($reservation);
+            // Every id in $identityAssignments was already written onto its row by
+            // the saveStation() call above — that is the one atomic postmeta write
+            // this endpoint makes. Retiring a reservation here would strand that
+            // already-persisted row pointing at a dead registry record with no way
+            // back. Leaving the reservation open lets the next save (or an explicit
+            // retry) resume and complete the exact same binding via
+            // reservationForReconciliation() / identityNeedsReconciliation() above.
             return new \WP_REST_Response(['success' => false, 'message' => 'Rate Sheet changes persisted, but Platform identifier reconciliation is required.'], 500);
         }
 

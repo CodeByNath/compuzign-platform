@@ -316,4 +316,25 @@ check(
   'curated Per rename updates the manager vocabulary and every referencing row while built-ins remain immutable',
 );
 
+// ── Save failure keeps the drawer in Edit; only a verified success exits ──────
+// A failed save (response.success === false) must never advance the working
+// collection or clear dirty — otherwise a transient identity-reconciliation
+// failure on the backend would look like a clean save on the surface.
+check(
+  controllerSource.includes("if (!response.success) { setSaveError(response.message || 'Could not save the Rate Sheets.'); return; }"),
+  'a failed save sets saveError and returns without touching the working sheets, selection, or dirty flag',
+);
+check(
+  controllerSource.indexOf('if (!response.success)') < controllerSource.indexOf('applyReadModel(response.manager)'),
+  'applyReadModel (which clears dirty) only runs after the success check, never unconditionally after a save',
+);
+check(
+  drawerSource.includes('if (!saveError) { savedRef.current(); if (wasExplicit) modeRef.current(\'view\'); }'),
+  'the drawer exits Edit and notifies onSaved only when the just-finished save carried no saveError',
+);
+check(
+  (drawerSource.match(/modeRef\.current\('view'\)/g) ?? []).length === 1,
+  'exactly one call switches the drawer to View — the one already proven to sit behind the saveError guard',
+);
+
 console.log('Rate Sheet tool contract checks passed.');
