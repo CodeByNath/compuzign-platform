@@ -1640,6 +1640,15 @@ class PackageSchema
                 'status'           => $status,
                 'previous_enabled' => (bool) ($entry['previous_enabled'] ?? false),
                 'displaced_at'     => is_string($entry['displaced_at'] ?? null) ? $entry['displaced_at'] : null,
+                // Cascade-history (Phase 4): the exact Edition ids THIS bin
+                // entry's own archive moment carried with the parent — never
+                // recomputed at trash/restore time. An Edition already
+                // archived/trashed independently before this entry was
+                // created is never in this list, so later trash/restore
+                // cascades can never touch it. See archiveTierOccupant().
+                'cascaded_edition_ids' => is_array($entry['cascaded_edition_ids'] ?? null)
+                    ? array_values(array_unique(array_map('strval', array_filter($entry['cascaded_edition_ids'], 'is_string'))))
+                    : [],
             ];
         }
 
@@ -1658,6 +1667,71 @@ class PackageSchema
      * @param  array<string, mixed> $station
      * @return array{station: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
      */
+    // ── Phase 4: parent-to-child cascade (thin orchestration only) ───────────
+    // Each helper reuses the exact per-Edition transition functions already
+    // proven in Phase 3 (applyTierEditionStatus/restoreTierEdition) — no
+    // duplicated transition logic. The one new rule is which ids a cascade
+    // is allowed to touch: only those this SAME bin-entry archive originally
+    // carried, recorded once and never recomputed, so an Edition already
+    // independently archived/trashed before the parent moved is never
+    // swept up by a later Tier-level trash or restore.
+
+    /**
+     * Archive every currently-live Edition alongside its parent occupant,
+     * recording exactly which ids were carried.
+     *
+     * @return array{0: array, 1: list<string>}
+     */
+    private static function cascadeArchiveTierEditions(array $occupant): array
+    {
+        $engine   = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $editions = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
+        $carried  = [];
+        foreach ($editions as $edition) {
+            if (!is_array($edition)) {
+                continue;
+            }
+            $id = (string) ($edition['id'] ?? '');
+            if ($id === '' || !$engine::isLive((string) ($edition['platform_status'] ?? ''))) {
+                continue;
+            }
+            $editions = self::applyTierEditionStatus($editions, $id, $engine::STATUS_ARCHIVED);
+            $carried[] = $id;
+        }
+        $occupant['tier_editions'] = $editions;
+        return [$occupant, $carried];
+    }
+
+    /** Trash only the ids a prior archive of this same bin entry already carried. */
+    private static function cascadeTrashTierEditions(array $occupant, array $carriedIds): array
+    {
+        $engine   = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $editions = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
+        foreach ($carriedIds as $id) {
+            $edition = self::findTierEdition($editions, (string) $id);
+            if ($edition !== null && $engine::canTrash((string) ($edition['platform_status'] ?? ''))) {
+                $editions = self::applyTierEditionStatus($editions, (string) $id, $engine::STATUS_TRASHED);
+            }
+        }
+        $occupant['tier_editions'] = $editions;
+        return $occupant;
+    }
+
+    /** Restore only the ids this bin entry's own archive carried, back to disabled alongside the parent. */
+    private static function cascadeRestoreTierEditions(array $occupant, array $carriedIds): array
+    {
+        $engine   = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $editions = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
+        foreach ($carriedIds as $id) {
+            $edition = self::findTierEdition($editions, (string) $id);
+            if ($edition !== null && $engine::canRestore((string) ($edition['platform_status'] ?? ''))) {
+                $editions = self::restoreTierEdition($editions, (string) $id);
+            }
+        }
+        $occupant['tier_editions'] = $editions;
+        return $occupant;
+    }
+
     public static function archiveTierOccupant(array $station, string $tierId, bool $discardDrafts, string $binId, ?string $displacedAt): array
     {
         if (!in_array($tierId, self::ALLOWED_TIERS, true)) {
@@ -1685,6 +1759,8 @@ class PackageSchema
             return ['error' => 'pending_drafts'];
         }
 
+        [$occupant, $cascadedEditionIds] = self::cascadeArchiveTierEditions($occupant);
+
         $entry = [
             'bin_id'           => $binId,
             'origin_tier'      => $tierId,
@@ -1692,6 +1768,7 @@ class PackageSchema
             'status'           => 'archived',
             'previous_enabled' => ($occupant['platform_status'] ?? 'active') === 'active',
             'displaced_at'     => $displacedAt,
+            'cascaded_edition_ids' => $cascadedEditionIds,
         ];
         $station['occupant_bin'][] = $entry;
 
@@ -1811,13 +1888,15 @@ class PackageSchema
             // legacy flat content is minted into occupant form) and displace it.
             $detail    = self::normaliseTierSlot($slot);
             $canonical = self::upsertOccupant($slot, $detail, $detail['enabled']);
+            [$displacedOccupant, $displacedCascadedIds] = self::cascadeArchiveTierEditions($canonical['current_occupant']);
             $displaced = [
                 'bin_id'           => $newBinId,
                 'origin_tier'      => $tierId,
-                'occupant'         => $canonical['current_occupant'],
+                'occupant'         => $displacedOccupant,
                 'status'           => 'archived',
                 'previous_enabled' => $detail['enabled'],
                 'displaced_at'     => $displacedAt,
+                'cascaded_edition_ids' => $displacedCascadedIds,
             ];
             $station['occupant_bin'][] = $displaced;
             $slot = [
@@ -1828,7 +1907,8 @@ class PackageSchema
             ];
         }
 
-        $occupant                    = $entry['occupant'];
+        $carriedEditionIds = is_array($entry['cascaded_edition_ids'] ?? null) ? $entry['cascaded_edition_ids'] : [];
+        $occupant = self::cascadeRestoreTierEditions($entry['occupant'], $carriedEditionIds);
         $occupant['platform_status'] = 'disabled';
         // Restore always clears the marker, even for an occupant that was
         // explicitly Disabled at archive time — the same unmasked-Pending
@@ -1870,13 +1950,26 @@ class PackageSchema
             return ['error' => 'trash_illegal'];
         }
 
-        $station['occupant_bin'][$index]['status'] = $change['status'];
-        return ['station' => $station, 'entry' => $station['occupant_bin'][$index]];
+        $entry = $station['occupant_bin'][$index];
+        $carriedEditionIds = is_array($entry['cascaded_edition_ids'] ?? null) ? $entry['cascaded_edition_ids'] : [];
+        $entry['occupant'] = self::cascadeTrashTierEditions($entry['occupant'] ?? [], $carriedEditionIds);
+        $entry['status'] = $change['status'];
+
+        $station['occupant_bin'][$index] = $entry;
+        return ['station' => $station, 'entry' => $entry];
     }
 
     /**
      * Permanently delete a bin entry (engine D3) — the only operation that removes
      * an entry from occupant_bin. Legal only from trashed (engine-validated).
+     *
+     * Parent permanent deletion cascade (Phase 4) needs no Edition-specific
+     * code here: array_splice() below discards the whole entry, occupant AND
+     * every nested Edition, in one structural removal. There is nothing to
+     * iterate — the same reason CZT/CZTA need no explicit per-field cleanup
+     * on this same path. Individual Edition permanent delete
+     * (PackageStationController::deleteTierEditionEndpoint) remains
+     * separately guarded while the parent occupant is still live.
      *
      * @param  array<string, mixed> $station
      * @return array{station: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
