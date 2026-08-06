@@ -1327,6 +1327,175 @@ class PackageSchema
         )));
     }
 
+    // ── Phase 3: one module (overview), draft -> settle/revert ───────────────
+    // A single consolidated module, not the parent occupant's three-module
+    // Overview/Features/FAQs split — mirrors PackageCategoryGroups, which
+    // also carries multiple editable fields (label, description) under one
+    // 'overview' module rather than one module per field group. An Edition's
+    // total editable surface (title, description, Rate Sheet binding +
+    // selections, billing cycle, commitment, declaration override) is closer
+    // in size to a Family row than to a whole Tier occupant.
+
+    public static function saveTierEditionDraft(array $editions, string $editionId, array $data): array
+    {
+        $edition = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            throw new \InvalidArgumentException('Tier Edition not found.');
+        }
+        $title = sanitize_text_field((string) ($data['title'] ?? ''));
+        if ($title === '') {
+            throw new \InvalidArgumentException('Tier Edition title is required.');
+        }
+        $edition['drafts']['overview'] = [
+            'title'                => $title,
+            'admin_description'    => $data['admin_description'] ?? '',
+            'rate_sheet_id'        => $data['rate_sheet_id'] ?? null,
+            'rate_sheet_items'     => $data['rate_sheet_items'] ?? [],
+            'billing_cycle'        => $data['billing_cycle'] ?? null,
+            'contact'              => $data['contact'] ?? false,
+            'minimum_term_value'   => $data['minimum_term_value'] ?? null,
+            'minimum_term_unit'    => $data['minimum_term_unit'] ?? null,
+            'inclusions_override'  => $data['inclusions_override'] ?? [],
+            'faq_refs'             => $data['faq_refs'] ?? [],
+        ];
+        $edition['module_status']['overview'] = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::MODULE_PENDING;
+        return self::replaceTierEdition($editions, $edition);
+    }
+
+    /**
+     * Settle the draft-preferred state into the Edition row, then clear the
+     * draft and mark the module settled. Switching the bound Rate Sheet
+     * clears row selections — the same Refinement 4 rule the parent
+     * occupant already applies in settleTierSlot().
+     */
+    public static function settleTierEditionOverview(array $editions, string $editionId): array
+    {
+        $edition = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            throw new \InvalidArgumentException('Tier Edition not found.');
+        }
+        $draft = is_array($edition['drafts']['overview'] ?? null) ? $edition['drafts']['overview'] : null;
+        if ($draft === null) {
+            return $editions;
+        }
+
+        $existingRateSheetId = self::normaliseRateSheetId($edition['rate_sheet_id'] ?? null);
+        $draftRateSheetId = array_key_exists('rate_sheet_id', $draft)
+            ? self::normaliseRateSheetId($draft['rate_sheet_id'])
+            : $existingRateSheetId;
+        $switched = $existingRateSheetId !== null && $draftRateSheetId !== $existingRateSheetId;
+        $selections = $switched
+            ? []
+            : self::sanitizeTierRateSheetSelections($draft['rate_sheet_items'] ?? ($edition['rate_sheet_items'] ?? []));
+
+        $edition['title']               = $draft['title'] ?? $edition['title'];
+        $edition['admin_description']   = $draft['admin_description'] ?? $edition['admin_description'];
+        $edition['rate_sheet_id']       = $draftRateSheetId;
+        $edition['rate_sheet_items']    = $selections;
+        $edition['billing_cycle']       = $draft['billing_cycle'] ?? $edition['billing_cycle'];
+        $edition['contact']             = $draft['contact'] ?? $edition['contact'];
+        $edition['minimum_term_value']  = array_key_exists('minimum_term_value', $draft) ? $draft['minimum_term_value'] : $edition['minimum_term_value'];
+        $edition['minimum_term_unit']   = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
+        $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];
+        $edition['faq_refs']            = $draft['faq_refs'] ?? $edition['faq_refs'];
+
+        $edition = self::sanitizeTierEdition($edition);
+        $edition['drafts']['overview']        = null;
+        $edition['module_status']['overview'] = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::MODULE_SETTLED;
+        return self::replaceTierEdition($editions, $edition);
+    }
+
+    /** Discard a pending draft without touching the settled Edition data. */
+    public static function revertTierEditionOverview(array $editions, string $editionId): array
+    {
+        $edition = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            throw new \InvalidArgumentException('Tier Edition not found.');
+        }
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $edition['drafts']['overview'] = null;
+        $edition['module_status']['overview'] = $edition['title'] !== ''
+            ? $engine::MODULE_SETTLED
+            : $engine::MODULE_NOT_CONFIGURED;
+        return self::replaceTierEdition($editions, $edition);
+    }
+
+    // ── Phase 3: shared StationLifecycle transitions ─────────────────────────
+    // Mirrors PackageCategoryGroups::applyStatus()/applyDisabledMask()/
+    // restore() exactly — the same engine, the same permissive-target
+    // contract, the same explicit Disable/Enable mask. No new status names,
+    // no new transition logic.
+
+    /** Permissive status application, same contract as Package Family's own /status endpoint. */
+    public static function applyTierEditionStatus(array $editions, string $editionId, string $target): array
+    {
+        $edition = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            throw new \InvalidArgumentException('Tier Edition not found.');
+        }
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        if (!$engine::isValidStatus($target) || $target === $engine::STATUS_DRAFT) {
+            throw new \InvalidArgumentException('Invalid platform_status.');
+        }
+        $change = $engine::applyStatus(
+            (string) $edition['platform_status'],
+            $target,
+            $edition['previous_platform_status'] ?? null
+        );
+        $edition['platform_status']          = $change['status'];
+        $edition['previous_platform_status'] = $change['previous_status'];
+        return self::replaceTierEdition($editions, $edition);
+    }
+
+    /** Explicit Disable/Enable mask; neither action publishes or settles. */
+    public static function applyTierEditionDisabledMask(array $editions, string $editionId, string $action): array
+    {
+        $edition = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            throw new \InvalidArgumentException('Tier Edition not found.');
+        }
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $current  = (string) $edition['platform_status'];
+        $previous = $edition['previous_platform_status'] ?? null;
+
+        if ($action === 'disable') {
+            if (!$engine::isLive($current)) {
+                throw new \InvalidArgumentException('Only an active or pending Tier Edition can be disabled.');
+            }
+            $edition['platform_status'] = $engine::STATUS_DISABLED;
+            $edition['previous_platform_status'] = $current === $engine::STATUS_ACTIVE || $previous === null
+                ? $current
+                : $previous;
+        } elseif ($action === 'enable') {
+            if ($current !== $engine::STATUS_DISABLED || $previous === null) {
+                throw new \InvalidArgumentException('Only an explicitly disabled Tier Edition can be enabled.');
+            }
+            $edition['platform_status'] = $engine::STATUS_DISABLED;
+            $edition['previous_platform_status'] = null;
+        } else {
+            throw new \InvalidArgumentException('Invalid action.');
+        }
+
+        return self::replaceTierEdition($editions, $edition);
+    }
+
+    /** restore: archived|trashed -> disabled — never straight to active. */
+    public static function restoreTierEdition(array $editions, string $editionId): array
+    {
+        $edition = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            throw new \InvalidArgumentException('Tier Edition not found.');
+        }
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $change = $engine::restore((string) $edition['platform_status']);
+        if ($change === null) {
+            throw new \InvalidArgumentException('Tier Edition is not in a restorable state.');
+        }
+        $edition['platform_status']          = $change['status'];
+        $edition['previous_platform_status'] = $change['previous_status'];
+        return self::replaceTierEdition($editions, $edition);
+    }
+
     /** Normalise a stored/inbound Rate Sheet id to a non-empty string or null. */
     private static function normaliseRateSheetId(mixed $rateSheetId): ?string
     {

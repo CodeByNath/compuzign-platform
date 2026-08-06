@@ -229,6 +229,54 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)]],
         ]);
+        // Tier Edition — independently addressed child record nested inside
+        // one occupant. tier stays the fixed slot key; edition is the
+        // Edition's own minted `edt_…` id, resolved through the occupant
+        // currently sitting in that slot (see tierEditionContext()).
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions', [
+            'methods' => 'POST', 'callback' => [$this, 'createTierEdition'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)]],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)', [
+            'methods' => 'POST', 'callback' => [$this, 'saveTierEditionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)/settle', [
+            'methods' => 'POST', 'callback' => [$this, 'settleTierEditionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)/revert', [
+            'methods' => 'POST', 'callback' => [$this, 'revertTierEditionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/status', [
+            'methods' => 'PATCH', 'callback' => [$this, 'updateTierEditionStatus'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string'],
+                'platform_status' => ['required' => false, 'type' => 'string', 'enum' => [
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_ACTIVE,
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_DISABLED,
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_ARCHIVED,
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_TRASHED,
+                ]],
+                'action' => ['required' => false, 'type' => 'string', 'enum' => ['disable', 'enable']],
+            ],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/restore', [
+            'methods' => 'POST', 'callback' => [$this, 'restoreTierEditionEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)', [
+            'methods' => 'DELETE', 'callback' => [$this, 'deleteTierEditionEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
+
         register_rest_route('compuzign/v1', $instanceBase . '/popular', [
             'methods' => 'POST', 'callback' => [$this, 'setPackageStationPopular'],
             'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
@@ -587,7 +635,7 @@ class PackageStationController
     {
         $body = $request->get_json_params();
         $body = is_array($body) ? $body : [];
-        $fields = ['platform_id', 'platformId', PlatformIdentifierStation::META_KEY, 'addon_platform_id', 'addonPlatformId'];
+        $fields = ['platform_id', 'platformId', PlatformIdentifierStation::META_KEY, 'addon_platform_id', 'addonPlatformId', 'edition_platform_id', 'editionPlatformId'];
         foreach ($fields as $field) {
             if ($request->get_param($field) !== null || $this->payloadContainsKey($body, $field)) {
                 return new \WP_REST_Response(['success' => false, 'message' => 'Platform identifiers are immutable and output-only.'], 422);
@@ -1704,6 +1752,298 @@ class PackageStationController
             'tier'          => $PS::normaliseTierSlot($slot),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
+        ]));
+    }
+
+    // ===================================================================
+    // SECTION: TIER_EDITION
+    // ===================================================================
+    // Phase 3 — Tier Edition: an independently addressed, independently
+    // lifecycled child record nested inside current_occupant.tier_editions[].
+    // Not a TIER_MODULES entry, not another occupant, not an Add-on, not a
+    // new endpoint FAMILY in the sense of a second Rate Sheet/pricing engine
+    // — it reuses the exact same StationLifecycle engine and PackageSchema
+    // module draft/settle/revert grammar every other conforming entity uses,
+    // scoped one level deeper. See docs/code-map/tiers.md and
+    // PackageSchema's own SECTION: TIER_EDITION.
+
+    /**
+     * Resolve the full Edition addressing chain: instance -> slot -> occupant
+     * -> Edition. Every mutating route requires a real occupant; an empty
+     * slot cannot carry Editions. The {edition} segment is optional only for
+     * createTierEdition(), which addresses no existing row yet.
+     *
+     * @return array{0: array, 1: string, 2: array, 3: string, 4: array, 5: string, 6: array, 7: array|null}|\WP_REST_Response
+     */
+    private function tierEditionContext(\WP_REST_Request $request): array|\WP_REST_Response
+    {
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $tierId = sanitize_key((string) $request->get_param('tier'));
+        $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
+        $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+        if ($occupant === null) {
+            return new \WP_REST_Response(['success' => false, 'code' => 'no_occupant', 'message' => 'This Tier slot has no occupant.'], 404);
+        }
+
+        $editionId = sanitize_text_field((string) $request->get_param('edition'));
+        $editions  = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
+        $edition   = $editionId !== '' ? \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::findTierEdition($editions, $editionId) : null;
+        if ($editionId !== '' && $edition === null) {
+            return new \WP_REST_Response(['success' => false, 'code' => 'unknown_tier_edition', 'message' => 'Tier Edition not found.'], 404);
+        }
+
+        return [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions, $edition];
+    }
+
+    /** Write an updated tier_editions[] collection back through the occupant, slot, instance, and station. */
+    private function persistTierEditionOccupant(array $station, string $instanceId, array $instance, string $tierId, array $occupant, array $editions): array
+    {
+        $occupant['tier_editions']      = $editions;
+        $occupant['default_edition_id'] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::sanitizeDefaultEditionId(
+            $occupant['default_edition_id'] ?? null,
+            $editions
+        );
+        $instance['tiers'][$tierId]['current_occupant'] = $occupant;
+        return $this->persistTierInstance($station, $instanceId, $instance);
+    }
+
+    public function createTierEdition(\WP_REST_Request $request): \WP_REST_Response
+    {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, , $editions] = $context;
+
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        try {
+            $result = $PS::addTierEdition($editions, $body);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $result['tier_editions']);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'      => true,
+            'tier_id'      => $tierId,
+            'edition_id'   => $result['edition']['id'],
+            'edition'      => $result['edition'],
+        ]));
+    }
+
+    public function saveTierEditionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions] = $context;
+
+        $module = sanitize_key((string) $request->get_param('module'));
+        if ($module !== 'overview') {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        try {
+            $editions = $PS::saveTierEditionDraft($editions, $editionId, $body);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'tier_id'    => $tierId,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    public function settleTierEditionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions] = $context;
+
+        $module = sanitize_key((string) $request->get_param('module'));
+        if ($module !== 'overview') {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $editions = $PS::settleTierEditionOverview($editions, $editionId);
+        $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'tier_id'    => $tierId,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    public function revertTierEditionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions] = $context;
+
+        $module = sanitize_key((string) $request->get_param('module'));
+        if ($module !== 'overview') {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $editions = $PS::revertTierEditionOverview($editions, $editionId);
+        $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'tier_id'    => $tierId,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    /**
+     * Engine transition (platform_status) or explicit Disable/Enable mask
+     * (action) — the same permissive one-endpoint contract Package Family's
+     * own /status route uses. First transition to Active assigns CZTE
+     * through the exact reserve -> persist -> bind sequence
+     * settlePackageStationTier() already uses for CZT/CZTA, reconciliation-
+     * safe resume included.
+     */
+    public function updateTierEditionStatus(\WP_REST_Request $request): \WP_REST_Response
+    {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions] = $context;
+
+        $target = sanitize_text_field((string) $request->get_param('platform_status'));
+        $action = sanitize_text_field((string) $request->get_param('action'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+
+        try {
+            if ($action === 'disable' || $action === 'enable') {
+                $editions = $PS::applyTierEditionDisabledMask($editions, $editionId, $action);
+            } elseif ($target !== '') {
+                $editions = $PS::applyTierEditionStatus($editions, $editionId, $target);
+            } else {
+                return new \WP_REST_Response(['success' => false, 'message' => 'A platform_status or action is required.'], 422);
+            }
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $updatedEdition = $PS::findTierEdition($editions, $editionId);
+        $reservation = null;
+        $resumed = false;
+        if ($this->identityEnabled && ($updatedEdition['platform_status'] ?? null) === $engine::STATUS_ACTIVE) {
+            $existingId = (string) ($updatedEdition['edition_platform_id'] ?? '');
+            try {
+                if ($existingId === '') {
+                    $reservation = $this->platformIdentity->reserve($this->identityAdapters->tierEdition());
+                    $updatedEdition['edition_platform_id'] = $reservation->platformId();
+                } elseif ($this->identityNeedsReconciliation($existingId)) {
+                    $adapter = $this->identityAdapters->tierEdition();
+                    $reservation = $this->reservationForReconciliation($adapter, $existingId);
+                    $resumed = $reservation->platformId() === $existingId;
+                    $updatedEdition['edition_platform_id'] = $reservation->platformId();
+                }
+            } catch (\Throwable) {
+                if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Edition Platform identifier.'], 500);
+            }
+            if ($reservation !== null) {
+                $editions = $PS::replaceTierEdition($editions, $updatedEdition);
+            }
+        }
+
+        $station = $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
+
+        if ($reservation !== null) {
+            $nativeReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference::tierEdition(
+                $instanceId,
+                (string) $occupant['id'],
+                $editionId
+            );
+            try {
+                $this->platformIdentity->bind($this->identityAdapters->tierEdition(), $reservation, $nativeReference);
+            } catch (\Throwable) {
+                if (!$resumed) $this->retireReservation($reservation);
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'Tier Edition status changed, but Platform identifier binding requires reconciliation.',
+                    'native_reference' => $nativeReference,
+                ], 500);
+            }
+        }
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'tier_id'    => $tierId,
+            'edition_id' => $editionId,
+            'edition'    => $updatedEdition,
+        ]));
+    }
+
+    public function restoreTierEditionEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions] = $context;
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        try {
+            $editions = $PS::restoreTierEdition($editions, $editionId);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'tier_id'    => $tierId,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    /** Guarded permanent delete: trashed-only, and never the current default — see PackageSchema::deleteTierEdition. */
+    public function deleteTierEditionEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions] = $context;
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        try {
+            $editions = $PS::deleteTierEdition($editions, $editionId, $occupant['default_edition_id'] ?? null);
+        } catch (\InvalidArgumentException $e) {
+            return $this->instanceDeleteGuardResponse('tier_edition_delete_guard', $e->getMessage());
+        }
+
+        $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'tier_id'    => $tierId,
+            'edition_id' => $editionId,
         ]));
     }
 
