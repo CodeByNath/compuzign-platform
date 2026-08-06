@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/Card';
 import { PricingTiers } from './PricingTiers';
+import type { EffectiveTierDisplay } from './PricingTiers';
 import { decodeHtml } from '@/utils/format';
 import type { ServiceItem, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItem, QuoteItemTierId } from './types';
@@ -46,7 +47,12 @@ export function ServiceCard({
     );
   }
 
-  const handleSelect = (tierId: TierId) => {
+  // `effective` is whichever Edition (if any) was showing in the card's own
+  // switch at the moment of this click — see PricingTiers.
+  // resolveEffectiveTierDisplay. When no switch was ever touched it already
+  // equals this Tier's server-resolved default, so an existing Tier with no
+  // Editions is captured identically to before this capability existed.
+  const handleSelect = (tierId: TierId, effective: EffectiveTierDisplay) => {
     if (selectedTierId === tierId) {
       onRemoveFromQuote(service.id);
       return;
@@ -57,20 +63,20 @@ export function ServiceCard({
       serviceId: service.id,
       serviceTitle: decodeHtml(service.title),
       tierId,
-      tierTitle: tierData?.label || tier?.title || tierId,
-      price: tierData?.price ?? null,
-      billingCycle: tierData?.billing_cycle || meta.billing_cycle,
+      tierTitle: effective.selectedEdition?.label || tierData?.label || tier?.title || tierId,
+      price: effective.price,
+      billingCycle: effective.billingCycle,
       categoryName: decodeHtml(service.categories[0]?.name ?? ''),
-      features: tierData?.inclusions?.length
-        ? tierData.inclusions.map((inc) => inc.label)
-        : (tierData?.features ?? []),
+      features: effective.inclusionLabels,
       isAddon: false,
+      minimumTermValue: effective.minimumTermValue,
+      minimumTermUnit: effective.minimumTermUnit,
     });
   };
 
   // Independent toggle: never touches the normal Tier selection or any other
   // add-on, and never replaces the normal selected Tier.
-  const handleToggleAddon = (tierId: TierId) => {
+  const handleToggleAddon = (tierId: TierId, effective: EffectiveTierDisplay) => {
     if (selectedAddonTierIds.includes(tierId)) {
       onRemoveFromQuote(service.id, tierId);
       return;
@@ -81,14 +87,14 @@ export function ServiceCard({
       serviceId: service.id,
       serviceTitle: decodeHtml(service.title),
       tierId,
-      tierTitle: tierData?.label || tier?.title || tierId,
-      price: tierData?.price ?? null,
-      billingCycle: tierData?.billing_cycle || meta.billing_cycle,
+      tierTitle: effective.selectedEdition?.label || tierData?.label || tier?.title || tierId,
+      price: effective.price,
+      billingCycle: effective.billingCycle,
       categoryName: decodeHtml(service.categories[0]?.name ?? ''),
-      features: tierData?.inclusions?.length
-        ? tierData.inclusions.map((inc) => inc.label)
-        : (tierData?.features ?? []),
+      features: effective.inclusionLabels,
       isAddon: true,
+      minimumTermValue: effective.minimumTermValue,
+      minimumTermUnit: effective.minimumTermUnit,
     });
   };
 

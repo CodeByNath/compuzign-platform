@@ -18,7 +18,7 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 
 - [useCostBuilder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCostBuilder.ts) owns public projection loading, errors, and refetch. Use it for fetch state.
 - [ServiceGrid.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/ServiceGrid.tsx) renders the active category’s Service cards. Use it for grid layout and selection handoff.
-- [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map into "Choose your Tier" (exclusive) and "Optional add-ons" (independent toggle) by `is_addon` — see [Tier Add-on Selection](tier-addon.md). Use it for customer Tier choice UI.
+- [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map into "Choose your Tier" (exclusive) and "Optional add-ons" (independent toggle) by `is_addon` — see [Tier Add-on Selection](tier-addon.md). Its `resolveEffectiveTierDisplay()` also renders an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card, never a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
 - [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior.
 - [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) loads, saves, and clears browser quote state. Use it for cart persistence format.
 
@@ -29,7 +29,7 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 - [ServiceRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Repositories/ServiceRepository.php) reads active Service posts, taxonomy, metadata, and pricing inputs. Use it for catalogue persistence queries.
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/cost-builder.ts) exposes the typed public fetch. Use it for client response contracts.
 
-Package Station resolves overlays before they reach `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder is only a consumer; it owns no assignment or Package rule. Missing or ambiguous edges create no overlay and mark a covered Service unavailable, preventing legacy XLSX pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` additionally copies each surviving occupant's own `is_addon` onto its projected Tier; no separate add-on collection is exposed.
+Package Station resolves overlays before they reach `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder is only a consumer; it owns no assignment or Package rule. Missing or ambiguous edges create no overlay and mark a covered Service unavailable, preventing legacy XLSX pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` additionally copies each surviving occupant's own `is_addon` onto its projected Tier; no separate add-on collection is exposed. It also carries the occupant's resolved default Tier Edition (`PackageSchema::resolveDefaultTierEdition`) into the same flat `price`/`billing_cycle`/`contact`/`inclusions`/`minimum_term_value`/`minimum_term_unit` fields, plus an additive `edition_options` array (Active Editions only, no Platform ID) for the in-card switch — see [Tier Edition](tier-edition.md). Every Tier with no Editions projects byte-identically to before this capability existed.
 
 Fresh unavailable responses render the Service identity and `Currently this service is not available.`, with no selectable core Tier, bundle, promotion, comparison, or quote offer. Existing cart, quote-total and printable/PDF proposal calculations are unchanged. Phase 9 intentionally leaves established local-cart snapshot, hard-refresh, repricing, and removal behavior unchanged; it adds no Cost Builder redesign or Package authority.
 
@@ -52,8 +52,8 @@ The runtime mounts the app, the hook fetches the public projection, and UI selec
 
 ## Validation
 
-From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-pricing-parity.php`, `npm run contract:cost-builder-isolation`, `npm run contract:tier-addon-flow`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-edition-public-projection.php`, `npm run contract:cost-builder-isolation`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 
-[Rate Sheet](rate-sheet.md), [Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), and [Quote Builder](quote-builder.md).
+[Rate Sheet](rate-sheet.md), [Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Tier Edition](tier-edition.md), and [Quote Builder](quote-builder.md).

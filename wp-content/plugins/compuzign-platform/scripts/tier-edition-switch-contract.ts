@@ -46,6 +46,9 @@ check(afterSwitch.price === 490, 'switching to a different Edition shows THAT Ed
 check(afterSwitch.billingCycle === 'annually', 'switching to a different Edition shows THAT Edition\'s own billing_cycle');
 check(afterSwitch.inclusionLabels.includes('Edition-specific inclusion'), 'switching to a different Edition with its own override shows that override, not the occupant\'s');
 check(afterSwitch.selectedEdition?.id === 'edt_b', 'the resolved selectedEdition matches the switch');
+check(afterSwitch.minimumTermValue === 12, 'switching Editions also resolves THAT Edition\'s own minimum commitment (Phase 8)');
+check(afterSwitch.minimumTermUnit === 'month', 'switching Editions resolves the commitment unit too');
+check(beforeSwitch.minimumTermValue === null, 'a Tier\'s own resolved default with no commitment shows null, not undefined or 0');
 
 const inheritedSwitch = resolveEffectiveTierDisplay(tierWithEditions, 'monthly', 'edt_a');
 check(
@@ -82,6 +85,29 @@ check(
 check(
   !pricingTiers.includes('ComparePlans') && !pricingTiers.match(/edition.*compare|compare.*edition/i),
   'PricingTiers introduces no comparison-row concept of its own for Editions',
+);
+
+// ── Source scan: the switch actually reaches the cart (Phase 8), closing
+//    Phase 7's disclosed gap — a click captures whichever Edition the
+//    customer was viewing, not always the Tier's own server-resolved default.
+
+const serviceCard = readFileSync(resolve(root, 'resources/ts/components/cost-builder/ServiceCard.tsx'), 'utf8');
+
+check(
+  serviceCard.includes('handleSelect = (tierId: TierId, effective: EffectiveTierDisplay)')
+    && serviceCard.includes('handleToggleAddon = (tierId: TierId, effective: EffectiveTierDisplay)'),
+  'ServiceCard\'s handlers receive the resolved effective display from the card that was actually clicked',
+);
+for (const field of ['price: effective.price', 'billingCycle: effective.billingCycle', 'features: effective.inclusionLabels']) {
+  check(
+    (serviceCard.match(new RegExp(field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length === 2,
+    `both handleSelect and handleToggleAddon build the QuoteItem from ${field}, not a stale pricing.tiers[tierId] read`,
+  );
+}
+check(
+  (serviceCard.match(/minimumTermValue: effective\.minimumTermValue/g) ?? []).length === 2
+    && (serviceCard.match(/minimumTermUnit: effective\.minimumTermUnit/g) ?? []).length === 2,
+  'both handlers thread the resolved commitment into the QuoteItem — the cart preserves it as structured data, not presentation text',
 );
 
 console.log('Tier Edition switch contract checks passed.');

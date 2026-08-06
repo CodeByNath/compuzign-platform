@@ -37,6 +37,9 @@ export function RecommendedBundle({ service, isInQuote, onAdd, onRemove }: Recom
         // coexistence with real selections keeps relying on its own negative
         // serviceId, not on isAddon.
         isAddon: false,
+        // The legacy bundle carries no Tier Edition concept either.
+        minimumTermValue: null,
+        minimumTermUnit: null,
       });
     }
   };

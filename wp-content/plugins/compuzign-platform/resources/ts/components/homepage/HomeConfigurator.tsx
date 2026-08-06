@@ -167,8 +167,12 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
         ? tierData.inclusions.map((inc) => inc.label)
         : (tierData?.features ?? []),
       // This lightweight widget always adds a Service at its popular Tier as
-      // a normal selection; it exposes no Tier-level or add-on granularity.
+      // a normal selection; it exposes no Tier-level or add-on granularity,
+      // nor an Edition switch — it carries the Tier's own resolved-default
+      // commitment (if any), the same way it already carries price/billing_cycle.
       isAddon: false,
+      minimumTermValue: tierData?.minimum_term_value ?? null,
+      minimumTermUnit: tierData?.minimum_term_unit ?? null,
     };
     // Replaces only the existing normal selection for this Service, so any
     // add-on lines already in the shared cart (added from the full Cost

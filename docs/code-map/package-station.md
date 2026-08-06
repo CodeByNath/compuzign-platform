@@ -31,7 +31,9 @@ Backend root: `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages
   `CZTG`; settled occupants use primary `CZT` and optional permanent secondary
   `CZTA`; Rate Sheet and Rate Sheet Group use `CZPRC` and `CZPRCG`. Occupant
   identities share one instance-qualified native reference and travel with the
-  occupant. Rate identities preserve the existing Manager lifecycle. Family's
+  occupant. An occupant's Tier Editions (`tier_editions[]`, independently
+  addressed and lifecycled — see [Tier Edition](tier-edition.md)) each carry
+  their own occupant-qualified `CZTE`. Rate identities preserve the existing Manager lifecycle. Family's
   Package-owned row stores `cz_platform_id`; native `group_id` remains the
   mutation address. `GET /admin/package-families/{platformId}` resolves a bound
   identifier and returns the existing authoritative Family projection. Bounded
@@ -55,4 +57,4 @@ The Package Manager is Package-internal supply configuration, not the platform S
 
 ## Related Code Maps
 
-[Station Manager](station-manager.md), [Package Manager](package-manager.md), [Tiers](tiers.md), [Rate Sheet](rate-sheet.md), [Service Connections](service-connections.md), and [Admin Surface Binding](admin-station-surface-binding.md).
+[Station Manager](station-manager.md), [Package Manager](package-manager.md), [Tiers](tiers.md), [Tier Edition](tier-edition.md), [Rate Sheet](rate-sheet.md), [Service Connections](service-connections.md), and [Admin Surface Binding](admin-station-surface-binding.md).

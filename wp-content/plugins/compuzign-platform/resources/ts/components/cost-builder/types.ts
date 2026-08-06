@@ -25,4 +25,12 @@ export interface QuoteItem {
   // distinguishable from real add-ons by tierId/offer_type, not merged into
   // this flag.
   isAddon: boolean;
+  // Structured minimum commitment (Phase 8) — the resolved Tier Edition's
+  // own minimum_term_value/unit when one applies (via PricingTiers'
+  // resolveEffectiveTierDisplay), or null for every existing Tier that has
+  // never used this capability. Structured data, not presentation text: the
+  // cart is the boundary that preserves it, not a string the customer could
+  // silently lose by re-reading a label.
+  minimumTermValue: number | null;
+  minimumTermUnit: string | null;
 }

@@ -367,6 +367,14 @@ class PricingBuilder
             // capability — carried verbatim from PackageSchema::
             // publicTierEditionOptions(), already filtered to Active only.
             $payload['pricing']['tiers'][$tierId]['edition_options'] = $pkgTier['edition_options'] ?? [];
+
+            // Structured minimum commitment (Phase 8) — the resolved default
+            // Edition's own value, carried the same way price/billing_cycle
+            // already are; null for every Tier that has never used this
+            // capability. Cart-facing, not merely presentation text — see
+            // RequestSchema::sanitizeItems().
+            $payload['pricing']['tiers'][$tierId]['minimum_term_value'] = $pkgTier['minimum_term_value'] ?? null;
+            $payload['pricing']['tiers'][$tierId]['minimum_term_unit']  = $pkgTier['minimum_term_unit']  ?? null;
         }
 
         // ── Availability recompute ────────────────────────────────────────────
@@ -522,6 +530,8 @@ class PricingBuilder
                 // occupant to carry them; overlayPackage() below is the only
                 // place this becomes non-empty.
                 'edition_options' => [],
+                'minimum_term_value' => null,
+                'minimum_term_unit'  => null,
             ];
         }
 

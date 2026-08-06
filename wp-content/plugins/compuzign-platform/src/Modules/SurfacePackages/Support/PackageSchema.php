@@ -1023,6 +1023,11 @@ class PackageSchema
             'rate_sheet_items'    => is_array($occ['rate_sheet_items'] ?? null) ? $occ['rate_sheet_items'] : [],
             'inclusions_override' => is_array($occ['inclusions_override'] ?? null) ? $occ['inclusions_override'] : [],
             'faq_refs'            => is_array($occ['faq_refs'] ?? null) ? $occ['faq_refs'] : [],
+            // The occupant itself has no minimum-commitment concept — only
+            // Editions do; a Tier with no Editions (or no valid Active
+            // default) simply carries none, matching its behaviour today.
+            'minimum_term_value'  => null,
+            'minimum_term_unit'   => null,
         ];
 
         $editions = is_array($occ['tier_editions'] ?? null) ? $occ['tier_editions'] : [];
@@ -1048,6 +1053,8 @@ class PackageSchema
             'rate_sheet_items'    => is_array($edition['rate_sheet_items'] ?? null) ? $edition['rate_sheet_items'] : [],
             'inclusions_override' => !empty($edition['inclusions_override']) ? $edition['inclusions_override'] : $fallback['inclusions_override'],
             'faq_refs'            => !empty($edition['faq_refs']) ? $edition['faq_refs'] : $fallback['faq_refs'],
+            'minimum_term_value'  => $edition['minimum_term_value'] ?? null,
+            'minimum_term_unit'   => $edition['minimum_term_unit'] ?? null,
         ];
     }
 
@@ -1080,6 +1087,10 @@ class PackageSchema
                 // that has never used Editions; the switch renders nothing
                 // when it does not represent a genuine choice.
                 'edition_options'     => self::publicTierEditionOptions($occ),
+                // Phase 8 — structured minimum commitment, carried the same
+                // resolved-default way price/billing_cycle already are.
+                'minimum_term_value'  => $resolved['minimum_term_value'],
+                'minimum_term_unit'   => $resolved['minimum_term_unit'],
             ];
         }
 

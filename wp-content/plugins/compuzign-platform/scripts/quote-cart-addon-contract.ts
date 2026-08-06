@@ -31,6 +31,8 @@ function item(partial: Partial<QuoteItem> & { serviceId: number; tierId: QuoteIt
     categoryName: 'Category',
     features: [],
     isAddon: false,
+    minimumTermValue: null,
+    minimumTermUnit: null,
     ...partial,
   };
 }

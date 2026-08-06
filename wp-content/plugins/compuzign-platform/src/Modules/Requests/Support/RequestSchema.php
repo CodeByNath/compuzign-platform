@@ -121,6 +121,17 @@ class RequestSchema
                 // sign — the legacy recommended bundle keeps using its own
                 // negative serviceId and is not classified as an add-on here.
                 'isAddon'       => !empty($raw['isAddon']),
+                // Structured minimum commitment (Phase 8) — the resolved
+                // Tier Edition's own minimum_term_value/unit at the moment
+                // this line was added to the cart, or null for every line
+                // that carries none. Structured data, not presentation
+                // text — floatval/sanitize_text_field, not free-form.
+                'minimumTermValue' => isset($raw['minimumTermValue']) && $raw['minimumTermValue'] !== null && $raw['minimumTermValue'] !== ''
+                    ? floatval($raw['minimumTermValue'])
+                    : null,
+                'minimumTermUnit'  => !empty($raw['minimumTermUnit'])
+                    ? sanitize_text_field((string) $raw['minimumTermUnit'])
+                    : null,
             ];
         }
 
@@ -193,6 +204,8 @@ class RequestSchema
                         'billingCycle' => ['type' => 'string'],
                         'features'     => ['type' => 'array', 'items' => ['type' => 'string']],
                         'isAddon'      => ['type' => 'boolean'],
+                        'minimumTermValue' => ['type' => ['number', 'null']],
+                        'minimumTermUnit'  => ['type' => ['string', 'null']],
                     ],
                 ],
             ],

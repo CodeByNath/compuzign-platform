@@ -26,7 +26,7 @@ The request-flow components own only the open modal, contact draft, review step,
 - [requests.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/requests.ts) exposes typed request submission. Use it for client payload/response contracts.
 - [RequestsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Http/RequestsController.php) registers the public submit route, validates payloads, persists requests, and triggers notifications. Use it for submission behavior.
 - [RequestRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Repositories/RequestRepository.php) creates, reads, lists, and updates request posts/meta. Use it for request persistence and projections.
-- [RequestSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php) sanitizes request/contact/cart data and defines REST argument rules. Use it for validation shape.
+- [RequestSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php) sanitizes request/contact/cart data and defines REST argument rules, including the structured `minimumTermValue`/`minimumTermUnit` a Tier Edition's own commitment carries (never an Edition identity — see [Tier Edition](tier-edition.md)). Use it for validation shape.
 - [RequestLifecycle.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestLifecycle.php) defines allowed request statuses and transitions. Use it for intake lifecycle rules.
 
 ## Runtime Flow
@@ -35,8 +35,8 @@ Cost Builder opens the modal with a cart snapshot. The flow validates contact da
 
 ## Validation
 
-From the plugin root: `php tests/request-schema-is-addon.php`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/request-schema-is-addon.php`, `php tests/request-schema-minimum-term.php`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 
-[Cost Builder](cost-builder.md), [Tier Add-on Selection](tier-addon.md), and [Lifecycle](lifecycle-system.md).
+[Cost Builder](cost-builder.md), [Tier Add-on Selection](tier-addon.md), [Tier Edition](tier-edition.md), and [Lifecycle](lifecycle-system.md).

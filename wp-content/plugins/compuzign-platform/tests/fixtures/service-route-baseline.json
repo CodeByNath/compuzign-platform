@@ -961,6 +961,220 @@
             }
         },
         {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/default-edition",
+            "methods": "POST",
+            "callback": "setTierEditionDefault",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/editions",
+            "methods": "POST",
+            "callback": "createTierEdition",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "validate_callback": "<closure>"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)",
+            "methods": "DELETE",
+            "callback": "deleteTierEditionEndpoint",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "edition": {
+                    "required": true,
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)",
+            "methods": "POST",
+            "callback": "saveTierEditionModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "edition": {
+                    "required": true,
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)/revert",
+            "methods": "POST",
+            "callback": "revertTierEditionModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "edition": {
+                    "required": true,
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)/settle",
+            "methods": "POST",
+            "callback": "settleTierEditionModule",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "edition": {
+                    "required": true,
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "module": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/restore",
+            "methods": "POST",
+            "callback": "restoreTierEditionEndpoint",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "edition": {
+                    "required": true,
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/status",
+            "methods": "PATCH",
+            "callback": "updateTierEditionStatus",
+            "permission_callback": "requireAdmin",
+            "args": {
+                "action": {
+                    "enum": [
+                        "disable",
+                        "enable"
+                    ],
+                    "required": false,
+                    "type": "string"
+                },
+                "edition": {
+                    "required": true,
+                    "type": "string"
+                },
+                "id": {
+                    "required": true,
+                    "type": "integer"
+                },
+                "instance": {
+                    "required": true,
+                    "type": "string"
+                },
+                "platform_status": {
+                    "enum": [
+                        "active",
+                        "disabled",
+                        "archived",
+                        "trashed"
+                    ],
+                    "required": false,
+                    "type": "string"
+                },
+                "tier": {
+                    "required": true,
+                    "type": "string"
+                }
+            }
+        },
+        {
             "route": "compuzign/v1/admin/services/(?P<id>\\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)/tiers/(?P<tier>[a-z]+)/enabled",
             "methods": "POST",
             "callback": "setPackageStationTierEnabled",

@@ -9,6 +9,8 @@ export interface EffectiveTierDisplay {
   billingCycle: string;
   inclusionLabels: string[];
   selectedEdition: PricingEditionOption | null;
+  minimumTermValue: number | null;
+  minimumTermUnit: string | null;
 }
 
 /**
@@ -42,8 +44,10 @@ export function resolveEffectiveTierDisplay(
   const inclusionLabels = inclusions?.length
     ? inclusions.map((inc) => inc.label)
     : (data?.features ?? []);
+  const minimumTermValue = selectedEdition ? selectedEdition.minimum_term_value : (data?.minimum_term_value ?? null);
+  const minimumTermUnit  = selectedEdition ? selectedEdition.minimum_term_unit  : (data?.minimum_term_unit  ?? null);
 
-  return { price, billingCycle: effectiveCycle, inclusionLabels, selectedEdition };
+  return { price, billingCycle: effectiveCycle, inclusionLabels, selectedEdition, minimumTermValue, minimumTermUnit };
 }
 
 interface PricingTiersProps {
@@ -55,8 +59,13 @@ interface PricingTiersProps {
   // Add-on Tiers currently selected alongside the normal Tier, for this Service.
   selectedAddonTierIds: TierId[];
   billingCycle: string;
-  onSelect: (tierId: TierId) => void;
-  onToggleAddon: (tierId: TierId) => void;
+  // `effective` carries whichever Edition (if any) the customer switched to
+  // in this card at the moment of clicking — see resolveEffectiveTierDisplay.
+  // Required, not optional: every click resolves one, even when no switch
+  // was ever touched (it then equals the Tier's own server-resolved
+  // default, so existing single-declaration Tiers behave identically).
+  onSelect: (tierId: TierId, effective: EffectiveTierDisplay) => void;
+  onToggleAddon: (tierId: TierId, effective: EffectiveTierDisplay) => void;
 }
 
 // One Tier/add-on card. Shared by both strips below so the visual language and
@@ -80,19 +89,21 @@ function TierCard({
   isActive: boolean;
   billingCycle: string;
   addedLabel: string;
-  onClick: () => void;
+  onClick: (effective: EffectiveTierDisplay) => void;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
 
-  // Tier Edition switch (Phase 7) — an in-card, mutually-exclusive choice
+  // Tier Edition switch (Phase 7/8) — an in-card, mutually-exclusive choice
   // among this SAME Tier's Editions. It never selects a different Tier: the
   // customer still clicks Add to Quote/Selected exactly once for this card;
-  // switching only changes which Edition's declaration is currently shown.
+  // switching only changes which Edition's declaration is currently shown —
+  // and, via `effective` passed to onClick below, which one is captured
+  // into the quote when that click happens.
   const editionOptions = data?.edition_options ?? [];
   const [selectedEditionId, setSelectedEditionId] = useState<string | null>(null);
-  const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionLabels: displayList, selectedEdition } =
-    resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
+  const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
+  const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionLabels: displayList, selectedEdition } = effective;
 
   const suffix = formatCycleLabel(effectiveBillingCycle);
 
@@ -151,7 +162,7 @@ function TierCard({
       <button
         type="button"
         class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}`}
-        onClick={onClick}
+        onClick={() => onClick(effective)}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
@@ -213,7 +224,7 @@ export function PricingTiers({
               isActive={tier.id === selectedTierId}
               billingCycle={billingCycle}
               addedLabel="✓ Selected"
-              onClick={() => onSelect(tier.id)}
+              onClick={(effective) => onSelect(tier.id, effective)}
             />
           ))}
         </div>
@@ -250,7 +261,7 @@ export function PricingTiers({
                   isActive={selectedAddonTierIds.includes(tier.id)}
                   billingCycle={billingCycle}
                   addedLabel="✓ Added"
-                  onClick={() => onToggleAddon(tier.id)}
+                  onClick={(effective) => onToggleAddon(tier.id, effective)}
                 />
               ))}
             </div>

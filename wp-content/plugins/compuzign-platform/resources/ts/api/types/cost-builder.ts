@@ -89,6 +89,12 @@ export interface PricingTierData {
   // legacy-flat declaration when none applies) — this array exists only so
   // the customer can switch to a DIFFERENT Edition's declaration in place.
   edition_options?: PricingEditionOption[];
+  // Phase 8 — the resolved default Edition's own minimum commitment (or
+  // null for every Tier that has never used this capability), the same
+  // resolved-default-carries-into-the-top-level-fields treatment `price`/
+  // `billing_cycle` already receive.
+  minimum_term_value?: number | null;
+  minimum_term_unit?: string | null;
 }
 
 export interface ServicePricing {
