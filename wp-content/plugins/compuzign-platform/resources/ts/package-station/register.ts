@@ -13,6 +13,7 @@ import { usePackageTierWorkspace } from './surface/packageTierWorkspace/usePacka
 import { TierDrawerHost } from './surface/tierSurface/TierDrawerHost';
 import { TierInclusionDrawerHost } from './surface/tierSurface/TierInclusionDrawerHost';
 import { useServiceTierCards } from './surface/tierSurface/useServiceTierCards';
+import { TierEditionDrawerContent } from './drawer/tier-edition/TierEditionDrawerContent';
 
 export function registerPackageStation(): void {
   registerNavItems([
@@ -111,6 +112,19 @@ export function registerPackageStation(): void {
       supportedModes: ['view', 'edit'],
       size: 'wide',
       content: TierRateSheetDrawerContent,
+    },
+    {
+      // ONE Tier occupant's ONE Edition — an independently addressed,
+      // independently lifecycled child record, not a variant of `tier`.
+      // Addressed by (tier_instance_id, slotId, editionId); own canonical
+      // StationLifecycle footer via CanonicalEntityFooter, the same shared
+      // component Category/Package Family use. Never opened from within the
+      // `tier` drawer's own mounted content (no drawer nests another) — a
+      // sibling entry point, reached the same way tier-rate-sheet is.
+      key: 'tier-edition',
+      title: 'Payment Edition',
+      supportedModes: ['view', 'edit'],
+      content: TierEditionDrawerContent,
     },
   ]);
 }

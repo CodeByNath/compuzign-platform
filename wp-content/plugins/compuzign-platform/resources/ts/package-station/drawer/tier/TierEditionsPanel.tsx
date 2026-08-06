@@ -5,53 +5,23 @@
 // second Tier, never a Tier Add-on, never folded into TIER_MODULES. See
 // docs/code-map/tiers.md and PackageSchema's SECTION: TIER_EDITION.
 //
-// This is a compact inline panel, not a scoped `tier-edition:{...}` drawer
-// route with its own footer-slot takeover — see the Phase 6 completion
-// report for why that fuller integration is deferred rather than rushed.
+// This is the compact inline management surface: list + create + quick
+// lifecycle actions. Full-form editing (TierEditionOverviewFields) is
+// shared verbatim with the scoped tier-edition:{instance}:{slot}:{edition}
+// drawer (drawer/tier-edition/) — the independently addressed surface that
+// gives one Edition its own canonical StationLifecycle footer. Drawer
+// content cannot open another drawer (no nesting — see
+// StationDrawerLifecycleContract-v1.md), so this inline panel intentionally
+// has no in-place trigger to that scoped drawer; reaching it is a Home-level
+// (workspace) navigation concern, not this panel's.
 
-import { useMemo, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
-import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionOverviewDraft, TierRateSheetSelection } from '../../types';
+import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionOverviewDraft } from '../../types';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
-import { PoolInclusionsEditor } from '../editors/PoolInclusionsEditor';
-import { buildRateSheetCatalogue } from './tierDetailModel';
-
-const BILLING_CYCLES: AdminFieldOption[] = [
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'annually', label: 'Annually' },
-  { value: 'one-time', label: 'One-time' },
-];
-
-const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
-  { value: 'month', label: 'Month(s)' },
-  { value: 'year', label: 'Year(s)' },
-];
-
-function statusLabel(edition: TierEdition): string {
-  switch (edition.platform_status) {
-    case 'active':   return 'Active';
-    case 'archived': return 'Archived';
-    case 'trashed':  return 'Trashed';
-    case 'disabled': return edition.previous_platform_status !== null ? 'Disabled' : 'Pending';
-    default:         return edition.platform_status;
-  }
-}
-
-function draftFromEdition(edition: TierEdition): TierEditionOverviewDraft {
-  return {
-    title: edition.title,
-    admin_description: edition.admin_description,
-    rate_sheet_id: edition.rate_sheet_id,
-    rate_sheet_items: edition.rate_sheet_items,
-    billing_cycle: edition.billing_cycle,
-    contact: edition.contact,
-    minimum_term_value: edition.minimum_term_value,
-    minimum_term_unit: edition.minimum_term_unit,
-    inclusions_override: edition.inclusions_override,
-    faq_refs: edition.faq_refs,
-  };
-}
+import { TierEditionOverviewFields } from './TierEditionOverviewFields';
+import { draftFromTierEdition, tierEditionStatusLabel } from './tierEditionModel';
 
 interface Props {
   serviceId:      number;
@@ -76,31 +46,11 @@ export function TierEditionsPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
 
-  // Rows selectable for whichever Rate Sheet the OPEN draft is currently
-  // bound to — recomputed whenever that binding changes, exactly like the
-  // occupant's own Overview/Features editor recomputes rateSheetCatalogue
-  // from its own draft's rate_sheet_id.
-  const editorCatalogue = useMemo(
-    () => (draft ? buildRateSheetCatalogue(svc, draft.rate_sheet_id, []) : []),
-    [svc, draft?.rate_sheet_id],
-  );
-
   const openEditor = (edition: TierEdition) => {
     setEditingId(edition.id);
-    setDraft(draftFromEdition(edition));
+    setDraft(draftFromTierEdition(edition));
   };
   const closeEditor = () => { setEditingId(null); setDraft(null); };
-
-  // Switching the bound sheet clears this Edition's own row selections
-  // (enforced server-side at settle, mirroring the occupant's own
-  // Refinement 4 rule) — confirm first, the same convention
-  // TierOverviewEditor.tsx already uses for the occupant's own binding, so
-  // the change is never silent here either.
-  const changeRateSheet = (next: string | null) => {
-    if (!draft || next === (draft.rate_sheet_id ?? null)) return;
-    if (draft.rate_sheet_items.length > 0 && !window.confirm('Switching Rate Sheet clears this Edition\'s selected rows. Continue?')) return;
-    setDraft({ ...draft, rate_sheet_id: next, rate_sheet_items: [] });
-  };
 
   const submitCreate = async () => {
     if (newTitle.trim() === '') return;
@@ -133,36 +83,24 @@ export function TierEditionsPanel({
       {ctl.editions.map((edition) => (
         <div key={edition.id} class="cz-shell-section cz-shell-section--no-border" style="border: 1px solid var(--cz-border); border-radius: var(--cz-radius-md); padding: var(--cz-space-3); margin-bottom: var(--cz-space-2)">
           {editingId === edition.id && draft ? (
-            <div class="cz-tf-form">
-              <AdminField def={{ id: 'edt-title', type: 'text', label: 'Title' }} value={draft.title} onChange={(title: string) => setDraft({ ...draft, title })} />
-              <AdminField def={{ id: 'edt-description', type: 'textarea', label: 'Admin description (optional)', rows: 2 }} value={draft.admin_description} onChange={(admin_description: string) => setDraft({ ...draft, admin_description })} />
-              <AdminField def={{ id: 'edt-rate-sheet', type: 'select', label: 'Rate Sheet', unsetLabel: 'Inherit the Tier’s own binding', options: rateSheetOptions }} value={draft.rate_sheet_id ?? ''} onChange={(v: string) => changeRateSheet(v || null)} />
-              {draft.rate_sheet_id && (
-                <div class="cz-tf-field">
-                  <PoolInclusionsEditor
-                    draft={draft.rate_sheet_items}
-                    onChange={(next) => setDraft({ ...draft, rate_sheet_items: next as TierRateSheetSelection[] })}
-                    pool={[]}
-                    onCreate={async () => null}
-                    rateSheetCatalogue={editorCatalogue}
-                  />
-                </div>
-              )}
-              <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => setDraft({ ...draft, billing_cycle })} />
-              <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value="Derived from Rate Sheet selections" onChange={() => undefined} />
-              <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => setDraft({ ...draft, minimum_term_value: v === '' ? null : Number(v) })} />
-              <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => setDraft({ ...draft, minimum_term_unit: v || null })} />
+            <>
+              <TierEditionOverviewFields
+                draft={draft}
+                onChange={(patch) => setDraft({ ...draft, ...patch })}
+                rateSheetOptions={rateSheetOptions}
+                svc={svc}
+              />
               <div style="display:flex; gap: var(--cz-space-2)">
                 <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={ctl.saving} onClick={saveDraft}>Save</button>
                 <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={closeEditor}>Cancel</button>
               </div>
-            </div>
+            </>
           ) : (
             <>
               <div style="display:flex; justify-content:space-between; align-items:center">
                 <div>
                   <span class="cz-admin-status-dot" /> <strong>{edition.title}</strong>{' '}
-                  <span class="drawerModule__value">({statusLabel(edition)}{defaultEditionId === edition.id ? ' — Default' : ''})</span>
+                  <span class="drawerModule__value">({tierEditionStatusLabel(edition)}{defaultEditionId === edition.id ? ' — Default' : ''})</span>
                 </div>
                 <div style="display:flex; gap: var(--cz-space-1)">
                   <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openEditor(edition)}>Edit</button>

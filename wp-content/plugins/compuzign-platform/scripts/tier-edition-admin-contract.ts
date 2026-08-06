@@ -135,17 +135,30 @@ check(
   !!tierDetailModel.match(/buildTierDetail[\s\S]*?buildRateSheetCatalogue\(svc, detail\.rate_sheet_id, detail\.rate_sheet_selections\)/),
   'the occupant\'s own Overview/Features editor resolves its catalogue through the SAME shared function (behaviour-preserving refactor, not a duplicate)',
 );
+// The row/quantity editor fields live in one shared component
+// (TierEditionOverviewFields) reused verbatim by BOTH TierEditionsPanel
+// (inline) and the scoped tier-edition:{...} drawer's own editor — so this
+// checks the shared component, not either individual consumer.
+const overviewFields = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierEditionOverviewFields.tsx',
+), 'utf8');
+
 check(
-  panel.includes("import { PoolInclusionsEditor }"),
-  'TierEditionsPanel reuses the occupant\'s own PoolInclusionsEditor for row/quantity selection, not a bespoke picker',
+  overviewFields.includes("import { PoolInclusionsEditor }"),
+  'the shared Edition overview fields reuse the occupant\'s own PoolInclusionsEditor for row/quantity selection, not a bespoke picker',
 );
 check(
-  panel.includes('buildRateSheetCatalogue(svc, draft.rate_sheet_id'),
+  overviewFields.includes('buildRateSheetCatalogue(svc, draft.rate_sheet_id'),
   'the Edition\'s row catalogue resolves against the EDITION\'S OWN rate_sheet_id, independent of the occupant\'s binding',
 );
 check(
-  panel.includes('rate_sheet_items: []') && panel.includes('changeRateSheet'),
+  overviewFields.includes('rate_sheet_items: []') && overviewFields.includes('changeRateSheet'),
   'switching the Edition\'s bound Rate Sheet clears its row selections, mirroring the occupant\'s own confirm-then-clear rule',
+);
+check(
+  panel.includes('TierEditionOverviewFields') && panel.includes("from './TierEditionOverviewFields'"),
+  'TierEditionsPanel renders its editor through the shared TierEditionOverviewFields, not a duplicate inline form',
 );
 
 // ── Panel is actually wired into the mounted Tier drawer, not orphaned ──────

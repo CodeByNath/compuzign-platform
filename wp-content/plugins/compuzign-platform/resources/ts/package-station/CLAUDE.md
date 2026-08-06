@@ -56,7 +56,7 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Pac
 
 ## Validation
 
-From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:package-tier-workspace-shell`, `npm run contract:tier-connections`, `npm run contract:tier-settings`, `npm run contract:tier-system-drawer`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-overview-is-addon`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run regression:tier-occupant-lifecycle`, `npm run regression:tier-publish-timeout`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:package-tier-workspace-shell`, `npm run contract:tier-connections`, `npm run contract:tier-settings`, `npm run contract:tier-system-drawer`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-overview-is-addon`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run contract:tier-edition-scoped-drawer`, `npm run regression:tier-occupant-lifecycle`, `npm run regression:tier-publish-timeout`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 `usePackageStation.settleTier`'s success response is normalized through the
 same `normTier()` boundary as every other patch (`toggleTierEnabled`, the bin
