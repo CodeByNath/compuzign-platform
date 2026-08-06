@@ -387,7 +387,7 @@ export function usePackageStation(
             platform_status: res.platform_status ?? prev.station.platform_status,
             tiers: {
               ...prev.station.tiers,
-              [tierId]: { ...res.tier, drafts: res.drafts, module_status: res.module_status },
+              [tierId]: normTier({ ...res.tier, drafts: res.drafts, module_status: res.module_status }),
             },
           },
         } : prev);

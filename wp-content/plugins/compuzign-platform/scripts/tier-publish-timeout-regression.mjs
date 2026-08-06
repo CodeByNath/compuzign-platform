@@ -105,7 +105,12 @@ const tiers = {
     settled: {
       occupant_id: 'occ_basic_first_save', platform_id: '', addon_platform_id: '',
       label: '', ideal_for: '', price: null, contact: false, billing_cycle: null,
-      rate_sheet_id: null, inclusions_override: [], rate_sheet_items: [], rate_sheet_selections: [],
+      rate_sheet_id: null, inclusions_override: [],
+      // At least one unresolved selection is required to exercise
+      // tierView()'s `dp.rate_sheet_selections.find(...)` fallback below —
+      // an empty rate_sheet_items list would never reach that line, and
+      // would silently defeat the regression this fixture exists to prove.
+      rate_sheet_items: [{ item_id: 'ri_unresolved', quantity: 1 }], rate_sheet_selections: [],
       features: [], faq_refs: [], enabled: false, is_explicitly_disabled: false, is_addon: false,
     },
     drafts: { overview: { label: 'Starter Cloud', ideal_for: 'Small workloads', price: null, contact: false, billing_cycle: 'monthly', rate_sheet_id: RATE_SHEET_ID, is_addon: false }, features: null, faqs: null },
@@ -198,7 +203,16 @@ globalThis.fetch = (url, init = {}) => {
     };
     t.drafts = emptyDrafts();
     t.module_status = { overview: 'settled', features: 'settled', faqs: 'settled' };
-    return jsonResponse({ success: true, tier_id: tierId, platform_status: 'active', tier: detailFor(tierId), drafts: t.drafts, module_status: t.module_status });
+    // Mirrors the REAL backend exactly: settlePackageStationTier's response
+    // is built from PackageSchema::normaliseTierSlot(), which never includes
+    // rate_sheet_selections — only the separate GET /read endpoint
+    // (getPackageStation) computes and adds it via
+    // PackageManagerSchema::projectTierRateSheet(). A settle response is
+    // never a superset of a read response; omitting it here is not a
+    // contrived edge case.
+    const responseTier = detailFor(tierId);
+    delete responseTier.rate_sheet_selections;
+    return jsonResponse({ success: true, tier_id: tierId, platform_status: 'active', tier: responseTier, drafts: t.drafts, module_status: t.module_status });
   }
 
   return Promise.reject(new Error(`Unexpected fetch in regression harness: ${method} ${path}`));
