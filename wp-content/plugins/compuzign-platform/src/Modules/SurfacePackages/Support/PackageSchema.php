@@ -946,16 +946,26 @@ class PackageSchema
     // -> PricingBuilder::overlayPackage -> the existing price/billing_cycle/
     // contact/inclusions/faq_refs fields every consumer already reads).
     //
-    // Two different rules for two different kinds of field, matching the
+    // Three different rules for three different kinds of field, matching the
     // agreed design exactly:
     //   - commercial terms (price, billing_cycle, contact, Rate Sheet binding)
     //     are ALWAYS the resolved Edition's own value once one applies — this
     //     is the entire reason an Edition exists, never blended with the
     //     occupant's own stale value;
-    //   - declaration fields (label, inclusions_override, faq_refs) inherit
-    //     the occupant's own value when the Edition leaves them empty, the
-    //     same empty-means-inherit rule already used against Service-level
-    //     canonical data in PricingBuilder::overlayPackage().
+    //   - declaration fields (inclusions_override, faq_refs) inherit the
+    //     occupant's own value when the Edition leaves them empty, the same
+    //     empty-means-inherit rule already used against Service-level
+    //     canonical data in PricingBuilder::overlayPackage();
+    //   - the occupant's own customer-facing `label` is NEVER overwritten by
+    //     an Edition's title, in either direction. The card heading stays
+    //     "Professional Tier" whichever Edition (Monthly/Annual) is active —
+    //     the Edition's own title/admin_description surface only through
+    //     publicTierEditionOptions()'s `label` (the switch button text) and
+    //     the admin editor, never through this occupant-owned field. This is
+    //     a deliberate boundary, not an inherit-when-empty case: an Edition's
+    //     title is never blank (addTierEdition requires one), so "inherit
+    //     when empty" would never fire in practice — the field is excluded
+    //     outright instead of relying on an unreachable empty-string branch.
     //
     // An occupant with no Editions, or whose default_edition_id resolves to
     // nothing valid or non-Active, falls through to its own legacy-flat
@@ -1045,7 +1055,14 @@ class PackageSchema
         }
 
         return [
-            'label'               => $edition['title'] !== '' ? $edition['title'] : $fallback['label'],
+            // The occupant's own customer-facing label is NEVER overwritten
+            // by an Edition's title, in either direction: the resolved
+            // Tier card heading stays "Professional Tier" whichever Edition
+            // (Monthly/Annual) is active or default. The Edition's own
+            // title/admin_description are exposed only through
+            // publicTierEditionOptions()'s `label` (the switch button text)
+            // and stay entirely off this occupant-owned field.
+            'label'               => $fallback['label'],
             'price'               => $edition['price'] ?? null,
             'contact'             => (bool) ($edition['contact'] ?? false),
             'billing_cycle'       => $edition['billing_cycle'] ?? null,

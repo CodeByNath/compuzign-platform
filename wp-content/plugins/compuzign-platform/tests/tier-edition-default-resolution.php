@@ -9,12 +9,15 @@ declare(strict_types=1);
  * every existing public/cart-facing price, billing_cycle, contact,
  * inclusions, and faq_refs field.
  *
- * The two rules under test:
+ * The three rules under test:
  *   - commercial terms (price, billing_cycle, contact, Rate Sheet binding)
  *     are always the resolved ACTIVE default Edition's own value, never
  *     blended with the occupant's;
- *   - declaration fields (label, inclusions_override, faq_refs) inherit the
- *     occupant's own value only when the Edition leaves them empty.
+ *   - declaration fields (inclusions_override, faq_refs) inherit the
+ *     occupant's own value only when the Edition leaves them empty;
+ *   - the occupant's own customer-facing `label` is NEVER overwritten by an
+ *     Edition's title, in either direction — the resolved Tier card heading
+ *     stays the occupant's own label whichever Edition is active or default.
  * An occupant with no Editions, or an unresolved/non-Active default, must
  * project byte-identically to today — the parity guarantee.
  */
@@ -93,7 +96,7 @@ check_default_resolution($activeProjection['price'] === 490.0, 'an Active defaul
 check_default_resolution($activeProjection['billing_cycle'] === 'annually', 'an Active default Edition\'s own billing_cycle is used');
 check_default_resolution($activeProjection['rate_sheet_id'] === 'rs_annual', 'an Active default Edition\'s own Rate Sheet binding is used, not the occupant\'s rs_a');
 check_default_resolution(count($activeProjection['rate_sheet_items']) === 1 && $activeProjection['rate_sheet_items'][0]['item_id'] === 'rate-vm', 'an Active default Edition\'s own row selections are used');
-check_default_resolution($activeProjection['label'] === 'Annual', 'the Edition\'s own title becomes the effective label');
+check_default_resolution($activeProjection['label'] === 'Standard', 'the occupant\'s own customer-facing label is NEVER overwritten by the Edition\'s title ("Annual") — the card heading stays "Standard" regardless of which Edition is active or default');
 
 // ── Declaration fields (inclusions/faq_refs) inherit when the Edition leaves them empty ──
 
@@ -129,5 +132,36 @@ check_default_resolution($overrideProjection['faq_refs'] === ['faq-edt'], 'a del
 
 check_default_resolution($activeProjection['enabled'] === true, 'occupant-level enabled is unaffected by Edition resolution');
 check_default_resolution($activeProjection['is_addon'] === false, 'occupant-level is_addon is unaffected by Edition resolution');
+
+// ── Distinctness invariant: Edition title/admin_description can never overwrite
+//    the occupant's own customer-facing label/ideal_for, in either direction ──
+
+$distinctOccupant = build_published_occupant([
+    'label' => 'Standard', 'ideal_for' => 'For growing teams', 'price' => 49.0, 'billing_cycle' => 'monthly',
+]);
+$distinctEditions = Schema::addTierEdition([], [
+    'title' => 'Annual Plan', 'admin_description' => 'Internal notes about annual billing — never customer-facing',
+    'billing_cycle' => 'annually',
+])['tier_editions'];
+$distinctEditionId = $distinctEditions[0]['id'];
+$distinctEditions = Schema::applyTierEditionStatus($distinctEditions, $distinctEditionId, StationLifecycle::STATUS_ACTIVE);
+$distinctEditions = Schema::replaceTierEdition($distinctEditions, [
+    ...Schema::findTierEdition($distinctEditions, $distinctEditionId),
+    'price' => 490.0,
+]);
+$distinctOccupant['current_occupant']['tier_editions'] = $distinctEditions;
+$distinctOccupant['current_occupant']['default_edition_id'] = $distinctEditionId;
+
+$distinctProjection = Schema::extractTierForCostBuilder($distinctOccupant);
+check_default_resolution($distinctProjection['label'] === 'Standard', 'the occupant\'s own label ("Standard") is never overwritten by the Edition\'s title ("Annual Plan")');
+check_default_resolution($distinctProjection['ideal_for'] === 'For growing teams', 'the occupant\'s own ideal_for is never touched by the Edition\'s admin_description');
+check_default_resolution(!array_key_exists('admin_description', $distinctProjection), 'admin_description never appears anywhere in the legacy flat projection');
+check_default_resolution($distinctProjection['price'] === 490.0, 'the Edition\'s own commercial terms still resolve correctly alongside the untouched label/ideal_for');
+
+// The Edition's own title legitimately DOES appear as the switch button's
+// label inside edition_options[] — the exclusion above applies only to the
+// top-level, occupant-owned `label` field, not to the Edition's own entry.
+$distinctOption = $distinctProjection['edition_options'][0] ?? null;
+check_default_resolution($distinctOption !== null && $distinctOption['label'] === 'Annual Plan', 'the Edition\'s own title correctly appears as ITS OWN switch-option label, distinct from the untouched top-level occupant label');
 
 echo "Tier Edition default resolution contract: PASS\n";

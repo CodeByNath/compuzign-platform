@@ -63,7 +63,12 @@ export function ServiceCard({
       serviceId: service.id,
       serviceTitle: decodeHtml(service.title),
       tierId,
-      tierTitle: effective.selectedEdition?.label || tierData?.label || tier?.title || tierId,
+      // The Tier's own customer-facing title, never the switched Edition's
+      // label — a cart line stays "Professional" whichever Edition
+      // (Monthly/Annual) was showing at the moment of the click. The chosen
+      // Edition's commercial terms (price/cycle/commitment) still travel via
+      // `effective` below; only the display title is deliberately excluded.
+      tierTitle: tierData?.label || tier?.title || tierId,
       price: effective.price,
       billingCycle: effective.billingCycle,
       categoryName: decodeHtml(service.categories[0]?.name ?? ''),
@@ -87,7 +92,12 @@ export function ServiceCard({
       serviceId: service.id,
       serviceTitle: decodeHtml(service.title),
       tierId,
-      tierTitle: effective.selectedEdition?.label || tierData?.label || tier?.title || tierId,
+      // The Tier's own customer-facing title, never the switched Edition's
+      // label — a cart line stays "Professional" whichever Edition
+      // (Monthly/Annual) was showing at the moment of the click. The chosen
+      // Edition's commercial terms (price/cycle/commitment) still travel via
+      // `effective` below; only the display title is deliberately excluded.
+      tierTitle: tierData?.label || tier?.title || tierId,
       price: effective.price,
       billingCycle: effective.billingCycle,
       categoryName: decodeHtml(service.categories[0]?.name ?? ''),
