@@ -7,7 +7,7 @@
 // passes the results through unchanged, so presentation reads the same shapes
 // as before the split.
 
-import type { TierResolvedRateSheetSelection } from '../../types';
+import type { PackageManagerItem, PackageRateSheet, TierResolvedRateSheetSelection } from '../../types';
 import type { PackageStation } from '../../usePackageStation';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type {
@@ -72,6 +72,42 @@ export interface TierDetailHandlers {
   onRevertModule: (module: 'overview' | 'features' | 'faqs') => void;
 }
 
+/**
+ * Resolve the selectable-row catalogue for an arbitrary bound Rate Sheet id
+ * — pure, and independent of which occupant-shaped record owns the binding.
+ * Extracted so the Tier occupant's own Overview/Features editor and a Tier
+ * Edition's own Rate Sheet binding (a DIFFERENT `rate_sheet_id`, its own
+ * `rate_sheet_items`) resolve rows through the exact same logic rather than
+ * two copies that could drift. `existingSelections` carries forward any
+ * already-selected row the bound sheet itself no longer lists (matching the
+ * occupant's own "never silently drop a stored selection" behaviour).
+ */
+export function buildRateSheetCatalogue(
+  svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] },
+  rateSheetId: string | null,
+  existingSelections: TierResolvedRateSheetSelection[],
+): TierResolvedRateSheetSelection[] {
+  const relationshipLabels = new Map(svc.package_relationships.map((item) => [item.item_id, relationshipDisplayLabel(item)]));
+  const relationshipsById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
+  const boundSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === rateSheetId) ?? null;
+  const catalogue: TierResolvedRateSheetSelection[] = (boundSheet?.items ?? []).map((item) => ({
+    item_id: item.item_id,
+    source_type: relationshipsById.get(item.source_item_id)?.source_type ?? null,
+    source_id: relationshipsById.get(item.source_item_id)?.source_id ?? null,
+    quantity: 1,
+    resolved: relationshipLabels.has(item.source_item_id),
+    label: relationshipLabels.get(item.source_item_id) ?? '(unresolved Rate Sheet item)',
+    unit_price: item.unit_price,
+    per: item.per,
+    group_id: item.group_id,
+    line_total: item.unit_price,
+  }));
+  for (const selected of existingSelections) {
+    if (!catalogue.some((item) => item.item_id === selected.item_id)) catalogue.push(selected);
+  }
+  return catalogue;
+}
+
 // Individual-tier derived model (null unless a tier is open).
 export function buildTierDetail(
   pkg: PackageStation,
@@ -84,25 +120,8 @@ export function buildTierDetail(
   if (!view) return null;
   const detail = view.detail;
 
-  const relationshipLabels = new Map(svc.package_relationships.map((item) => [item.item_id, relationshipDisplayLabel(item)]));
-  const relationshipsById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
   // The selectable rows are those of the sheet this Tier is bound to.
-  const boundSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === detail.rate_sheet_id) ?? null;
-  const rateSheetCatalogue: TierResolvedRateSheetSelection[] = (boundSheet?.items ?? []).map((item) => ({
-    item_id: item.item_id,
-    source_type: relationshipsById.get(item.source_item_id)?.source_type ?? null,
-    source_id: relationshipsById.get(item.source_item_id)?.source_id ?? null,
-    quantity: 1,
-    resolved: relationshipLabels.has(item.source_item_id),
-    label: relationshipLabels.get(item.source_item_id) ?? '(unresolved Rate Sheet item)',
-    unit_price: item.unit_price,
-    per: item.per,
-    group_id: item.group_id,
-    line_total: item.unit_price,
-  }));
-  for (const selected of detail.rate_sheet_selections) {
-    if (!rateSheetCatalogue.some((item) => item.item_id === selected.item_id)) rateSheetCatalogue.push(selected);
-  }
+  const rateSheetCatalogue = buildRateSheetCatalogue(svc, detail.rate_sheet_id, detail.rate_sheet_selections);
   const isPopular = pkg.popularTier === editingTierId;
   const tierBusy = pkg.saving ? 'discard-draft' : null;
 

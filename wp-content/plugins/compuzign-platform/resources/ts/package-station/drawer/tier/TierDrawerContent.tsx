@@ -331,6 +331,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
                   value: sheet.rate_sheet_id,
                   label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
                 }))}
+                svc={svc}
                 onMutated={c.pkg.refetch}
               />
             )}

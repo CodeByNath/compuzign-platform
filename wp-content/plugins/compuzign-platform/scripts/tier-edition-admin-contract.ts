@@ -119,6 +119,35 @@ check(
   'every successful mutation invokes onMutated — the same refetch contract usePackageStation\'s own actions use',
 );
 
+// ── Rate Sheet row/quantity selection reuses the occupant's own editor and
+//    catalogue resolver — not a bespoke reimplementation ───────────────────
+
+const tierDetailModel = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/tierDetailModel.ts',
+), 'utf8');
+
+check(
+  tierDetailModel.includes('export function buildRateSheetCatalogue'),
+  'buildRateSheetCatalogue is extracted as a reusable pure function',
+);
+check(
+  !!tierDetailModel.match(/buildTierDetail[\s\S]*?buildRateSheetCatalogue\(svc, detail\.rate_sheet_id, detail\.rate_sheet_selections\)/),
+  'the occupant\'s own Overview/Features editor resolves its catalogue through the SAME shared function (behaviour-preserving refactor, not a duplicate)',
+);
+check(
+  panel.includes("import { PoolInclusionsEditor }"),
+  'TierEditionsPanel reuses the occupant\'s own PoolInclusionsEditor for row/quantity selection, not a bespoke picker',
+);
+check(
+  panel.includes('buildRateSheetCatalogue(svc, draft.rate_sheet_id'),
+  'the Edition\'s row catalogue resolves against the EDITION\'S OWN rate_sheet_id, independent of the occupant\'s binding',
+);
+check(
+  panel.includes('rate_sheet_items: []') && panel.includes('changeRateSheet'),
+  'switching the Edition\'s bound Rate Sheet clears its row selections, mirroring the occupant\'s own confirm-then-clear rule',
+);
+
 // ── Panel is actually wired into the mounted Tier drawer, not orphaned ──────
 
 check(
