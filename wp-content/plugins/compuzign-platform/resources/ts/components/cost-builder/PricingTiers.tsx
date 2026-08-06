@@ -1,8 +1,50 @@
 import { useRef, useState } from 'preact/hooks';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import type { Tier, ServicePricing, TierId } from '@/api/types/cost-builder';
+import type { PricingEditionOption, PricingTierData, Tier, ServicePricing, TierId } from '@/api/types/cost-builder';
 import type { QuoteItemTierId } from './types';
+
+export interface EffectiveTierDisplay {
+  price: number | null;
+  billingCycle: string;
+  inclusionLabels: string[];
+  selectedEdition: PricingEditionOption | null;
+}
+
+/**
+ * Resolve what a Tier card should currently show — pure and exported so the
+ * Tier Edition switch's actual logic (not just its JSX) is independently
+ * testable, the same reason draftPreferredDetail exists for is_addon.
+ *
+ * `selectedEditionId: null` means "nothing switched yet": the occupant's own
+ * resolved default is already baked into `data.price`/`billing_cycle`/
+ * `inclusions` server-side (PackageSchema::resolveDefaultTierEdition), so a
+ * Tier with no Editions — or one whose switch was never touched — renders
+ * from exactly the same fields it always has. Switching only overlays a
+ * DIFFERENT Edition's own declaration in place; it can never change which
+ * Tier is selected.
+ */
+export function resolveEffectiveTierDisplay(
+  data: PricingTierData | undefined,
+  billingCycle: string,
+  selectedEditionId: string | null,
+): EffectiveTierDisplay {
+  const editionOptions = data?.edition_options ?? [];
+  const selectedEdition = editionOptions.find((e) => e.id === selectedEditionId) ?? null;
+
+  const price = selectedEdition ? selectedEdition.price : (data?.price ?? null);
+  const effectiveCycle = selectedEdition
+    ? (selectedEdition.billing_cycle ?? billingCycle)
+    : (data?.billing_cycle || billingCycle);
+  const inclusions = selectedEdition && selectedEdition.inclusions_override.length > 0
+    ? selectedEdition.inclusions_override
+    : data?.inclusions;
+  const inclusionLabels = inclusions?.length
+    ? inclusions.map((inc) => inc.label)
+    : (data?.features ?? []);
+
+  return { price, billingCycle: effectiveCycle, inclusionLabels, selectedEdition };
+}
 
 interface PricingTiersProps {
   tiers: Tier[];
@@ -42,11 +84,17 @@ function TierCard({
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
-  const tierBillingCycle = data?.billing_cycle || billingCycle;
-  const suffix = formatCycleLabel(tierBillingCycle);
-  const displayList = data?.inclusions?.length
-    ? data.inclusions.map((inc) => inc.label)
-    : (data?.features ?? []);
+
+  // Tier Edition switch (Phase 7) — an in-card, mutually-exclusive choice
+  // among this SAME Tier's Editions. It never selects a different Tier: the
+  // customer still clicks Add to Quote/Selected exactly once for this card;
+  // switching only changes which Edition's declaration is currently shown.
+  const editionOptions = data?.edition_options ?? [];
+  const [selectedEditionId, setSelectedEditionId] = useState<string | null>(null);
+  const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionLabels: displayList, selectedEdition } =
+    resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
+
+  const suffix = formatCycleLabel(effectiveBillingCycle);
 
   return (
     <div
@@ -62,14 +110,37 @@ function TierCard({
         <span>{data?.label || tier.title}</span>
         {isPopular && <Badge variant="accent">{popularLabel || 'Best'}</Badge>}
       </div>
+      {editionOptions.length > 1 && (
+        <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${data?.label || tier.title} payment options`}>
+          {editionOptions.map((edition) => {
+            const active = (selectedEditionId ?? editionOptions.find((e) => e.is_default)?.id ?? editionOptions[0].id) === edition.id;
+            return (
+              <button
+                key={edition.id}
+                type="button"
+                class={`cz-cost-builder__tier-edition${active ? ' is-active' : ''}`}
+                aria-pressed={active}
+                onClick={(e) => { e.stopPropagation(); setSelectedEditionId(edition.id); }}
+              >
+                {edition.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div class="cz-cost-builder__tier-price">
         <span class="cz-cost-builder__tier-amount">
-          {formatPrice(data?.price ?? null)}
+          {formatPrice(effectivePrice)}
         </span>
-        {data?.price !== null && data?.price !== undefined && suffix && (
+        {effectivePrice !== null && suffix && (
           <span class="cz-cost-builder__tier-cycle">{suffix}</span>
         )}
       </div>
+      {selectedEdition && (selectedEdition.minimum_term_value != null) && (
+        <p class="cz-cost-builder__tier-commitment">
+          Minimum {selectedEdition.minimum_term_value} {selectedEdition.minimum_term_unit ?? ''}
+        </p>
+      )}
       {displayList.length > 0 && (
         <ul class="cz-cost-builder__tier-features">
           {displayList.map((label, i) => (

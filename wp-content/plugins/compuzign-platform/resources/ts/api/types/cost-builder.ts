@@ -53,6 +53,24 @@ export interface ServiceMeta {
   is_active?: boolean | null;
 }
 
+// Tier Edition (Phase 7) — an opaque in-card switch option. `id` is a
+// selector key only (never a Platform ID: CZTE stays admin/audit-only and
+// is never exposed here — see PackageSchema::publicTierEditionOptions()).
+// Active Editions only; a Pending/Disabled/Archived/Trashed one never
+// appears. Switching between these must never select a different Tier —
+// the Tier's own identity (tierId) never changes.
+export interface PricingEditionOption {
+  id: string;
+  label: string;
+  price: number | null;
+  contact: boolean;
+  billing_cycle: string | null;
+  minimum_term_value: number | null;
+  minimum_term_unit: string | null;
+  inclusions_override: ServiceInclusion[];
+  is_default: boolean;
+}
+
 export interface PricingTierData {
   price: number | null;
   billing_cycle: string;
@@ -64,6 +82,13 @@ export interface PricingTierData {
   // alongside whichever normal Tier is selected. Always present — legacy/
   // canonical tiers with no occupant record default to false.
   is_addon: boolean;
+  // Phase 7 — additive only. Empty for every Tier that has never used this
+  // capability; the switch renders only when length > 1. `price`/
+  // `billing_cycle`/`inclusions` above already reflect whichever Edition
+  // the occupant's own default_edition_id resolves to (or the Tier's own
+  // legacy-flat declaration when none applies) — this array exists only so
+  // the customer can switch to a DIFFERENT Edition's declaration in place.
+  edition_options?: PricingEditionOption[];
 }
 
 export interface ServicePricing {

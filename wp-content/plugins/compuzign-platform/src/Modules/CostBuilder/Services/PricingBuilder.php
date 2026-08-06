@@ -358,6 +358,15 @@ class PricingBuilder
             // for every tier that survives the enabled/configured checks above;
             // a tier removed from output above carries no is_addon meaning.
             $payload['pricing']['tiers'][$tierId]['is_addon'] = (bool) ($pkgTier['is_addon'] ?? false);
+
+            // Tier Edition switch (Phase 7) — additive only. The Tier remains
+            // one public card; edition_options lets it offer an in-card
+            // mutually-exclusive switch (e.g. Monthly/Annual) without adding
+            // a second Tier, a second Add-on split, or a second selection
+            // system. Empty for every occupant that has never used this
+            // capability — carried verbatim from PackageSchema::
+            // publicTierEditionOptions(), already filtered to Active only.
+            $payload['pricing']['tiers'][$tierId]['edition_options'] = $pkgTier['edition_options'] ?? [];
         }
 
         // ── Availability recompute ────────────────────────────────────────────
@@ -509,6 +518,10 @@ class PricingBuilder
                 // add-ons; overlayPackage() below is the only place this flips
                 // true, from an active Tier Instance occupant's own is_addon.
                 'is_addon'      => false,
+                // Same reasoning for Editions: a canonical/legacy tier has no
+                // occupant to carry them; overlayPackage() below is the only
+                // place this becomes non-empty.
+                'edition_options' => [],
             ];
         }
 

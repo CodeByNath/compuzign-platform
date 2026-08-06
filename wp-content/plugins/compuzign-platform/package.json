@@ -31,6 +31,7 @@
     "contract:tier-occupant-card-drawer-unification": "tsx scripts/tier-occupant-card-drawer-unification-contract.ts",
     "contract:tier-overview-is-addon": "tsx scripts/tier-overview-is-addon-contract.ts",
     "contract:tier-edition-admin": "tsx scripts/tier-edition-admin-contract.ts",
+    "contract:tier-edition-switch": "tsx scripts/tier-edition-switch-contract.ts",
     "contract:api-client-timeout": "tsx scripts/api-client-timeout-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
     "regression:tier-occupant-lifecycle": "node scripts/tier-occupant-lifecycle-regression.mjs",

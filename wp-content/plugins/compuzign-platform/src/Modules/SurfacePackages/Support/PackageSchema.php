@@ -965,6 +965,53 @@ class PackageSchema
     /**
      * @return array{label:string, price:float|null, contact:bool, billing_cycle:string|null, rate_sheet_id:string|null, rate_sheet_items:array, inclusions_override:array, faq_refs:array}
      */
+    /**
+     * Public-safe Edition list for the Cost Builder's in-card switch
+     * (Phase 7). ACTIVE Editions only — a Pending, Disabled, Archived, or
+     * Trashed Edition is never offered to a customer, the exact same
+     * enabled/configured discipline overlayPackage() already applies to the
+     * occupant itself. Carries no edition_platform_id (CZTE stays an
+     * admin/audit/connection identity, never a public or cart-facing one —
+     * the agreed boundary) and no admin-only fields (admin_description,
+     * rate_sheet_items, module_status/drafts). `id` here is an opaque
+     * selector key only, the same role TierId ('basic'|'standard'|…)
+     * already plays publicly — not a claim on the Platform Identifier
+     * vocabulary.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function publicTierEditionOptions(array $occ): array
+    {
+        $editions = is_array($occ['tier_editions'] ?? null) ? $occ['tier_editions'] : [];
+        if ($editions === []) {
+            return [];
+        }
+        $engine    = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $defaultId = self::sanitizeDefaultEditionId($occ['default_edition_id'] ?? null, $editions);
+
+        $out = [];
+        foreach ($editions as $edition) {
+            if (!is_array($edition) || ($edition['platform_status'] ?? null) !== $engine::STATUS_ACTIVE) {
+                continue;
+            }
+            $out[] = [
+                'id'                  => (string) ($edition['id'] ?? ''),
+                'label'               => $edition['title'] ?? '',
+                'price'               => $edition['price'] ?? null,
+                'contact'             => (bool) ($edition['contact'] ?? false),
+                'billing_cycle'       => $edition['billing_cycle'] ?? null,
+                'minimum_term_value'  => $edition['minimum_term_value'] ?? null,
+                'minimum_term_unit'   => $edition['minimum_term_unit'] ?? null,
+                // Same inherit-when-empty rule as the resolved default.
+                'inclusions_override' => !empty($edition['inclusions_override'])
+                    ? $edition['inclusions_override']
+                    : ($occ['inclusions_override'] ?? []),
+                'is_default'          => ($edition['id'] ?? null) === $defaultId,
+            ];
+        }
+        return $out;
+    }
+
     private static function resolveDefaultTierEdition(array $occ): array
     {
         $fallback = [
@@ -1029,6 +1076,10 @@ class PackageSchema
                 'faq_refs'            => $resolved['faq_refs'],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
                 'is_addon'            => (bool) ($occ['is_addon'] ?? false),
+                // Phase 7 — additive only. Absent/empty for every occupant
+                // that has never used Editions; the switch renders nothing
+                // when it does not represent a genuine choice.
+                'edition_options'     => self::publicTierEditionOptions($occ),
             ];
         }
 
