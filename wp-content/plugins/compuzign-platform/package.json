@@ -36,6 +36,7 @@
     "contract:api-client-timeout": "tsx scripts/api-client-timeout-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
     "regression:tier-occupant-lifecycle": "node scripts/tier-occupant-lifecycle-regression.mjs",
+    "regression:tier-edition-lifecycle": "node scripts/tier-edition-lifecycle-regression.mjs",
     "regression:tier-publish-timeout": "node scripts/tier-publish-timeout-regression.mjs",
     "regression:rate-sheet-row-lock": "node scripts/rate-sheet-row-lock-regression.mjs",
     "regression:service-create": "node scripts/service-create-regression.mjs",
