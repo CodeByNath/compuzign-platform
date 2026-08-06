@@ -1232,6 +1232,101 @@ class PackageSchema
         return null;
     }
 
+    // ── Phase 2: nested child lookup, add, replace, guarded delete ───────────
+    // Mirrors PackageCategoryGroups::create()/find()/replace()/delete() —
+    // the proven "array-of-records inside the shared option, each with its
+    // own id, lifecycle, and Platform identity" pattern — one level deeper,
+    // scoped to one occupant's tier_editions[] rather than a top-level
+    // collection. No REST route exists yet; that is Phase 3.
+
+    public static function findTierEdition(array $editions, string $editionId): ?array
+    {
+        foreach ($editions as $edition) {
+            if (is_array($edition) && ($edition['id'] ?? null) === $editionId) {
+                return $edition;
+            }
+        }
+        return null;
+    }
+
+    /** Replace one Edition row by id; an unknown id is a no-op. */
+    public static function replaceTierEdition(array $editions, array $next): array
+    {
+        return self::sanitizeTierEditions(array_map(
+            static fn($edition) => is_array($edition) && ($edition['id'] ?? null) === ($next['id'] ?? '') ? $next : $edition,
+            $editions
+        ));
+    }
+
+    /**
+     * Add a new Edition to an occupant. Always mints its own id — never
+     * accepts a caller-supplied one, unlike PackageCategoryGroups::create()'s
+     * optional $groupId — because nothing outside this function has a
+     * legitimate reason to pre-choose an Edition's storage address. Born
+     * disabled with no modules settled, exactly matching the Package Family
+     * row's own create semantics. Mints no Platform identifier — CZTE is
+     * assigned at the settlement boundary (Phase 3), not at creation.
+     *
+     * @return array{tier_editions: array, edition: array}
+     */
+    public static function addTierEdition(array $editions, array $data): array
+    {
+        $title = sanitize_text_field((string) ($data['title'] ?? ''));
+        if ($title === '') {
+            throw new \InvalidArgumentException('Tier Edition title is required.');
+        }
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $edition = self::sanitizeTierEdition([
+            'id'                  => self::mintTierEditionId(),
+            'title'               => $title,
+            'admin_description'   => $data['admin_description'] ?? '',
+            'platform_status'     => $engine::STATUS_DISABLED,
+            'rate_sheet_id'       => $data['rate_sheet_id'] ?? null,
+            'rate_sheet_items'    => $data['rate_sheet_items'] ?? [],
+            'billing_cycle'       => $data['billing_cycle'] ?? null,
+            'contact'             => $data['contact'] ?? false,
+            'minimum_term_value'  => $data['minimum_term_value'] ?? null,
+            'minimum_term_unit'   => $data['minimum_term_unit'] ?? null,
+            'inclusions_override' => $data['inclusions_override'] ?? [],
+            'faq_refs'            => $data['faq_refs'] ?? [],
+        ]);
+        return ['tier_editions' => self::sanitizeTierEditions([...$editions, $edition]), 'edition' => $edition];
+    }
+
+    /**
+     * Permanent delete. Engine gate (trashed only, mirroring
+     * PackageCategoryGroups::delete()) plus the default-Edition guard: the
+     * pointer an occupant's legacy-flat projection currently resolves
+     * through can never be deleted out from under it — the caller must
+     * reassign the default first. $isParentDeletion bypasses both guards:
+     * deleting the whole occupant/Tier legitimately removes every Edition
+     * with it (the required cascade rule — see Phase 4).
+     */
+    public static function deleteTierEdition(
+        array $editions,
+        string $editionId,
+        ?string $defaultEditionId,
+        bool $isParentDeletion = false
+    ): array {
+        $edition = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            throw new \InvalidArgumentException('Tier Edition not found.');
+        }
+        if (!$isParentDeletion) {
+            $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+            if (!$engine::canDelete((string) ($edition['platform_status'] ?? ''))) {
+                throw new \InvalidArgumentException('Only a trashed Tier Edition can be permanently deleted.');
+            }
+            if ($defaultEditionId !== null && $defaultEditionId === $editionId) {
+                throw new \InvalidArgumentException('Cannot delete the default Tier Edition. Assign another default first.');
+            }
+        }
+        return self::sanitizeTierEditions(array_values(array_filter(
+            $editions,
+            static fn($candidate) => !is_array($candidate) || ($candidate['id'] ?? null) !== $editionId
+        )));
+    }
+
     /** Normalise a stored/inbound Rate Sheet id to a non-empty string or null. */
     private static function normaliseRateSheetId(mixed $rateSheetId): ?string
     {
