@@ -19,6 +19,7 @@ final class PlatformIdentifierPolicy
     public const TIER_GROUP              = 'tier_group';
     public const TIER                    = 'tier';
     public const TIER_ADDON              = 'tier_addon';
+    public const TIER_EDITION            = 'tier_edition';
     public const TIER_PROMOTION          = 'tier_promotion';
     public const PACKAGE_RATE_CARD       = 'package_rate_card';
     public const PACKAGE_RATE_CARD_GROUP = 'package_rate_card_group';
@@ -35,6 +36,7 @@ final class PlatformIdentifierPolicy
         self::TIER_GROUP              => 'CZTG',
         self::TIER                    => 'CZT',
         self::TIER_ADDON              => 'CZTA',
+        self::TIER_EDITION            => 'CZTE',
         self::TIER_PROMOTION          => 'CZTP',
         self::PACKAGE_RATE_CARD       => 'CZPRC',
         self::PACKAGE_RATE_CARD_GROUP => 'CZPRCG',

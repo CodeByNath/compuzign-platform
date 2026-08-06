@@ -24,6 +24,17 @@ final class PackagePlatformNativeReference
         return self::composite('tier-occupant', [$tierInstanceId, $occupantId]);
     }
 
+    /**
+     * Occupant-qualified, not slot-qualified: a Tier Edition's identity must
+     * stay attached to the occupant that owns it through slot swap, retarget,
+     * or replacement, exactly like tierOccupant() itself never references a
+     * slot key.
+     */
+    public static function tierEdition(string $tierInstanceId, string $occupantId, string $editionId): string
+    {
+        return self::composite('tier-edition', [$tierInstanceId, $occupantId, $editionId]);
+    }
+
     public static function rateSheet(string $rateSheetId): string
     {
         return self::single('rate-sheet', $rateSheetId);

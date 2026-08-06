@@ -834,6 +834,7 @@ class PackageSchema
             if ($occ === null) {
                 return self::emptyTierDetail();
             }
+            $editions = self::sanitizeTierEditions($occ['tier_editions'] ?? []);
             return [
                 'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
                 'platform_id'          => (string) ($occ['cz_platform_id'] ?? ''),
@@ -858,6 +859,11 @@ class PackageSchema
                 // raw unmasked platform_status: 'disabled' value, which a merely
                 // unpublished (Pending) occupant also carries.
                 'is_explicitly_disabled' => self::isExplicitlyDisabled($occ),
+                // Tier Edition — independently addressed, independently
+                // lifecycled child records; absent/empty for every occupant
+                // that has never used this capability. See SECTION: TIER_EDITION.
+                'tier_editions'       => $editions,
+                'default_edition_id' => self::sanitizeDefaultEditionId($occ['default_edition_id'] ?? null, $editions),
             ];
         }
 
@@ -885,6 +891,10 @@ class PackageSchema
             // Phase 1 flat slots predate the occupant marker entirely — no explicit
             // Disable concept exists at this layer.
             'is_explicitly_disabled' => false,
+            // Phase 1 flat slots predate Editions entirely; there is nothing
+            // to sanitise or preserve at this layer.
+            'tier_editions'       => [],
+            'default_edition_id' => null,
         ];
     }
 
@@ -984,6 +994,13 @@ class PackageSchema
         $existingPlatformId = '';
         $existingAddonPlatformId = '';
         $existingExplicitlyDisabled = false;
+        // Editions are mutated only through their own Package-Station-owned
+        // child operations (Phase 2+), never through this Overview/Features/
+        // FAQs occupant save path — so this function only ever preserves
+        // them verbatim, exactly like `history`. Reading $data here would
+        // let an unrelated Overview save silently smuggle Edition changes.
+        $existingTierEditions = [];
+        $existingDefaultEditionId = null;
 
         if (self::isOccupantFormat($tierSlot)) {
             $history    = $tierSlot['history'] ?? [];
@@ -992,6 +1009,11 @@ class PackageSchema
             $existingPlatformId = (string) ($tierSlot['current_occupant']['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
             $existingExplicitlyDisabled = self::isExplicitlyDisabled($tierSlot['current_occupant'] ?? null);
+            $existingTierEditions = self::sanitizeTierEditions($tierSlot['current_occupant']['tier_editions'] ?? []);
+            $existingDefaultEditionId = self::sanitizeDefaultEditionId(
+                $tierSlot['current_occupant']['default_edition_id'] ?? null,
+                $existingTierEditions
+            );
         } elseif (self::hasConfiguredContent($tierSlot)) {
             $existingPlatformId = (string) ($tierSlot['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['addon_platform_id'] ?? '');
@@ -1037,6 +1059,10 @@ class PackageSchema
                 'rate_sheet_items'    => $selections,
                 'features'            => $data['features'] ?? [],
                 'faq_refs'            => $data['faq_refs'] ?? [],
+                // Preserved verbatim — see the note above the extraction at
+                // the top of this function. Never populated from $data.
+                'tier_editions'       => $existingTierEditions,
+                'default_edition_id'  => $existingDefaultEditionId,
             ],
             'history' => $history,
         ];
@@ -1065,6 +1091,147 @@ class PackageSchema
         return $slot;
     }
 
+    // ===================================================================
+    // SECTION: TIER_EDITION
+    // ===================================================================
+    // A Tier Edition is an independently addressed, independently
+    // lifecycled child record nested inside current_occupant.tier_editions[]
+    // — not a TIER_MODULES entry, not another occupant, not an Add-on. These
+    // are pure storage sanitisers only: no mutation route exists yet. Every
+    // helper here mints no id and no Platform identifier — see
+    // mintTierEditionId() for id minting and the Package Station identity
+    // adapter for CZTE assignment, both exercised starting at the settlement
+    // boundary that owns creation, not here.
+
+    public static function mintTierEditionId(): string
+    {
+        return 'edt_' . bin2hex(random_bytes(4));
+    }
+
+    /**
+     * Sanitise the whole tier_editions[] collection. Malformed entries and
+     * duplicate ids are dropped rather than failing the whole occupant —
+     * the same defensive posture as TierInstanceSchema::sanitizeInstances().
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function sanitizeTierEditions(mixed $editions): array
+    {
+        if (!is_array($editions)) {
+            return [];
+        }
+        $out  = [];
+        $seen = [];
+        foreach ($editions as $candidate) {
+            $edition = self::sanitizeTierEdition($candidate);
+            if ($edition === null || isset($seen[$edition['id']])) {
+                continue;
+            }
+            $seen[$edition['id']] = true;
+            $out[] = $edition;
+        }
+        return $out;
+    }
+
+    /**
+     * Sanitise one stored Edition row. This is a read/round-trip sanitiser,
+     * not a create path: it mints no id and no edition_platform_id — a row
+     * with no id is unrecoverable and dropped rather than fabricated.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function sanitizeTierEdition(mixed $edition): ?array
+    {
+        if (!is_array($edition)) {
+            return null;
+        }
+        $id = sanitize_text_field((string) ($edition['id'] ?? ''));
+        if ($id === '') {
+            return null;
+        }
+
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $status = sanitize_text_field((string) ($edition['platform_status'] ?? $engine::STATUS_DISABLED));
+        if (!$engine::isValidStatus($status)) {
+            $status = $engine::STATUS_DISABLED;
+        }
+        $previousStatus = $edition['previous_platform_status'] ?? null;
+        $previousStatus = (is_string($previousStatus) && $engine::isValidStatus($previousStatus)) ? $previousStatus : null;
+
+        $price = null;
+        if (isset($edition['price']) && $edition['price'] !== null && $edition['price'] !== '') {
+            $price = (float) $edition['price'];
+        }
+        $minTermValue = null;
+        if (isset($edition['minimum_term_value']) && $edition['minimum_term_value'] !== null && $edition['minimum_term_value'] !== '') {
+            $minTermValue = (float) $edition['minimum_term_value'];
+        }
+
+        return [
+            'id'                       => $id,
+            // Output-only until the settlement boundary assigns it — mirrors
+            // cz_platform_id/addon_platform_id's own empty-string-until-bound
+            // convention on the occupant itself.
+            'edition_platform_id'      => sanitize_text_field((string) ($edition['edition_platform_id'] ?? '')),
+            'title'                    => sanitize_text_field((string) ($edition['title'] ?? '')),
+            'admin_description'        => sanitize_textarea_field((string) ($edition['admin_description'] ?? '')),
+
+            'platform_status'          => $status,
+            'previous_platform_status' => $previousStatus,
+            // Same shared marker convention as the occupant's own
+            // is_explicitly_disabled — see isExplicitlyDisabled(). An Edition
+            // does not invent a second Disabled representation.
+            'is_explicitly_disabled'   => (bool) ($edition['is_explicitly_disabled'] ?? false),
+            'module_status'            => is_array($edition['module_status'] ?? null) ? $edition['module_status'] : [],
+            'drafts'                   => is_array($edition['drafts'] ?? null) ? $edition['drafts'] : [],
+
+            'rate_sheet_id'            => self::normaliseRateSheetId($edition['rate_sheet_id'] ?? null),
+            'rate_sheet_items'         => self::sanitizeTierRateSheetSelections($edition['rate_sheet_items'] ?? []),
+            'price'                    => $price,
+            'contact'                  => (bool) ($edition['contact'] ?? false),
+            'billing_cycle'            => (isset($edition['billing_cycle']) && $edition['billing_cycle'] !== '')
+                ? sanitize_text_field((string) $edition['billing_cycle'])
+                : null,
+            'minimum_term_value'       => $minTermValue,
+            'minimum_term_unit'        => (isset($edition['minimum_term_unit']) && $edition['minimum_term_unit'] !== '')
+                ? sanitize_text_field((string) $edition['minimum_term_unit'])
+                : null,
+
+            // Empty means inherit the parent occupant's own inclusions_override
+            // / faq_refs — the same empty-means-inherit rule the occupant
+            // itself already uses against Service-level canonical data in
+            // PricingBuilder::overlayPackage(). Non-empty is this Edition's
+            // explicit declaration override, using the occupant's own field
+            // names rather than a parallel document model.
+            'inclusions_override'      => is_array($edition['inclusions_override'] ?? null)
+                ? array_values(array_filter($edition['inclusions_override'], 'is_array'))
+                : [],
+            'faq_refs'                 => is_array($edition['faq_refs'] ?? null)
+                ? array_values(array_map(static fn($ref): string => sanitize_text_field((string) $ref), $edition['faq_refs']))
+                : [],
+        ];
+    }
+
+    /**
+     * The default-Edition pointer never dangles: a value that no longer
+     * matches an existing Edition's id resolves to null rather than crashing
+     * public projection or the admin editor against a missing row. Callers
+     * must sanitise $editions first — this never mutates the collection.
+     */
+    public static function sanitizeDefaultEditionId(mixed $id, array $editions): ?string
+    {
+        $candidate = is_string($id) ? trim($id) : '';
+        if ($candidate === '') {
+            return null;
+        }
+        foreach ($editions as $edition) {
+            if (is_array($edition) && ($edition['id'] ?? null) === $candidate) {
+                return $candidate;
+            }
+        }
+        return null;
+    }
+
     /** Normalise a stored/inbound Rate Sheet id to a non-empty string or null. */
     private static function normaliseRateSheetId(mixed $rateSheetId): ?string
     {
@@ -1091,7 +1258,7 @@ class PackageSchema
         return 'disabled';
     }
 
-    /** @return array{label: string, price: null, contact: false, billing_cycle: null, inclusions_override: array, features: array, faq_refs: array, enabled: false, is_addon: false} */
+    /** @return array{label: string, price: null, contact: false, billing_cycle: null, inclusions_override: array, features: array, faq_refs: array, enabled: false, is_addon: false, tier_editions: array, default_edition_id: null} */
     private static function emptyTierDetail(): array
     {
         return [
@@ -1099,6 +1266,7 @@ class PackageSchema
             'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
+            'tier_editions' => [], 'default_edition_id' => null,
         ];
     }
 

@@ -52,6 +52,27 @@ final class PackagePlatformIdentifierAdapters
         );
     }
 
+    /**
+     * A Tier Edition's identity is its own — not shared with tier()/tierAddon()
+     * the way primary/secondary share one occupant reference — because an
+     * Edition is an independently addressed child record, not a role on the
+     * occupant itself.
+     */
+    public function tierEdition(): PackagePlatformIdentifierAdapter
+    {
+        return new PackagePlatformIdentifierAdapter(
+            PlatformIdentifierPolicy::TIER_EDITION,
+            fn(int|string|null $cursor, int $limit): array => $this->packages->tierEditionAssignmentPage(
+                is_string($cursor) && $cursor !== '' ? $cursor : null,
+                $limit
+            ),
+            fn(int|string $reference): string => $this->packages->tierEditionPlatformId((string) $reference),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierEditionPlatformId((string) $reference, $platformId),
+            fn(string $platformId): bool => $this->packages->tierEditionPlatformIdExists($platformId),
+            fn(int|string $reference): ?array => $this->packages->tierEditionProjection((string) $reference)
+        );
+    }
+
     public function rateSheet(): PackagePlatformIdentifierAdapter
     {
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD, 'sheet');

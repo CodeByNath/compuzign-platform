@@ -447,6 +447,159 @@ class PackageRepository
         $references[] = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
     }
 
+    public function tierEditionPlatformId(string $nativeReference): string
+    {
+        $located = $this->locateTierEdition($nativeReference);
+        return $located === null ? '' : (string) ($located['edition']['edition_platform_id'] ?? '');
+    }
+
+    public function claimTierEditionPlatformId(string $nativeReference, string $platformId): bool
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-edition', 3);
+        if ($parts === null) return false;
+        [$instanceId, $occupantId, $editionId] = $parts;
+        $station = $this->loadStation();
+        if (!is_array($station)) return false;
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
+        if ($instance === null) return false;
+        $matches = 0;
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
+            $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+            if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
+            foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $index => $edition) {
+                if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['tiers'][$slotId]['current_occupant']['tier_editions'][$index]['edition_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
+        foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $binIndex => $entry) {
+            $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+            if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
+            foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $index => $edition) {
+                if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['occupant_bin'][$binIndex]['occupant']['tier_editions'][$index]['edition_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
+        if ($matches !== 1) return false;
+        $station = TierInstanceSchema::withInstance($station, $instanceId, $instance);
+        $this->saveStation($station);
+        return $this->tierEditionPlatformId($nativeReference) === $platformId;
+    }
+
+    public function tierEditionPlatformIdExists(string $platformId): bool
+    {
+        $station = $this->loadStation();
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+                if ($this->tierEditionListHasPlatformId($occupant, $platformId)) return true;
+            }
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+                if ($this->tierEditionListHasPlatformId($occupant, $platformId)) return true;
+            }
+        }
+        return false;
+    }
+
+    /** @return array{items:list<string>,next_cursor:string|null,complete:bool} */
+    public function tierEditionAssignmentPage(?string $cursor, int $limit): array
+    {
+        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier Edition assignment limit must be between 1 and 500.');
+        $station = $this->loadStation();
+        $references = [];
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            $instanceId = (string) ($instance['tier_instance_id'] ?? '');
+            if ($instanceId === '') continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+                $this->appendEligibleEditionReferences($references, $instanceId, $occupant);
+            }
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+                $this->appendEligibleEditionReferences($references, $instanceId, $occupant);
+            }
+        }
+        $references = array_values(array_unique($references));
+        sort($references, SORT_STRING);
+        $eligible = array_values(array_filter($references, static fn(string $reference): bool => $cursor === null || strcmp($reference, $cursor) > 0));
+        $page = array_slice($eligible, 0, $limit);
+        return ['items' => $page, 'next_cursor' => $page === [] ? $cursor : $page[array_key_last($page)], 'complete' => count($eligible) <= $limit];
+    }
+
+    public function tierEditionProjection(string $nativeReference): ?array
+    {
+        $located = $this->locateTierEdition($nativeReference);
+        if ($located === null) return null;
+        return [
+            'tier_instance_id' => $located['tier_instance_id'],
+            'occupant_id'      => $located['occupant_id'],
+            'location'         => $located['location'],
+            'edition'          => $located['edition'],
+        ];
+    }
+
+    /** @return array{tier_instance_id:string,occupant_id:string,location:string,edition:array}|null */
+    private function locateTierEdition(string $nativeReference): ?array
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-edition', 3);
+        if ($parts === null) return null;
+        [$instanceId, $occupantId, $editionId] = $parts;
+        $station = $this->loadStation();
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
+        if ($instance === null) return null;
+        $matches = [];
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
+            $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+            if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
+            foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
+                if (is_array($edition) && (string) ($edition['id'] ?? '') === $editionId) {
+                    $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'slot:' . $slotId, 'edition' => $edition];
+                }
+            }
+        }
+        foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+            $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+            if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
+            foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
+                if (is_array($edition) && (string) ($edition['id'] ?? '') === $editionId) {
+                    $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'bin:' . (string) ($entry['bin_id'] ?? ''), 'edition' => $edition];
+                }
+            }
+        }
+        return count($matches) === 1 ? $matches[0] : null;
+    }
+
+    private function tierEditionListHasPlatformId(?array $occupant, string $platformId): bool
+    {
+        if ($occupant === null) return false;
+        foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
+            if (is_array($edition) && ($edition['edition_platform_id'] ?? '') === $platformId) return true;
+        }
+        return false;
+    }
+
+    /** @param list<string> $references */
+    private function appendEligibleEditionReferences(array &$references, string $instanceId, ?array $occupant): void
+    {
+        if ($occupant === null) return;
+        $occupantId = (string) ($occupant['id'] ?? '');
+        if ($occupantId === '') return;
+        foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
+            if (!is_array($edition)) continue;
+            $editionId = (string) ($edition['id'] ?? '');
+            if ($editionId === '') continue;
+            $references[] = PackagePlatformNativeReference::tierEdition($instanceId, $occupantId, $editionId);
+        }
+    }
+
     public function rateSheetPlatformId(string $nativeReference, string $scope = 'sheet'): string
     {
         $located = $this->locateRateSheetIdentity($nativeReference, $scope);

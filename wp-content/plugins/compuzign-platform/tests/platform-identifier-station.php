@@ -83,13 +83,14 @@ $expected = [
     'tier_group'               => 'CZTG',
     'tier'                     => 'CZT',
     'tier_addon'               => 'CZTA',
+    'tier_edition'             => 'CZTE',
     'tier_promotion'           => 'CZTP',
     'package_rate_card'        => 'CZPRC',
     'package_rate_card_group'  => 'CZPRCG',
     'package_rate_card_item'   => 'CZPRCI',
 ];
 
-checkIdentifier(PlatformIdentifierPolicy::prefixes() === $expected, 'all nine entity prefixes are locked');
+checkIdentifier(PlatformIdentifierPolicy::prefixes() === $expected, 'every entity prefix is locked');
 checkIdentifier(strlen(PlatformIdentifierPolicy::ALPHABET) === 30, 'alphabet has thirty unambiguous characters');
 checkIdentifier(strpbrk(PlatformIdentifierPolicy::ALPHABET, '01ILOU') === false, 'alphabet excludes ambiguous characters');
 
