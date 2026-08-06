@@ -349,4 +349,31 @@ check_edition_lifecycle(count($finalOccupant['tier_editions']) === 1, 'an ordina
 check_edition_lifecycle($finalOccupant['default_edition_id'] === $editionId, 'default_edition_id survives an ordinary parent Overview save + Publish');
 check_edition_lifecycle($finalOccupant['label'] === 'Professional (renamed)', 'the unrelated parent field the save actually targeted still updates normally');
 
+// ── Phase 5: setTierEditionDefault endpoint ──────────────────────────────────
+
+$setDefault = tel_new_controller()->setTierEditionDefault(new WP_REST_Request(
+    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic'],
+    ['edition_id' => $editionId],
+));
+check_edition_lifecycle($setDefault->get_status() === 200 && $setDefault->get_data()['default_edition_id'] === $editionId, 'setting the default Edition through the endpoint succeeds');
+check_edition_lifecycle(tel_edition('basic')['default_edition_id'] === $editionId, 'the default persists onto the occupant');
+
+$setUnknownDefault = tel_new_controller()->setTierEditionDefault(new WP_REST_Request(
+    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic'],
+    ['edition_id' => 'edt_does_not_exist'],
+));
+check_edition_lifecycle($setUnknownDefault->get_data()['default_edition_id'] === null, 'setting the default to an unknown Edition id resolves to null rather than a dangling pointer');
+check_edition_lifecycle(tel_edition('basic')['default_edition_id'] === null, 'the dangling attempt does not persist a stale id');
+
+tel_new_controller()->setTierEditionDefault(new WP_REST_Request(
+    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic'],
+    ['edition_id' => $editionId],
+));
+$clearDefault = tel_new_controller()->setTierEditionDefault(new WP_REST_Request(
+    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic'],
+    ['edition_id' => ''],
+));
+check_edition_lifecycle($clearDefault->get_data()['default_edition_id'] === null, 'an empty edition_id clears the default');
+check_edition_lifecycle(tel_edition('basic')['default_edition_id'] === null, 'the cleared default persists onto the occupant');
+
 echo "Tier Edition lifecycle contract: PASS\n";

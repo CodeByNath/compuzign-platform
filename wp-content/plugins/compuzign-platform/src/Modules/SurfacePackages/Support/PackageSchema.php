@@ -939,6 +939,71 @@ class PackageSchema
         ];
     }
 
+    // ── Phase 5: default Edition resolution ───────────────────────────────────
+    // The occupant remains the one public Tier; an Edition never becomes a
+    // second selectable card. This resolves the occupant's EFFECTIVE
+    // commercial declaration for legacy flat consumers (extractTierForCostBuilder
+    // -> PricingBuilder::overlayPackage -> the existing price/billing_cycle/
+    // contact/inclusions/faq_refs fields every consumer already reads).
+    //
+    // Two different rules for two different kinds of field, matching the
+    // agreed design exactly:
+    //   - commercial terms (price, billing_cycle, contact, Rate Sheet binding)
+    //     are ALWAYS the resolved Edition's own value once one applies — this
+    //     is the entire reason an Edition exists, never blended with the
+    //     occupant's own stale value;
+    //   - declaration fields (label, inclusions_override, faq_refs) inherit
+    //     the occupant's own value when the Edition leaves them empty, the
+    //     same empty-means-inherit rule already used against Service-level
+    //     canonical data in PricingBuilder::overlayPackage().
+    //
+    // An occupant with no Editions, or whose default_edition_id resolves to
+    // nothing valid or non-Active, falls through to its own legacy-flat
+    // fields untouched — the exact byte-for-byte parity guarantee for every
+    // occupant that has never used this capability.
+
+    /**
+     * @return array{label:string, price:float|null, contact:bool, billing_cycle:string|null, rate_sheet_id:string|null, rate_sheet_items:array, inclusions_override:array, faq_refs:array}
+     */
+    private static function resolveDefaultTierEdition(array $occ): array
+    {
+        $fallback = [
+            'label'               => $occ['label'] ?? '',
+            'price'               => $occ['price'] ?? null,
+            'contact'             => (bool) ($occ['contact'] ?? false),
+            'billing_cycle'       => $occ['billing_cycle'] ?? null,
+            'rate_sheet_id'       => $occ['rate_sheet_id'] ?? null,
+            'rate_sheet_items'    => is_array($occ['rate_sheet_items'] ?? null) ? $occ['rate_sheet_items'] : [],
+            'inclusions_override' => is_array($occ['inclusions_override'] ?? null) ? $occ['inclusions_override'] : [],
+            'faq_refs'            => is_array($occ['faq_refs'] ?? null) ? $occ['faq_refs'] : [],
+        ];
+
+        $editions = is_array($occ['tier_editions'] ?? null) ? $occ['tier_editions'] : [];
+        if ($editions === []) {
+            return $fallback;
+        }
+        $defaultId = self::sanitizeDefaultEditionId($occ['default_edition_id'] ?? null, $editions);
+        if ($defaultId === null) {
+            return $fallback;
+        }
+        $edition = self::findTierEdition($editions, $defaultId);
+        $engine  = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        if ($edition === null || ($edition['platform_status'] ?? null) !== $engine::STATUS_ACTIVE) {
+            return $fallback;
+        }
+
+        return [
+            'label'               => $edition['title'] !== '' ? $edition['title'] : $fallback['label'],
+            'price'               => $edition['price'] ?? null,
+            'contact'             => (bool) ($edition['contact'] ?? false),
+            'billing_cycle'       => $edition['billing_cycle'] ?? null,
+            'rate_sheet_id'       => $edition['rate_sheet_id'] ?? null,
+            'rate_sheet_items'    => is_array($edition['rate_sheet_items'] ?? null) ? $edition['rate_sheet_items'] : [],
+            'inclusions_override' => !empty($edition['inclusions_override']) ? $edition['inclusions_override'] : $fallback['inclusions_override'],
+            'faq_refs'            => !empty($edition['faq_refs']) ? $edition['faq_refs'] : $fallback['faq_refs'],
+        ];
+    }
+
     /**
      * Extract the flat tier interface that PricingBuilder/overlayPackage() expects.
      * Returns null for empty shells (no output to Cost Builder).
@@ -950,17 +1015,18 @@ class PackageSchema
             if ($occ === null) {
                 return null;
             }
+            $resolved = self::resolveDefaultTierEdition($occ);
             return [
-                'label'               => $occ['label'] ?? '',
+                'label'               => $resolved['label'],
                 'ideal_for'           => $occ['ideal_for'] ?? '',
-                'price'               => $occ['price'] ?? null,
-                'contact'             => $occ['contact'] ?? false,
-                'billing_cycle'       => $occ['billing_cycle'] ?? null,
-                'inclusions_override' => $occ['inclusions_override'] ?? [],
-                'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
-                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
+                'price'               => $resolved['price'],
+                'contact'             => $resolved['contact'],
+                'billing_cycle'       => $resolved['billing_cycle'],
+                'inclusions_override' => $resolved['inclusions_override'],
+                'rate_sheet_id'       => self::defaultRateSheetId($resolved['rate_sheet_id'], $resolved['rate_sheet_items']),
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($resolved['rate_sheet_items']),
                 'features'            => $occ['features'] ?? [],
-                'faq_refs'            => $occ['faq_refs'] ?? [],
+                'faq_refs'            => $resolved['faq_refs'],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
                 'is_addon'            => (bool) ($occ['is_addon'] ?? false),
             ];
