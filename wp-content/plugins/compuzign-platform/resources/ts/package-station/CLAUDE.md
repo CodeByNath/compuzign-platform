@@ -51,4 +51,14 @@ Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Pac
 
 ## Validation
 
-From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:package-tier-workspace-shell`, `npm run contract:tier-connections`, `npm run contract:tier-settings`, `npm run contract:tier-system-drawer`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-overview-is-addon`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `npm run contract:package-family-capability`, `npm run contract:package-tier-workspace`, `npm run contract:package-tier-workspace-shell`, `npm run contract:tier-connections`, `npm run contract:tier-settings`, `npm run contract:tier-system-drawer`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-overview-is-addon`, `npm run regression:tier-occupant-lifecycle`, `npm run regression:tier-publish-timeout`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+
+`usePackageStation.settleTier`'s success response is normalized through the
+same `normTier()` boundary as every other patch (`toggleTierEnabled`, the bin
+travel patches) before it is stored — the raw REST response can omit fields
+(e.g. `rate_sheet_selections`) that only the separate read endpoint computes.
+`resources/ts/api/client.ts` (shared, outside this peer) bounds every request
+with a timeout and throws a distinguishable `ApiTimeoutError`; this hook lets
+that error propagate out of `settleTier` instead of swallowing it, so a
+stalled Publish still releases `saving` via the existing `finally` and the
+drawer surfaces an uncertain-outcome message instead of a false "failed."
