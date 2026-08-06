@@ -1617,24 +1617,43 @@ class PackageStationController
         [$station, $instanceId, $instance] = $context;
 
         $originalSlot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
-        $hadOccupant = is_array($originalSlot['current_occupant'] ?? null);
         $slot = $PS::settleTierSlot($originalSlot);
         $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
         $primaryReservation = null;
         $addonReservation = null;
+        // Resumed (not freshly minted): the id already existed on the persisted
+        // occupant before this request — see reservationForReconciliation().
+        // Retiring one of these on any failure path below would strand that
+        // already-persisted row pointing at a dead registry record.
+        $primaryResumed = false;
+        $addonResumed = false;
         if ($this->identityEnabled && $occupant !== null) {
             try {
-                if (!$hadOccupant && (string) ($occupant['cz_platform_id'] ?? '') === '') {
+                $existingPrimaryId = (string) ($occupant['cz_platform_id'] ?? '');
+                if ($existingPrimaryId === '') {
                     $primaryReservation = $this->platformIdentity->reserve($this->identityAdapters->tier());
                     $slot['current_occupant']['cz_platform_id'] = $primaryReservation->platformId();
+                } elseif ($this->identityNeedsReconciliation($existingPrimaryId)) {
+                    $adapter = $this->identityAdapters->tier();
+                    $primaryReservation = $this->reservationForReconciliation($adapter, $existingPrimaryId);
+                    $primaryResumed = $primaryReservation->platformId() === $existingPrimaryId;
+                    $slot['current_occupant']['cz_platform_id'] = $primaryReservation->platformId();
                 }
-                if ((bool) ($occupant['is_addon'] ?? false) && (string) ($occupant['addon_platform_id'] ?? '') === '') {
-                    $addonReservation = $this->platformIdentity->reserve($this->identityAdapters->tierAddon());
-                    $slot['current_occupant']['addon_platform_id'] = $addonReservation->platformId();
+                if ((bool) ($occupant['is_addon'] ?? false)) {
+                    $existingAddonId = (string) ($occupant['addon_platform_id'] ?? '');
+                    if ($existingAddonId === '') {
+                        $addonReservation = $this->platformIdentity->reserve($this->identityAdapters->tierAddon());
+                        $slot['current_occupant']['addon_platform_id'] = $addonReservation->platformId();
+                    } elseif ($this->identityNeedsReconciliation($existingAddonId)) {
+                        $adapter = $this->identityAdapters->tierAddon();
+                        $addonReservation = $this->reservationForReconciliation($adapter, $existingAddonId);
+                        $addonResumed = $addonReservation->platformId() === $existingAddonId;
+                        $slot['current_occupant']['addon_platform_id'] = $addonReservation->platformId();
+                    }
                 }
             } catch (\Throwable) {
-                if ($primaryReservation !== null) $this->retireReservation($primaryReservation);
-                if ($addonReservation !== null) $this->retireReservation($addonReservation);
+                if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                if ($addonReservation !== null && !$addonResumed) $this->retireReservation($addonReservation);
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Platform identifier.'], 500);
             }
         }
@@ -1642,8 +1661,8 @@ class PackageStationController
         try {
             $this->persistTierInstance($station, $instanceId, $instance);
         } catch (\Throwable) {
-            if ($primaryReservation !== null) $this->retireReservation($primaryReservation);
-            if ($addonReservation !== null) $this->retireReservation($addonReservation);
+            if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+            if ($addonReservation !== null && !$addonResumed) $this->retireReservation($addonReservation);
             return new \WP_REST_Response(['success' => false, 'message' => 'Tier settlement could not be persisted.'], 500);
         }
 
@@ -1660,11 +1679,16 @@ class PackageStationController
                     $this->platformIdentity->bind($this->identityAdapters->tierAddon(), $addonReservation, $nativeReference);
                 }
             } catch (\Throwable) {
-                // A bound primary identity must never be detached from its
-                // occupant. Leave the persisted record intact for explicit
-                // reconciliation; only still-reserved claims are retired.
-                if ($primaryReservation !== null) $this->retireReservation($primaryReservation);
-                if ($addonReservation !== null) $this->retireReservation($addonReservation);
+                // Every id here is already written onto the persisted occupant
+                // by persistTierInstance() above. A freshly-minted reservation
+                // that never reached storage before this request is safe to
+                // retire; a resumed reservation is already referenced by that
+                // persisted data, so retiring it would strand the row — the
+                // next read or retry resumes and completes it via
+                // reservationForReconciliation() / identityNeedsReconciliation()
+                // above.
+                if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                if ($addonReservation !== null && !$addonResumed) $this->retireReservation($addonReservation);
                 return new \WP_REST_Response([
                     'success' => false,
                     'message' => 'Tier settlement persisted, but Platform identifier binding requires reconciliation.',

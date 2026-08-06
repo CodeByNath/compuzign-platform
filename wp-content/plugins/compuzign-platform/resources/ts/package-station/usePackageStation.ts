@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
+import { ApiTimeoutError } from '@/api/client';
 import {
   fetchServicePackageStation,
   saveServicePackageStationTierModule,
@@ -393,7 +394,13 @@ export function usePackageStation(
         onRefresh?.();
       }
       return res;
-    } catch { return null; } finally { setSaving(false); }
+    } catch (e) {
+      // A stalled request's outcome is genuinely unknown — never collapse it
+      // into the same "failed" result as a real API error. The caller
+      // distinguishes it to avoid reporting a definite failure.
+      if (e instanceof ApiTimeoutError) throw e;
+      return null;
+    } finally { setSaving(false); }
   }, [serviceId, tierInstanceId, onRefresh]);
 
   // Station-level popular tier — patches station.popular_tier/label in place.

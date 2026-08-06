@@ -22,6 +22,7 @@
 // and is unchanged by the composition split.
 
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { ApiTimeoutError } from '@/api/client';
 import { usePackageStation } from '../../usePackageStation';
 import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
 import { serviceConnectionBinding } from '@/service-station';
@@ -117,8 +118,14 @@ export function useTierDrawerController({
   const handleSettle = async () => {
     if (!editingTierId) return;
     setSaveErr(null);
-    const r = await pkg.settleTier(editingTierId);
-    if (r?.success) setSaveOk(true); else setSaveErr('Publish failed.');
+    try {
+      const r = await pkg.settleTier(editingTierId);
+      if (r?.success) setSaveOk(true); else setSaveErr('Publish failed.');
+    } catch (e) {
+      // A timed-out request's outcome is uncertain, not a definite failure —
+      // show its own message rather than the generic one above.
+      setSaveErr(e instanceof ApiTimeoutError ? e.message : 'Publish failed.');
+    }
   };
   const handleConfirmPublish = async () => {
     setConfirmModal(null);
