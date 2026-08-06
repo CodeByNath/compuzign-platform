@@ -451,6 +451,78 @@ export interface SurfaceTierDetail {
   // draft-preferred merge is performed client-side by usePackageStation.
   drafts?: TierDrafts;
   module_status?: Record<string, string>;
+  // Tier Edition (Phase 1+) — independently addressed, independently
+  // lifecycled child records nested inside this occupant. Absent/empty for
+  // every occupant that has never used this capability; both optional so a
+  // legacy locally-constructed detail (e.g. emptyTierDetail's client-side
+  // mirror) never needs to fabricate them.
+  tier_editions?: TierEdition[];
+  default_edition_id?: string | null;
+}
+
+// ── Tier Edition (Phase 1+) ──────────────────────────────────────────────────
+//
+// A Tier Edition is not another Tier and not a Tier Add-on: it is one
+// mutually exclusive commercial declaration owned by a Tier occupant,
+// carrying its own canonical CZTE identity and its own StationLifecycle
+// state, reusing the occupant's own Rate Sheet binding/selection shape and
+// the occupant's own inherit-when-empty declaration-override rule. See
+// docs/code-map/tiers.md and PackageSchema's SECTION: TIER_EDITION.
+export interface TierEdition {
+  id: string;
+  /** Output-only permanent identity; empty until first Publish (Active). */
+  edition_platform_id: string;
+  title: string;
+  admin_description: string;
+  platform_status: 'draft' | 'active' | 'disabled' | 'archived' | 'trashed';
+  previous_platform_status: string | null;
+  is_explicitly_disabled: boolean;
+  module_status: Record<string, string>;
+  drafts: Record<string, TierEditionOverviewDraft | null>;
+  rate_sheet_id: string | null;
+  rate_sheet_items: TierRateSheetSelection[];
+  price: number | null;
+  contact: boolean;
+  billing_cycle: string | null;
+  minimum_term_value: number | null;
+  minimum_term_unit: string | null;
+  // Empty means inherit the parent occupant's own inclusions_override/
+  // faq_refs; non-empty is this Edition's deliberate declaration override.
+  inclusions_override: InclusionItem[];
+  faq_refs: string[];
+}
+
+// The Edition's one consolidated module — mirrors Package Family's own
+// single 'overview' module, not the parent occupant's three-module
+// Overview/Features/FAQs split (an Edition's total editable surface is
+// closer in size to a Family row than to a whole Tier occupant).
+export interface TierEditionOverviewDraft {
+  title: string;
+  admin_description: string;
+  rate_sheet_id: string | null;
+  rate_sheet_items: TierRateSheetSelection[];
+  billing_cycle: string | null;
+  contact: boolean;
+  minimum_term_value: number | null;
+  minimum_term_unit: string | null;
+  inclusions_override: InclusionItem[];
+  faq_refs: string[];
+}
+
+export interface TierEditionResponse {
+  success:     boolean;
+  tier_instance_id?: string;
+  tier_id:     string;
+  edition_id:  string;
+  edition?:    TierEdition;
+  message?:    string;
+}
+
+export interface TierEditionDefaultResponse {
+  success:     boolean;
+  tier_instance_id?: string;
+  tier_id:     string;
+  default_edition_id: string | null;
 }
 
 // Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response

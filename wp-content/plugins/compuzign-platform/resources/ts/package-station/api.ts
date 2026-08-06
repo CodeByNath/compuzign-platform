@@ -23,6 +23,9 @@ import type {
   TierInstancesResponse,
   TierInstanceMutationResponse,
   TierInstanceDeleteResponse,
+  TierEditionOverviewDraft,
+  TierEditionResponse,
+  TierEditionDefaultResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -302,6 +305,113 @@ export function setServicePackageStationPopular(
   return apiClient.post(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/popular`,
     { tier_id: tierId, label },
+  );
+}
+
+// ── Tier Edition (Phase 1+) — independently addressed child record ──────────
+// Same instance/slot address as every other Tier route above, plus the
+// Edition's own minted edt_… id. No new endpoint FAMILY: reuses the
+// established module draft/settle/revert and engine-transition shapes one
+// level deeper, exactly like PackageCategoryGroups' own contract.
+
+export function createTierEdition(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  payload: Partial<TierEditionOverviewDraft>,
+): Promise<TierEditionResponse> {
+  return apiClient.post<TierEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions`,
+    payload,
+  );
+}
+
+export function saveTierEditionModule(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+  payload: TierEditionOverviewDraft,
+): Promise<TierEditionResponse> {
+  return apiClient.post<TierEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/modules/overview`,
+    payload,
+  );
+}
+
+export function settleTierEditionModule(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+): Promise<TierEditionResponse> {
+  return apiClient.post<TierEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/modules/overview/settle`,
+    {},
+  );
+}
+
+export function revertTierEditionModule(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+): Promise<TierEditionResponse> {
+  return apiClient.post<TierEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/modules/overview/revert`,
+    {},
+  );
+}
+
+// One permissive engine-transition endpoint (platform_status) plus the
+// explicit Disable/Enable mask (action) — the same one-route shape Package
+// Family's own /status endpoint uses, not a named route per transition.
+export function updateTierEditionStatus(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+  change: { platform_status: 'active' | 'disabled' | 'archived' | 'trashed' } | { action: 'disable' | 'enable' },
+): Promise<TierEditionResponse> {
+  return apiClient.patch<TierEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/status`,
+    change,
+  );
+}
+
+export function restoreTierEdition(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+): Promise<TierEditionResponse> {
+  return apiClient.post<TierEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/restore`,
+    {},
+  );
+}
+
+/** Guarded permanent delete: trashed-only, and never the current default. */
+export function deleteTierEdition(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+): Promise<TierEditionResponse> {
+  return apiClient.delete<TierEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}`,
+  );
+}
+
+export function setTierEditionDefault(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string | null,
+): Promise<TierEditionDefaultResponse> {
+  return apiClient.post<TierEditionDefaultResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/default-edition`,
+    { edition_id: editionId ?? '' },
   );
 }
 

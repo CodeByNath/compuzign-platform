@@ -28,6 +28,7 @@ import { useTierDrawerController } from './useTierDrawerController';
 import { TierDrawerFooter } from './TierDrawerFooter';
 import { TierBinList } from './TierBinList';
 import { TierDrawerDialogs } from './TierDrawerDialogs';
+import { TierEditionsPanel } from './TierEditionsPanel';
 import type { TierDrawerContentProps } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 
@@ -304,11 +305,36 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
       onTogglePanel={(m) => c.setOpenTierPanel((p) => (p === m ? null : m))}
       editing={editing}
       trailing={{
-        details: (c.saveErr || c.saveOk) && (
-          <div class="cz-shell-section cz-shell-section--no-border">
-            {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
-            {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
-          </div>
+        details: (
+          <>
+            {(c.saveErr || c.saveOk) && (
+              <div class="cz-shell-section cz-shell-section--no-border">
+                {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
+                {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+              </div>
+            )}
+            {/* Editions are occupant-scoped: only a real, settled occupant
+                (a stable occupant_id) can own child records — an empty slot
+                or a not-yet-first-saved shell has nothing to attach them to. */}
+            {detail.occupant_id && (
+              <TierEditionsPanel
+                serviceId={props.serviceId}
+                tierInstanceId={props.tierInstanceId}
+                tierId={c.editingTierId}
+                editions={detail.tier_editions ?? []}
+                defaultEditionId={detail.default_edition_id ?? null}
+                rateSheetOptions={selectableRateSheets(
+                  svc.rate_sheets,
+                  station.allowed_rate_sheet_ids ?? [],
+                  detail.rate_sheet_id,
+                ).map((sheet) => ({
+                  value: sheet.rate_sheet_id,
+                  label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
+                }))}
+                onMutated={c.pkg.refetch}
+              />
+            )}
+          </>
         ),
       }}
     >
