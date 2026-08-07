@@ -1,4 +1,6 @@
-// Tier Occupant Lifecycle Repair — mounted regression (Phase 5).
+// Tier Occupant Lifecycle Repair — mounted regression (Phase 5; group-aware
+// since the drawer refinement blueprint's Details/Options/Connections/
+// Support model).
 //
 // Mounts the REAL TierDrawerContent composition (esbuild + happy-dom + Preact
 // render, same technique as scripts/service-disable-enable-regression.mjs)
@@ -7,8 +9,20 @@
 // settling; Publish activates; Disable masks every module Disabled; Enable
 // lands Pending (never Active, never Disabled) with every action reachable;
 // Publish after Enable reaches Active again; only the edited module changes
-// (siblings retain their state); and an Add-on occupant follows the
-// identical lifecycle.
+// (siblings retain their state, in Details AND in Support); and an Add-on
+// occupant follows the identical lifecycle.
+//
+// Overview and Default Tier Inclusions live in Details; Common Questions
+// lives in Support — a separate, mutually-exclusive group in both Tabs and
+// Accordion mode (only one group's content is ever mounted at a time, the
+// same way Details/Connections always were). So this regression checks each
+// group's pills while that group is active rather than assuming all three
+// are simultaneously visible, and separately proves: switching Details ↔
+// Support never calls an endpoint or changes a pill; Support/Common
+// Questions is reachable in both Tabs and Accordion view modes; and the
+// existing tab-switch guard (window.confirm, discard-on-confirm) still
+// fires when navigating away from a mid-edit module, exactly as it did
+// before Support existed.
 //
 // The fetch mock faithfully reproduces the now-implemented backend contract
 // (PackageSchema::isExplicitlyDisabled / settleTierSlot / the rewritten
@@ -42,7 +56,11 @@ globalThis.HTMLElement = window.HTMLElement;
 globalThis.Node = window.Node;
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
-window.confirm = () => true;
+// Counting, not just stubbed true — the mid-edit/group-navigation check below
+// needs to prove the existing tab-switch guard actually fired, not merely
+// that navigation didn't throw.
+let confirmCalls = 0;
+window.confirm = () => { confirmCalls += 1; return true; };
 
 window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'test-nonce' };
 
@@ -355,8 +373,35 @@ async function overflowItemLabel() {
   await sleep(20);
   return label;
 }
-function allPillsRead(label) {
-  return pillLabel('Tier Overview') === label && pillLabel('Default Tier Inclusions') === label && pillLabel('Common Questions') === label;
+// The individual-tier drawer's own four-group nav (Details/Options/
+// Connections/Support). Matches either renderer — DrawerGroupTabs'
+// `.cz-drawer-groups__tab` or DrawerGroupAccordion's
+// `.cz-drawer-groups__accordion-trigger` — since both are real `<button>`s
+// whose trimmed textContent is the group label, so this works unchanged in
+// either view mode.
+function selectGroup(label) {
+  const btn = [...container.querySelectorAll('.cz-drawer-groups__tab, .cz-drawer-groups__accordion-trigger')]
+    .find((b) => b.textContent.trim() === label);
+  btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return btn;
+}
+
+// Details and Support are mutually exclusive at any one moment (single
+// active group, in both Tabs and Accordion) — the same way Details/
+// Connections always were. Overview and Default Tier Inclusions are both
+// Details' own content, so they read together without navigating; Common
+// Questions is Support's own content, so reading it means switching there
+// and back, proving reachability rather than assuming co-visibility.
+function detailsPillsRead(label) {
+  return pillLabel('Tier Overview') === label && pillLabel('Default Tier Inclusions') === label;
+}
+async function faqPillReads(label) {
+  selectGroup('Support');
+  await sleep(20);
+  const reads = pillLabel('Common Questions') === label;
+  selectGroup('Details');
+  await sleep(20);
+  return reads;
 }
 
 async function runScenario(tierId, label) {
@@ -366,11 +411,57 @@ async function runScenario(tierId, label) {
   render(h(Harness, { initialTierId: tierId }), container);
   await waitToSettle();
   check('a footer was registered on mount', setFooterCalls > 0);
-  check('every module pill reads Active on mount', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
+  let faqActive = await faqPillReads('Active');
+  check('Details exposes Overview and Default Tier Inclusions, both Active, on mount', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Support exposes Common Questions, Active, on mount', faqActive, faqActive);
 
   let footerDom = renderFooterDom();
   check('the real rendered split button reads "Disable" while published and not masked', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
   check('a previously-published occupant\'s footer is unchanged — overflow still offers Archive, not Move to Trash', await overflowItemLabel() === 'Archive', await overflowItemLabel());
+
+  console.log('\n1b) Switching Details → Support → Details is presentation-only — no endpoint call, no pill change');
+  const settleCallsBeforeNav = settleCalls;
+  const enabledCallsBeforeNav = enabledCalls;
+  const overviewPillBeforeNav = pillLabel('Tier Overview');
+  const featuresPillBeforeNav = pillLabel('Default Tier Inclusions');
+  selectGroup('Support');
+  await sleep(20);
+  const faqPillDuringNav = pillLabel('Common Questions');
+  selectGroup('Details');
+  await sleep(20);
+  check('no settle/enabled request fired from switching groups', settleCalls === settleCallsBeforeNav && enabledCalls === enabledCallsBeforeNav, `settleCalls=${settleCalls} enabledCalls=${enabledCalls}`);
+  check('Overview/Default Tier Inclusions pills are unchanged after the round trip', pillLabel('Tier Overview') === overviewPillBeforeNav && pillLabel('Default Tier Inclusions') === featuresPillBeforeNav);
+  check('Common Questions was reachable while Support was the active group', faqPillDuringNav !== undefined, faqPillDuringNav);
+
+  console.log('\n1c) Support/Common Questions is reachable in both Tabs (default) and Accordion view modes');
+  check('Tabs is the default view mode', [...container.querySelectorAll('.cz-admin-btn--primary')].some((b) => b.textContent.trim() === 'Tabs'));
+  check('Common Questions is reachable in Tabs mode', await faqPillReads('Active'));
+  clickButtonWithText('Accordion');
+  await sleep(20);
+  check('switching view mode does not change the active group — Details is still active', pillLabel('Tier Overview') !== undefined);
+  check('Common Questions is reachable in Accordion mode too', await faqPillReads('Active'));
+  clickButtonWithText('Tabs');
+  await sleep(20);
+
+  console.log('\n1d) Editing a module and switching to Support mid-edit invokes the existing tab-switch guard; once confirmed it discards the in-progress edit (established contract, not a new preserve-across-navigation behaviour) — Support is reachable once the guard resolves');
+  const midEditBtn = editButtonFor('Tier Overview');
+  midEditBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  const midEditLabelInput = container.querySelector('#tier-label');
+  check('the Overview editor is open before navigating away', midEditLabelInput !== null);
+  if (midEditLabelInput) {
+    midEditLabelInput.value = `${tiers[tierId].settled.label} (discarded)`;
+    midEditLabelInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  }
+  const confirmCallsBeforeNav = confirmCalls;
+  selectGroup('Support');
+  await sleep(20);
+  check('the tab-switch guard (window.confirm) fired from navigating away mid-edit', confirmCalls === confirmCallsBeforeNav + 1, confirmCalls);
+  check('Common Questions is reachable once the guard resolves', pillLabel('Common Questions') !== undefined, pillLabel('Common Questions'));
+  selectGroup('Details');
+  await sleep(20);
+  check('the guard discarded the in-progress edit — Overview is read-only again, not still showing the input', container.querySelector('#tier-label') === null);
+  check('the discarded edit never reached the server', !tiers[tierId].settled.label.includes('(discarded)'), tiers[tierId].settled.label);
 
   console.log('\n2) Ready module Save — only the edited module changes, and it reads Pending full (not settled/Active)');
   const overviewEditBtn = editButtonFor('Tier Overview');
@@ -388,14 +479,16 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('a ready module Save persists a draft only — the occupant is not re-settled by Save', settleCalls === 0, `settleCalls=${settleCalls}`);
   check('the edited module (Overview) reads Pending', pillLabel('Tier Overview') === 'Pending', pillLabel('Tier Overview'));
-  check('sibling modules retain their settled state (Features)', pillLabel('Default Tier Inclusions') === 'Active', pillLabel('Default Tier Inclusions'));
-  check('sibling modules retain their settled state (FAQs)', pillLabel('Common Questions') === 'Active', pillLabel('Common Questions'));
+  check('sibling module in the same group retains its settled state (Default Tier Inclusions)', pillLabel('Default Tier Inclusions') === 'Active', pillLabel('Default Tier Inclusions'));
+  check('sibling module in the OTHER group (Support) also retains its settled state (Common Questions)', await faqPillReads('Active'));
 
   console.log('\n3) Publish — activates, and every module returns to settled/Active');
   await clickPublish();
   await waitToSettle();
   check('the settle endpoint was called', settleCalls >= 1, `settleCalls=${settleCalls}`);
-  check('every module pill reads Active after Publish', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
+  faqActive = await faqPillReads('Active');
+  check('Details reads Active on both its own modules after Publish', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Support reads Active on Common Questions after Publish', faqActive);
   check('the edit reached the server (label updated)', tiers[tierId].settled.label.endsWith('(edited)'), tiers[tierId].settled.label);
 
   console.log('\n4) Disable — every module reads Disabled, not Pending');
@@ -406,7 +499,9 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('the enabled endpoint was called for Disable', enabledCalls === 1, `enabledCalls=${enabledCalls}`);
   check('the Disable request carried enabled:false', lastEnabledPayload?.enabled === false, JSON.stringify(lastEnabledPayload));
-  check('every module pill reads Disabled after Disable', allPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
+  faqActive = await faqPillReads('Disabled');
+  check('Details reads Disabled on both its own modules after Disable', detailsPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Support reads Disabled on Common Questions after Disable', faqActive);
 
   footerDom = renderFooterDom();
   check('the real rendered split button now reads "Enable"', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
@@ -417,7 +512,9 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('the enabled endpoint was called for Enable', enabledCalls === 2, `enabledCalls=${enabledCalls}`);
   check('the Enable request carried enabled:true', lastEnabledPayload?.enabled === true, JSON.stringify(lastEnabledPayload));
-  check('Enable never activates — every module pill reads Pending, not Active', allPillsRead('Pending'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
+  faqActive = await faqPillReads('Pending');
+  check('Enable never activates — Details reads Pending, not Active, on both its own modules', detailsPillsRead('Pending'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Enable never activates — Support reads Pending on Common Questions too', faqActive);
 
   footerDom = renderFooterDom();
   check('after Enable the footer offers Disable again — not a no-op Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
@@ -427,7 +524,9 @@ async function runScenario(tierId, label) {
   await clickPublish();
   await waitToSettle();
   check('the settle endpoint was called again', settleCalls === settleCallsBefore + 1, `settleCalls=${settleCalls}`);
-  check('Publish after Enable reaches Active on every module', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
+  faqActive = await faqPillReads('Active');
+  check('Publish after Enable reaches Active on Details\' own modules', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Publish after Enable reaches Active on Support\'s Common Questions too', faqActive);
 
   footerDom = renderFooterDom();
   check('the footer still offers Disable after republish', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
@@ -497,7 +596,8 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   footerDom = renderFooterDom();
   footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await waitToSettle();
-  check('Disable masks every module', allPillsRead('Disabled'));
+  check('Disable masks Details\' own modules', detailsPillsRead('Disabled'));
+  check('Disable masks Support\'s Common Questions too', await faqPillReads('Disabled'));
   footerDom = renderFooterDom();
   check('the explicit mask changes the split action to Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable');
   footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
@@ -513,7 +613,7 @@ await runScenario('basic', 'Normal Tier');
 // first mount) would otherwise never re-seed for the second occupant.
 render(null, container);
 setFooterCalls = 0; lastFooter = null;
-settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null;
+settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null; confirmCalls = 0;
 await runScenario('standard', 'Add-on Tier (identical lifecycle)');
 check('the Add-on occupant kept is_addon true throughout its lifecycle', tiers.standard.settled.is_addon === true);
 check('the normal Tier occupant is still is_addon false — no cross-occupant leakage', tiers.basic.settled.is_addon === false);
@@ -521,12 +621,12 @@ check('occupant ids stayed stable across every transition', tiers.basic.settled.
 
 render(null, container);
 setFooterCalls = 0; lastFooter = null;
-settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null;
+settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null; confirmCalls = 0;
 await runFirstSaveScenario('premium', 'Normal', false);
 
 render(null, container);
 setFooterCalls = 0; lastFooter = null;
-settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null;
+settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null; confirmCalls = 0;
 await runFirstSaveScenario('enterprise', 'Add-on', true);
 
 console.log('');

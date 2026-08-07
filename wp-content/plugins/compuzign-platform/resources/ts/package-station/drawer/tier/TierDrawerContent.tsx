@@ -306,10 +306,14 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // exactly as today (useTierEditions, the occupant's own tier_editions[]/
   // tier_edition_bin[]); moving the switcher's rendering location changes
   // nothing about who persists, validates, or lifecycles that data. Support
-  // stays empty for now — Common Questions remains under Details; moving it
-  // needs its own reviewed pass (the occupant-lifecycle regression currently
-  // reads Overview/Inclusions/FAQ pills as co-visible, which no longer holds
-  // once FAQ sits in a separate, mutually-exclusive group).
+  // owns Common Questions the same way: same faqs module key, same
+  // tierFaqsShell, same PlacedShell viewpoint (mode: 'details' — Support is
+  // a presentation grouping, not a connections viewpoint) — only which group
+  // renders it changed. Details/Support are mutually exclusive at any one
+  // moment (single active group, both Tabs and Accordion), the same way
+  // Details/Connections always were; regression:tier-occupant-lifecycle
+  // reflects this by checking each group's pills while that group is active,
+  // not all three simultaneously.
   const togglePanel = (module: string) => () =>
     c.setOpenTierPanel((p) => (p === module ? null : module));
 
@@ -333,14 +337,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
             binding={td.featuresBinding}
             panelOpen={c.openTierPanel === 'features'}
             onTogglePanel={togglePanel('features')}
-            editing={editing}
-          />
-          <PlacedShell
-            entity={TIER_ENTITY}
-            slot={{ module: 'faqs', mode: 'details' }}
-            binding={td.faqsBinding}
-            panelOpen={c.openTierPanel === 'faqs'}
-            onTogglePanel={togglePanel('faqs')}
             editing={editing}
           />
           {(c.saveErr || c.saveOk) && (
@@ -400,8 +396,33 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         />
       ),
     },
-    // Populated in Phase 5 once Common Questions relocates here.
-    { id: 'support', label: 'Support', content: null },
+    {
+      id: 'support',
+      label: 'Support',
+      content: (
+        <>
+          <PlacedShell
+            entity={TIER_ENTITY}
+            slot={{ module: 'faqs', mode: 'details' }}
+            binding={td.faqsBinding}
+            panelOpen={c.openTierPanel === 'faqs'}
+            onTogglePanel={togglePanel('faqs')}
+            editing={editing}
+          />
+          {/* saveErr/saveOk is coordinator-owned (useTierModuleEditing),
+              shared across Overview/Inclusions/FAQ saves alike — repeated
+              here so a FAQ save shows its own confirmation in the group the
+              admin is actually viewing, the same guarantee Details already
+              gives Overview/Inclusions saves. */}
+          {(c.saveErr || c.saveOk) && (
+            <div class="cz-shell-section cz-shell-section--no-border">
+              {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
+              {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+            </div>
+          )}
+        </>
+      ),
+    },
   ];
 
   // Current-plan context (Phase 6). Purely derived presentation, not a new
