@@ -18,4 +18,9 @@ export interface DrawerGroupNavProps<Id extends string = string> {
   groups:   readonly DrawerGroup<Id>[];
   activeId: Id;
   onSelect: (id: Id) => void;
+  // Optional compact control rendered alongside the group nav — e.g. a
+  // Tabs/Accordion view-mode toggle. Neither renderer interprets it; each
+  // just places it (DrawerGroupTabs: end of the tab row; DrawerGroupAccordion:
+  // above the sections, since Accordion mode has no tab row of its own).
+  trailing?: ComponentChildren;
 }

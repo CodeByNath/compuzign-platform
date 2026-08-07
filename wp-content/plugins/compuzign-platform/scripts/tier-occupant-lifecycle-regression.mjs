@@ -24,6 +24,13 @@
 // fires when navigating away from a mid-edit module, exactly as it did
 // before Support existed.
 //
+// The Tabs/Accordion switch itself is a compact icon-only button (top-nav
+// refinement) found by aria-label, not text — "Switch to accordion view" /
+// "Switch to tabs view" — showing the AVAILABLE alternate view, never the
+// current one. This regression also proves the CURRENT PLAN text banner
+// that used to sit above it is gone, and that clicking the icon fires no
+// settle/enabled request in either direction.
+//
 // The fetch mock faithfully reproduces the now-implemented backend contract
 // (PackageSchema::isExplicitlyDisabled / settleTierSlot / the rewritten
 // setPackageStationTierEnabled — proven separately by
@@ -340,6 +347,13 @@ function clickButtonWithText(text, root = container) {
   btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return btn;
 }
+// The view-mode toggle is icon-only (no visible text) — found by aria-label,
+// same as clickButtonWithText but for the compact-icon refinement.
+function clickButtonWithLabel(label, root = container) {
+  const btn = [...root.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === label);
+  btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return btn;
+}
 function findModule(titleText) {
   return [...container.querySelectorAll('.drawerModule')]
     .find((el) => el.querySelector('.drawerModule__title')?.textContent.trim().startsWith(titleText)) ?? null;
@@ -433,15 +447,28 @@ async function runScenario(tierId, label) {
   check('Overview/Default Tier Inclusions pills are unchanged after the round trip', pillLabel('Tier Overview') === overviewPillBeforeNav && pillLabel('Default Tier Inclusions') === featuresPillBeforeNav);
   check('Common Questions was reachable while Support was the active group', faqPillDuringNav !== undefined, faqPillDuringNav);
 
-  console.log('\n1c) Support/Common Questions is reachable in both Tabs (default) and Accordion view modes');
-  check('Tabs is the default view mode', [...container.querySelectorAll('.cz-admin-btn--primary')].some((b) => b.textContent.trim() === 'Tabs'));
+  console.log('\n1c) Compact icon view toggle (top-nav refinement): no CURRENT PLAN text, Tabs mode shows the four group tabs plus one alternate-view icon, Accordion mode shows only the icon (no tab row) plus the accordion sections, the icon toggles both ways without firing a mutation, and Support/Common Questions stays reachable in both modes');
+  check('CURRENT PLAN text is not rendered', !container.textContent.includes('CURRENT PLAN'));
+  check('Tabs is the default view mode — four group tabs are present', container.querySelectorAll('.cz-drawer-groups__tab').length === 4);
+  check('Tabs mode renders exactly one alternate-view icon toggle', container.querySelectorAll('.cz-drawer-groups__view-toggle').length === 1);
+  check('the icon offers to switch to accordion while Tabs is active', container.querySelector('[aria-label="Switch to accordion view"]') !== null);
   check('Common Questions is reachable in Tabs mode', await faqPillReads('Active'));
-  clickButtonWithText('Accordion');
+
+  const settleCallsBeforeToggle = settleCalls;
+  const enabledCallsBeforeToggle = enabledCalls;
+  clickButtonWithLabel('Switch to accordion view');
   await sleep(20);
+  check('toggling view mode fires no settle/enabled request', settleCalls === settleCallsBeforeToggle && enabledCalls === enabledCallsBeforeToggle, `settleCalls=${settleCalls} enabledCalls=${enabledCalls}`);
+  check('Accordion mode renders no four-tab row', container.querySelectorAll('.cz-drawer-groups__tab').length === 0);
+  check('Accordion mode renders the four accordion sections', container.querySelectorAll('.cz-drawer-groups__accordion-trigger').length === 4);
+  check('Accordion mode renders exactly one alternate-view icon toggle', container.querySelectorAll('.cz-drawer-groups__view-toggle').length === 1);
+  check('the icon offers to switch back to tabs while Accordion is active', container.querySelector('[aria-label="Switch to tabs view"]') !== null);
   check('switching view mode does not change the active group — Details is still active', pillLabel('Tier Overview') !== undefined);
   check('Common Questions is reachable in Accordion mode too', await faqPillReads('Active'));
-  clickButtonWithText('Tabs');
+
+  clickButtonWithLabel('Switch to tabs view');
   await sleep(20);
+  check('toggling back restores the four-tab row', container.querySelectorAll('.cz-drawer-groups__tab').length === 4);
 
   console.log('\n1d) Editing a module and switching to Support mid-edit invokes the existing tab-switch guard; once confirmed it discards the in-progress edit (established contract, not a new preserve-across-navigation behaviour) — Support is reachable once the guard resolves');
   const midEditBtn = editButtonFor('Tier Overview');

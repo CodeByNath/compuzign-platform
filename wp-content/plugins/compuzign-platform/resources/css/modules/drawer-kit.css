@@ -1120,10 +1120,46 @@
   top: calc(-1 * var(--cz-space-6));
   z-index: 2;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cz-space-2);
   margin: 0 calc(-1 * var(--cz-space-6)) var(--cz-space-5);
   padding: var(--cz-space-2) calc(var(--cz-space-6) - var(--cz-space-2)) var(--cz-space-2);
   background: var(--station-surface);
   border-bottom: 1px solid var(--station-border);
+}
+
+.cz-drawer-groups__tablist-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* View-mode toggle (Tabs default, Accordion alternate) — a compact,
+   secondary control, not a group tab. Tabs mode: end of this row (flex
+   justify-content: space-between puts it far right). Accordion mode has no
+   tab row, so DrawerGroupAccordion places it in its own trailing slot above
+   the sections instead. */
+.cz-drawer-groups__tablist-trailing,
+.cz-drawer-groups__accordion-trailing {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.cz-drawer-groups__accordion-trailing {
+  justify-content: flex-end;
+  margin-bottom: var(--cz-space-2);
+}
+
+.cz-drawer-groups__view-toggle {
+  width: 28px;
+  height: 28px;
+}
+
+.cz-drawer-groups__view-toggle .cz-station-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .cz-drawer-groups__tab {

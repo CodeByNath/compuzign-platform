@@ -25,6 +25,7 @@ import { serviceOverviewShell } from '@/service-station';
 import { TIER_ENTITY } from '../schema/entities/tier';
 import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
+import { TiersIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import type { TierRateSheetSelection } from '../../types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
@@ -425,49 +426,37 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     },
   ];
 
-  // Current-plan context (Phase 6). Purely derived presentation, not a new
-  // business entity: reads the already-selected declaration
-  // (selectedDeclarationId, owned by useTierDrawerController) and the
-  // occupant's own tier_editions[]. Rendered outside any group's content —
-  // above the group nav — so it stays visible and correct regardless of
-  // which group is open or which view mode is active; switching either
-  // never touches selectedDeclarationId, so the label never resets.
-  const selectedEdition = c.selectedDeclarationId
-    ? (detail.tier_editions ?? []).find((edition) => edition.id === c.selectedDeclarationId)
-    : null;
-  const currentPlanLabel = selectedEdition?.title.trim() || 'DEFAULT TIER';
+  // View toggle (Phase 4; compact-icon refinement). Presentation-only: both
+  // renderers consume the identical tierGroups array and the identical
+  // activeId/onSelect pair, so switching modes changes only which primitive
+  // draws the nav — never which content exists or which group is active. The
+  // icon shown is the AVAILABLE ALTERNATE view, not the current one — the
+  // same convention AdminStationHeader's own theme toggle already uses (Sun
+  // shown while dark is active, Moon while light is active). It is passed
+  // through DrawerGroupTabs/DrawerGroupAccordion's shared `trailing` slot
+  // (a small, generic addition to those two renderers) rather than living in
+  // shared drawer chrome — AdminStationDrawer's header still has no action
+  // slot (title + close only).
+  const viewToggleTarget = c.tierGroupView === 'tabs' ? 'accordion' : 'tabs';
+  const viewToggleLabel  = viewToggleTarget === 'accordion' ? 'Switch to accordion view' : 'Switch to tabs view';
+  const viewToggle = (
+    <button
+      type="button"
+      class="cz-station-iconbtn cz-drawer-groups__view-toggle"
+      aria-label={viewToggleLabel}
+      title={viewToggleLabel}
+      onClick={() => c.setTierGroupView(viewToggleTarget)}
+    >
+      {viewToggleTarget === 'accordion' ? <TiersIcon /> : <ServicesIcon />}
+    </button>
+  );
 
-  // Tabs/Accordion view toggle (Phase 4). Presentation-only: both renderers
-  // consume the identical tierGroups array and the identical activeId/
-  // onSelect pair, so switching modes changes only which primitive draws the
-  // nav — never which content exists or which group is active. AdminStationDrawer's
-  // header has no action slot (title + close only), so the toggle sits here,
-  // beside the group nav, rather than in shared drawer chrome.
   return (
     <div class="cz-req-detail" key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}>
-      <div class="cz-shell-section cz-shell-section--no-border" style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-2); margin-bottom: var(--cz-space-3)">
-        <p class="cz-shell-section__title" style="margin:0">CURRENT PLAN: {currentPlanLabel}</p>
-        <div style="display:flex; gap: var(--cz-space-2)">
-          <button
-            type="button"
-            class={`cz-admin-btn cz-admin-btn--sm ${c.tierGroupView === 'tabs' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
-            onClick={() => c.setTierGroupView('tabs')}
-          >
-            Tabs
-          </button>
-          <button
-            type="button"
-            class={`cz-admin-btn cz-admin-btn--sm ${c.tierGroupView === 'accordion' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
-            onClick={() => c.setTierGroupView('accordion')}
-          >
-            Accordion
-          </button>
-        </div>
-      </div>
       {c.tierGroupView === 'accordion' ? (
-        <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} />
+        <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={viewToggle} />
       ) : (
-        <DrawerGroupTabs groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} />
+        <DrawerGroupTabs groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={viewToggle} />
       )}
       <TierDrawerDialogs c={c} />
     </div>
