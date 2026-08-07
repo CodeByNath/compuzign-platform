@@ -59,7 +59,7 @@ The admin engine reads the same occupant. [tierOccupantCard.ts](../../wp-content
 - `is_addon` never changes `platform_status`, module `module_status`, occupant id, or Rate Sheet selections.
 - No compatibility ledger, cross-Tier-Instance resolution, sixth shell, or second occupant collection exists for this capability.
 - The legacy recommended bundle remains unrelated; real Add-ons never use its synthetic negative Service identity.
-- An Add-on occupant may also carry `tier_editions[]`/`default_edition_id`, receiving that capability automatically because it is the same occupant engine — no Add-on-specific Edition schema, routes, lifecycle, projection, or pricing exists. See [Tier Edition](tier-edition.md).
+- An Add-on occupant may also carry `tier_editions[]`, receiving that capability automatically because it is the same occupant engine — no Add-on-specific Edition schema, routes, lifecycle, projection, or pricing exists. See [Tier Edition](tier-edition.md).
 
 ## Related Code Maps
 

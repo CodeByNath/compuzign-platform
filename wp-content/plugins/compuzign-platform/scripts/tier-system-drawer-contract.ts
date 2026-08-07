@@ -305,10 +305,17 @@ const tierBindingsSource = readFileSync(resolve(
   root,
   'resources/ts/package-station/drawer/schema/bindings/tier.tsx',
 ), 'utf8');
+// Tier Overview additionally carries a small "+ Edition" footer action
+// (docs/code-map/tier-edition.md) alongside the shared discard-draft/edit
+// pair, so it uses OVERVIEW_FOOTER/OVERVIEW_ACTIONS — a superset built from
+// DETAILS_ACTIONS' own literal `edit` entry, not a second Edit definition —
+// while Features and FAQs still use the plain DETAILS_FOOTER unchanged.
 check(
-  (tierBindingsSource.match(/footer:\s+DETAILS_FOOTER/g) ?? []).length === 3
+  (tierBindingsSource.match(/footer:\s+DETAILS_FOOTER/g) ?? []).length === 2
+    && tierBindingsSource.includes('footer:  OVERVIEW_FOOTER')
+    && tierBindingsSource.includes('...DETAILS_ACTIONS')
     && tierBindingsSource.includes("edit: { id: 'edit', label: 'Edit', intent: 'secondary' }"),
-  'all three Tier modules offer the same Edit action into their own inline editor',
+  'all three Tier modules offer the same Edit action into their own inline editor — Overview\'s own extra "+ Edition" action is additive, not a second Edit',
 );
 const tierModuleRules = readFileSync(resolve(
   root,

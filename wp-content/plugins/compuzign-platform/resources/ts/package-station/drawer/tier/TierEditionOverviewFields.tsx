@@ -1,7 +1,7 @@
-// Tier Edition overview-module form fields — shared by the inline
-// TierEditionsPanel editor and the scoped tier-edition:{...} drawer's own
-// editor, so the two surfaces render literally the same form rather than
-// two copies that could drift on field set or validation.
+// Tier Edition overview-module form fields — the one editor
+// TierEditionDeclarationSwitcher (Inclusions & Editions' own
+// [Default] [Edition …] tab strip) uses to edit whichever Edition is
+// currently selected.
 
 import { useMemo } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
