@@ -1,2 +1,0 @@
-Throwaway file to verify the push flow from this checkout works end to end.
-Safe to delete once confirmed.

@@ -67,3 +67,6 @@ with a timeout and throws a distinguishable `ApiTimeoutError`; this hook lets
 that error propagate out of `settleTier` instead of swallowing it, so a
 stalled Publish still releases `saving` via the existing `finally` and the
 drawer surfaces an uncertain-outcome message instead of a false "failed."
+
+<!-- deploy-pipeline trigger check: 2026-08-07 -->
+
