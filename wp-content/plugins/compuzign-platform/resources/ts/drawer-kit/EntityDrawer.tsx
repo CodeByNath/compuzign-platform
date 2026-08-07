@@ -22,10 +22,8 @@ import { useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { DrawerTabs } from './DrawerTabs';
 import type { DrawerBaseTabId, DrawerTabId } from './DrawerTabs';
-import { ModeProvider } from './schema/modeContext';
-import { OverviewShell } from './schema/shells/overviewShell';
-import { ChildShell } from './schema/shells/childShell';
-import type { EntitySchema, ShellBinding, ShellEditSession, ShellSlot } from './schema/types';
+import { PlacedShell } from './PlacedShell';
+import type { EntitySchema, ShellBinding, ShellEditSession } from './schema/types';
 
 export interface EntityDrawerEditingModule {
   module: string;
@@ -51,35 +49,6 @@ export interface EntityDrawerProps<T extends DrawerTabId = DrawerBaseTabId> {
   trailing?: Partial<Record<DrawerBaseTabId, ComponentChildren>>;
   // Step-owned chrome rendered inside the body wrapper after the tab content.
   children?: ComponentChildren;
-}
-
-// One placed shell: the manifest resolves the slot's module key to a
-// ShellSchema; the archetype picks the renderer; the slot's mode is provided
-// as the viewpoint (§7 — placements decide the mode, shells never branch).
-function PlacedShell({ entity, slot, binding, panelOpen, onTogglePanel, editing }: {
-  entity:  EntitySchema;
-  slot:    ShellSlot;
-  binding: ShellBinding<any> | undefined;
-  panelOpen:      boolean;
-  onTogglePanel?: () => void;
-  editing?: EntityDrawerEditingModule | null;
-}) {
-  const schema = entity.shells[slot.module];
-  if (!schema || !binding) return null;
-  const Shell = schema.archetype === 'overview' ? OverviewShell : ChildShell;
-  const isEditing = editing?.module === slot.module;
-  return (
-    <ModeProvider mode={isEditing ? 'edit' : slot.mode}>
-      <Shell
-        schema={schema}
-        binding={binding}
-        panelOpen={panelOpen}
-        onTogglePanel={onTogglePanel}
-        footer={slot.footer}
-        editSession={isEditing ? editing.session : undefined}
-      />
-    </ModeProvider>
-  );
 }
 
 export function EntityDrawer<T extends DrawerTabId = DrawerBaseTabId>({
