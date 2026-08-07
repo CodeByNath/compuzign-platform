@@ -33,6 +33,12 @@ export interface TierDrawerContentProps {
 // Which individual-tier module is being edited (null = every module readable).
 export type TierEditingSection = 'tier-overview' | 'tier-inclusions' | 'tier-faqs' | null;
 
+// The individual-tier screen's four presentation groups (drawer refinement
+// blueprint, Phase 3). This screen composes its shells directly through
+// PlacedShell rather than EntityDrawer's fixed Details/Connections bar, so
+// it owns a wider group id than DrawerBaseTabId.
+export type TierDrawerGroupId = 'details' | 'options' | 'connections' | 'support';
+
 // A binned-occupant restore conflict, keyed by the engine's D3 error codes.
 export interface TierBinPrompt {
   binId:       string;

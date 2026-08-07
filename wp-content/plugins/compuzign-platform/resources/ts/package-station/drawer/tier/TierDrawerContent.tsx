@@ -12,8 +12,10 @@ import { useEffect } from 'preact/hooks';
 import { AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
-import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
+import { PlacedShell } from '@/drawer-kit/PlacedShell';
+import { DrawerGroupTabs } from '@/drawer-kit/ui/DrawerGroupTabs';
+import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
 import { ModeProvider } from '@/drawer-kit/schema/modeContext';
 import { OverviewShell } from '@/drawer-kit/schema/shells/overviewShell';
 import { serviceOverviewShell } from '@/service-station';
@@ -29,7 +31,7 @@ import { TierDrawerFooter } from './TierDrawerFooter';
 import { TierBinList } from './TierBinList';
 import { TierDrawerDialogs } from './TierDrawerDialogs';
 import { TierEditionDeclarationSwitcher } from './TierEditionDeclarationSwitcher';
-import type { TierDrawerContentProps } from './tierDrawerTypes';
+import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 
 export function TierDrawerContent(props: TierDrawerContentProps) {
@@ -288,60 +290,110 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // module is simply empty, and the module's own Pending pill carries the
   // guidance (`Edit and configure this tier.`) that a separate explanation block
   // used to duplicate above it. Edit is the only way into the editor, exactly as
-  // Inclusions & Editions and Common Questions already behave.
+  // Default Tier Inclusions and Common Questions already behave.
+  //
+  // Composed directly through PlacedShell (drawer refinement blueprint,
+  // Phase 3) instead of EntityDrawer's fixed Details/Connections bar, so the
+  // screen can present the four-group Details/Options/Connections/Support
+  // model. PlacedShell is the same primitive EntityDrawer itself renders
+  // through — every module-editing-lock, notification-panel, and viewpoint
+  // guarantee this screen relied on stays intact; only the tab bar around it
+  // changed. This phase is a pure structural swap: Details keeps Overview,
+  // Default Tier Inclusions, Common Questions, the save banner, and the
+  // Editions switcher in their existing order, byte-for-byte what today's
+  // EntityDrawer/trailing composition rendered. Options and Support are
+  // present in the nav but empty — Phase 5 relocates Editions into Options
+  // and Common Questions into Support together, as one reviewed content move.
+  const togglePanel = (module: string) => () =>
+    c.setOpenTierPanel((p) => (p === module ? null : module));
+
+  const tierGroups: DrawerGroup<TierDrawerGroupId>[] = [
+    {
+      id: 'details',
+      label: 'Details',
+      content: (
+        <>
+          <PlacedShell
+            entity={TIER_ENTITY}
+            slot={{ module: 'overview', mode: 'details' }}
+            binding={td.overviewBinding}
+            panelOpen={c.openTierPanel === 'overview'}
+            onTogglePanel={togglePanel('overview')}
+            editing={editing}
+          />
+          <PlacedShell
+            entity={TIER_ENTITY}
+            slot={{ module: 'features', mode: 'details' }}
+            binding={td.featuresBinding}
+            panelOpen={c.openTierPanel === 'features'}
+            onTogglePanel={togglePanel('features')}
+            editing={editing}
+          />
+          <PlacedShell
+            entity={TIER_ENTITY}
+            slot={{ module: 'faqs', mode: 'details' }}
+            binding={td.faqsBinding}
+            panelOpen={c.openTierPanel === 'faqs'}
+            onTogglePanel={togglePanel('faqs')}
+            editing={editing}
+          />
+          {(c.saveErr || c.saveOk) && (
+            <div class="cz-shell-section cz-shell-section--no-border">
+              {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
+              {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+            </div>
+          )}
+          {/* Editions are occupant-scoped: only a real, settled occupant
+              (a stable occupant_id) can own child records — an empty slot
+              or a not-yet-first-saved shell has nothing to attach them to. */}
+          {detail.occupant_id && (
+            <TierEditionDeclarationSwitcher
+              serviceId={props.serviceId}
+              tierInstanceId={props.tierInstanceId}
+              tierId={c.editingTierId}
+              editions={detail.tier_editions ?? []}
+              editionBin={detail.tier_edition_bin ?? []}
+              rateSheetOptions={selectableRateSheets(
+                svc.rate_sheets,
+                station.allowed_rate_sheet_ids ?? [],
+                detail.rate_sheet_id,
+              ).map((sheet) => ({
+                value: sheet.rate_sheet_id,
+                label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
+              }))}
+              svc={svc}
+              onMutated={c.pkg.refetch}
+              selectedId={c.selectedDeclarationId}
+              onSelect={c.setSelectedDeclarationId}
+            />
+          )}
+        </>
+      ),
+    },
+    // Populated in Phase 5 once Edition management relocates here.
+    { id: 'options', label: 'Options', content: null },
+    {
+      id: 'connections',
+      label: 'Connections',
+      content: (
+        <PlacedShell
+          entity={TIER_ENTITY}
+          slot={{ module: 'service', mode: 'connections' }}
+          binding={c.serviceConnectionBinding()}
+          panelOpen={c.openTierPanel === 'service'}
+          onTogglePanel={togglePanel('service')}
+          editing={editing}
+        />
+      ),
+    },
+    // Populated in Phase 5 once Common Questions relocates here.
+    { id: 'support', label: 'Support', content: null },
+  ];
+
   return (
-    <EntityDrawer
-      key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}
-      entity={TIER_ENTITY}
-      tab={c.tierTab}
-      onSelectTab={c.selectTierTab}
-      bindings={{
-        overview: td.overviewBinding,
-        features: td.featuresBinding,
-        faqs:     td.faqsBinding,
-        service:  c.serviceConnectionBinding(),
-      }}
-      openPanel={c.openTierPanel}
-      onTogglePanel={(m) => c.setOpenTierPanel((p) => (p === m ? null : m))}
-      editing={editing}
-      trailing={{
-        details: (
-          <>
-            {(c.saveErr || c.saveOk) && (
-              <div class="cz-shell-section cz-shell-section--no-border">
-                {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
-                {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
-              </div>
-            )}
-            {/* Editions are occupant-scoped: only a real, settled occupant
-                (a stable occupant_id) can own child records — an empty slot
-                or a not-yet-first-saved shell has nothing to attach them to. */}
-            {detail.occupant_id && (
-              <TierEditionDeclarationSwitcher
-                serviceId={props.serviceId}
-                tierInstanceId={props.tierInstanceId}
-                tierId={c.editingTierId}
-                editions={detail.tier_editions ?? []}
-                editionBin={detail.tier_edition_bin ?? []}
-                rateSheetOptions={selectableRateSheets(
-                  svc.rate_sheets,
-                  station.allowed_rate_sheet_ids ?? [],
-                  detail.rate_sheet_id,
-                ).map((sheet) => ({
-                  value: sheet.rate_sheet_id,
-                  label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
-                }))}
-                svc={svc}
-                onMutated={c.pkg.refetch}
-                selectedId={c.selectedDeclarationId}
-                onSelect={c.setSelectedDeclarationId}
-              />
-            )}
-          </>
-        ),
-      }}
-    >
+    <div class="cz-req-detail" key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}>
+      <DrawerGroupTabs groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} />
       <TierDrawerDialogs c={c} />
-    </EntityDrawer>
+    </div>
   );
 }

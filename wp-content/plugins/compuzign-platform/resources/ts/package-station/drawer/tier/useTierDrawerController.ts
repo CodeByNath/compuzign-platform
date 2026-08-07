@@ -31,7 +31,7 @@ import { createTierEdition } from '../../api';
 import { useTierModuleEditing } from './useTierModuleEditing';
 import { useTierBinTravel } from './useTierBinTravel';
 import { buildTierDetail, buildTierFooterModel } from './tierDetailModel';
-import type { TierDrawerContentProps } from './tierDrawerTypes';
+import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
 
 // Re-exported from the derived-model module so TierBinList (and any other
 // consumer) keeps its established import path.
@@ -53,7 +53,11 @@ export function useTierDrawerController({
   const [openTierPanel, setOpenTierPanel] = useState<string | null>(null);
   const [openSummaryTier, setOpenSummaryTier] = useState<string | null>(null);
   const [overviewTab, setOverviewTab] = useState<DrawerBaseTabId>('details');
-  const [tierTab, setTierTab] = useState<DrawerBaseTabId>('details');
+  // The individual-tier screen's four groups (Details/Options/Connections/
+  // Support) — this screen composes directly through PlacedShell rather than
+  // EntityDrawer's fixed Details/Connections bar (drawer refinement
+  // blueprint, Phase 3).
+  const [tierTab, setTierTab] = useState<TierDrawerGroupId>('details');
   const [listView, setListView] = useState<'current' | 'bin'>('current');
   const [splitOpen,    setSplitOpen]    = useState(false);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
@@ -112,7 +116,9 @@ export function useTierDrawerController({
     setOverviewTab(nextTab);
   };
 
-  const selectTierTab = (nextTab: DrawerBaseTabId) => {
+  const selectTierTab = (nextTab: TierDrawerGroupId) => {
+    // Guard applies to every group switch alike — Details/Options/
+    // Connections/Support — not just the old Details↔Connections pair.
     if (editingSection !== null) {
       if (!window.confirm('Discard unsaved Package changes?')) return;
       cancelSection();
