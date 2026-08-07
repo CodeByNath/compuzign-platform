@@ -1,4 +1,4 @@
-// Contract: the Cost Builder in-card Tier Edition switch (Phase 7).
+// Contract: the Cost Builder in-card Tier Edition switch.
 //
 // Exercises the actual production function the switch renders from —
 // resolveEffectiveTierDisplay — the same "test the real exported function,
@@ -6,7 +6,9 @@
 // already established for is_addon. Also source-scans PricingTiers.tsx to
 // confirm the switch changes only what one card DISPLAYS, never which Tier
 // is selected, never the normal/add-on split, and never introduces a second
-// card or comparison row.
+// card or comparison row — and that Default is always a first-class,
+// always-present option alongside any additional Editions, never something
+// the customer can only reach by never touching the switch.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -56,6 +58,30 @@ check(
   'switching to an Edition with an empty declaration override still inherits the occupant\'s own inclusions',
 );
 
+// Switching back to Default (null) after having switched away is always
+// available — not a one-way trip once an Edition has been viewed.
+const backToDefault = resolveEffectiveTierDisplay(tierWithEditions, 'monthly', null);
+check(backToDefault.price === 49 && backToDefault.selectedEdition === null, 'selecting null always resolves back to the occupant\'s own Default, even after a prior switch');
+
+// ── The minimal real case: Default + exactly one additional Edition ─────────
+// This is "Editions = 2" under the corrected model — the switch must already
+// offer a real choice here, not require a second Edition before it appears.
+
+const oneEditionTier: PricingTierData = {
+  price: 49, billing_cycle: 'monthly', inclusions: [], features: [], is_addon: false,
+  edition_options: [
+    { id: 'edt_solo', label: 'Annual', price: 490, contact: false, billing_cycle: 'annually', minimum_term_value: null, minimum_term_unit: null, inclusions_override: [] },
+  ],
+};
+check(
+  (oneEditionTier.edition_options?.length ?? 0) === 1,
+  'the fixture models exactly one additional Edition alongside the implicit Default',
+);
+const oneEditionDefault = resolveEffectiveTierDisplay(oneEditionTier, 'monthly', null);
+check(oneEditionDefault.price === 49, 'with exactly one Edition, the unswitched state still shows the occupant\'s own Default price');
+const oneEditionSwitched = resolveEffectiveTierDisplay(oneEditionTier, 'monthly', 'edt_solo');
+check(oneEditionSwitched.price === 490, 'with exactly one Edition, switching to it shows that Edition\'s own price');
+
 // ── Source scan: the switch never touches Tier selection or the Add-on split ─
 
 const root = resolve(import.meta.dirname, '..');
@@ -85,6 +111,26 @@ check(
 check(
   !pricingTiers.includes('ComparePlans') && !pricingTiers.match(/edition.*compare|compare.*edition/i),
   'PricingTiers introduces no comparison-row concept of its own for Editions',
+);
+check(
+  pricingTiers.includes('editionOptions.length >= 1'),
+  'the switch renders as soon as one Edition exists — Default + one Edition is already a real, renderable choice, not gated behind a second Edition',
+);
+check(
+  !pricingTiers.includes('editionOptions.length > 1'),
+  'the old >1 gate (which hid the switch for the minimal Default + one Edition case) is gone',
+);
+check(
+  pricingTiers.includes("selectedEditionId === null ? ' is-active' : ''"),
+  'the Default option is highlighted whenever selectedEditionId is null, the same null-means-Default rule resolveEffectiveTierDisplay uses',
+);
+check(
+  />\s*Default\s*<\/button>/.test(pricingTiers),
+  'Default renders as its own always-present, always-first switch button — not synthesized only when an Edition happens to be missing a title',
+);
+check(
+  pricingTiers.includes('setSelectedEditionId(null)'),
+  'the Default button can always be switched back to — selecting it clears any prior Edition switch rather than only being the unreachable initial state',
 );
 
 // ── Source scan: the switch actually reaches the cart (Phase 8), closing

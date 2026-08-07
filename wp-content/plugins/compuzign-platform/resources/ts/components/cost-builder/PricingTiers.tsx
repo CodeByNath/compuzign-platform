@@ -18,13 +18,14 @@ export interface EffectiveTierDisplay {
  * Tier Edition switch's actual logic (not just its JSX) is independently
  * testable, the same reason draftPreferredDetail exists for is_addon.
  *
- * `selectedEditionId: null` means "nothing switched yet": the occupant's own
- * resolved default is already baked into `data.price`/`billing_cycle`/
- * `inclusions` server-side (PackageSchema::resolveDefaultTierEdition), so a
- * Tier with no Editions — or one whose switch was never touched — renders
- * from exactly the same fields it always has. Switching only overlays a
- * DIFFERENT Edition's own declaration in place; it can never change which
- * Tier is selected.
+ * `selectedEditionId: null` means Default — the occupant's own permanent
+ * declaration, always `data.price`/`billing_cycle`/`inclusions` as the
+ * server already sends them (PackageSchema::extractTierForCostBuilder never
+ * blends an Edition's terms into these fields). A Tier with no Editions, or
+ * whose switch was never touched, renders from exactly these fields.
+ * Switching to a non-null id overlays that ONE Edition's own declaration in
+ * place; it can never change which Tier is selected, and switching back to
+ * Default is always available, never a one-way trip.
  */
 export function resolveEffectiveTierDisplay(
   data: PricingTierData | undefined,
@@ -94,12 +95,12 @@ function TierCard({
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
 
-  // Tier Edition switch (Phase 7/8) — an in-card, mutually-exclusive choice
-  // among this SAME Tier's Editions. It never selects a different Tier: the
-  // customer still clicks Add to Quote/Selected exactly once for this card;
-  // switching only changes which Edition's declaration is currently shown —
-  // and, via `effective` passed to onClick below, which one is captured
-  // into the quote when that click happens.
+  // Tier Edition switch — an in-card, mutually-exclusive choice between this
+  // Tier's own permanent Default declaration and any additional Editions.
+  // It never selects a different Tier: the customer still clicks Add to
+  // Quote/Selected exactly once for this card; switching only changes which
+  // declaration is currently shown — and, via `effective` passed to onClick
+  // below, which one is captured into the quote when that click happens.
   const editionOptions = data?.edition_options ?? [];
   const [selectedEditionId, setSelectedEditionId] = useState<string | null>(null);
   const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
@@ -121,10 +122,18 @@ function TierCard({
         <span>{data?.label || tier.title}</span>
         {isPopular && <Badge variant="accent">{popularLabel || 'Best'}</Badge>}
       </div>
-      {editionOptions.length > 1 && (
+      {editionOptions.length >= 1 && (
         <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${data?.label || tier.title} payment options`}>
+          <button
+            type="button"
+            class={`cz-cost-builder__tier-edition${selectedEditionId === null ? ' is-active' : ''}`}
+            aria-pressed={selectedEditionId === null}
+            onClick={(e) => { e.stopPropagation(); setSelectedEditionId(null); }}
+          >
+            Default
+          </button>
           {editionOptions.map((edition) => {
-            const active = (selectedEditionId ?? editionOptions[0].id) === edition.id;
+            const active = selectedEditionId === edition.id;
             return (
               <button
                 key={edition.id}
