@@ -1,12 +1,14 @@
 // Neutral Tier drawer composition — the mature Package Station tier drawer,
 // owned by the entity and mountable under any host.
 //
-// Reuses the approved presentation unchanged: the package overview (Details =
-// tier occupant cards + Pricing Summary, or the occupant Bin; Connections = the
-// parent service), the individual-tier EntityDrawer (Tier Overview / Features /
-// FAQs with status pills, notifications, module footers), and the in-place module
-// editors. Imports neither host: all coordination goes through
-// useTierDrawerController, all host concerns through the EntityDrawerHostBridge.
+// Two screens: the package overview (Details = tier occupant cards + Pricing
+// Summary, or the occupant Bin; Connections = the parent service), unchanged;
+// and the individual-tier screen, which composes its own four groups —
+// Details / Options / Connections / Support — directly through PlacedShell
+// (drawer refinement blueprint) rather than mounting EntityDrawer's fixed
+// Details/Connections bar. Imports neither host: all coordination goes
+// through useTierDrawerController, all host concerns through the
+// EntityDrawerHostBridge.
 
 import { useEffect } from 'preact/hooks';
 import { AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
