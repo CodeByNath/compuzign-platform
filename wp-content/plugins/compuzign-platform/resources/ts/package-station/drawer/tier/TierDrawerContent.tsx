@@ -299,12 +299,15 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // model. PlacedShell is the same primitive EntityDrawer itself renders
   // through — every module-editing-lock, notification-panel, and viewpoint
   // guarantee this screen relied on stays intact; only the tab bar around it
-  // changed. This phase is a pure structural swap: Details keeps Overview,
-  // Default Tier Inclusions, Common Questions, the save banner, and the
-  // Editions switcher in their existing order, byte-for-byte what today's
-  // EntityDrawer/trailing composition rendered. Options and Support are
-  // present in the nav but empty — Phase 5 relocates Editions into Options
-  // and Common Questions into Support together, as one reviewed content move.
+  // changed. Options owns Edition management as a drawer information group
+  // only — Edition data remains owned by the Tier occupant / Package Station
+  // exactly as today (useTierEditions, the occupant's own tier_editions[]/
+  // tier_edition_bin[]); moving the switcher's rendering location changes
+  // nothing about who persists, validates, or lifecycles that data. Support
+  // stays empty for now — Common Questions remains under Details; moving it
+  // needs its own reviewed pass (the occupant-lifecycle regression currently
+  // reads Overview/Inclusions/FAQ pills as co-visible, which no longer holds
+  // once FAQ sits in a separate, mutually-exclusive group).
   const togglePanel = (module: string) => () =>
     c.setOpenTierPanel((p) => (p === module ? null : module));
 
@@ -344,35 +347,43 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
             </div>
           )}
-          {/* Editions are occupant-scoped: only a real, settled occupant
-              (a stable occupant_id) can own child records — an empty slot
-              or a not-yet-first-saved shell has nothing to attach them to. */}
-          {detail.occupant_id && (
-            <TierEditionDeclarationSwitcher
-              serviceId={props.serviceId}
-              tierInstanceId={props.tierInstanceId}
-              tierId={c.editingTierId}
-              editions={detail.tier_editions ?? []}
-              editionBin={detail.tier_edition_bin ?? []}
-              rateSheetOptions={selectableRateSheets(
-                svc.rate_sheets,
-                station.allowed_rate_sheet_ids ?? [],
-                detail.rate_sheet_id,
-              ).map((sheet) => ({
-                value: sheet.rate_sheet_id,
-                label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
-              }))}
-              svc={svc}
-              onMutated={c.pkg.refetch}
-              selectedId={c.selectedDeclarationId}
-              onSelect={c.setSelectedDeclarationId}
-            />
-          )}
         </>
       ),
     },
-    // Populated in Phase 5 once Edition management relocates here.
-    { id: 'options', label: 'Options', content: null },
+    {
+      id: 'options',
+      label: 'Options',
+      content: (
+        // Editions are occupant-scoped: only a real, settled occupant (a
+        // stable occupant_id) can own child records — an empty slot or a
+        // not-yet-first-saved shell has nothing to attach them to. Options
+        // is a drawer information group only; the switcher, its hook
+        // (useTierEditions), and the data it renders (tier_editions[],
+        // tier_edition_bin[]) remain exactly as owned by the Tier occupant /
+        // Package Station as before this relocation.
+        detail.occupant_id && (
+          <TierEditionDeclarationSwitcher
+            serviceId={props.serviceId}
+            tierInstanceId={props.tierInstanceId}
+            tierId={c.editingTierId}
+            editions={detail.tier_editions ?? []}
+            editionBin={detail.tier_edition_bin ?? []}
+            rateSheetOptions={selectableRateSheets(
+              svc.rate_sheets,
+              station.allowed_rate_sheet_ids ?? [],
+              detail.rate_sheet_id,
+            ).map((sheet) => ({
+              value: sheet.rate_sheet_id,
+              label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
+            }))}
+            svc={svc}
+            onMutated={c.pkg.refetch}
+            selectedId={c.selectedDeclarationId}
+            onSelect={c.setSelectedDeclarationId}
+          />
+        )
+      ),
+    },
     {
       id: 'connections',
       label: 'Connections',

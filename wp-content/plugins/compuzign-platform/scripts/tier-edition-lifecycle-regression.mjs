@@ -357,6 +357,16 @@ function setInputValue(selector, value) {
 function declarationTab(text) {
   return [...container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]')].find((b) => b.textContent.trim() === text);
 }
+// The individual-tier drawer's own four-group nav (Details/Options/
+// Connections/Support) — Editions live under Options, Overview's own
+// "+ Edition" control lives under Details, so this regression must switch
+// groups the same way a real admin would rather than finding everything on
+// one screen.
+function selectGroup(label) {
+  const btn = [...container.querySelectorAll('.cz-drawer-groups__tab')].find((b) => b.textContent.trim() === label);
+  btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return btn;
+}
 function selectDeclarationTab(text) {
   const btn = declarationTab(text);
   btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
@@ -397,6 +407,8 @@ clickButtonWithText('+ Edition');
 await waitQuiet();
 check('a new Edition was created', editions.length === 1, editions.length);
 check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText() === '2', overviewEditionsCountText());
+selectGroup('Options');
+await sleep(20);
 check('the tab strip now offers Default and the new Edition', declarationTab('Default') !== undefined && declarationTab('Edition 2') !== undefined);
 check('no CZTE was assigned at creation', czteMints === 0, czteMints);
 
@@ -468,12 +480,20 @@ check('Delete permanently is offered immediately once trashed', [...container.qu
 clickButtonWithText('Delete permanently');
 await waitQuiet();
 check('the delete endpoint was called', deleteCalls === 1, deleteCalls);
+selectGroup('Details');
+await sleep(20);
 check('Overview\'s own Editions count dropped back to 1 — the derived count, not a separately stored one', overviewEditionsCountText() === '1', overviewEditionsCountText());
+selectGroup('Options');
+await sleep(20);
 check('the tab strip is gone again — back to Default only', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
 
 console.log('\n10) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
+selectGroup('Details');
+await sleep(20);
 clickButtonWithText('+ Edition');
 await waitQuiet();
+selectGroup('Options');
+await sleep(20);
 check('the auto-title reuses "Edition 2" — it is derived from the current count, not a permanent counter', declarationTab('Edition 2') !== undefined);
 selectDeclarationTab('Edition 2');
 await sleep(20);

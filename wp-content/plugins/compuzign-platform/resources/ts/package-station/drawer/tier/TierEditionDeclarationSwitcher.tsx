@@ -1,14 +1,16 @@
-// Inclusions & Editions — additional declarations. Replaces the old
-// standalone "Payment Editions" panel (docs/code-map/tier-edition.md):
-// no explanatory essay, no stacked list of every Edition's editor printed
-// one below another, no raw lifecycle rail running the length of the
-// module. A compact [Default] [Edition 2] [Edition 3] tab strip shows ONE
-// declaration at a time — Default's own content already lives in the
-// renamed Inclusions & Editions module immediately above this block in the
-// Details tab; selecting an Edition switches this block to that ONE
-// Edition's own compact read/edit surface, reusing the same
-// TierEditionOverviewFields form (and therefore the same PoolInclusionsEditor
-// row/quantity selection) an Edition has always used.
+// Additional Editions — a Tier occupant's alternate commercial declarations.
+// Replaces the old standalone "Payment Editions" panel
+// (docs/code-map/tier-edition.md): no explanatory essay, no stacked list of
+// every Edition's editor printed one below another, no raw lifecycle rail
+// running the length of the module. A compact [Default] [Edition 2]
+// [Edition 3] tab strip shows ONE declaration at a time — Default's own
+// content lives in Default Tier Inclusions under Details; this switcher is
+// the sole content of the Options group (drawer refinement blueprint,
+// Phase 5) — a presentation grouping only, not a change of who owns Edition
+// data. Selecting an Edition switches this block to that ONE Edition's own
+// compact read/edit surface, reusing the same TierEditionOverviewFields form
+// (and therefore the same PoolInclusionsEditor row/quantity selection) an
+// Edition has always used.
 //
 // Renders nothing at all when the occupant has never used this capability —
 // the Tier behaves exactly as it did before Editions existed.
