@@ -20,7 +20,7 @@
 // other settled fields; an Edition's own response has no such omission.
 
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import type { TierEdition, TierEditionOverviewDraft } from '../../types';
+import type { TierEdition, TierEditionBinEntry, TierEditionOverviewDraft } from '../../types';
 import {
   createTierEdition,
   saveTierEditionModule,
@@ -29,10 +29,15 @@ import {
   updateTierEditionStatus,
   restoreTierEdition,
   deleteTierEdition,
+  moveTierEditionToBin,
+  restoreTierEditionFromBin,
+  trashTierEditionBinEntry,
+  deleteTierEditionBinEntry,
 } from '../../api';
 
 export interface TierEditionsController {
   editions:           TierEdition[];
+  editionBin:         TierEditionBinEntry[];
   saving:             boolean;
   error:              string | null;
   create:             (draft: Partial<TierEditionOverviewDraft> & { title: string }) => Promise<TierEdition | null>;
@@ -46,12 +51,21 @@ export interface TierEditionsController {
   enable:             (editionId: string) => Promise<boolean>;
   restore:            (editionId: string) => Promise<boolean>;
   remove:             (editionId: string) => Promise<boolean>;
+  // Phase 6 — the occupant-owned Edition bin. Deliberately decoupled from
+  // archive/trash above: moveToBin only relocates an already archived/
+  // trashed Edition, it never itself changes platform_status.
+  moveToBin:          (editionId: string) => Promise<boolean>;
+  restoreFromBin:     (binId: string) => Promise<boolean>;
+  trashBinEntry:      (binId: string) => Promise<boolean>;
+  deleteBinEntry:     (binId: string) => Promise<boolean>;
 }
 
 /**
  * @param editions          The occupant's current tier_editions[] (from the
  *                          already-loaded SurfaceTierDetail — this hook does
  *                          not fetch independently).
+ * @param editionBin        The occupant's current tier_edition_bin[] (Phase 6),
+ *                          same already-loaded-detail contract as editions.
  * @param onMutated         Invoked after every successful mutation so the
  *                          owning usePackageStation-backed view re-reads the
  *                          authoritative occupant — the same onRefresh
@@ -62,11 +76,15 @@ export function useTierEditions(
   tierInstanceId:   string | null,
   tierId:           string | null,
   editions:         TierEdition[],
+  editionBin:       TierEditionBinEntry[] = [],
   onMutated?:       () => void,
 ): TierEditionsController {
   const [localEditions, setLocalEditions] = useState<TierEdition[]>(editions);
+  const [localEditionBin, setLocalEditionBin] = useState<TierEditionBinEntry[]>(editionBin);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
+
+  useEffect(() => { setLocalEditionBin(editionBin); }, [editionBin]);
 
   // The caller's editions are the source of truth once the authoritative
   // occupant re-read lands (onMutated's refetch, or a parent navigation to a
@@ -177,8 +195,71 @@ export function useTierEditions(
     );
   }, [serviceId, tierInstanceId, tierId, run, removeEdition]);
 
+  // Phase 6 — every bin mutation's response carries the full authoritative
+  // tier_editions[]/tier_edition_bin[] pair (not one patched row), so local
+  // state replaces both arrays wholesale, the same full-row-replace contract
+  // every action above already uses for a single Edition.
+  const moveToBin = useCallback((editionId: string) => {
+    if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
+    return run(
+      () => moveTierEditionToBin(serviceId, tierInstanceId, tierId, editionId),
+      (res) => {
+        if (res.success && res.tier_editions && res.tier_edition_bin) {
+          setLocalEditions(res.tier_editions);
+          setLocalEditionBin(res.tier_edition_bin);
+          return true;
+        }
+        return false;
+      },
+    );
+  }, [serviceId, tierInstanceId, tierId, run]);
+
+  const restoreFromBin = useCallback((binId: string) => {
+    if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
+    return run(
+      () => restoreTierEditionFromBin(serviceId, tierInstanceId, tierId, binId),
+      (res) => {
+        if (res.success && res.tier_editions && res.tier_edition_bin) {
+          setLocalEditions(res.tier_editions);
+          setLocalEditionBin(res.tier_edition_bin);
+          return true;
+        }
+        return false;
+      },
+    );
+  }, [serviceId, tierInstanceId, tierId, run]);
+
+  const trashBinEntry = useCallback((binId: string) => {
+    if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
+    return run(
+      () => trashTierEditionBinEntry(serviceId, tierInstanceId, tierId, binId),
+      (res) => {
+        if (res.success && res.tier_edition_bin) {
+          setLocalEditionBin(res.tier_edition_bin);
+          return true;
+        }
+        return false;
+      },
+    );
+  }, [serviceId, tierInstanceId, tierId, run]);
+
+  const deleteBinEntry = useCallback((binId: string) => {
+    if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
+    return run(
+      () => deleteTierEditionBinEntry(serviceId, tierInstanceId, tierId, binId),
+      (res) => {
+        if (res.success && res.tier_edition_bin) {
+          setLocalEditionBin(res.tier_edition_bin);
+          return true;
+        }
+        return false;
+      },
+    );
+  }, [serviceId, tierInstanceId, tierId, run]);
+
   return {
     editions: localEditions,
+    editionBin: localEditionBin,
     saving,
     error,
     create,
@@ -192,5 +273,9 @@ export function useTierEditions(
     enable,
     restore: restoreAction,
     remove,
+    moveToBin,
+    restoreFromBin,
+    trashBinEntry,
+    deleteBinEntry,
   };
 }

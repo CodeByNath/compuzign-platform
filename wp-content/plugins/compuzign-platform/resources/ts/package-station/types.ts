@@ -460,6 +460,10 @@ export interface SurfaceTierDetail {
   // label/price/billing_cycle/etc. above) — there is no stored pointer that
   // lets an Edition become "the" default.
   tier_editions?: TierEdition[];
+  // Phase 6 — this occupant's own physical Edition bin: Editions explicitly
+  // moved out of tier_editions[] (never auto-migrated). Absent/empty for
+  // every occupant that has never used this capability.
+  tier_edition_bin?: TierEditionBinEntry[];
 }
 
 // ── Tier Edition (Phase 1+) ──────────────────────────────────────────────────
@@ -509,6 +513,34 @@ export interface TierEditionOverviewDraft {
   minimum_term_unit: string | null;
   inclusions_override: InclusionItem[];
   faq_refs: string[];
+}
+
+// Phase 6 — a narrow, occupant-owned physical bin entry. Deliberately
+// carries only what the bin's own lifecycle/audit needs: no origin_tier,
+// previous_enabled, or cascaded_edition_ids — none of those have meaning for
+// an Edition that never leaves its parent occupant. `status` is the bin
+// entry's own travel state, mirrored from `edition.platform_status` at
+// move-to-bin time and kept in sync by the bin's own trash transition.
+export interface TierEditionBinEntry {
+  bin_id:       string;
+  edition:      TierEdition;
+  status:       'archived' | 'trashed';
+  displaced_at: string | null;
+}
+
+export interface TierEditionBinResponse {
+  success:     boolean;
+  tier_instance_id?: string;
+  tier_id:     string;
+  bin_id?:     string;
+  edition_id?: string;
+  edition?:    TierEdition;
+  bin_entry?:  TierEditionBinEntry;
+  tier_editions?:    TierEdition[];
+  tier_edition_bin?: TierEditionBinEntry[];
+  deleted?:    boolean;
+  code?:       string;
+  message?:    string;
 }
 
 export interface TierEditionResponse {

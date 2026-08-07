@@ -276,6 +276,33 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string']],
         ]);
+        // Phase 6 — the occupant-owned Edition bin: current_occupant.
+        // tier_edition_bin[], a narrow physical relocation deliberately
+        // decoupled from the /status endpoint above (an Edition must already
+        // be archived or trashed to be moved here). Mirrors the top-level
+        // /bin/{bin}/... shape one level deeper, under /editions/... plus
+        // its own edition-bin/{bin} address (never the edt_… identity —
+        // resolved by bin_id instead).
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/bin', [
+            'methods' => 'POST', 'callback' => [$this, 'moveTierEditionToBinEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/edition-bin/(?P<bin>[a-z0-9_]+)/restore', [
+            'methods' => 'POST', 'callback' => [$this, 'restoreTierEditionFromBinEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/edition-bin/(?P<bin>[a-z0-9_]+)/trash', [
+            'methods' => 'POST', 'callback' => [$this, 'trashTierEditionBinEntryEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/edition-bin/(?P<bin>[a-z0-9_]+)', [
+            'methods' => 'DELETE', 'callback' => [$this, 'deleteTierEditionBinEntryEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
         register_rest_route('compuzign/v1', $instanceBase . '/popular', [
             'methods' => 'POST', 'callback' => [$this, 'setPackageStationPopular'],
             'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
@@ -2039,6 +2066,169 @@ class PackageStationController
             'success'    => true,
             'tier_id'    => $tierId,
             'edition_id' => $editionId,
+        ]));
+    }
+
+    // ===================================================================
+    // SECTION: TIER_EDITION_BIN
+    // ===================================================================
+    // Phase 6 — the occupant-owned Edition bin. Bin-scoped routes address an
+    // entry by bin_id rather than the edt_… Edition id, so they resolve the
+    // occupant only (mirroring tierEditionContext() minus the Edition
+    // lookup) and let PackageSchema's own find-by-bin_id do the rest.
+
+    private function tierEditionBinContext(\WP_REST_Request $request): array|\WP_REST_Response
+    {
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $tierId = sanitize_key((string) $request->get_param('tier'));
+        $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
+        $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+        if ($occupant === null) {
+            return new \WP_REST_Response(['success' => false, 'code' => 'no_occupant', 'message' => 'This Tier slot has no occupant.'], 404);
+        }
+
+        return [$station, $instanceId, $instance, $tierId, $occupant];
+    }
+
+    /**
+     * Move an already archived/trashed Edition out of tier_editions[] into
+     * this occupant's own tier_edition_bin[]. Never itself changes
+     * platform_status — see PackageSchema::moveTierEditionToBin.
+     */
+    public function moveTierEditionToBinEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId] = $context;
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::moveTierEditionToBin($occupant, $editionId, $PS::generateBinId(), current_time('mysql', true));
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_edition' => 'Tier Edition not found.',
+                'not_binnable'    => 'Only an archived or trashed Tier Edition can be moved to the bin.',
+                default           => 'Move to bin failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['tiers'][$tierId]['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'tier_id'          => $tierId,
+            'edition_id'       => $editionId,
+            'bin_entry'        => $result['entry'],
+            'tier_editions'    => $occupant['tier_editions'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    /**
+     * Restore a binned Edition, appended to the end of tier_editions[]. No
+     * swap/retarget mode — display numbering is derived from array order
+     * only. See PackageSchema::restoreTierEditionFromBin.
+     */
+    public function restoreTierEditionFromBinEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionBinContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant] = $context;
+
+        $binId = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::restoreTierEditionFromBin($occupant, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'restore_illegal'   => 'This entry cannot be restored.',
+                default             => 'Restore failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['tiers'][$tierId]['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'tier_id'          => $tierId,
+            'bin_id'           => $binId,
+            'edition'          => $PS::findTierEdition($occupant['tier_editions'], (string) $result['entry']['edition']['id']),
+            'tier_editions'    => $occupant['tier_editions'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    /** Bin entry archived -> trashed, engine-validated. */
+    public function trashTierEditionBinEntryEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionBinContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant] = $context;
+
+        $binId = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::trashTierEditionBinEntry($occupant, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'trash_illegal'     => 'Only an archived entry can be moved to trash.',
+                default             => 'Trash failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['tiers'][$tierId]['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'tier_id'          => $tierId,
+            'bin_id'           => $binId,
+            'bin_entry'        => $result['entry'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    /** Guarded permanent delete: trashed-only — see PackageSchema::deleteTierEditionBinEntry. */
+    public function deleteTierEditionBinEntryEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionBinContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant] = $context;
+
+        $binId = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::deleteTierEditionBinEntry($occupant, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'delete_illegal'    => 'Only a trashed entry can be permanently deleted.',
+                default             => 'Delete failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['tiers'][$tierId]['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'tier_id'          => $tierId,
+            'bin_id'           => $binId,
+            'deleted'          => true,
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
         ]));
     }
 

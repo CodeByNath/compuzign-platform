@@ -473,6 +473,14 @@ class PackageRepository
                 $instance['tiers'][$slotId]['current_occupant']['tier_editions'][$index]['edition_platform_id'] = $platformId;
                 $matches++;
             }
+            foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binIndex => $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['tiers'][$slotId]['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_platform_id'] = $platformId;
+                $matches++;
+            }
         }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $binIndex => $entry) {
             $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
@@ -482,6 +490,14 @@ class PackageRepository
                 $stored = (string) ($edition['edition_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
                 $instance['occupant_bin'][$binIndex]['occupant']['tier_editions'][$index]['edition_platform_id'] = $platformId;
+                $matches++;
+            }
+            foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $editionBinIndex => $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['occupant_bin'][$binIndex]['occupant']['tier_edition_bin'][$editionBinIndex]['edition']['edition_platform_id'] = $platformId;
                 $matches++;
             }
         }
@@ -564,6 +580,12 @@ class PackageRepository
                     $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'slot:' . $slotId, 'edition' => $edition];
                 }
             }
+            foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition !== null && (string) ($edition['id'] ?? '') === $editionId) {
+                    $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'slot:' . $slotId . ':edition-bin:' . (string) ($binEntry['bin_id'] ?? ''), 'edition' => $edition];
+                }
+            }
         }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
             $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
@@ -571,6 +593,12 @@ class PackageRepository
             foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
                 if (is_array($edition) && (string) ($edition['id'] ?? '') === $editionId) {
                     $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'bin:' . (string) ($entry['bin_id'] ?? ''), 'edition' => $edition];
+                }
+            }
+            foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition !== null && (string) ($edition['id'] ?? '') === $editionId) {
+                    $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'bin:' . (string) ($entry['bin_id'] ?? '') . ':edition-bin:' . (string) ($binEntry['bin_id'] ?? ''), 'edition' => $edition];
                 }
             }
         }
@@ -582,6 +610,10 @@ class PackageRepository
         if ($occupant === null) return false;
         foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
             if (is_array($edition) && ($edition['edition_platform_id'] ?? '') === $platformId) return true;
+        }
+        foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binEntry) {
+            $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+            if ($edition !== null && ($edition['edition_platform_id'] ?? '') === $platformId) return true;
         }
         return false;
     }
@@ -595,6 +627,12 @@ class PackageRepository
         foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
             if (!is_array($edition)) continue;
             $editionId = (string) ($edition['id'] ?? '');
+            if ($editionId === '') continue;
+            $references[] = PackagePlatformNativeReference::tierEdition($instanceId, $occupantId, $editionId);
+        }
+        foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binEntry) {
+            $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+            $editionId = is_array($edition) ? (string) ($edition['id'] ?? '') : '';
             if ($editionId === '') continue;
             $references[] = PackagePlatformNativeReference::tierEdition($instanceId, $occupantId, $editionId);
         }

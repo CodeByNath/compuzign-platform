@@ -322,6 +322,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
                 tierInstanceId={props.tierInstanceId}
                 tierId={c.editingTierId}
                 editions={detail.tier_editions ?? []}
+                editionBin={detail.tier_edition_bin ?? []}
                 rateSheetOptions={selectableRateSheets(
                   svc.rate_sheets,
                   station.allowed_rate_sheet_ids ?? [],

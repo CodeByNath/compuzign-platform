@@ -23,7 +23,7 @@
 
 import { useState } from 'preact/hooks';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
-import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionOverviewDraft } from '../../types';
+import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionBinEntry, TierEditionOverviewDraft } from '../../types';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
 import { TierEditionOverviewFields } from './TierEditionOverviewFields';
 import { draftFromTierEdition, tierEditionStatusLabel } from './tierEditionModel';
@@ -33,6 +33,7 @@ interface Props {
   tierInstanceId: string;
   tierId:         string;
   editions:       TierEdition[];
+  editionBin:     TierEditionBinEntry[];
   rateSheetOptions: AdminFieldOption[];
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
   onMutated:      () => void;
@@ -43,14 +44,16 @@ interface Props {
 }
 
 export function TierEditionDeclarationSwitcher({
-  serviceId, tierInstanceId, tierId, editions, rateSheetOptions, svc, onMutated, selectedId, onSelect,
+  serviceId, tierInstanceId, tierId, editions, editionBin, rateSheetOptions, svc, onMutated, selectedId, onSelect,
 }: Props) {
-  const ctl = useTierEditions(serviceId, tierInstanceId, tierId, editions, onMutated);
+  const ctl = useTierEditions(serviceId, tierInstanceId, tierId, editions, editionBin, onMutated);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
+  const [showBin, setShowBin] = useState(false);
 
-  // Nothing to show — this Tier uses only its own Default declaration.
-  if (ctl.editions.length === 0) return null;
+  // Nothing to show — this Tier uses only its own Default declaration, and
+  // its Edition bin (Phase 6) has never been used either.
+  if (ctl.editions.length === 0 && ctl.editionBin.length === 0) return null;
 
   const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
 
@@ -104,6 +107,39 @@ export function TierEditionDeclarationSwitcher({
         </p>
       )}
 
+      {/* Phase 6 — minimal functional access to the occupant's own Edition
+          bin: identify, restore, and trash/delete where lifecycle rules
+          permit. Final visual polish is out of scope for this phase. */}
+      {ctl.editionBin.length > 0 && (
+        <div style="margin-top: var(--cz-space-2)">
+          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setShowBin((v) => !v)}>
+            {showBin ? 'Hide' : 'Show'} Edition bin ({ctl.editionBin.length})
+          </button>
+          {showBin && (
+            <ul class="cz-tier-edition-bin" style="margin-top: var(--cz-space-1); list-style:none; padding:0; display:flex; flex-direction:column; gap: var(--cz-space-1)">
+              {ctl.editionBin.map((entry) => (
+                <li key={entry.bin_id} class="cz-tier-edition-bin__row" style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-1)">
+                  <span class="drawerModule__value">
+                    {entry.edition.title || '(untitled)'}
+                    {' · '}{entry.status === 'archived' ? 'Archived' : 'Trashed'}
+                    {entry.edition.edition_platform_id ? ` · ${entry.edition.edition_platform_id}` : ''}
+                  </span>
+                  <span style="display:flex; gap: var(--cz-space-1); flex-wrap:wrap">
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.restoreFromBin(entry.bin_id)}>Restore</button>
+                    {entry.status === 'archived' && (
+                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.trashBinEntry(entry.bin_id)}>Move to Trash</button>
+                    )}
+                    {entry.status === 'trashed' && (
+                      <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.deleteBinEntry(entry.bin_id)}>Delete permanently</button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {selected && !editing && (
         <div class="cz-tier-edition-declaration cz-tier-edition-declaration--view" style="margin-top: var(--cz-space-2)">
           <div style="display:flex; justify-content:space-between; align-items:center">
@@ -140,6 +176,19 @@ export function TierEditionDeclarationSwitcher({
             )}
             {selected.platform_status === 'trashed' && (
               <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.remove(selected.id)}>Delete permanently</button>
+            )}
+            {/* Phase 6 — a narrow, separate physical relocation: only an
+                already archived/trashed Edition is eligible, and moving it
+                here never itself changes platform_status. */}
+            {(selected.platform_status === 'archived' || selected.platform_status === 'trashed') && (
+              <button
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                disabled={ctl.saving}
+                onClick={async () => { const ok = await ctl.moveToBin(selected.id); if (ok) onSelect(null); }}
+              >
+                Move to bin
+              </button>
             )}
           </div>
         </div>

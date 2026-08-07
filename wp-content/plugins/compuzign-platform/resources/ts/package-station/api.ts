@@ -25,6 +25,7 @@ import type {
   TierInstanceDeleteResponse,
   TierEditionOverviewDraft,
   TierEditionResponse,
+  TierEditionBinResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -399,6 +400,59 @@ export function deleteTierEdition(
 ): Promise<TierEditionResponse> {
   return apiClient.delete<TierEditionResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}`,
+  );
+}
+
+// ── Tier Edition bin (Phase 6) — a narrow, occupant-owned physical bin ───────
+// Deliberately decoupled from updateTierEditionStatus above: an Edition must
+// already be archived or trashed before it can be moved here, and moving it
+// here never itself changes platform_status. See docs/code-map/tier-edition.md.
+
+export function moveTierEditionToBin(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+): Promise<TierEditionBinResponse> {
+  return apiClient.post<TierEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/bin`,
+    {},
+  );
+}
+
+export function restoreTierEditionFromBin(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  binId: string,
+): Promise<TierEditionBinResponse> {
+  return apiClient.post<TierEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/edition-bin/${binId}/restore`,
+    {},
+  );
+}
+
+export function trashTierEditionBinEntry(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  binId: string,
+): Promise<TierEditionBinResponse> {
+  return apiClient.post<TierEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/edition-bin/${binId}/trash`,
+    {},
+  );
+}
+
+/** Guarded permanent delete: trashed-only. */
+export function deleteTierEditionBinEntry(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  binId: string,
+): Promise<TierEditionBinResponse> {
+  return apiClient.delete<TierEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/edition-bin/${binId}`,
   );
 }
 

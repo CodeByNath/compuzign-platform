@@ -835,6 +835,7 @@ class PackageSchema
                 return self::emptyTierDetail();
             }
             $editions = self::sanitizeTierEditions($occ['tier_editions'] ?? []);
+            $editionBin = self::ensureTierEditionBin($occ)['tier_edition_bin'];
             return [
                 'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
                 'platform_id'          => (string) ($occ['cz_platform_id'] ?? ''),
@@ -863,6 +864,11 @@ class PackageSchema
                 // lifecycled child records; absent/empty for every occupant
                 // that has never used this capability. See SECTION: TIER_EDITION.
                 'tier_editions'       => $editions,
+                // Occupant-owned physical bin (Phase 6) — Editions physically
+                // relocated out of tier_editions[] by an explicit "move to
+                // bin" action. Absent/empty for every occupant that has
+                // never used this capability. See SECTION: TIER_EDITION_BIN.
+                'tier_edition_bin'    => $editionBin,
             ];
         }
 
@@ -893,6 +899,7 @@ class PackageSchema
             // Phase 1 flat slots predate Editions entirely; there is nothing
             // to sanitise or preserve at this layer.
             'tier_editions'       => [],
+            'tier_edition_bin'    => [],
         ];
     }
 
@@ -1066,6 +1073,10 @@ class PackageSchema
         // them verbatim, exactly like `history`. Reading $data here would
         // let an unrelated Overview save silently smuggle Edition changes.
         $existingTierEditions = [];
+        // Same verbatim-preservation rule for the occupant-owned Edition bin
+        // (Phase 6) — a plain Overview save/Publish must never silently
+        // empty it. Mutated only through the dedicated bin operations below.
+        $existingTierEditionBin = [];
 
         if (self::isOccupantFormat($tierSlot)) {
             $history    = $tierSlot['history'] ?? [];
@@ -1075,6 +1086,7 @@ class PackageSchema
             $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
             $existingExplicitlyDisabled = self::isExplicitlyDisabled($tierSlot['current_occupant'] ?? null);
             $existingTierEditions = self::sanitizeTierEditions($tierSlot['current_occupant']['tier_editions'] ?? []);
+            $existingTierEditionBin = self::ensureTierEditionBin($tierSlot['current_occupant'] ?? [])['tier_edition_bin'];
         } elseif (self::hasConfiguredContent($tierSlot)) {
             $existingPlatformId = (string) ($tierSlot['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['addon_platform_id'] ?? '');
@@ -1123,6 +1135,7 @@ class PackageSchema
                 // Preserved verbatim — see the note above the extraction at
                 // the top of this function. Never populated from $data.
                 'tier_editions'       => $existingTierEditions,
+                'tier_edition_bin'    => $existingTierEditionBin,
             ],
             'history' => $history,
         ];
@@ -1533,6 +1546,219 @@ class PackageSchema
         return self::replaceTierEdition($editions, $edition);
     }
 
+    // ===================================================================
+    // SECTION: TIER_EDITION_BIN
+    // ===================================================================
+    // Phase 6 — a narrow, occupant-owned physical bin for Editions, mirroring
+    // the station-level occupant_bin's own archive/restore/trash/delete shape
+    // one level deeper: current_occupant.tier_edition_bin[], not the
+    // top-level station['occupant_bin']. Deliberately decoupled from
+    // platform_status — moving an Edition into/out of this array is a
+    // separate act from the existing engine-transition /status endpoint
+    // (applyTierEditionStatus): an Edition must already be archived or
+    // trashed (StationLifecycle::isBinned) before it can be moved here, and
+    // moving it here never itself changes platform_status. This keeps every
+    // existing live/archived/trashed Edition already sitting in
+    // tier_editions[] — and the existing /status endpoint — byte-identical;
+    // only an explicit new bin operation ever populates tier_edition_bin[].
+    // The bin entry carries the full Edition record (CZTE included) plus
+    // only the metadata its own bin lifecycle needs — no origin_tier,
+    // previous_enabled, or cascaded_edition_ids, none of which have meaning
+    // for a record that never leaves its parent occupant.
+
+    /**
+     * Guarantee a well-formed tier_edition_bin on an occupant: malformed
+     * entries are dropped, statuses clamped to the engine's bin vocabulary.
+     * Idempotent, lazy (parity with ensureOccupantBin) — an occupant that has
+     * never used this capability simply gains [].
+     *
+     * @param  array<string, mixed> $occupant
+     * @return array<string, mixed>
+     */
+    public static function ensureTierEditionBin(array $occupant): array
+    {
+        $raw = (isset($occupant['tier_edition_bin']) && is_array($occupant['tier_edition_bin'])) ? $occupant['tier_edition_bin'] : [];
+        if ($raw === []) {
+            $occupant['tier_edition_bin'] = [];
+            return $occupant;
+        }
+        // Only referenced once there is actually something to clamp — the
+        // same lazy-dependency posture sanitizeTierEdition() already has
+        // (empty tier_editions[] never touches StationLifecycle either),
+        // so an occupant that has never used either capability stays free
+        // of any Admin-module dependency in the hot read path.
+        $binStatuses = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::BIN_STATUSES;
+
+        $out = [];
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $binId   = (string) ($entry['bin_id'] ?? '');
+            $edition = self::sanitizeTierEdition($entry['edition'] ?? null);
+            if ($binId === '' || $edition === null) {
+                continue;
+            }
+            $status = $entry['status'] ?? '';
+            if (!in_array($status, $binStatuses, true)) {
+                $status = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_ARCHIVED;
+            }
+            $out[] = [
+                'bin_id'       => $binId,
+                'edition'      => $edition,
+                'status'       => $status,
+                'displaced_at' => is_string($entry['displaced_at'] ?? null) ? $entry['displaced_at'] : null,
+            ];
+        }
+
+        $occupant['tier_edition_bin'] = $out;
+        return $occupant;
+    }
+
+    /** Locate a bin entry by id inside an ensured tier_edition_bin. */
+    private static function findTierEditionBinIndex(array $bin, string $binId): ?int
+    {
+        foreach ($bin as $i => $entry) {
+            if (($entry['bin_id'] ?? '') === $binId) {
+                return $i;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Move one Edition out of tier_editions[] and into this occupant's own
+     * tier_edition_bin[]. Requires the Edition to already be archived or
+     * trashed — the existing /status endpoint remains the only way to reach
+     * those statuses; this operation never itself changes platform_status,
+     * it only relocates the row and mirrors its current status onto the bin
+     * entry's own status field. Active numbering for the remaining
+     * tier_editions[] compacts naturally because it is derived from array
+     * order/count only — nothing here renumbers anything.
+     *
+     * @param  array<string, mixed> $occupant
+     * @return array{occupant: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function moveTierEditionToBin(array $occupant, string $editionId, string $binId, ?string $displacedAt): array
+    {
+        $engine   = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $editions = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
+        $edition  = self::findTierEdition($editions, $editionId);
+        if ($edition === null) {
+            return ['error' => 'unknown_edition'];
+        }
+        if (!$engine::isBinned((string) ($edition['platform_status'] ?? ''))) {
+            return ['error' => 'not_binnable'];
+        }
+
+        $occupant = self::ensureTierEditionBin($occupant);
+        $occupant['tier_editions'] = array_values(array_filter(
+            $editions,
+            static fn($candidate) => !is_array($candidate) || ($candidate['id'] ?? null) !== $editionId
+        ));
+
+        $entry = [
+            'bin_id'       => $binId,
+            'edition'      => $edition,
+            'status'       => $edition['platform_status'],
+            'displaced_at' => $displacedAt,
+        ];
+        $occupant['tier_edition_bin'][] = $entry;
+
+        return ['occupant' => $occupant, 'entry' => $entry];
+    }
+
+    /**
+     * Restore a binned Edition back into tier_editions[], appended to the
+     * end. Display numbering is derived from array order/count only, so
+     * there is no swap or retarget mode and no attempt to return the Edition
+     * to whatever number it previously displayed at — restoring into an
+     * already-populated active list simply lands after the last entry.
+     * Reuses restoreTierEdition() verbatim for the archived|trashed ->
+     * disabled transition, the same "restore always lands disabled, never
+     * active" rule every other station-owned record in this codebase
+     * already follows.
+     *
+     * @param  array<string, mixed> $occupant
+     * @return array{occupant: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function restoreTierEditionFromBin(array $occupant, string $binId): array
+    {
+        $engine   = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $occupant = self::ensureTierEditionBin($occupant);
+        $index    = self::findTierEditionBinIndex($occupant['tier_edition_bin'], $binId);
+        if ($index === null) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+        $entry = $occupant['tier_edition_bin'][$index];
+        if (!$engine::canRestore((string) $entry['status'])) {
+            return ['error' => 'restore_illegal'];
+        }
+
+        array_splice($occupant['tier_edition_bin'], $index, 1);
+
+        $editions   = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
+        $editions[] = $entry['edition'];
+        $occupant['tier_editions'] = self::restoreTierEdition($editions, (string) $entry['edition']['id']);
+
+        return ['occupant' => $occupant, 'entry' => $entry];
+    }
+
+    /**
+     * Trash a bin entry (archived -> trashed), engine-validated, mirroring
+     * trashBinnedOccupant(). The nested Edition's own platform_status is
+     * kept in sync with the entry's status, the same "one lifecycle
+     * vocabulary" rule the entry mirrors it from at move-to-bin time.
+     *
+     * @param  array<string, mixed> $occupant
+     * @return array{occupant: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function trashTierEditionBinEntry(array $occupant, string $binId): array
+    {
+        $engine   = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $occupant = self::ensureTierEditionBin($occupant);
+        $index    = self::findTierEditionBinIndex($occupant['tier_edition_bin'], $binId);
+        if ($index === null) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+        $entry  = $occupant['tier_edition_bin'][$index];
+        $change = $engine::trash((string) $entry['status'], $entry['edition']['previous_platform_status'] ?? null);
+        if ($change === null) {
+            return ['error' => 'trash_illegal'];
+        }
+
+        $entry['status']                            = $change['status'];
+        $entry['edition']['platform_status']        = $change['status'];
+        $entry['edition']['previous_platform_status'] = $change['previous_status'];
+        $occupant['tier_edition_bin'][$index] = $entry;
+
+        return ['occupant' => $occupant, 'entry' => $entry];
+    }
+
+    /**
+     * Permanently remove a trashed bin entry — the only operation that
+     * removes a tier_edition_bin[] row. Legal only from trashed
+     * (engine-validated), mirroring deleteBinnedOccupant().
+     *
+     * @param  array<string, mixed> $occupant
+     * @return array{occupant: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function deleteTierEditionBinEntry(array $occupant, string $binId): array
+    {
+        $engine   = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+        $occupant = self::ensureTierEditionBin($occupant);
+        $index    = self::findTierEditionBinIndex($occupant['tier_edition_bin'], $binId);
+        if ($index === null) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+        $entry = $occupant['tier_edition_bin'][$index];
+        if (!$engine::canDelete((string) $entry['status'])) {
+            return ['error' => 'delete_illegal'];
+        }
+        array_splice($occupant['tier_edition_bin'], $index, 1);
+        return ['occupant' => $occupant, 'entry' => $entry];
+    }
+
     /** Normalise a stored/inbound Rate Sheet id to a non-empty string or null. */
     private static function normaliseRateSheetId(mixed $rateSheetId): ?string
     {
@@ -1567,7 +1793,7 @@ class PackageSchema
             'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
-            'tier_editions' => [],
+            'tier_editions' => [], 'tier_edition_bin' => [],
         ];
     }
 
