@@ -70,6 +70,11 @@ export function buildTierFooterModel(
 export interface TierDetailHandlers {
   onEditSection:  (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => void;
   onRevertModule: (module: 'overview' | 'features' | 'faqs') => void;
+  // Registers one additional Edition position — see Overview's small
+  // "Editions" structural control (docs/code-map/tier-edition.md). Absent
+  // while the mutation can't legally run yet (no real occupant, or one is
+  // already in flight); present otherwise.
+  onAddEdition?:  () => void;
 }
 
 /**
@@ -112,7 +117,7 @@ export function buildRateSheetCatalogue(
 export function buildTierDetail(
   pkg: PackageStation,
   editingTierId: string | null,
-  { onEditSection, onRevertModule }: TierDetailHandlers,
+  { onEditSection, onRevertModule, onAddEdition }: TierDetailHandlers,
 ) {
   const svc = pkg.service;
   if (!editingTierId || !svc) return null;
@@ -137,10 +142,22 @@ export function buildTierDetail(
       popular:      isPopular,
       platformId:   detail.platform_id,
       addonPlatformId: detail.addon_platform_id,
+      // 1 (the occupant's own permanent Default) + however many additional
+      // Edition child records already exist — always derived, never a
+      // separately stored count. See docs/code-map/tier-edition.md.
+      tierEditionsCount: 1 + (detail.tier_editions?.length ?? 0),
     },
     state:    view.modules.overview,
     hasDraft: view.drafts.overview !== null,
-    handlers: { edit: () => onEditSection('tier-overview'), 'discard-draft': () => onRevertModule('overview') },
+    handlers: {
+      edit: () => onEditSection('tier-overview'),
+      'discard-draft': () => onRevertModule('overview'),
+      // Registering one more Edition position is a real, immediate action —
+      // not a draft field — so it rides the same handler-from-the-owning-
+      // station convention as edit/discard-draft, gated on a real occupant
+      // existing (an empty/unsaved slot has nothing to attach an Edition to).
+      ...(detail.occupant_id && onAddEdition ? { 'add-edition': onAddEdition } : {}),
+    },
     busy: tierBusy,
   };
   const featuresBinding: ShellBinding<TierFeaturesShellData> = {

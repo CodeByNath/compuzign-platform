@@ -187,4 +187,49 @@ for (const action of ['publish', 'archive', 'trash', 'disable', 'enable', 'resto
   check(panel.includes(`ctl.${action}(`), `TierEditionsPanel drives ${action} through the hook's own action, never a raw status write`);
 }
 
+// ── Overview's "Editions" count is derived, never a second persisted field ──
+// (docs/code-map/tier-edition.md — audited: the existing tier_editions[]
+// length already represents the registered positions cleanly, so no new
+// storage was added.)
+
+const schemaForCount = readFileSync(resolve(
+  root,
+  'src/Modules/SurfacePackages/Support/PackageSchema.php',
+), 'utf8');
+check(
+  !/edition_(count|slots|positions)/i.test(schemaForCount),
+  'no new persisted Edition-count field exists on the occupant — the count stays derived from tier_editions.length',
+);
+
+const tierBindings = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/schema/bindings/tier.tsx',
+), 'utf8');
+check(
+  tierBindings.includes('tierEditionsCount: number'),
+  'TierOverviewShellData carries the derived Editions count as a plain number, not a stored field',
+);
+check(
+  tierBindings.includes("id: 'add-edition'"),
+  'Overview\'s own footer carries a small, real "+ Edition" action — not a title/pricing form',
+);
+
+const tierDetailModelForCount = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/tierDetailModel.ts',
+), 'utf8');
+check(
+  tierDetailModelForCount.includes('1 + (detail.tier_editions?.length ?? 0)'),
+  'the Overview count is derived directly from tier_editions.length (1 for the occupant\'s own permanent Default, plus however many Edition children exist) — never read from a separate stored count',
+);
+
+const controllerForAdd = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/useTierDrawerController.ts',
+), 'utf8');
+check(
+  controllerForAdd.includes('createTierEdition(serviceId, tierInstanceId, editingTierId,'),
+  'registering one more Edition position calls the SAME createTierEdition endpoint "+ Add Edition" already uses — no second creation route',
+);
+
 console.log('Tier Edition admin contract checks passed.');

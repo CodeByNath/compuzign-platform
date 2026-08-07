@@ -35,6 +35,20 @@ const DETAILS_ACTIONS: Record<string, ShellActionSchema> = {
 
 const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 
+// Overview's own small structural action — registers one additional Edition
+// position immediately (see docs/code-map/tier-edition.md). A real handler
+// only ever arrives once a real occupant exists; the `when` gate keeps the
+// action off an empty/unsaved slot's footer entirely rather than rendering
+// it disabled.
+const OVERVIEW_ACTIONS: Record<string, ShellActionSchema> = {
+  ...DETAILS_ACTIONS,
+  'add-edition': {
+    id: 'add-edition', label: '+ Edition', intent: 'secondary',
+    when: (b) => !!b.handlers['add-edition'],
+  },
+};
+const OVERVIEW_FOOTER = { actions: ['discard-draft', 'add-edition', 'edit'] };
+
 // ── Tier Overview ─────────────────────────────────────────────────────────────
 
 export interface TierOverviewShellData {
@@ -48,6 +62,11 @@ export interface TierOverviewShellData {
   popular:      boolean;         // station-level presentation flag
   platformId:   string;
   addonPlatformId: string;
+  // 1 (the occupant's own permanent Default declaration) + however many
+  // additional CZTE Edition child records exist — always derived from
+  // tier_editions.length, never a separately persisted count. See
+  // docs/code-map/tier-edition.md.
+  tierEditionsCount: number;
 }
 
 export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
@@ -88,6 +107,14 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.popular ? 'Yes' : 'No' }),
     },
     {
+      // Small, structural, read-only — no pricing editor, no lifecycle
+      // rail, no explanatory copy. "+ Edition" (a footer action, not a
+      // field) is how the count actually increases. See
+      // docs/code-map/tier-edition.md.
+      id: 'editions', element: 'text', label: 'Editions',
+      bind: (d): TextValue => ({ value: String(d.tierEditionsCount) }),
+    },
+    {
       id: 'platform-id', element: 'text', label: 'Tier Platform ID',
       bind: (d): TextValue => ({ value: d.platformId, fallback: 'Assigned after Publish' }),
     },
@@ -97,8 +124,8 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.addonPlatformId, fallback: 'Assigned after Publish' }),
     },
   ],
-  footer:  DETAILS_FOOTER,
-  actions: DETAILS_ACTIONS,
+  footer:  OVERVIEW_FOOTER,
+  actions: OVERVIEW_ACTIONS,
   editor: {
     render: (s) => (
       <TierOverviewEditor

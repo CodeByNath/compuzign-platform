@@ -27,6 +27,7 @@ import { usePackageStation } from '../../usePackageStation';
 import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
 import { serviceConnectionBinding } from '@/service-station';
 import { useAutoDismiss, useOutsideClickDismiss } from '@/entity-drawers/shared/drawerChrome';
+import { createTierEdition } from '../../api';
 import { useTierModuleEditing } from './useTierModuleEditing';
 import { useTierBinTravel } from './useTierBinTravel';
 import { buildTierDetail, buildTierFooterModel } from './tierDetailModel';
@@ -171,6 +172,25 @@ export function useTierDrawerController({
 
   const requestClose = () => bridge.close();
 
+  // Overview's small "Editions" structural control (see
+  // docs/code-map/tier-edition.md): registers one additional Edition
+  // position by minting the child record immediately, the same
+  // born-disabled/unconfigured creation addTierEdition already performs for
+  // "+ Add Edition" — Overview itself collects no title, form, or pricing;
+  // configuring the new Edition happens in the Inclusions & Editions module.
+  const [addingEdition, setAddingEdition] = useState(false);
+  const handleAddEdition = async () => {
+    if (!editingTierId || addingEdition) return;
+    const existingCount = pkg.tierView(editingTierId)?.detail.tier_editions?.length ?? 0;
+    setAddingEdition(true);
+    try {
+      await createTierEdition(serviceId, tierInstanceId, editingTierId, { title: `Edition ${existingCount + 2}` });
+      pkg.refetch();
+    } finally {
+      setAddingEdition(false);
+    }
+  };
+
   // ── Derived models (pure builders) ──────────────────────────────────────────
   const { footerMode, footerEnabled, footerHasContent, footerHasBeenPublished } =
     buildTierFooterModel(pkg, editingTierId, editingSection);
@@ -178,6 +198,7 @@ export function useTierDrawerController({
   const tierDetail = buildTierDetail(pkg, editingTierId, {
     onEditSection:  openSection,
     onRevertModule: handleRevertModule,
+    onAddEdition:   addingEdition ? undefined : handleAddEdition,
   });
 
   return {

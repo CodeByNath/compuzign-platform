@@ -365,6 +365,13 @@ function clickRowButton(title, text) {
   btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return btn;
 }
+// Overview module's own small "Editions" read field (docs/code-map/tier-edition.md) —
+// a `.drawerModule__field` whose label reads "Editions", value is the derived count.
+function overviewEditionsCountText() {
+  const field = [...container.querySelectorAll('.drawerModule__field')]
+    .find((el) => el.querySelector('.drawerModule__label')?.textContent.trim() === 'Editions');
+  return field?.querySelector('.drawerModule__value')?.textContent.trim() ?? null;
+}
 
 console.log('Tier Edition admin lifecycle regression (mounted TierDrawerContent → TierEditionsPanel)\n');
 render(h(Harness, { initialTierId: TIER_ID }), container);
@@ -373,6 +380,7 @@ await waitQuiet();
 console.log('1) A freshly published occupant starts with no Editions');
 check('the empty-state copy is shown', container.textContent.includes('No Editions yet'));
 check('+ Add Edition is present', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === '+ Add Edition'));
+check('Overview\'s own Editions count reads 1 (the occupant\'s own Default only)', overviewEditionsCountText() === '1', overviewEditionsCountText());
 
 console.log('\n2) Create "Annual Plan" — born disabled/Pending, no CZTE yet');
 clickButtonWithText('+ Add Edition');
@@ -469,6 +477,17 @@ await waitQuiet();
 check('restore never reactivates — Monthly Plan reads Pending', rowStatusText('Monthly Plan') === '(Pending)', rowStatusText('Monthly Plan'));
 check('restore was called exactly once', restoreCalls === 1, restoreCalls);
 check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', rowDetailText('Monthly Plan')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), rowDetailText('Monthly Plan'));
+
+console.log('\n11) Overview\'s own "+ Edition" control registers one more position immediately — no title form, no pricing editor, no lifecycle rail in Overview itself');
+const countBeforeOverviewAdd = overviewEditionsCountText();
+check('Overview reads 2 positions before this step (Default + Monthly Plan)', countBeforeOverviewAdd === '2', countBeforeOverviewAdd);
+const createCallsBefore = editions.length;
+clickButtonWithText('+ Edition');
+await waitQuiet();
+check('a new Edition was created', editions.length === createCallsBefore + 1, editions.length);
+check('it was auto-titled — Overview itself never collected a title', editionRow('Edition 3') !== null);
+check('it was born Pending/disabled, exactly like "+ Add Edition"\'s own creation', rowStatusText('Edition 3') === '(Pending)', rowStatusText('Edition 3'));
+check('Overview\'s own Editions count advanced to 3 (Default + Monthly Plan + the new one)', overviewEditionsCountText() === '3', overviewEditionsCountText());
 
 console.log('');
 if (failures.length > 0) {
