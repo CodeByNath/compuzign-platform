@@ -97,7 +97,7 @@ captures whichever declaration was showing at the click.
 revert, status, restore, guarded delete, plus Phase 6's
 `moveToBin`/`restoreFromBin`/`trashBinEntry`/`deleteBinEntry`) and
 Edition-scoped state including `tier_edition_bin[]`. The Included-Features
-module is titled **Inclusions & Editions** (unchanged, Default only).
+module is titled **Default Tier Inclusions** (unchanged, Default only).
 `TierEditionDeclarationSwitcher.tsx` mounts after it, gated on a real
 occupant: a `[Default] [Edition 2]` tab strip reusing
 `TierEditionOverviewFields.tsx`, plus Phase 6's bin UI — "Move to bin" on an

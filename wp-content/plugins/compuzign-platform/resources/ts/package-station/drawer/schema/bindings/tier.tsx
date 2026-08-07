@@ -157,8 +157,8 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   archetype: 'child',
   dna:       tierFeaturesModule,
   header: {
-    title:       'Inclusions & Editions',
-    subtitle:    'Features included in this tier’s Default declaration. Additional Editions, if any, follow below.',
+    title:       'Default Tier Inclusions',
+    subtitle:    'Features included in this tier’s Default declaration.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
     count:       (d) => d.items.length,
