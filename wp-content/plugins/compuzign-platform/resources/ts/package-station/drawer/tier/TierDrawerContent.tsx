@@ -402,6 +402,18 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     { id: 'support', label: 'Support', content: null },
   ];
 
+  // Current-plan context (Phase 6). Purely derived presentation, not a new
+  // business entity: reads the already-selected declaration
+  // (selectedDeclarationId, owned by useTierDrawerController) and the
+  // occupant's own tier_editions[]. Rendered outside any group's content —
+  // above the group nav — so it stays visible and correct regardless of
+  // which group is open or which view mode is active; switching either
+  // never touches selectedDeclarationId, so the label never resets.
+  const selectedEdition = c.selectedDeclarationId
+    ? (detail.tier_editions ?? []).find((edition) => edition.id === c.selectedDeclarationId)
+    : null;
+  const currentPlanLabel = selectedEdition?.title.trim() || 'DEFAULT TIER';
+
   // Tabs/Accordion view toggle (Phase 4). Presentation-only: both renderers
   // consume the identical tierGroups array and the identical activeId/
   // onSelect pair, so switching modes changes only which primitive draws the
@@ -410,21 +422,24 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // beside the group nav, rather than in shared drawer chrome.
   return (
     <div class="cz-req-detail" key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}>
-      <div class="cz-shell-section cz-shell-section--no-border" style="display:flex; justify-content:flex-end; gap: var(--cz-space-2); margin-bottom: var(--cz-space-3)">
-        <button
-          type="button"
-          class={`cz-admin-btn cz-admin-btn--sm ${c.tierGroupView === 'tabs' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
-          onClick={() => c.setTierGroupView('tabs')}
-        >
-          Tabs
-        </button>
-        <button
-          type="button"
-          class={`cz-admin-btn cz-admin-btn--sm ${c.tierGroupView === 'accordion' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
-          onClick={() => c.setTierGroupView('accordion')}
-        >
-          Accordion
-        </button>
+      <div class="cz-shell-section cz-shell-section--no-border" style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-2); margin-bottom: var(--cz-space-3)">
+        <p class="cz-shell-section__title" style="margin:0">CURRENT PLAN: {currentPlanLabel}</p>
+        <div style="display:flex; gap: var(--cz-space-2)">
+          <button
+            type="button"
+            class={`cz-admin-btn cz-admin-btn--sm ${c.tierGroupView === 'tabs' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
+            onClick={() => c.setTierGroupView('tabs')}
+          >
+            Tabs
+          </button>
+          <button
+            type="button"
+            class={`cz-admin-btn cz-admin-btn--sm ${c.tierGroupView === 'accordion' ? 'cz-admin-btn--primary' : 'cz-admin-btn--secondary'}`}
+            onClick={() => c.setTierGroupView('accordion')}
+          >
+            Accordion
+          </button>
+        </div>
       </div>
       {c.tierGroupView === 'accordion' ? (
         <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} />
