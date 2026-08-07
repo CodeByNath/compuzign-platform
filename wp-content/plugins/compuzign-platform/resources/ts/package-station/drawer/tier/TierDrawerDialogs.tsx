@@ -26,7 +26,7 @@ export function TierDrawerDialogs({ c }: { c: TierDrawerController }) {
               </p>
               <ul class="cz-publish-confirm__summary">
                 <li><strong>Tier Overview:</strong> {view.drafts.overview ? 'Pending changes' : (detail.price !== null || detail.contact) && detail.billing_cycle ? 'Ready' : 'Not configured'}</li>
-                <li><strong>Included Features:</strong> {view.drafts.features ? 'Pending changes' : `${detail.inclusions_override.length} added`}</li>
+                <li><strong>Inclusions & Editions:</strong> {view.drafts.features ? 'Pending changes' : `${detail.inclusions_override.length} added`}</li>
                 <li><strong>Common Questions:</strong> {view.drafts.faqs ? 'Pending changes' : `${detail.faq_refs.length} added`}</li>
               </ul>
             </div>

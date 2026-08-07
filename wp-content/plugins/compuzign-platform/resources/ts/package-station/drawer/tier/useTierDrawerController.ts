@@ -57,6 +57,15 @@ export function useTierDrawerController({
   const [listView, setListView] = useState<'current' | 'bin'>('current');
   const [splitOpen,    setSplitOpen]    = useState(false);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
+  // Inclusions & Editions' own [Default] [Edition …] tab strip selection.
+  // Lifted here — not local state inside TierEditionDeclarationSwitcher —
+  // because every Edition lifecycle mutation refetches through pkg, and
+  // TierDrawerContent unmounts its whole child tree (returns <AsyncLoading/>)
+  // while `!pkg.detailLoaded`; local state inside that child tree would be
+  // silently wiped back to "Default" after every Publish/Disable/Archive/…
+  // click. This hook's own state survives that remount, the same reason
+  // editingSection/openTierPanel already live here rather than in a child.
+  const [selectedDeclarationId, setSelectedDeclarationId] = useState<string | null>(null);
 
   useAutoDismiss(saveOk, () => setSaveOk(false), 2500);
   useOutsideClickDismiss(splitOpen, () => setSplitOpen(false));
@@ -65,6 +74,10 @@ export function useTierDrawerController({
   const { editingSection, openSection, cancelSection } = editing;
 
   const travel = useTierBinTravel({ pkg, editingTierId, setSplitOpen, setConfirmModal, setSaveErr, setSaveOk });
+
+  // Leaving one Tier for another starts back on that Tier's own Default —
+  // a stale Edition selection must never silently carry across occupants.
+  useEffect(() => { setSelectedDeclarationId(null); }, [editingTierId]);
 
   // Re-resolve the stable occupant id after loading so stale card content can
   // never address lifecycle mutations to the wrong shell.
@@ -211,6 +224,7 @@ export function useTierDrawerController({
     openSummaryTier, setOpenSummaryTier, openTierEdit,
     // individual tier
     tierDetail, openTierPanel, setOpenTierPanel,
+    selectedDeclarationId, setSelectedDeclarationId,
     // editors
     overviewDraft: editing.overviewDraft, setOverviewDraft: editing.setOverviewDraft,
     featuresDraft: editing.featuresDraft, setFeaturesDraft: editing.setFeaturesDraft,

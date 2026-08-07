@@ -1,8 +1,8 @@
 // Contract: the Tier Edition admin frontend (types, api.ts, useTierEditions,
-// TierEditionsPanel) stays wired to the exact backend route family
-// PackageStationController registers — the same source-scanning technique
-// tier-instance-scope-contract.ts already uses for the parent occupant
-// routes, extended one level deeper to Editions.
+// TierEditionDeclarationSwitcher) stays wired to the exact backend route
+// family PackageStationController registers — the same source-scanning
+// technique tier-instance-scope-contract.ts already uses for the parent
+// occupant routes, extended one level deeper to Editions.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -24,7 +24,7 @@ const hook = readFileSync(resolve(
 ), 'utf8');
 const panel = readFileSync(resolve(
   root,
-  'resources/ts/package-station/drawer/tier/TierEditionsPanel.tsx',
+  'resources/ts/package-station/drawer/tier/TierEditionDeclarationSwitcher.tsx',
 ), 'utf8');
 const drawerContent = readFileSync(resolve(
   root,
@@ -137,9 +137,8 @@ check(
   'the occupant\'s own Overview/Features editor resolves its catalogue through the SAME shared function (behaviour-preserving refactor, not a duplicate)',
 );
 // The row/quantity editor fields live in one shared component
-// (TierEditionOverviewFields) reused verbatim by BOTH TierEditionsPanel
-// (inline) and the scoped tier-edition:{...} drawer's own editor — so this
-// checks the shared component, not either individual consumer.
+// (TierEditionOverviewFields) reused verbatim by TierEditionDeclarationSwitcher
+// — so this checks the shared component, not the one consumer.
 const overviewFields = readFileSync(resolve(
   root,
   'resources/ts/package-station/drawer/tier/TierEditionOverviewFields.tsx',
@@ -159,33 +158,45 @@ check(
 );
 check(
   panel.includes('TierEditionOverviewFields') && panel.includes("from './TierEditionOverviewFields'"),
-  'TierEditionsPanel renders its editor through the shared TierEditionOverviewFields, not a duplicate inline form',
+  'TierEditionDeclarationSwitcher renders its editor through the shared TierEditionOverviewFields, not a duplicate inline form',
 );
 
-// ── Panel is actually wired into the mounted Tier drawer, not orphaned ──────
+// ── The switcher is actually wired into the mounted Tier drawer, not orphaned ──
 
 check(
-  drawerContent.includes("import { TierEditionsPanel }"),
-  'TierDrawerContent imports TierEditionsPanel',
+  drawerContent.includes("import { TierEditionDeclarationSwitcher }"),
+  'TierDrawerContent imports TierEditionDeclarationSwitcher',
 );
 check(
-  drawerContent.includes('<TierEditionsPanel'),
-  'TierDrawerContent mounts TierEditionsPanel inside the individual-tier Details tab',
+  drawerContent.includes('<TierEditionDeclarationSwitcher'),
+  'TierDrawerContent mounts TierEditionDeclarationSwitcher inside the individual-tier Details tab',
+);
+check(
+  !drawerContent.includes('TierEditionsPanel'),
+  'the old standalone "Payment Editions" panel is no longer mounted — TierEditionDeclarationSwitcher fully replaced it',
 );
 check(
   drawerContent.includes('detail.occupant_id &&'),
-  'the panel is gated on a real occupant existing — an empty/unsaved slot cannot own Editions',
+  'the switcher is gated on a real occupant existing — an empty/unsaved slot cannot own Editions',
+);
+check(
+  drawerContent.includes('selectedId={c.selectedDeclarationId}') && drawerContent.includes('onSelect={c.setSelectedDeclarationId}'),
+  'the selected-declaration id is a controlled prop sourced from useTierDrawerController, not local state that a refetch-triggered remount would silently reset',
 );
 
-// The panel itself never calls the raw endpoints or mints identity directly
-// — every lifecycle action goes through the hook's own functions.
+// The switcher itself never calls the raw endpoints or mints identity
+// directly — every lifecycle action goes through the hook's own functions.
 check(
   !panel.includes("from '../../api'") && !panel.includes('from "../../api"'),
-  'TierEditionsPanel never imports the raw api.ts endpoints directly — only through useTierEditions',
+  'TierEditionDeclarationSwitcher never imports the raw api.ts endpoints directly — only through useTierEditions',
 );
 for (const action of ['publish', 'archive', 'trash', 'disable', 'enable', 'restore', 'remove']) {
-  check(panel.includes(`ctl.${action}(`), `TierEditionsPanel drives ${action} through the hook's own action, never a raw status write`);
+  check(panel.includes(`ctl.${action}(`), `TierEditionDeclarationSwitcher drives ${action} through the hook's own action, never a raw status write`);
 }
+check(
+  panel.includes('selectedId:') && panel.includes('onSelect:') && !panel.includes('useState<string | null>'),
+  'the selected declaration id arrives as a prop (selectedId/onSelect) — TierEditionDeclarationSwitcher declares no local useState<string|null> of its own that a refetch-triggered remount could silently reset',
+);
 
 // ── Overview's "Editions" count is derived, never a second persisted field ──
 // (docs/code-map/tier-edition.md — audited: the existing tier_editions[]

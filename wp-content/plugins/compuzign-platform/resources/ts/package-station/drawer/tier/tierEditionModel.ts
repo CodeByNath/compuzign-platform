@@ -1,9 +1,8 @@
-// Tier Edition — pure presentation/draft derivations shared by BOTH
-// surfaces that edit one Edition's overview module: the inline
-// TierEditionsPanel (printed inside the parent Tier drawer) and the scoped
-// tier-edition:{instance}:{slot}:{edition} drawer (its own independently
-// addressed lifecycle entity). Kept here, not duplicated, so the two
-// surfaces can never drift on what "the same Edition" looks like mid-edit.
+// Tier Edition — pure presentation/draft derivations for one Edition's
+// overview module, used by TierEditionDeclarationSwitcher (the Inclusions &
+// Editions module's own additional-declarations tab strip, printed inside
+// the parent Tier drawer). Kept here, not inlined, so status labelling and
+// draft seeding stay in one place.
 
 import type { TierEdition, TierEditionOverviewDraft } from '../../types';
 

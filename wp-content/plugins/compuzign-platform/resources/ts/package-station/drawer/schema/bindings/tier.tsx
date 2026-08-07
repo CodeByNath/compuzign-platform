@@ -138,7 +138,16 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
   },
 };
 
-// ── Included Features (pool references) ───────────────────────────────────────
+// ── Inclusions & Editions (pool references + the Default declaration's own
+//    inclusion/Rate-Sheet editor) ───────────────────────────────────────────
+//
+// This module's own content/editor still edit only the occupant's own
+// Default declaration — unchanged from before Tier Editions existed. Any
+// additional Editions this Tier carries render immediately below it (still
+// inside the Details tab's trailing slot — see TierDrawerContent.tsx) as a
+// compact [Default] [Edition 2] … tab strip (TierEditionDeclarationSwitcher)
+// that reuses this SAME PoolInclusionsEditor/Rate-Sheet mechanics one level
+// deeper, never a second inclusions system. See docs/code-map/tier-edition.md.
 
 export interface TierFeaturesShellData {
   items: InclusionItem[];
@@ -148,8 +157,8 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   archetype: 'child',
   dna:       tierFeaturesModule,
   header: {
-    title:       'Included Features',
-    subtitle:    'Features included in this tier.',
+    title:       'Inclusions & Editions',
+    subtitle:    'Features included in this tier’s Default declaration. Additional Editions, if any, follow below.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
     count:       (d) => d.items.length,

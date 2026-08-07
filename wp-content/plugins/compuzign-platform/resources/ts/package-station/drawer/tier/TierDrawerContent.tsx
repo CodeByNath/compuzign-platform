@@ -28,7 +28,7 @@ import { useTierDrawerController } from './useTierDrawerController';
 import { TierDrawerFooter } from './TierDrawerFooter';
 import { TierBinList } from './TierBinList';
 import { TierDrawerDialogs } from './TierDrawerDialogs';
-import { TierEditionsPanel } from './TierEditionsPanel';
+import { TierEditionDeclarationSwitcher } from './TierEditionDeclarationSwitcher';
 import type { TierDrawerContentProps } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 
@@ -288,7 +288,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // module is simply empty, and the module's own Pending pill carries the
   // guidance (`Edit and configure this tier.`) that a separate explanation block
   // used to duplicate above it. Edit is the only way into the editor, exactly as
-  // Included Features and Common Questions already behave.
+  // Inclusions & Editions and Common Questions already behave.
   return (
     <EntityDrawer
       key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}
@@ -317,7 +317,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
                 (a stable occupant_id) can own child records — an empty slot
                 or a not-yet-first-saved shell has nothing to attach them to. */}
             {detail.occupant_id && (
-              <TierEditionsPanel
+              <TierEditionDeclarationSwitcher
                 serviceId={props.serviceId}
                 tierInstanceId={props.tierInstanceId}
                 tierId={c.editingTierId}
@@ -332,6 +332,8 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
                 }))}
                 svc={svc}
                 onMutated={c.pkg.refetch}
+                selectedId={c.selectedDeclarationId}
+                onSelect={c.setSelectedDeclarationId}
               />
             )}
           </>
