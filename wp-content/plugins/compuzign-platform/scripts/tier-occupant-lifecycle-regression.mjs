@@ -54,7 +54,7 @@ const ITEM_ID = 'ri_1';
 const SOURCE_ITEM_ID = 'src_1';
 
 // FAQ_ITEM/FAQ_SOURCE_ID — Common Questions resolves through the SAME
-// rate_sheet_items pipeline as Inclusions & Editions (usePackageStation.tierView
+// rate_sheet_items pipeline as Default Tier Inclusions (usePackageStation.tierView
 // re-derives dp.faq_refs from resolved selections whose source_type is
 // 'faq'); a Tier is only "complete" for that module with a resolved faq row.
 const FAQ_ITEM_ID = 'ri_2';
@@ -356,7 +356,7 @@ async function overflowItemLabel() {
   return label;
 }
 function allPillsRead(label) {
-  return pillLabel('Tier Overview') === label && pillLabel('Inclusions & Editions') === label && pillLabel('Common Questions') === label;
+  return pillLabel('Tier Overview') === label && pillLabel('Default Tier Inclusions') === label && pillLabel('Common Questions') === label;
 }
 
 async function runScenario(tierId, label) {
@@ -366,7 +366,7 @@ async function runScenario(tierId, label) {
   render(h(Harness, { initialTierId: tierId }), container);
   await waitToSettle();
   check('a footer was registered on mount', setFooterCalls > 0);
-  check('every module pill reads Active on mount', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Inclusions & Editions')} faqs=${pillLabel('Common Questions')}`);
+  check('every module pill reads Active on mount', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
 
   let footerDom = renderFooterDom();
   check('the real rendered split button reads "Disable" while published and not masked', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
@@ -388,14 +388,14 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('a ready module Save persists a draft only — the occupant is not re-settled by Save', settleCalls === 0, `settleCalls=${settleCalls}`);
   check('the edited module (Overview) reads Pending', pillLabel('Tier Overview') === 'Pending', pillLabel('Tier Overview'));
-  check('sibling modules retain their settled state (Features)', pillLabel('Inclusions & Editions') === 'Active', pillLabel('Inclusions & Editions'));
+  check('sibling modules retain their settled state (Features)', pillLabel('Default Tier Inclusions') === 'Active', pillLabel('Default Tier Inclusions'));
   check('sibling modules retain their settled state (FAQs)', pillLabel('Common Questions') === 'Active', pillLabel('Common Questions'));
 
   console.log('\n3) Publish — activates, and every module returns to settled/Active');
   await clickPublish();
   await waitToSettle();
   check('the settle endpoint was called', settleCalls >= 1, `settleCalls=${settleCalls}`);
-  check('every module pill reads Active after Publish', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Inclusions & Editions')} faqs=${pillLabel('Common Questions')}`);
+  check('every module pill reads Active after Publish', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
   check('the edit reached the server (label updated)', tiers[tierId].settled.label.endsWith('(edited)'), tiers[tierId].settled.label);
 
   console.log('\n4) Disable — every module reads Disabled, not Pending');
@@ -406,7 +406,7 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('the enabled endpoint was called for Disable', enabledCalls === 1, `enabledCalls=${enabledCalls}`);
   check('the Disable request carried enabled:false', lastEnabledPayload?.enabled === false, JSON.stringify(lastEnabledPayload));
-  check('every module pill reads Disabled after Disable', allPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Inclusions & Editions')} faqs=${pillLabel('Common Questions')}`);
+  check('every module pill reads Disabled after Disable', allPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
 
   footerDom = renderFooterDom();
   check('the real rendered split button now reads "Enable"', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
@@ -417,7 +417,7 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('the enabled endpoint was called for Enable', enabledCalls === 2, `enabledCalls=${enabledCalls}`);
   check('the Enable request carried enabled:true', lastEnabledPayload?.enabled === true, JSON.stringify(lastEnabledPayload));
-  check('Enable never activates — every module pill reads Pending, not Active', allPillsRead('Pending'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Inclusions & Editions')} faqs=${pillLabel('Common Questions')}`);
+  check('Enable never activates — every module pill reads Pending, not Active', allPillsRead('Pending'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
 
   footerDom = renderFooterDom();
   check('after Enable the footer offers Disable again — not a no-op Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
@@ -427,7 +427,7 @@ async function runScenario(tierId, label) {
   await clickPublish();
   await waitToSettle();
   check('the settle endpoint was called again', settleCalls === settleCallsBefore + 1, `settleCalls=${settleCalls}`);
-  check('Publish after Enable reaches Active on every module', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Inclusions & Editions')} faqs=${pillLabel('Common Questions')}`);
+  check('Publish after Enable reaches Active on every module', allPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')} faqs=${pillLabel('Common Questions')}`);
 
   footerDom = renderFooterDom();
   check('the footer still offers Disable after republish', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);

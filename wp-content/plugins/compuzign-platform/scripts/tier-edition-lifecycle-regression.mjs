@@ -3,8 +3,8 @@
 //
 // Mounts the REAL TierDrawerContent composition (esbuild + happy-dom +
 // Preact render, same technique as tier-occupant-lifecycle-regression.mjs)
-// against an already-published occupant, and drives the SAME Inclusions &
-// Editions module (Overview's own "+ Edition" registration control, then
+// against an already-published occupant, and drives the SAME Default Tier
+// Inclusions module (Overview's own "+ Edition" registration control, then
 // the [Default] [Edition …] tab strip / TierEditionDeclarationSwitcher) a
 // real admin sees in that occupant's Details tab — proving Overview
 // registration (auto-titled, born-disabled, no form) → rename via draft
@@ -350,12 +350,12 @@ function setInputValue(selector, value) {
   el.value = value;
   el.dispatchEvent(new window.Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
 }
-// The Inclusions & Editions module's own [Default] [Edition …] tab strip
+// The Default Tier Inclusions module's own [Default] [Edition …] tab strip
 // (TierEditionDeclarationSwitcher) shows exactly ONE declaration's own
 // view/edit surface at a time — no per-row scoping needed, unlike the old
 // stacked-list panel this replaced.
 function declarationTab(text) {
-  return [...container.querySelectorAll('[role="tab"]')].find((b) => b.textContent.trim() === text);
+  return [...container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]')].find((b) => b.textContent.trim() === text);
 }
 function selectDeclarationTab(text) {
   const btn = declarationTab(text);
@@ -368,8 +368,8 @@ function selectedStatusText() {
 function selectedDetailText() {
   return container.querySelector('.cz-tier-edition-declaration__detail')?.textContent.trim() ?? null;
 }
-// "Edit" is ambiguous at the whole-container level — Overview, Inclusions &
-// Editions, and Common Questions each carry their own "Edit" action too —
+// "Edit" is ambiguous at the whole-container level — Overview, Default Tier
+// Inclusions, and Common Questions each carry their own "Edit" action too —
 // so the selected declaration's own Edit button must be scoped to its view
 // wrapper specifically.
 function clickDeclarationEdit() {
@@ -383,13 +383,13 @@ function overviewEditionsCountText() {
   return field?.querySelector('.drawerModule__value')?.textContent.trim() ?? null;
 }
 
-console.log('Tier Edition admin lifecycle regression (mounted TierDrawerContent → Inclusions & Editions)\n');
+console.log('Tier Edition admin lifecycle regression (mounted TierDrawerContent → Default Tier Inclusions)\n');
 render(h(Harness, { initialTierId: TIER_ID }), container);
 await waitQuiet();
 
 console.log('1) A freshly published occupant starts with only its own Default declaration');
 check('Overview\'s own Editions count reads 1 (the occupant\'s own Default only)', overviewEditionsCountText() === '1', overviewEditionsCountText());
-check('no additional-declarations tab strip renders yet — this Tier behaves exactly as before Editions existed', container.querySelectorAll('[role="tab"]').length === 0);
+check('no additional-declarations tab strip renders yet — this Tier behaves exactly as before Editions existed', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
 check('Overview offers "+ Edition"', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === '+ Edition'));
 
 console.log('\n2) Registering one more position from Overview mints a born-disabled, auto-titled child — no title form in Overview itself');
@@ -400,7 +400,7 @@ check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText(
 check('the tab strip now offers Default and the new Edition', declarationTab('Default') !== undefined && declarationTab('Edition 2') !== undefined);
 check('no CZTE was assigned at creation', czteMints === 0, czteMints);
 
-console.log('\n3) Selecting Default shows no editor here — Default is edited in Inclusions & Editions above');
+console.log('\n3) Selecting Default shows no editor here — Default is edited in Default Tier Inclusions above');
 selectDeclarationTab('Default');
 await sleep(20);
 check('Default renders a pointer note, not an editor', container.textContent.includes('Showing the Default declaration'));
@@ -469,7 +469,7 @@ clickButtonWithText('Delete permanently');
 await waitQuiet();
 check('the delete endpoint was called', deleteCalls === 1, deleteCalls);
 check('Overview\'s own Editions count dropped back to 1 — the derived count, not a separately stored one', overviewEditionsCountText() === '1', overviewEditionsCountText());
-check('the tab strip is gone again — back to Default only', container.querySelectorAll('[role="tab"]').length === 0);
+check('the tab strip is gone again — back to Default only', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
 
 console.log('\n10) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
 clickButtonWithText('+ Edition');
@@ -509,5 +509,5 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('All checks passed — Overview registration, Create/Save-Settle/Publish/Disable/Enable/Archive/Trash/guarded-Delete/Restore behave per SECTION: TIER_EDITION, driven through the real mounted Inclusions & Editions tab strip. There is no "default Edition" concept left to drive — the occupant\'s own declaration is the permanent Default, and no title/pricing form ever appears in Overview itself.');
+console.log('All checks passed — Overview registration, Create/Save-Settle/Publish/Disable/Enable/Archive/Trash/guarded-Delete/Restore behave per SECTION: TIER_EDITION, driven through the real mounted Default Tier Inclusions tab strip. There is no "default Edition" concept left to drive — the occupant\'s own declaration is the permanent Default, and no title/pricing form ever appears in Overview itself.');
 process.exit(0);

@@ -118,7 +118,7 @@ const ENTRY_STATES: Array<[string, ModuleState]> = [
     evaluateModule(tierOverviewModule, EMPTY_TIER_SLOT, { platformStatus: 'disabled' }),
   ],
   [
-    'Inclusions & Editions, empty fixed slot',
+    'Default Tier Inclusions, empty fixed slot',
     evaluateModule(tierFeaturesModule, { count: 0 }, {
       platformStatus: 'disabled', parentReady: false, parentLabel: 'Tier Overview',
     }),
