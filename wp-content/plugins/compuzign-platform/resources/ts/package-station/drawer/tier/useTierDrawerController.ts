@@ -58,6 +58,11 @@ export function useTierDrawerController({
   // EntityDrawer's fixed Details/Connections bar (drawer refinement
   // blueprint, Phase 3).
   const [tierTab, setTierTab] = useState<TierDrawerGroupId>('details');
+  // Tabs vs Accordion presentation (Phase 4). Deliberately plain component
+  // state, not persisted — a view toggle for this open drawer, not a stored
+  // admin preference. Resets to Tabs (the default) every time a Tier drawer
+  // is freshly mounted, the same way tierTab/selectedDeclarationId do.
+  const [tierGroupView, setTierGroupView] = useState<'tabs' | 'accordion'>('tabs');
   const [listView, setListView] = useState<'current' | 'bin'>('current');
   const [splitOpen,    setSplitOpen]    = useState(false);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
@@ -225,6 +230,7 @@ export function useTierDrawerController({
     pkg, station, svc, serviceItem, serviceBack,
     // navigation
     editingTierId, editingSection, overviewTab, selectOverviewTab, tierTab, selectTierTab, listView, setListView,
+    tierGroupView, setTierGroupView,
     initialOccupantId,
     // package overview
     openSummaryTier, setOpenSummaryTier, openTierEdit,
