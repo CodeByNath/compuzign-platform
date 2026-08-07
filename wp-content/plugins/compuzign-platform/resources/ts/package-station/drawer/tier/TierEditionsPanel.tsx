@@ -28,7 +28,6 @@ interface Props {
   tierInstanceId: string;
   tierId:         string;
   editions:       TierEdition[];
-  defaultEditionId: string | null;
   rateSheetOptions: AdminFieldOption[];
   // The same slice buildRateSheetCatalogue() already resolves the occupant's
   // own binding from — reused here, unchanged, for the Edition's own
@@ -38,9 +37,9 @@ interface Props {
 }
 
 export function TierEditionsPanel({
-  serviceId, tierInstanceId, tierId, editions, defaultEditionId, rateSheetOptions, svc, onMutated,
+  serviceId, tierInstanceId, tierId, editions, rateSheetOptions, svc, onMutated,
 }: Props) {
-  const ctl = useTierEditions(serviceId, tierInstanceId, tierId, editions, defaultEditionId, onMutated);
+  const ctl = useTierEditions(serviceId, tierInstanceId, tierId, editions, onMutated);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -100,7 +99,7 @@ export function TierEditionsPanel({
               <div style="display:flex; justify-content:space-between; align-items:center">
                 <div>
                   <span class="cz-admin-status-dot" /> <strong>{edition.title}</strong>{' '}
-                  <span class="drawerModule__value">({tierEditionStatusLabel(edition)}{defaultEditionId === edition.id ? ' — Default' : ''})</span>
+                  <span class="drawerModule__value">({tierEditionStatusLabel(edition)})</span>
                 </div>
                 <div style="display:flex; gap: var(--cz-space-1)">
                   <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => openEditor(edition)}>Edit</button>
@@ -132,11 +131,8 @@ export function TierEditionsPanel({
                 {(edition.platform_status === 'archived' || edition.platform_status === 'trashed') && (
                   <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.restore(edition.id)}>Restore</button>
                 )}
-                {edition.platform_status === 'trashed' && defaultEditionId !== edition.id && (
+                {edition.platform_status === 'trashed' && (
                   <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.remove(edition.id)}>Delete permanently</button>
-                )}
-                {edition.platform_status === 'active' && defaultEditionId !== edition.id && (
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.setDefault(edition.id)}>Make default</button>
                 )}
               </div>
             </>

@@ -125,33 +125,28 @@ check_edition($editions[0]['id'] === 'edt_a' && $editions[1]['id'] === 'edt_b', 
 check_edition(Schema::sanitizeTierEditions('not-an-array') === [], 'a non-array collection sanitises to an empty list');
 check_edition(Schema::sanitizeTierEditions(null) === [], 'a null collection sanitises to an empty list');
 
-// ── sanitizeDefaultEditionId: never dangles ──────────────────────────────────
-
-check_edition(Schema::sanitizeDefaultEditionId('edt_a', $editions) === 'edt_a', 'a pointer matching an existing edition resolves verbatim');
-check_edition(Schema::sanitizeDefaultEditionId('edt_ghost', $editions) === null, 'a pointer with no matching edition resolves to null rather than a dangling reference');
-check_edition(Schema::sanitizeDefaultEditionId(null, $editions) === null, 'an absent pointer resolves to null');
-check_edition(Schema::sanitizeDefaultEditionId('edt_a', []) === null, 'a pointer against an empty collection resolves to null');
-
 // ── normaliseTierSlot: existing occupants remain unchanged ───────────────────
 
 $emptyDetail = Schema::normaliseTierSlot([]);
 check_edition($emptyDetail['tier_editions'] === [], 'an empty shell normalises tier_editions to an empty list');
-check_edition($emptyDetail['default_edition_id'] === null, 'an empty shell normalises default_edition_id to null');
+check_edition(!array_key_exists('default_edition_id', $emptyDetail), 'the retired default_edition_id pointer is no longer part of the detail shape');
 
 $legacyFlat = Schema::normaliseTierSlot([
     'label' => 'Legacy Flat', 'price' => 10.0, 'contact' => false, 'billing_cycle' => 'monthly',
     'inclusions_override' => [], 'features' => [], 'faq_refs' => [], 'enabled' => true,
 ]);
 check_edition($legacyFlat['tier_editions'] === [], 'a Phase 1 flat legacy tier (predates Editions entirely) normalises to an empty list');
-check_edition($legacyFlat['default_edition_id'] === null, 'a Phase 1 flat legacy tier normalises default_edition_id to null');
 
 $occupantNoEditions = Schema::upsertOccupant([], ['label' => 'Standard'], true);
 $detailNoEditions = Schema::normaliseTierSlot($occupantNoEditions);
 check_edition($detailNoEditions['tier_editions'] === [], 'a brand new occupant with no Edition capability normalises to an empty list');
-check_edition($detailNoEditions['default_edition_id'] === null, 'a brand new occupant with no Edition capability normalises default_edition_id to null');
 
 // A stored occupant already carrying Editions (as Phase 2+ will eventually
-// write) round-trips through normaliseTierSlot correctly.
+// write) round-trips through normaliseTierSlot correctly. The fixture still
+// carries a legacy `default_edition_id` key — simulating data written by the
+// previously-live "Make default" capability — to prove that retired concept
+// is now silently ignored on read rather than erroring or resurrecting any
+// special treatment for that Edition.
 $storedWithEditions = [
     'current_occupant' => [
         'id' => 'occ_1', 'cz_platform_id' => 'CZT2A7KZ', 'addon_platform_id' => '',
@@ -169,39 +164,36 @@ $storedWithEditions = [
 ];
 $roundTripped = Schema::normaliseTierSlot($storedWithEditions);
 check_edition(count($roundTripped['tier_editions']) === 2, 'a stored occupant\'s Editions round-trip through normaliseTierSlot');
-check_edition($roundTripped['default_edition_id'] === 'edt_x', 'a valid stored default_edition_id round-trips');
+check_edition(!array_key_exists('default_edition_id', $roundTripped), 'a legacy stored default_edition_id is not reflected in the normalised detail');
 
 // ── upsertOccupant: the critical preservation guarantee ──────────────────────
 //
-// tier_editions/default_edition_id must survive every ordinary
-// Overview/Features/FAQs save and settle — the same mechanism that already
-// preserves `history` — because no route in this phase (or any planned
-// future Overview/Features/FAQs route) ever supplies these keys in $data.
-// If upsertOccupant ever stopped preserving them, an admin editing an
-// unrelated Tier field would silently destroy that Tier's Editions.
+// tier_editions must survive every ordinary Overview/Features/FAQs save and
+// settle — the same mechanism that already preserves `history` — because no
+// route in this phase (or any planned future Overview/Features/FAQs route)
+// ever supplies this key in $data. If upsertOccupant ever stopped preserving
+// it, an admin editing an unrelated Tier field would silently destroy that
+// Tier's Editions.
 
 $ordinaryEdit = Schema::upsertOccupant($storedWithEditions, [
     'label' => 'Professional (renamed)', 'price' => 129.0, 'billing_cycle' => 'monthly',
 ], true);
 check_edition(count($ordinaryEdit['current_occupant']['tier_editions']) === 2, 'an ordinary Overview-shaped save preserves both Editions untouched');
-check_edition($ordinaryEdit['current_occupant']['default_edition_id'] === 'edt_x', 'an ordinary Overview-shaped save preserves the default Edition pointer');
+check_edition(!array_key_exists('default_edition_id', $ordinaryEdit['current_occupant']), 'an ordinary Overview-shaped save does not resurrect the retired default_edition_id key');
 check_edition($ordinaryEdit['current_occupant']['label'] === 'Professional (renamed)', 'the unrelated field the save actually targeted still updates normally');
 
 // settleTierSlot round-trips through upsertOccupant — proving Publish/Settle
 // on the parent Tier never wipes Edition data either.
 $settled = Schema::settleTierSlot($storedWithEditions);
 check_edition(count($settled['current_occupant']['tier_editions']) === 2, 'settleTierSlot (Publish/Settle) preserves both Editions');
-check_edition($settled['current_occupant']['default_edition_id'] === 'edt_x', 'settleTierSlot (Publish/Settle) preserves the default Edition pointer');
 
-// Supplying a raw tier_editions/default_edition_id key in $data is not a
-// mutation path — upsertOccupant never reads it from $data, only from the
-// existing stored occupant, so a caller cannot smuggle Edition changes
-// through the Overview save body.
+// Supplying a raw tier_editions key in $data is not a mutation path —
+// upsertOccupant never reads it from $data, only from the existing stored
+// occupant, so a caller cannot smuggle Edition changes through the Overview
+// save body.
 $smuggleAttempt = Schema::upsertOccupant($storedWithEditions, [
     'label' => 'Professional', 'tier_editions' => [['id' => 'edt_z', 'title' => 'Smuggled']],
-    'default_edition_id' => 'edt_z',
 ], true);
 check_edition(count($smuggleAttempt['current_occupant']['tier_editions']) === 2, 'tier_editions in the Overview save body is ignored, not written');
-check_edition($smuggleAttempt['current_occupant']['default_edition_id'] === 'edt_x', 'default_edition_id in the Overview save body is ignored, not written');
 
 echo "Tier Edition schema contract: PASS\n";

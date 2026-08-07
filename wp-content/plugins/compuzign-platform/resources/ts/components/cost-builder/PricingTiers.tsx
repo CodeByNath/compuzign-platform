@@ -124,7 +124,7 @@ function TierCard({
       {editionOptions.length > 1 && (
         <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${data?.label || tier.title} payment options`}>
           {editionOptions.map((edition) => {
-            const active = (selectedEditionId ?? editionOptions.find((e) => e.is_default)?.id ?? editionOptions[0].id) === edition.id;
+            const active = (selectedEditionId ?? editionOptions[0].id) === edition.id;
             return (
               <button
                 key={edition.id}

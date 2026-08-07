@@ -276,12 +276,6 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string']],
         ]);
-        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/default-edition', [
-            'methods' => 'POST', 'callback' => [$this, 'setTierEditionDefault'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)]],
-        ]);
-
         register_rest_route('compuzign/v1', $instanceBase . '/popular', [
             'methods' => 'POST', 'callback' => [$this, 'setPackageStationPopular'],
             'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
@@ -1808,11 +1802,7 @@ class PackageStationController
     /** Write an updated tier_editions[] collection back through the occupant, slot, instance, and station. */
     private function persistTierEditionOccupant(array $station, string $instanceId, array $instance, string $tierId, array $occupant, array $editions): array
     {
-        $occupant['tier_editions']      = $editions;
-        $occupant['default_edition_id'] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::sanitizeDefaultEditionId(
-            $occupant['default_edition_id'] ?? null,
-            $editions
-        );
+        $occupant['tier_editions'] = $editions;
         $instance['tiers'][$tierId]['current_occupant'] = $occupant;
         return $this->persistTierInstance($station, $instanceId, $instance);
     }
@@ -2029,7 +2019,7 @@ class PackageStationController
         ]));
     }
 
-    /** Guarded permanent delete: trashed-only, and never the current default — see PackageSchema::deleteTierEdition. */
+    /** Guarded permanent delete: trashed-only — see PackageSchema::deleteTierEdition. */
     public function deleteTierEditionEndpoint(\WP_REST_Request $request): \WP_REST_Response
     {
         $context = $this->tierEditionContext($request);
@@ -2038,7 +2028,7 @@ class PackageStationController
 
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         try {
-            $editions = $PS::deleteTierEdition($editions, $editionId, $occupant['default_edition_id'] ?? null);
+            $editions = $PS::deleteTierEdition($editions, $editionId);
         } catch (\InvalidArgumentException $e) {
             return $this->instanceDeleteGuardResponse('tier_edition_delete_guard', $e->getMessage());
         }
@@ -2091,47 +2081,6 @@ class PackageStationController
             'success'       => true,
             'popular_tier'  => $instance['popular_tier'],
             'popular_label' => $instance['popular_label'],
-        ]));
-    }
-
-    /**
-     * Phase 5 — set or clear the occupant's default Edition: the pointer
-     * PackageSchema::resolveDefaultTierEdition() resolves into the legacy
-     * flat projection every existing public/cart consumer already reads. An
-     * unknown or empty edition_id clears the pointer rather than erroring —
-     * the same permissive shape setPackageStationPopular() already uses for
-     * clearing popular_tier. sanitizeDefaultEditionId() (Phase 1) is the
-     * actual invariant enforcement: it never lets a dangling id survive.
-     */
-    public function setTierEditionDefault(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $context = $this->tierInstanceContext($request);
-        if ($context instanceof \WP_REST_Response) return $context;
-        [$station, $instanceId, $instance] = $context;
-
-        $tierId = sanitize_key((string) $request->get_param('tier'));
-        $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
-        $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
-        if ($occupant === null) {
-            return new \WP_REST_Response(['success' => false, 'code' => 'no_occupant', 'message' => 'This Tier slot has no occupant.'], 404);
-        }
-
-        $body = $request->get_json_params();
-        $body = is_array($body) ? $body : [];
-        $editionId = sanitize_text_field((string) ($body['edition_id'] ?? ''));
-
-        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $editions = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
-        $occupant['default_edition_id'] = $editionId !== ''
-            ? $PS::sanitizeDefaultEditionId($editionId, $editions)
-            : null;
-
-        $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
-
-        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
-            'success'            => true,
-            'tier_id'            => $tierId,
-            'default_edition_id' => $occupant['default_edition_id'],
         ]));
     }
 

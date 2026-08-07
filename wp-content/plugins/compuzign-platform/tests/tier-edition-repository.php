@@ -113,14 +113,14 @@ $firstId  = $twoEditions[0]['id'];
 $secondId = $twoEditions[1]['id'];
 
 try {
-    Schema::deleteTierEdition($twoEditions, $firstId, null);
+    Schema::deleteTierEdition($twoEditions, $firstId);
     check_edition_repo(false, 'a disabled (not trashed) Edition cannot be permanently deleted');
 } catch (InvalidArgumentException) {
     check_edition_repo(true, 'a disabled (not trashed) Edition cannot be permanently deleted');
 }
 
 try {
-    Schema::deleteTierEdition($twoEditions, 'edt_ghost', null);
+    Schema::deleteTierEdition($twoEditions, 'edt_ghost');
     check_edition_repo(false, 'deleting an unknown Edition id throws rather than silently no-op-ing');
 } catch (InvalidArgumentException) {
     check_edition_repo(true, 'deleting an unknown Edition id throws rather than silently no-op-ing');
@@ -130,18 +130,15 @@ $firstTrashed = Schema::findTierEdition($twoEditions, $firstId);
 $firstTrashed['platform_status'] = 'trashed';
 $trashedEditions = Schema::replaceTierEdition($twoEditions, $firstTrashed);
 
-try {
-    Schema::deleteTierEdition($trashedEditions, $firstId, $firstId);
-    check_edition_repo(false, 'the current default Edition cannot be permanently deleted even once trashed');
-} catch (InvalidArgumentException) {
-    check_edition_repo(true, 'the current default Edition cannot be permanently deleted even once trashed');
-}
+// There is no "current default Edition" guard any more: the occupant's own
+// declaration is the permanent Default and is never represented by a row in
+// tier_editions[], so a trashed Edition — whichever one it is — can always
+// be permanently deleted once trashed.
+$afterDelete = Schema::deleteTierEdition($trashedEditions, $firstId);
+check_edition_repo(count($afterDelete) === 1 && $afterDelete[0]['id'] === $secondId, 'a trashed Edition is permanently deleted, leaving its sibling untouched');
 
-$afterDelete = Schema::deleteTierEdition($trashedEditions, $firstId, $secondId);
-check_edition_repo(count($afterDelete) === 1 && $afterDelete[0]['id'] === $secondId, 'a trashed, non-default Edition is permanently deleted, leaving its sibling untouched');
-
-$parentDeletion = Schema::deleteTierEdition($twoEditions, $firstId, $firstId, true);
-check_edition_repo(count($parentDeletion) === 1 && $parentDeletion[0]['id'] === $secondId, 'isParentDeletion bypasses both the trashed-only and current-default guards, for whole-occupant/Tier deletion');
+$parentDeletion = Schema::deleteTierEdition($twoEditions, $firstId, true);
+check_edition_repo(count($parentDeletion) === 1 && $parentDeletion[0]['id'] === $secondId, 'isParentDeletion bypasses the trashed-only guard, for whole-occupant/Tier deletion');
 
 // ── Occupant-qualified identity survives slot swap/retarget ─────────────────
 //
@@ -174,8 +171,7 @@ $occupantSlot = Schema::upsertOccupant([], ['label' => 'Professional'], true);
 $occupantId   = $occupantSlot['current_occupant']['id'];
 $editionAdd   = Schema::addTierEdition([], ['title' => 'Monthly']);
 $editionId    = $editionAdd['edition']['id'];
-$occupantSlot['current_occupant']['tier_editions']      = $editionAdd['tier_editions'];
-$occupantSlot['current_occupant']['default_edition_id'] = $editionId;
+$occupantSlot['current_occupant']['tier_editions'] = $editionAdd['tier_editions'];
 $occupantSlot = Schema::commitTierLifecycle($occupantSlot);
 
 $station = $terOptions['cz_package_station'];
@@ -257,10 +253,6 @@ check_edition_repo(
 check_edition_repo(
     count($instanceAfterMove['tiers']['standard']['current_occupant']['tier_editions'] ?? []) === 1,
     'the Edition array itself travelled intact into the new slot'
-);
-check_edition_repo(
-    $instanceAfterMove['tiers']['standard']['current_occupant']['default_edition_id'] === $editionId,
-    'default_edition_id travelled intact into the new slot'
 );
 
 echo "Tier Edition repository contract: PASS\n";

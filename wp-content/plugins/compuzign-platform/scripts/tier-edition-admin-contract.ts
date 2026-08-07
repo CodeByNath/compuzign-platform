@@ -41,7 +41,6 @@ const scopedFragments = [
   '/tiers/${tierId}/editions/${editionId}/status',
   '/tiers/${tierId}/editions/${editionId}/restore',
   '/tiers/${tierId}/editions/${editionId}`',
-  '/tiers/${tierId}/default-edition',
 ];
 for (const fragment of scopedFragments) {
   check(
@@ -58,7 +57,6 @@ const controllerFragments = [
   "/editions/(?P<edition>edt_[a-z0-9]+)/status'",
   "/editions/(?P<edition>edt_[a-z0-9]+)/restore'",
   "/editions/(?P<edition>edt_[a-z0-9]+)'",
-  "/default-edition'",
 ];
 for (const fragment of controllerFragments) {
   check(controller.includes(fragment), `the controller registers ${fragment}`);
@@ -101,13 +99,16 @@ for (const field of [
   check(types.includes(field), `TierEdition carries ${field}`);
 }
 check(types.includes('tier_editions?: TierEdition[]'), 'SurfaceTierDetail exposes tier_editions');
-check(types.includes('default_edition_id?: string | null'), 'SurfaceTierDetail exposes default_edition_id');
+check(
+  !types.includes('default_edition_id'),
+  'the retired default_edition_id pointer no longer appears in SurfaceTierDetail — the occupant\'s own fields are the permanent Default',
+);
 
 // ── Hook: the full lifecycle surface is exposed, not a subset ───────────────
 
 for (const action of [
   'create', 'saveDraft', 'settle', 'revert', 'publish', 'archive', 'trash',
-  'disable', 'enable', 'restore', 'remove', 'setDefault',
+  'disable', 'enable', 'restore', 'remove',
 ]) {
   check(
     hook.includes(`const ${action} =`) || hook.includes(`${action}:`),
@@ -182,7 +183,7 @@ check(
   !panel.includes("from '../../api'") && !panel.includes('from "../../api"'),
   'TierEditionsPanel never imports the raw api.ts endpoints directly — only through useTierEditions',
 );
-for (const action of ['publish', 'archive', 'trash', 'disable', 'enable', 'restore', 'remove', 'setDefault']) {
+for (const action of ['publish', 'archive', 'trash', 'disable', 'enable', 'restore', 'remove']) {
   check(panel.includes(`ctl.${action}(`), `TierEditionsPanel drives ${action} through the hook's own action, never a raw status write`);
 }
 

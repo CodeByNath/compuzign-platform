@@ -25,7 +25,6 @@ import type {
   TierInstanceDeleteResponse,
   TierEditionOverviewDraft,
   TierEditionResponse,
-  TierEditionDefaultResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -391,7 +390,7 @@ export function restoreTierEdition(
   );
 }
 
-/** Guarded permanent delete: trashed-only, and never the current default. */
+/** Guarded permanent delete: trashed-only. */
 export function deleteTierEdition(
   serviceId: number,
   tierInstanceId: string,
@@ -400,18 +399,6 @@ export function deleteTierEdition(
 ): Promise<TierEditionResponse> {
   return apiClient.delete<TierEditionResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}`,
-  );
-}
-
-export function setTierEditionDefault(
-  serviceId: number,
-  tierInstanceId: string,
-  tierId: string,
-  editionId: string | null,
-): Promise<TierEditionDefaultResponse> {
-  return apiClient.post<TierEditionDefaultResponse>(
-    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/default-edition`,
-    { edition_id: editionId ?? '' },
   );
 }
 

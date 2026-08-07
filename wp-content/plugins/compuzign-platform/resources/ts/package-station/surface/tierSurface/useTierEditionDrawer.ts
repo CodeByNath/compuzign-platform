@@ -27,7 +27,6 @@ export interface TierEditionDrawerState {
   unavailable: string | null;
   serviceId:   number;
   edition:     TierEdition | null;
-  defaultEditionId: string | null;
   rateSheetOptions: AdminFieldOption[];
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] } | null;
   ctl: TierEditionsController;
@@ -46,9 +45,8 @@ export function useTierEditionDrawer(
   const view = pkg.tierView(slotId);
   const detail = view?.detail ?? null;
   const editions = detail?.tier_editions ?? [];
-  const defaultEditionId = detail?.default_edition_id ?? null;
 
-  const ctl = useTierEditions(serviceId, instanceId, slotId, editions, defaultEditionId, onMutationComplete);
+  const ctl = useTierEditions(serviceId, instanceId, slotId, editions, onMutationComplete);
   const edition = ctl.editions.find((candidate) => candidate.id === editionId) ?? null;
 
   const stationLoading = host.service !== null && !pkg.detailLoaded;
@@ -78,7 +76,6 @@ export function useTierEditionDrawer(
     unavailable,
     serviceId,
     edition,
-    defaultEditionId,
     rateSheetOptions,
     svc: pkg.service,
     ctl,

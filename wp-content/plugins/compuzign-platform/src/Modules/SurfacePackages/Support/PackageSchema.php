@@ -863,7 +863,6 @@ class PackageSchema
                 // lifecycled child records; absent/empty for every occupant
                 // that has never used this capability. See SECTION: TIER_EDITION.
                 'tier_editions'       => $editions,
-                'default_edition_id' => self::sanitizeDefaultEditionId($occ['default_edition_id'] ?? null, $editions),
             ];
         }
 
@@ -894,7 +893,6 @@ class PackageSchema
             // Phase 1 flat slots predate Editions entirely; there is nothing
             // to sanitise or preserve at this layer.
             'tier_editions'       => [],
-            'default_edition_id' => null,
         ];
     }
 
@@ -939,46 +937,20 @@ class PackageSchema
         ];
     }
 
-    // ── Phase 5: default Edition resolution ───────────────────────────────────
-    // The occupant remains the one public Tier; an Edition never becomes a
-    // second selectable card. This resolves the occupant's EFFECTIVE
-    // commercial declaration for legacy flat consumers (extractTierForCostBuilder
-    // -> PricingBuilder::overlayPackage -> the existing price/billing_cycle/
-    // contact/inclusions/faq_refs fields every consumer already reads).
-    //
-    // Three different rules for three different kinds of field, matching the
-    // agreed design exactly:
-    //   - commercial terms (price, billing_cycle, contact, Rate Sheet binding)
-    //     are ALWAYS the resolved Edition's own value once one applies — this
-    //     is the entire reason an Edition exists, never blended with the
-    //     occupant's own stale value;
-    //   - declaration fields (inclusions_override, faq_refs) inherit the
-    //     occupant's own value when the Edition leaves them empty, the same
-    //     empty-means-inherit rule already used against Service-level
-    //     canonical data in PricingBuilder::overlayPackage();
-    //   - the occupant's own customer-facing `label` is NEVER overwritten by
-    //     an Edition's title, in either direction. The card heading stays
-    //     "Professional Tier" whichever Edition (Monthly/Annual) is active —
-    //     the Edition's own title/admin_description surface only through
-    //     publicTierEditionOptions()'s `label` (the switch button text) and
-    //     the admin editor, never through this occupant-owned field. This is
-    //     a deliberate boundary, not an inherit-when-empty case: an Edition's
-    //     title is never blank (addTierEdition requires one), so "inherit
-    //     when empty" would never fire in practice — the field is excluded
-    //     outright instead of relying on an unreachable empty-string branch.
-    //
-    // An occupant with no Editions, or whose default_edition_id resolves to
-    // nothing valid or non-Active, falls through to its own legacy-flat
-    // fields untouched — the exact byte-for-byte parity guarantee for every
-    // occupant that has never used this capability.
+    // ── Default declaration / Edition options for the public projection ──────
+    // The occupant's own commercial fields ARE the Default declaration,
+    // permanently — they are never displaced by an Edition's terms. An
+    // Edition never blends into extractTierForCostBuilder()'s primary
+    // fields; it is exposed only as one more entry in edition_options(),
+    // the same in-card switch choice every other Edition is. The occupant
+    // remains the one public Tier; an Edition never becomes a second
+    // selectable card, and switching among edition_options never changes
+    // which Tier/card is selected.
 
     /**
-     * @return array{label:string, price:float|null, contact:bool, billing_cycle:string|null, rate_sheet_id:string|null, rate_sheet_items:array, inclusions_override:array, faq_refs:array}
-     */
-    /**
-     * Public-safe Edition list for the Cost Builder's in-card switch
-     * (Phase 7). ACTIVE Editions only — a Pending, Disabled, Archived, or
-     * Trashed Edition is never offered to a customer, the exact same
+     * Public-safe Edition list for the Cost Builder's in-card switch.
+     * ACTIVE Editions only — a Pending, Disabled, Archived, or Trashed
+     * Edition is never offered to a customer, the exact same
      * enabled/configured discipline overlayPackage() already applies to the
      * occupant itself. Carries no edition_platform_id (CZTE stays an
      * admin/audit/connection identity, never a public or cart-facing one —
@@ -986,7 +958,9 @@ class PackageSchema
      * rate_sheet_items, module_status/drafts). `id` here is an opaque
      * selector key only, the same role TierId ('basic'|'standard'|…)
      * already plays publicly — not a claim on the Platform Identifier
-     * vocabulary.
+     * vocabulary. Every entry here is an ALTERNATE to the occupant's own
+     * Default declaration — never itself "the" default; the frontend
+     * switch always starts on the occupant's own resolved values.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -996,8 +970,7 @@ class PackageSchema
         if ($editions === []) {
             return [];
         }
-        $engine    = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
-        $defaultId = self::sanitizeDefaultEditionId($occ['default_edition_id'] ?? null, $editions);
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
 
         $out = [];
         foreach ($editions as $edition) {
@@ -1012,67 +985,14 @@ class PackageSchema
                 'billing_cycle'       => $edition['billing_cycle'] ?? null,
                 'minimum_term_value'  => $edition['minimum_term_value'] ?? null,
                 'minimum_term_unit'   => $edition['minimum_term_unit'] ?? null,
-                // Same inherit-when-empty rule as the resolved default.
+                // Same inherit-when-empty rule the occupant itself uses
+                // against Service-level canonical data.
                 'inclusions_override' => !empty($edition['inclusions_override'])
                     ? $edition['inclusions_override']
                     : ($occ['inclusions_override'] ?? []),
-                'is_default'          => ($edition['id'] ?? null) === $defaultId,
             ];
         }
         return $out;
-    }
-
-    private static function resolveDefaultTierEdition(array $occ): array
-    {
-        $fallback = [
-            'label'               => $occ['label'] ?? '',
-            'price'               => $occ['price'] ?? null,
-            'contact'             => (bool) ($occ['contact'] ?? false),
-            'billing_cycle'       => $occ['billing_cycle'] ?? null,
-            'rate_sheet_id'       => $occ['rate_sheet_id'] ?? null,
-            'rate_sheet_items'    => is_array($occ['rate_sheet_items'] ?? null) ? $occ['rate_sheet_items'] : [],
-            'inclusions_override' => is_array($occ['inclusions_override'] ?? null) ? $occ['inclusions_override'] : [],
-            'faq_refs'            => is_array($occ['faq_refs'] ?? null) ? $occ['faq_refs'] : [],
-            // The occupant itself has no minimum-commitment concept — only
-            // Editions do; a Tier with no Editions (or no valid Active
-            // default) simply carries none, matching its behaviour today.
-            'minimum_term_value'  => null,
-            'minimum_term_unit'   => null,
-        ];
-
-        $editions = is_array($occ['tier_editions'] ?? null) ? $occ['tier_editions'] : [];
-        if ($editions === []) {
-            return $fallback;
-        }
-        $defaultId = self::sanitizeDefaultEditionId($occ['default_edition_id'] ?? null, $editions);
-        if ($defaultId === null) {
-            return $fallback;
-        }
-        $edition = self::findTierEdition($editions, $defaultId);
-        $engine  = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
-        if ($edition === null || ($edition['platform_status'] ?? null) !== $engine::STATUS_ACTIVE) {
-            return $fallback;
-        }
-
-        return [
-            // The occupant's own customer-facing label is NEVER overwritten
-            // by an Edition's title, in either direction: the resolved
-            // Tier card heading stays "Professional Tier" whichever Edition
-            // (Monthly/Annual) is active or default. The Edition's own
-            // title/admin_description are exposed only through
-            // publicTierEditionOptions()'s `label` (the switch button text)
-            // and stay entirely off this occupant-owned field.
-            'label'               => $fallback['label'],
-            'price'               => $edition['price'] ?? null,
-            'contact'             => (bool) ($edition['contact'] ?? false),
-            'billing_cycle'       => $edition['billing_cycle'] ?? null,
-            'rate_sheet_id'       => $edition['rate_sheet_id'] ?? null,
-            'rate_sheet_items'    => is_array($edition['rate_sheet_items'] ?? null) ? $edition['rate_sheet_items'] : [],
-            'inclusions_override' => !empty($edition['inclusions_override']) ? $edition['inclusions_override'] : $fallback['inclusions_override'],
-            'faq_refs'            => !empty($edition['faq_refs']) ? $edition['faq_refs'] : $fallback['faq_refs'],
-            'minimum_term_value'  => $edition['minimum_term_value'] ?? null,
-            'minimum_term_unit'   => $edition['minimum_term_unit'] ?? null,
-        ];
     }
 
     /**
@@ -1086,28 +1006,29 @@ class PackageSchema
             if ($occ === null) {
                 return null;
             }
-            $resolved = self::resolveDefaultTierEdition($occ);
             return [
-                'label'               => $resolved['label'],
+                'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
-                'price'               => $resolved['price'],
-                'contact'             => $resolved['contact'],
-                'billing_cycle'       => $resolved['billing_cycle'],
-                'inclusions_override' => $resolved['inclusions_override'],
-                'rate_sheet_id'       => self::defaultRateSheetId($resolved['rate_sheet_id'], $resolved['rate_sheet_items']),
-                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($resolved['rate_sheet_items']),
+                'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
+                'contact'             => (bool) ($occ['contact'] ?? false),
+                'billing_cycle'       => $occ['billing_cycle'] ?? null,
+                'inclusions_override' => is_array($occ['inclusions_override'] ?? null) ? $occ['inclusions_override'] : [],
+                'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
-                'faq_refs'            => $resolved['faq_refs'],
+                'faq_refs'            => is_array($occ['faq_refs'] ?? null) ? $occ['faq_refs'] : [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
                 'is_addon'            => (bool) ($occ['is_addon'] ?? false),
-                // Phase 7 — additive only. Absent/empty for every occupant
-                // that has never used Editions; the switch renders nothing
-                // when it does not represent a genuine choice.
+                // Additive only. Absent/empty for every occupant that has
+                // never used Editions; the switch renders nothing beyond
+                // the occupant's own Default when there is no genuine
+                // alternate choice.
                 'edition_options'     => self::publicTierEditionOptions($occ),
-                // Phase 8 — structured minimum commitment, carried the same
-                // resolved-default way price/billing_cycle already are.
-                'minimum_term_value'  => $resolved['minimum_term_value'],
-                'minimum_term_unit'   => $resolved['minimum_term_unit'],
+                // The occupant itself has no minimum-commitment concept —
+                // only an Edition does. A Tier with no Editions (or whose
+                // customer hasn't switched to one) simply carries none.
+                'minimum_term_value'  => null,
+                'minimum_term_unit'   => null,
             ];
         }
 
@@ -1145,7 +1066,6 @@ class PackageSchema
         // them verbatim, exactly like `history`. Reading $data here would
         // let an unrelated Overview save silently smuggle Edition changes.
         $existingTierEditions = [];
-        $existingDefaultEditionId = null;
 
         if (self::isOccupantFormat($tierSlot)) {
             $history    = $tierSlot['history'] ?? [];
@@ -1155,10 +1075,6 @@ class PackageSchema
             $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
             $existingExplicitlyDisabled = self::isExplicitlyDisabled($tierSlot['current_occupant'] ?? null);
             $existingTierEditions = self::sanitizeTierEditions($tierSlot['current_occupant']['tier_editions'] ?? []);
-            $existingDefaultEditionId = self::sanitizeDefaultEditionId(
-                $tierSlot['current_occupant']['default_edition_id'] ?? null,
-                $existingTierEditions
-            );
         } elseif (self::hasConfiguredContent($tierSlot)) {
             $existingPlatformId = (string) ($tierSlot['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['addon_platform_id'] ?? '');
@@ -1207,7 +1123,6 @@ class PackageSchema
                 // Preserved verbatim — see the note above the extraction at
                 // the top of this function. Never populated from $data.
                 'tier_editions'       => $existingTierEditions,
-                'default_edition_id'  => $existingDefaultEditionId,
             ],
             'history' => $history,
         ];
@@ -1357,26 +1272,6 @@ class PackageSchema
         ];
     }
 
-    /**
-     * The default-Edition pointer never dangles: a value that no longer
-     * matches an existing Edition's id resolves to null rather than crashing
-     * public projection or the admin editor against a missing row. Callers
-     * must sanitise $editions first — this never mutates the collection.
-     */
-    public static function sanitizeDefaultEditionId(mixed $id, array $editions): ?string
-    {
-        $candidate = is_string($id) ? trim($id) : '';
-        if ($candidate === '') {
-            return null;
-        }
-        foreach ($editions as $edition) {
-            if (is_array($edition) && ($edition['id'] ?? null) === $candidate) {
-                return $candidate;
-            }
-        }
-        return null;
-    }
-
     // ── Phase 2: nested child lookup, add, replace, guarded delete ───────────
     // Mirrors PackageCategoryGroups::create()/find()/replace()/delete() —
     // the proven "array-of-records inside the shared option, each with its
@@ -1440,17 +1335,17 @@ class PackageSchema
 
     /**
      * Permanent delete. Engine gate (trashed only, mirroring
-     * PackageCategoryGroups::delete()) plus the default-Edition guard: the
-     * pointer an occupant's legacy-flat projection currently resolves
-     * through can never be deleted out from under it — the caller must
-     * reassign the default first. $isParentDeletion bypasses both guards:
+     * PackageCategoryGroups::delete()). $isParentDeletion bypasses the gate:
      * deleting the whole occupant/Tier legitimately removes every Edition
-     * with it (the required cascade rule — see Phase 4).
+     * with it (the required cascade rule — see Phase 4). There is no
+     * default-Edition guard: the occupant's own declaration is the
+     * permanent Default and is never represented by a row in this
+     * collection, so no Edition's deletion can ever leave "the default"
+     * unresolved.
      */
     public static function deleteTierEdition(
         array $editions,
         string $editionId,
-        ?string $defaultEditionId,
         bool $isParentDeletion = false
     ): array {
         $edition = self::findTierEdition($editions, $editionId);
@@ -1461,9 +1356,6 @@ class PackageSchema
             $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
             if (!$engine::canDelete((string) ($edition['platform_status'] ?? ''))) {
                 throw new \InvalidArgumentException('Only a trashed Tier Edition can be permanently deleted.');
-            }
-            if ($defaultEditionId !== null && $defaultEditionId === $editionId) {
-                throw new \InvalidArgumentException('Cannot delete the default Tier Edition. Assign another default first.');
             }
         }
         return self::sanitizeTierEditions(array_values(array_filter(
@@ -1667,7 +1559,7 @@ class PackageSchema
         return 'disabled';
     }
 
-    /** @return array{label: string, price: null, contact: false, billing_cycle: null, inclusions_override: array, features: array, faq_refs: array, enabled: false, is_addon: false, tier_editions: array, default_edition_id: null} */
+    /** @return array{label: string, price: null, contact: false, billing_cycle: null, inclusions_override: array, features: array, faq_refs: array, enabled: false, is_addon: false, tier_editions: array} */
     private static function emptyTierDetail(): array
     {
         return [
@@ -1675,7 +1567,7 @@ class PackageSchema
             'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
-            'tier_editions' => [], 'default_edition_id' => null,
+            'tier_editions' => [],
         ];
     }
 

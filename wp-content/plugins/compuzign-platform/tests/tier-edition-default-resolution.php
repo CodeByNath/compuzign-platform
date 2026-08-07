@@ -3,23 +3,30 @@
 declare(strict_types=1);
 
 /*
- * Phase 5 contract: default Edition resolution into the legacy flat
- * projection PackageSchema::extractTierForCostBuilder() produces — the
- * exact function PricingBuilder::overlayPackage() already consumes for
+ * Default-declaration contract: the occupant's own commercial fields are
+ * the permanent Default for PackageSchema::extractTierForCostBuilder() —
+ * the exact function PricingBuilder::overlayPackage() already consumes for
  * every existing public/cart-facing price, billing_cycle, contact,
  * inclusions, and faq_refs field.
  *
- * The three rules under test:
- *   - commercial terms (price, billing_cycle, contact, Rate Sheet binding)
- *     are always the resolved ACTIVE default Edition's own value, never
- *     blended with the occupant's;
- *   - declaration fields (inclusions_override, faq_refs) inherit the
- *     occupant's own value only when the Edition leaves them empty;
- *   - the occupant's own customer-facing `label` is NEVER overwritten by an
- *     Edition's title, in either direction — the resolved Tier card heading
- *     stays the occupant's own label whichever Edition is active or default.
- * An occupant with no Editions, or an unresolved/non-Active default, must
- * project byte-identically to today — the parity guarantee.
+ * The rules under test:
+ *   - the occupant's own commercial terms (price, billing_cycle, contact,
+ *     Rate Sheet binding, label, ideal_for, inclusions_override, faq_refs)
+ *     are ALWAYS what extractTierForCostBuilder() resolves as the primary
+ *     projection — regardless of whether the occupant has Editions, and
+ *     regardless of any Edition's own lifecycle status. An Edition never
+ *     displaces, blends with, or otherwise touches these fields;
+ *   - an Edition's own commercial terms surface ONLY through
+ *     edition_options[] — Active Editions only, each carrying its own
+ *     price/billing_cycle/contact/minimum-term/declaration fields, with the
+ *     same inherit-the-occupant's-own-value-when-empty rule already used
+ *     against Service-level canonical data, scoped to that one option entry;
+ *   - the occupant's own customer-facing `label`/`ideal_for` are never
+ *     overwritten by an Edition's title/admin_description, in either
+ *     direction — those stay entirely off the Edition's own storage-shape
+ *     boundary from the top-level projection's fields;
+ *   - an occupant with no Editions projects byte-identically to an occupant
+ *     that has never used this capability — the parity guarantee.
  */
 
 if (!function_exists('sanitize_text_field')) {
@@ -60,26 +67,20 @@ $plainProjection = Schema::extractTierForCostBuilder($plainOccupant);
 check_default_resolution($plainProjection['label'] === 'Standard', 'no Editions: label is the occupant\'s own');
 check_default_resolution($plainProjection['price'] === 49.0, 'no Editions: price is the occupant\'s own');
 check_default_resolution($plainProjection['billing_cycle'] === 'monthly', 'no Editions: billing_cycle is the occupant\'s own');
+check_default_resolution($plainProjection['edition_options'] === [], 'no Editions: edition_options is empty');
 
-// ── Editions exist, but no valid default resolves: still falls back untouched ──
+// ── An occupant's own terms are the permanent Default, regardless of any
+//    Edition's existence or lifecycle status — never blended, never displaced.
 
-$withEditionsNoDefault = $plainOccupant;
 $editionsA = Schema::addTierEdition([], ['title' => 'Annual', 'billing_cycle' => 'annually'])['tier_editions'];
-$withEditionsNoDefault['current_occupant']['tier_editions'] = $editionsA;
-// default_edition_id left null.
-$noDefaultProjection = Schema::extractTierForCostBuilder($withEditionsNoDefault);
-check_default_resolution($noDefaultProjection['price'] === 49.0, 'Editions exist but no default is set: price still falls back to the occupant\'s own');
-check_default_resolution($noDefaultProjection['billing_cycle'] === 'monthly', 'Editions exist but no default is set: billing_cycle still falls back to the occupant\'s own');
-
 $editionAId = $editionsA[0]['id'];
-$withDisabledDefault = $plainOccupant;
-$withDisabledDefault['current_occupant']['tier_editions'] = $editionsA; // still 'disabled' — never published
-$withDisabledDefault['current_occupant']['default_edition_id'] = $editionAId;
-$disabledDefaultProjection = Schema::extractTierForCostBuilder($withDisabledDefault);
-check_default_resolution($disabledDefaultProjection['price'] === 49.0, 'a default pointing at a non-Active Edition falls back to the occupant\'s own price — a Pending Edition is never exposed publicly');
-check_default_resolution($disabledDefaultProjection['billing_cycle'] === 'monthly', 'a default pointing at a non-Active Edition falls back to the occupant\'s own billing_cycle');
 
-// ── A valid Active default: commercial terms come from the Edition, never blended ──
+$withDisabledEdition = $plainOccupant;
+$withDisabledEdition['current_occupant']['tier_editions'] = $editionsA; // still 'disabled' — never published
+$disabledProjection = Schema::extractTierForCostBuilder($withDisabledEdition);
+check_default_resolution($disabledProjection['price'] === 49.0, 'a Disabled/Pending Edition never displaces the occupant\'s own price');
+check_default_resolution($disabledProjection['billing_cycle'] === 'monthly', 'a Disabled/Pending Edition never displaces the occupant\'s own billing_cycle');
+check_default_resolution($disabledProjection['edition_options'] === [], 'a non-Active Edition is never offered as a public switch option');
 
 $editionsActive = Schema::applyTierEditionStatus($editionsA, $editionAId, StationLifecycle::STATUS_ACTIVE);
 $editionsActive = Schema::replaceTierEdition($editionsActive, [
@@ -87,33 +88,46 @@ $editionsActive = Schema::replaceTierEdition($editionsActive, [
     'price' => 490.0, 'billing_cycle' => 'annually', 'contact' => false,
     'rate_sheet_id' => 'rs_annual', 'rate_sheet_items' => [['item_id' => 'rate-vm', 'quantity' => 3]],
 ]);
-$occupantWithActiveDefault = $plainOccupant;
-$occupantWithActiveDefault['current_occupant']['tier_editions'] = $editionsActive;
-$occupantWithActiveDefault['current_occupant']['default_edition_id'] = $editionAId;
+$occupantWithActiveEdition = $plainOccupant;
+$occupantWithActiveEdition['current_occupant']['tier_editions'] = $editionsActive;
 
-$activeProjection = Schema::extractTierForCostBuilder($occupantWithActiveDefault);
-check_default_resolution($activeProjection['price'] === 490.0, 'an Active default Edition\'s own price is used, never the occupant\'s stale 49.0');
-check_default_resolution($activeProjection['billing_cycle'] === 'annually', 'an Active default Edition\'s own billing_cycle is used');
-check_default_resolution($activeProjection['rate_sheet_id'] === 'rs_annual', 'an Active default Edition\'s own Rate Sheet binding is used, not the occupant\'s rs_a');
-check_default_resolution(count($activeProjection['rate_sheet_items']) === 1 && $activeProjection['rate_sheet_items'][0]['item_id'] === 'rate-vm', 'an Active default Edition\'s own row selections are used');
-check_default_resolution($activeProjection['label'] === 'Standard', 'the occupant\'s own customer-facing label is NEVER overwritten by the Edition\'s title ("Annual") — the card heading stays "Standard" regardless of which Edition is active or default');
+$activeProjection = Schema::extractTierForCostBuilder($occupantWithActiveEdition);
+check_default_resolution($activeProjection['price'] === 49.0, 'even an Active Edition never displaces the occupant\'s own price at the top level — the occupant is the permanent Default');
+check_default_resolution($activeProjection['billing_cycle'] === 'monthly', 'even an Active Edition never displaces the occupant\'s own billing_cycle at the top level');
+check_default_resolution($activeProjection['rate_sheet_id'] === 'rs_a', 'even an Active Edition never displaces the occupant\'s own Rate Sheet binding at the top level');
+check_default_resolution($activeProjection['label'] === 'Standard', 'the occupant\'s own customer-facing label is never overwritten by an Edition\'s title ("Annual")');
 
-// ── Declaration fields (inclusions/faq_refs) inherit when the Edition leaves them empty ──
+// The Active Edition's own terms surface only as one edition_options[] entry.
+check_default_resolution(count($activeProjection['edition_options']) === 1, 'exactly one Active Edition is offered as a switch option');
+$activeOption = $activeProjection['edition_options'][0];
+check_default_resolution($activeOption['id'] === $editionAId, 'the option carries the Edition\'s own id');
+check_default_resolution($activeOption['label'] === 'Annual', 'the option carries the Edition\'s own title as its label');
+check_default_resolution($activeOption['price'] === 490.0, 'the option carries the Edition\'s own price');
+check_default_resolution($activeOption['billing_cycle'] === 'annually', 'the option carries the Edition\'s own billing_cycle');
+check_default_resolution(!array_key_exists('edition_platform_id', $activeOption), 'CZTE never leaks into the public option');
+check_default_resolution(!array_key_exists('is_default', $activeOption), 'there is no "default" concept among Edition options — every Edition is an alternate to the occupant\'s own permanent Default');
+
+// ── Declaration fields (inclusions/faq_refs): the top-level projection is
+//    always the occupant's own; the inherit-when-empty rule applies only
+//    inside one edition_options[] entry, never to the top level. ──────────
 
 $occupantWithDeclarations = $plainOccupant;
 $occupantWithDeclarations['current_occupant']['inclusions_override'] = [['id' => 'inc-occ', 'label' => 'Occupant inclusion']];
 $occupantWithDeclarations['current_occupant']['faq_refs'] = ['faq-occ'];
 $occupantWithDeclarations['current_occupant']['tier_editions'] = $editionsActive; // Edition's own inclusions_override/faq_refs are empty
-$occupantWithDeclarations['current_occupant']['default_edition_id'] = $editionAId;
 
 $inheritedProjection = Schema::extractTierForCostBuilder($occupantWithDeclarations);
 check_default_resolution(
     $inheritedProjection['inclusions_override'] === [['id' => 'inc-occ', 'label' => 'Occupant inclusion']],
-    'an Edition with no declaration override inherits the occupant\'s own inclusions_override'
+    'the top-level projection always carries the occupant\'s own inclusions_override, Editions notwithstanding'
 );
-check_default_resolution($inheritedProjection['faq_refs'] === ['faq-occ'], 'an Edition with no declaration override inherits the occupant\'s own faq_refs');
+check_default_resolution($inheritedProjection['faq_refs'] === ['faq-occ'], 'the top-level projection always carries the occupant\'s own faq_refs, Editions notwithstanding');
+check_default_resolution(
+    $inheritedProjection['edition_options'][0]['inclusions_override'] === [['id' => 'inc-occ', 'label' => 'Occupant inclusion']],
+    'an Edition option with no declaration override of its own inherits the occupant\'s inclusions_override — scoped to that option only'
+);
 
-// Now give the Edition its OWN declaration override — it must win.
+// Now give the Edition its OWN declaration override — it wins WITHIN its own option, never at the top level.
 $editionsWithOwnDeclarations = Schema::replaceTierEdition($editionsActive, [
     ...Schema::findTierEdition($editionsActive, $editionAId),
     'inclusions_override' => [['id' => 'inc-edt', 'label' => 'Edition-specific inclusion']],
@@ -123,18 +137,23 @@ $occupantWithOwnDeclarations = $occupantWithDeclarations;
 $occupantWithOwnDeclarations['current_occupant']['tier_editions'] = $editionsWithOwnDeclarations;
 $overrideProjection = Schema::extractTierForCostBuilder($occupantWithOwnDeclarations);
 check_default_resolution(
-    $overrideProjection['inclusions_override'] === [['id' => 'inc-edt', 'label' => 'Edition-specific inclusion']],
-    'a deliberate Edition-specific inclusions_override wins over the occupant\'s own'
+    $overrideProjection['inclusions_override'] === [['id' => 'inc-occ', 'label' => 'Occupant inclusion']],
+    'the top-level projection is still the occupant\'s own, even when the Edition declares its own override'
 );
-check_default_resolution($overrideProjection['faq_refs'] === ['faq-edt'], 'a deliberate Edition-specific faq_refs wins over the occupant\'s own');
+check_default_resolution(
+    $overrideProjection['edition_options'][0]['inclusions_override'] === [['id' => 'inc-edt', 'label' => 'Edition-specific inclusion']],
+    'a deliberate Edition-specific inclusions_override wins WITHIN that option, over inheriting the occupant\'s own'
+);
+check_default_resolution($overrideProjection['edition_options'][0]['id'] === $editionAId, 'the overriding option is still keyed to the same Edition id');
 
-// ── enabled/is_addon remain occupant-level facts, untouched by Edition resolution ──
+// ── enabled/is_addon remain occupant-level facts, untouched by Editions ─────
 
-check_default_resolution($activeProjection['enabled'] === true, 'occupant-level enabled is unaffected by Edition resolution');
-check_default_resolution($activeProjection['is_addon'] === false, 'occupant-level is_addon is unaffected by Edition resolution');
+check_default_resolution($activeProjection['enabled'] === true, 'occupant-level enabled is unaffected by any Edition');
+check_default_resolution($activeProjection['is_addon'] === false, 'occupant-level is_addon is unaffected by any Edition');
 
-// ── Distinctness invariant: Edition title/admin_description can never overwrite
-//    the occupant's own customer-facing label/ideal_for, in either direction ──
+// ── Distinctness invariant: an Edition's title/admin_description can never
+//    appear in the occupant's own top-level label/ideal_for, and
+//    admin_description never appears anywhere in the public projection. ────
 
 $distinctOccupant = build_published_occupant([
     'label' => 'Standard', 'ideal_for' => 'For growing teams', 'price' => 49.0, 'billing_cycle' => 'monthly',
@@ -150,18 +169,18 @@ $distinctEditions = Schema::replaceTierEdition($distinctEditions, [
     'price' => 490.0,
 ]);
 $distinctOccupant['current_occupant']['tier_editions'] = $distinctEditions;
-$distinctOccupant['current_occupant']['default_edition_id'] = $distinctEditionId;
 
 $distinctProjection = Schema::extractTierForCostBuilder($distinctOccupant);
 check_default_resolution($distinctProjection['label'] === 'Standard', 'the occupant\'s own label ("Standard") is never overwritten by the Edition\'s title ("Annual Plan")');
 check_default_resolution($distinctProjection['ideal_for'] === 'For growing teams', 'the occupant\'s own ideal_for is never touched by the Edition\'s admin_description');
 check_default_resolution(!array_key_exists('admin_description', $distinctProjection), 'admin_description never appears anywhere in the legacy flat projection');
-check_default_resolution($distinctProjection['price'] === 490.0, 'the Edition\'s own commercial terms still resolve correctly alongside the untouched label/ideal_for');
+check_default_resolution($distinctProjection['price'] === 49.0, 'the occupant\'s own price remains the top-level Default even alongside an Active Edition with its own price');
 
 // The Edition's own title legitimately DOES appear as the switch button's
 // label inside edition_options[] — the exclusion above applies only to the
 // top-level, occupant-owned `label` field, not to the Edition's own entry.
 $distinctOption = $distinctProjection['edition_options'][0] ?? null;
 check_default_resolution($distinctOption !== null && $distinctOption['label'] === 'Annual Plan', 'the Edition\'s own title correctly appears as ITS OWN switch-option label, distinct from the untouched top-level occupant label');
+check_default_resolution($distinctOption['price'] === 490.0, 'the Edition\'s own price correctly appears within its own option, alongside the untouched top-level occupant price');
 
 echo "Tier Edition default resolution contract: PASS\n";

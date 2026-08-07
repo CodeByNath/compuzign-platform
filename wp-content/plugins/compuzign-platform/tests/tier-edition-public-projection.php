@@ -81,7 +81,6 @@ $editions = Schema::applyTierEditionStatus($editions, $archivedId, StationLifecy
 $editions = Schema::applyTierEditionStatus($editions, $archivedId, StationLifecycle::STATUS_ARCHIVED);
 
 $occupant['current_occupant']['tier_editions'] = $editions;
-$occupant['current_occupant']['default_edition_id'] = $monthlyId;
 
 $projection = Schema::extractTierForCostBuilder($occupant);
 $options = $projection['edition_options'];
@@ -95,6 +94,7 @@ foreach ($options as $option) {
     check_public_editions(!array_key_exists('edition_platform_id', $option), 'edition_platform_id (CZTE) never appears in the public projection, even for a published Edition');
     check_public_editions(!array_key_exists('admin_description', $option), 'admin_description (admin-only) never appears in the public projection');
     check_public_editions(!array_key_exists('rate_sheet_items', $option), 'raw rate_sheet_items (admin-only editing detail) never appears in the public projection');
+    check_public_editions(!array_key_exists('is_default', $option), 'there is no "default" concept among Edition options — the occupant\'s own declaration is the permanent Default, never one of these rows');
 }
 
 $monthlyOption = current(array_filter($options, fn($o) => $o['id'] === $monthlyId));
@@ -103,10 +103,8 @@ check_public_editions($monthlyOption['price'] === 49.0, 'price is carried');
 check_public_editions($monthlyOption['billing_cycle'] === 'monthly', 'billing_cycle is carried');
 check_public_editions($monthlyOption['minimum_term_value'] === 1.0, 'minimum_term_value is carried');
 check_public_editions($monthlyOption['minimum_term_unit'] === 'month', 'minimum_term_unit is carried');
-check_public_editions($monthlyOption['is_default'] === true, 'the occupant\'s default_edition_id is reflected as is_default: true');
 
 $annualOption = current(array_filter($options, fn($o) => $o['id'] === $annualId));
-check_public_editions($annualOption['is_default'] === false, 'the non-default Active Edition is is_default: false');
 check_public_editions($annualOption['price'] === 490.0, 'the second Edition carries its own distinct price');
 
 // ── Declaration inheritance is reflected the same way as the resolved default ──

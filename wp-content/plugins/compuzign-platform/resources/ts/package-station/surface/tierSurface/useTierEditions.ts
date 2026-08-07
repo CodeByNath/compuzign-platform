@@ -4,12 +4,13 @@
 // entry and not a second Tier — see docs/code-map/tiers.md and
 // PackageSchema's SECTION: TIER_EDITION.
 //
-// This hook owns only Edition-scoped local state and the eight Edition
+// This hook owns only Edition-scoped local state and the seven Edition
 // endpoints (create, one consolidated 'overview' module draft/settle/
-// revert, the one engine-transition /status endpoint, restore, guarded
-// delete, and the default-Edition pointer). It does not read or write the
-// parent occupant's own Overview/Features/FAQs modules — usePackageStation
-// remains sole authority there.
+// revert, the one engine-transition /status endpoint, restore, and guarded
+// delete). It does not read or write the parent occupant's own Overview/
+// Features/FAQs modules — usePackageStation remains sole authority there.
+// There is no default-Edition pointer: the occupant's own declaration is
+// the permanent Default and is never represented by a row here.
 //
 // Every mutation response carries the server's full authoritative Edition
 // row (drafts/module_status included), so local state replaces the whole
@@ -28,12 +29,10 @@ import {
   updateTierEditionStatus,
   restoreTierEdition,
   deleteTierEdition,
-  setTierEditionDefault,
 } from '../../api';
 
 export interface TierEditionsController {
   editions:           TierEdition[];
-  defaultEditionId:   string | null;
   saving:             boolean;
   error:              string | null;
   create:             (draft: Partial<TierEditionOverviewDraft> & { title: string }) => Promise<TierEdition | null>;
@@ -47,14 +46,12 @@ export interface TierEditionsController {
   enable:             (editionId: string) => Promise<boolean>;
   restore:            (editionId: string) => Promise<boolean>;
   remove:             (editionId: string) => Promise<boolean>;
-  setDefault:         (editionId: string | null) => Promise<boolean>;
 }
 
 /**
  * @param editions          The occupant's current tier_editions[] (from the
  *                          already-loaded SurfaceTierDetail — this hook does
  *                          not fetch independently).
- * @param defaultEditionId  The occupant's current default_edition_id.
  * @param onMutated         Invoked after every successful mutation so the
  *                          owning usePackageStation-backed view re-reads the
  *                          authoritative occupant — the same onRefresh
@@ -65,21 +62,18 @@ export function useTierEditions(
   tierInstanceId:   string | null,
   tierId:           string | null,
   editions:         TierEdition[],
-  defaultEditionId: string | null,
   onMutated?:       () => void,
 ): TierEditionsController {
   const [localEditions, setLocalEditions] = useState<TierEdition[]>(editions);
-  const [localDefault,  setLocalDefault]  = useState<string | null>(defaultEditionId);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
 
-  // The caller's editions/defaultEditionId are the source of truth once the
-  // authoritative occupant re-read lands (onMutated's refetch, or a parent
-  // navigation to a different occupant); local state only bridges the gap
-  // between "mutation succeeded" and that re-read arriving, exactly like
+  // The caller's editions are the source of truth once the authoritative
+  // occupant re-read lands (onMutated's refetch, or a parent navigation to a
+  // different occupant); local state only bridges the gap between
+  // "mutation succeeded" and that re-read arriving, exactly like
   // usePackageStation's own patch-then-refresh actions.
   useEffect(() => { setLocalEditions(editions); }, [editions]);
-  useEffect(() => { setLocalDefault(defaultEditionId); }, [defaultEditionId]);
 
   const replaceEdition = useCallback((next: TierEdition) => {
     setLocalEditions((prev) => {
@@ -183,17 +177,8 @@ export function useTierEditions(
     );
   }, [serviceId, tierInstanceId, tierId, run, removeEdition]);
 
-  const setDefault = useCallback((editionId: string | null) => {
-    if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
-    return run(
-      () => setTierEditionDefault(serviceId, tierInstanceId, tierId, editionId),
-      (res) => { if (res.success) { setLocalDefault(res.default_edition_id); return true; } return false; },
-    );
-  }, [serviceId, tierInstanceId, tierId, run]);
-
   return {
     editions: localEditions,
-    defaultEditionId: localDefault,
     saving,
     error,
     create,
@@ -207,6 +192,5 @@ export function useTierEditions(
     enable,
     restore: restoreAction,
     remove,
-    setDefault,
   };
 }

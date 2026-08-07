@@ -8,10 +8,11 @@
 // proving Create → draft Save/Settle → Publish (CZTE assignment, once) →
 // Disable → Enable (lands Pending, never Active — the same "Enable never
 // activates" rule the occupant itself follows) → republish (CZTE reused,
-// not re-reserved) → Archive → Trash → the guarded-delete UI boundary (no
-// Delete action while an Edition is the default) → Make default
-// reassignment → the previously-blocked Delete becoming available → Restore
-// (archived/trashed → disabled, never straight to active) end to end.
+// not re-reserved) → Archive → Trash → guarded permanent delete (trashed-
+// only — there is no "default Edition" concept to guard against, since the
+// occupant's own declaration is the permanent Default and is never one of
+// these rows) → Restore (archived/trashed → disabled, never straight to
+// active) end to end.
 //
 // The fetch mock reproduces PackageSchema's SECTION: TIER_EDITION engine
 // transitions (StationLifecycle::applyStatus/restore, the disable/enable
@@ -69,7 +70,6 @@ const OCCUPANT = {
 };
 
 let editions = [];
-let defaultEditionId = null;
 
 function emptySlotDetail() {
   return {
@@ -79,13 +79,13 @@ function emptySlotDetail() {
     is_explicitly_disabled: false, is_addon: false,
     drafts: { overview: null, features: null, faqs: null },
     module_status: { overview: 'not-configured', features: 'not-configured', faqs: 'not-configured' },
-    tier_editions: [], default_edition_id: null,
+    tier_editions: [],
   };
 }
 
 function detailFor(tierId) {
   if (tierId !== TIER_ID) return emptySlotDetail();
-  return { ...OCCUPANT, tier_editions: editions, default_edition_id: defaultEditionId };
+  return { ...OCCUPANT, tier_editions: editions };
 }
 
 function stationTiers() {
@@ -143,7 +143,6 @@ let settleCalls = 0;
 let statusCalls = 0;
 let restoreCalls = 0;
 let deleteCalls = 0;
-let defaultCalls = 0;
 
 globalThis.fetch = (url, init = {}) => {
   const path = String(url);
@@ -265,18 +264,8 @@ globalThis.fetch = (url, init = {}) => {
     if (edition.platform_status !== 'trashed') {
       return jsonResponse({ success: false, code: 'tier_edition_delete_guard', message: 'Only a trashed Tier Edition can be permanently deleted.' }, 409);
     }
-    if (defaultEditionId === edition.id) {
-      return jsonResponse({ success: false, code: 'tier_edition_delete_guard', message: 'Cannot delete the default Tier Edition. Assign another default first.' }, 409);
-    }
     editions = editions.filter((e) => e.id !== edition.id);
     return jsonResponse(envelope({ success: true, tier_id: m[1], edition_id: edition.id }));
-  }
-
-  if ((m = path.match(new RegExp(`${TIER_BASE}/([a-z]+)/default-edition$`))) && method === 'POST') {
-    defaultCalls += 1;
-    const editionId = String(body.edition_id ?? '');
-    defaultEditionId = editionId !== '' && findEdition(editionId) ? editionId : null;
-    return jsonResponse(envelope({ success: true, tier_id: m[1], default_edition_id: defaultEditionId }));
   }
 
   return Promise.reject(new Error(`Unexpected fetch in regression harness: ${method} ${path}`));
@@ -405,40 +394,38 @@ check('the Edition reads Active', rowStatusText('Annual Plan') === '(Active)', r
 check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
 check('the assigned CZTE is now shown on the row', rowDetailText('Annual Plan')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), rowDetailText('Annual Plan'));
 
-console.log('\n4) Make default');
-clickRowButton('Annual Plan', 'Make default');
-await waitQuiet();
-check('the default-edition endpoint was called', defaultCalls === 1, defaultCalls);
-check('the row now shows as Default', rowStatusText('Annual Plan') === '(Active — Default)', rowStatusText('Annual Plan'));
-
-console.log('\n5) Disable — captures previous_platform_status, offered Enable');
+console.log('\n4) Disable — captures previous_platform_status, offered Enable');
 clickRowButton('Annual Plan', 'Disable');
 await waitQuiet();
-check('the Edition reads Disabled (masked, not Pending)', rowStatusText('Annual Plan') === '(Disabled — Default)', rowStatusText('Annual Plan'));
+check('the Edition reads Disabled (masked, not Pending)', rowStatusText('Annual Plan') === '(Disabled)', rowStatusText('Annual Plan'));
 check('Enable is now offered', [...editionRow('Annual Plan').querySelectorAll('button')].some((b) => b.textContent.trim() === 'Enable'));
 
-console.log('\n6) Enable — lands Pending, never straight back to Active (same rule the occupant itself follows)');
+console.log('\n5) Enable — lands Pending, never straight back to Active (same rule the occupant itself follows)');
 clickRowButton('Annual Plan', 'Enable');
 await waitQuiet();
-check('Enable never reactivates — the Edition reads Pending', rowStatusText('Annual Plan') === '(Pending — Default)', rowStatusText('Annual Plan'));
+check('Enable never reactivates — the Edition reads Pending', rowStatusText('Annual Plan') === '(Pending)', rowStatusText('Annual Plan'));
 
-console.log('\n7) Republish — reaches Active again; the SAME CZTE is reused, never re-reserved');
+console.log('\n6) Republish — reaches Active again; the SAME CZTE is reused, never re-reserved');
 clickRowButton('Annual Plan', 'Publish');
 await waitQuiet();
-check('the Edition reads Active again', rowStatusText('Annual Plan') === '(Active — Default)', rowStatusText('Annual Plan'));
+check('the Edition reads Active again', rowStatusText('Annual Plan') === '(Active)', rowStatusText('Annual Plan'));
 check('republish never mints a second CZTE', czteMints === 1, czteMints);
 check('the CZTE identity is unchanged', rowDetailText('Annual Plan')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), rowDetailText('Annual Plan'));
 
-console.log('\n8) Archive, then Trash — the default Edition\'s Delete action stays hidden throughout');
+console.log('\n7) Archive, then Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
 clickRowButton('Annual Plan', 'Archive');
 await waitQuiet();
-check('the Edition reads Archived', rowStatusText('Annual Plan') === '(Archived — Default)', rowStatusText('Annual Plan'));
+check('the Edition reads Archived', rowStatusText('Annual Plan') === '(Archived)', rowStatusText('Annual Plan'));
 clickRowButton('Annual Plan', 'Move to Trash');
 await waitQuiet();
-check('the Edition reads Trashed', rowStatusText('Annual Plan') === '(Trashed — Default)', rowStatusText('Annual Plan'));
-check('Delete permanently is NOT offered while this Edition is the default', ![...editionRow('Annual Plan').querySelectorAll('button')].some((b) => b.textContent.trim() === 'Delete permanently'));
+check('the Edition reads Trashed', rowStatusText('Annual Plan') === '(Trashed)', rowStatusText('Annual Plan'));
+check('Delete permanently is offered immediately once trashed', [...editionRow('Annual Plan').querySelectorAll('button')].some((b) => b.textContent.trim() === 'Delete permanently'));
+clickRowButton('Annual Plan', 'Delete permanently');
+await waitQuiet();
+check('the delete endpoint was called', deleteCalls === 1, deleteCalls);
+check('Annual Plan is gone from the list', editionRow('Annual Plan') === null);
 
-console.log('\n9) Create + publish a second Edition, "Monthly Plan", editing its title via the shared draft/settle module before Publish');
+console.log('\n8) Create + publish a second Edition, "Monthly Plan", editing its title via the shared draft/settle module before Publish');
 clickButtonWithText('+ Add Edition');
 await sleep(20);
 setInputValue('#edt-new-title', 'Monthly Draft');
@@ -466,34 +453,20 @@ check('the module settle endpoint was called right after (Save chains draft → 
 check('the renamed Edition now shows its new title', editionRow('Monthly Plan') !== null);
 check('the OLD title is gone — this is a rename, not a second Edition', editionRow('Monthly Draft') === null);
 
-console.log('\n10) Publish "Monthly Plan" — mints its OWN distinct CZTE');
+console.log('\n9) Publish "Monthly Plan" — mints its OWN distinct CZTE');
 clickRowButton('Monthly Plan', 'Publish');
 await waitQuiet();
 check('Monthly Plan reads Active', rowStatusText('Monthly Plan') === '(Active)', rowStatusText('Monthly Plan'));
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);
 check('Monthly Plan carries its own CZTE, not Annual Plan\'s', rowDetailText('Monthly Plan')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), rowDetailText('Monthly Plan'));
 
-console.log('\n11) Reassign default to "Monthly Plan" — "Annual Plan"\'s Delete action becomes available');
-clickRowButton('Monthly Plan', 'Make default');
-await waitQuiet();
-check('the default pointer moved', rowStatusText('Monthly Plan') === '(Active — Default)', rowStatusText('Monthly Plan'));
-check('Annual Plan is no longer marked Default', rowStatusText('Annual Plan') === '(Trashed)', rowStatusText('Annual Plan'));
-check('Delete permanently is NOW offered on the (still trashed) former default', [...editionRow('Annual Plan').querySelectorAll('button')].some((b) => b.textContent.trim() === 'Delete permanently'));
-
-console.log('\n12) Guarded permanent delete — succeeds once the Edition is trashed and not the default');
-clickRowButton('Annual Plan', 'Delete permanently');
-await waitQuiet();
-check('the delete endpoint was called', deleteCalls === 1, deleteCalls);
-check('Annual Plan is gone from the list', editionRow('Annual Plan') === null);
-check('Monthly Plan is unaffected', editionRow('Monthly Plan') !== null);
-
-console.log('\n13) Restore — archived/trashed → disabled/Pending, never straight to Active');
+console.log('\n10) Restore — archived/trashed → disabled/Pending, never straight to Active');
 clickRowButton('Monthly Plan', 'Archive');
 await waitQuiet();
-check('Monthly Plan reads Archived', rowStatusText('Monthly Plan') === '(Archived — Default)', rowStatusText('Monthly Plan'));
+check('Monthly Plan reads Archived', rowStatusText('Monthly Plan') === '(Archived)', rowStatusText('Monthly Plan'));
 clickRowButton('Monthly Plan', 'Restore');
 await waitQuiet();
-check('restore never reactivates — Monthly Plan reads Pending', rowStatusText('Monthly Plan') === '(Pending — Default)', rowStatusText('Monthly Plan'));
+check('restore never reactivates — Monthly Plan reads Pending', rowStatusText('Monthly Plan') === '(Pending)', rowStatusText('Monthly Plan'));
 check('restore was called exactly once', restoreCalls === 1, restoreCalls);
 check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', rowDetailText('Monthly Plan')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), rowDetailText('Monthly Plan'));
 
@@ -503,5 +476,5 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('All checks passed — Create/Save-Settle/Publish/Disable/Enable/Archive/Trash/guarded-Delete/Make-default/Restore behave per SECTION: TIER_EDITION, driven through the real mounted TierEditionsPanel.');
+console.log('All checks passed — Create/Save-Settle/Publish/Disable/Enable/Archive/Trash/guarded-Delete/Restore behave per SECTION: TIER_EDITION, driven through the real mounted TierEditionsPanel. There is no "default Edition" concept left to drive — the occupant\'s own declaration is the permanent Default.');
 process.exit(0);

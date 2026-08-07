@@ -453,11 +453,13 @@ export interface SurfaceTierDetail {
   module_status?: Record<string, string>;
   // Tier Edition (Phase 1+) — independently addressed, independently
   // lifecycled child records nested inside this occupant. Absent/empty for
-  // every occupant that has never used this capability; both optional so a
+  // every occupant that has never used this capability; optional so a
   // legacy locally-constructed detail (e.g. emptyTierDetail's client-side
-  // mirror) never needs to fabricate them.
+  // mirror) never needs to fabricate it. Each Edition is always an alternate
+  // to the occupant's own permanent Default declaration (this record's own
+  // label/price/billing_cycle/etc. above) — there is no stored pointer that
+  // lets an Edition become "the" default.
   tier_editions?: TierEdition[];
-  default_edition_id?: string | null;
 }
 
 // ── Tier Edition (Phase 1+) ──────────────────────────────────────────────────
@@ -516,13 +518,6 @@ export interface TierEditionResponse {
   edition_id:  string;
   edition?:    TierEdition;
   message?:    string;
-}
-
-export interface TierEditionDefaultResponse {
-  success:     boolean;
-  tier_instance_id?: string;
-  tier_id:     string;
-  default_edition_id: string | null;
 }
 
 // Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response

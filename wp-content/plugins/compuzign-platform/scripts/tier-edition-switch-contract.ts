@@ -32,8 +32,8 @@ const tierWithEditions: PricingTierData = {
   price: 49, billing_cycle: 'monthly', inclusions: [{ id: 'inc-occ', label: 'Occupant inclusion' }],
   features: [], is_addon: false,
   edition_options: [
-    { id: 'edt_a', label: 'Monthly', price: 49, contact: false, billing_cycle: 'monthly', minimum_term_value: null, minimum_term_unit: null, inclusions_override: [], is_default: true },
-    { id: 'edt_b', label: 'Annual', price: 490, contact: false, billing_cycle: 'annually', minimum_term_value: 12, minimum_term_unit: 'month', inclusions_override: [{ id: 'inc-edt', label: 'Edition-specific inclusion' }], is_default: false },
+    { id: 'edt_a', label: 'Monthly', price: 49, contact: false, billing_cycle: 'monthly', minimum_term_value: null, minimum_term_unit: null, inclusions_override: [] },
+    { id: 'edt_b', label: 'Annual', price: 490, contact: false, billing_cycle: 'annually', minimum_term_value: 12, minimum_term_unit: 'month', inclusions_override: [{ id: 'inc-edt', label: 'Edition-specific inclusion' }] },
   ],
 };
 
