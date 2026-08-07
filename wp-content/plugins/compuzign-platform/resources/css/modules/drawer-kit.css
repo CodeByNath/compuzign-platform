@@ -1111,6 +1111,122 @@
   box-shadow: var(--admin-depth-ring-sm);
 }
 
+/* Four-group drawer nav (drawer refinement blueprint, Phase 0). Mirrors
+   .cz-sv-tab*'s token usage exactly so DrawerGroupTabs reads as the same
+   visual family as the platform-locked DrawerTabs bar. */
+
+.cz-drawer-groups__tablist {
+  position: sticky;
+  top: calc(-1 * var(--cz-space-6));
+  z-index: 2;
+  display: flex;
+  margin: 0 calc(-1 * var(--cz-space-6)) var(--cz-space-5);
+  padding: var(--cz-space-2) calc(var(--cz-space-6) - var(--cz-space-2)) var(--cz-space-2);
+  background: var(--station-surface);
+  border-bottom: 1px solid var(--station-border);
+}
+
+.cz-drawer-groups__tab {
+  position: relative;
+  padding: var(--cz-space-2) var(--cz-space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--admin-radius);
+  margin-bottom: -1px;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--station-text);
+  cursor: pointer;
+  transition: background var(--cz-transition-fast);
+}
+
+.cz-drawer-groups__tab:hover {
+  background: var(--admin-accent-a12);
+}
+
+.cz-drawer-groups__tab--active {
+  font-weight: var(--admin-fw-strong);
+}
+
+.cz-drawer-groups__tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--station-accent);
+  margin-bottom: calc(-1 * var(--cz-space-2));
+}
+
+.cz-drawer-groups__tab:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-depth-ring-sm);
+}
+
+.cz-drawer-groups__accordion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+}
+
+.cz-drawer-groups__accordion-section {
+  border: 1px solid var(--station-border);
+  border-radius: var(--admin-radius);
+  background: var(--station-surface);
+}
+
+.cz-drawer-groups__accordion-heading {
+  margin: 0;
+}
+
+.cz-drawer-groups__accordion-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+  width: 100%;
+  padding: var(--cz-space-3) var(--cz-space-4);
+  background: transparent;
+  border: none;
+  font-size: var(--admin-fs-label);
+  font-weight: var(--admin-fw-normal);
+  color: var(--station-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--cz-transition-fast);
+}
+
+.cz-drawer-groups__accordion-trigger:hover {
+  background: var(--admin-accent-a12);
+}
+
+.cz-drawer-groups__accordion-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-depth-ring-sm);
+}
+
+.cz-drawer-groups__accordion-trigger[aria-expanded='true'] {
+  font-weight: var(--admin-fw-strong);
+  color: var(--station-accent);
+}
+
+.cz-drawer-groups__accordion-chevron {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--station-text-muted);
+  transition: transform var(--cz-transition-fast);
+}
+
+.cz-drawer-groups__accordion-trigger[aria-expanded='true'] .cz-drawer-groups__accordion-chevron {
+  transform: rotate(180deg);
+  color: var(--station-accent);
+}
+
+.cz-drawer-groups__accordion-panel {
+  padding: 0 var(--cz-space-4) var(--cz-space-4);
+}
+
 .cz-module-status-pill {
   display: inline-flex;
   align-items: center;
@@ -1418,6 +1534,27 @@ button.cz-module-status-pill {
 }
 
 .cz-admin-station .cz-sv-tab--active::after {
+  background: var(--station-nav-accent-strong);
+}
+
+.cz-admin-station .cz-drawer-groups__tablist {
+  top: -20px;
+  margin: 0 -20px 20px;
+  padding: 10px 20px;
+  background: var(--station-surface-elevated);
+  border-color: var(--station-border);
+}
+
+.cz-admin-station .cz-drawer-groups__tab {
+  padding: 9px 12px;
+  color: var(--station-text-muted);
+}
+
+.cz-admin-station .cz-drawer-groups__tab--active {
+  color: var(--station-nav-accent-strong);
+}
+
+.cz-admin-station .cz-drawer-groups__tab--active::after {
   background: var(--station-nav-accent-strong);
 }
 
