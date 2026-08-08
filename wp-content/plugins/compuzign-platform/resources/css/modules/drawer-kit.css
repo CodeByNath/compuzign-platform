@@ -1374,6 +1374,41 @@ button.cz-drawer-groups__chip.cz-drawer-groups__chip {
   padding: 0 var(--cz-space-4) var(--cz-space-4);
 }
 
+/* Editing active (inline editor chrome suppression) — while any inline
+   editor is open (a parent Tier module or the selected Edition's own
+   module — TierDrawerContent's anyEditingActive), the four-group Tabs/
+   Accordion chrome around it is redundant: the editor already carries its
+   own title, back control, status pill, and Cancel/Save. Pure CSS
+   suppression, deliberately not a conditional render swap — DrawerGroupTabs/
+   DrawerGroupAccordion and everything they render stay mounted at the exact
+   same tree position whether editing or not, so an open editor's own local
+   state is never wiped by a reparenting remount the instant editing starts. */
+.cz-req-detail--editing .cz-drawer-groups__tablist {
+  display: none;
+}
+
+.cz-req-detail--editing .cz-drawer-groups__accordion-trailing,
+.cz-req-detail--editing .cz-drawer-groups__accordion-heading {
+  display: none;
+}
+
+.cz-req-detail--editing .cz-drawer-groups__accordion-section {
+  border: none;
+  background: transparent;
+}
+
+/* The three collapsed sections (their panel carries the `hidden` attribute
+   DrawerGroupAccordion already sets) disappear entirely rather than showing
+   as empty bordered boxes with no trigger; the one open section's panel —
+   the editor itself — is unaffected. */
+.cz-req-detail--editing .cz-drawer-groups__accordion-section:has(.cz-drawer-groups__accordion-panel[hidden]) {
+  display: none;
+}
+
+.cz-req-detail--editing .cz-drawer-groups__accordion-panel {
+  padding: 0;
+}
+
 .cz-module-status-pill {
   display: inline-flex;
   align-items: center;

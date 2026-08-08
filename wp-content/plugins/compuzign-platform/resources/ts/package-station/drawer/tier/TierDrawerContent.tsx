@@ -150,6 +150,17 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     selectedEdition?.previous_platform_status, selectedEditionCanPublish, selectedEditionHasBeenPublished,
   ]);
 
+  // Ask the host to hide its own header while ANY inline editor is open —
+  // the parent Tier's own module editor (editingSection) or the selected
+  // Edition's own module editor (editionModuleEditing, reported up from
+  // TierEditionDeclarationSwitcher). The cleanup resets to false on unmount
+  // as a second line of defense alongside AdminStationDrawer's own
+  // content-identity reset — this drawer never relies on only one of them.
+  useEffect(() => {
+    bridge.setHeaderHidden?.(c.anyEditingActive);
+    return () => bridge.setHeaderHidden?.(false);
+  }, [bridge, c.anyEditingActive]);
+
   if (!c.pkg.detailLoaded) return <AsyncLoading label="Loading tiers…" />;
 
   const { station, svc } = c;
@@ -461,6 +472,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
             selectedId={c.selectedDeclarationId}
             onSelect={c.setSelectedDeclarationId}
             scrollContainer={scrollContainer}
+            onEditingActiveChange={c.setEditionModuleEditing}
           />
         )
       ),
@@ -557,7 +569,23 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   );
 
   return (
-    <div class="cz-req-detail" key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId} ref={setRootEl}>
+    <div
+      class={`cz-req-detail${c.anyEditingActive ? ' cz-req-detail--editing' : ''}`}
+      key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}
+      ref={setRootEl}
+    >
+      {/* While any inline editor is open (parent Tier module or selected
+          Edition module — c.anyEditingActive), the four-group Tabs/Accordion
+          chrome (including the view toggle and "+ Edition" carried in
+          `trailing`) is redundant above an editor that already has its own
+          title/back/status/Cancel/Save. This deliberately does NOT swap which
+          renderer mounts — DrawerGroupTabs/DrawerGroupAccordion and every
+          group's content stay mounted at the exact same tree position
+          whether editing or not, so an active inline editor's own local
+          state (e.g. TierEditionDeclarationSwitcher's editingTab/draft) is
+          never wiped by a reparenting remount the instant editing starts.
+          `.cz-req-detail--editing` (drawer-kit.css) hides the chrome purely
+          in CSS instead. */}
       {c.tierGroupView === 'accordion' ? (
         <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={trailing} />
       ) : (
