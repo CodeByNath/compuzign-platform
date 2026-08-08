@@ -69,7 +69,10 @@ export function TierDrawerFooter({
       // otherwise have been the "obvious" default action.
       onSelect: () => {},
       menuOnly: true,
-      busy: saving, tone: menu.splitTone,
+      // Preserves the old flat Publish button's own busy label — a request
+      // in flight (Publish or any other scoped transition) shows "Saving…"
+      // rather than the generic "…" default.
+      busy: saving, busyLabel: 'Saving…', tone: menu.splitTone,
       open: splitOpen, onToggle: () => setSplitOpen((value) => !value),
       overflow: menu.entries.map((entry) => ({ ...entry, disabled: saving })),
     },

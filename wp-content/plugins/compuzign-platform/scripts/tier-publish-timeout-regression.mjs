@@ -295,6 +295,32 @@ function clickButtonWithText(text, root = container) {
   btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return btn;
 }
+// Single-footer, scope-aware lifecycle command model: Publish is a scoped
+// menu row ("Publish Tier") now, not a separate flat button — the split's
+// visible label only opens/closes the menu (menuOnly). Same idempotent
+// open/close pattern tier-occupant-lifecycle-regression.mjs and
+// tier-edition-lifecycle-regression.mjs already use.
+async function ensureLifecycleMenuOpen() {
+  let footerDom = renderFooterDom();
+  if (!footerDom.querySelector('.cz-footer-split__menu')) {
+    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    await sleep(20);
+    footerDom = renderFooterDom();
+  }
+  return footerDom;
+}
+async function clickLifecycleMenuItem(label) {
+  const footerDom = await ensureLifecycleMenuOpen();
+  const item = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].find((b) => b.textContent.trim() === label);
+  item?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  return item;
+}
+async function clickPublish() {
+  await clickLifecycleMenuItem('Publish Tier');
+  await sleep(20);
+  clickButtonWithText('Publish', container); // the confirm dialog's own Publish button
+}
 
 console.log('=== Tier Publish request-timeout (mounted) ===');
 
@@ -303,16 +329,14 @@ await waitToSettle();
 
 console.log('\n1) Publish a stalled request — the footer locks into Saving…, exactly the pre-fix symptom up to this point');
 hangNextSettle = true;
-let footerDom = renderFooterDom();
-clickButtonWithText('Publish', footerDom);
-await sleep(20);
-clickButtonWithText('Publish', container); // the confirm dialog's own Publish button
+await clickPublish();
 await sleep(20);
 
-footerDom = renderFooterDom();
-const publishBtnWhileSaving = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Saving…');
+let footerDom = renderFooterDom();
+const splitBtnWhileSaving = footerDom.querySelector('.cz-footer-split__btn');
 const closeBtnWhileSaving = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close');
-check('the footer shows the busy "Saving…" label while the request is outstanding', !!publishBtnWhileSaving);
+check('the footer shows the busy "Saving…" label while the request is outstanding', splitBtnWhileSaving?.textContent.trim() === 'Saving…', splitBtnWhileSaving?.textContent);
+check('the split control is disabled while the request is outstanding — cannot even open the menu', splitBtnWhileSaving?.disabled === true);
 check('Close is disabled while the request is outstanding', closeBtnWhileSaving?.disabled === true);
 check('exactly one settle request was made so far', settleCalls === 1, settleCalls);
 
@@ -321,11 +345,17 @@ fireRequestTimeout();
 await waitToSettle();
 
 footerDom = renderFooterDom();
-const publishBtnAfterTimeout = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
+const splitBtnAfterTimeout = footerDom.querySelector('.cz-footer-split__btn');
 const closeBtnAfterTimeout = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close');
-check('the busy "Saving…" label is gone once the timeout fires', ![...footerDom.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Saving…'));
-check('Publish is interactive again (not busy/disabled by saving)', !!publishBtnAfterTimeout && publishBtnAfterTimeout.disabled === false);
+check('the busy "Saving…" label is gone once the timeout fires', splitBtnAfterTimeout?.textContent.trim() !== 'Saving…', splitBtnAfterTimeout?.textContent);
+check('the split control is interactive again (not busy/disabled by saving)', splitBtnAfterTimeout?.disabled === false);
 check('Close is interactive again', closeBtnAfterTimeout?.disabled === false);
+splitBtnAfterTimeout.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+const menuLabelsAfterTimeout = [...renderFooterDom().querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].map((b) => b.textContent.trim());
+renderFooterDom().querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+check('Publish Tier is still offered — the never-published occupant still has content to publish', menuLabelsAfterTimeout.includes('Publish Tier'), menuLabelsAfterTimeout);
 
 const errorText = [...container.querySelectorAll('.cz-admin-error-msg')].map((el) => el.textContent).join(' ');
 check('the surfaced message reports an UNCERTAIN outcome, not a definite failure', errorText.includes('did not complete in time') && errorText.includes('may have been saved') && errorText.toLowerCase().includes('refresh'), errorText);
@@ -333,10 +363,7 @@ check('the message never claims the publish definitely failed', !errorText.toLow
 
 console.log('\n3) A normal, fast Publish is unaffected by the timeout machinery');
 const beforeSecondSettle = settleCalls;
-footerDom = renderFooterDom();
-clickButtonWithText('Publish', footerDom);
-await sleep(20);
-clickButtonWithText('Publish', container);
+await clickPublish();
 await waitToSettle();
 check('a second (fast) settle request was made', settleCalls === beforeSecondSettle + 1, settleCalls);
 const okText = [...container.querySelectorAll('.cz-admin-ok-msg')].map((el) => el.textContent).join(' ');
