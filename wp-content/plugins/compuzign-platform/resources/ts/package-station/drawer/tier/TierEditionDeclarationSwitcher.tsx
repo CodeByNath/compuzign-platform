@@ -134,8 +134,6 @@ export function TierEditionDeclarationSwitcher({
 
   return (
     <div class="cz-shell-section">
-      <p class="cz-shell-section__title">Inclusions &amp; Editions — additional declarations</p>
-
       {ctl.error && !editingModule && <p class="cz-admin-error-msg">{ctl.error}</p>}
 
       <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--cz-space-2); flex-wrap:wrap">

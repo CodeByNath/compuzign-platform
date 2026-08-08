@@ -372,4 +372,27 @@ for (const action of ['moveToBin', 'restoreFromBin', 'trashBinEntry', 'deleteBin
   check(panel.includes(`ctl.${action}(`), `the Edition bin list still drives ${action} through the hook's own action — Phase 7 changed no behavior`);
 }
 
+// ── Terminology cleanup (drawer refinement blueprint, Phase 8) — no visible
+//    "declaration" UI copy in Options; internal code vocabulary (component
+//    name, CSS class names, comments) is a deliberate, separate decision and
+//    stays untouched. ───────────────────────────────────────────────────────
+
+check(
+  !panel.includes('Inclusions &amp; Editions') && !panel.includes('additional declarations'),
+  'the "Inclusions & Editions — additional declarations" banner heading is gone — Options reads as a normal child-management area',
+);
+check(
+  !panel.includes('Showing the Default declaration'),
+  'the old Default pointer note (already removed in Phase 1) has not resurfaced',
+);
+
+const editionBindingsForCopy = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/schema/bindings/tierEdition.tsx',
+), 'utf8');
+check(
+  !/subtitle:\s*'[^']*declaration/i.test(editionBindingsForCopy),
+  'Edition Inclusions\' own subtitle carries no "declaration" copy either',
+);
+
 console.log('Tier Edition admin contract checks passed.');

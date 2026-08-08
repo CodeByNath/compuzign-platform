@@ -109,7 +109,7 @@ export const tierEditionInclusionsShell: ShellSchema<TierEditionInclusionsShellD
   dna:       tierEditionOverviewModule,
   header: {
     title:       'Edition Inclusions',
-    subtitle:    'Features included in this Edition’s own declaration.',
+    subtitle:    'Features included in this Edition.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
     count:       (d) => d.items.length,
