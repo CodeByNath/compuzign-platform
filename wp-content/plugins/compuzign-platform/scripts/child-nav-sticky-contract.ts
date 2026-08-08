@@ -138,5 +138,9 @@ check(
   /\.cz-admin-station \.cz-drawer-groups__content \.cz-drawer-groups__chip-strip\s*\{[^}]*margin-top:\s*-24px/.test(drawerKitCss),
   'the Tabs-mode top correction is scoped to .cz-drawer-groups__content (Tabs\' own wrapper), so it never applies inside an Accordion panel',
 );
+check(
+  /\.cz-admin-station \.cz-drawer-groups__accordion-panel \.cz-drawer-groups__chip-strip\s*\{[^}]*margin:\s*0 -16px[^}]*border-bottom:\s*none/.test(drawerKitCss),
+  'the Accordion-mode -16px bleed and removed bottom border are scoped to .cz-drawer-groups__accordion-panel, so they never apply to the Tabs-mode strip',
+);
 
 console.log(`Child nav sticky contract passed: ${checks} checks.`);

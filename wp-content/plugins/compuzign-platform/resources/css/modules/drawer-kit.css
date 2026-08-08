@@ -1722,6 +1722,16 @@ button.cz-module-status-pill {
   margin-top: -24px;
 }
 
+/* Accordion mode only — scoped to .cz-drawer-groups__accordion-panel
+   (Accordion's own content wrapper), so this never applies to the Tabs-mode
+   rule above: a narrower horizontal bleed and no bottom border, since the
+   strip sits directly under the accordion trigger row rather than the
+   tablist's own bordered bar. */
+.cz-admin-station .cz-drawer-groups__accordion-panel .cz-drawer-groups__chip-strip {
+  margin: 0 -16px var(--cz-space-5);
+  border-bottom: none;
+}
+
 .cz-admin-station .cz-drawer-groups__chip--active {
   color: var(--station-nav-accent-strong);
 }
