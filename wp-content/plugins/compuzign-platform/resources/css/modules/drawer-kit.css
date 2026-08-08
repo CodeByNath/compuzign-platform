@@ -1211,6 +1211,57 @@
   box-shadow: var(--admin-depth-ring-sm);
 }
 
+/* Child/subsection navigation strip (UI refinement, Phase 3) — a subordinate
+   sibling of .cz-drawer-groups__tab*, same token family, deliberately
+   smaller (--admin-fs-s-label vs. --admin-fs-label) and pill/filled active
+   state rather than the top bar's underline, so it always reads one level
+   below the group nav it sits under. Horizontally scrollable with the
+   scrollbar hidden cross-browser; touch/trackpad/mouse scrolling remains
+   fully functional — only the visible scrollbar track is suppressed. */
+.cz-drawer-groups__chip-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cz-drawer-groups__chip-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-drawer-groups__chip {
+  flex: 0 0 auto;
+  padding: var(--cz-space-1) var(--cz-space-3);
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-normal);
+  border-radius: var(--admin-radius-pill);
+  border: 1px solid var(--station-border);
+  background: transparent;
+  color: var(--station-text-muted);
+  cursor: pointer;
+  transition: background var(--cz-transition-fast), color var(--cz-transition-fast), border-color var(--cz-transition-fast);
+}
+
+.cz-drawer-groups__chip:hover {
+  background: var(--admin-accent-a12);
+}
+
+.cz-drawer-groups__chip--active {
+  font-weight: var(--admin-fw-strong);
+  color: var(--station-accent);
+  border-color: var(--station-accent);
+  background: var(--admin-accent-a12);
+}
+
+.cz-drawer-groups__chip:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-depth-ring-sm);
+}
+
 .cz-drawer-groups__accordion {
   display: flex;
   flex-direction: column;
@@ -1603,6 +1654,11 @@ button.cz-module-status-pill {
 
 .cz-admin-station .cz-drawer-groups__tab--active::after {
   background: var(--station-nav-accent-strong);
+}
+
+.cz-admin-station .cz-drawer-groups__chip--active {
+  color: var(--station-nav-accent-strong);
+  border-color: var(--station-nav-accent-strong);
 }
 
 .cz-admin-station .drawerModule {

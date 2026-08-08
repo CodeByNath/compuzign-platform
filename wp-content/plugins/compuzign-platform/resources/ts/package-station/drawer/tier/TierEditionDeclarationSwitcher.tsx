@@ -2,12 +2,16 @@
 // Replaces the old standalone "Payment Editions" panel
 // (docs/code-map/tier-edition.md): no explanatory essay, no stacked list of
 // every Edition's editor printed one below another, no raw lifecycle rail
-// running the length of the module. A compact [Edition 2] [Edition 3] tab
-// strip plus a "+ Edition" trigger shows ONE Edition at a time — Default's
-// own content lives in Default Tier Inclusions under Details and is never a
-// row of this strip; this switcher is the sole content of the Options group
-// (drawer refinement blueprint, Phase 5) — a presentation grouping only, not
-// a change of who owns Edition data.
+// running the length of the module. A compact [Nath] [Edition 2] [Edition 3]
+// child-chip strip (ChildChipStrip, drawer-kit/ui — UI refinement, Phase 3;
+// the shared child/subsection navigation primitive, replacing this
+// component's former hand-rolled use of Cost Builder's own public
+// `cz-cost-builder__tier-edition*` classes) shows ONE Edition at a time —
+// Default's own content lives in Default Tier Inclusions under Details and
+// is never a row of this strip; this switcher is the sole content of the
+// Options group (drawer refinement blueprint, Phase 5) — a presentation
+// grouping only, not a change of who owns Edition data. "+ Edition" no
+// longer renders here (UI refinement, Phase 2 — see its own comment below).
 //
 // The selected Edition's own read surface is two mature module cards
 // (Edition Overview, Edition Inclusions — TIER_EDITION_ENTITY, PlacedShell,
@@ -21,10 +25,13 @@
 // editing-at-a-time contract. Whichever card's Edit was clicked decides only
 // which tab opens first (session.extras.initialTab, UI-only).
 //
-// "+ Edition" is Options' own creation control (relocated off Overview's
-// footer — see useTierDrawerController.ts's handleAddEdition) and is always
-// reachable here, including with zero Editions — the component no longer
-// returns null in that case, since Options must always offer a way in.
+// "+ Edition" (useTierDrawerController.ts's handleAddEdition) no longer
+// renders inside this module (UI refinement, Phase 2) — it lives in the
+// drawer's own top nav chrome, beside the Tabs/Accordion view toggle
+// (TierDrawerContent.tsx's `trailing` slot), reachable only while Options is
+// the active group. This component still never returns null with zero
+// Editions — it renders its own empty state instead — since Options must
+// always show something meaningful even before the first Edition exists.
 //
 // The selected declaration id is a CONTROLLED prop, not local state: every
 // Edition lifecycle mutation refetches through usePackageStation, and while
@@ -51,6 +58,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
+import { ChildChipStrip } from '@/drawer-kit/ui/ChildChipStrip';
 import { TravelStatusPill } from '@/drawer-kit/ui/TravelStatusPill';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
@@ -74,13 +82,10 @@ interface Props {
   // Tier Inclusions under Details. null here means no Edition is selected.
   selectedId:     string | null;
   onSelect:       (id: string | null) => void;
-  onAddEdition:   () => void;
-  addingEdition:  boolean;
 }
 
 export function TierEditionDeclarationSwitcher({
   ctl, rateSheetOptions, svc, selectedId, onSelect,
-  onAddEdition, addingEdition,
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
@@ -142,30 +147,12 @@ export function TierEditionDeclarationSwitcher({
     <div class="cz-shell-section">
       {ctl.error && !editingModule && <p class="cz-admin-error-msg">{ctl.error}</p>}
 
-      <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--cz-space-2); flex-wrap:wrap">
-        <div class="cz-cost-builder__tier-editions" role="tablist" aria-label="Editions">
-          {ctl.editions.map((edition) => (
-            <button
-              key={edition.id}
-              type="button"
-              role="tab"
-              aria-selected={selectedId === edition.id}
-              class={`cz-cost-builder__tier-edition${selectedId === edition.id ? ' is-active' : ''}`}
-              onClick={() => { onSelect(edition.id); setEditingTab(null); setDraft(null); }}
-            >
-              {edition.title}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-          disabled={addingEdition}
-          onClick={onAddEdition}
-        >
-          {addingEdition ? '…' : '+ Edition'}
-        </button>
-      </div>
+      <ChildChipStrip
+        chips={ctl.editions.map((edition) => ({ id: edition.id, label: edition.title }))}
+        activeId={selectedId}
+        ariaLabel="Editions"
+        onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); }}
+      />
 
       {ctl.editions.length === 0 && (
         <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
