@@ -59,6 +59,19 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
     closeGuardRef.current = guard;
   }, []);
 
+  // Entity-supplied header-hidden request (optional — see EntityDrawerHostBridge).
+  // Guaranteed reset, not just trusted content cleanup: whenever the open
+  // drawer's content identity (template + record) changes, this resets to
+  // `false` before that new content's own effects run, so a hidden header
+  // can never leak from one drawer's content into a different one — even if
+  // some future consumer of this optional capability forgets its own
+  // cleanup. Content that never calls setHeaderHidden is unaffected; the
+  // header simply always shows.
+  const [headerHidden, setHeaderHidden] = useState(false);
+  useEffect(() => {
+    setHeaderHidden(false);
+  }, [open.drawerTemplateKey, open.recordId]);
+
   // The single close path: honour the content's guard, then close. When the
   // guard returns false the content has raised its own blocking UI and drives
   // the close itself; the shell does nothing further.
@@ -114,7 +127,17 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
         tabIndex={-1}
       >
         {template
-          ? <ResolvedDrawer open={open} template={template} onClose={requestClose} setFooter={setFooter} setCloseGuard={setCloseGuard} />
+          ? (
+            <ResolvedDrawer
+              open={open}
+              template={template}
+              onClose={requestClose}
+              setFooter={setFooter}
+              setCloseGuard={setCloseGuard}
+              headerHidden={headerHidden}
+              setHeaderHidden={setHeaderHidden}
+            />
+          )
           : <UnresolvedDrawer onClose={requestClose} />}
         {/* Entity-supplied record footer. Absent unless content published one, so
             drawers that keep their actions inside the body are unchanged. */}
@@ -130,12 +153,16 @@ function ResolvedDrawer({
   onClose,
   setFooter,
   setCloseGuard,
+  headerHidden,
+  setHeaderHidden,
 }: {
   open: OpenDrawerState;
   template: NonNullable<ReturnType<typeof resolveDrawerTemplate>>;
   onClose: () => void;
   setFooter: (footer: ComponentChildren) => void;
   setCloseGuard: (guard: (() => boolean) | null) => void;
+  headerHidden: boolean;
+  setHeaderHidden: (hidden: boolean) => void;
 }) {
   const { setMode, notifySaved } = useAdminStationDrawer();
   const Content = template.content;
@@ -148,10 +175,17 @@ function ResolvedDrawer({
 
   return (
     <>
-      <header class="cz-station-drawer__head">
-        <h2 class="cz-station-drawer__title">{template.title}</h2>
-        <button type="button" class="cz-station-drawer__close" aria-label="Close" onClick={onClose}>×</button>
-      </header>
+      {/* Suppressed while content reports an inline module editor is open —
+          that editor already presents its own title, back control, and
+          Cancel/Save (see InlineEditorShell), so this header would be
+          redundant chrome above it. See headerHidden's reset effect above
+          for why this can never stay stuck hidden across different content. */}
+      {!headerHidden && (
+        <header class="cz-station-drawer__head">
+          <h2 class="cz-station-drawer__title">{template.title}</h2>
+          <button type="button" class="cz-station-drawer__close" aria-label="Close" onClick={onClose}>×</button>
+        </header>
+      )}
 
       <div class="cz-station-drawer__body">
         {/* Keyed by template + record so it survives tab switches and remounts
@@ -165,6 +199,7 @@ function ResolvedDrawer({
           onSaved={notifySaved}
           setFooter={setFooter}
           setCloseGuard={setCloseGuard}
+          setHeaderHidden={setHeaderHidden}
         />
       </div>
     </>

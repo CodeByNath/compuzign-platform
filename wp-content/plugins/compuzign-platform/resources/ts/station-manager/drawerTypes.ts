@@ -62,6 +62,14 @@ export interface DrawerContentProps {
   // bundle (see docs/code-map/admin-station-drawer.md — the bundle boundary).
   setFooter?:     (footer: ComponentChildren) => void;
   setCloseGuard?: (guard: (() => boolean) | null) => void;
+  // Optional: content may ask the shell to hide its own header (title +
+  // close) while an inline module editor already presents its own title,
+  // back control, and Cancel/Save — the parent header would be redundant
+  // chrome above it. The shell resets this to `false` itself whenever the
+  // open drawer's content identity changes, so no content can leave a
+  // stale hidden header behind for a different record/drawer. Content that
+  // never calls this behaves exactly as before — the header always shows.
+  setHeaderHidden?: (hidden: boolean) => void;
 }
 
 export type DrawerContent = (props: DrawerContentProps) => import('preact').VNode;

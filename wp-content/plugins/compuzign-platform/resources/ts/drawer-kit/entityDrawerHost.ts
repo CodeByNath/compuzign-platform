@@ -36,6 +36,14 @@ export interface EntityDrawerHostBridge {
   // blocking dialog and will drive the close itself.
   setCloseGuard: (guard: (() => boolean) | null) => void;
 
+  // Ask the host to hide (or restore) its own header — title and close —
+  // while a composition's inline module editor already presents its own
+  // title, back control, and Cancel/Save, making the host's header redundant
+  // chrome above it. Optional: a host or composition that never calls this
+  // is unaffected, and the host itself guarantees this never stays stuck
+  // hidden when the open drawer's content changes to something else.
+  setHeaderHidden?: (hidden: boolean) => void;
+
   // A save or lifecycle mutation that changed the record completed — the host
   // refreshes the surface the drawer was opened from, and only that surface.
   // Optional: a host with nothing behind the drawer omits it.
