@@ -7,10 +7,19 @@
 // own content lives in Default Tier Inclusions under Details and is never a
 // row of this strip; this switcher is the sole content of the Options group
 // (drawer refinement blueprint, Phase 5) — a presentation grouping only, not
-// a change of who owns Edition data. Selecting an Edition switches this
-// block to that ONE Edition's own compact read/edit surface, reusing the
-// same TierEditionOverviewFields form (and therefore the same
-// PoolInclusionsEditor row/quantity selection) an Edition has always used.
+// a change of who owns Edition data.
+//
+// The selected Edition's own read surface is two mature module cards
+// (Edition Overview, Edition Inclusions — TIER_EDITION_ENTITY, PlacedShell,
+// the SAME renderer machinery the parent occupant's own Tier Overview/
+// Default Tier Inclusions cards render through), not a bespoke summary
+// block. Both cards' "Edit" actions open ONE shared inline editor
+// (TierEditionEditor.tsx) presenting Overview/Inclusions as two tabs over
+// the SAME TierEditionOverviewDraft — one draft, one dirty state, one Save,
+// one Cancel, one settle/revert path; there is still exactly one Edition
+// module and one editing.module, matching PlacedShell's own one-module-
+// editing-at-a-time contract. Whichever card's Edit was clicked decides only
+// which tab opens first (session.extras.initialTab, UI-only).
 //
 // "+ Edition" is Options' own creation control (relocated off Overview's
 // footer — see useTierDrawerController.ts's handleAddEdition) and is always
@@ -32,10 +41,14 @@
 // never sit unreachable behind a blank selection.
 
 import { useEffect, useState } from 'preact/hooks';
+import { PlacedShell } from '@/drawer-kit/PlacedShell';
+import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionBinEntry, TierEditionOverviewDraft } from '../../types';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
-import { TierEditionOverviewFields } from './TierEditionOverviewFields';
+import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
+import { buildTierEditionDetail } from './tierEditionDetailModel';
+import type { TierEditionEditorTab } from './TierEditionEditor';
 import { draftFromTierEdition, tierEditionStatusLabel } from './tierEditionModel';
 
 interface Props {
@@ -60,8 +73,9 @@ export function TierEditionDeclarationSwitcher({
   onAddEdition, addingEdition,
 }: Props) {
   const ctl = useTierEditions(serviceId, tierInstanceId, tierId, editions, editionBin, onMutated);
-  const [editing, setEditing] = useState(false);
+  const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
+  const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
   const [showBin, setShowBin] = useState(false);
 
   const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
@@ -70,30 +84,56 @@ export function TierEditionDeclarationSwitcher({
     if (ctl.editions.length === 0) return;
     if (ctl.editions.some((e) => e.id === selectedId)) return;
     onSelect(ctl.editions[0].id);
-    setEditing(false);
+    setEditingTab(null);
     setDraft(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctl.editions, selectedId]);
 
-  const startEdit = () => {
+  const openEdit = (tab: TierEditionEditorTab) => {
     if (!selected) return;
     setDraft(draftFromTierEdition(selected));
-    setEditing(true);
+    setEditingTab(tab);
   };
-  const cancelEdit = () => { setEditing(false); setDraft(null); };
+  const cancelEdit = () => { setEditingTab(null); setDraft(null); };
   const saveEdit = async () => {
     if (!selected || !draft) return;
     const ok = await ctl.saveDraft(selected.id, draft);
     if (ok) await ctl.settle(selected.id);
-    setEditing(false);
+    setEditingTab(null);
     setDraft(null);
   };
+
+  const detail = selected ? buildTierEditionDetail(selected, svc, {
+    onEdit:         openEdit,
+    onDiscardDraft: () => ctl.revert(selected.id),
+  }) : null;
+
+  // Still exactly one editing.module — PlacedShell's own one-module-editing
+  // contract is unchanged; the tab lives entirely inside the editor
+  // (TierEditionEditor.tsx), never as a second module key here.
+  const editingModule: EntityDrawerEditingModule | null = (selected && editingTab) ? {
+    module: 'overview',
+    session: {
+      draft,
+      patch:   (patch) => setDraft((cur) => cur ? { ...cur, ...(patch as Partial<TierEditionOverviewDraft>) } : cur),
+      replace: (next) => setDraft(next as TierEditionOverviewDraft),
+      onSave:  saveEdit,
+      onCancel: cancelEdit,
+      saving:  ctl.saving,
+      saveErr: ctl.error,
+      isDirty: true,
+      extras:  { initialTab: editingTab, rateSheetOptions, svc },
+    },
+  } : null;
+
+  const togglePanel = (module: 'overview' | 'inclusions') => () =>
+    setOpenPanel((p) => (p === module ? null : module));
 
   return (
     <div class="cz-shell-section">
       <p class="cz-shell-section__title">Inclusions &amp; Editions — additional declarations</p>
 
-      {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
+      {ctl.error && !editingModule && <p class="cz-admin-error-msg">{ctl.error}</p>}
 
       <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--cz-space-2); flex-wrap:wrap">
         <div class="cz-cost-builder__tier-editions" role="tablist" aria-label="Editions">
@@ -104,7 +144,7 @@ export function TierEditionDeclarationSwitcher({
               role="tab"
               aria-selected={selectedId === edition.id}
               class={`cz-cost-builder__tier-edition${selectedId === edition.id ? ' is-active' : ''}`}
-              onClick={() => { onSelect(edition.id); setEditing(false); setDraft(null); }}
+              onClick={() => { onSelect(edition.id); setEditingTab(null); setDraft(null); }}
             >
               {edition.title}
             </button>
@@ -159,21 +199,45 @@ export function TierEditionDeclarationSwitcher({
         </div>
       )}
 
-      {selected && !editing && (
+      {selected && detail && (
+        editingModule ? (
+          <PlacedShell
+            entity={TIER_EDITION_ENTITY}
+            slot={{ module: 'overview', mode: 'details' }}
+            binding={detail.overviewBinding}
+            panelOpen={openPanel === 'overview'}
+            onTogglePanel={togglePanel('overview')}
+            editing={editingModule}
+          />
+        ) : (
+          <>
+            <PlacedShell
+              entity={TIER_EDITION_ENTITY}
+              slot={{ module: 'overview', mode: 'details' }}
+              binding={detail.overviewBinding}
+              panelOpen={openPanel === 'overview'}
+              onTogglePanel={togglePanel('overview')}
+            />
+            <PlacedShell
+              entity={TIER_EDITION_ENTITY}
+              slot={{ module: 'inclusions', mode: 'details' }}
+              binding={detail.inclusionsBinding}
+              panelOpen={openPanel === 'inclusions'}
+              onTogglePanel={togglePanel('inclusions')}
+            />
+          </>
+        )
+      )}
+
+      {/* Lifecycle status + actions (Phase 6 will bring this into the
+          platform's canonical action grammar) — hidden while editing, the
+          same way the parent occupant's own record footer disappears during
+          a module edit. */}
+      {selected && !editingModule && (
         <div class="cz-tier-edition-declaration cz-tier-edition-declaration--view" style="margin-top: var(--cz-space-2)">
-          <div style="display:flex; justify-content:space-between; align-items:center">
-            <span class="cz-tier-edition-declaration__status drawerModule__value">
-              <span class="cz-admin-status-dot" /> {tierEditionStatusLabel(selected)}
-            </span>
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={startEdit}>Edit</button>
-          </div>
-          <p class="cz-tier-edition-declaration__detail drawerModule__value">
-            {selected.price != null ? `$${selected.price.toFixed(2)}` : selected.contact ? 'Contact' : 'Not configured'}
-            {' · '}{selected.billing_cycle ?? 'No billing cycle'}
-            {selected.minimum_term_value != null ? ` · Min ${selected.minimum_term_value} ${selected.minimum_term_unit ?? ''}` : ''}
-            {selected.edition_platform_id ? ` · ${selected.edition_platform_id}` : ''}
-            {' · '}{selected.rate_sheet_items.length} {selected.rate_sheet_items.length === 1 ? 'row' : 'rows'} selected
-          </p>
+          <span class="cz-tier-edition-declaration__status drawerModule__value">
+            <span class="cz-admin-status-dot" /> {tierEditionStatusLabel(selected)}
+          </span>
           <div style="display:flex; gap: var(--cz-space-1); flex-wrap:wrap; margin-top: var(--cz-space-1)">
             {selected.platform_status === 'disabled' && (
               <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.publish(selected.id)}>Publish</button>
@@ -209,21 +273,6 @@ export function TierEditionDeclarationSwitcher({
                 Move to bin
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {selected && editing && draft && (
-        <div class="cz-tier-edition-declaration cz-tier-edition-declaration--edit" style="margin-top: var(--cz-space-2)">
-          <TierEditionOverviewFields
-            draft={draft}
-            onChange={(patch) => setDraft({ ...draft, ...patch })}
-            rateSheetOptions={rateSheetOptions}
-            svc={svc}
-          />
-          <div style="display:flex; gap: var(--cz-space-2)">
-            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={ctl.saving} onClick={saveEdit}>Save</button>
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={cancelEdit}>Cancel</button>
           </div>
         </div>
       )}

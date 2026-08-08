@@ -75,6 +75,26 @@ const OCCUPANT = {
 
 let editions = [];
 
+// One selectable Rate Sheet row — needed to prove the tab-switch-preserves-
+// draft invariant (step 3 below) touches a real Inclusions-tab field, not
+// just an empty select with nothing to choose. Same fixture shape
+// tier-occupant-lifecycle-regression.mjs already uses for the parent
+// occupant's own Inclusions editor.
+const RATE_SHEET_ID = 'rs_editions';
+const ITEM_ID = 'ri_1';
+const SOURCE_ITEM_ID = 'src_1';
+const RATE_SHEETS = [{
+  rate_sheet_id: RATE_SHEET_ID, title: 'Primary', status: 'active', groups: [],
+  items: [
+    { item_id: ITEM_ID, source_item_id: SOURCE_ITEM_ID, unit_price: 10, per: null, quantity: 1, group_id: null, sort_order: 0 },
+  ],
+}];
+const PACKAGE_RELATIONSHIPS = [{
+  item_id: SOURCE_ITEM_ID, source_type: 'inclusion', source_id: 'inc_1',
+  resolved: { label: 'Priority support' }, decorated_label: 'Priority support', group_id: null,
+  sort_order: 0, disabled: false, missing: false, module_transition: 'settled',
+}];
+
 function emptySlotDetail() {
   return {
     occupant_id: null, platform_id: '', addon_platform_id: '', label: '', ideal_for: '',
@@ -157,11 +177,14 @@ globalThis.fetch = (url, init = {}) => {
     return jsonResponse({
       success: true, tier_instance_id: INSTANCE_ID, service_id: SERVICE_ID,
       station: {
-        tier_instance_id: INSTANCE_ID, allowed_rate_sheet_ids: [], platform_status: 'active',
+        tier_instance_id: INSTANCE_ID, allowed_rate_sheet_ids: [RATE_SHEET_ID], platform_status: 'active',
         tiers: stationTiers(), popular_tier: null, popular_label: '', sort_position: 0,
         bundle: { title: '', description: '', price: null }, occupant_bin: [],
       },
-      service: { id: SERVICE_ID, title: 'Cloud Backup', inclusions: [], faqs: [], rate_sheets: [], package_relationships: [] },
+      service: {
+        id: SERVICE_ID, title: 'Cloud Backup', inclusions: [], faqs: [],
+        rate_sheets: RATE_SHEETS, package_relationships: PACKAGE_RELATIONSHIPS,
+      },
     });
   }
 
@@ -377,15 +400,62 @@ function selectDeclarationTab(text) {
 function selectedStatusText() {
   return container.querySelector('.cz-tier-edition-declaration__status')?.textContent.trim() ?? null;
 }
-function selectedDetailText() {
-  return container.querySelector('.cz-tier-edition-declaration__detail')?.textContent.trim() ?? null;
+// The selected Edition's own read surface is two mature module cards
+// (Edition Overview, Edition Inclusions — PlacedShell/ReadBlock, same
+// .drawerModule/.drawerModule__title/.drawerModule__field grammar every
+// other module in this drawer renders through), not a bespoke summary
+// block — same scoping technique tier-occupant-lifecycle-regression.mjs
+// already uses for Tier Overview / Default Tier Inclusions.
+function findModule(titleText) {
+  return [...container.querySelectorAll('.drawerModule')]
+    .find((el) => el.querySelector('.drawerModule__title')?.textContent.trim().startsWith(titleText)) ?? null;
+}
+function moduleFieldValue(moduleTitle, fieldLabel) {
+  const mod = findModule(moduleTitle);
+  const field = [...(mod?.querySelectorAll('.drawerModule__field') ?? [])]
+    .find((el) => el.querySelector('.drawerModule__label')?.textContent.trim() === fieldLabel);
+  return field?.querySelector('.drawerModule__value')?.textContent.trim() ?? null;
+}
+// Proves Edition Overview/Inclusions carry the SAME 5-state pill/notification
+// grammar every other module in this drawer does (evaluateModule, not a
+// bespoke status string) — same technique as
+// tier-occupant-lifecycle-regression.mjs's own pillLabel().
+function pillLabel(moduleTitle) {
+  return findModule(moduleTitle)?.querySelector('.cz-module-status-pill')?.textContent.trim();
 }
 // "Edit" is ambiguous at the whole-container level — Overview, Default Tier
 // Inclusions, and Common Questions each carry their own "Edit" action too —
-// so the selected declaration's own Edit button must be scoped to its view
-// wrapper specifically.
-function clickDeclarationEdit() {
-  return clickButtonWithText('Edit', container.querySelector('.cz-tier-edition-declaration--view') ?? container);
+// so the click must be scoped to the specific Edition card. Either card
+// opens the SAME shared editor (TierEditionEditor.tsx); which card was
+// clicked only decides which inner tab opens first.
+function clickEditOn(moduleTitle) {
+  const mod = findModule(moduleTitle);
+  return [...(mod?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim() === 'Edit')
+    ?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+}
+// The inner Overview/Inclusions editor tab is local presentation state
+// (DrawerGroupTabs) inside the one shared editor — read which is active via
+// its own field markers rather than a second editing.module.
+function editorShowsOverviewTab() {
+  return !!container.querySelector('#edt-title');
+}
+function editorShowsInclusionsTab() {
+  return !!container.querySelector('#edt-rate-sheet');
+}
+function clickEditorTab(label) {
+  return clickButtonWithText(label, container.querySelector('.cz-ies') ?? container);
+}
+// PoolInclusionsEditor's Rate-Sheet-catalogue mode: a plain <select> whose
+// first option reads "Add from Rate Sheet…", with no distinguishing id.
+function selectRateSheetRow(itemId) {
+  const select = [...container.querySelectorAll('select')]
+    .find((el) => el.querySelector('option')?.textContent === 'Add from Rate Sheet…');
+  if (!select) return;
+  select.value = itemId;
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+}
+function rateSheetRowCount() {
+  return container.querySelectorAll('.cz-ie-row').length;
 }
 // Overview module's own small "Editions" read field (docs/code-map/tier-edition.md) —
 // a `.drawerModule__field` whose label reads "Editions", value is the derived count.
@@ -425,12 +495,33 @@ check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText(
 selectGroup('Options');
 await sleep(20);
 
-console.log('\n3) Selecting "Edition 2" and renaming it to "Annual Plan" via the shared draft/settle module');
+console.log('\n3) Selecting "Edition 2", editing it through the shared editor, and renaming it to "Annual Plan" via the shared draft/settle module');
 selectDeclarationTab('Edition 2');
 await sleep(20);
 check('the newly selected Edition reads Pending (disabled, never published)', selectedStatusText()?.includes('Pending'), selectedStatusText());
-clickDeclarationEdit();
+check('Edition Overview and Edition Inclusions render as two mature module cards', findModule('Edition Overview') !== null && findModule('Edition Inclusions') !== null);
+check('both cards carry the SAME 5-state pill — one module, two views, not two independently resolved ones', pillLabel('Edition Overview') === pillLabel('Edition Inclusions'), `overview=${pillLabel('Edition Overview')} inclusions=${pillLabel('Edition Inclusions')}`);
+
+console.log('  3a) Edit from the Inclusions card opens the SAME shared editor, on the Inclusions tab');
+clickEditOn('Edition Inclusions');
 await sleep(20);
+check('the Inclusions tab is active — no explicit tab click needed', editorShowsInclusionsTab() && !editorShowsOverviewTab());
+check('Edition Overview\'s own card is gone while editing — one shared editor replaces both cards', findModule('Edition Overview') === null);
+
+console.log('  3b) Selecting a Rate Sheet row here, then switching to Overview, must not lose it');
+setInputValue('#edt-rate-sheet', RATE_SHEET_ID);
+await sleep(20);
+selectRateSheetRow(ITEM_ID);
+await sleep(20);
+check('the Rate Sheet row was added on the Inclusions tab', rateSheetRowCount() === 1, rateSheetRowCount());
+const saveCallsDuringSwitch = saveDraftCalls;
+const settleCallsDuringSwitch = settleCalls;
+clickEditorTab('Overview');
+await sleep(20);
+check('switching tabs fired no draft-save/settle endpoint', saveDraftCalls === saveCallsDuringSwitch && settleCalls === settleCallsDuringSwitch);
+check('the Overview tab is now active', editorShowsOverviewTab() && !editorShowsInclusionsTab());
+
+console.log('  3c) Editing the Overview tab, then switching back to Inclusions, must not lose that either');
 // Yield between edits — each field's onChange closes over the draft state at
 // its own last render, so firing two edits in the same tick (before Preact's
 // microtask-batched re-render lands) makes the second call's stale closure
@@ -439,14 +530,25 @@ setInputValue('#edt-title', 'Annual Plan');
 await sleep(20);
 setInputValue('#edt-billing-cycle', 'annually');
 await sleep(20);
+clickEditorTab('Inclusions');
+await sleep(20);
+check('the Rate Sheet row selected before the round trip is still there', rateSheetRowCount() === 1, rateSheetRowCount());
+check('switching tabs still fired no endpoint', saveDraftCalls === saveCallsDuringSwitch && settleCalls === settleCallsDuringSwitch);
+clickEditorTab('Overview');
+await sleep(20);
+check('the title typed before the round trip is still there', container.querySelector('#edt-title')?.value === 'Annual Plan', container.querySelector('#edt-title')?.value);
+
+console.log('  3d) One Save commits both tabs\' changes together, as one draft');
 const saveCallsBefore = saveDraftCalls;
 const settleCallsBefore = settleCalls;
 clickButtonWithText('Save');
 await waitQuiet();
-check('the module draft-save endpoint was called', saveDraftCalls === saveCallsBefore + 1, saveDraftCalls);
+check('the module draft-save endpoint was called exactly once for both changes', saveDraftCalls === saveCallsBefore + 1, saveDraftCalls);
 check('the module settle endpoint was called right after (Save chains draft → settle for an Edition)', settleCalls === settleCallsBefore + 1, settleCalls);
 check('the tab now shows the new title', declarationTab('Annual Plan') !== undefined);
 check('the old auto-generated title is gone — this is a rename, not a second Edition', declarationTab('Edition 2') === undefined);
+check('the Rate Sheet selection from the Inclusions tab was saved in the SAME draft', findEdition(editions.find((e) => e.title === 'Annual Plan')?.id)?.rate_sheet_id === RATE_SHEET_ID);
+check('Edition Inclusions now shows the resolved row read-only', findModule('Edition Inclusions')?.textContent.includes('Priority support'));
 
 console.log('\n4) Publish "Annual Plan" — activates and assigns CZTE exactly once');
 selectDeclarationTab('Annual Plan');
@@ -456,7 +558,8 @@ await waitQuiet();
 check('the status endpoint was called', statusCalls === 1, statusCalls);
 check('the Edition reads Active', selectedStatusText()?.includes('Active'), selectedStatusText());
 check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
-check('the assigned CZTE is now shown', selectedDetailText()?.includes(`CZTE${CZTE_SUFFIXES[0]}`), selectedDetailText());
+check('the assigned CZTE is now shown', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
+check('the Edition Overview pill now reads Active — the shared 5-state pill, not a bespoke status string', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 
 console.log('\n5) Disable — captures previous_platform_status, offered Enable');
 clickButtonWithText('Disable');
@@ -474,7 +577,7 @@ clickButtonWithText('Publish');
 await waitQuiet();
 check('the Edition reads Active again', selectedStatusText()?.includes('Active'), selectedStatusText());
 check('republish never mints a second CZTE', czteMints === 1, czteMints);
-check('the CZTE identity is unchanged', selectedDetailText()?.includes(`CZTE${CZTE_SUFFIXES[0]}`), selectedDetailText());
+check('the CZTE identity is unchanged', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
 console.log('\n8) Archive, then Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
 clickButtonWithText('Archive');
@@ -501,7 +604,7 @@ await waitQuiet();
 check('the auto-title reuses "Edition 2" — it is derived from the current count, not a permanent counter', declarationTab('Edition 2') !== undefined);
 selectDeclarationTab('Edition 2');
 await sleep(20);
-clickDeclarationEdit();
+clickEditOn('Edition Overview');
 await sleep(20);
 setInputValue('#edt-title', 'Monthly Plan');
 await sleep(20);
@@ -515,7 +618,7 @@ clickButtonWithText('Publish');
 await waitQuiet();
 check('Monthly Plan reads Active', selectedStatusText()?.includes('Active'), selectedStatusText());
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);
-check('Monthly Plan carries its own CZTE, not Annual Plan\'s', selectedDetailText()?.includes(`CZTE${CZTE_SUFFIXES[1]}`), selectedDetailText());
+check('Monthly Plan carries its own CZTE, not Annual Plan\'s', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
 console.log('\n10) Restore — archived/trashed → disabled/Pending, never straight to Active');
 clickButtonWithText('Archive');
@@ -525,7 +628,7 @@ clickButtonWithText('Restore');
 await waitQuiet();
 check('restore never reactivates — Monthly Plan reads Pending', selectedStatusText()?.includes('Pending'), selectedStatusText());
 check('restore was called exactly once', restoreCalls === 1, restoreCalls);
-check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', selectedDetailText()?.includes(`CZTE${CZTE_SUFFIXES[1]}`), selectedDetailText());
+check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
 console.log('');
 if (failures.length > 0) {

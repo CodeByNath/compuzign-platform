@@ -30,6 +30,10 @@ const drawerContent = readFileSync(resolve(
   root,
   'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx',
 ), 'utf8');
+const editionEditor = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierEditionEditor.tsx',
+), 'utf8');
 
 // ── Route family: every api.ts Edition call targets a registered route ──────
 
@@ -157,8 +161,13 @@ check(
   'switching the Edition\'s bound Rate Sheet clears its row selections, mirroring the occupant\'s own confirm-then-clear rule',
 );
 check(
-  panel.includes('TierEditionOverviewFields') && panel.includes("from './TierEditionOverviewFields'"),
-  'TierEditionDeclarationSwitcher renders its editor through the shared TierEditionOverviewFields, not a duplicate inline form',
+  panel.includes('PlacedShell') && panel.includes('TIER_EDITION_ENTITY'),
+  'TierEditionDeclarationSwitcher renders the selected Edition through PlacedShell/TIER_EDITION_ENTITY — the same renderer machinery every other module in this drawer uses, not a bespoke summary block',
+);
+check(
+  editionEditor.includes('TierEditionOverviewSection') && editionEditor.includes('TierEditionInclusionsSection')
+    && editionEditor.includes("from './TierEditionOverviewFields'"),
+  'the combined Edition editor renders through the shared TierEditionOverviewFields sections, not a duplicate inline form',
 );
 
 // ── The switcher is actually wired into the mounted Tier drawer, not orphaned ──
@@ -169,7 +178,7 @@ check(
 );
 check(
   drawerContent.includes('<TierEditionDeclarationSwitcher'),
-  'TierDrawerContent mounts TierEditionDeclarationSwitcher inside the individual-tier Details tab',
+  'TierDrawerContent mounts TierEditionDeclarationSwitcher inside the individual-tier Options group',
 );
 check(
   !drawerContent.includes('TierEditionsPanel'),
@@ -278,10 +287,6 @@ check(
   'discard-draft is not duplicated onto the Inclusions card — Overview alone surfaces it for the one shared draft',
 );
 
-const editionEditor = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/drawer/tier/TierEditionEditor.tsx',
-), 'utf8');
 check(
   editionEditor.includes('DrawerGroupTabs') && editionEditor.includes("from '@/drawer-kit/ui/DrawerGroupTabs'"),
   'the combined Edition editor reuses DrawerGroupTabs — the codebase\'s existing generic tab primitive — rather than a third bespoke tab bar',

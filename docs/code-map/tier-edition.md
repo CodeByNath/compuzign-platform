@@ -11,12 +11,12 @@ Annual. Not another Tier, Add-on, or `TIER_MODULES` entry: an independently
 addressed, independently lifecycled child record inside
 `current_occupant.tier_editions[]`, carrying its own `CZTE` and [shared
 `StationLifecycle`](../architecture/StationDrawerLifecycleContract-v1.md)
-state. The occupant remains the one public Tier selected; switching
-Default/Edition never changes that.
+state. The occupant remains the one public Tier selected regardless of
+Default/Edition switching.
 
 Each Edition carries `id`, `edition_platform_id`, `title`,
-`admin_description`, lifecycle fields, one consolidated `overview` module
-(Package-Family-row-sized), `rate_sheet_id`/`rate_sheet_items` (same
+`admin_description`, lifecycle fields, one consolidated `overview` module,
+`rate_sheet_id`/`rate_sheet_items` (same
 switch-clears-selections rule as the occupant's binding),
 `price`/`contact`/`billing_cycle`/`minimum_term_value`/`minimum_term_unit`,
 and `inclusions_override`/`faq_refs` (empty inherits the occupant's).
@@ -29,10 +29,9 @@ always an alternate.
 ## Overview registration
 
 Overview under Details carries one small derived read field, "Editions" —
-`1` plus however many rows `tier_editions[]` holds, never a separately
-persisted count (`tierDetailModel.ts`'s `tierEditionsCount`). Creation
-happens only through Options' own "+ Edition" trigger (see Admin editing) —
-Overview collects no title/price/lifecycle action.
+`1` plus however many rows `tier_editions[]` holds, never persisted
+separately. Creation happens only through Options' "+ Edition" trigger (see
+Admin editing) — Overview collects no title/price/lifecycle action.
 
 ## Identity
 
@@ -80,9 +79,9 @@ verbatim-preservation both cover `tier_edition_bin[]` alongside
 "default" flag) feeds `edition_options`, empty for every Tier that never
 used this capability. `extractTierForCostBuilder()` always resolves the
 occupant's own terms as primary — an Edition never displaces them.
-`PricingTiers.tsx` renders the switch once **one** Edition exists: an
-always-present "Default" button plus any Edition buttons. `ServiceCard.tsx`
-captures whichever declaration was showing at the click.
+`PricingTiers.tsx` renders the switch once **one** Edition exists —
+always-present Default plus any Edition buttons. `ServiceCard.tsx` captures
+whichever declaration was showing at the click.
 
 ## Cart and request
 
@@ -97,17 +96,19 @@ revert, status, restore, guarded delete, plus Phase 6's
 Edition-scoped state including `tier_edition_bin[]`. The Included-Features
 module is titled **Default Tier Inclusions** (unchanged, Default only).
 `TierEditionDeclarationSwitcher.tsx` is now the Options group's content,
-gated on a real occupant: a `[Edition 2] [Edition 3]` tab strip plus the
-sole "+ Edition" trigger (`useTierDrawerController.ts`'s
-`handleAddEdition`), reusing `TierEditionOverviewFields.tsx`, plus Phase 6's
-bin UI — "Move to bin" on an archived/trashed Edition, and a collapsed
-"Edition bin (n)" row for Restore/Trash/Delete where lifecycle rules permit
-(no second drawer). Default is never a row of this strip — see Overview
-registration above.
+gated on a real occupant: a `[Edition 2] [Edition 3]` tab strip, the sole
+"+ Edition" trigger, and the Edition bin UI above. Default is never a row
+of this strip — see Overview registration above.
 
-The selected declaration id lives in `useTierDrawerController.ts`, not
-local switcher state, since `TierDrawerContent.tsx` unmounts its child tree
-while `!pkg.detailLoaded`, which would otherwise reset the tab to Default.
+The selected Edition's read surface is two module cards
+(`TIER_EDITION_ENTITY`'s `overview`/`inclusions` shells, Tier Overview's own
+`PlacedShell` machinery, sharing one `ModuleState`). Either card's Edit
+opens one shared `TierEditionEditor.tsx`: two tabs over the SAME draft —
+one Save, one Cancel; the tab is local state only.
+
+The selected id lives in `useTierDrawerController.ts`, not local state,
+since `TierDrawerContent.tsx` unmounts its child tree while
+`!pkg.detailLoaded`, which would otherwise reset the selection.
 
 ## Authoritative implementation
 
@@ -118,7 +119,7 @@ while `!pkg.detailLoaded`, which would otherwise reset the tab to Default.
 | REST | `PackageStationController.php` — `tierEditionContext()`, `createTierEdition`, `saveTierEditionModule`, `settleTierEditionModule`, `revertTierEditionModule`, `updateTierEditionStatus`, `restoreTierEditionEndpoint`, `deleteTierEditionEndpoint`, `tierEditionBinContext()`, `moveTierEditionToBinEndpoint`, `restoreTierEditionFromBinEndpoint`, `trashTierEditionBinEntryEndpoint`, `deleteTierEditionBinEntryEndpoint` |
 | Public projection | `PricingBuilder.php` |
 | Cart/request | `RequestSchema.php` |
-| Admin frontend | `types.ts`, `api.ts`, `useTierEditions.ts`, `tier.tsx`, `useTierDrawerController.ts`, `TierEditionDeclarationSwitcher.tsx`, `TierEditionOverviewFields.tsx`, `TierDrawerContent.tsx` |
+| Admin frontend | `types.ts`, `api.ts`, `useTierEditions.ts`, `tier.tsx`, `tierEdition.tsx`, `tierEditionDetailModel.ts`, `useTierDrawerController.ts`, `TierEditionDeclarationSwitcher.tsx`, `TierEditionEditor.tsx`, `TierEditionOverviewFields.tsx`, `TierDrawerContent.tsx` |
 | Public frontend | `cost-builder.ts`, `PricingTiers.tsx`, `ServiceCard.tsx` |
 
 ## Related Code Maps
