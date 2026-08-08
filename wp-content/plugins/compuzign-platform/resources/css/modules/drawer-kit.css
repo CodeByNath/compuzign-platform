@@ -1128,7 +1128,7 @@
 
 .cz-drawer-groups__tablist {
   position: sticky;
-  top: calc(-1 * var(--cz-space-6));
+  top: calc(-1 * var(--cz-space-2));
   z-index: 2;
   display: flex;
   align-items: center;
@@ -1585,7 +1585,7 @@ button.cz-module-status-pill {
 }
 
 .cz-admin-station .cz-drawer-groups__tablist {
-  top: -20px;
+  top: calc(-1 * var(--cz-space-2));
   margin: 0 -20px 20px;
   padding: 10px 20px;
   background: var(--station-surface-elevated);
