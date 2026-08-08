@@ -405,6 +405,7 @@ selectGroup('Options');
 await sleep(20);
 check('no additional-declarations tab strip renders yet — this Tier behaves exactly as before Editions existed', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
 check('Options offers "+ Edition" — the single place that creates one', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === '+ Edition'));
+check('a proper empty state prompts "+ Edition" — never a Default fallback', container.textContent.includes('No additional Editions yet'));
 
 console.log('\n2) Registering one more position from Options mints a born-disabled, auto-titled child — no title form anywhere');
 clickButtonWithText('+ Edition');
@@ -412,6 +413,12 @@ await waitQuiet();
 check('a new Edition was created', editions.length === 1, editions.length);
 check('the tab strip offers only the new Edition — no Default tab', declarationTab('Default') === undefined && declarationTab('Edition 2') !== undefined);
 check('no CZTE was assigned at creation', czteMints === 0, czteMints);
+check('the empty-state prompt is gone now that an Edition exists', !container.textContent.includes('No additional Editions yet'));
+check(
+  'the new Edition is auto-selected — no explicit tab click needed, and its own view surface already shows',
+  declarationTab('Edition 2')?.getAttribute('aria-selected') === 'true' && selectedStatusText()?.includes('Pending'),
+  `aria-selected=${declarationTab('Edition 2')?.getAttribute('aria-selected')} status=${selectedStatusText()}`,
+);
 selectGroup('Details');
 await sleep(20);
 check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText() === '2', overviewEditionsCountText());
@@ -486,6 +493,7 @@ check('Overview\'s own Editions count dropped back to 1 — the derived count, n
 selectGroup('Options');
 await sleep(20);
 check('the tab strip is gone again — no editions remain', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
+check('the empty state is back — never a Default fallback', container.textContent.includes('No additional Editions yet'));
 
 console.log('\n9) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
 clickButtonWithText('+ Edition');

@@ -21,11 +21,17 @@
 // Edition lifecycle mutation refetches through usePackageStation, and while
 // that refetch is in flight TierDrawerContent briefly renders <AsyncLoading/>
 // in place of its whole child tree — which would unmount this component and
-// silently wipe any local "which tab is selected" state back to Default
+// silently wipe any local "which tab is selected" state back to unselected
 // after every single Publish/Disable/Archive/etc. click. useTierDrawerController
 // owns it instead, the same reason editingSection/openTierPanel live there.
+//
+// Whenever Editions exist but selectedId names none of them (fresh mount,
+// or the previously selected row just left tier_editions[] via delete/
+// move-to-bin/etc.), the effect below auto-selects the first Edition — there
+// is no Default to fall back to inside Options, and a real Edition should
+// never sit unreachable behind a blank selection.
 
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionBinEntry, TierEditionOverviewDraft } from '../../types';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
@@ -59,6 +65,15 @@ export function TierEditionDeclarationSwitcher({
   const [showBin, setShowBin] = useState(false);
 
   const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (ctl.editions.length === 0) return;
+    if (ctl.editions.some((e) => e.id === selectedId)) return;
+    onSelect(ctl.editions[0].id);
+    setEditing(false);
+    setDraft(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctl.editions, selectedId]);
 
   const startEdit = () => {
     if (!selected) return;
@@ -104,6 +119,12 @@ export function TierEditionDeclarationSwitcher({
           {addingEdition ? '…' : '+ Edition'}
         </button>
       </div>
+
+      {ctl.editions.length === 0 && (
+        <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
+          <p>No additional Editions yet. Use "+ Edition" to add one.</p>
+        </div>
+      )}
 
       {/* Phase 6 — minimal functional access to the occupant's own Edition
           bin: identify, restore, and trash/delete where lifecycle rules
