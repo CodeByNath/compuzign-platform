@@ -322,4 +322,27 @@ check(
   'TIER_EDITION_ENTITY registers exactly the two Edition shells, both already audited above',
 );
 
+// ── Lifecycle presentation (drawer refinement blueprint, Phase 6) — the
+//    SAME canonical action grammar Package Family/Category already use,
+//    mounted inline since Options has no record of its own to close. Never
+//    a second footer architecture, drawer, or lifecycle system. ───────────
+
+check(
+  panel.includes('CanonicalEntityFooter') && panel.includes('inline'),
+  'the Edition lifecycle block reuses CanonicalEntityFooter (the same canonical grammar Package Family/Category already use), mounted inline rather than pinned',
+);
+check(
+  !panel.includes('SupportedActionFooter'),
+  'the Edition lifecycle block never pulls in the OTHER footer grammar (SupportedActionFooter, the Tier occupant\'s own) — one canonical grammar reused, not a third system invented',
+);
+
+const entityActionFooter = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/EntityActionFooter.tsx',
+), 'utf8');
+check(
+  entityActionFooter.includes('close?:') && entityActionFooter.includes('inline?:'),
+  'EntityActionFooter\'s close/inline additions are optional — every existing pinned-footer caller (Package Family, Category) is unaffected',
+);
+
 console.log('Tier Edition admin contract checks passed.');

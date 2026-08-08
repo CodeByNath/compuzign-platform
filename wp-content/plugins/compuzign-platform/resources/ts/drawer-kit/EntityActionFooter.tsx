@@ -1,9 +1,15 @@
-// Shared record-level drawer footer.
+// Shared record-level footer grammar.
 //
 // Entity compositions provide authoritative actions as data; this renderer owns
-// the one visual/interaction grammar for the pinned drawer footer. Module Save /
-// Cancel stays with InlineEditorShell, while whole-record lifecycle actions use
-// this component through the host bridge.
+// the one visual/interaction grammar for record-level lifecycle actions. Module
+// Save/Cancel stays with InlineEditorShell.
+//
+// Two mounting shapes share this same grammar: the pinned drawer footer
+// (through the host bridge — `close` supplied, default `.cz-tf-footer`
+// pinned/sticky styling) and an inline card-level surface with no record to
+// close (`close` omitted, `inline` set — same button/split grammar, no
+// sticky positioning). A consumer opts into `inline` explicitly; every
+// existing pinned-footer caller is unaffected.
 
 export interface EntityFooterAction {
   id: string;
@@ -24,17 +30,22 @@ export interface EntityFooterSplitAction extends EntityFooterAction {
 
 interface EntityActionFooterProps {
   split?: EntityFooterSplitAction | null;
-  close: EntityFooterAction;
+  // Optional: an inline mounting (no record to close from this surface) omits
+  // it entirely rather than rendering a Close button with nowhere to go.
+  close?: EntityFooterAction | null;
   primary?: EntityFooterAction | null;
+  // Card-level surface, not the pinned drawer footer — same grammar, no
+  // sticky/pinned positioning (see file header).
+  inline?: boolean;
 }
 
 function actionLabel(action: EntityFooterAction): string {
   return action.busy ? (action.busyLabel ?? '…') : action.label;
 }
 
-export function EntityActionFooter({ split, close, primary }: EntityActionFooterProps) {
+export function EntityActionFooter({ split, close, primary, inline }: EntityActionFooterProps) {
   return (
-    <div class="cz-tf-footer">
+    <div class={`cz-tf-footer${inline ? ' cz-tf-footer--inline' : ''}`}>
       {split && (
         <div class={`cz-footer-split cz-footer-split--${split.tone}`}>
           <button
@@ -76,14 +87,16 @@ export function EntityActionFooter({ split, close, primary }: EntityActionFooter
       )}
 
       <div class="cz-tf-footer__spacer" />
-      <button
-        type="button"
-        class="cz-admin-btn cz-admin-btn--secondary"
-        disabled={close.disabled || close.busy}
-        onClick={close.onSelect}
-      >
-        {actionLabel(close)}
-      </button>
+      {close && (
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary"
+          disabled={close.disabled || close.busy}
+          onClick={close.onSelect}
+        >
+          {actionLabel(close)}
+        </button>
+      )}
       {primary && (
         <button
           type="button"

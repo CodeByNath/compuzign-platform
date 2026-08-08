@@ -42,6 +42,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
+import { CanonicalEntityFooter } from '@/drawer-kit/CanonicalEntityFooter';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionBinEntry, TierEditionOverviewDraft } from '../../types';
@@ -49,7 +50,7 @@ import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
 import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
 import { buildTierEditionDetail } from './tierEditionDetailModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
-import { draftFromTierEdition, tierEditionStatusLabel } from './tierEditionModel';
+import { deriveTierEditionFooterState, draftFromTierEdition, tierEditionStatusLabel } from './tierEditionModel';
 
 interface Props {
   serviceId:      number;
@@ -77,6 +78,7 @@ export function TierEditionDeclarationSwitcher({
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
   const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
   const [showBin, setShowBin] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
 
   const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
 
@@ -229,41 +231,39 @@ export function TierEditionDeclarationSwitcher({
         )
       )}
 
-      {/* Lifecycle status + actions (Phase 6 will bring this into the
-          platform's canonical action grammar) — hidden while editing, the
-          same way the parent occupant's own record footer disappears during
-          a module edit. */}
-      {selected && !editingModule && (
+      {/* Lifecycle status + actions — the platform's canonical action
+          grammar (CanonicalEntityFooter, already used by Package Family and
+          Category), mounted inline rather than pinned since Options has no
+          record of its own to close. Hidden while editing, the same way the
+          parent occupant's own record footer disappears during a module
+          edit. */}
+      {selected && detail && !editingModule && (
         <div class="cz-tier-edition-declaration cz-tier-edition-declaration--view" style="margin-top: var(--cz-space-2)">
           <span class="cz-tier-edition-declaration__status drawerModule__value">
             <span class="cz-admin-status-dot" /> {tierEditionStatusLabel(selected)}
           </span>
-          <div style="display:flex; gap: var(--cz-space-1); flex-wrap:wrap; margin-top: var(--cz-space-1)">
-            {selected.platform_status === 'disabled' && (
-              <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.publish(selected.id)}>Publish</button>
-            )}
-            {selected.platform_status === 'active' && (
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.disable(selected.id)}>Disable</button>
-            )}
-            {selected.platform_status === 'disabled' && selected.previous_platform_status !== null && (
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.enable(selected.id)}>Enable</button>
-            )}
-            {(selected.platform_status === 'active' || selected.platform_status === 'disabled') && (
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.archive(selected.id)}>Archive</button>
-            )}
-            {selected.platform_status === 'archived' && (
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.trash(selected.id)}>Move to Trash</button>
-            )}
-            {(selected.platform_status === 'archived' || selected.platform_status === 'trashed') && (
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.restore(selected.id)}>Restore</button>
-            )}
-            {selected.platform_status === 'trashed' && (
-              <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.remove(selected.id)}>Delete permanently</button>
-            )}
-            {/* Phase 6 — a narrow, separate physical relocation: only an
-                already archived/trashed Edition is eligible, and moving it
-                here never itself changes platform_status. */}
-            {(selected.platform_status === 'archived' || selected.platform_status === 'trashed') && (
+          <CanonicalEntityFooter
+            inline
+            platformStatus={selected.platform_status}
+            isDisabledMasked={selected.is_explicitly_disabled}
+            {...deriveTierEditionFooterState(selected, detail.overviewBinding.state.status, detail.overviewBinding.hasDraft)}
+            busy={ctl.saving}
+            splitOpen={splitOpen}
+            setSplitOpen={setSplitOpen}
+            onToggleActive={() => (selected.is_explicitly_disabled ? ctl.enable(selected.id) : ctl.disable(selected.id))}
+            onArchive={() => ctl.archive(selected.id)}
+            onTrash={() => ctl.trash(selected.id)}
+            onRestore={() => ctl.restore(selected.id)}
+            onDelete={() => ctl.remove(selected.id)}
+            onPublish={() => ctl.publish(selected.id)}
+          />
+          {/* A narrow, separate physical relocation, not a status
+              transition: only an already archived/trashed Edition is
+              eligible, and moving it here never itself changes
+              platform_status — Phase 7 brings its presentation in line with
+              the rest of this card without changing this behavior. */}
+          {(selected.platform_status === 'archived' || selected.platform_status === 'trashed') && (
+            <div style="margin-top: var(--cz-space-1)">
               <button
                 type="button"
                 class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
@@ -272,8 +272,8 @@ export function TierEditionDeclarationSwitcher({
               >
                 Move to bin
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

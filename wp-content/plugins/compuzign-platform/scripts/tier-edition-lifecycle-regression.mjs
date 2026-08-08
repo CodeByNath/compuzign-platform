@@ -260,6 +260,12 @@ globalThis.fetch = (url, init = {}) => {
         : applyStatusPermissive(edition.platform_status, body.platform_status, edition.previous_platform_status);
       edition.platform_status = change.status;
       edition.previous_platform_status = change.previous_status;
+      // The explicit Disable mask (is_explicitly_disabled) — never inferred
+      // from platform_status alone, same canonical fact the occupant's own
+      // mask is (see moduleStatus.tsx's TierLike). Only the disable/enable
+      // action sets it; a permissive engine transition never touches it.
+      if (body.action === 'disable') edition.is_explicitly_disabled = true;
+      if (body.action === 'enable') edition.is_explicitly_disabled = false;
     } catch (e) {
       return jsonResponse({ success: false, message: e.message }, 422);
     }
@@ -457,6 +463,17 @@ function selectRateSheetRow(itemId) {
 function rateSheetRowCount() {
   return container.querySelectorAll('.cz-ie-row').length;
 }
+// CanonicalEntityFooter's split action (Phase 6): the primary label is
+// always directly clickable; secondary actions (Archive, the archived-state
+// Move to Trash, the trashed-state Permanently delete) live behind the
+// chevron's overflow menu, which a remount (every mutation refetches)
+// always closes again — same technique
+// tier-occupant-lifecycle-regression.mjs's own overflowItemLabel() uses.
+function clickOverflowChevron() {
+  const chevron = container.querySelector('.cz-tier-edition-declaration--view .cz-footer-split__chevron');
+  chevron?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return chevron;
+}
 // Overview module's own small "Editions" read field (docs/code-map/tier-edition.md) —
 // a `.drawerModule__field` whose label reads "Editions", value is the derived count.
 function overviewEditionsCountText() {
@@ -580,14 +597,24 @@ check('republish never mints a second CZTE', czteMints === 1, czteMints);
 check('the CZTE identity is unchanged', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
 console.log('\n8) Archive, then Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
+// Archive lives in the split's overflow menu while the Edition is
+// active/disabled (the split's own direct action is Disable/Enable here).
+clickOverflowChevron();
+await sleep(20);
 clickButtonWithText('Archive');
 await waitQuiet();
 check('the Edition reads Archived', selectedStatusText()?.includes('Archived'), selectedStatusText());
+// Archived: Restore is now the split's own direct action; Move to Trash
+// moved into the overflow menu.
+clickOverflowChevron();
+await sleep(20);
 clickButtonWithText('Move to Trash');
 await waitQuiet();
 check('the Edition reads Trashed', selectedStatusText()?.includes('Trashed'), selectedStatusText());
-check('Delete permanently is offered immediately once trashed', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Delete permanently'));
-clickButtonWithText('Delete permanently');
+clickOverflowChevron();
+await sleep(20);
+check('Permanently delete is offered immediately once trashed', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Permanently delete'));
+clickButtonWithText('Permanently delete');
 await waitQuiet();
 check('the delete endpoint was called', deleteCalls === 1, deleteCalls);
 selectGroup('Details');
@@ -621,9 +648,12 @@ check('a second, distinct CZTE was minted', czteMints === 2, czteMints);
 check('Monthly Plan carries its own CZTE, not Annual Plan\'s', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
 console.log('\n10) Restore — archived/trashed → disabled/Pending, never straight to Active');
+clickOverflowChevron();
+await sleep(20);
 clickButtonWithText('Archive');
 await waitQuiet();
 check('Monthly Plan reads Archived', selectedStatusText()?.includes('Archived'), selectedStatusText());
+// Archived: Restore is the split's own direct action, no chevron needed.
 clickButtonWithText('Restore');
 await waitQuiet();
 check('restore never reactivates — Monthly Plan reads Pending', selectedStatusText()?.includes('Pending'), selectedStatusText());

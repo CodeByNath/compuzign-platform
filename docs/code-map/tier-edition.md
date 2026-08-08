@@ -44,10 +44,10 @@ never public or in the cart.
 ## Lifecycle and cascade
 
 Full `StationLifecycle` vocabulary via one generic `PATCH .../status`
-endpoint (engine transition + Disable/Enable mask), Package Family's own
-`/status` shape. Guarded permanent delete requires trashed status only — no
-default-Edition guard, since Default is never a `tier_editions[]` row.
-Parent-to-child cascade reuses per-Edition transition functions verbatim;
+endpoint (engine transition + Disable/Enable mask), Package Family's shape.
+Guarded permanent delete requires trashed status only — no default-Edition
+guard, since Default is never a `tier_editions[]` row. Parent-to-child
+cascade reuses per-Edition transition functions verbatim;
 `cascaded_edition_ids` scopes a later Tier-level trash/restore to only the
 ids that same archive carried; restore lands `disabled`, never `active`.
 Cascade reads only `tier_editions[]`, so a binned Edition (below) is
@@ -55,13 +55,13 @@ invisible to it.
 
 ## Edition bin (Phase 6)
 
-`current_occupant.tier_edition_bin[]` is a narrow, occupant-owned physical
-bin mirroring `occupant_bin`'s own archive/restore/trash/delete shape one
-level deeper, but **decoupled** from `/status` above: moving requires the
-Edition already `archived`/`trashed` and never itself changes
-`platform_status`. A bin entry is narrow — `bin_id`/`edition` (full row,
-`CZTE` included)/`status`/`displaced_at` only, none of `occupant_bin`'s
-origin/retarget/cascade metadata, meaningless here.
+`current_occupant.tier_edition_bin[]` is a narrow, occupant-owned bin
+mirroring `occupant_bin`'s archive/restore/trash/delete shape one level
+deeper, but **decoupled** from `/status` above: moving requires the Edition
+already `archived`/`trashed` and never itself changes `platform_status`. A
+bin entry is narrow — `bin_id`/`edition` (full row, `CZTE` included)/
+`status`/`displaced_at` only, none of `occupant_bin`'s origin/retarget/
+cascade metadata.
 
 `tier_editions[]` numbering is array-derived; moving out compacts it, and
 restore always appends to the end (no swap/retarget), reusing
@@ -75,13 +75,12 @@ verbatim-preservation both cover `tier_edition_bin[]` alongside
 
 ## Public projection and Cost Builder
 
-`publicTierEditionOptions()` (Active only, no `edition_platform_id`, no
-"default" flag) feeds `edition_options`, empty for every Tier that never
-used this capability. `extractTierForCostBuilder()` always resolves the
-occupant's own terms as primary — an Edition never displaces them.
-`PricingTiers.tsx` renders the switch once **one** Edition exists —
-always-present Default plus any Edition buttons. `ServiceCard.tsx` captures
-whichever declaration was showing at the click.
+`publicTierEditionOptions()` (Active only, no `edition_platform_id`/"default"
+flag) feeds `edition_options`, empty for every Tier that never used this
+capability. `extractTierForCostBuilder()` always resolves the occupant's own
+terms as primary. `PricingTiers.tsx` renders the switch once **one** Edition
+exists — always-present Default plus Edition buttons. `ServiceCard.tsx`
+captures whichever declaration was showing at the click.
 
 ## Cart and request
 
@@ -109,6 +108,9 @@ one Save, one Cancel; the tab is local state only.
 The selected id lives in `useTierDrawerController.ts`, not local state,
 since `TierDrawerContent.tsx` unmounts its child tree while
 `!pkg.detailLoaded`, which would otherwise reset the selection.
+
+Lifecycle status/actions reuse `CanonicalEntityFooter` (Package
+Family/Category's grammar), mounted inline.
 
 ## Authoritative implementation
 

@@ -878,6 +878,17 @@
   margin-top: var(--cz-space-5);
 }
 
+/* Card-level mounting of the same footer grammar (EntityActionFooter's
+ * `inline` prop) — not the pinned drawer footer, so no sticky positioning
+ * and lighter spacing appropriate for sitting inside a module card. */
+.cz-tf-footer.cz-tf-footer--inline {
+  position: static;
+  background: transparent;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: var(--cz-space-2);
+}
+
 .cz-tf-footer__spacer {
   flex: 1;
 }

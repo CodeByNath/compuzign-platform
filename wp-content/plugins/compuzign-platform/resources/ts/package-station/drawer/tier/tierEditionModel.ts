@@ -16,6 +16,33 @@ export function tierEditionStatusLabel(edition: TierEdition): string {
   }
 }
 
+// Derivation feeding CanonicalEntityFooter (drawer refinement blueprint,
+// Phase 6) — same two-clause hasBeenPublished formula Tier's own
+// tierDetailModel.buildTierFooterModel and Package Family's
+// derivePackageFamilyFooterState already use. Edition genuinely differs from
+// Package Family here: CZTE is assigned on first Active (mirroring the
+// occupant's own CZT/CZTA), not at an earlier save stage, so
+// isNewNeverPublished and !hasBeenPublished always coincide for an Edition —
+// unlike Package Family's group_id, which can exist before the record is
+// ever truly published. canPublish therefore never gates on identity already
+// existing (that would make a first Publish impossible); it gates on the
+// SAME module status this Edition's own Overview/Inclusions cards already
+// carry (Phase 4/5's evaluateModule result) — 'pending-full' (complete,
+// unpublished) or already active with a pending draft.
+export function deriveTierEditionFooterState(
+  edition: TierEdition,
+  moduleStatus: string,
+  hasDraft: boolean,
+) {
+  const isActive = edition.platform_status === 'active';
+  const hasBeenPublished = isActive || edition.module_status.overview === 'settled';
+  return {
+    isNewNeverPublished: !hasBeenPublished,
+    hasBeenPublished,
+    canPublish: moduleStatus === 'pending-full' || (isActive && hasDraft),
+  };
+}
+
 export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewDraft {
   return {
     title: edition.title,
