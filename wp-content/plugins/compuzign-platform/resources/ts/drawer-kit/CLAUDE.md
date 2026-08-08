@@ -15,7 +15,7 @@ and identity handoff remain owning-Station responsibilities.
 
 - `EntityDrawer.tsx`, `entityDrawerHost.ts` — the composition bridge a station host supplies.
 - `ReadBlock.tsx`, `ActionFooter.tsx` — the module read card and its card-level footer.
-- `EntityActionFooter.tsx` — the record footer grammar (split action, overflow menu, tones). `CanonicalEntityFooter.tsx` is the `platformStatus` policy layer over it.
+- `EntityActionFooter.tsx` — the record footer grammar (split action, overflow menu, tones). `CanonicalEntityFooter.tsx` is the `platformStatus` policy layer over it. The split action's optional `menuOnly` flag (opt-in, additive) makes the visible label open the menu instead of firing its action directly — every existing caller omits it and keeps the default direct-click behavior; the Tier drawer's unified lifecycle footer is the one current consumer.
 - `InlineEditorShell.tsx` — the module edit session: header, body, save/cancel footer, dirty-discard confirm.
 - `DrawerTabs.tsx` — the two-tab Overview/Connections bar. Deliberately not configurable.
 - `schema/` — the shell/element renderer contract (`ShellSchema`, `ShellSlot`, `ShellEditSession`, `TableSchema`).

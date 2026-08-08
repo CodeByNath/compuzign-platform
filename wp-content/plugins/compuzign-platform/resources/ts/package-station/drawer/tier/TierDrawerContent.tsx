@@ -38,6 +38,9 @@ import { TierEditionDeclarationSwitcher } from './TierEditionDeclarationSwitcher
 import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
+import { tierEditionModuleState } from './tierEditionDetailModel';
+import { deriveTierEditionFooterState, tierEditionDisabledMasked } from './tierEditionModel';
+import type { SelectedEditionLifecycleInputs } from './tierLifecycleMenu';
 
 export function TierDrawerContent(props: TierDrawerContentProps) {
   const { bridge } = props;
@@ -61,6 +64,42 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     c.pkg.refetch,
   );
 
+  // Single-footer lifecycle command model, Phase 4: derives the selected
+  // Edition's own scoped lifecycle inputs for the pinned footer, reusing the
+  // SAME handlers/state buildTierEditionDetail and the switcher's own
+  // read-mode cards already use — no new controller, no new derivation of
+  // "is this disabled" (tierEditionDisabledMasked stays the one authority).
+  // Only primitive fields (never the freshly-built object itself) enter the
+  // effect's dependency array below, the same discipline every other footer
+  // dependency here already follows — an object literal identity changing
+  // every render would refire the effect every render (the exact defect
+  // scripts/tier-system-footer-loop-regression.mjs proves against).
+  const selectedEdition = editionCtl.editions.find((e) => e.id === c.selectedDeclarationId) ?? null;
+  const selectedEditionCanPublish = selectedEdition
+    ? deriveTierEditionFooterState(
+        selectedEdition,
+        tierEditionModuleState(selectedEdition).status,
+        selectedEdition.drafts.overview !== null,
+      ).canPublish
+    : false;
+  const selectedEditionLifecycle: SelectedEditionLifecycleInputs | null = selectedEdition ? {
+    id:             selectedEdition.id,
+    title:          selectedEdition.title,
+    platformStatus: selectedEdition.platform_status,
+    disabledMasked: tierEditionDisabledMasked(selectedEdition),
+    canPublish:     selectedEditionCanPublish,
+    onPublish:      () => editionCtl.publish(selectedEdition.id),
+    onDisable:      () => editionCtl.disable(selectedEdition.id),
+    onEnable:       () => editionCtl.enable(selectedEdition.id),
+    onTrash:        () => editionCtl.trash(selectedEdition.id),
+    onDelete:       () => editionCtl.remove(selectedEdition.id),
+    onRestore:      () => editionCtl.restore(selectedEdition.id),
+    // Same clear-selection-on-success behavior the standalone "Move to bin"
+    // button used before this correction — the moved Edition leaves
+    // tier_editions[], so the prior selection would otherwise name nothing.
+    onMoveToBin:    async () => { const ok = await editionCtl.moveToBin(selectedEdition.id); if (ok) c.setSelectedDeclarationId(null); },
+  } : null;
+
   // Publish the record footer through the host. Mirrors the old host's footer
   // effect deps; edit mode ('none') leaves the slot to InlineEditorShell.
   useEffect(() => {
@@ -70,18 +109,24 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         enabled={c.footerEnabled}
         hasContent={c.footerHasContent}
         hasBeenPublished={c.footerHasBeenPublished}
-        saving={c.pkg.saving}
+        saving={c.pkg.saving || editionCtl.saving}
         splitOpen={c.splitOpen}
         setSplitOpen={c.setSplitOpen}
         onToggleEnabled={c.handleToggleEnabled}
         onArchive={() => c.handleArchive()}
         onPublish={() => c.setConfirmModal('publish')}
         onClose={c.requestClose}
+        selectedEdition={selectedEditionLifecycle}
       />,
     );
     return () => bridge.setFooter(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [c.footerMode, c.footerEnabled, c.footerHasContent, c.footerHasBeenPublished, c.pkg.saving, c.splitOpen, bridge]);
+  }, [
+    c.footerMode, c.footerEnabled, c.footerHasContent, c.footerHasBeenPublished,
+    c.pkg.saving, editionCtl.saving, c.splitOpen, bridge,
+    selectedEdition?.id, selectedEdition?.title, selectedEdition?.platform_status,
+    selectedEdition?.previous_platform_status, selectedEditionCanPublish,
+  ]);
 
   if (!c.pkg.detailLoaded) return <AsyncLoading label="Loading tiers…" />;
 

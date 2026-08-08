@@ -199,9 +199,16 @@ check(
   !panel.includes("from '../../api'") && !panel.includes('from "../../api"'),
   'TierEditionDeclarationSwitcher never imports the raw api.ts endpoints directly — only through useTierEditions',
 );
-for (const action of ['publish', 'archive', 'trash', 'disable', 'enable', 'restore', 'remove']) {
-  check(panel.includes(`ctl.${action}(`), `TierEditionDeclarationSwitcher drives ${action} through the hook's own action, never a raw status write`);
-}
+// Lifecycle transitions (publish/disable/enable/trash/restore/remove) moved
+// out of TierEditionDeclarationSwitcher in the single-footer, scope-aware
+// lifecycle command model (correction plan) — the pinned TierDrawerFooter
+// now drives them for the selected Edition (see the Lifecycle presentation
+// section below). The switcher itself still drives its own module
+// draft/settle/revert (Save on the shared editor).
+check(
+  panel.includes('ctl.saveDraft(') && panel.includes('ctl.settle(') && panel.includes('ctl.revert('),
+  'TierEditionDeclarationSwitcher still drives its own module draft/settle/revert through the hook',
+);
 check(
   panel.includes('selectedId:') && panel.includes('onSelect:') && !panel.includes('useState<string | null>'),
   'the selected declaration id arrives as a prop (selectedId/onSelect) — TierEditionDeclarationSwitcher declares no local useState<string|null> of its own that a refetch-triggered remount could silently reset',
@@ -334,18 +341,42 @@ check(
   'TIER_EDITION_ENTITY registers exactly the two Edition shells, both already audited above',
 );
 
-// ── Lifecycle presentation (drawer refinement blueprint, Phase 6) — the
-//    SAME canonical action grammar Package Family/Category already use,
-//    mounted inline since Options has no record of its own to close. Never
-//    a second footer architecture, drawer, or lifecycle system. ───────────
+// ── Lifecycle presentation — single-footer, scope-aware lifecycle command
+//    model (correction plan Phase 4). Edition lifecycle transitions moved
+//    OUT of the switcher entirely, into the ONE pinned TierDrawerFooter,
+//    scoped to the selected Edition via buildTierLifecycleMenu. Never a
+//    second footer architecture, drawer, or lifecycle system. ─────────────
 
 check(
-  panel.includes('CanonicalEntityFooter') && panel.includes('inline'),
-  'the Edition lifecycle block reuses CanonicalEntityFooter (the same canonical grammar Package Family/Category already use), mounted inline rather than pinned',
+  !panel.includes('CanonicalEntityFooter'),
+  'the obsolete inline Edition lifecycle footer (CanonicalEntityFooter, mounted inline) is gone from the switcher — the pinned Tier footer is now the one lifecycle command surface',
+);
+
+const tierDrawerFooter = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierDrawerFooter.tsx',
+), 'utf8');
+const tierLifecycleMenuSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/tierLifecycleMenu.ts',
+), 'utf8');
+check(
+  tierDrawerFooter.includes('buildTierLifecycleMenu') && tierDrawerFooter.includes('menuOnly: true'),
+  'TierDrawerFooter composes the scoped lifecycle menu and mounts the split with menuOnly: true — the visible label never mutates by itself',
 );
 check(
-  !panel.includes('SupportedActionFooter'),
-  'the Edition lifecycle block never pulls in the OTHER footer grammar (SupportedActionFooter, the Tier occupant\'s own) — one canonical grammar reused, not a third system invented',
+  tierLifecycleMenuSource.includes('export function buildTierLifecycleMenu'),
+  'the scoped lifecycle-menu model is a pure, exported function — no rendering, no state of its own',
+);
+check(
+  drawerContent.includes('selectedEditionLifecycle') && drawerContent.includes('editionCtl.publish(') && drawerContent.includes('editionCtl.disable(')
+    && drawerContent.includes('editionCtl.enable(') && drawerContent.includes('editionCtl.trash(') && drawerContent.includes('editionCtl.restore(')
+    && drawerContent.includes('editionCtl.remove(') && drawerContent.includes('editionCtl.moveToBin('),
+  'TierDrawerContent derives the selected Edition\'s scoped lifecycle handlers from the SAME lifted useTierEditions controller (editionCtl), and hands them to the pinned footer',
+);
+check(
+  !drawerContent.includes('SupportedActionFooter') && !drawerContent.includes('CanonicalEntityFooter'),
+  'TierDrawerContent itself never imports a footer grammar directly — TierDrawerFooter remains the one composition point',
 );
 
 const entityActionFooter = readFileSync(resolve(
@@ -356,37 +387,46 @@ check(
   entityActionFooter.includes('close?:') && entityActionFooter.includes('inline?:'),
   'EntityActionFooter\'s close/inline additions are optional — every existing pinned-footer caller (Package Family, Category) is unaffected',
 );
+check(
+  entityActionFooter.includes('menuOnly?:') && entityActionFooter.includes('split.menuOnly ? split.onToggle : split.onSelect'),
+  'EntityActionFooter\'s menuOnly addition is optional and additive — every existing caller that omits it keeps today\'s direct-click behavior',
+);
 
 const editionModel = readFileSync(resolve(
   root,
   'resources/ts/package-station/drawer/tier/tierEditionModel.ts',
 ), 'utf8');
 
-// ── Correction plan (regression follow-up): tierEditionDisabledMasked is the
-//    single frontend authority for Edition disabled-mask presentation.
-//    Edition's own backend (applyTierEditionDisabledMask) never writes
+// ── Correction plan: tierEditionDisabledMasked is the single frontend
+//    authority for Edition disabled-mask presentation. Edition's own
+//    backend (applyTierEditionDisabledMask) never writes
 //    is_explicitly_disabled — it stays on the wire/type shape but must never
 //    be read directly by presentation code, on pain of the module pill, the
-//    canonical footer, and the Enable/Disable branch disagreeing with each
-//    other and with reality. ────────────────────────────────────────────────
+//    pinned footer's scoped menu, and the Enable/Disable branch disagreeing
+//    with each other and with reality. ─────────────────────────────────────
 
 check(
   editionModel.includes('export function tierEditionDisabledMasked'),
   'tierEditionDisabledMasked is exported as the single Edition disabled-mask authority',
 );
 check(
-  !panel.includes('.is_explicitly_disabled') && !editionDetailModel.includes('.is_explicitly_disabled'),
-  'TierEditionDeclarationSwitcher and buildTierEditionDetail never read edition.is_explicitly_disabled directly — only through tierEditionDisabledMasked',
+  !panel.includes('.is_explicitly_disabled') && !editionDetailModel.includes('.is_explicitly_disabled')
+    && !drawerContent.includes('selectedEdition.is_explicitly_disabled') && !drawerContent.includes('selectedEdition?.is_explicitly_disabled'),
+  // TierDrawerContent legitimately reads the PARENT Tier occupant's own
+  // detail.is_explicitly_disabled elsewhere (unrelated, pre-existing,
+  // correct for that record) — this check is scoped to the selected
+  // EDITION specifically, not a blanket ban on the substring across the
+  // whole file.
+  'TierEditionDeclarationSwitcher, buildTierEditionDetail, and TierDrawerContent never read the selected Edition\'s is_explicitly_disabled directly — only through tierEditionDisabledMasked',
 );
 check(
-  (panel.match(/tierEditionDisabledMasked\(/g) ?? []).length >= 2
-    && editionDetailModel.includes('tierEditionDisabledMasked('),
-  'the module pill (buildTierEditionDetail), CanonicalEntityFooter\'s isDisabledMasked, and the Enable/Disable branch all call the SAME tierEditionDisabledMasked — no independent derivation left',
+  editionDetailModel.includes('tierEditionDisabledMasked(') && drawerContent.includes('tierEditionDisabledMasked('),
+  'the module pill (tierEditionModuleState) and the pinned footer\'s scoped menu (TierDrawerContent) both call the SAME tierEditionDisabledMasked — no independent derivation left',
 );
 check(
   !panel.includes('cz-tier-edition-declaration__status') && !panel.includes('tierEditionStatusLabel')
     && !editionModel.includes('export function tierEditionStatusLabel'),
-  'the obsolete loose lifecycle-status text (and its standalone derivation) is gone — the module pill and the canonical footer\'s own action label are the only lifecycle presentation, matching Package Family/Category',
+  'the obsolete loose lifecycle-status text (and its standalone derivation) is gone — the module pill and the pinned footer\'s own action label are the only lifecycle presentation, matching Package Family/Category',
 );
 
 // ── Edition bin presentation (drawer refinement blueprint, Phase 7) — the
@@ -412,9 +452,16 @@ check(
   'the occupant\'s own bin (TierBinList.tsx) was migrated onto the SAME shared TravelStatusPill too — one implementation, not two copies of identical logic',
 );
 
-for (const action of ['moveToBin', 'restoreFromBin', 'trashBinEntry', 'deleteBinEntry']) {
+for (const action of ['restoreFromBin', 'trashBinEntry', 'deleteBinEntry']) {
   check(panel.includes(`ctl.${action}(`), `the Edition bin list still drives ${action} through the hook's own action — Phase 7 changed no behavior`);
 }
+// Move Edition to Bin is reachable from the pinned footer's scoped menu now
+// (correction plan) — same handler (editionCtl.moveToBin), only its call
+// site moved from the switcher's own standalone button to TierDrawerContent.
+check(
+  drawerContent.includes('editionCtl.moveToBin('),
+  'Move Edition to Bin drives through TierDrawerContent\'s lifted controller — the physical Edition-bin panel/list itself is untouched',
+);
 
 // ── Terminology cleanup (drawer refinement blueprint, Phase 8) — no visible
 //    "declaration" UI copy in Options; internal code vocabulary (component

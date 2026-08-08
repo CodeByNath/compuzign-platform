@@ -39,10 +39,18 @@
 // move-to-bin/etc.), the effect below auto-selects the first Edition — there
 // is no Default to fall back to inside Options, and a real Edition should
 // never sit unreachable behind a blank selection.
+//
+// Lifecycle actions (Publish/Disable/Enable/Archive/Restore/Trash/Move to
+// Bin) are NOT rendered here (single-footer, scope-aware lifecycle command
+// model, Phase 4) — they moved to the ONE pinned TierDrawerFooter, scoped to
+// this selected Edition via buildTierLifecycleMenu (tierLifecycleMenu.ts).
+// This component renders only the two read/edit module cards, the tab
+// strip, and the Edition bin's own restore/trash/delete row actions (a
+// separate, occupant-owned physical list, deliberately untouched by this
+// correction — see tierLifecycleMenu.ts's own header comment).
 
 import { useEffect, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
-import { CanonicalEntityFooter } from '@/drawer-kit/CanonicalEntityFooter';
 import { TravelStatusPill } from '@/drawer-kit/ui/TravelStatusPill';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
@@ -51,7 +59,7 @@ import type { TierEditionsController } from '../../surface/tierSurface/useTierEd
 import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
 import { buildTierEditionDetail } from './tierEditionDetailModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
-import { deriveTierEditionFooterState, draftFromTierEdition, tierEditionDisabledMasked } from './tierEditionModel';
+import { draftFromTierEdition } from './tierEditionModel';
 
 interface Props {
   // Single-footer lifecycle command model, Phase 2: the controller is built
@@ -78,7 +86,6 @@ export function TierEditionDeclarationSwitcher({
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
   const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
   const [showBin, setShowBin] = useState(false);
-  const [splitOpen, setSplitOpen] = useState(false);
 
   const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
 
@@ -233,53 +240,6 @@ export function TierEditionDeclarationSwitcher({
             />
           </>
         )
-      )}
-
-      {/* Lifecycle actions — the platform's canonical action grammar
-          (CanonicalEntityFooter, already used by Package Family and
-          Category), mounted inline rather than pinned since Options has no
-          record of its own to close. Hidden while editing, the same way the
-          parent occupant's own record footer disappears during a module
-          edit. No separate lifecycle-status text here — neither Package
-          Family nor Category prints one; the module pill (Edition Overview/
-          Edition Inclusions, above) and this footer's own action label
-          (Restore/Enable/Disable) are the single presentation of the
-          Edition's current state, per tierEditionDisabledMasked. */}
-      {selected && detail && !editingModule && (
-        <div class="cz-tier-edition-declaration cz-tier-edition-declaration--view" style="margin-top: var(--cz-space-2)">
-          <CanonicalEntityFooter
-            inline
-            platformStatus={selected.platform_status}
-            isDisabledMasked={tierEditionDisabledMasked(selected)}
-            {...deriveTierEditionFooterState(selected, detail.overviewBinding.state.status, detail.overviewBinding.hasDraft)}
-            busy={ctl.saving}
-            splitOpen={splitOpen}
-            setSplitOpen={setSplitOpen}
-            onToggleActive={() => (tierEditionDisabledMasked(selected) ? ctl.enable(selected.id) : ctl.disable(selected.id))}
-            onArchive={() => ctl.archive(selected.id)}
-            onTrash={() => ctl.trash(selected.id)}
-            onRestore={() => ctl.restore(selected.id)}
-            onDelete={() => ctl.remove(selected.id)}
-            onPublish={() => ctl.publish(selected.id)}
-          />
-          {/* A narrow, separate physical relocation, not a status
-              transition: only an already archived/trashed Edition is
-              eligible, and moving it here never itself changes
-              platform_status — Phase 7 brings its presentation in line with
-              the rest of this card without changing this behavior. */}
-          {(selected.platform_status === 'archived' || selected.platform_status === 'trashed') && (
-            <div style="margin-top: var(--cz-space-1)">
-              <button
-                type="button"
-                class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                disabled={ctl.saving}
-                onClick={async () => { const ok = await ctl.moveToBin(selected.id); if (ok) onSelect(null); }}
-              >
-                Move to bin
-              </button>
-            </div>
-          )}
-        </div>
       )}
     </div>
   );

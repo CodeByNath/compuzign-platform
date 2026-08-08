@@ -90,27 +90,26 @@ captures whichever declaration was showing at the click.
 ## Admin editing
 
 `useTierEditions.ts` owns eleven endpoints (create, module draft/settle/
-revert, status, restore, guarded delete, plus Phase 6's
+revert, status, restore, guarded delete,
 `moveToBin`/`restoreFromBin`/`trashBinEntry`/`deleteBinEntry`) and
 Edition-scoped state including `tier_edition_bin[]`. The Included-Features
-module is titled **Default Tier Inclusions** (unchanged, Default only).
-`TierEditionDeclarationSwitcher.tsx` is now the Options group's content,
-gated on a real occupant: a `[Edition 2] [Edition 3]` tab strip, the sole
-"+ Edition" trigger, and the Edition bin UI above. Default is never a row
-of this strip — see Overview registration above.
+module is titled **Default Tier Inclusions**.
+`TierEditionDeclarationSwitcher.tsx` is the Options group's content, gated
+on a real occupant: a `[Edition 2] [Edition 3]` tab strip, the "+ Edition"
+trigger, and the Edition bin UI. Default is never a row of this strip.
 
 The selected Edition's read surface is two module cards
-(`TIER_EDITION_ENTITY`'s `overview`/`inclusions` shells, Tier Overview's own
-`PlacedShell` machinery, sharing one `ModuleState`). Either card's Edit
-opens one shared `TierEditionEditor.tsx`: two tabs over the SAME draft —
-one Save, one Cancel; the tab is local state only.
+(`TIER_EDITION_ENTITY`'s `overview`/`inclusions` shells, sharing one
+`ModuleState`). Either card's Edit opens one shared `TierEditionEditor.tsx`:
+two tabs over the SAME draft, one Save, one Cancel; the tab is local state.
 
 The selected id lives in `useTierDrawerController.ts`, not local state,
 since `TierDrawerContent.tsx` unmounts its child tree while
 `!pkg.detailLoaded`, which would otherwise reset the selection.
 
-Lifecycle status/actions reuse `CanonicalEntityFooter` (Package
-Family/Category's grammar), mounted inline.
+Lifecycle actions live in the ONE pinned `TierDrawerFooter`: `buildTierLifecycleMenu`
+scopes the split's menu to the selected Edition first, then the Tier — the
+label only opens the menu (`menuOnly`); every transition is a scoped row.
 
 ## Authoritative implementation
 
@@ -121,7 +120,7 @@ Family/Category's grammar), mounted inline.
 | REST | `PackageStationController.php` — `tierEditionContext()`, `createTierEdition`, `saveTierEditionModule`, `settleTierEditionModule`, `revertTierEditionModule`, `updateTierEditionStatus`, `restoreTierEditionEndpoint`, `deleteTierEditionEndpoint`, `tierEditionBinContext()`, `moveTierEditionToBinEndpoint`, `restoreTierEditionFromBinEndpoint`, `trashTierEditionBinEntryEndpoint`, `deleteTierEditionBinEntryEndpoint` |
 | Public projection | `PricingBuilder.php` |
 | Cart/request | `RequestSchema.php` |
-| Admin frontend | `types.ts`, `api.ts`, `useTierEditions.ts`, `tier.tsx`, `tierEdition.tsx`, `tierEditionDetailModel.ts`, `useTierDrawerController.ts`, `TierEditionDeclarationSwitcher.tsx`, `TierEditionEditor.tsx`, `TierEditionOverviewFields.tsx`, `TierDrawerContent.tsx` |
+| Admin frontend | `types.ts`, `api.ts`, `useTierEditions.ts`, `tier.tsx`, `tierEdition.tsx`, `tierEditionDetailModel.ts`, `tierEditionModel.ts`, `tierLifecycleMenu.ts`, `useTierDrawerController.ts`, `TierEditionDeclarationSwitcher.tsx`, `TierEditionEditor.tsx`, `TierEditionOverviewFields.tsx`, `TierDrawerContent.tsx`, `TierDrawerFooter.tsx` |
 | Public frontend | `cost-builder.ts`, `PricingTiers.tsx`, `ServiceCard.tsx` |
 
 ## Related Code Maps

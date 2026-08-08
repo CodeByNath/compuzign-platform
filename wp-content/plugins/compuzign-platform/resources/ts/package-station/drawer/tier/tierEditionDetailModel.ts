@@ -13,6 +13,7 @@ import type { PackageManagerItem, PackageRateSheet, TierEdition } from '../../ty
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { TierEditionOverviewShellData, TierEditionInclusionsShellData } from '../schema/bindings/tierEdition';
 import { evaluateModule, tierEditionOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
+import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { buildRateSheetCatalogue } from './tierDetailModel';
 import { tierEditionDisabledMasked } from './tierEditionModel';
 
@@ -21,18 +22,19 @@ export interface TierEditionDetailHandlers {
   onDiscardDraft: () => void;
 }
 
-export function buildTierEditionDetail(
-  edition: TierEdition,
-  svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] },
-  { onEdit, onDiscardDraft }: TierEditionDetailHandlers,
-) {
-  const hasDraft = edition.drafts.overview !== null;
-
-  // Explicit-mask-first, same compound Package Family/Category derive it
-  // with — see tierEditionDisabledMasked's own comment for why Edition
-  // cannot use a raw is_explicitly_disabled field the way the Tier occupant
-  // does.
-  const moduleState = evaluateModule(tierEditionOverviewModule, {
+// Extracted so a caller that only needs the 5-state status (e.g. the pinned
+// Tier footer's lifecycle menu, deciding whether Publish is actionable via
+// deriveTierEditionFooterState) doesn't have to pull in a full
+// buildTierEditionDetail() call — and its own rate-sheet-catalogue
+// resolution — just to read one field. buildTierEditionDetail below is the
+// only caller building the read-mode cards; both share this SAME
+// computation rather than two copies that could drift.
+//
+// Explicit-mask-first, same compound Package Family/Category derive it
+// with — see tierEditionDisabledMasked's own comment for why Edition cannot
+// use a raw is_explicitly_disabled field the way the Tier occupant does.
+export function tierEditionModuleState(edition: TierEdition): ModuleState {
+  return evaluateModule(tierEditionOverviewModule, {
     title:         edition.title,
     price:         edition.price,
     contact:       edition.contact,
@@ -40,10 +42,19 @@ export function buildTierEditionDetail(
   }, {
     platformStatus:   edition.platform_status,
     moduleTransition: edition.module_status.overview,
-    hasDraft,
+    hasDraft:         edition.drafts.overview !== null,
     disabled:         tierEditionDisabledMasked(edition),
     platformLabel:    'Edition',
   });
+}
+
+export function buildTierEditionDetail(
+  edition: TierEdition,
+  svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] },
+  { onEdit, onDiscardDraft }: TierEditionDetailHandlers,
+) {
+  const hasDraft = edition.drafts.overview !== null;
+  const moduleState = tierEditionModuleState(edition);
 
   const overviewBinding: ShellBinding<TierEditionOverviewShellData> = {
     data: {
