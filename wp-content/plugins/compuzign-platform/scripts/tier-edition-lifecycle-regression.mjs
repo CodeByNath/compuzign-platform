@@ -356,6 +356,13 @@ const { useState, useMemo, useRef } = await import('preact/hooks');
 // technique tier-occupant-lifecycle-regression.mjs already uses.
 let setFooterCalls = 0;
 let lastFooter = null;
+// Section 14 — inline-editor chrome suppression: the same optional bridge
+// capability AdminStationDrawer/TierDrawerHost thread through in the real
+// app, tracked here exactly like setFooter above so the regression can
+// assert on the actual signal TierDrawerContent publishes, not just its
+// visible effects.
+let headerHiddenCalls = 0;
+let lastHeaderHidden = false;
 
 function Harness({ initialTierId }) {
   const [, setFooterState] = useState(null);
@@ -367,12 +374,17 @@ function Harness({ initialTierId }) {
     lastFooter = footer;
     setFooterRef.current(footer);
   }, []);
+  const setHeaderHidden = useMemo(() => (hidden) => {
+    headerHiddenCalls += 1;
+    lastHeaderHidden = hidden;
+  }, []);
   const bridge = useMemo(() => ({
     close: () => {},
     setFooter,
     setCloseGuard: () => {},
+    setHeaderHidden,
     onMutationComplete: () => {},
-  }), [setFooter]);
+  }), [setFooter, setHeaderHidden]);
 
   return h(TierDrawerContent, { serviceId: SERVICE_ID, tierInstanceId: INSTANCE_ID, initialTierId, bridge });
 }
@@ -1016,6 +1028,77 @@ check(
   { saveDraftCalls, settleCalls, statusCalls, restoreCalls, deleteCalls, czteMints },
 );
 check('the selected Edition is still unchanged after the whole scroll sequence', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === 'true');
+
+console.log('\n14) Inline-editor chrome suppression: opening either editor reports header-hidden + applies the --editing class + hides the lifecycle footer, and Save/Cancel/Back each restore all three');
+
+function editingClassApplied() {
+  return container.querySelector('.cz-req-detail')?.classList.contains('cz-req-detail--editing') ?? null;
+}
+
+check('resting state: header-hidden signal reads false', lastHeaderHidden === false, lastHeaderHidden);
+check('resting state: no --editing class on the drawer root', editingClassApplied() === false, editingClassApplied());
+check('resting state: the pinned footer is present', lastFooter !== null);
+
+console.log('  14a) Opening the parent Tier\'s own Overview editor (editingSection) hides header + footer');
+selectGroup('Details');
+await sleep(20);
+clickEditOn('Tier Overview');
+await sleep(20);
+check('the Tier Overview editor is open', container.querySelector('#tier-label') !== null);
+check('header-hidden signal reports true', lastHeaderHidden === true, lastHeaderHidden);
+check('the --editing class is applied to the drawer root', editingClassApplied() === true, editingClassApplied());
+check('the lifecycle footer is hidden while the Tier\'s own module editor is open', lastFooter === null, lastFooter);
+
+console.log('  14b) Cancel (through the discard-confirm this editor always shows, isDirty being unconditional) restores header + footer');
+clickButtonWithText('Cancel', container.querySelector('.cz-ies') ?? container);
+await sleep(20);
+check('the discard-confirm prompt appeared', container.textContent.includes('Discard unsaved changes?'));
+clickButtonWithText('Discard', container.querySelector('.cz-ies') ?? container);
+await sleep(20);
+check('the Tier Overview editor is closed', container.querySelector('#tier-label') === null);
+check('header-hidden signal is back to false after Cancel', lastHeaderHidden === false, lastHeaderHidden);
+check('the --editing class is gone after Cancel', editingClassApplied() === false, editingClassApplied());
+check('the lifecycle footer is restored after Cancel', lastFooter !== null);
+
+console.log('  14c) Opening the SELECTED EDITION\'s own module editor also hides header + footer — the previously-disclosed gap this work closes — and its own child nav/bin/empty-state');
+selectGroup('Options');
+await sleep(20);
+check('Monthly Plan is still the selected Edition', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === 'true');
+const chipCountBeforeEdit = container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length;
+clickEditOn('Edition Overview');
+await sleep(20);
+check('the Edition editor is open', container.querySelector('#edt-title') !== null);
+check('header-hidden signal reports true for Edition editing too', lastHeaderHidden === true, lastHeaderHidden);
+check('the --editing class is applied for Edition editing too', editingClassApplied() === true, editingClassApplied());
+check('the lifecycle footer is hidden while the Edition\'s own module editor is open (the disclosed bug is fixed)', lastFooter === null, lastFooter);
+check('the child chip strip is gone while the Edition editor is open', container.querySelector('.cz-drawer-groups__chip-strip') === null);
+
+console.log('  14d) The editor\'s own Back control restores header + footer + child nav, with the same Edition still selected');
+container.querySelector('.cz-action-shell__back')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+check('the discard-confirm prompt appeared from Back too', container.textContent.includes('Discard unsaved changes?'));
+clickButtonWithText('Discard', container.querySelector('.cz-ies') ?? container);
+await sleep(20);
+check('the Edition editor is closed', container.querySelector('#edt-title') === null);
+check('header-hidden signal is back to false after Back', lastHeaderHidden === false, lastHeaderHidden);
+check('the --editing class is gone after Back', editingClassApplied() === false, editingClassApplied());
+check('the lifecycle footer is restored after Back', lastFooter !== null);
+check('the child chip strip is back after Back, with the same chip count as before editing', container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length === chipCountBeforeEdit, container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length);
+check('Monthly Plan is still the selected Edition after Back', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === 'true');
+
+console.log('  14e) Save also restores header + footer + child nav');
+clickEditOn('Edition Overview');
+await sleep(20);
+check('the Edition editor is open again for the Save path', container.querySelector('#edt-title') !== null);
+check('header-hidden signal reports true again', lastHeaderHidden === true, lastHeaderHidden);
+clickButtonWithText('Save', container.querySelector('.cz-ies') ?? container);
+await waitQuiet();
+check('the Edition editor is closed after Save', container.querySelector('#edt-title') === null);
+check('header-hidden signal is back to false after Save', lastHeaderHidden === false, lastHeaderHidden);
+check('the --editing class is gone after Save', editingClassApplied() === false, editingClassApplied());
+check('the lifecycle footer is restored after Save', lastFooter !== null);
+check('the child chip strip is back after Save', container.querySelector('.cz-drawer-groups__chip-strip') !== null);
+check('Monthly Plan is still the selected Edition after Save', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === 'true');
 
 console.log('');
 if (failures.length > 0) {

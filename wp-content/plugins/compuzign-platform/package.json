@@ -33,6 +33,7 @@
     "contract:tier-edition-admin": "tsx scripts/tier-edition-admin-contract.ts",
     "contract:tier-edition-switch": "tsx scripts/tier-edition-switch-contract.ts",
     "contract:child-nav-sticky": "tsx scripts/child-nav-sticky-contract.ts",
+    "contract:tier-drawer-editor-chrome": "tsx scripts/tier-drawer-editor-chrome-contract.ts",
     "contract:tier-lifecycle-menu": "tsx scripts/tier-lifecycle-menu-contract.ts",
     "contract:api-client-timeout": "tsx scripts/api-client-timeout-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
