@@ -476,6 +476,17 @@ async function runScenario(tierId, label) {
   let menuLabels = await lifecycleMenuLabels();
   check('a previously-published occupant\'s footer is unchanged — the menu offers Archive Tier, not Move Tier to Trash', menuLabels.includes('Archive Tier') && !menuLabels.includes('Move Tier to Trash'), menuLabels);
 
+  // Layout: [Disable] [Close] ..................... [Publish] — Close sits
+  // beside the lifecycle split, never beside the publish split.
+  {
+    const closeBtn = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close');
+    const order = [...footerDom.querySelectorAll('.cz-footer-split, .cz-admin-btn--secondary')];
+    const lifecycleIdx = order.indexOf(splitControls(footerDom)[0]);
+    const closeIdx = order.indexOf(closeBtn);
+    const publishIdx = order.indexOf(splitControls(footerDom)[1]);
+    check('Close renders between the lifecycle split and the publish split, in the real mounted footer', lifecycleIdx < closeIdx && closeIdx < publishIdx, `lifecycle=${lifecycleIdx} close=${closeIdx} publish=${publishIdx}`);
+  }
+
   console.log('\n1a) Safety invariant: clicking the visible split control itself never mutates — it only opens/closes the menu');
   const settleCallsBeforeSafety = settleCalls;
   const enabledCallsBeforeSafety = enabledCalls;

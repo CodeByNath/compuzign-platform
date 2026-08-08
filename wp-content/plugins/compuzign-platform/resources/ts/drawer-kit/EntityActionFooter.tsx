@@ -43,6 +43,10 @@ interface EntityActionFooterProps {
   // `split` — the Tier drawer's own forward/publish split sits here while
   // `split` carries backward/travel lifecycle actions, giving the footer a
   // left (travel) / right (publish) grouping without a second primitive.
+  // Its presence also moves `close` to sit beside `split` on the left
+  // (see EntityActionFooter's own render) so the forward split stands
+  // alone on the right: [Split] [Close] ..... [Publish Split]. Every
+  // existing single-split consumer (this prop omitted) is unaffected.
   splitForward?: EntityFooterSplitAction | null;
   // Optional: an inline mounting (no record to close from this surface) omits
   // it entirely rather than rendering a Close button with nowhere to go.
@@ -102,22 +106,31 @@ function SplitControl({ split }: { split: EntityFooterSplitAction }) {
 }
 
 export function EntityActionFooter({ split, splitForward, close, primary, inline }: EntityActionFooterProps) {
+  const closeButton = close && (
+    <button
+      type="button"
+      class="cz-admin-btn cz-admin-btn--secondary"
+      disabled={close.disabled || close.busy}
+      onClick={close.onSelect}
+    >
+      {actionLabel(close)}
+    </button>
+  );
+
   return (
     <div class={`cz-tf-footer${inline ? ' cz-tf-footer--inline' : ''}`}>
       {split && <SplitControl split={split} />}
+      {/* When a second, independent forward split exists (splitForward),
+          Close sits beside the LEFT (backward/travel) split instead of the
+          right side, so the forward/publish split stands alone on the
+          right: [Split] [Close] ..................... [Publish Split].
+          Every existing single-split consumer (splitForward omitted) keeps
+          its original layout: [Split] ..................... [Close]. */}
+      {splitForward && closeButton}
 
       <div class="cz-tf-footer__spacer" />
       {splitForward && <SplitControl split={splitForward} />}
-      {close && (
-        <button
-          type="button"
-          class="cz-admin-btn cz-admin-btn--secondary"
-          disabled={close.disabled || close.busy}
-          onClick={close.onSelect}
-        >
-          {actionLabel(close)}
-        </button>
-      )}
+      {!splitForward && closeButton}
       {primary && (
         <button
           type="button"

@@ -168,6 +168,18 @@ render(h(TwoSplitHarness), container);
 check('two split controls are mounted (left lifecycle, right publish)', splitControls().length === 2, splitControls().length);
 check('left split reads Disable, right split reads Publish', btnAt(0)?.textContent.trim() === 'Disable' && btnAt(1)?.textContent.trim() === 'Publish', `${btnAt(0)?.textContent} / ${btnAt(1)?.textContent}`);
 
+// Layout: [Split] [Close] ..................... [Publish Split] — Close
+// sits beside the LEFT split, never beside the right one, whenever
+// splitForward is present.
+{
+  const closeBtn = [...container.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close');
+  const order = [...container.querySelectorAll('.cz-footer-split, .cz-admin-btn--secondary')];
+  const closeIndex = order.indexOf(closeBtn);
+  const lifecycleIndex = order.indexOf(splitControls()[0]);
+  const publishIndex = order.indexOf(splitControls()[1]);
+  check('Close renders immediately after the LEFT (lifecycle) split, before the RIGHT (publish) split', lifecycleIndex < closeIndex && closeIndex < publishIndex, `lifecycle=${lifecycleIndex} close=${closeIndex} publish=${publishIndex}`);
+}
+
 await click(btnAt(0));
 check('clicking the LEFT (lifecycle) label never mutates, only opens its own menu', lifecycleSelectCalls === 0 && menuOpenAt(0), `selectCalls=${lifecycleSelectCalls} open=${menuOpenAt(0)}`);
 check('the RIGHT (publish) menu is unaffected by the left one opening', !menuOpenAt(1));
