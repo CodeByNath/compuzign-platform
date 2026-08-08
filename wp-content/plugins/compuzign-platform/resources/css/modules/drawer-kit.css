@@ -1638,7 +1638,7 @@ button.cz-module-status-pill {
 .cz-admin-station .cz-drawer-groups__tablist {
   top: calc(-1 * var(--cz-space-2));
   margin: 0 -20px 20px;
-  padding: 10px 20px;
+  padding: 16px 20px 8px;
   background: var(--station-surface-elevated);
   border-color: var(--station-border);
 }
