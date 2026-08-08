@@ -3,21 +3,10 @@
 // pending_drafts → confirm discard and retry). Pure presentation over the
 // controller; every lifecycle call and conflict decision lives in the controller.
 
-import { TRAVEL_PILL } from '@/drawer-kit/schema/presentation';
+import { TravelStatusPill } from '@/drawer-kit/ui/TravelStatusPill';
 import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
 import { slotOccupied } from './useTierDrawerController';
 import type { TierDrawerController } from './useTierDrawerController';
-
-// Bin cards name Archived / Trashed as data labels (travel surfaces only).
-function binPill(status: string) {
-  const pill = TRAVEL_PILL[status as keyof typeof TRAVEL_PILL] ?? TRAVEL_PILL.archived;
-  return (
-    <span class={`cz-module-status-pill ${pill.cls}`}>
-      <span class="cz-module-status-pill__marker">●</span>
-      {pill.label}
-    </span>
-  );
-}
 
 export function TierBinList({ c }: { c: TierDrawerController }) {
   const { pkg, station, binPrompt, binDeleteConfirm, saveErr } = c;
@@ -54,7 +43,7 @@ export function TierBinList({ c }: { c: TierDrawerController }) {
                   {entry.displaced_at ? ` · ${entry.displaced_at.slice(0, 10)}` : ''}
                 </p>
               </div>
-              <div class="drawerModule__status">{binPill(entry.status)}</div>
+              <div class="drawerModule__status"><TravelStatusPill status={entry.status} /></div>
             </div>
             <div class="drawerModule__body">
               <div class="drawerModule__fields">

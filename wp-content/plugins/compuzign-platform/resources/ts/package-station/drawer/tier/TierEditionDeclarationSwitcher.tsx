@@ -43,6 +43,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
 import { CanonicalEntityFooter } from '@/drawer-kit/CanonicalEntityFooter';
+import { TravelStatusPill } from '@/drawer-kit/ui/TravelStatusPill';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionBinEntry, TierEditionOverviewDraft } from '../../types';
@@ -168,23 +169,29 @@ export function TierEditionDeclarationSwitcher({
         </div>
       )}
 
-      {/* Phase 6 — minimal functional access to the occupant's own Edition
-          bin: identify, restore, and trash/delete where lifecycle rules
-          permit. Final visual polish is out of scope for this phase. */}
+      {/* Minimal functional access to the occupant's own Edition bin:
+          identify, restore, and trash/delete where lifecycle rules permit —
+          the SAME travel-status pill (TravelStatusPill/TRAVEL_PILL) the
+          occupant's own bin (TierBinList.tsx) already uses for Archived/
+          Trashed, instead of raw text (UI refinement, Phase 7). Presentation
+          only — no change to moveToBin/restoreFromBin/trashBinEntry/
+          deleteBinEntry, tier_edition_bin[] storage, or ordering. */}
       {ctl.editionBin.length > 0 && (
         <div style="margin-top: var(--cz-space-2)">
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setShowBin((v) => !v)}>
             {showBin ? 'Hide' : 'Show'} Edition bin ({ctl.editionBin.length})
           </button>
           {showBin && (
-            <ul class="cz-tier-edition-bin" style="margin-top: var(--cz-space-1); list-style:none; padding:0; display:flex; flex-direction:column; gap: var(--cz-space-1)">
+            <ul class="cz-tier-edition-bin" style="margin-top: var(--cz-space-1); list-style:none; padding:0; display:flex; flex-direction:column; gap: var(--cz-space-2)">
               {ctl.editionBin.map((entry) => (
-                <li key={entry.bin_id} class="cz-tier-edition-bin__row" style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-1)">
-                  <span class="drawerModule__value">
-                    {entry.edition.title || '(untitled)'}
-                    {' · '}{entry.status === 'archived' ? 'Archived' : 'Trashed'}
-                    {entry.edition.edition_platform_id ? ` · ${entry.edition.edition_platform_id}` : ''}
-                  </span>
+                <li key={entry.bin_id} class="cz-tier-edition-bin__row" style="display:flex; flex-direction:column; gap: var(--cz-space-1)">
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-1)">
+                    <span class="drawerModule__value">
+                      {entry.edition.title || '(untitled)'}
+                      {entry.edition.edition_platform_id ? ` · ${entry.edition.edition_platform_id}` : ''}
+                    </span>
+                    <TravelStatusPill status={entry.status} />
+                  </div>
                   <span style="display:flex; gap: var(--cz-space-1); flex-wrap:wrap">
                     <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.restoreFromBin(entry.bin_id)}>Restore</button>
                     {entry.status === 'archived' && (

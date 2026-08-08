@@ -345,4 +345,31 @@ check(
   'EntityActionFooter\'s close/inline additions are optional — every existing pinned-footer caller (Package Family, Category) is unaffected',
 );
 
+// ── Edition bin presentation (drawer refinement blueprint, Phase 7) — the
+//    SAME travel-status pill the occupant's own bin already uses, not a
+//    second copy. No change to moveToBin/restoreFromBin/trashBinEntry/
+//    deleteBinEntry, tier_edition_bin[] storage, or ordering. ──────────────
+
+check(
+  panel.includes('TravelStatusPill') && panel.includes("from '@/drawer-kit/ui/TravelStatusPill'"),
+  'the Edition bin list renders status through the shared TravelStatusPill, not raw "Archived"/"Trashed" text',
+);
+check(
+  !panel.includes('function binPill'),
+  'the Edition bin list declares no local pill function of its own — TravelStatusPill is the one implementation',
+);
+
+const tierBinList = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierBinList.tsx',
+), 'utf8');
+check(
+  tierBinList.includes('TravelStatusPill') && !tierBinList.includes('function binPill'),
+  'the occupant\'s own bin (TierBinList.tsx) was migrated onto the SAME shared TravelStatusPill too — one implementation, not two copies of identical logic',
+);
+
+for (const action of ['moveToBin', 'restoreFromBin', 'trashBinEntry', 'deleteBinEntry']) {
+  check(panel.includes(`ctl.${action}(`), `the Edition bin list still drives ${action} through the hook's own action — Phase 7 changed no behavior`);
+}
+
 console.log('Tier Edition admin contract checks passed.');
