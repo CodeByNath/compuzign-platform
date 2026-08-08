@@ -336,7 +336,13 @@ const { h, render } = await import('preact');
 const { useState, useMemo, useRef } = await import('preact/hooks');
 
 // ── Harness ──────────────────────────────────────────────────────────────
+// Single-footer, scope-aware lifecycle command model: Edition lifecycle
+// actions no longer render inline inside `container` — they're in the ONE
+// pinned footer, registered through the bridge exactly like the Tier
+// occupant's own footer. Same lastFooter/footerContainer/renderFooterDom
+// technique tier-occupant-lifecycle-regression.mjs already uses.
 let setFooterCalls = 0;
+let lastFooter = null;
 
 function Harness({ initialTierId }) {
   const [, setFooterState] = useState(null);
@@ -345,6 +351,7 @@ function Harness({ initialTierId }) {
 
   const setFooter = useMemo(() => (footer) => {
     setFooterCalls += 1;
+    lastFooter = footer;
     setFooterRef.current(footer);
   }, []);
   const bridge = useMemo(() => ({
@@ -359,6 +366,12 @@ function Harness({ initialTierId }) {
 
 const container = document.createElement('div');
 document.body.appendChild(container);
+const footerContainer = document.createElement('div');
+document.body.appendChild(footerContainer);
+function renderFooterDom() {
+  render(lastFooter, footerContainer);
+  return footerContainer;
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function waitQuiet(maxTicks = 400, quietTicksNeeded = 15) {
@@ -417,38 +430,64 @@ function selectDeclarationTab(text) {
   return btn;
 }
 // Correction plan: the obsolete loose lifecycle-status span is gone — the
-// module pill and the canonical footer's own action label are the only
+// module pill and the pinned footer's own action label are the only
 // lifecycle presentation now (matching Package Family/Category, neither of
 // which ever printed a third status line).
 function looseStatusTextAbsent() {
   return container.querySelector('.cz-tier-edition-declaration__status') === null;
 }
-// The canonical footer's own primary split-action label (Disable/Enable/
-// Restore) — read directly rather than via selectedStatusText, since that
-// loose text no longer exists.
-function editionSplitLabel() {
-  return container.querySelector('.cz-tier-edition-declaration--view .cz-footer-split__btn')?.textContent.trim() ?? null;
+// Single-footer, scope-aware lifecycle command model: Edition lifecycle
+// actions now live in the ONE pinned TierDrawerFooter (registered through
+// the bridge, read via footerContainer/renderFooterDom — same technique
+// tier-occupant-lifecycle-regression.mjs uses), not an inline per-Edition
+// footer inside `container`. The split's visible label and its chevron both
+// only open/close the menu now (menuOnly) — every real transition is an
+// explicit `.cz-footer-split__item` row (buildTierLifecycleMenu). These
+// helpers check actual DOM state before toggling, so they're correct
+// regardless of whether a mutation's refetch leaves the menu open or closed.
+function splitLabel(footerDom = renderFooterDom()) {
+  return footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
 }
-// Reads the split control's overflow menu label — opens it, reads the one
-// item, closes it again, same technique
-// tier-occupant-lifecycle-regression.mjs's own overflowItemLabel() uses.
-async function editionOverflowItemLabel() {
-  clickOverflowChevron();
-  await sleep(20);
-  const label = container.querySelector('.cz-tier-edition-declaration--view .cz-footer-split__menu .cz-footer-split__item')?.textContent.trim() ?? null;
-  clickOverflowChevron();
-  await sleep(20);
-  return label;
+async function ensureLifecycleMenuOpen() {
+  let footerDom = renderFooterDom();
+  if (!footerDom.querySelector('.cz-footer-split__menu')) {
+    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    await sleep(20);
+    footerDom = renderFooterDom();
+  }
+  return footerDom;
 }
-// Correction plan invariant: the module pill and the canonical footer's own
-// action label must never disagree about whether the Edition is currently
-// disabled — Disabled must offer Enable, and only Disabled/Active states are
-// checked here since Pending/Archived/Trashed collapse the pill to the same
-// "Pending" label (the pill's 5-state vocabulary has no distinct
-// Archived/Trashed value — see tierEditionOverviewModule's own comment).
+async function ensureLifecycleMenuClosed() {
+  const footerDom = renderFooterDom();
+  if (footerDom.querySelector('.cz-footer-split__menu')) {
+    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    await sleep(20);
+  }
+}
+async function lifecycleMenuLabels() {
+  const footerDom = await ensureLifecycleMenuOpen();
+  const labels = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].map((b) => b.textContent.trim());
+  await ensureLifecycleMenuClosed();
+  return labels;
+}
+async function clickLifecycleMenuItem(label) {
+  const footerDom = await ensureLifecycleMenuOpen();
+  const item = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].find((b) => b.textContent.trim() === label);
+  item?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  return item;
+}
+// Correction plan invariant: the module pill and the pinned footer's own
+// top-level action label must never disagree about whether the Edition is
+// currently disabled — Disabled must offer Enable, and only Disabled/Active
+// states are checked here since Pending/Archived/Trashed collapse the pill
+// to the same "Pending" label (the pill's 5-state vocabulary has no
+// distinct Archived/Trashed value — see tierEditionOverviewModule's own
+// comment). The top-level label stays the bare verb ("Enable"/"Disable")
+// even though menu ROWS now carry the Edition's title suffix.
 function pillAndActionAgree(moduleTitle = 'Edition Overview') {
   const pill = pillLabel(moduleTitle);
-  const action = editionSplitLabel();
+  const action = splitLabel();
   if (pill === 'Disabled') return action === 'Enable';
   if (pill === 'Active') return action === 'Disable';
   return true;
@@ -510,17 +549,6 @@ function selectRateSheetRow(itemId) {
 function rateSheetRowCount() {
   return container.querySelectorAll('.cz-ie-row').length;
 }
-// CanonicalEntityFooter's split action (Phase 6): the primary label is
-// always directly clickable; secondary actions (Archive, the archived-state
-// Move to Trash, the trashed-state Permanently delete) live behind the
-// chevron's overflow menu, which a remount (every mutation refetches)
-// always closes again — same technique
-// tier-occupant-lifecycle-regression.mjs's own overflowItemLabel() uses.
-function clickOverflowChevron() {
-  const chevron = container.querySelector('.cz-tier-edition-declaration--view .cz-footer-split__chevron');
-  chevron?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  return chevron;
-}
 // Overview module's own small "Editions" read field (docs/code-map/tier-edition.md) —
 // a `.drawerModule__field` whose label reads "Editions", value is the derived count.
 function overviewEditionsCountText() {
@@ -535,6 +563,25 @@ await waitQuiet();
 
 console.log('1) A freshly published occupant starts with only its own Default declaration');
 check('Overview\'s own Editions count reads 1 (the occupant\'s own Default only)', overviewEditionsCountText() === '1', overviewEditionsCountText());
+
+console.log('\n1a) With no Edition selected, the pinned footer behaves exactly like the normal Tier-only footer — no Edition-scoped rows at all');
+let menuLabels = await lifecycleMenuLabels();
+check('the split label follows the Tier\'s own state (published, enabled) — Disable', splitLabel() === 'Disable', splitLabel());
+check('no Edition-scoped row appears anywhere in the menu', menuLabels.every((l) => !l.includes('Edition')), menuLabels);
+check('the Tier\'s own rows are present — Publish Tier (has content) and Archive Tier', menuLabels.includes('Publish Tier') && menuLabels.includes('Archive Tier'), menuLabels);
+
+console.log('\n1b) Safety invariant: clicking the visible split control itself never mutates — it only opens/closes the menu');
+const statusCallsBeforeSafety = statusCalls;
+let footerDom = renderFooterDom();
+footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+footerDom = renderFooterDom();
+check('clicking the visible label opened the menu', footerDom.querySelector('.cz-footer-split__menu') !== null);
+check('clicking the visible label fired no status/settle request', statusCalls === statusCallsBeforeSafety && settleCalls === 0, `statusCalls=${statusCalls} settleCalls=${settleCalls}`);
+footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+check('the chevron closes the same menu the label opened, also without mutating', renderFooterDom().querySelector('.cz-footer-split__menu') === null && statusCalls === statusCallsBeforeSafety);
+
 selectGroup('Options');
 await sleep(20);
 check('no additional-declarations tab strip renders yet — this Tier behaves exactly as before Editions existed', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
@@ -554,6 +601,17 @@ check(
   `aria-selected=${declarationTab('Edition 2')?.getAttribute('aria-selected')} pill=${pillLabel('Edition Overview')}`,
 );
 check('no loose lifecycle-status text renders — the module pill is the only status presentation', looseStatusTextAbsent());
+
+console.log('  2a) Edition context changes the menu: the split label follows the newly-selected (Pending, incomplete) Edition, and its rows precede the Tier\'s own');
+// A brand-new, never-published Edition's top label is "Move to Trash" —
+// the same never-published fallback the Tier itself uses — not "Publish";
+// Publish Edition is an independently-gated row (canPublish alone), never
+// the top verb until the Edition has genuinely been live at least once.
+check('the split label follows the selected Edition\'s never-published fallback — Move to Trash', splitLabel() === 'Move to Trash', splitLabel());
+menuLabels = await lifecycleMenuLabels();
+check('no ghost "Publish Edition" row yet — this Edition has no price/Rate Sheet, so it is not actually publishable', menuLabels.every((l) => !l.includes('Publish Edition')), menuLabels);
+check('the Tier\'s own valid actions are never hidden merely because the Edition offers nothing of its own', menuLabels.includes('Disable Tier') && menuLabels.includes('Archive Tier'), menuLabels);
+
 selectGroup('Details');
 await sleep(20);
 check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText() === '2', overviewEditionsCountText());
@@ -628,63 +686,73 @@ check(
 console.log('\n4) Publish "Annual Plan" — activates and assigns CZTE exactly once');
 selectDeclarationTab('Annual Plan');
 await sleep(20);
-clickButtonWithText('Publish');
+menuLabels = await lifecycleMenuLabels();
+check('the menu offers "Publish Edition — Annual Plan" as an explicit scoped row', menuLabels.includes('Publish Edition — Annual Plan'), menuLabels);
+await clickLifecycleMenuItem('Publish Edition — Annual Plan');
 await waitQuiet();
 check('the status endpoint was called', statusCalls === 1, statusCalls);
 check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
 check('the assigned CZTE is now shown', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 check('the Edition Overview pill now reads Active — the shared 5-state pill, not a bespoke status string', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
-check('the canonical footer offers Disable, not Enable, for an Active Edition', editionSplitLabel() === 'Disable', editionSplitLabel());
-check('the module pill and the canonical action agree', pillAndActionAgree());
+check('the pinned footer offers Disable, not Enable, for an Active Edition', splitLabel() === 'Disable', splitLabel());
+check('the module pill and the footer action agree', pillAndActionAgree());
 
 console.log('\n5) Disable — captures previous_platform_status; the mock never touches is_explicitly_disabled (mirrors PackageSchema::applyTierEditionDisabledMask, which does not either)');
-clickButtonWithText('Disable');
+menuLabels = await lifecycleMenuLabels();
+check('the menu offers "Disable Edition — Annual Plan" and, separately, "Archive Edition — Annual Plan"', menuLabels.includes('Disable Edition — Annual Plan') && menuLabels.includes('Archive Edition — Annual Plan'), menuLabels);
+check('Move Edition to Bin is NOT offered yet — the Edition is Active, not Archived/Trashed', !menuLabels.includes('Move Edition to Bin'), menuLabels);
+await clickLifecycleMenuItem('Disable Edition — Annual Plan');
 await waitQuiet();
 check('the Edition module pill reads Disabled — tierEditionDisabledMasked, not the always-false is_explicitly_disabled field, drives this', pillLabel('Edition Overview') === 'Disabled', pillLabel('Edition Overview'));
-check('Enable is now offered', editionSplitLabel() === 'Enable', editionSplitLabel());
-check('Disabled does NOT still expose Disable', ![...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Disable'));
-check('the module pill and the canonical action agree — no Active-pill/Disabled-action (or vice versa) disagreement', pillAndActionAgree());
+check('Enable is now offered', splitLabel() === 'Enable', splitLabel());
+check('the module pill and the footer action agree — no Active-pill/Disabled-action (or vice versa) disagreement', pillAndActionAgree());
 
 console.log('\n6) Enable — lands Pending, never straight back to Active (same rule the occupant itself follows)');
-clickButtonWithText('Enable');
+await clickLifecycleMenuItem('Enable Edition — Annual Plan');
 await waitQuiet();
 check('Enable never reactivates — the Edition pill reads Pending', pillLabel('Edition Overview') === 'Pending', pillLabel('Edition Overview'));
-check('Disable is offered again once re-enabled', editionSplitLabel() === 'Disable', editionSplitLabel());
-check('the module pill and the canonical action agree after Enable', pillAndActionAgree());
+check('Disable is offered again once re-enabled', splitLabel() === 'Disable', splitLabel());
+check('the module pill and the footer action agree after Enable', pillAndActionAgree());
 
 console.log('\n7) Republish — reaches Active again; the SAME CZTE is reused, never re-reserved');
-clickButtonWithText('Publish');
+await clickLifecycleMenuItem('Publish Edition — Annual Plan');
 await waitQuiet();
 check('the Edition pill reads Active again', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('republish never mints a second CZTE', czteMints === 1, czteMints);
 check('the CZTE identity is unchanged', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
-check('the module pill and the canonical action agree after republish', pillAndActionAgree());
+check('the module pill and the footer action agree after republish', pillAndActionAgree());
 
-console.log('\n8) Archive, then Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
-// Archive lives in the split's overflow menu while the Edition is
-// active/disabled (the split's own direct action is Disable/Enable here).
-clickOverflowChevron();
-await sleep(20);
-clickButtonWithText('Archive');
+console.log('\n8) Archive Edition — independent of Archive Tier, never touches the parent Tier occupant');
+menuLabels = await lifecycleMenuLabels();
+check('Archive Edition is offered, distinct from Archive Tier', menuLabels.includes('Archive Edition — Annual Plan') && menuLabels.includes('Archive Tier'), menuLabels);
+const statusCallsBeforeArchive = statusCalls;
+await clickLifecycleMenuItem('Archive Edition — Annual Plan');
 await waitQuiet();
 // The pill has no distinct Archived value (collapses to Pending — see
 // tierEditionOverviewModule's own comment), so Archived/Trashed are proven
-// through the canonical footer's own action grammar instead, exactly like
-// tier-occupant-lifecycle-regression.mjs's own overflowItemLabel() checks.
-check('the Edition reads Archived — Restore is now the split\'s own direct action', editionSplitLabel() === 'Restore', editionSplitLabel());
-check('Archived offers Move to Trash in the overflow menu', await editionOverflowItemLabel() === 'Move to Trash');
-// Archived: Restore is now the split's own direct action; Move to Trash
-// moved into the overflow menu.
-clickOverflowChevron();
+// through the footer's own action grammar instead.
+check('the Edition reads Archived — Restore is now the split\'s own top-level label', splitLabel() === 'Restore', splitLabel());
+check('archiving the Edition fired exactly one status call — never a loop over multiple endpoints', statusCalls === statusCallsBeforeArchive + 1, statusCalls);
+selectGroup('Details');
 await sleep(20);
-clickButtonWithText('Move to Trash');
+check('the parent Tier occupant was NOT displaced — Overview\'s own Editions count is still 2 (Default + this archived Edition)', overviewEditionsCountText() === '2', overviewEditionsCountText());
+selectGroup('Options');
+await sleep(20);
+
+console.log('  8a) Move Edition to Bin — only valid once Archived/Trashed, rises near the top, distinct from Trash');
+menuLabels = await lifecycleMenuLabels();
+check('Move Edition to Bin is now offered — the Edition is Archived', menuLabels.includes('Move Edition to Bin'), menuLabels);
+check('Restore leads, then Move Edition to Bin, ahead of the Tier\'s own rows', menuLabels.indexOf('Move Edition to Bin') === 1, menuLabels);
+check('Archived offers "Move Edition to Trash — Annual Plan" as the separated destructive row', menuLabels.includes('Move Edition to Trash — Annual Plan'), menuLabels);
+
+console.log('  8b) Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
+await clickLifecycleMenuItem('Move Edition to Trash — Annual Plan');
 await waitQuiet();
-check('the Edition reads Trashed — Restore is still the split\'s own direct action', editionSplitLabel() === 'Restore', editionSplitLabel());
-check('Trashed offers Permanently delete in the overflow menu', await editionOverflowItemLabel() === 'Permanently delete');
-clickOverflowChevron();
-await sleep(20);
-check('Permanently delete is offered immediately once trashed', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Permanently delete'));
-clickButtonWithText('Permanently delete');
+check('the Edition reads Trashed — Restore is still the split\'s own top-level label', splitLabel() === 'Restore', splitLabel());
+menuLabels = await lifecycleMenuLabels();
+check('Trashed offers Permanently Delete Edition as the separated destructive row', menuLabels.includes('Permanently Delete Edition — Annual Plan'), menuLabels);
+check('Move Edition to Bin is still offered while Trashed', menuLabels.includes('Move Edition to Bin'), menuLabels);
+await clickLifecycleMenuItem('Permanently Delete Edition — Annual Plan');
 await waitQuiet();
 check('the delete endpoint was called', deleteCalls === 1, deleteCalls);
 selectGroup('Details');
@@ -711,26 +779,36 @@ clickButtonWithText('Save');
 await waitQuiet();
 selectDeclarationTab('Monthly Plan');
 await sleep(20);
-clickButtonWithText('Publish');
+await clickLifecycleMenuItem('Publish Edition — Monthly Plan');
 await waitQuiet();
 check('Monthly Plan reads Active', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);
 check('Monthly Plan carries its own CZTE, not Annual Plan\'s', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
 console.log('\n10) Restore — archived/trashed → disabled/Pending, never straight to Active');
-clickOverflowChevron();
-await sleep(20);
-clickButtonWithText('Archive');
+await clickLifecycleMenuItem('Archive Edition — Monthly Plan');
 await waitQuiet();
-check('Monthly Plan reads Archived — Restore is the split\'s own direct action', editionSplitLabel() === 'Restore', editionSplitLabel());
-// Archived: Restore is the split's own direct action, no chevron needed.
-clickButtonWithText('Restore');
+check('Monthly Plan reads Archived — Restore is the split\'s own top-level label', splitLabel() === 'Restore', splitLabel());
+await clickLifecycleMenuItem('Restore Edition — Monthly Plan');
 await waitQuiet();
 check('restore never reactivates — Monthly Plan\'s pill reads Pending', pillLabel('Edition Overview') === 'Pending', pillLabel('Edition Overview'));
 check('restore was called exactly once', restoreCalls === 1, restoreCalls);
-check('the module pill and the canonical action agree after Restore', pillAndActionAgree());
+check('the module pill and the footer action agree after Restore', pillAndActionAgree());
 check('no loose lifecycle-status text renders anywhere in this flow', looseStatusTextAbsent());
 check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
+
+console.log('\n11) Ordering invariant: with an Edition selected, its own scoped rows precede every Tier row, across the full menu');
+menuLabels = await lifecycleMenuLabels();
+const lastEditionIdx = menuLabels.reduce((acc, l, i) => (l.includes('Edition') ? i : acc), -1);
+const firstTierIdx = menuLabels.findIndex((l) => l.includes('Tier'));
+check('every Edition-scoped row appears before every Tier-scoped row', firstTierIdx === -1 || lastEditionIdx < firstTierIdx, menuLabels);
+
+console.log('\n12) No fabricated "All" action ever renders in the real mounted footer');
+check(
+  'no Publish All / Enable All / Disable All / Archive All / Restore All / Trash All row exists anywhere in the current menu',
+  menuLabels.every((l) => !/\ball\b/i.test(l)),
+  menuLabels,
+);
 
 console.log('');
 if (failures.length > 0) {

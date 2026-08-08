@@ -365,27 +365,50 @@ function editButtonFor(moduleTitle) {
   const mod = findModule(moduleTitle);
   return [...(mod?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim() === 'Edit');
 }
-// The footer's Publish button lives in footerContainer (registered through the
-// bridge, exactly like the record footer's Disable/Enable split); the confirm
-// dialog's own Publish button is part of the main composition tree.
-async function clickPublish() {
+// Single-footer, scope-aware lifecycle command model: the split's visible
+// label (and the chevron) only ever open/close the menu now — neither
+// mutates. Every real transition is an explicit `.cz-footer-split__item`
+// row (buildTierLifecycleMenu). These helpers check actual DOM state before
+// toggling (rather than blindly clicking), so they're correct regardless of
+// whether a mutation's refetch happens to leave the menu open or closed.
+function splitLabel(footerDom = renderFooterDom()) {
+  return footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
+}
+async function ensureLifecycleMenuOpen() {
+  let footerDom = renderFooterDom();
+  if (!footerDom.querySelector('.cz-footer-split__menu')) {
+    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    await sleep(20);
+    footerDom = renderFooterDom();
+  }
+  return footerDom;
+}
+async function ensureLifecycleMenuClosed() {
   const footerDom = renderFooterDom();
-  clickButtonWithText('Publish', footerDom);
+  if (footerDom.querySelector('.cz-footer-split__menu')) {
+    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    await sleep(20);
+  }
+}
+async function lifecycleMenuLabels() {
+  const footerDom = await ensureLifecycleMenuOpen();
+  const labels = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].map((b) => b.textContent.trim());
+  await ensureLifecycleMenuClosed();
+  return labels;
+}
+async function clickLifecycleMenuItem(label) {
+  const footerDom = await ensureLifecycleMenuOpen();
+  const item = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].find((b) => b.textContent.trim() === label);
+  item?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  return item;
+}
+// Publish Tier is a scoped menu row now, not a separate flat button; its
+// own onSelect still opens the SAME confirm dialog as before (unchanged).
+async function clickPublish() {
+  await clickLifecycleMenuItem('Publish Tier');
   await sleep(20);
   clickButtonWithText('Publish', container);
-}
-// Reads the split control's overflow menu label — opens it (chevron click),
-// reads the one item, closes it again so later footer clicks aren't blocked
-// by an open menu overlay.
-async function overflowItemLabel() {
-  let footerDom = renderFooterDom();
-  footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  await sleep(20);
-  footerDom = renderFooterDom();
-  const label = footerDom.querySelector('.cz-footer-split__menu .cz-footer-split__item')?.textContent.trim() ?? null;
-  footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  await sleep(20);
-  return label;
 }
 // The individual-tier drawer's own four-group nav (Details/Options/
 // Connections/Support). Matches either renderer — DrawerGroupTabs'
@@ -430,8 +453,28 @@ async function runScenario(tierId, label) {
   check('Support exposes Common Questions, Active, on mount', faqActive, faqActive);
 
   let footerDom = renderFooterDom();
-  check('the real rendered split button reads "Disable" while published and not masked', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
-  check('a previously-published occupant\'s footer is unchanged — overflow still offers Archive, not Move to Trash', await overflowItemLabel() === 'Archive', await overflowItemLabel());
+  check('the real rendered split button reads "Disable" while published and not masked', splitLabel(footerDom) === 'Disable', splitLabel(footerDom));
+  let menuLabels = await lifecycleMenuLabels();
+  check('a previously-published occupant\'s footer is unchanged — the menu offers Archive Tier, not Move Tier to Trash', menuLabels.includes('Archive Tier') && !menuLabels.includes('Move Tier to Trash'), menuLabels);
+
+  console.log('\n1a) Safety invariant: clicking the visible split control itself never mutates — it only opens/closes the menu');
+  const settleCallsBeforeSafety = settleCalls;
+  const enabledCallsBeforeSafety = enabledCalls;
+  footerDom = renderFooterDom();
+  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  footerDom = renderFooterDom();
+  check('clicking the visible label opened the menu', footerDom.querySelector('.cz-footer-split__menu') !== null);
+  check('clicking the visible label fired no settle/enabled request', settleCalls === settleCallsBeforeSafety && enabledCalls === enabledCallsBeforeSafety, `settleCalls=${settleCalls} enabledCalls=${enabledCalls}`);
+  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  footerDom = renderFooterDom();
+  check('clicking the visible label again closed the menu — still no mutation', footerDom.querySelector('.cz-footer-split__menu') === null && settleCalls === settleCallsBeforeSafety && enabledCalls === enabledCallsBeforeSafety);
+  const chevronSettleBefore = settleCalls, chevronEnabledBefore = enabledCalls;
+  footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  check('the chevron opens the same menu the label does, also without mutating', renderFooterDom().querySelector('.cz-footer-split__menu') !== null && settleCalls === chevronSettleBefore && enabledCalls === chevronEnabledBefore);
+  await ensureLifecycleMenuClosed();
 
   console.log('\n1b) Switching Details → Support → Details is presentation-only — no endpoint call, no pill change');
   const settleCallsBeforeNav = settleCalls;
@@ -520,9 +563,10 @@ async function runScenario(tierId, label) {
 
   console.log('\n4) Disable — every module reads Disabled, not Pending');
   footerDom = renderFooterDom();
-  const disableBtn = footerDom.querySelector('.cz-footer-split__btn');
-  check('the real rendered split button reads "Disable" before the first Disable', disableBtn?.textContent.trim() === 'Disable', disableBtn?.textContent);
-  disableBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  check('the real rendered split button reads "Disable" before the first Disable', splitLabel(footerDom) === 'Disable', splitLabel(footerDom));
+  menuLabels = await lifecycleMenuLabels();
+  check('the menu offers Disable Tier as an explicit scoped row', menuLabels.includes('Disable Tier'), menuLabels);
+  await clickLifecycleMenuItem('Disable Tier');
   await waitToSettle();
   check('the enabled endpoint was called for Disable', enabledCalls === 1, `enabledCalls=${enabledCalls}`);
   check('the Disable request carried enabled:false', lastEnabledPayload?.enabled === false, JSON.stringify(lastEnabledPayload));
@@ -531,11 +575,12 @@ async function runScenario(tierId, label) {
   check('Support reads Disabled on Common Questions after Disable', faqActive);
 
   footerDom = renderFooterDom();
-  check('the real rendered split button now reads "Enable"', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
+  check('the real rendered split button now reads "Enable"', splitLabel(footerDom) === 'Enable', splitLabel(footerDom));
 
   console.log('\n5) Enable — lands Pending (never Active, never stuck Disabled), and the footer offers Disable again');
-  const enableBtn = footerDom.querySelector('.cz-footer-split__btn');
-  enableBtn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  menuLabels = await lifecycleMenuLabels();
+  check('the menu offers Enable Tier as an explicit scoped row', menuLabels.includes('Enable Tier'), menuLabels);
+  await clickLifecycleMenuItem('Enable Tier');
   await waitToSettle();
   check('the enabled endpoint was called for Enable', enabledCalls === 2, `enabledCalls=${enabledCalls}`);
   check('the Enable request carried enabled:true', lastEnabledPayload?.enabled === true, JSON.stringify(lastEnabledPayload));
@@ -544,7 +589,7 @@ async function runScenario(tierId, label) {
   check('Enable never activates — Support reads Pending on Common Questions too', faqActive);
 
   footerDom = renderFooterDom();
-  check('after Enable the footer offers Disable again — not a no-op Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
+  check('after Enable the footer offers Disable again — not a no-op Enable', splitLabel(footerDom) === 'Disable', splitLabel(footerDom));
 
   console.log('\n6) Publish after Enable — reaches Active again');
   const settleCallsBefore = settleCalls;
@@ -556,7 +601,7 @@ async function runScenario(tierId, label) {
   check('Publish after Enable reaches Active on Support\'s Common Questions too', faqActive);
 
   footerDom = renderFooterDom();
-  check('the footer still offers Disable after republish', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent);
+  check('the footer still offers Disable after republish', splitLabel(footerDom) === 'Disable', splitLabel(footerDom));
 }
 
 // First-save persistence boundary (empty slot → occupant created on Overview
@@ -569,9 +614,8 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   await waitToSettle();
   check('no occupant exists before any Save', tiers[tierId].settled === null);
   let footerDom = renderFooterDom();
-  const publishBtnBefore = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
-  check('Publish is disabled before any content exists', publishBtnBefore?.disabled === true);
-  check('tier-actions always renders the mature lifecycle split', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Move to Trash');
+  check('no Publish Tier row is offered before any content exists', !(await lifecycleMenuLabels()).includes('Publish Tier'));
+  check('tier-actions always renders the mature lifecycle split', splitLabel(footerDom) === 'Move to Trash');
 
   console.log('\n2) First Overview Save — mints a pending occupant, settles nothing, assigns no identity');
   const overviewEditBtn = editButtonFor('Tier Overview');
@@ -602,9 +646,8 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
 
   console.log('\n3) Same mounted drawer now exposes the existing occupant lifecycle — before any Publish');
   footerDom = renderFooterDom();
-  const publishBtnAfter = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Publish');
-  check('Publish is now enabled — the created occupant carries pending content', publishBtnAfter?.disabled === false);
-  check('Move to Trash is visible for the persisted never-published occupant', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Move to Trash');
+  check('Publish Tier is now offered — the created occupant carries pending content', (await lifecycleMenuLabels()).includes('Publish Tier'));
+  check('Move to Trash is visible for the persisted never-published occupant', splitLabel(footerDom) === 'Move to Trash');
 
   console.log('\n4) Publish — settles the draft, activates the SAME occupant_id, assigns identity');
   await clickPublish();
@@ -618,19 +661,18 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
 
   console.log('\n5) Published occupant follows Service Disable / Enable policy and retains Archive');
   footerDom = renderFooterDom();
-  check('Publish changes the split action to Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable');
-  check('the previously-published occupant retains Archive in overflow', await overflowItemLabel() === 'Archive');
-  footerDom = renderFooterDom();
-  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  check('Publish changes the split action to Disable', splitLabel(footerDom) === 'Disable');
+  check('the previously-published occupant retains Archive Tier in the menu', (await lifecycleMenuLabels()).includes('Archive Tier'));
+  await clickLifecycleMenuItem('Disable Tier');
   await waitToSettle();
   check('Disable masks Details\' own modules', detailsPillsRead('Disabled'));
   check('Disable masks Support\'s Common Questions too', await faqPillReads('Disabled'));
   footerDom = renderFooterDom();
-  check('the explicit mask changes the split action to Enable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Enable');
-  footerDom.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  check('the explicit mask changes the split action to Enable', splitLabel(footerDom) === 'Enable');
+  await clickLifecycleMenuItem('Enable Tier');
   await waitToSettle();
   footerDom = renderFooterDom();
-  check('Enable returns the split action to Disable', footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() === 'Disable');
+  check('Enable returns the split action to Disable', splitLabel(footerDom) === 'Disable');
 }
 
 console.log('Tier occupant lifecycle regression (blueprint acceptance matrix)\n');
