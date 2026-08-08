@@ -1,7 +1,11 @@
-// Tier Edition overview-module form fields — the one editor
-// TierEditionDeclarationSwitcher (Inclusions & Editions' own
-// [Default] [Edition …] tab strip) uses to edit whichever Edition is
-// currently selected.
+// Tier Edition overview-module form fields — split into two section
+// components (Overview / Inclusions) sharing one `TierEditionOverviewDraft`,
+// so the combined two-tab editor (TierEditionEditor.tsx, Phase 4) can present
+// them as separate views of the SAME session without a second draft, save,
+// or endpoint. `TierEditionOverviewFields` itself is kept as a thin
+// concatenation of both sections — the pre-Phase-5 call site
+// (TierEditionDeclarationSwitcher.tsx's own hand-rolled edit block) still
+// renders through it unchanged until that call site is replaced.
 
 import { useMemo } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
@@ -28,7 +32,26 @@ interface Props {
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
 }
 
-export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, svc }: Props) {
+// Overview tab — title, description, billing/commitment terms. No Rate
+// Sheet/row fields here; those are Inclusions' own section below.
+export function TierEditionOverviewSection({ draft, onChange }: Pick<Props, 'draft' | 'onChange'>) {
+  return (
+    <div class="cz-tf-form">
+      <AdminField def={{ id: 'edt-title', type: 'text', label: 'Title' }} value={draft.title} onChange={(title: string) => onChange({ title })} />
+      <AdminField def={{ id: 'edt-description', type: 'textarea', label: 'Admin description (optional)', rows: 2 }} value={draft.admin_description} onChange={(admin_description: string) => onChange({ admin_description })} />
+      <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
+      <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value="Derived from Rate Sheet selections" onChange={() => undefined} />
+      <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
+      <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
+    </div>
+  );
+}
+
+// Inclusions tab — Rate Sheet binding + row/quantity selection. Reuses the
+// SAME PoolInclusionsEditor and buildRateSheetCatalogue resolver the parent
+// occupant's own Default Tier Inclusions editor uses (tierDetailModel.ts) —
+// not a bespoke picker.
+export function TierEditionInclusionsSection({ draft, onChange, rateSheetOptions, svc }: Props) {
   // Rows selectable for whichever Rate Sheet this draft is currently bound
   // to — recomputed whenever that binding changes, exactly like the
   // occupant's own Overview/Features editor recomputes rateSheetCatalogue
@@ -50,8 +73,6 @@ export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, s
 
   return (
     <div class="cz-tf-form">
-      <AdminField def={{ id: 'edt-title', type: 'text', label: 'Title' }} value={draft.title} onChange={(title: string) => onChange({ title })} />
-      <AdminField def={{ id: 'edt-description', type: 'textarea', label: 'Admin description (optional)', rows: 2 }} value={draft.admin_description} onChange={(admin_description: string) => onChange({ admin_description })} />
       <AdminField def={{ id: 'edt-rate-sheet', type: 'select', label: 'Rate Sheet', unsetLabel: 'Inherit the Tier’s own binding', options: rateSheetOptions }} value={draft.rate_sheet_id ?? ''} onChange={(v: string) => changeRateSheet(v || null)} />
       {draft.rate_sheet_id && (
         <div class="cz-tf-field">
@@ -64,10 +85,15 @@ export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, s
           />
         </div>
       )}
-      <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
-      <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value="Derived from Rate Sheet selections" onChange={() => undefined} />
-      <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
-      <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
     </div>
+  );
+}
+
+export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, svc }: Props) {
+  return (
+    <>
+      <TierEditionOverviewSection draft={draft} onChange={onChange} />
+      <TierEditionInclusionsSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} svc={svc} />
+    </>
   );
 }

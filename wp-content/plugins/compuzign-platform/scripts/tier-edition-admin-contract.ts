@@ -248,4 +248,73 @@ check(
   'registering one more Edition position calls the SAME createTierEdition endpoint "+ Add Edition" already uses — no second creation route',
 );
 
+// ── Edition module reuse (drawer refinement blueprint, Phase 4) — additive,
+//    unwired shells/DNA/binding-builder/editor. One consolidated module,
+//    never a second Overview/Inclusions module pair. ───────────────────────
+
+const editionDna = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/utils/moduleNotifications/tierEdition.ts',
+), 'utf8');
+check(
+  editionDna.includes('export const tierEditionOverviewModule'),
+  'a single tierEditionOverviewModule DNA rule exists for the Edition\'s one consolidated module',
+);
+
+const editionBindings = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/schema/bindings/tierEdition.tsx',
+), 'utf8');
+check(
+  (editionBindings.match(/dna:\s*tierEditionOverviewModule/g) ?? []).length === 2,
+  'both Edition Overview and Edition Inclusions shells share the SAME dna rule — never two independently resolved modules',
+);
+check(
+  !/tierEditionInclusionsShell[\s\S]*?editor:/.test(editionBindings),
+  'the Inclusions shell carries no editor key — it has no independent draft/save of its own',
+);
+check(
+  !editionBindings.includes("'discard-draft'") || !/tierEditionInclusionsShell[\s\S]*?discard-draft/.test(editionBindings),
+  'discard-draft is not duplicated onto the Inclusions card — Overview alone surfaces it for the one shared draft',
+);
+
+const editionEditor = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierEditionEditor.tsx',
+), 'utf8');
+check(
+  editionEditor.includes('DrawerGroupTabs') && editionEditor.includes("from '@/drawer-kit/ui/DrawerGroupTabs'"),
+  'the combined Edition editor reuses DrawerGroupTabs — the codebase\'s existing generic tab primitive — rather than a third bespoke tab bar',
+);
+check(
+  !editionEditor.includes("from '@/drawer-kit/DrawerTabs'"),
+  'the combined Edition editor never imports the platform-locked DrawerTabs (Overview/Connections only)',
+);
+check(
+  editionEditor.includes('session.extras?.initialTab'),
+  'the initial editor tab is read from session.extras (UI-only), never a second module key',
+);
+
+const editionDetailModel = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/tierEditionDetailModel.ts',
+), 'utf8');
+check(
+  editionDetailModel.includes('buildRateSheetCatalogue(svc, edition.rate_sheet_id'),
+  'the Edition\'s own Inclusions card resolves rows through the SAME shared buildRateSheetCatalogue resolver as the occupant\'s own Default Tier Inclusions and the Edition\'s own editor — not a fourth copy',
+);
+check(
+  (editionDetailModel.match(/onEdit\('overview'\)|onEdit\('inclusions'\)/g) ?? []).length === 2,
+  'both cards\' edit handlers route through the same onEdit(initialTab) — one shared session, two entry points',
+);
+
+const editionEntity = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/schema/entities/tierEdition.ts',
+), 'utf8');
+check(
+  editionEntity.includes("overview:   tierEditionOverviewShell") && editionEntity.includes('inclusions: tierEditionInclusionsShell'),
+  'TIER_EDITION_ENTITY registers exactly the two Edition shells, both already audited above',
+);
+
 console.log('Tier Edition admin contract checks passed.');

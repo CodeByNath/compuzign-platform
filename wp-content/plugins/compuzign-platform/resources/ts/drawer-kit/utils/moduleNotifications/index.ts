@@ -10,3 +10,4 @@ export * from './tier';
 export * from './promotion';
 export * from './category';
 export * from './packageFamily';
+export * from './tierEdition';
