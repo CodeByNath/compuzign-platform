@@ -10,7 +10,7 @@
 // through useTierDrawerController, all host concerns through the
 // EntityDrawerHostBridge.
 
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
@@ -45,6 +45,16 @@ import type { SelectedEditionLifecycleInputs } from './tierLifecycleMenu';
 export function TierDrawerContent(props: TierDrawerContentProps) {
   const { bridge } = props;
   const c = useTierDrawerController(props);
+
+  // Presentation wiring only (UI refinement — Edition secondary-nav sticky
+  // reveal): resolves the drawer's own scrolling body element once, from a
+  // ref on this screen's own root, so ChildChipStrip's hide-on-scroll
+  // behavior can listen to it without performing its own DOM-ancestor
+  // lookup. Recomputed only when the root element itself changes (e.g. the
+  // `key`-driven remount on occupant switch below); no effect/timing
+  // hazard since it derives straight from render state.
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const scrollContainer = rootEl?.closest<HTMLElement>('.cz-station-drawer__body') ?? null;
 
   // Single-footer lifecycle command model, Phase 2: useTierEditions is
   // called ONCE, here, rather than inside TierEditionDeclarationSwitcher —
@@ -446,6 +456,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
             svc={svc}
             selectedId={c.selectedDeclarationId}
             onSelect={c.setSelectedDeclarationId}
+            scrollContainer={scrollContainer}
           />
         )
       ),
@@ -542,7 +553,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   );
 
   return (
-    <div class="cz-req-detail" key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}>
+    <div class="cz-req-detail" key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId} ref={setRootEl}>
       {c.tierGroupView === 'accordion' ? (
         <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={trailing} />
       ) : (
