@@ -241,9 +241,21 @@ check(
   'Overview\'s own footer no longer carries an "+ Edition" action — creation lives only in Options\' own selector row',
 );
 
+// UI refinement, Phase 2: "+ Edition" relocated off Options' own selector
+// row into the drawer's top nav chrome (TierDrawerContent's own `trailing`
+// slot, beside the Tabs/Accordion view toggle), reachable only while
+// Options is the active group. The switcher itself no longer renders it.
 check(
-  panel.includes('onAddEdition') && panel.includes("'+ Edition'"),
-  'Options\' own selector row (TierEditionDeclarationSwitcher) carries the "+ Edition" creation trigger',
+  !panel.includes('onAddEdition') && !panel.includes("'+ Edition'"),
+  'TierEditionDeclarationSwitcher no longer carries the "+ Edition" creation trigger — it moved to the drawer\'s own nav chrome',
+);
+check(
+  drawerContent.includes("'+ Edition'") && drawerContent.includes('c.handleAddEdition') && drawerContent.includes('c.addingEdition'),
+  'TierDrawerContent\'s own trailing nav slot carries the "+ Edition" creation trigger, driven by the SAME handleAddEdition/addingEdition useTierDrawerController state',
+);
+check(
+  drawerContent.includes("c.tierTab === 'options'"),
+  '"+ Edition" is gated on Options being the active group — never shown while viewing Details/Connections/Support',
 );
 
 const tierDetailModelForCount = readFileSync(resolve(
@@ -368,6 +380,38 @@ check(
   tierLifecycleMenuSource.includes('export function buildTierLifecycleMenu'),
   'the scoped lifecycle-menu model is a pure, exported function — no rendering, no state of its own',
 );
+// UI refinement, Phase 1: Publish moved out of the lifecycle menu into its
+// own independent RIGHT split (`splitForward`, buildTierPublishMenu) — the
+// footer stays ONE pinned surface with two scope-aware controls, backward/
+// travel actions on the left and forward/publish actions on the right.
+check(
+  tierLifecycleMenuSource.includes('export function buildTierPublishMenu'),
+  'the scoped publish-menu model is a pure, exported function, independent of buildTierLifecycleMenu',
+);
+check(
+  tierDrawerFooter.includes('buildTierPublishMenu') && tierDrawerFooter.includes("placement: 'split-forward'"),
+  'TierDrawerFooter mounts the publish menu as the footer\'s own splitForward control, alongside the lifecycle split',
+);
+check(
+  tierDrawerFooter.includes('publishSplitOpen') && tierDrawerFooter.includes('setPublishSplitOpen'),
+  'the publish split carries its own independent open/closed state, never shared with the lifecycle split\'s splitOpen',
+);
+const entityActionFooterForSplitForward = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/EntityActionFooter.tsx',
+), 'utf8');
+check(
+  entityActionFooterForSplitForward.includes('splitForward?:'),
+  'EntityActionFooter\'s splitForward is optional and additive — every existing single-split caller is unaffected',
+);
+const supportedActionFooter = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/SupportedActionFooter.tsx',
+), 'utf8');
+check(
+  supportedActionFooter.includes("'split-forward'"),
+  'SupportedActionFooter\'s placement union includes split-forward, the second independent split slot',
+);
 check(
   drawerContent.includes('selectedEditionLifecycle') && drawerContent.includes('editionCtl.publish(') && drawerContent.includes('editionCtl.disable(')
     && drawerContent.includes('editionCtl.enable(') && drawerContent.includes('editionCtl.archive(') && drawerContent.includes('editionCtl.trash(') && drawerContent.includes('editionCtl.restore(')
@@ -475,6 +519,27 @@ check(
 check(
   !panel.includes('Showing the Default declaration'),
   'the old Default pointer note (already removed in Phase 1) has not resurfaced',
+);
+
+// ── Child-chip navigation strip (UI refinement, Phase 3) — the Edition
+//    selector reuses the shared drawer-kit primitive instead of hand-rolling
+//    Cost Builder's own public tool classes. ───────────────────────────────
+
+const childChipStrip = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/ui/ChildChipStrip.tsx',
+), 'utf8');
+check(
+  childChipStrip.includes('export function ChildChipStrip'),
+  'ChildChipStrip is a generic, exported drawer-kit primitive',
+);
+check(
+  panel.includes('ChildChipStrip') && panel.includes("from '@/drawer-kit/ui/ChildChipStrip'"),
+  'TierEditionDeclarationSwitcher renders its Edition selector through the shared ChildChipStrip primitive',
+);
+check(
+  !panel.includes('cz-cost-builder__tier-edition\'') && !panel.includes('cz-cost-builder__tier-edition${'),
+  'the switcher no longer hand-rolls Cost Builder\'s own public tool classes for its chip row',
 );
 
 const editionBindingsForCopy = readFileSync(resolve(

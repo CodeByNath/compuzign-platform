@@ -296,28 +296,36 @@ function clickButtonWithText(text, root = container) {
   return btn;
 }
 // Single-footer, scope-aware lifecycle command model: Publish is a scoped
-// menu row ("Publish Tier") now, not a separate flat button — the split's
-// visible label only opens/closes the menu (menuOnly). Same idempotent
+// menu row ("Publish Tier") on the footer's own RIGHT (publish) split now —
+// index 1 in DOM order, a second independent `.cz-footer-split` alongside
+// the LEFT (lifecycle) one at index 0 (UI refinement, Phase 1). Its visible
+// label only opens/closes ITS OWN menu (menuOnly). Same idempotent
 // open/close pattern tier-occupant-lifecycle-regression.mjs and
 // tier-edition-lifecycle-regression.mjs already use.
-async function ensureLifecycleMenuOpen() {
+function splitControls(footerDom = renderFooterDom()) {
+  return [...footerDom.querySelectorAll('.cz-footer-split')];
+}
+function publishSplit(footerDom = renderFooterDom()) {
+  return splitControls(footerDom)[1] ?? null;
+}
+async function ensurePublishMenuOpen() {
   let footerDom = renderFooterDom();
-  if (!footerDom.querySelector('.cz-footer-split__menu')) {
-    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  if (!publishSplit(footerDom)?.querySelector('.cz-footer-split__menu')) {
+    publishSplit(footerDom)?.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await sleep(20);
     footerDom = renderFooterDom();
   }
   return footerDom;
 }
-async function clickLifecycleMenuItem(label) {
-  const footerDom = await ensureLifecycleMenuOpen();
-  const item = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].find((b) => b.textContent.trim() === label);
+async function clickPublishMenuItem(label) {
+  const footerDom = await ensurePublishMenuOpen();
+  const item = [...(publishSplit(footerDom)?.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item') ?? [])].find((b) => b.textContent.trim() === label);
   item?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await sleep(20);
   return item;
 }
 async function clickPublish() {
-  await clickLifecycleMenuItem('Publish Tier');
+  await clickPublishMenuItem('Publish Tier');
   await sleep(20);
   clickButtonWithText('Publish', container); // the confirm dialog's own Publish button
 }
@@ -333,10 +341,16 @@ await clickPublish();
 await sleep(20);
 
 let footerDom = renderFooterDom();
-const splitBtnWhileSaving = footerDom.querySelector('.cz-footer-split__btn');
+// `saving` is one shared flag both splits' `busy` reads (TierDrawerFooter.tsx)
+// — a Publish in flight locks BOTH the lifecycle and publish controls, not
+// just the one that was clicked, so the check covers both.
+const lifecycleBtnWhileSaving = splitControls(footerDom)[0]?.querySelector('.cz-footer-split__btn');
+const publishBtnWhileSaving = publishSplit(footerDom)?.querySelector('.cz-footer-split__btn');
 const closeBtnWhileSaving = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close');
-check('the footer shows the busy "Saving…" label while the request is outstanding', splitBtnWhileSaving?.textContent.trim() === 'Saving…', splitBtnWhileSaving?.textContent);
-check('the split control is disabled while the request is outstanding — cannot even open the menu', splitBtnWhileSaving?.disabled === true);
+check('the RIGHT (publish) split shows the busy "Saving…" label while the request is outstanding', publishBtnWhileSaving?.textContent.trim() === 'Saving…', publishBtnWhileSaving?.textContent);
+check('the LEFT (lifecycle) split also locks into "Saving…" — one shared saving flag, both controls', lifecycleBtnWhileSaving?.textContent.trim() === 'Saving…', lifecycleBtnWhileSaving?.textContent);
+check('the publish split is disabled while the request is outstanding — cannot even open its menu', publishBtnWhileSaving?.disabled === true);
+check('the lifecycle split is disabled too', lifecycleBtnWhileSaving?.disabled === true);
 check('Close is disabled while the request is outstanding', closeBtnWhileSaving?.disabled === true);
 check('exactly one settle request was made so far', settleCalls === 1, settleCalls);
 
@@ -345,15 +359,14 @@ fireRequestTimeout();
 await waitToSettle();
 
 footerDom = renderFooterDom();
-const splitBtnAfterTimeout = footerDom.querySelector('.cz-footer-split__btn');
+const publishBtnAfterTimeout = publishSplit(footerDom)?.querySelector('.cz-footer-split__btn');
 const closeBtnAfterTimeout = [...footerDom.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close');
-check('the busy "Saving…" label is gone once the timeout fires', splitBtnAfterTimeout?.textContent.trim() !== 'Saving…', splitBtnAfterTimeout?.textContent);
-check('the split control is interactive again (not busy/disabled by saving)', splitBtnAfterTimeout?.disabled === false);
+check('the busy "Saving…" label is gone once the timeout fires', publishBtnAfterTimeout?.textContent.trim() !== 'Saving…', publishBtnAfterTimeout?.textContent);
+check('the publish split is interactive again (not busy/disabled by saving)', publishBtnAfterTimeout?.disabled === false);
 check('Close is interactive again', closeBtnAfterTimeout?.disabled === false);
-splitBtnAfterTimeout.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-await sleep(20);
-const menuLabelsAfterTimeout = [...renderFooterDom().querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].map((b) => b.textContent.trim());
-renderFooterDom().querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+const menuDomAfterTimeout = await ensurePublishMenuOpen();
+const menuLabelsAfterTimeout = [...(publishSplit(menuDomAfterTimeout)?.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item') ?? [])].map((b) => b.textContent.trim());
+publishSplit(renderFooterDom())?.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await sleep(20);
 check('Publish Tier is still offered — the never-published occupant still has content to publish', menuLabelsAfterTimeout.includes('Publish Tier'), menuLabelsAfterTimeout);
 

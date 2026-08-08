@@ -11,8 +11,7 @@ Annual. Not another Tier, Add-on, or `TIER_MODULES` entry: an independently
 addressed, independently lifecycled child record inside
 `current_occupant.tier_editions[]`, carrying its own `CZTE` and [shared
 `StationLifecycle`](../architecture/StationDrawerLifecycleContract-v1.md)
-state. The occupant remains the one public Tier selected regardless of
-Default/Edition switching.
+state. The occupant is always the one public Tier.
 
 Each Edition carries `id`, `edition_platform_id`, `title`,
 `admin_description`, lifecycle fields, one consolidated `overview` module,
@@ -30,8 +29,8 @@ always an alternate.
 
 Overview under Details carries one small derived read field, "Editions" —
 `1` plus however many rows `tier_editions[]` holds, never persisted
-separately. Creation happens only through Options' "+ Edition" trigger (see
-Admin editing) — Overview collects no title/price/lifecycle action.
+separately. Creation happens only through "+ Edition" (see Admin editing) —
+Overview collects no title/price/lifecycle action.
 
 ## Identity
 
@@ -55,23 +54,21 @@ invisible to it.
 
 ## Edition bin (Phase 6)
 
-`current_occupant.tier_edition_bin[]` is a narrow, occupant-owned bin
-mirroring `occupant_bin`'s archive/restore/trash/delete shape one level
-deeper, but **decoupled** from `/status` above: moving requires the Edition
-already `archived`/`trashed` and never itself changes `platform_status`. A
-bin entry is narrow — `bin_id`/`edition` (full row, `CZTE` included)/
-`status`/`displaced_at` only, none of `occupant_bin`'s origin/retarget/
-cascade metadata.
+`current_occupant.tier_edition_bin[]` mirrors `occupant_bin`'s
+archive/restore/trash/delete shape one level deeper, but is **decoupled**
+from `/status`: moving requires the Edition already `archived`/`trashed` and
+never changes `platform_status`. A bin entry holds only `bin_id`/`edition`
+(full row, with `CZTE`)/`status`/`displaced_at` — none of `occupant_bin`'s
+origin/retarget/cascade metadata.
 
 `tier_editions[]` numbering is array-derived; moving out compacts it, and
 restore always appends to the end (no swap/retarget), reusing
 `restoreTierEdition()` — lands `disabled`, never `active`.
 `trashTierEditionBinEntry()`/`deleteTierEditionBinEntry()` mirror
-`trashBinnedOccupant()`/`deleteBinnedOccupant()`. Cascade (above) never
-reaches a binned Edition, so it stays binned through a parent restore.
+`trashBinnedOccupant()`/`deleteBinnedOccupant()`. Cascade never reaches a
+binned Edition — it stays binned through a parent restore.
 `PackageRepository`'s identity lookups and `upsertOccupant()`'s
-verbatim-preservation both cover `tier_edition_bin[]` alongside
-`tier_editions[]`.
+verbatim-preservation cover `tier_edition_bin[]` too.
 
 ## Public projection and Cost Builder
 
@@ -95,21 +92,25 @@ revert, status, restore, guarded delete,
 Edition-scoped state including `tier_edition_bin[]`. The Included-Features
 module is titled **Default Tier Inclusions**.
 `TierEditionDeclarationSwitcher.tsx` is the Options group's content, gated
-on a real occupant: a `[Edition 2] [Edition 3]` tab strip, the "+ Edition"
-trigger, and the Edition bin UI. Default is never a row of this strip.
+on a real occupant: a `[Edition 2] [Edition 3]` child-chip strip
+(`ChildChipStrip`) and the Edition bin UI. Default is never a row of this
+strip. "+ Edition" lives in the drawer's own nav chrome, reachable only
+while Options is active.
 
 The selected Edition's read surface is two module cards
-(`TIER_EDITION_ENTITY`'s `overview`/`inclusions` shells, sharing one
-`ModuleState`). Either card's Edit opens one shared `TierEditionEditor.tsx`:
-two tabs over the SAME draft, one Save, one Cancel; the tab is local state.
+(`TIER_EDITION_ENTITY`'s `overview`/`inclusions` shells, one `ModuleState`).
+Either card's Edit opens one shared `TierEditionEditor.tsx`: two tabs over
+the SAME draft, one Save, one Cancel.
 
 The selected id lives in `useTierDrawerController.ts`, not local state,
 since `TierDrawerContent.tsx` unmounts its child tree while
 `!pkg.detailLoaded`, which would otherwise reset the selection.
 
-Lifecycle actions live in the ONE pinned `TierDrawerFooter`: `buildTierLifecycleMenu`
-scopes the split's menu to the selected Edition first, then the Tier — the
-label only opens the menu (`menuOnly`); every transition is a scoped row.
+Lifecycle actions live in the ONE pinned `TierDrawerFooter`'s two
+independent splits: LEFT (`buildTierLifecycleMenu` — Disable/Enable/Archive/
+Trash/Restore/Move to Bin), RIGHT (`buildTierPublishMenu` — Publish
+Edition/Publish Tier), both scoping Edition before Tier. Each label only
+opens its own menu (`menuOnly`) — every transition is a scoped row.
 
 ## Authoritative implementation
 

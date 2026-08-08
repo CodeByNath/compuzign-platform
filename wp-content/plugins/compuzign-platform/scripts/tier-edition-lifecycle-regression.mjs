@@ -412,7 +412,7 @@ function setInputValue(selector, value) {
 // exists here — Default's own terms live in Default Tier Inclusions under
 // Details, never as a row of this strip.
 function declarationTab(text) {
-  return [...container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]')].find((b) => b.textContent.trim() === text);
+  return [...container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]')].find((b) => b.textContent.trim() === text);
 }
 // The individual-tier drawer's own four-group nav (Details/Options/
 // Connections/Support) — Editions live under Options, Overview's own
@@ -440,43 +440,62 @@ function looseStatusTextAbsent() {
 // actions now live in the ONE pinned TierDrawerFooter (registered through
 // the bridge, read via footerContainer/renderFooterDom — same technique
 // tier-occupant-lifecycle-regression.mjs uses), not an inline per-Edition
-// footer inside `container`. The split's visible label and its chevron both
-// only open/close the menu now (menuOnly) — every real transition is an
-// explicit `.cz-footer-split__item` row (buildTierLifecycleMenu). These
-// helpers check actual DOM state before toggling, so they're correct
-// regardless of whether a mutation's refetch leaves the menu open or closed.
-function splitLabel(footerDom = renderFooterDom()) {
-  return footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
+// footer inside `container`. Two independent split controls share that one
+// footer (UI refinement, Phase 1): LEFT (index 0) carries backward/travel
+// actions (buildTierLifecycleMenu — Disable/Enable/Archive/Trash/Restore/
+// Move to Bin), RIGHT (index 1, `splitForward`) carries forward/publish
+// actions (buildTierPublishMenu — Publish Edition / Publish Tier). Neither
+// visible label (nor its own chevron) ever mutates — every real transition
+// is an explicit `.cz-footer-split__item` row inside the relevant control's
+// own menu. These helpers check actual DOM state before toggling, so
+// they're correct regardless of whether a mutation's refetch leaves a menu
+// open or closed.
+function splitControls(footerDom = renderFooterDom()) {
+  return [...footerDom.querySelectorAll('.cz-footer-split')];
 }
-async function ensureLifecycleMenuOpen() {
+function splitLabel(footerDom = renderFooterDom()) {
+  return splitControls(footerDom)[0]?.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
+}
+function publishSplitLabel(footerDom = renderFooterDom()) {
+  return splitControls(footerDom)[1]?.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
+}
+async function ensureMenuOpen(index) {
   let footerDom = renderFooterDom();
-  if (!footerDom.querySelector('.cz-footer-split__menu')) {
-    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  if (!splitControls(footerDom)[index]?.querySelector('.cz-footer-split__menu')) {
+    splitControls(footerDom)[index]?.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await sleep(20);
     footerDom = renderFooterDom();
   }
   return footerDom;
 }
-async function ensureLifecycleMenuClosed() {
+async function ensureMenuClosed(index) {
   const footerDom = renderFooterDom();
-  if (footerDom.querySelector('.cz-footer-split__menu')) {
-    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  if (splitControls(footerDom)[index]?.querySelector('.cz-footer-split__menu')) {
+    splitControls(footerDom)[index]?.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await sleep(20);
   }
 }
-async function lifecycleMenuLabels() {
-  const footerDom = await ensureLifecycleMenuOpen();
-  const labels = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].map((b) => b.textContent.trim());
-  await ensureLifecycleMenuClosed();
+async function menuLabelsAt(index) {
+  const footerDom = await ensureMenuOpen(index);
+  const labels = [...(splitControls(footerDom)[index]?.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item') ?? [])].map((b) => b.textContent.trim());
+  await ensureMenuClosed(index);
   return labels;
 }
-async function clickLifecycleMenuItem(label) {
-  const footerDom = await ensureLifecycleMenuOpen();
-  const item = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].find((b) => b.textContent.trim() === label);
+async function clickMenuItemAt(index, label) {
+  const footerDom = await ensureMenuOpen(index);
+  const item = [...(splitControls(footerDom)[index]?.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item') ?? [])].find((b) => b.textContent.trim() === label);
   item?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await sleep(20);
   return item;
 }
+const ensureLifecycleMenuOpen   = () => ensureMenuOpen(0);
+const ensureLifecycleMenuClosed = () => ensureMenuClosed(0);
+const lifecycleMenuLabels       = () => menuLabelsAt(0);
+const clickLifecycleMenuItem    = (label) => clickMenuItemAt(0, label);
+const ensurePublishMenuOpen     = () => ensureMenuOpen(1);
+const ensurePublishMenuClosed   = () => ensureMenuClosed(1);
+const publishMenuLabels         = () => menuLabelsAt(1);
+const clickPublishMenuItem      = (label) => clickMenuItemAt(1, label);
 // Correction plan invariant: the module pill and the pinned footer's own
 // top-level action label must never disagree about whether the Edition is
 // currently disabled — Disabled must offer Enable, and only Disabled/Active
@@ -564,11 +583,13 @@ await waitQuiet();
 console.log('1) A freshly published occupant starts with only its own Default declaration');
 check('Overview\'s own Editions count reads 1 (the occupant\'s own Default only)', overviewEditionsCountText() === '1', overviewEditionsCountText());
 
-console.log('\n1a) With no Edition selected, the pinned footer behaves exactly like the normal Tier-only footer — no Edition-scoped rows at all');
+console.log('\n1a) With no Edition selected, both pinned splits behave exactly like the normal Tier-only footer — no Edition-scoped rows at all');
 let menuLabels = await lifecycleMenuLabels();
-check('the split label follows the Tier\'s own state (published, enabled) — Disable', splitLabel() === 'Disable', splitLabel());
-check('no Edition-scoped row appears anywhere in the menu', menuLabels.every((l) => !l.includes('Edition')), menuLabels);
-check('the Tier\'s own rows are present — Publish Tier (has content) and Archive Tier', menuLabels.includes('Publish Tier') && menuLabels.includes('Archive Tier'), menuLabels);
+let pubLabels = await publishMenuLabels();
+check('the lifecycle split label follows the Tier\'s own state (published, enabled) — Disable', splitLabel() === 'Disable', splitLabel());
+check('no Edition-scoped row appears anywhere in either menu', menuLabels.every((l) => !l.includes('Edition')) && pubLabels.every((l) => !l.includes('Edition')), [menuLabels, pubLabels]);
+check('the lifecycle menu carries Archive Tier — no Publish row leaks into it', menuLabels.includes('Archive Tier') && menuLabels.every((l) => !l.includes('Publish')), menuLabels);
+check('the publish menu carries Publish Tier (has content)', pubLabels.includes('Publish Tier'), pubLabels);
 
 console.log('\n1b) Safety invariant: clicking the visible split control itself never mutates — it only opens/closes the menu');
 const statusCallsBeforeSafety = statusCalls;
@@ -582,9 +603,18 @@ footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.M
 await sleep(20);
 check('the chevron closes the same menu the label opened, also without mutating', renderFooterDom().querySelector('.cz-footer-split__menu') === null && statusCalls === statusCallsBeforeSafety);
 
+console.log('\n1b-publish) The same safety invariant on the RIGHT (publish) split — its own visible label never settles either');
+const settleCallsBeforeSafety = settleCalls;
+footerDom = renderFooterDom();
+splitControls(footerDom)[1]?.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+footerDom = renderFooterDom();
+check('clicking the visible Publish label opened its own menu without settling', splitControls(footerDom)[1]?.querySelector('.cz-footer-split__menu') != null && settleCalls === settleCallsBeforeSafety, `settleCalls=${settleCalls}`);
+await ensurePublishMenuClosed();
+
 selectGroup('Options');
 await sleep(20);
-check('no additional-declarations tab strip renders yet — this Tier behaves exactly as before Editions existed', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
+check('no additional-declarations tab strip renders yet — this Tier behaves exactly as before Editions existed', container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length === 0);
 check('Options offers "+ Edition" — the single place that creates one', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === '+ Edition'));
 check('a proper empty state prompts "+ Edition" — never a Default fallback', container.textContent.includes('No additional Editions yet'));
 
@@ -609,7 +639,8 @@ console.log('  2a) Edition context changes the menu: the split label follows the
 // the top verb until the Edition has genuinely been live at least once.
 check('the split label follows the selected Edition\'s never-published fallback — Move to Trash', splitLabel() === 'Move to Trash', splitLabel());
 menuLabels = await lifecycleMenuLabels();
-check('no ghost "Publish Edition" row yet — this Edition has no price/Rate Sheet, so it is not actually publishable', menuLabels.every((l) => !l.includes('Publish Edition')), menuLabels);
+pubLabels = await publishMenuLabels();
+check('no ghost "Publish Edition" row yet in the publish menu — this Edition has no price/Rate Sheet, so it is not actually publishable', pubLabels.every((l) => !l.includes('Publish Edition')), pubLabels);
 check('the Tier\'s own valid actions are never hidden merely because the Edition offers nothing of its own', menuLabels.includes('Disable Tier') && menuLabels.includes('Archive Tier'), menuLabels);
 
 selectGroup('Details');
@@ -686,9 +717,9 @@ check(
 console.log('\n4) Publish "Annual Plan" — activates and assigns CZTE exactly once');
 selectDeclarationTab('Annual Plan');
 await sleep(20);
-menuLabels = await lifecycleMenuLabels();
-check('the menu offers "Publish Edition — Annual Plan" as an explicit scoped row', menuLabels.includes('Publish Edition — Annual Plan'), menuLabels);
-await clickLifecycleMenuItem('Publish Edition — Annual Plan');
+pubLabels = await publishMenuLabels();
+check('the publish menu offers "Publish Edition — Annual Plan" as an explicit scoped row', pubLabels.includes('Publish Edition — Annual Plan'), pubLabels);
+await clickPublishMenuItem('Publish Edition — Annual Plan');
 await waitQuiet();
 check('the status endpoint was called', statusCalls === 1, statusCalls);
 check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
@@ -715,7 +746,8 @@ check('Disable is offered again once re-enabled', splitLabel() === 'Disable', sp
 check('the module pill and the footer action agree after Enable', pillAndActionAgree());
 
 console.log('\n7) Republish — reaches Active again; the SAME CZTE is reused, never re-reserved');
-await clickLifecycleMenuItem('Publish Edition — Annual Plan');
+check('the publish menu still offers Publish Edition after Enable — the republish capability', (await publishMenuLabels()).includes('Publish Edition — Annual Plan'), await publishMenuLabels());
+await clickPublishMenuItem('Publish Edition — Annual Plan');
 await waitQuiet();
 check('the Edition pill reads Active again', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('republish never mints a second CZTE', czteMints === 1, czteMints);
@@ -760,7 +792,7 @@ await sleep(20);
 check('Overview\'s own Editions count dropped back to 1 — the derived count, not a separately stored one', overviewEditionsCountText() === '1', overviewEditionsCountText());
 selectGroup('Options');
 await sleep(20);
-check('the tab strip is gone again — no editions remain', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
+check('the tab strip is gone again — no editions remain', container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length === 0);
 check('the empty state is back — never a Default fallback', container.textContent.includes('No additional Editions yet'));
 
 console.log('\n9) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
@@ -779,7 +811,7 @@ clickButtonWithText('Save');
 await waitQuiet();
 selectDeclarationTab('Monthly Plan');
 await sleep(20);
-await clickLifecycleMenuItem('Publish Edition — Monthly Plan');
+await clickPublishMenuItem('Publish Edition — Monthly Plan');
 await waitQuiet();
 check('Monthly Plan reads Active', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);
@@ -797,17 +829,28 @@ check('the module pill and the footer action agree after Restore', pillAndAction
 check('no loose lifecycle-status text renders anywhere in this flow', looseStatusTextAbsent());
 check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
-console.log('\n11) Ordering invariant: with an Edition selected, its own scoped rows precede every Tier row, across the full menu');
+console.log('\n11) Ordering invariant: with an Edition selected, its own scoped rows precede every Tier row, in EACH of the two independent splits');
 menuLabels = await lifecycleMenuLabels();
+pubLabels = await publishMenuLabels();
 const lastEditionIdx = menuLabels.reduce((acc, l, i) => (l.includes('Edition') ? i : acc), -1);
 const firstTierIdx = menuLabels.findIndex((l) => l.includes('Tier'));
-check('every Edition-scoped row appears before every Tier-scoped row', firstTierIdx === -1 || lastEditionIdx < firstTierIdx, menuLabels);
+check('lifecycle menu: every Edition-scoped row appears before every Tier-scoped row', firstTierIdx === -1 || lastEditionIdx < firstTierIdx, menuLabels);
+const lastEditionIdxPub = pubLabels.reduce((acc, l, i) => (l.includes('Edition') ? i : acc), -1);
+const firstTierIdxPub = pubLabels.findIndex((l) => l.includes('Tier'));
+check('publish menu: Publish Edition precedes Publish Tier, the same scope priority as the lifecycle menu', firstTierIdxPub === -1 || lastEditionIdxPub < firstTierIdxPub, pubLabels);
+check('the lifecycle menu never carries a Publish row — it lives only in the publish menu', menuLabels.every((l) => !l.includes('Publish')), menuLabels);
+check('the publish menu never carries a lifecycle verb (Disable/Enable/Archive/Trash/Restore/Bin)', pubLabels.every((l) => !/\b(Disable|Enable|Archive|Trash|Restore|Bin)\b/.test(l)), pubLabels);
 
-console.log('\n12) No fabricated "All" action ever renders in the real mounted footer');
+console.log('\n12) No fabricated "All" action ever renders in the real mounted footer, in either split');
 check(
-  'no Publish All / Enable All / Disable All / Archive All / Restore All / Trash All row exists anywhere in the current menu',
+  'no Publish All / Enable All / Disable All / Archive All / Restore All / Trash All row exists anywhere in the lifecycle menu',
   menuLabels.every((l) => !/\ball\b/i.test(l)),
   menuLabels,
+);
+check(
+  'no fabricated "All" row exists anywhere in the publish menu either',
+  pubLabels.every((l) => !/\ball\b/i.test(l)),
+  pubLabels,
 );
 
 console.log('');

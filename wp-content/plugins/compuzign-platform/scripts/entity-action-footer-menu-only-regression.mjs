@@ -131,6 +131,57 @@ render(h(EntityActionFooter, {
 await click(splitBtn());
 check('omitting menuOnly still fires onSelect immediately on the visible label — no behavior change for existing consumers', legacySelectCalls === 1 && legacyToggleCalls === 0, `onSelect=${legacySelectCalls} onToggle=${legacyToggleCalls}`);
 
+console.log('\n3) split + splitForward together — two independent menu-only controls (UI refinement, Phase 1), each safe on its own');
+function splitControls() { return [...container.querySelectorAll('.cz-footer-split')]; }
+function btnAt(i) { return splitControls()[i]?.querySelector('.cz-footer-split__btn'); }
+function chevronAt(i) { return splitControls()[i]?.querySelector('.cz-footer-split__chevron'); }
+function menuOpenAt(i) { return splitControls()[i]?.querySelector('.cz-footer-split__menu') !== null; }
+function itemAt(i, label) {
+  return [...(splitControls()[i]?.querySelectorAll('.cz-footer-split__item') ?? [])].find((b) => b.textContent.trim() === label);
+}
+
+let lifecycleSelectCalls = 0, lifecycleOpen = false, disableTierCalls = 0;
+let publishSelectCalls = 0, publishOpen = false, publishTierCalls = 0;
+
+function TwoSplitHarness() {
+  const [, force] = useState(0);
+  return h(EntityActionFooter, {
+    close: { id: 'close', label: 'Close', onSelect: () => {} },
+    split: {
+      id: 'lifecycle', label: 'Disable', tone: 'danger', open: lifecycleOpen,
+      onSelect: () => { lifecycleSelectCalls += 1; },
+      onToggle: () => { lifecycleOpen = !lifecycleOpen; force((n) => n + 1); },
+      menuOnly: true,
+      overflow: [{ id: 'disable-tier', label: 'Disable Tier', onSelect: () => { disableTierCalls += 1; } }],
+    },
+    splitForward: {
+      id: 'publish', label: 'Publish', tone: 'secondary', open: publishOpen,
+      onSelect: () => { publishSelectCalls += 1; },
+      onToggle: () => { publishOpen = !publishOpen; force((n) => n + 1); },
+      menuOnly: true,
+      overflow: [{ id: 'publish-tier', label: 'Publish Tier', onSelect: () => { publishTierCalls += 1; } }],
+    },
+  });
+}
+render(h(TwoSplitHarness), container);
+
+check('two split controls are mounted (left lifecycle, right publish)', splitControls().length === 2, splitControls().length);
+check('left split reads Disable, right split reads Publish', btnAt(0)?.textContent.trim() === 'Disable' && btnAt(1)?.textContent.trim() === 'Publish', `${btnAt(0)?.textContent} / ${btnAt(1)?.textContent}`);
+
+await click(btnAt(0));
+check('clicking the LEFT (lifecycle) label never mutates, only opens its own menu', lifecycleSelectCalls === 0 && menuOpenAt(0), `selectCalls=${lifecycleSelectCalls} open=${menuOpenAt(0)}`);
+check('the RIGHT (publish) menu is unaffected by the left one opening', !menuOpenAt(1));
+
+await click(btnAt(1));
+check('clicking the RIGHT (publish) label never mutates, only opens its own menu', publishSelectCalls === 0 && menuOpenAt(1), `selectCalls=${publishSelectCalls} open=${menuOpenAt(1)}`);
+check('the LEFT (lifecycle) menu stays open independently — the two controls do not share state', menuOpenAt(0));
+
+await click(itemAt(1, 'Publish Tier'));
+check('choosing a row in the RIGHT menu fires only its own handler', publishTierCalls === 1 && publishSelectCalls === 0 && disableTierCalls === 0, `publishTierCalls=${publishTierCalls} publishSelectCalls=${publishSelectCalls} disableTierCalls=${disableTierCalls}`);
+
+await click(chevronAt(0));
+check('the LEFT chevron still opens/closes only the left menu', !menuOpenAt(0));
+
 console.log('');
 if (failures.length > 0) {
   console.error(`REGRESSION FAILED — ${failures.length} check(s) did not hold:`);

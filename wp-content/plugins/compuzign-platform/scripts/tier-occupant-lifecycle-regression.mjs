@@ -365,48 +365,67 @@ function editButtonFor(moduleTitle) {
   const mod = findModule(moduleTitle);
   return [...(mod?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim() === 'Edit');
 }
-// Single-footer, scope-aware lifecycle command model: the split's visible
-// label (and the chevron) only ever open/close the menu now — neither
-// mutates. Every real transition is an explicit `.cz-footer-split__item`
-// row (buildTierLifecycleMenu). These helpers check actual DOM state before
-// toggling (rather than blindly clicking), so they're correct regardless of
-// whether a mutation's refetch happens to leave the menu open or closed.
-function splitLabel(footerDom = renderFooterDom()) {
-  return footerDom.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
+// Single-footer, scope-aware lifecycle command model: two independent
+// split controls now share the one pinned footer (UI refinement, Phase 1) —
+// LEFT (index 0) carries backward/travel actions (buildTierLifecycleMenu),
+// RIGHT (index 1, `splitForward`) carries forward/publish actions
+// (buildTierPublishMenu). Neither visible label (nor its own chevron) ever
+// mutates — every real transition is an explicit `.cz-footer-split__item`
+// row inside the relevant control's own menu. These helpers check actual
+// DOM state before toggling (rather than blindly clicking), so they're
+// correct regardless of whether a mutation's refetch happens to leave a
+// menu open or closed.
+function splitControls(footerDom = renderFooterDom()) {
+  return [...footerDom.querySelectorAll('.cz-footer-split')];
 }
-async function ensureLifecycleMenuOpen() {
+function splitLabel(footerDom = renderFooterDom()) {
+  return splitControls(footerDom)[0]?.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
+}
+function publishSplitLabel(footerDom = renderFooterDom()) {
+  return splitControls(footerDom)[1]?.querySelector('.cz-footer-split__btn')?.textContent.trim() ?? null;
+}
+async function ensureMenuOpen(index) {
   let footerDom = renderFooterDom();
-  if (!footerDom.querySelector('.cz-footer-split__menu')) {
-    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  if (!splitControls(footerDom)[index]?.querySelector('.cz-footer-split__menu')) {
+    splitControls(footerDom)[index]?.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await sleep(20);
     footerDom = renderFooterDom();
   }
   return footerDom;
 }
-async function ensureLifecycleMenuClosed() {
+async function ensureMenuClosed(index) {
   const footerDom = renderFooterDom();
-  if (footerDom.querySelector('.cz-footer-split__menu')) {
-    footerDom.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  if (splitControls(footerDom)[index]?.querySelector('.cz-footer-split__menu')) {
+    splitControls(footerDom)[index]?.querySelector('.cz-footer-split__chevron')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await sleep(20);
   }
 }
-async function lifecycleMenuLabels() {
-  const footerDom = await ensureLifecycleMenuOpen();
-  const labels = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].map((b) => b.textContent.trim());
-  await ensureLifecycleMenuClosed();
+async function menuLabelsAt(index) {
+  const footerDom = await ensureMenuOpen(index);
+  const labels = [...(splitControls(footerDom)[index]?.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item') ?? [])].map((b) => b.textContent.trim());
+  await ensureMenuClosed(index);
   return labels;
 }
-async function clickLifecycleMenuItem(label) {
-  const footerDom = await ensureLifecycleMenuOpen();
-  const item = [...footerDom.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item')].find((b) => b.textContent.trim() === label);
+async function clickMenuItemAt(index, label) {
+  const footerDom = await ensureMenuOpen(index);
+  const item = [...(splitControls(footerDom)[index]?.querySelectorAll('.cz-footer-split__menu .cz-footer-split__item') ?? [])].find((b) => b.textContent.trim() === label);
   item?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await sleep(20);
   return item;
 }
-// Publish Tier is a scoped menu row now, not a separate flat button; its
-// own onSelect still opens the SAME confirm dialog as before (unchanged).
+const ensureLifecycleMenuOpen   = () => ensureMenuOpen(0);
+const ensureLifecycleMenuClosed = () => ensureMenuClosed(0);
+const lifecycleMenuLabels       = () => menuLabelsAt(0);
+const clickLifecycleMenuItem    = (label) => clickMenuItemAt(0, label);
+const ensurePublishMenuOpen     = () => ensureMenuOpen(1);
+const ensurePublishMenuClosed   = () => ensureMenuClosed(1);
+const publishMenuLabels         = () => menuLabelsAt(1);
+const clickPublishMenuItem      = (label) => clickMenuItemAt(1, label);
+// Publish Tier is a scoped menu row on the RIGHT (publish) split, not the
+// lifecycle split and not a separate flat button; its own onSelect still
+// opens the SAME confirm dialog as before (unchanged).
 async function clickPublish() {
-  await clickLifecycleMenuItem('Publish Tier');
+  await clickPublishMenuItem('Publish Tier');
   await sleep(20);
   clickButtonWithText('Publish', container);
 }
@@ -475,6 +494,15 @@ async function runScenario(tierId, label) {
   await sleep(20);
   check('the chevron opens the same menu the label does, also without mutating', renderFooterDom().querySelector('.cz-footer-split__menu') !== null && settleCalls === chevronSettleBefore && enabledCalls === chevronEnabledBefore);
   await ensureLifecycleMenuClosed();
+
+  console.log('\n1a-publish) Same safety invariant on the RIGHT (publish) split — clicking its own visible label never settles either');
+  const publishSettleCallsBefore = settleCalls;
+  footerDom = renderFooterDom();
+  splitControls(footerDom)[1]?.querySelector('.cz-footer-split__btn')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  footerDom = renderFooterDom();
+  check('clicking the visible Publish label opened its own menu without settling', splitControls(footerDom)[1]?.querySelector('.cz-footer-split__menu') != null && settleCalls === publishSettleCallsBefore, `settleCalls=${settleCalls}`);
+  await ensurePublishMenuClosed();
 
   console.log('\n1b) Switching Details → Support → Details is presentation-only — no endpoint call, no pill change');
   const settleCallsBeforeNav = settleCalls;
@@ -614,7 +642,7 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   await waitToSettle();
   check('no occupant exists before any Save', tiers[tierId].settled === null);
   let footerDom = renderFooterDom();
-  check('no Publish Tier row is offered before any content exists', !(await lifecycleMenuLabels()).includes('Publish Tier'));
+  check('no Publish Tier row is offered before any content exists', !(await publishMenuLabels()).includes('Publish Tier'));
   check('tier-actions always renders the mature lifecycle split', splitLabel(footerDom) === 'Move to Trash');
 
   console.log('\n2) First Overview Save — mints a pending occupant, settles nothing, assigns no identity');
@@ -646,7 +674,7 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
 
   console.log('\n3) Same mounted drawer now exposes the existing occupant lifecycle — before any Publish');
   footerDom = renderFooterDom();
-  check('Publish Tier is now offered — the created occupant carries pending content', (await lifecycleMenuLabels()).includes('Publish Tier'));
+  check('Publish Tier is now offered — the created occupant carries pending content', (await publishMenuLabels()).includes('Publish Tier'));
   check('Move to Trash is visible for the persisted never-published occupant', splitLabel(footerDom) === 'Move to Trash');
 
   console.log('\n4) Publish — settles the draft, activates the SAME occupant_id, assigns identity');

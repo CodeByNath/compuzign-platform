@@ -32,7 +32,7 @@ assert.throws(
     { id: 'publish', label: 'Publish', placement: 'primary', onSelect: noop },
     { id: 'enable', label: 'Enable', placement: 'primary', onSelect: noop },
   ]),
-  /at most one primary/,
+  /at most one of each/,
 );
 
 assert.throws(
@@ -40,6 +40,32 @@ assert.throws(
     { id: 'publish', label: 'Publish', placement: 'primary', onSelect: noop },
   ]),
   /exactly one Close/,
+);
+
+// splitForward (UI refinement, Phase 1) — a second, independent split for
+// the footer's opposite side (e.g. the Tier drawer's own forward/publish
+// split, next to its backward/travel `split`). Additive: every caller that
+// omits it, including every non-Tier consumer, keeps resolving splitForward
+// to null and is otherwise unaffected.
+const withSplitForward = resolveSupportedFooterActions([
+  { id: 'delete', label: 'Delete', placement: 'split', tone: 'danger', onSelect: noop },
+  { id: 'publish', label: 'Publish', placement: 'split-forward', tone: 'secondary', onSelect: noop, menuOnly: true },
+  { id: 'close', label: 'Close', placement: 'close', onSelect: noop },
+]);
+assert.equal(withSplitForward.split?.id, 'delete');
+assert.equal(withSplitForward.splitForward?.id, 'publish');
+assert.equal(withSplitForward.splitForward?.tone, 'secondary');
+assert.equal(withSplitForward.splitForward?.menuOnly, true);
+
+assert.equal(resolved.splitForward, null, 'omitting split-forward resolves to null — every existing caller is unaffected');
+
+assert.throws(
+  () => resolveSupportedFooterActions([
+    { id: 'close', label: 'Close', placement: 'close', onSelect: noop },
+    { id: 'publish', label: 'Publish', placement: 'split-forward', onSelect: noop },
+    { id: 'archive', label: 'Archive', placement: 'split-forward', onSelect: noop },
+  ]),
+  /at most one of each/,
 );
 
 console.log('Supported action footer contract: OK');
