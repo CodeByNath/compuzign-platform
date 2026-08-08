@@ -79,16 +79,7 @@ export function TierEditionDeclarationSwitcher({
 
       {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
 
-      <div class="cz-cost-builder__tier-editions" role="tablist" aria-label="Declarations">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={selectedId === null}
-          class={`cz-cost-builder__tier-edition${selectedId === null ? ' is-active' : ''}`}
-          onClick={() => { onSelect(null); setEditing(false); setDraft(null); }}
-        >
-          Default
-        </button>
+      <div class="cz-cost-builder__tier-editions" role="tablist" aria-label="Editions">
         {ctl.editions.map((edition) => (
           <button
             key={edition.id}
@@ -102,12 +93,6 @@ export function TierEditionDeclarationSwitcher({
           </button>
         ))}
       </div>
-
-      {selectedId === null && (
-        <p class="drawerModule__value" style="margin-top: var(--cz-space-2)">
-          Showing the Default declaration — edit it in Inclusions &amp; Editions above.
-        </p>
-      )}
 
       {/* Phase 6 — minimal functional access to the occupant's own Edition
           bin: identify, restore, and trash/delete where lifecycle rules

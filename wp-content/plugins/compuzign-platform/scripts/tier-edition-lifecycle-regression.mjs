@@ -3,10 +3,11 @@
 //
 // Mounts the REAL TierDrawerContent composition (esbuild + happy-dom +
 // Preact render, same technique as tier-occupant-lifecycle-regression.mjs)
-// against an already-published occupant, and drives the SAME Default Tier
-// Inclusions module (Overview's own "+ Edition" registration control, then
-// the [Default] [Edition …] tab strip / TierEditionDeclarationSwitcher) a
-// real admin sees in that occupant's Details tab — proving Overview
+// against an already-published occupant, and drives the SAME Options group
+// (Overview's own "+ Edition" registration control under Details, then the
+// [Edition …] tab strip / TierEditionDeclarationSwitcher under Options — no
+// Default tab: Default's own terms live in Default Tier Inclusions under
+// Details, never as a selectable row here) a real admin sees — proving Overview
 // registration (auto-titled, born-disabled, no form) → rename via draft
 // Save/Settle → Publish (CZTE assignment, once) → Disable → Enable (lands
 // Pending, never Active — the same "Enable never activates" rule the
@@ -350,10 +351,11 @@ function setInputValue(selector, value) {
   el.value = value;
   el.dispatchEvent(new window.Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
 }
-// The Default Tier Inclusions module's own [Default] [Edition …] tab strip
-// (TierEditionDeclarationSwitcher) shows exactly ONE declaration's own
-// view/edit surface at a time — no per-row scoping needed, unlike the old
-// stacked-list panel this replaced.
+// Options' own [Edition …] tab strip (TierEditionDeclarationSwitcher) shows
+// exactly ONE Edition's own view/edit surface at a time — no per-row scoping
+// needed, unlike the old stacked-list panel this replaced. No Default tab
+// exists here — Default's own terms live in Default Tier Inclusions under
+// Details, never as a row of this strip.
 function declarationTab(text) {
   return [...container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]')].find((b) => b.textContent.trim() === text);
 }
@@ -409,16 +411,10 @@ check('a new Edition was created', editions.length === 1, editions.length);
 check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText() === '2', overviewEditionsCountText());
 selectGroup('Options');
 await sleep(20);
-check('the tab strip now offers Default and the new Edition', declarationTab('Default') !== undefined && declarationTab('Edition 2') !== undefined);
+check('the tab strip offers only the new Edition — no Default tab', declarationTab('Default') === undefined && declarationTab('Edition 2') !== undefined);
 check('no CZTE was assigned at creation', czteMints === 0, czteMints);
 
-console.log('\n3) Selecting Default shows no editor here — Default is edited in Default Tier Inclusions above');
-selectDeclarationTab('Default');
-await sleep(20);
-check('Default renders a pointer note, not an editor', container.textContent.includes('Showing the Default declaration'));
-check('no Edit button is offered for Default in this block', container.querySelector('.cz-tier-edition-declaration') === null);
-
-console.log('\n4) Selecting "Edition 2" and renaming it to "Annual Plan" via the shared draft/settle module');
+console.log('\n3) Selecting "Edition 2" and renaming it to "Annual Plan" via the shared draft/settle module');
 selectDeclarationTab('Edition 2');
 await sleep(20);
 check('the newly selected Edition reads Pending (disabled, never published)', selectedStatusText()?.includes('Pending'), selectedStatusText());
@@ -441,7 +437,7 @@ check('the module settle endpoint was called right after (Save chains draft → 
 check('the tab now shows the new title', declarationTab('Annual Plan') !== undefined);
 check('the old auto-generated title is gone — this is a rename, not a second Edition', declarationTab('Edition 2') === undefined);
 
-console.log('\n5) Publish "Annual Plan" — activates and assigns CZTE exactly once');
+console.log('\n4) Publish "Annual Plan" — activates and assigns CZTE exactly once');
 selectDeclarationTab('Annual Plan');
 await sleep(20);
 clickButtonWithText('Publish');
@@ -451,25 +447,25 @@ check('the Edition reads Active', selectedStatusText()?.includes('Active'), sele
 check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
 check('the assigned CZTE is now shown', selectedDetailText()?.includes(`CZTE${CZTE_SUFFIXES[0]}`), selectedDetailText());
 
-console.log('\n6) Disable — captures previous_platform_status, offered Enable');
+console.log('\n5) Disable — captures previous_platform_status, offered Enable');
 clickButtonWithText('Disable');
 await waitQuiet();
 check('the Edition reads Disabled (masked, not Pending)', selectedStatusText()?.includes('Disabled'), selectedStatusText());
 check('Enable is now offered', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Enable'));
 
-console.log('\n7) Enable — lands Pending, never straight back to Active (same rule the occupant itself follows)');
+console.log('\n6) Enable — lands Pending, never straight back to Active (same rule the occupant itself follows)');
 clickButtonWithText('Enable');
 await waitQuiet();
 check('Enable never reactivates — the Edition reads Pending', selectedStatusText()?.includes('Pending'), selectedStatusText());
 
-console.log('\n8) Republish — reaches Active again; the SAME CZTE is reused, never re-reserved');
+console.log('\n7) Republish — reaches Active again; the SAME CZTE is reused, never re-reserved');
 clickButtonWithText('Publish');
 await waitQuiet();
 check('the Edition reads Active again', selectedStatusText()?.includes('Active'), selectedStatusText());
 check('republish never mints a second CZTE', czteMints === 1, czteMints);
 check('the CZTE identity is unchanged', selectedDetailText()?.includes(`CZTE${CZTE_SUFFIXES[0]}`), selectedDetailText());
 
-console.log('\n9) Archive, then Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
+console.log('\n8) Archive, then Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
 clickButtonWithText('Archive');
 await waitQuiet();
 check('the Edition reads Archived', selectedStatusText()?.includes('Archived'), selectedStatusText());
@@ -485,9 +481,9 @@ await sleep(20);
 check('Overview\'s own Editions count dropped back to 1 — the derived count, not a separately stored one', overviewEditionsCountText() === '1', overviewEditionsCountText());
 selectGroup('Options');
 await sleep(20);
-check('the tab strip is gone again — back to Default only', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
+check('the tab strip is gone again — no editions remain', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
 
-console.log('\n10) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
+console.log('\n9) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
 selectGroup('Details');
 await sleep(20);
 clickButtonWithText('+ Edition');
@@ -513,7 +509,7 @@ check('Monthly Plan reads Active', selectedStatusText()?.includes('Active'), sel
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);
 check('Monthly Plan carries its own CZTE, not Annual Plan\'s', selectedDetailText()?.includes(`CZTE${CZTE_SUFFIXES[1]}`), selectedDetailText());
 
-console.log('\n11) Restore — archived/trashed → disabled/Pending, never straight to Active');
+console.log('\n10) Restore — archived/trashed → disabled/Pending, never straight to Active');
 clickButtonWithText('Archive');
 await waitQuiet();
 check('Monthly Plan reads Archived', selectedStatusText()?.includes('Archived'), selectedStatusText());
