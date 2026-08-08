@@ -18,6 +18,17 @@
 // Restore (archived/trashed → disabled, never straight to active) end to
 // end.
 //
+// Section 13 (secondary-nav sticky-reveal refinement) extends the SAME
+// mounted tree — no second harness — to prove the flat ChildChipStrip under
+// Options renders identically in Accordion mode, that Accordion supplies its
+// documented 0px sticky-chrome context (DrawerGroupAccordion, not a new
+// sticky accordion-header system), that the drawer's own scroll body drives
+// hide-on-down/reveal-on-up with hysteresis against small movement, that
+// none of it touches selection or fires an endpoint, and that switching back
+// to Tabs rebuilds the chrome-height variable through Tabs' own mechanism
+// rather than leaving anything from Accordion mode behind.
+//
+
 // The fetch mock reproduces PackageSchema's SECTION: TIER_EDITION engine
 // transitions (StationLifecycle::applyStatus/restore, the disable/enable
 // mask) and PackageStationController::updateTierEditionStatus's reserve on
@@ -365,6 +376,15 @@ function Harness({ initialTierId }) {
 }
 
 const container = document.createElement('div');
+// Real markup nests TierDrawerContent's own '.cz-req-detail' root one level
+// inside AdminStationDrawer's '.cz-station-drawer__body' (the actual
+// scrolling element — see admin-station.css). TierDrawerContent resolves it
+// via a single closest() lookup at the composition layer (never inside the
+// generic ChildChipStrip primitive); giving the mount container this class
+// lets that lookup resolve to a real element here too, the same one level
+// of nesting the real drawer has, so section 13's scroll-direction checks
+// exercise the actual resolved scrollContainer rather than null.
+container.classList.add('cz-station-drawer__body');
 document.body.appendChild(container);
 const footerContainer = document.createElement('div');
 document.body.appendChild(footerContainer);
@@ -399,6 +419,27 @@ function clickButtonWithText(text, root = container) {
   const btn = [...root.querySelectorAll('button')].find((b) => b.textContent.trim() === text);
   btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return btn;
+}
+// The Tabs/Accordion view toggle (compact-icon refinement) is found by
+// aria-label, not text — same technique tier-occupant-lifecycle-
+// regression.mjs already uses for the same button.
+function clickButtonWithLabel(label, root = container) {
+  const btn = root.querySelector(`[aria-label="${label}"]`);
+  btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return btn;
+}
+// Section 13 — secondary-nav sticky-reveal: drives useScrollHide through the
+// real drawer scroll body (`container` itself, tagged '.cz-station-drawer__
+// body' above) rather than window scroll. happy-dom does not synthesize
+// 'scroll' events from a bare scrollTop write, so this sets it and dispatches
+// the event explicitly, the same manual-event-dispatch pattern every other
+// input/click interaction in this file already uses.
+function fireScroll(scrollTop) {
+  container.scrollTop = scrollTop;
+  container.dispatchEvent(new window.Event('scroll'));
+}
+function chipStripHidden() {
+  return container.querySelector('.cz-drawer-groups__chip-strip')?.classList.contains('cz-drawer-groups__chip-strip--hidden') ?? null;
 }
 function setInputValue(selector, value) {
   const el = container.querySelector(selector);
@@ -853,11 +894,110 @@ check(
   pubLabels,
 );
 
+console.log('\n13) Accordion mode: the same flat ChildChipStrip renders under Options, with its own 0px sticky-chrome context, and scroll-direction hide/reveal works through the drawer\'s own scroll body without touching selection or firing any endpoint');
+const editionsBeforeAccordion = editions.length;
+const selectedBeforeAccordion = declarationTab('Monthly Plan')?.getAttribute('aria-selected');
+const czteFieldBeforeAccordion = moduleFieldValue('Edition Overview', 'Edition Platform ID');
+const callsBeforeAccordion = { saveDraftCalls, settleCalls, statusCalls, restoreCalls, deleteCalls, czteMints };
+
+check('Tabs mode is still active before this section', container.querySelectorAll('.cz-drawer-groups__tab').length === 4);
+clickButtonWithLabel('Switch to accordion view');
+await sleep(20);
+check('Accordion mode renders no four-tab row', container.querySelectorAll('.cz-drawer-groups__tab').length === 0);
+
+// Explicitly collapse Options first (it may already be the active group,
+// carried over from Tabs mode) so expanding it below is a real, observed
+// state transition rather than incidental initial state.
+clickButtonWithText('Details');
+await sleep(20);
+check('Options is collapsed while Details is the open accordion section', container.querySelector('.cz-drawer-groups__chip-strip') === null);
+
+clickButtonWithText('Options');
+await sleep(20);
+check('expanding Options renders the four accordion sections with Options open', container.querySelectorAll('.cz-drawer-groups__accordion-trigger').length === 4);
+check(
+  'the same ChildChipStrip renders under Options in Accordion mode — same chip count as Tabs mode',
+  container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length === editionsBeforeAccordion,
+  container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length,
+);
+check(
+  'the previously selected Edition is still the one shown — selection did not change when switching renderers',
+  declarationTab('Monthly Plan')?.getAttribute('aria-selected') === selectedBeforeAccordion,
+  declarationTab('Monthly Plan')?.getAttribute('aria-selected'),
+);
+check(
+  'the selected Edition\'s own read surface is unchanged too — same CZTE shown, no refetch/reset',
+  moduleFieldValue('Edition Overview', 'Edition Platform ID') === czteFieldBeforeAccordion,
+  moduleFieldValue('Edition Overview', 'Edition Platform ID'),
+);
+
+const optionsPanel = container.querySelector('#cz-drawer-group-options-panel');
+check(
+  'Accordion supplies a 0px sticky-chrome context for the child nav via the open panel\'s own inline style — DrawerGroupAccordion\'s documented mechanism, not a new sticky accordion-header system',
+  optionsPanel?.getAttribute('style')?.includes('--cz-drawer-group-chrome-h: 0px') ?? false,
+  optionsPanel?.getAttribute('style'),
+);
+check('no .cz-drawer-groups__content wrapper exists in Accordion mode — that mechanism is Tabs-only', container.querySelector('.cz-drawer-groups__content') === null);
+
+console.log('  13a) Scroll-direction hide/reveal on the drawer\'s own scroll body, with hysteresis against small movement');
+fireScroll(0);
+await sleep(20);
+check('the strip starts visible', chipStripHidden() === false, chipStripHidden());
+
+fireScroll(5);
+await sleep(20);
+check('a small 5px downward movement (below the hysteresis threshold) does not hide the strip', chipStripHidden() === false, chipStripHidden());
+
+fireScroll(40);
+await sleep(20);
+check('a deliberate downward scroll past the threshold hides the strip', chipStripHidden() === true, chipStripHidden());
+
+fireScroll(35);
+await sleep(20);
+check('a small 5px upward movement (below the hysteresis threshold) does not reveal the strip yet', chipStripHidden() === true, chipStripHidden());
+
+fireScroll(10);
+await sleep(20);
+check('a deliberate upward scroll past the threshold reveals the strip again', chipStripHidden() === false, chipStripHidden());
+
+fireScroll(0);
+await sleep(20);
+
+check(
+  'the scroll sequence fired no endpoint and mutated nothing — save/settle/status/restore/delete counts and the CZTE mint count are all unchanged',
+  saveDraftCalls === callsBeforeAccordion.saveDraftCalls
+    && settleCalls === callsBeforeAccordion.settleCalls
+    && statusCalls === callsBeforeAccordion.statusCalls
+    && restoreCalls === callsBeforeAccordion.restoreCalls
+    && deleteCalls === callsBeforeAccordion.deleteCalls
+    && czteMints === callsBeforeAccordion.czteMints
+    && editions.length === editionsBeforeAccordion,
+  { saveDraftCalls, settleCalls, statusCalls, restoreCalls, deleteCalls, czteMints, editionsLength: editions.length },
+);
+check('the selected Edition is still unchanged after the whole scroll sequence', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === selectedBeforeAccordion);
+
+console.log('  13b) Switching back to Tabs preserves selection and rebuilds the chrome-height variable through Tabs\' own mechanism, not a stale Accordion value');
+clickButtonWithLabel('Switch to tabs view');
+await sleep(20);
+check(
+  'Tabs mode is back — four tabs, no accordion sections',
+  container.querySelectorAll('.cz-drawer-groups__tab').length === 4 && container.querySelectorAll('.cz-drawer-groups__accordion-trigger').length === 0,
+);
+check('the accordion panel (and its own 0px chrome-height style) is gone entirely — no leftover Accordion DOM', container.querySelector('.cz-drawer-groups__accordion-panel') === null);
+const tabsContentWrapper = container.querySelector('.cz-drawer-groups__content');
+check(
+  'Tabs mode publishes the chrome-height variable through its own .cz-drawer-groups__content wrapper — a structurally different mechanism than Accordion\'s panel style, never a value carried over from it',
+  tabsContentWrapper?.getAttribute('style')?.includes('--cz-drawer-group-chrome-h:') ?? false,
+  tabsContentWrapper?.getAttribute('style'),
+);
+check('the same Edition is still selected after switching back to Tabs', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === 'true');
+check('the strip is visible again after switching back — a fresh mount, never stuck hidden from Accordion\'s scroll state', chipStripHidden() === false, chipStripHidden());
+
 console.log('');
 if (failures.length > 0) {
   console.error(`REGRESSION FAILED — ${failures.length} check(s) did not hold:`);
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('All checks passed — Overview registration, Create/Save-Settle/Publish/Disable/Enable/Archive/Trash/guarded-Delete/Restore behave per SECTION: TIER_EDITION, driven through the real mounted Default Tier Inclusions tab strip. There is no "default Edition" concept left to drive — the occupant\'s own declaration is the permanent Default, and no title/pricing form ever appears in Overview itself.');
+console.log('All checks passed — Overview registration, Create/Save-Settle/Publish/Disable/Enable/Archive/Trash/guarded-Delete/Restore behave per SECTION: TIER_EDITION, driven through the real mounted Default Tier Inclusions tab strip, in both Tabs and Accordion view modes. There is no "default Edition" concept left to drive — the occupant\'s own declaration is the permanent Default, and no title/pricing form ever appears in Overview itself.');
 process.exit(0);
