@@ -17,7 +17,6 @@ import type {
 } from '../schema/bindings/tier';
 import { relationshipDisplayLabel } from '../../rateSheetLabels';
 import { TIER_LABELS } from '../../vocabulary';
-import type { TierEditingSection } from './tierDrawerTypes';
 
 // Whether a shell holds SETTLED content (an occupant). Client-side heuristic over
 // the settled fields — the backend is authoritative and rejects with
@@ -46,7 +45,12 @@ export interface TierFooterModel {
 export function buildTierFooterModel(
   pkg: PackageStation,
   editingTierId: string | null,
-  editingSection: TierEditingSection,
+  // Whole-drawer edit-active signal: the parent Tier's own module editing
+  // (editingSection) OR the selected Edition's own module editing (reported
+  // up from TierEditionDeclarationSwitcher — see useTierDrawerController's
+  // editionModuleEditing). Either one hides the pinned lifecycle footer;
+  // this function does not care which.
+  anyEditingActive: boolean,
 ): TierFooterModel {
   const station = pkg.station;
   const svc     = pkg.service;
@@ -61,7 +65,7 @@ export function buildTierFooterModel(
   );
   const footerMode: TierFooterModel['footerMode'] =
     (!pkg.detailLoaded || !station || !svc) ? 'close-only'
-    : editingSection != null ? 'none'
+    : anyEditingActive ? 'none'
     : !editingTierId ? 'close-only'
     : 'tier-actions';
   return { footerMode, footerEnabled, footerHasContent, footerHasBeenPublished };

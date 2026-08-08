@@ -87,15 +87,31 @@ interface Props {
   // Accordion mode), which already knows the drawer's DOM shape and the
   // active view mode. Not a Tier/Edition concept.
   scrollContainer?: HTMLElement | null;
+  // Reports whether THIS component's own editingTab is non-null, so
+  // TierDrawerContent can hide the parent drawer header/group chrome while
+  // an Edition editor is open — editingTab below remains the sole authority
+  // for the Edition editor itself; this is only a derived signal upward, the
+  // same relationship selectedId/onSelect already have to the controller.
+  onEditingActiveChange?: (active: boolean) => void;
 }
 
 export function TierEditionDeclarationSwitcher({
-  ctl, rateSheetOptions, svc, selectedId, onSelect, scrollContainer,
+  ctl, rateSheetOptions, svc, selectedId, onSelect, scrollContainer, onEditingActiveChange,
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
   const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
   const [showBin, setShowBin] = useState(false);
+
+  // Mirrors editingTab on every change (covers open via Edit, close via
+  // Save/Cancel/Back). A SEPARATE cleanup-only effect below guarantees a
+  // `false` report specifically on unmount, independent of editingTab's own
+  // transitions, so a concurrent refetch that tears down this whole subtree
+  // mid-edit can never leave the parent believing an editor is still open.
+  useEffect(() => {
+    onEditingActiveChange?.(editingTab !== null);
+  }, [editingTab, onEditingActiveChange]);
+  useEffect(() => () => onEditingActiveChange?.(false), [onEditingActiveChange]);
 
   const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
 
@@ -150,59 +166,69 @@ export function TierEditionDeclarationSwitcher({
 
   return (
     <div class="cz-shell-section">
-      {ctl.error && !editingModule && <p class="cz-admin-error-msg">{ctl.error}</p>}
+      {/* Everything in this block is the Edition-browsing UI — the child nav,
+          the empty state, and the occupant's own Edition bin. All of it is
+          redundant chrome once an Edition's own module editor is open (the
+          PlacedShell below already carries its own title/back/status/Save/
+          Cancel), so it disappears as one unit while editingModule is set,
+          leaving only the active editor — no separate guard per element. */}
+      {!editingModule && (
+        <>
+          {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
 
-      <ChildChipStrip
-        chips={ctl.editions.map((edition) => ({ id: edition.id, label: edition.title }))}
-        activeId={selectedId}
-        ariaLabel="Editions"
-        onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); }}
-        scrollContainer={scrollContainer}
-      />
+          <ChildChipStrip
+            chips={ctl.editions.map((edition) => ({ id: edition.id, label: edition.title }))}
+            activeId={selectedId}
+            ariaLabel="Editions"
+            onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); }}
+            scrollContainer={scrollContainer}
+          />
 
-      {ctl.editions.length === 0 && (
-        <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
-          <p>No additional Editions yet. Use "+ Edition" to add one.</p>
-        </div>
-      )}
-
-      {/* Minimal functional access to the occupant's own Edition bin:
-          identify, restore, and trash/delete where lifecycle rules permit —
-          the SAME travel-status pill (TravelStatusPill/TRAVEL_PILL) the
-          occupant's own bin (TierBinList.tsx) already uses for Archived/
-          Trashed, instead of raw text (UI refinement, Phase 7). Presentation
-          only — no change to moveToBin/restoreFromBin/trashBinEntry/
-          deleteBinEntry, tier_edition_bin[] storage, or ordering. */}
-      {ctl.editionBin.length > 0 && (
-        <div style="margin-top: var(--cz-space-2)">
-          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setShowBin((v) => !v)}>
-            {showBin ? 'Hide' : 'Show'} Edition bin ({ctl.editionBin.length})
-          </button>
-          {showBin && (
-            <ul class="cz-tier-edition-bin" style="margin-top: var(--cz-space-1); list-style:none; padding:0; display:flex; flex-direction:column; gap: var(--cz-space-2)">
-              {ctl.editionBin.map((entry) => (
-                <li key={entry.bin_id} class="cz-tier-edition-bin__row" style="display:flex; flex-direction:column; gap: var(--cz-space-1)">
-                  <div style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-1)">
-                    <span class="drawerModule__value">
-                      {entry.edition.title || '(untitled)'}
-                      {entry.edition.edition_platform_id ? ` · ${entry.edition.edition_platform_id}` : ''}
-                    </span>
-                    <TravelStatusPill status={entry.status} />
-                  </div>
-                  <span style="display:flex; gap: var(--cz-space-1); flex-wrap:wrap">
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.restoreFromBin(entry.bin_id)}>Restore</button>
-                    {entry.status === 'archived' && (
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.trashBinEntry(entry.bin_id)}>Move to Trash</button>
-                    )}
-                    {entry.status === 'trashed' && (
-                      <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.deleteBinEntry(entry.bin_id)}>Delete permanently</button>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          {ctl.editions.length === 0 && (
+            <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
+              <p>No additional Editions yet. Use "+ Edition" to add one.</p>
+            </div>
           )}
-        </div>
+
+          {/* Minimal functional access to the occupant's own Edition bin:
+              identify, restore, and trash/delete where lifecycle rules permit —
+              the SAME travel-status pill (TravelStatusPill/TRAVEL_PILL) the
+              occupant's own bin (TierBinList.tsx) already uses for Archived/
+              Trashed, instead of raw text (UI refinement, Phase 7). Presentation
+              only — no change to moveToBin/restoreFromBin/trashBinEntry/
+              deleteBinEntry, tier_edition_bin[] storage, or ordering. */}
+          {ctl.editionBin.length > 0 && (
+            <div style="margin-top: var(--cz-space-2)">
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setShowBin((v) => !v)}>
+                {showBin ? 'Hide' : 'Show'} Edition bin ({ctl.editionBin.length})
+              </button>
+              {showBin && (
+                <ul class="cz-tier-edition-bin" style="margin-top: var(--cz-space-1); list-style:none; padding:0; display:flex; flex-direction:column; gap: var(--cz-space-2)">
+                  {ctl.editionBin.map((entry) => (
+                    <li key={entry.bin_id} class="cz-tier-edition-bin__row" style="display:flex; flex-direction:column; gap: var(--cz-space-1)">
+                      <div style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-1)">
+                        <span class="drawerModule__value">
+                          {entry.edition.title || '(untitled)'}
+                          {entry.edition.edition_platform_id ? ` · ${entry.edition.edition_platform_id}` : ''}
+                        </span>
+                        <TravelStatusPill status={entry.status} />
+                      </div>
+                      <span style="display:flex; gap: var(--cz-space-1); flex-wrap:wrap">
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.restoreFromBin(entry.bin_id)}>Restore</button>
+                        {entry.status === 'archived' && (
+                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.trashBinEntry(entry.bin_id)}>Move to Trash</button>
+                        )}
+                        {entry.status === 'trashed' && (
+                          <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.deleteBinEntry(entry.bin_id)}>Delete permanently</button>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {selected && detail && (

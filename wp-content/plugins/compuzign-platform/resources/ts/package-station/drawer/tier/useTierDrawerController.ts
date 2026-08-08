@@ -79,6 +79,15 @@ export function useTierDrawerController({
   // click. This hook's own state survives that remount, the same reason
   // editingSection/openTierPanel already live here rather than in a child.
   const [selectedDeclarationId, setSelectedDeclarationId] = useState<string | null>(null);
+  // Reported, not owned: TierEditionDeclarationSwitcher's own local
+  // `editingTab` remains the sole authority for whether the selected
+  // Edition's own module editor is open — this is only what that component
+  // tells the parent shell so it can react (hide the drawer header/nav/
+  // footer). The switcher's own cleanup effect guarantees this settles back
+  // to `false` if it unmounts mid-edit (e.g. a concurrent refetch briefly
+  // tears down the whole child tree — see TierEditionDeclarationSwitcher.tsx),
+  // so this can never be left stuck `true` behind a closed editor.
+  const [editionModuleEditing, setEditionModuleEditing] = useState(false);
 
   useAutoDismiss(saveOk, () => setSaveOk(false), 2500);
   useOutsideClickDismiss(splitOpen, () => setSplitOpen(false));
@@ -224,8 +233,14 @@ export function useTierDrawerController({
   };
 
   // ── Derived models (pure builders) ──────────────────────────────────────────
+  // The one whole-drawer edit-active signal: the parent Tier's own module
+  // editing OR the selected Edition's own module editing. Drives the pinned
+  // footer (buildTierFooterModel below) AND, in TierDrawerContent, the parent
+  // drawer header and the four-group Tabs/Accordion chrome — the same value,
+  // never two independently-drifting flags.
+  const anyEditingActive = editingSection !== null || editionModuleEditing;
   const { footerMode, footerEnabled, footerHasContent, footerHasBeenPublished } =
-    buildTierFooterModel(pkg, editingTierId, editingSection);
+    buildTierFooterModel(pkg, editingTierId, anyEditingActive);
 
   const tierDetail = buildTierDetail(pkg, editingTierId, {
     onEditSection:  openSection,
@@ -244,6 +259,7 @@ export function useTierDrawerController({
     // individual tier
     tierDetail, openTierPanel, setOpenTierPanel,
     selectedDeclarationId, setSelectedDeclarationId,
+    editionModuleEditing, setEditionModuleEditing, anyEditingActive,
     // Options' own creation control (relocated off Overview's footer — see
     // handleAddEdition above).
     handleAddEdition, addingEdition,
