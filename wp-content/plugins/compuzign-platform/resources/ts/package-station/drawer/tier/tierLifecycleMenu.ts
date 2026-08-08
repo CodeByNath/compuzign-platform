@@ -1,11 +1,24 @@
 // Single-footer, scope-aware lifecycle command model — pure menu-composition
-// function (correction plan Phase 3). No rendering, no state, no endpoint
-// calls of its own: every entry's onSelect is a caller-supplied handler
-// (Tier's own from useTierDrawerController/TierDrawerFooter, the selected
-// Edition's own from useTierEditions via TierDrawerContent's lifted
-// controller). This module only decides WHICH scoped rows exist and in
-// WHAT ORDER — the exact ordering approved for the Tier drawer's pinned
-// footer (§E of the audit, resolved per option (b)):
+// functions (correction plan Phase 3; UI refinement Phase 1 split the single
+// menu below into two independently-mounted split controls). No rendering,
+// no state, no endpoint calls of their own: every entry's onSelect is a
+// caller-supplied handler (Tier's own from useTierDrawerController/
+// TierDrawerFooter, the selected Edition's own from useTierEditions via
+// TierDrawerContent's lifted controller).
+//
+// Two menus, two footer splits:
+//
+//   buildTierLifecycleMenu — backward/travel actions only (Disable/Enable/
+//     Archive/Trash/Restore/Move to Bin). Mounted on the footer's LEFT split.
+//   buildTierPublishMenu   — forward/publication actions only (Publish
+//     Edition, Publish Tier). Mounted on the footer's RIGHT split
+//     (`splitForward`).
+//
+// This is a presentation grouping only — the same ordering priority (scope
+// before entity: selected Edition before Tier) applies within each menu
+// independently. buildTierLifecycleMenu's ordering — the exact ordering
+// approved for the Tier drawer's pinned footer (§E of the audit, resolved
+// per option (b)):
 //
 //   1. selected Edition's immediate valid transition
 //   2. selected Edition's next valid travel action — its own independent
@@ -28,14 +41,14 @@
 //
 // No Publish All / Enable All / Disable All / Restore All / Trash All row
 // is ever produced — none of those exist as an established backend
-// operation (see the audit's §D), and this module must not fabricate one.
+// operation (see the audit's §D), and these modules must not fabricate one.
 //
 // The Tier occupant's OWN Archived/Trashed states are never represented
 // here: archiving the occupant physically removes it from its slot into
 // occupant_bin[] (PackageSchema::archiveTierOccupant empties the shell), so
 // a Tier being viewed through this footer is by construction never itself
 // in an archived/trashed state — that presentation lives exclusively in
-// TierBinList.tsx, unchanged and out of scope for this menu.
+// TierBinList.tsx, unchanged and out of scope for these menus.
 //
 // An earlier draft of this module omitted Edition's own independent
 // Archive row entirely, reasoning that "Archive Tier" already covers
@@ -44,10 +57,8 @@
 // archiving just the Edition. Removing the independent row would have
 // silently deleted real, previously-tested capability (reaching Trashed →
 // guarded permanent delete for one Edition without touching its Tier), so
-// it is restored here even though it makes the two originally-approved
-// worked examples five rows rather than three — see this module's own
-// contract (tier-lifecycle-menu-contract.ts) for the corrected examples and
-// the reasoning recorded there.
+// it is restored here — see this module's own contract
+// (tier-lifecycle-menu-contract.ts) for worked examples and reasoning.
 
 import type { TierEdition } from '../../types';
 
@@ -124,17 +135,11 @@ function editionTopVerb(edition: SelectedEditionLifecycleInputs): { label: strin
   return edition.disabledMasked ? { label: 'Enable', tone: 'secondary' } : { label: 'Disable', tone: 'danger' };
 }
 
-// Publish Tier's own availability mirrors the ORIGINAL flat Publish
-// button's exact semantics (TierDrawerFooter's prior `disabled: !hasContent`)
-// — hasContent alone, independent of hasBeenPublished. It is not exclusive
-// to the never-published case: an already-Active/Disabled Tier that picks
-// up a new pending module draft (Save without Publish) must still be able
-// to re-Publish/settle it — the same republish capability
-// tier-occupant-lifecycle-regression.mjs already exercises. Scoping this to
-// `!hasBeenPublished` would silently remove real, existing capability.
+// Backward/travel entries only — Publish moved to buildTierPublishMenu's own
+// tierPublishEntries below (UI refinement, Phase 1: the footer's forward and
+// backward actions are two independent split controls).
 function tierEntries(tier: TierLifecycleInputs): TierLifecycleMenuEntry[] {
   const entries: TierLifecycleMenuEntry[] = [];
-  if (tier.hasContent) entries.push({ id: 'tier-publish', label: 'Publish Tier', onSelect: tier.onPublish });
   if (!tier.hasBeenPublished) {
     entries.push({ id: 'tier-move-to-trash', label: 'Move Tier to Trash', onSelect: tier.onArchive });
     return entries;
@@ -169,12 +174,9 @@ function editionEntries(edition: SelectedEditionLifecycleInputs): {
     };
   }
 
+  // Backward/travel entries only — Publish moved to buildTierPublishMenu's
+  // own editionPublishEntries below (UI refinement, Phase 1).
   const primary: TierLifecycleMenuEntry[] = [];
-  // Publish Edition's own availability mirrors the ORIGINAL primary Publish
-  // button's exact semantics (`disabled: !canPublish`) — canPublish alone,
-  // independent of hasBeenPublished/disabledMasked, never a ghost row when
-  // the Edition genuinely isn't publishable yet.
-  if (edition.canPublish) primary.push({ id: 'edition-publish', label: `Publish Edition — ${name}`, onSelect: edition.onPublish });
 
   if (!edition.hasBeenPublished) {
     // Mirrors CanonicalEntityFooter's own isNewNeverPublished branch: the
@@ -212,4 +214,45 @@ export function buildTierLifecycleMenu(
     splitTone,
     entries: [...primary, ...tierEntries(tier), ...destructive],
   };
+}
+
+// Forward/publication entries only, for the footer's RIGHT split
+// (`splitForward`). Scope priority matches the lifecycle menu: the selected
+// Edition's own Publish first, the Tier's own Publish second — never merged
+// into a single fabricated "Publish All" row (see this module's own header
+// comment / the audit's §D).
+function editionPublishEntries(edition: SelectedEditionLifecycleInputs): TierLifecycleMenuEntry[] {
+  const ps = edition.platformStatus;
+  // Archived/Trashed Editions have no Publish transition — Restore is the
+  // one live action available to them, already covered by the lifecycle menu.
+  if (ps === 'archived' || ps === 'trashed') return [];
+  const name = edition.title.trim() || '(untitled)';
+  // Mirrors the ORIGINAL primary Publish button's exact semantics
+  // (`disabled: !canPublish`) — canPublish alone, independent of
+  // hasBeenPublished/disabledMasked, never a ghost row when the Edition
+  // genuinely isn't publishable yet.
+  return edition.canPublish ? [{ id: 'edition-publish', label: `Publish Edition — ${name}`, onSelect: edition.onPublish }] : [];
+}
+
+// Mirrors the ORIGINAL flat Publish button's exact semantics (TierDrawerFooter's
+// prior `disabled: !hasContent`) — hasContent alone, independent of
+// hasBeenPublished. It is not exclusive to the never-published case: an
+// already-Active/Disabled Tier that picks up a new pending module draft
+// (Save without Publish) must still be able to re-Publish/settle it — the
+// same republish capability tier-occupant-lifecycle-regression.mjs already
+// exercises. Scoping this to `!hasBeenPublished` would silently remove real,
+// existing capability.
+function tierPublishEntries(tier: TierLifecycleInputs): TierLifecycleMenuEntry[] {
+  return tier.hasContent ? [{ id: 'tier-publish', label: 'Publish Tier', onSelect: tier.onPublish }] : [];
+}
+
+export function buildTierPublishMenu(
+  tier: TierLifecycleInputs,
+  selectedEdition: SelectedEditionLifecycleInputs | null,
+): TierLifecycleMenuModel {
+  const entries: TierLifecycleMenuEntry[] = [
+    ...(selectedEdition ? editionPublishEntries(selectedEdition) : []),
+    ...tierPublishEntries(tier),
+  ];
+  return { splitLabel: 'Publish', splitTone: 'secondary', entries };
 }

@@ -38,6 +38,12 @@ export interface EntityFooterSplitAction extends EntityFooterAction {
 
 interface EntityActionFooterProps {
   split?: EntityFooterSplitAction | null;
+  // Second, independent split control (additive — every existing caller
+  // omits it). Renders after the spacer, i.e. on the opposite side of
+  // `split` — the Tier drawer's own forward/publish split sits here while
+  // `split` carries backward/travel lifecycle actions, giving the footer a
+  // left (travel) / right (publish) grouping without a second primitive.
+  splitForward?: EntityFooterSplitAction | null;
   // Optional: an inline mounting (no record to close from this surface) omits
   // it entirely rather than rendering a Close button with nowhere to go.
   close?: EntityFooterAction | null;
@@ -51,52 +57,57 @@ function actionLabel(action: EntityFooterAction): string {
   return action.busy ? (action.busyLabel ?? '…') : action.label;
 }
 
-export function EntityActionFooter({ split, close, primary, inline }: EntityActionFooterProps) {
+function SplitControl({ split }: { split: EntityFooterSplitAction }) {
   return (
-    <div class={`cz-tf-footer${inline ? ' cz-tf-footer--inline' : ''}`}>
-      {split && (
-        <div class={`cz-footer-split cz-footer-split--${split.tone}`}>
-          <button
-            type="button"
-            class="cz-footer-split__btn"
-            disabled={split.disabled || split.busy}
-            onClick={split.menuOnly ? split.onToggle : split.onSelect}
-            aria-haspopup={split.menuOnly ? 'menu' : undefined}
-            aria-expanded={split.menuOnly ? split.open : undefined}
-          >
-            {actionLabel(split)}
-          </button>
-          <button
-            type="button"
-            class="cz-footer-split__chevron"
-            disabled={split.disabled || split.busy || split.overflow.length === 0}
-            onClick={(event) => { event.stopPropagation(); split.onToggle(); }}
-            aria-label="More actions"
-            aria-expanded={split.open}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd" />
-            </svg>
-          </button>
-          {split.open && split.overflow.length > 0 && (
-            <div class="cz-footer-split__menu">
-              {split.overflow.map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  class={`cz-footer-split__item${action.danger ? ' cz-footer-split__item--danger' : ''}`}
-                  disabled={action.disabled || action.busy}
-                  onClick={action.onSelect}
-                >
-                  {actionLabel(action)}
-                </button>
-              ))}
-            </div>
-          )}
+    <div class={`cz-footer-split cz-footer-split--${split.tone}`}>
+      <button
+        type="button"
+        class="cz-footer-split__btn"
+        disabled={split.disabled || split.busy}
+        onClick={split.menuOnly ? split.onToggle : split.onSelect}
+        aria-haspopup={split.menuOnly ? 'menu' : undefined}
+        aria-expanded={split.menuOnly ? split.open : undefined}
+      >
+        {actionLabel(split)}
+      </button>
+      <button
+        type="button"
+        class="cz-footer-split__chevron"
+        disabled={split.disabled || split.busy || split.overflow.length === 0}
+        onClick={(event) => { event.stopPropagation(); split.onToggle(); }}
+        aria-label="More actions"
+        aria-expanded={split.open}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd" />
+        </svg>
+      </button>
+      {split.open && split.overflow.length > 0 && (
+        <div class="cz-footer-split__menu">
+          {split.overflow.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              class={`cz-footer-split__item${action.danger ? ' cz-footer-split__item--danger' : ''}`}
+              disabled={action.disabled || action.busy}
+              onClick={action.onSelect}
+            >
+              {actionLabel(action)}
+            </button>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+export function EntityActionFooter({ split, splitForward, close, primary, inline }: EntityActionFooterProps) {
+  return (
+    <div class={`cz-tf-footer${inline ? ' cz-tf-footer--inline' : ''}`}>
+      {split && <SplitControl split={split} />}
 
       <div class="cz-tf-footer__spacer" />
+      {splitForward && <SplitControl split={splitForward} />}
       {close && (
         <button
           type="button"

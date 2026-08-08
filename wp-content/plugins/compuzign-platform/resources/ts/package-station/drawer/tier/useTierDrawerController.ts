@@ -65,6 +65,10 @@ export function useTierDrawerController({
   const [tierGroupView, setTierGroupView] = useState<'tabs' | 'accordion'>('tabs');
   const [listView, setListView] = useState<'current' | 'bin'>('current');
   const [splitOpen,    setSplitOpen]    = useState(false);
+  // The pinned footer's RIGHT (publish) split's own independent open/closed
+  // state (UI refinement, Phase 1) — a second dropdown needs its own toggle,
+  // never shared with the lifecycle split's splitOpen above.
+  const [publishSplitOpen, setPublishSplitOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<'publish' | 'archive-discard' | null>(null);
   // Inclusions & Editions' own [Default] [Edition …] tab strip selection.
   // Lifted here — not local state inside TierEditionDeclarationSwitcher —
@@ -78,6 +82,7 @@ export function useTierDrawerController({
 
   useAutoDismiss(saveOk, () => setSaveOk(false), 2500);
   useOutsideClickDismiss(splitOpen, () => setSplitOpen(false));
+  useOutsideClickDismiss(publishSplitOpen, () => setPublishSplitOpen(false));
 
   const editing = useTierModuleEditing({ pkg, editingTierId, initialTierSection, setSaveErr, setSaveOk });
   const { editingSection, openSection, cancelSection } = editing;
@@ -136,6 +141,7 @@ export function useTierDrawerController({
     cancelSection();
     setOpenTierPanel(null);
     setSplitOpen(false);
+    setPublishSplitOpen(false);
     setConfirmModal(null);
   };
 
@@ -180,6 +186,7 @@ export function useTierDrawerController({
     setEditingTierId(null);
     cancelSection();
     setSplitOpen(false);
+    setPublishSplitOpen(false);
     setConfirmModal(null);
   };
 
@@ -254,7 +261,7 @@ export function useTierDrawerController({
     binDeleteConfirm: travel.binDeleteConfirm,
     binPrompt: travel.binPrompt, setBinPrompt: travel.setBinPrompt,
     // footer + dialogs
-    requestClose, splitOpen, setSplitOpen, confirmModal, setConfirmModal,
+    requestClose, splitOpen, setSplitOpen, publishSplitOpen, setPublishSplitOpen, confirmModal, setConfirmModal,
     footerMode, footerEnabled, footerHasContent, footerHasBeenPublished,
     // connections binding factory
     serviceConnectionBinding: () => serviceConnectionBinding(serviceItem, svc!, serviceBack),

@@ -118,6 +118,8 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving={c.pkg.saving || editionCtl.saving}
         splitOpen={c.splitOpen}
         setSplitOpen={c.setSplitOpen}
+        publishSplitOpen={c.publishSplitOpen}
+        setPublishSplitOpen={c.setPublishSplitOpen}
         onToggleEnabled={c.handleToggleEnabled}
         onArchive={() => c.handleArchive()}
         onPublish={() => c.setConfirmModal('publish')}
@@ -129,7 +131,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     c.footerMode, c.footerEnabled, c.footerHasContent, c.footerHasBeenPublished,
-    c.pkg.saving, editionCtl.saving, c.splitOpen, bridge,
+    c.pkg.saving, editionCtl.saving, c.splitOpen, c.publishSplitOpen, bridge,
     selectedEdition?.id, selectedEdition?.title, selectedEdition?.platform_status,
     selectedEdition?.previous_platform_status, selectedEditionCanPublish, selectedEditionHasBeenPublished,
   ]);
