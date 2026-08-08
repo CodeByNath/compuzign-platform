@@ -37,8 +37,8 @@ function tierEditionProblems(e: TierEditionOverviewLike | undefined): ModuleNote
 // Archived/trashed reads the same as any other non-active settled state —
 // pending-full — mirroring packageFamilyOverviewModule exactly: the 5-state
 // pill vocabulary has no distinct Archived/Trashed value. That distinction
-// is the record-level lifecycle presentation's job (tierEditionStatusLabel,
-// the lifecycle grammar), not this module pill's.
+// is CanonicalEntityFooter's own action grammar's job (Restore vs. the
+// overflow menu's Archive/Move to Trash label), not this module pill's.
 export const tierEditionOverviewModule: ModuleDefinition<TierEditionOverviewLike> = {
   key:                'tier-edition-overview',
   emptyPrompt:         'Edit and configure this Edition.',

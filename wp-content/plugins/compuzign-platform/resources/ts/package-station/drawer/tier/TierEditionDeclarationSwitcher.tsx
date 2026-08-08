@@ -51,7 +51,7 @@ import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
 import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
 import { buildTierEditionDetail } from './tierEditionDetailModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
-import { deriveTierEditionFooterState, draftFromTierEdition, tierEditionStatusLabel } from './tierEditionModel';
+import { deriveTierEditionFooterState, draftFromTierEdition, tierEditionDisabledMasked } from './tierEditionModel';
 
 interface Props {
   serviceId:      number;
@@ -236,26 +236,27 @@ export function TierEditionDeclarationSwitcher({
         )
       )}
 
-      {/* Lifecycle status + actions — the platform's canonical action
-          grammar (CanonicalEntityFooter, already used by Package Family and
+      {/* Lifecycle actions — the platform's canonical action grammar
+          (CanonicalEntityFooter, already used by Package Family and
           Category), mounted inline rather than pinned since Options has no
           record of its own to close. Hidden while editing, the same way the
           parent occupant's own record footer disappears during a module
-          edit. */}
+          edit. No separate lifecycle-status text here — neither Package
+          Family nor Category prints one; the module pill (Edition Overview/
+          Edition Inclusions, above) and this footer's own action label
+          (Restore/Enable/Disable) are the single presentation of the
+          Edition's current state, per tierEditionDisabledMasked. */}
       {selected && detail && !editingModule && (
         <div class="cz-tier-edition-declaration cz-tier-edition-declaration--view" style="margin-top: var(--cz-space-2)">
-          <span class="cz-tier-edition-declaration__status drawerModule__value">
-            <span class="cz-admin-status-dot" /> {tierEditionStatusLabel(selected)}
-          </span>
           <CanonicalEntityFooter
             inline
             platformStatus={selected.platform_status}
-            isDisabledMasked={selected.is_explicitly_disabled}
+            isDisabledMasked={tierEditionDisabledMasked(selected)}
             {...deriveTierEditionFooterState(selected, detail.overviewBinding.state.status, detail.overviewBinding.hasDraft)}
             busy={ctl.saving}
             splitOpen={splitOpen}
             setSplitOpen={setSplitOpen}
-            onToggleActive={() => (selected.is_explicitly_disabled ? ctl.enable(selected.id) : ctl.disable(selected.id))}
+            onToggleActive={() => (tierEditionDisabledMasked(selected) ? ctl.enable(selected.id) : ctl.disable(selected.id))}
             onArchive={() => ctl.archive(selected.id)}
             onTrash={() => ctl.trash(selected.id)}
             onRestore={() => ctl.restore(selected.id)}

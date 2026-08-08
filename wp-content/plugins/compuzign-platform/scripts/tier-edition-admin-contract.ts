@@ -312,6 +312,18 @@ check(
   (editionDetailModel.match(/onEdit\('overview'\)|onEdit\('inclusions'\)/g) ?? []).length === 2,
   'both cards\' edit handlers route through the same onEdit(initialTab) — one shared session, two entry points',
 );
+// Correction plan item 1: the Inclusions read card must resolve the
+// EDITION'S OWN persisted selection (rate_sheet_items) against the
+// catalogue, never filter the whole bound-sheet catalogue directly — that
+// rendered every inclusion-type row the sheet has, selected or not.
+check(
+  editionDetailModel.includes('edition.rate_sheet_items.map'),
+  'Edition Inclusions\' read projection resolves edition.rate_sheet_items (the Edition\'s own persisted selection) against the catalogue, selection-first — not a catalogue-filter that ignores which rows are actually selected',
+);
+check(
+  !/const items = catalogue\s*\n\s*\.filter/.test(editionDetailModel),
+  'the old catalogue-filter-only Inclusions projection is gone',
+);
 
 const editionEntity = readFileSync(resolve(
   root,
@@ -343,6 +355,38 @@ const entityActionFooter = readFileSync(resolve(
 check(
   entityActionFooter.includes('close?:') && entityActionFooter.includes('inline?:'),
   'EntityActionFooter\'s close/inline additions are optional — every existing pinned-footer caller (Package Family, Category) is unaffected',
+);
+
+const editionModel = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/tierEditionModel.ts',
+), 'utf8');
+
+// ── Correction plan (regression follow-up): tierEditionDisabledMasked is the
+//    single frontend authority for Edition disabled-mask presentation.
+//    Edition's own backend (applyTierEditionDisabledMask) never writes
+//    is_explicitly_disabled — it stays on the wire/type shape but must never
+//    be read directly by presentation code, on pain of the module pill, the
+//    canonical footer, and the Enable/Disable branch disagreeing with each
+//    other and with reality. ────────────────────────────────────────────────
+
+check(
+  editionModel.includes('export function tierEditionDisabledMasked'),
+  'tierEditionDisabledMasked is exported as the single Edition disabled-mask authority',
+);
+check(
+  !panel.includes('.is_explicitly_disabled') && !editionDetailModel.includes('.is_explicitly_disabled'),
+  'TierEditionDeclarationSwitcher and buildTierEditionDetail never read edition.is_explicitly_disabled directly — only through tierEditionDisabledMasked',
+);
+check(
+  (panel.match(/tierEditionDisabledMasked\(/g) ?? []).length >= 2
+    && editionDetailModel.includes('tierEditionDisabledMasked('),
+  'the module pill (buildTierEditionDetail), CanonicalEntityFooter\'s isDisabledMasked, and the Enable/Disable branch all call the SAME tierEditionDisabledMasked — no independent derivation left',
+);
+check(
+  !panel.includes('cz-tier-edition-declaration__status') && !panel.includes('tierEditionStatusLabel')
+    && !editionModel.includes('export function tierEditionStatusLabel'),
+  'the obsolete loose lifecycle-status text (and its standalone derivation) is gone — the module pill and the canonical footer\'s own action label are the only lifecycle presentation, matching Package Family/Category',
 );
 
 // ── Edition bin presentation (drawer refinement blueprint, Phase 7) — the

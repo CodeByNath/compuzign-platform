@@ -6,14 +6,20 @@
 
 import type { TierEdition, TierEditionOverviewDraft } from '../../types';
 
-export function tierEditionStatusLabel(edition: TierEdition): string {
-  switch (edition.platform_status) {
-    case 'active':   return 'Active';
-    case 'archived': return 'Archived';
-    case 'trashed':  return 'Trashed';
-    case 'disabled': return edition.previous_platform_status !== null ? 'Disabled' : 'Pending';
-    default:         return edition.platform_status;
-  }
+// The single frontend authority for an Edition's Disabled-mask presentation
+// (correction plan item 1). Edition's own backend (applyTierEditionDisabledMask,
+// PackageSchema.php) mirrors PackageCategoryGroups::applyDisabledMask exactly —
+// it never writes edition.is_explicitly_disabled, so that field stays stuck at
+// its creation default forever. Package Family and Category (the mature
+// full-lifecycle precedents) don't store a raw mask field at all; both derive
+// "is this disabled" from the SAME compound this function computes. Every
+// Edition presentation concern that needs this fact — the module pill,
+// CanonicalEntityFooter's isDisabledMasked, and the Enable/Disable branch —
+// must call this, never read edition.is_explicitly_disabled directly. The
+// field itself stays on the wire/type shape unchanged; it is simply not read
+// for Editions any more.
+export function tierEditionDisabledMasked(edition: TierEdition): boolean {
+  return edition.platform_status === 'disabled' && edition.previous_platform_status !== null;
 }
 
 // Derivation feeding CanonicalEntityFooter (drawer refinement blueprint,

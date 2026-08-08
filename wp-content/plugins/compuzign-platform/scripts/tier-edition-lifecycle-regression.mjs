@@ -75,24 +75,34 @@ const OCCUPANT = {
 
 let editions = [];
 
-// One selectable Rate Sheet row — needed to prove the tab-switch-preserves-
-// draft invariant (step 3 below) touches a real Inclusions-tab field, not
-// just an empty select with nothing to choose. Same fixture shape
+// Two selectable Rate Sheet rows — ITEM_ID is the one the regression
+// actually selects onto the Edition (step 3b); UNSELECTED_ITEM_ID never gets
+// selected. Both are inclusion-type. This proves the Edition Inclusions read
+// card renders only the Edition's own persisted selection, not every
+// inclusion-type row the bound sheet happens to carry (correction plan item
+// 1 — the read card used to filter the whole catalogue). Same fixture shape
 // tier-occupant-lifecycle-regression.mjs already uses for the parent
 // occupant's own Inclusions editor.
 const RATE_SHEET_ID = 'rs_editions';
 const ITEM_ID = 'ri_1';
 const SOURCE_ITEM_ID = 'src_1';
+const UNSELECTED_ITEM_ID = 'ri_2';
+const UNSELECTED_SOURCE_ITEM_ID = 'src_2';
 const RATE_SHEETS = [{
   rate_sheet_id: RATE_SHEET_ID, title: 'Primary', status: 'active', groups: [],
   items: [
     { item_id: ITEM_ID, source_item_id: SOURCE_ITEM_ID, unit_price: 10, per: null, quantity: 1, group_id: null, sort_order: 0 },
+    { item_id: UNSELECTED_ITEM_ID, source_item_id: UNSELECTED_SOURCE_ITEM_ID, unit_price: 5, per: null, quantity: 1, group_id: null, sort_order: 1 },
   ],
 }];
 const PACKAGE_RELATIONSHIPS = [{
   item_id: SOURCE_ITEM_ID, source_type: 'inclusion', source_id: 'inc_1',
   resolved: { label: 'Priority support' }, decorated_label: 'Priority support', group_id: null,
   sort_order: 0, disabled: false, missing: false, module_transition: 'settled',
+}, {
+  item_id: UNSELECTED_SOURCE_ITEM_ID, source_type: 'inclusion', source_id: 'inc_2',
+  resolved: { label: 'Unselected extra' }, decorated_label: 'Unselected extra', group_id: null,
+  sort_order: 1, disabled: false, missing: false, module_transition: 'settled',
 }];
 
 function emptySlotDetail() {
@@ -260,12 +270,15 @@ globalThis.fetch = (url, init = {}) => {
         : applyStatusPermissive(edition.platform_status, body.platform_status, edition.previous_platform_status);
       edition.platform_status = change.status;
       edition.previous_platform_status = change.previous_status;
-      // The explicit Disable mask (is_explicitly_disabled) — never inferred
-      // from platform_status alone, same canonical fact the occupant's own
-      // mask is (see moduleStatus.tsx's TierLike). Only the disable/enable
-      // action sets it; a permissive engine transition never touches it.
-      if (body.action === 'disable') edition.is_explicitly_disabled = true;
-      if (body.action === 'enable') edition.is_explicitly_disabled = false;
+      // Mirrors PackageSchema::applyTierEditionDisabledMask exactly: neither
+      // disable nor enable ever touches is_explicitly_disabled — that field
+      // stays at its creation default forever for an Edition (unlike the
+      // Tier occupant's own mask, which the occupant's own /status endpoint
+      // DOES set — see PackageStationController.php). The frontend must
+      // derive Disabled from platform_status/previous_platform_status alone
+      // (tierEditionDisabledMasked), never from this field. A mock that
+      // "fixed" this field to move in lockstep would test the frontend
+      // against a fictional API contract and hide exactly this class of bug.
     } catch (e) {
       return jsonResponse({ success: false, message: e.message }, 422);
     }
@@ -403,8 +416,42 @@ function selectDeclarationTab(text) {
   btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return btn;
 }
-function selectedStatusText() {
-  return container.querySelector('.cz-tier-edition-declaration__status')?.textContent.trim() ?? null;
+// Correction plan: the obsolete loose lifecycle-status span is gone — the
+// module pill and the canonical footer's own action label are the only
+// lifecycle presentation now (matching Package Family/Category, neither of
+// which ever printed a third status line).
+function looseStatusTextAbsent() {
+  return container.querySelector('.cz-tier-edition-declaration__status') === null;
+}
+// The canonical footer's own primary split-action label (Disable/Enable/
+// Restore) — read directly rather than via selectedStatusText, since that
+// loose text no longer exists.
+function editionSplitLabel() {
+  return container.querySelector('.cz-tier-edition-declaration--view .cz-footer-split__btn')?.textContent.trim() ?? null;
+}
+// Reads the split control's overflow menu label — opens it, reads the one
+// item, closes it again, same technique
+// tier-occupant-lifecycle-regression.mjs's own overflowItemLabel() uses.
+async function editionOverflowItemLabel() {
+  clickOverflowChevron();
+  await sleep(20);
+  const label = container.querySelector('.cz-tier-edition-declaration--view .cz-footer-split__menu .cz-footer-split__item')?.textContent.trim() ?? null;
+  clickOverflowChevron();
+  await sleep(20);
+  return label;
+}
+// Correction plan invariant: the module pill and the canonical footer's own
+// action label must never disagree about whether the Edition is currently
+// disabled — Disabled must offer Enable, and only Disabled/Active states are
+// checked here since Pending/Archived/Trashed collapse the pill to the same
+// "Pending" label (the pill's 5-state vocabulary has no distinct
+// Archived/Trashed value — see tierEditionOverviewModule's own comment).
+function pillAndActionAgree(moduleTitle = 'Edition Overview') {
+  const pill = pillLabel(moduleTitle);
+  const action = editionSplitLabel();
+  if (pill === 'Disabled') return action === 'Enable';
+  if (pill === 'Active') return action === 'Disable';
+  return true;
 }
 // The selected Edition's own read surface is two mature module cards
 // (Edition Overview, Edition Inclusions — PlacedShell/ReadBlock, same
@@ -503,9 +550,10 @@ check('no CZTE was assigned at creation', czteMints === 0, czteMints);
 check('the empty-state prompt is gone now that an Edition exists', !container.textContent.includes('No additional Editions yet'));
 check(
   'the new Edition is auto-selected — no explicit tab click needed, and its own view surface already shows',
-  declarationTab('Edition 2')?.getAttribute('aria-selected') === 'true' && selectedStatusText()?.includes('Pending'),
-  `aria-selected=${declarationTab('Edition 2')?.getAttribute('aria-selected')} status=${selectedStatusText()}`,
+  declarationTab('Edition 2')?.getAttribute('aria-selected') === 'true' && pillLabel('Edition Overview') === 'Pending',
+  `aria-selected=${declarationTab('Edition 2')?.getAttribute('aria-selected')} pill=${pillLabel('Edition Overview')}`,
 );
+check('no loose lifecycle-status text renders — the module pill is the only status presentation', looseStatusTextAbsent());
 selectGroup('Details');
 await sleep(20);
 check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText() === '2', overviewEditionsCountText());
@@ -515,7 +563,7 @@ await sleep(20);
 console.log('\n3) Selecting "Edition 2", editing it through the shared editor, and renaming it to "Annual Plan" via the shared draft/settle module');
 selectDeclarationTab('Edition 2');
 await sleep(20);
-check('the newly selected Edition reads Pending (disabled, never published)', selectedStatusText()?.includes('Pending'), selectedStatusText());
+check('the newly selected Edition reads Pending (disabled, never published)', pillLabel('Edition Overview') === 'Pending', pillLabel('Edition Overview'));
 check('Edition Overview and Edition Inclusions render as two mature module cards', findModule('Edition Overview') !== null && findModule('Edition Inclusions') !== null);
 check('both cards carry the SAME 5-state pill — one module, two views, not two independently resolved ones', pillLabel('Edition Overview') === pillLabel('Edition Inclusions'), `overview=${pillLabel('Edition Overview')} inclusions=${pillLabel('Edition Inclusions')}`);
 
@@ -566,6 +614,16 @@ check('the tab now shows the new title', declarationTab('Annual Plan') !== undef
 check('the old auto-generated title is gone — this is a rename, not a second Edition', declarationTab('Edition 2') === undefined);
 check('the Rate Sheet selection from the Inclusions tab was saved in the SAME draft', findEdition(editions.find((e) => e.title === 'Annual Plan')?.id)?.rate_sheet_id === RATE_SHEET_ID);
 check('Edition Inclusions now shows the resolved row read-only', findModule('Edition Inclusions')?.textContent.includes('Priority support'));
+// Correction plan item 1: the bound Rate Sheet carries a SECOND inclusion-
+// type row (UNSELECTED_ITEM_ID / "Unselected extra") that was never added to
+// this Edition's own selection. The read card must reflect only what this
+// Edition actually selected (rate_sheet_items), not every inclusion-type row
+// the bound sheet happens to have.
+check(
+  'Edition Inclusions does NOT show a Rate Sheet row this Edition never selected',
+  !findModule('Edition Inclusions')?.textContent.includes('Unselected extra'),
+  findModule('Edition Inclusions')?.textContent,
+);
 
 console.log('\n4) Publish "Annual Plan" — activates and assigns CZTE exactly once');
 selectDeclarationTab('Annual Plan');
@@ -573,28 +631,34 @@ await sleep(20);
 clickButtonWithText('Publish');
 await waitQuiet();
 check('the status endpoint was called', statusCalls === 1, statusCalls);
-check('the Edition reads Active', selectedStatusText()?.includes('Active'), selectedStatusText());
 check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
 check('the assigned CZTE is now shown', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 check('the Edition Overview pill now reads Active — the shared 5-state pill, not a bespoke status string', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
+check('the canonical footer offers Disable, not Enable, for an Active Edition', editionSplitLabel() === 'Disable', editionSplitLabel());
+check('the module pill and the canonical action agree', pillAndActionAgree());
 
-console.log('\n5) Disable — captures previous_platform_status, offered Enable');
+console.log('\n5) Disable — captures previous_platform_status; the mock never touches is_explicitly_disabled (mirrors PackageSchema::applyTierEditionDisabledMask, which does not either)');
 clickButtonWithText('Disable');
 await waitQuiet();
-check('the Edition reads Disabled (masked, not Pending)', selectedStatusText()?.includes('Disabled'), selectedStatusText());
-check('Enable is now offered', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Enable'));
+check('the Edition module pill reads Disabled — tierEditionDisabledMasked, not the always-false is_explicitly_disabled field, drives this', pillLabel('Edition Overview') === 'Disabled', pillLabel('Edition Overview'));
+check('Enable is now offered', editionSplitLabel() === 'Enable', editionSplitLabel());
+check('Disabled does NOT still expose Disable', ![...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Disable'));
+check('the module pill and the canonical action agree — no Active-pill/Disabled-action (or vice versa) disagreement', pillAndActionAgree());
 
 console.log('\n6) Enable — lands Pending, never straight back to Active (same rule the occupant itself follows)');
 clickButtonWithText('Enable');
 await waitQuiet();
-check('Enable never reactivates — the Edition reads Pending', selectedStatusText()?.includes('Pending'), selectedStatusText());
+check('Enable never reactivates — the Edition pill reads Pending', pillLabel('Edition Overview') === 'Pending', pillLabel('Edition Overview'));
+check('Disable is offered again once re-enabled', editionSplitLabel() === 'Disable', editionSplitLabel());
+check('the module pill and the canonical action agree after Enable', pillAndActionAgree());
 
 console.log('\n7) Republish — reaches Active again; the SAME CZTE is reused, never re-reserved');
 clickButtonWithText('Publish');
 await waitQuiet();
-check('the Edition reads Active again', selectedStatusText()?.includes('Active'), selectedStatusText());
+check('the Edition pill reads Active again', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('republish never mints a second CZTE', czteMints === 1, czteMints);
 check('the CZTE identity is unchanged', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
+check('the module pill and the canonical action agree after republish', pillAndActionAgree());
 
 console.log('\n8) Archive, then Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
 // Archive lives in the split's overflow menu while the Edition is
@@ -603,14 +667,20 @@ clickOverflowChevron();
 await sleep(20);
 clickButtonWithText('Archive');
 await waitQuiet();
-check('the Edition reads Archived', selectedStatusText()?.includes('Archived'), selectedStatusText());
+// The pill has no distinct Archived value (collapses to Pending — see
+// tierEditionOverviewModule's own comment), so Archived/Trashed are proven
+// through the canonical footer's own action grammar instead, exactly like
+// tier-occupant-lifecycle-regression.mjs's own overflowItemLabel() checks.
+check('the Edition reads Archived — Restore is now the split\'s own direct action', editionSplitLabel() === 'Restore', editionSplitLabel());
+check('Archived offers Move to Trash in the overflow menu', await editionOverflowItemLabel() === 'Move to Trash');
 // Archived: Restore is now the split's own direct action; Move to Trash
 // moved into the overflow menu.
 clickOverflowChevron();
 await sleep(20);
 clickButtonWithText('Move to Trash');
 await waitQuiet();
-check('the Edition reads Trashed', selectedStatusText()?.includes('Trashed'), selectedStatusText());
+check('the Edition reads Trashed — Restore is still the split\'s own direct action', editionSplitLabel() === 'Restore', editionSplitLabel());
+check('Trashed offers Permanently delete in the overflow menu', await editionOverflowItemLabel() === 'Permanently delete');
 clickOverflowChevron();
 await sleep(20);
 check('Permanently delete is offered immediately once trashed', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Permanently delete'));
@@ -643,7 +713,7 @@ selectDeclarationTab('Monthly Plan');
 await sleep(20);
 clickButtonWithText('Publish');
 await waitQuiet();
-check('Monthly Plan reads Active', selectedStatusText()?.includes('Active'), selectedStatusText());
+check('Monthly Plan reads Active', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);
 check('Monthly Plan carries its own CZTE, not Annual Plan\'s', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
@@ -652,12 +722,14 @@ clickOverflowChevron();
 await sleep(20);
 clickButtonWithText('Archive');
 await waitQuiet();
-check('Monthly Plan reads Archived', selectedStatusText()?.includes('Archived'), selectedStatusText());
+check('Monthly Plan reads Archived — Restore is the split\'s own direct action', editionSplitLabel() === 'Restore', editionSplitLabel());
 // Archived: Restore is the split's own direct action, no chevron needed.
 clickButtonWithText('Restore');
 await waitQuiet();
-check('restore never reactivates — Monthly Plan reads Pending', selectedStatusText()?.includes('Pending'), selectedStatusText());
+check('restore never reactivates — Monthly Plan\'s pill reads Pending', pillLabel('Edition Overview') === 'Pending', pillLabel('Edition Overview'));
 check('restore was called exactly once', restoreCalls === 1, restoreCalls);
+check('the module pill and the canonical action agree after Restore', pillAndActionAgree());
+check('no loose lifecycle-status text renders anywhere in this flow', looseStatusTextAbsent());
 check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
 console.log('');
