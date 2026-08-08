@@ -145,7 +145,7 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   dna:       tierFeaturesModule,
   header: {
     title:       'Default Tier Inclusions',
-    subtitle:    'Features included in this tier’s Default declaration.',
+    subtitle:    'Features included in this tier’s Default.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
     count:       (d) => d.items.length,
