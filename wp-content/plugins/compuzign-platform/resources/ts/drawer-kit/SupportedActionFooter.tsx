@@ -14,6 +14,9 @@ export type SupportedFooterAction = EntityFooterAction & {
   overflow?: EntityFooterAction[];
   open?: boolean;
   onToggle?: () => void;
+  // See EntityFooterSplitAction's own comment — additive, defaults to today's
+  // direct-click behavior for every existing caller.
+  menuOnly?: boolean;
 };
 
 export interface SupportedActionFooterModel {
@@ -48,6 +51,7 @@ export function resolveSupportedFooterActions(
       overflow: split.overflow ?? [],
       open: split.open ?? false,
       onToggle: split.onToggle ?? (() => {}),
+      menuOnly: split.menuOnly ?? false,
     } : null,
   };
 }

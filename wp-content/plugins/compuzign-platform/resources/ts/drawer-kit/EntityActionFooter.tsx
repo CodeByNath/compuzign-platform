@@ -26,6 +26,14 @@ export interface EntityFooterSplitAction extends EntityFooterAction {
   overflow: EntityFooterAction[];
   open: boolean;
   onToggle: () => void;
+  // Opt-in safety mode (additive — every existing consumer omits this and
+  // keeps today's behavior unchanged): the visible split label click opens
+  // the menu instead of firing onSelect. When true, onSelect is never
+  // invoked by this component; every real action must be an explicit
+  // overflow row, including whatever would otherwise be the "obvious"
+  // default one. The primitive itself enforces this — it does not rely on
+  // a caller happening to wire onSelect safely.
+  menuOnly?: boolean;
 }
 
 interface EntityActionFooterProps {
@@ -52,7 +60,9 @@ export function EntityActionFooter({ split, close, primary, inline }: EntityActi
             type="button"
             class="cz-footer-split__btn"
             disabled={split.disabled || split.busy}
-            onClick={split.onSelect}
+            onClick={split.menuOnly ? split.onToggle : split.onSelect}
+            aria-haspopup={split.menuOnly ? 'menu' : undefined}
+            aria-expanded={split.menuOnly ? split.open : undefined}
           >
             {actionLabel(split)}
           </button>
