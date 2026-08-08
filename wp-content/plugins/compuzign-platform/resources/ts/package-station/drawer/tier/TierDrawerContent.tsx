@@ -37,10 +37,29 @@ import { TierDrawerDialogs } from './TierDrawerDialogs';
 import { TierEditionDeclarationSwitcher } from './TierEditionDeclarationSwitcher';
 import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
+import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
 
 export function TierDrawerContent(props: TierDrawerContentProps) {
   const { bridge } = props;
   const c = useTierDrawerController(props);
+
+  // Single-footer lifecycle command model, Phase 2: useTierEditions is
+  // called ONCE, here, rather than inside TierEditionDeclarationSwitcher —
+  // so the pinned TierDrawerFooter (Phase 4) can drive the selected
+  // Edition's own lifecycle actions through the SAME controller/local state
+  // TierEditionDeclarationSwitcher's cards and bin list already render from,
+  // never a second instance that could drift. useTierEditions itself is
+  // unchanged and remains the sole Edition-mutation owner. Called
+  // unconditionally (rules of hooks) with null/empty fallbacks when no tier
+  // is open — the hook already no-ops every mutation when tierId is null.
+  const editionCtl = useTierEditions(
+    props.serviceId,
+    props.tierInstanceId,
+    c.editingTierId,
+    c.tierDetail?.detail.tier_editions ?? [],
+    c.tierDetail?.detail.tier_edition_bin ?? [],
+    c.pkg.refetch,
+  );
 
   // Publish the record footer through the host. Mirrors the old host's footer
   // effect deps; edit mode ('none') leaves the slot to InlineEditorShell.
@@ -362,11 +381,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         // Package Station as before this relocation.
         detail.occupant_id && (
           <TierEditionDeclarationSwitcher
-            serviceId={props.serviceId}
-            tierInstanceId={props.tierInstanceId}
-            tierId={c.editingTierId}
-            editions={detail.tier_editions ?? []}
-            editionBin={detail.tier_edition_bin ?? []}
+            ctl={editionCtl}
             rateSheetOptions={selectableRateSheets(
               svc.rate_sheets,
               station.allowed_rate_sheet_ids ?? [],
@@ -376,7 +391,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
             }))}
             svc={svc}
-            onMutated={c.pkg.refetch}
             selectedId={c.selectedDeclarationId}
             onSelect={c.setSelectedDeclarationId}
             onAddEdition={c.handleAddEdition}

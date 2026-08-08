@@ -46,22 +46,22 @@ import { CanonicalEntityFooter } from '@/drawer-kit/CanonicalEntityFooter';
 import { TravelStatusPill } from '@/drawer-kit/ui/TravelStatusPill';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
-import type { PackageManagerItem, PackageRateSheet, TierEdition, TierEditionBinEntry, TierEditionOverviewDraft } from '../../types';
-import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
+import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft } from '../../types';
+import type { TierEditionsController } from '../../surface/tierSurface/useTierEditions';
 import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
 import { buildTierEditionDetail } from './tierEditionDetailModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
 import { deriveTierEditionFooterState, draftFromTierEdition, tierEditionDisabledMasked } from './tierEditionModel';
 
 interface Props {
-  serviceId:      number;
-  tierInstanceId: string;
-  tierId:         string;
-  editions:       TierEdition[];
-  editionBin:     TierEditionBinEntry[];
+  // Single-footer lifecycle command model, Phase 2: the controller is built
+  // ONCE by TierDrawerContent (not here) so the pinned footer and this
+  // switcher share the exact same instance/local state — useTierEditions
+  // itself is unchanged and remains the sole Edition-mutation owner, only
+  // its call site moved up one level.
+  ctl: TierEditionsController;
   rateSheetOptions: AdminFieldOption[];
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
-  onMutated:      () => void;
   // Default is never a row of this strip — its own content lives in Default
   // Tier Inclusions under Details. null here means no Edition is selected.
   selectedId:     string | null;
@@ -71,10 +71,9 @@ interface Props {
 }
 
 export function TierEditionDeclarationSwitcher({
-  serviceId, tierInstanceId, tierId, editions, editionBin, rateSheetOptions, svc, onMutated, selectedId, onSelect,
+  ctl, rateSheetOptions, svc, selectedId, onSelect,
   onAddEdition, addingEdition,
 }: Props) {
-  const ctl = useTierEditions(serviceId, tierInstanceId, tierId, editions, editionBin, onMutated);
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
   const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
