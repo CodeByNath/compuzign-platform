@@ -1229,16 +1229,21 @@
 }
 
 /* Child/subsection navigation strip (UI refinement, Phase 3) — a
-   subordinate sibling of .cz-drawer-groups__tab*, same token family,
-   deliberately smaller (--admin-fs-s-label vs. --admin-fs-label) so it
-   always reads one level below the group nav it sits under. Sticky directly
+   subordinate sibling of .cz-drawer-groups__tab*, same token family and
+   same font-size (--admin-fs-label, matching the tab bar exactly — not
+   --admin-fs-s-label) so it reads as one level below the group nav it sits
+   under by position, not by a smaller typographic system. Sticky directly
    beneath whatever chrome the host renderer publishes via the inherited
    --cz-drawer-group-chrome-h (DrawerGroupTabs: its own measured tablist
    height; DrawerGroupAccordion: 0, since Accordion mode has no persistent
    sticky chrome above an open panel) — never a second sticky system of its
    own invention, and never overlapping the tablist above it (lower z-index
-   than .cz-drawer-groups__tablist). No scroll-direction hide/reveal — sticky
-   only. Horizontally scrollable with the scrollbar hidden cross-browser;
+   than .cz-drawer-groups__tablist). Scroll-direction hide/reveal
+   (.cz-drawer-groups__chip-strip--hidden, driven by useScrollHide) is
+   Tabs-mode only: ChildChipStrip only receives a real scroll container from
+   TierDrawerContent while Tabs is the active view, so this class is simply
+   never applied in Accordion mode — no mode check lives in this CSS.
+   Horizontally scrollable with the scrollbar hidden cross-browser;
    touch/trackpad/mouse scrolling remains fully functional — only the
    visible scrollbar track is suppressed. */
 .cz-drawer-groups__chip-strip {
@@ -1257,6 +1262,11 @@
   padding: var(--cz-space-2) var(--cz-space-6);
   background: var(--station-surface);
   border-bottom: 1px solid var(--station-border);
+  transition: transform var(--cz-transition-fast);
+}
+
+.cz-drawer-groups__chip-strip--hidden {
+  transform: translateY(-100%);
 }
 
 .cz-drawer-groups__chip-strip::-webkit-scrollbar {
@@ -1265,11 +1275,10 @@
 
 .cz-drawer-groups__chip {
   flex: 0 0 auto;
-  position: relative;
   padding: var(--cz-space-2) 0;
   background: transparent;
   border: none;
-  font-size: var(--admin-fs-s-label);
+  font-size: var(--admin-fs-label);
   font-weight: var(--admin-fw-normal);
   color: var(--station-text-muted);
   cursor: pointer;
@@ -1289,19 +1298,12 @@ button.cz-drawer-groups__chip.cz-drawer-groups__chip {
   color: var(--station-text);
 }
 
+/* Active state carries no underline — the pill background above already
+   distinguishes the chip row; a bar under a filled pill would be
+   redundant. Text weight/color alone marks the active item. */
 .cz-drawer-groups__chip--active {
   font-weight: var(--admin-fw-strong);
   color: var(--station-accent);
-}
-
-.cz-drawer-groups__chip--active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--station-accent);
 }
 
 .cz-drawer-groups__chip:focus-visible {

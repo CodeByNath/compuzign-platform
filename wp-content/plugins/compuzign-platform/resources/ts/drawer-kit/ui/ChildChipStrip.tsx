@@ -5,18 +5,25 @@
 // (Nath, Edition 2, Edition 3…). A subordinate sibling of DrawerGroupTabs
 // (the top-level Details/Options/Connections/Support bar), never a second
 // top-level tab system: same token family (`--station-*` accent/text
-// tokens) as `.cz-drawer-groups__tab`, but visibly smaller so it always
-// reads as one level below the group nav it sits under. Left-aligned,
-// horizontally scrollable with no visible scrollbar (mouse/trackpad/touch
-// scrolling still works — see `.cz-drawer-groups__chip-strip` in
-// drawer-kit.css), sticky directly beneath whatever chrome the host
-// renderer publishes via the inherited `--cz-drawer-group-chrome-h` custom
-// property — no scroll-direction hide/reveal, sticky only. It deliberately
-// has no Accordion-specific variant: it renders identically — same markup,
-// same sticky behavior — regardless of which mode the parent DrawerGroup*
-// is in; DrawerGroupTabs and DrawerGroupAccordion each publish the
-// chrome-height variable differently so this component never has to know
-// which one is hosting it.
+// tokens, same font-size as `.cz-drawer-groups__tab`) so it reads as one
+// level below the group nav it sits under without looking like a smaller,
+// separate typographic system. Left-aligned, horizontally scrollable with
+// no visible scrollbar (mouse/trackpad/touch scrolling still works — see
+// `.cz-drawer-groups__chip-strip` in drawer-kit.css), sticky directly
+// beneath whatever chrome the host renderer publishes via the inherited
+// `--cz-drawer-group-chrome-h` custom property. It deliberately has no
+// Accordion-specific markup variant: it renders identically — same
+// markup — regardless of which mode the parent DrawerGroup* is in;
+// DrawerGroupTabs and DrawerGroupAccordion each publish the chrome-height
+// variable differently so this component never has to know which one is
+// hosting it.
+//
+// `scrollContainer` drives the scroll-direction hide/reveal via
+// useScrollHide, but WHETHER it is active at all is entirely the caller's
+// decision: passing `null` (Accordion mode — see TierDrawerContent.tsx,
+// which only resolves a real container while Tabs mode is active) disables
+// hide/reveal outright and leaves the strip sticky-only, with no special
+// case inside this component or useScrollHide itself.
 //
 // Generic and reusable — the Id type parameter and plain
 // `{ id, label }[]` shape carry no Tier/Edition vocabulary — but only Tier
@@ -24,6 +31,7 @@
 // this primitive is a separate, future decision.
 
 import { useEffect, useRef } from 'preact/hooks';
+import { useScrollHide } from './useScrollHide';
 
 export interface ChildChip<Id extends string = string> {
   id:    Id;
@@ -35,9 +43,15 @@ export interface ChildChipStripProps<Id extends string = string> {
   activeId:  Id | null;
   onSelect:  (id: Id) => void;
   ariaLabel: string;
+  // Optional and additive — omitting it (or passing null) simply disables
+  // hide-on-scroll, leaving a plain always-visible sticky bar.
+  scrollContainer?: HTMLElement | null;
 }
 
-export function ChildChipStrip<Id extends string>({ chips, activeId, onSelect, ariaLabel }: ChildChipStripProps<Id>) {
+export function ChildChipStrip<Id extends string>({
+  chips, activeId, onSelect, ariaLabel, scrollContainer = null,
+}: ChildChipStripProps<Id>) {
+  const hidden = useScrollHide(scrollContainer);
   const activeRef = useRef<HTMLButtonElement>(null);
 
   // Brings a newly-selected or newly-created Edition into view horizontally
@@ -48,7 +62,11 @@ export function ChildChipStrip<Id extends string>({ chips, activeId, onSelect, a
   }, [activeId]);
 
   return (
-    <div class="cz-drawer-groups__chip-strip" role="tablist" aria-label={ariaLabel}>
+    <div
+      class={`cz-drawer-groups__chip-strip${hidden ? ' cz-drawer-groups__chip-strip--hidden' : ''}`}
+      role="tablist"
+      aria-label={ariaLabel}
+    >
       {chips.map((chip) => (
         <button
           key={chip.id}

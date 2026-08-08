@@ -23,11 +23,12 @@
 // identically in Accordion mode, that Accordion supplies its documented
 // 0px sticky-chrome context (DrawerGroupAccordion, not a new sticky
 // accordion-header system), that none of it touches selection or fires an
-// endpoint, and that switching back to Tabs rebuilds the chrome-height
-// variable through Tabs' own mechanism rather than leaving anything from
-// Accordion mode behind. There is no scroll-direction hide/reveal to prove
-// here — that behaviour was tried and deliberately removed; the strip is
-// sticky only now.
+// endpoint, that scrolling in Accordion mode does NOT hide/reveal the strip
+// (TierDrawerContent only resolves a real scroll container while Tabs mode
+// is active), and that switching back to Tabs both rebuilds the
+// chrome-height variable through Tabs' own mechanism AND re-enables
+// scroll-direction hide/reveal with the same hysteresis-against-jitter
+// guarantee.
 //
 
 // The fetch mock reproduces PackageSchema's SECTION: TIER_EDITION engine
@@ -377,6 +378,16 @@ function Harness({ initialTierId }) {
 }
 
 const container = document.createElement('div');
+// Real markup nests TierDrawerContent's own '.cz-req-detail' root one level
+// inside AdminStationDrawer's '.cz-station-drawer__body' (the actual
+// scrolling element — see admin-station.css). TierDrawerContent resolves it
+// via a single closest() lookup at the composition layer, and ONLY while
+// Tabs mode is active (null in Accordion mode) — never inside the generic
+// ChildChipStrip primitive. Giving the mount container this class lets that
+// lookup resolve to a real element here too, so section 13's scroll checks
+// exercise the actual resolved scrollContainer (or its absence in Accordion
+// mode) rather than always null.
+container.classList.add('cz-station-drawer__body');
 document.body.appendChild(container);
 const footerContainer = document.createElement('div');
 document.body.appendChild(footerContainer);
@@ -419,6 +430,20 @@ function clickButtonWithLabel(label, root = container) {
   const btn = root.querySelector(`[aria-label="${label}"]`);
   btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return btn;
+}
+// Section 13 — secondary-nav scroll-hide (Tabs mode only): drives
+// useScrollHide through the real drawer scroll body (`container` itself,
+// tagged '.cz-station-drawer__body' above) rather than window scroll.
+// happy-dom does not synthesize 'scroll' events from a bare scrollTop
+// write, so this sets it and dispatches the event explicitly, the same
+// manual-event-dispatch pattern every other input/click interaction in
+// this file already uses.
+function fireScroll(scrollTop) {
+  container.scrollTop = scrollTop;
+  container.dispatchEvent(new window.Event('scroll'));
+}
+function chipStripHidden() {
+  return container.querySelector('.cz-drawer-groups__chip-strip')?.classList.contains('cz-drawer-groups__chip-strip--hidden') ?? null;
 }
 function setInputValue(selector, value) {
   const el = container.querySelector(selector);
@@ -929,7 +954,17 @@ check(
   { saveDraftCalls, settleCalls, statusCalls, restoreCalls, deleteCalls, czteMints, editionsLength: editions.length },
 );
 
-console.log('  13a) Switching back to Tabs preserves selection and rebuilds the chrome-height variable through Tabs\' own mechanism, not a stale Accordion value');
+console.log('  13a) In Accordion mode, scrolling the drawer body does not hide/reveal the strip — TierDrawerContent resolves no scroll container while Accordion is active');
+fireScroll(0);
+await sleep(20);
+check('the strip is visible at rest in Accordion mode', chipStripHidden() === false, chipStripHidden());
+fireScroll(200);
+await sleep(20);
+check('a large downward scroll in Accordion mode does not hide the strip — no scroll container was ever wired up', chipStripHidden() === false, chipStripHidden());
+fireScroll(0);
+await sleep(20);
+
+console.log('  13b) Switching back to Tabs preserves selection and rebuilds the chrome-height variable through Tabs\' own mechanism, not a stale Accordion value');
 clickButtonWithLabel('Switch to tabs view');
 await sleep(20);
 check(
@@ -944,6 +979,43 @@ check(
   tabsContentWrapper?.getAttribute('style'),
 );
 check('the same Edition is still selected after switching back to Tabs', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === 'true');
+
+console.log('  13c) Tabs mode re-enables scroll-direction hide/reveal, with hysteresis against small movement, and still touches nothing else');
+const callsBeforeTabsScroll = { saveDraftCalls, settleCalls, statusCalls, restoreCalls, deleteCalls, czteMints };
+fireScroll(0);
+await sleep(20);
+check('the strip starts visible', chipStripHidden() === false, chipStripHidden());
+
+fireScroll(5);
+await sleep(20);
+check('a small 5px downward movement (below the hysteresis threshold) does not hide the strip', chipStripHidden() === false, chipStripHidden());
+
+fireScroll(40);
+await sleep(20);
+check('a deliberate downward scroll past the threshold hides the strip', chipStripHidden() === true, chipStripHidden());
+
+fireScroll(35);
+await sleep(20);
+check('a small 5px upward movement (below the hysteresis threshold) does not reveal the strip yet', chipStripHidden() === true, chipStripHidden());
+
+fireScroll(10);
+await sleep(20);
+check('a deliberate upward scroll past the threshold reveals the strip again', chipStripHidden() === false, chipStripHidden());
+
+fireScroll(0);
+await sleep(20);
+
+check(
+  'the Tabs-mode scroll sequence fired no endpoint and mutated nothing — save/settle/status/restore/delete counts and the CZTE mint count are all unchanged',
+  saveDraftCalls === callsBeforeTabsScroll.saveDraftCalls
+    && settleCalls === callsBeforeTabsScroll.settleCalls
+    && statusCalls === callsBeforeTabsScroll.statusCalls
+    && restoreCalls === callsBeforeTabsScroll.restoreCalls
+    && deleteCalls === callsBeforeTabsScroll.deleteCalls
+    && czteMints === callsBeforeTabsScroll.czteMints,
+  { saveDraftCalls, settleCalls, statusCalls, restoreCalls, deleteCalls, czteMints },
+);
+check('the selected Edition is still unchanged after the whole scroll sequence', declarationTab('Monthly Plan')?.getAttribute('aria-selected') === 'true');
 
 console.log('');
 if (failures.length > 0) {
