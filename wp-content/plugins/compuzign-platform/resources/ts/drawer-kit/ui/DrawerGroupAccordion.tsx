@@ -7,6 +7,14 @@
 // matching the pattern already used by the Package Tier Workspace's
 // TierAccordionSection. Visual language mirrors .cz-sv-tab* tokens — not the
 // public Cost Builder FaqAccordion.
+//
+// Publishes a static `--cz-drawer-group-chrome-h: 0px` on each open panel —
+// unlike DrawerGroupTabs' measured tablist height, Accordion mode has no
+// persistent sticky chrome above an open panel (the accordion trigger itself
+// does not become sticky as part of this), so a group's own content — e.g.
+// Options' ChildChipStrip — sticks flush at the top of the drawer's own
+// scroll body once its section reaches the sticky boundary, the same
+// variable contract DrawerGroupTabs publishes with a real measurement.
 
 import type { DrawerGroupNavProps } from './drawerGroups';
 
@@ -44,6 +52,7 @@ export function DrawerGroupAccordion<Id extends string>({ groups, activeId, onSe
                 role="region"
                 aria-labelledby={headerId}
                 class="cz-drawer-groups__accordion-panel"
+                style="--cz-drawer-group-chrome-h: 0px"
                 hidden={!isOpen}
               >
                 {isOpen && group.content}
