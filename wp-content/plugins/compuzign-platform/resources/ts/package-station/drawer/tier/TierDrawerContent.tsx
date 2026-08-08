@@ -446,8 +446,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
             svc={svc}
             selectedId={c.selectedDeclarationId}
             onSelect={c.setSelectedDeclarationId}
-            onAddEdition={c.handleAddEdition}
-            addingEdition={c.addingEdition}
           />
         )
       ),
@@ -520,12 +518,35 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     </button>
   );
 
+  // "+ Edition" (UI refinement, Phase 2) — relocated off Options' own
+  // content into the drawer's top nav chrome, beside the view toggle,
+  // reachable only while Options is the active group and a real occupant
+  // exists to own the new Edition (same eligibility Options' content itself
+  // was already gated on). Same handler/state (handleAddEdition/
+  // addingEdition) — only where the trigger renders changed.
+  const showAddEdition = c.tierTab === 'options' && !!detail.occupant_id;
+  const trailing = (
+    <>
+      {viewToggle}
+      {showAddEdition && (
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          disabled={c.addingEdition}
+          onClick={c.handleAddEdition}
+        >
+          {c.addingEdition ? '…' : '+ Edition'}
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div class="cz-req-detail" key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}>
       {c.tierGroupView === 'accordion' ? (
-        <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={viewToggle} />
+        <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={trailing} />
       ) : (
-        <DrawerGroupTabs groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={viewToggle} />
+        <DrawerGroupTabs groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={trailing} />
       )}
       <TierDrawerDialogs c={c} />
     </div>
