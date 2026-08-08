@@ -32,7 +32,7 @@
     "contract:tier-overview-is-addon": "tsx scripts/tier-overview-is-addon-contract.ts",
     "contract:tier-edition-admin": "tsx scripts/tier-edition-admin-contract.ts",
     "contract:tier-edition-switch": "tsx scripts/tier-edition-switch-contract.ts",
-    "contract:child-nav-sticky-reveal": "tsx scripts/child-nav-sticky-reveal-contract.ts",
+    "contract:child-nav-sticky": "tsx scripts/child-nav-sticky-contract.ts",
     "contract:tier-lifecycle-menu": "tsx scripts/tier-lifecycle-menu-contract.ts",
     "contract:api-client-timeout": "tsx scripts/api-client-timeout-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",

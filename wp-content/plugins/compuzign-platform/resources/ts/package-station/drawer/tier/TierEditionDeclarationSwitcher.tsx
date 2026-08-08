@@ -82,14 +82,10 @@ interface Props {
   // Tier Inclusions under Details. null here means no Edition is selected.
   selectedId:     string | null;
   onSelect:       (id: string | null) => void;
-  // Presentation wiring only, forwarded to ChildChipStrip's sticky/hide
-  // behavior — resolved once by TierDrawerContent, which already knows the
-  // drawer's DOM shape. Not a Tier/Edition concept.
-  scrollContainer?: HTMLElement | null;
 }
 
 export function TierEditionDeclarationSwitcher({
-  ctl, rateSheetOptions, svc, selectedId, onSelect, scrollContainer,
+  ctl, rateSheetOptions, svc, selectedId, onSelect,
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
@@ -156,7 +152,6 @@ export function TierEditionDeclarationSwitcher({
         activeId={selectedId}
         ariaLabel="Editions"
         onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); }}
-        scrollContainer={scrollContainer}
       />
 
       {ctl.editions.length === 0 && (
