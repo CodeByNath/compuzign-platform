@@ -75,22 +75,28 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // every render would refire the effect every render (the exact defect
   // scripts/tier-system-footer-loop-regression.mjs proves against).
   const selectedEdition = editionCtl.editions.find((e) => e.id === c.selectedDeclarationId) ?? null;
-  const selectedEditionCanPublish = selectedEdition
+  const selectedEditionFooterState = selectedEdition
     ? deriveTierEditionFooterState(
         selectedEdition,
         tierEditionModuleState(selectedEdition).status,
         selectedEdition.drafts.overview !== null,
-      ).canPublish
-    : false;
+      )
+    : null;
+  const selectedEditionCanPublish = selectedEditionFooterState?.canPublish ?? false;
+  const selectedEditionHasBeenPublished = selectedEditionFooterState?.hasBeenPublished ?? false;
   const selectedEditionLifecycle: SelectedEditionLifecycleInputs | null = selectedEdition ? {
     id:             selectedEdition.id,
     title:          selectedEdition.title,
     platformStatus: selectedEdition.platform_status,
     disabledMasked: tierEditionDisabledMasked(selectedEdition),
+    hasBeenPublished: selectedEditionHasBeenPublished,
     canPublish:     selectedEditionCanPublish,
     onPublish:      () => editionCtl.publish(selectedEdition.id),
     onDisable:      () => editionCtl.disable(selectedEdition.id),
     onEnable:       () => editionCtl.enable(selectedEdition.id),
+    // Independent of the Tier's own cascading "Archive Tier" — this
+    // archives ONLY the selected Edition, never the parent occupant.
+    onArchive:      () => editionCtl.archive(selectedEdition.id),
     onTrash:        () => editionCtl.trash(selectedEdition.id),
     onDelete:       () => editionCtl.remove(selectedEdition.id),
     onRestore:      () => editionCtl.restore(selectedEdition.id),
@@ -125,7 +131,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     c.footerMode, c.footerEnabled, c.footerHasContent, c.footerHasBeenPublished,
     c.pkg.saving, editionCtl.saving, c.splitOpen, bridge,
     selectedEdition?.id, selectedEdition?.title, selectedEdition?.platform_status,
-    selectedEdition?.previous_platform_status, selectedEditionCanPublish,
+    selectedEdition?.previous_platform_status, selectedEditionCanPublish, selectedEditionHasBeenPublished,
   ]);
 
   if (!c.pkg.detailLoaded) return <AsyncLoading label="Loading tiers…" />;

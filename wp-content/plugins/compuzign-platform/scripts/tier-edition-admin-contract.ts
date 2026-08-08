@@ -370,7 +370,7 @@ check(
 );
 check(
   drawerContent.includes('selectedEditionLifecycle') && drawerContent.includes('editionCtl.publish(') && drawerContent.includes('editionCtl.disable(')
-    && drawerContent.includes('editionCtl.enable(') && drawerContent.includes('editionCtl.trash(') && drawerContent.includes('editionCtl.restore(')
+    && drawerContent.includes('editionCtl.enable(') && drawerContent.includes('editionCtl.archive(') && drawerContent.includes('editionCtl.trash(') && drawerContent.includes('editionCtl.restore(')
     && drawerContent.includes('editionCtl.remove(') && drawerContent.includes('editionCtl.moveToBin('),
   'TierDrawerContent derives the selected Edition\'s scoped lifecycle handlers from the SAME lifted useTierEditions controller (editionCtl), and hands them to the pinned footer',
 );
