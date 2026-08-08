@@ -379,6 +379,8 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
             onMutated={c.pkg.refetch}
             selectedId={c.selectedDeclarationId}
             onSelect={c.setSelectedDeclarationId}
+            onAddEdition={c.handleAddEdition}
+            addingEdition={c.addingEdition}
           />
         )
       ),

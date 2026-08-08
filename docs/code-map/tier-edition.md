@@ -28,13 +28,11 @@ always an alternate.
 
 ## Overview registration
 
-Overview carries one small derived read field, "Editions" — `1` plus however
-many rows `tier_editions[]` holds, never a separately persisted count
-(`tierDetailModel.ts`'s `tierEditionsCount`) — and one footer action,
-"+ Edition", beside Edit. Clicking it mints one child immediately via the
-same `createTierEdition()` the tab strip uses, auto-titled from the current
-count, not a permanent sequence (`useTierDrawerController.ts`'s
-`handleAddEdition`); Overview collects no title/price/lifecycle action.
+Overview under Details carries one small derived read field, "Editions" —
+`1` plus however many rows `tier_editions[]` holds, never a separately
+persisted count (`tierDetailModel.ts`'s `tierEditionsCount`). Creation
+happens only through Options' own "+ Edition" trigger (see Admin editing) —
+Overview collects no title/price/lifecycle action.
 
 ## Identity
 
@@ -99,11 +97,13 @@ revert, status, restore, guarded delete, plus Phase 6's
 Edition-scoped state including `tier_edition_bin[]`. The Included-Features
 module is titled **Default Tier Inclusions** (unchanged, Default only).
 `TierEditionDeclarationSwitcher.tsx` is now the Options group's content,
-gated on a real occupant: a `[Default] [Edition 2]` tab strip reusing
-`TierEditionOverviewFields.tsx`,
-plus Phase 6's bin UI — "Move to bin" on an archived/trashed Edition, and a
-collapsed "Edition bin (n)" row for Restore/Trash/Delete where lifecycle
-rules permit (no second drawer).
+gated on a real occupant: a `[Edition 2] [Edition 3]` tab strip plus the
+sole "+ Edition" trigger (`useTierDrawerController.ts`'s
+`handleAddEdition`), reusing `TierEditionOverviewFields.tsx`, plus Phase 6's
+bin UI — "Move to bin" on an archived/trashed Edition, and a collapsed
+"Edition bin (n)" row for Restore/Trash/Delete where lifecycle rules permit
+(no second drawer). Default is never a row of this strip — see Overview
+registration above.
 
 The selected declaration id lives in `useTierDrawerController.ts`, not
 local switcher state, since `TierDrawerContent.tsx` unmounts its child tree

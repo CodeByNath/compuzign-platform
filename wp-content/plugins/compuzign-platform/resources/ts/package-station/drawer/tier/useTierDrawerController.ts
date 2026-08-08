@@ -196,12 +196,13 @@ export function useTierDrawerController({
 
   const requestClose = () => bridge.close();
 
-  // Overview's small "Editions" structural control (see
-  // docs/code-map/tier-edition.md): registers one additional Edition
-  // position by minting the child record immediately, the same
-  // born-disabled/unconfigured creation addTierEdition already performs for
-  // "+ Add Edition" — Overview itself collects no title, form, or pricing;
-  // configuring the new Edition happens in the Inclusions & Editions module.
+  // Options' own "+ Edition" control (see docs/code-map/tier-edition.md):
+  // registers one additional Edition position by minting the child record
+  // immediately, born-disabled/unconfigured — Options itself collects no
+  // title, form, or pricing; configuring the new Edition happens in its own
+  // Overview/Inclusions editor. Overview under Details keeps only the
+  // derived "Editions" read count (tierDetailModel.ts's tierEditionsCount);
+  // this is the single place that creates one.
   const [addingEdition, setAddingEdition] = useState(false);
   const handleAddEdition = async () => {
     if (!editingTierId || addingEdition) return;
@@ -222,7 +223,6 @@ export function useTierDrawerController({
   const tierDetail = buildTierDetail(pkg, editingTierId, {
     onEditSection:  openSection,
     onRevertModule: handleRevertModule,
-    onAddEdition:   addingEdition ? undefined : handleAddEdition,
   });
 
   return {
@@ -237,6 +237,9 @@ export function useTierDrawerController({
     // individual tier
     tierDetail, openTierPanel, setOpenTierPanel,
     selectedDeclarationId, setSelectedDeclarationId,
+    // Options' own creation control (relocated off Overview's footer — see
+    // handleAddEdition above).
+    handleAddEdition, addingEdition,
     // editors
     overviewDraft: editing.overviewDraft, setOverviewDraft: editing.setOverviewDraft,
     featuresDraft: editing.featuresDraft, setFeaturesDraft: editing.setFeaturesDraft,

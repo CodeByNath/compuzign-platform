@@ -401,18 +401,22 @@ await waitQuiet();
 
 console.log('1) A freshly published occupant starts with only its own Default declaration');
 check('Overview\'s own Editions count reads 1 (the occupant\'s own Default only)', overviewEditionsCountText() === '1', overviewEditionsCountText());
+selectGroup('Options');
+await sleep(20);
 check('no additional-declarations tab strip renders yet — this Tier behaves exactly as before Editions existed', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
-check('Overview offers "+ Edition"', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === '+ Edition'));
+check('Options offers "+ Edition" — the single place that creates one', [...container.querySelectorAll('button')].some((b) => b.textContent.trim() === '+ Edition'));
 
-console.log('\n2) Registering one more position from Overview mints a born-disabled, auto-titled child — no title form in Overview itself');
+console.log('\n2) Registering one more position from Options mints a born-disabled, auto-titled child — no title form anywhere');
 clickButtonWithText('+ Edition');
 await waitQuiet();
 check('a new Edition was created', editions.length === 1, editions.length);
+check('the tab strip offers only the new Edition — no Default tab', declarationTab('Default') === undefined && declarationTab('Edition 2') !== undefined);
+check('no CZTE was assigned at creation', czteMints === 0, czteMints);
+selectGroup('Details');
+await sleep(20);
 check('Overview\'s own Editions count advanced to 2', overviewEditionsCountText() === '2', overviewEditionsCountText());
 selectGroup('Options');
 await sleep(20);
-check('the tab strip offers only the new Edition — no Default tab', declarationTab('Default') === undefined && declarationTab('Edition 2') !== undefined);
-check('no CZTE was assigned at creation', czteMints === 0, czteMints);
 
 console.log('\n3) Selecting "Edition 2" and renaming it to "Annual Plan" via the shared draft/settle module');
 selectDeclarationTab('Edition 2');
@@ -484,12 +488,8 @@ await sleep(20);
 check('the tab strip is gone again — no editions remain', container.querySelectorAll('.cz-cost-builder__tier-editions [role="tab"]').length === 0);
 
 console.log('\n9) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
-selectGroup('Details');
-await sleep(20);
 clickButtonWithText('+ Edition');
 await waitQuiet();
-selectGroup('Options');
-await sleep(20);
 check('the auto-title reuses "Edition 2" — it is derived from the current count, not a permanent counter', declarationTab('Edition 2') !== undefined);
 selectDeclarationTab('Edition 2');
 await sleep(20);

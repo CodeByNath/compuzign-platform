@@ -2,18 +2,20 @@
 // Replaces the old standalone "Payment Editions" panel
 // (docs/code-map/tier-edition.md): no explanatory essay, no stacked list of
 // every Edition's editor printed one below another, no raw lifecycle rail
-// running the length of the module. A compact [Default] [Edition 2]
-// [Edition 3] tab strip shows ONE declaration at a time — Default's own
-// content lives in Default Tier Inclusions under Details; this switcher is
-// the sole content of the Options group (drawer refinement blueprint,
-// Phase 5) — a presentation grouping only, not a change of who owns Edition
-// data. Selecting an Edition switches this block to that ONE Edition's own
-// compact read/edit surface, reusing the same TierEditionOverviewFields form
-// (and therefore the same PoolInclusionsEditor row/quantity selection) an
-// Edition has always used.
+// running the length of the module. A compact [Edition 2] [Edition 3] tab
+// strip plus a "+ Edition" trigger shows ONE Edition at a time — Default's
+// own content lives in Default Tier Inclusions under Details and is never a
+// row of this strip; this switcher is the sole content of the Options group
+// (drawer refinement blueprint, Phase 5) — a presentation grouping only, not
+// a change of who owns Edition data. Selecting an Edition switches this
+// block to that ONE Edition's own compact read/edit surface, reusing the
+// same TierEditionOverviewFields form (and therefore the same
+// PoolInclusionsEditor row/quantity selection) an Edition has always used.
 //
-// Renders nothing at all when the occupant has never used this capability —
-// the Tier behaves exactly as it did before Editions existed.
+// "+ Edition" is Options' own creation control (relocated off Overview's
+// footer — see useTierDrawerController.ts's handleAddEdition) and is always
+// reachable here, including with zero Editions — the component no longer
+// returns null in that case, since Options must always offer a way in.
 //
 // The selected declaration id is a CONTROLLED prop, not local state: every
 // Edition lifecycle mutation refetches through usePackageStation, and while
@@ -39,23 +41,22 @@ interface Props {
   rateSheetOptions: AdminFieldOption[];
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
   onMutated:      () => void;
-  // null = Default. Default's own content lives in the module above; this
-  // block never edits it — selecting Default here just confirms that.
+  // Default is never a row of this strip — its own content lives in Default
+  // Tier Inclusions under Details. null here means no Edition is selected.
   selectedId:     string | null;
   onSelect:       (id: string | null) => void;
+  onAddEdition:   () => void;
+  addingEdition:  boolean;
 }
 
 export function TierEditionDeclarationSwitcher({
   serviceId, tierInstanceId, tierId, editions, editionBin, rateSheetOptions, svc, onMutated, selectedId, onSelect,
+  onAddEdition, addingEdition,
 }: Props) {
   const ctl = useTierEditions(serviceId, tierInstanceId, tierId, editions, editionBin, onMutated);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
   const [showBin, setShowBin] = useState(false);
-
-  // Nothing to show — this Tier uses only its own Default declaration, and
-  // its Edition bin (Phase 6) has never been used either.
-  if (ctl.editions.length === 0 && ctl.editionBin.length === 0) return null;
 
   const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
 
@@ -79,19 +80,29 @@ export function TierEditionDeclarationSwitcher({
 
       {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
 
-      <div class="cz-cost-builder__tier-editions" role="tablist" aria-label="Editions">
-        {ctl.editions.map((edition) => (
-          <button
-            key={edition.id}
-            type="button"
-            role="tab"
-            aria-selected={selectedId === edition.id}
-            class={`cz-cost-builder__tier-edition${selectedId === edition.id ? ' is-active' : ''}`}
-            onClick={() => { onSelect(edition.id); setEditing(false); setDraft(null); }}
-          >
-            {edition.title}
-          </button>
-        ))}
+      <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--cz-space-2); flex-wrap:wrap">
+        <div class="cz-cost-builder__tier-editions" role="tablist" aria-label="Editions">
+          {ctl.editions.map((edition) => (
+            <button
+              key={edition.id}
+              type="button"
+              role="tab"
+              aria-selected={selectedId === edition.id}
+              class={`cz-cost-builder__tier-edition${selectedId === edition.id ? ' is-active' : ''}`}
+              onClick={() => { onSelect(edition.id); setEditing(false); setDraft(null); }}
+            >
+              {edition.title}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          disabled={addingEdition}
+          onClick={onAddEdition}
+        >
+          {addingEdition ? '…' : '+ Edition'}
+        </button>
       </div>
 
       {/* Phase 6 — minimal functional access to the occupant's own Edition

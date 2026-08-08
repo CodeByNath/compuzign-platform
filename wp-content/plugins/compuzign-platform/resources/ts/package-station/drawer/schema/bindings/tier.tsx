@@ -35,20 +35,6 @@ const DETAILS_ACTIONS: Record<string, ShellActionSchema> = {
 
 const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 
-// Overview's own small structural action — registers one additional Edition
-// position immediately (see docs/code-map/tier-edition.md). A real handler
-// only ever arrives once a real occupant exists; the `when` gate keeps the
-// action off an empty/unsaved slot's footer entirely rather than rendering
-// it disabled.
-const OVERVIEW_ACTIONS: Record<string, ShellActionSchema> = {
-  ...DETAILS_ACTIONS,
-  'add-edition': {
-    id: 'add-edition', label: '+ Edition', intent: 'secondary',
-    when: (b) => !!b.handlers['add-edition'],
-  },
-};
-const OVERVIEW_FOOTER = { actions: ['discard-draft', 'add-edition', 'edit'] };
-
 // ── Tier Overview ─────────────────────────────────────────────────────────────
 
 export interface TierOverviewShellData {
@@ -108,8 +94,9 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     },
     {
       // Small, structural, read-only — no pricing editor, no lifecycle
-      // rail, no explanatory copy. "+ Edition" (a footer action, not a
-      // field) is how the count actually increases. See
+      // rail, no explanatory copy. The count itself only increases through
+      // Options' own "+ Edition" control (TierEditionDeclarationSwitcher),
+      // the single place that creates an Edition. See
       // docs/code-map/tier-edition.md.
       id: 'editions', element: 'text', label: 'Editions',
       bind: (d): TextValue => ({ value: String(d.tierEditionsCount) }),
@@ -124,8 +111,8 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.addonPlatformId, fallback: 'Assigned after Publish' }),
     },
   ],
-  footer:  OVERVIEW_FOOTER,
-  actions: OVERVIEW_ACTIONS,
+  footer:  DETAILS_FOOTER,
+  actions: DETAILS_ACTIONS,
   editor: {
     render: (s) => (
       <TierOverviewEditor

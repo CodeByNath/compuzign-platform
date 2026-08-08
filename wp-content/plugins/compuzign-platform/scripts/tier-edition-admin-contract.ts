@@ -221,8 +221,13 @@ check(
   'TierOverviewShellData carries the derived Editions count as a plain number, not a stored field',
 );
 check(
-  tierBindings.includes("id: 'add-edition'"),
-  'Overview\'s own footer carries a small, real "+ Edition" action — not a title/pricing form',
+  !tierBindings.includes("id: 'add-edition'"),
+  'Overview\'s own footer no longer carries an "+ Edition" action — creation lives only in Options\' own selector row',
+);
+
+check(
+  panel.includes('onAddEdition') && panel.includes("'+ Edition'"),
+  'Options\' own selector row (TierEditionDeclarationSwitcher) carries the "+ Edition" creation trigger',
 );
 
 const tierDetailModelForCount = readFileSync(resolve(
