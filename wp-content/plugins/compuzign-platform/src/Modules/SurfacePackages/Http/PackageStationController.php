@@ -288,6 +288,18 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string']],
         ]);
+        // Admin-intent "Move Edition to Bin" — a SEPARATE, additive command
+        // route, not a semantic change to the narrow endpoint above. That one
+        // still means exactly what it always meant ("relocate an ALREADY
+        // archived/trashed Edition"); this one is the one action the Edition
+        // footer exposes regardless of current status, composing the
+        // existing engine transition and the existing bin relocation into a
+        // single request with a single persist — see moveTierEditionToBinCommand().
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/editions/(?P<edition>edt_[a-z0-9]+)/move-to-bin', [
+            'methods' => 'POST', 'callback' => [$this, 'moveTierEditionToBinCommand'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
         register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/edition-bin/(?P<bin>[a-z0-9_]+)/restore', [
             'methods' => 'POST', 'callback' => [$this, 'restoreTierEditionFromBinEndpoint'],
             'permission_callback' => [$this, 'requireAdmin'],
@@ -2112,6 +2124,70 @@ class PackageStationController
             $message = match ($result['error']) {
                 'unknown_edition' => 'Tier Edition not found.',
                 'not_binnable'    => 'Only an archived or trashed Tier Edition can be moved to the bin.',
+                default           => 'Move to bin failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['tiers'][$tierId]['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'tier_id'          => $tierId,
+            'edition_id'       => $editionId,
+            'bin_entry'        => $result['entry'],
+            'tier_editions'    => $occupant['tier_editions'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    /**
+     * Admin-intent "Move Edition to Bin" — the single command the Edition
+     * footer exposes to leave the active workspace from ANY status. Composes
+     * two already-approved PackageSchema primitives entirely in memory and
+     * persists exactly once, so there is never a persisted state where an
+     * Edition has been transitioned to Trashed but is still sitting,
+     * un-relocated, in tier_editions[]:
+     *
+     *   Pending/Active/Disabled: applyTierEditionStatus(..., trashed) in
+     *     memory, then moveTierEditionToBin in memory, one persist.
+     *   Archived/Trashed (already binnable): moveTierEditionToBin directly,
+     *     one persist.
+     *
+     * PackageSchema owns every lifecycle/bin rule exercised here, unchanged —
+     * this method owns only the request-level sequencing and the single
+     * persist boundary. A thrown InvalidArgumentException (unknown Edition —
+     * cannot happen via tierEditionContext()'s own guard, but the same
+     * defensive posture as every other Edition endpoint) or a returned
+     * `error` key both return before persistTierInstance() is ever called,
+     * so a failure here leaves the stored station byte-identical to before
+     * the request. Never assigns/reserves CZTE: that only ever happens on
+     * transition to Active (updateTierEditionStatus), never on trash.
+     */
+    public function moveTierEditionToBinCommand(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->tierEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $tierId, $occupant, $editionId, $editions, $edition] = $context;
+
+        $PS     = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+
+        try {
+            if (!$engine::isBinned((string) $edition['platform_status'])) {
+                $editions = $PS::applyTierEditionStatus($editions, $editionId, $engine::STATUS_TRASHED);
+            }
+            $occupant['tier_editions'] = $editions;
+            $result = $PS::moveTierEditionToBin($occupant, $editionId, $PS::generateBinId(), current_time('mysql', true));
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_edition' => 'Tier Edition not found.',
                 default           => 'Move to bin failed.',
             };
             return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
