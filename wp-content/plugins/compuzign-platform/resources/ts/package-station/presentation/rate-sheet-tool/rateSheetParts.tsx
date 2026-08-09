@@ -461,7 +461,40 @@ function RateSheetUnitPriceOptionEditor({
   );
 }
 
-/** The same five cells, read-only — a locked row's presentation. */
+/**
+ * A locked row's own zero-or-more Price Options, read-only. Deliberately not
+ * the edit editor's tab strip — nothing here is selectable/clickable; it is
+ * a static list inside the same Unit Price cell so a locked row with Price
+ * Options still reads at a glance, no click required. Default is the row's
+ * own existing `unitPrice`, listed first and always present; each further
+ * line is one `row.priceOptions[]` entry, labelled exactly as the edit tab
+ * strip labels an unlabeled option (`Option ${index + 1}`) so the two
+ * presentations never disagree on a row's own option names.
+ */
+function RateSheetPriceOptionsSummary({ row }: { row: RateSheetEditorRow }): VNode {
+  return (
+    <div class="cz-rate-sheet-tool__price-options-summary" aria-label={`Price options for ${row.optionLabel}`}>
+      <p class="cz-rate-sheet-tool__price-options-summary-title">Price Options</p>
+      <ul class="cz-rate-sheet-tool__price-options-summary-list">
+        <li class="cz-rate-sheet-tool__price-options-summary-row">
+          <span class="cz-rate-sheet-tool__price-options-summary-label">Default</span>
+          <span class="cz-rate-sheet-tool__price-options-summary-value">{formatUnitPrice(row.unitPrice)}</span>
+        </li>
+        {row.priceOptions.map((option, index) => (
+          <li key={priceOptionKey(option)} class="cz-rate-sheet-tool__price-options-summary-row">
+            <span class="cz-rate-sheet-tool__price-options-summary-label">{option.label.trim() || `Option ${index + 1}`}</span>
+            <span class="cz-rate-sheet-tool__price-options-summary-value">{formatUnitPrice(option.unitPrice)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The same five cells, read-only — a locked row's presentation. A row with
+ *  zero Price Options keeps the plain Unit Price value, byte-for-byte as
+ *  before; only a row that actually has Price Options gains the compact
+ *  summary in the same cell. */
 function RateSheetRowReadCells({
   row, groups,
 }: {
@@ -476,7 +509,7 @@ function RateSheetRowReadCells({
           <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
         </div>
       </td>
-      <td>{formatUnitPrice(row.unitPrice)}</td>
+      <td>{row.priceOptions.length > 0 ? <RateSheetPriceOptionsSummary row={row} /> : formatUnitPrice(row.unitPrice)}</td>
       <td>{row.per}</td>
       <td>{row.quantity}</td>
       <td>{groups.find((group) => group.id === row.groupId)?.label ?? 'Ungrouped'}</td>

@@ -22,7 +22,11 @@
 //   - the active row's Unit Price cell is a Default/Option tab editor
 //     (Default Price is not Option 0 — it stays the row's own price);
 //     adding, editing, and Cancel-discarding a price option all ride the
-//     SAME row-lock Save/Cancel, never a second row, lock, or endpoint.
+//     SAME row-lock Save/Cancel, never a second row, lock, or endpoint;
+//   - a LOCKED row's Unit Price cell is read-only presentation only: zero
+//     Price Options keeps the plain value unchanged, and one-or-more render
+//     a compact Default/Option list — never the edit mode's selectable
+//     chips/tabs.
 //
 // The fetch mock is a tiny in-memory Package Manager server: it mints a blank
 // item_id exactly like PackageManagerSchema::deriveRateItemId (deterministic,
@@ -238,6 +242,8 @@ function priceInputIn(row) { return row?.querySelector('input[type="number"]') ?
 function priceOptionTab(row, text) { return row ? [...row.querySelectorAll('.cz-rate-sheet-tool__price-options-tab')].find((b) => b.textContent.trim() === text) ?? null : null; }
 function priceOptionLabelInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="text"]') ?? null; }
 function priceOptionPriceInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]') ?? null; }
+function priceOptionsSummary(row) { return row?.querySelector('.cz-rate-sheet-tool__price-options-summary') ?? null; }
+function priceOptionsSummaryRows(row) { return row ? [...row.querySelectorAll('.cz-rate-sheet-tool__price-options-summary-row')] : []; }
 function setInputValue(input, value) {
   input.value = String(value);
   input.dispatchEvent(new window.Event('input', { bubbles: true }));
@@ -279,6 +285,8 @@ check('Row A is present', rowA != null);
 check('Row B is present', rowB != null);
 check('Row A starts locked: Edit + Remove, no Save/Cancel/Delete', buttonIn(rowA, 'Edit') != null && buttonIn(rowA, 'Remove') != null && buttonIn(rowA, 'Save') == null);
 check('Row B starts locked too', buttonIn(rowB, 'Edit') != null && buttonIn(rowB, 'Remove') != null);
+check('a locked row with zero Price Options shows the plain Unit Price value, no summary block', priceOptionsSummary(rowA) == null && rowA?.textContent.includes('$10'), rowA?.textContent);
+check('a locked row never renders the edit-mode tab strip', rowA?.querySelector('.cz-rate-sheet-tool__price-options-tab') == null);
 
 // ── 2) Edit unlocks exactly one row; other actions disabled ─────────────
 console.log('\n2) Edit unlocks only Row A; other Edit actions, Add Row, and the footer Save are disabled');
@@ -419,6 +427,17 @@ check(
 );
 rowAOptions = rowByLabel('Row A');
 check('the row locks again after the verified success, exactly like every other row Save', buttonIn(rowAOptions, 'Edit') != null && buttonIn(rowAOptions, 'Save') == null);
+
+// ── 9b) A locked row with Price Options shows the compact read-only summary
+//    in the same Unit Price cell — never the edit mode's selectable chips/
+//    tabs. Default is the row's own existing price, listed first. ─────────
+console.log('\n9b) A locked row with Price Options shows the compact read-only summary, never the edit-mode tab strip');
+check('the locked row\'s Unit Price cell carries a "Price Options" summary', rowAOptions?.textContent.includes('Price Options'));
+let summaryRows = priceOptionsSummaryRows(rowAOptions);
+check('the summary lists Default plus each price option, one line each', summaryRows.length === 2, summaryRows.map((r) => r.textContent));
+check("the Default line shows the row's own existing unit_price", summaryRows[0]?.textContent.includes('Default') && summaryRows[0]?.textContent.includes('$10'), summaryRows[0]?.textContent);
+check('the option line shows its own label and price', summaryRows[1]?.textContent.includes('Annual') && summaryRows[1]?.textContent.includes('$120'), summaryRows[1]?.textContent);
+check('the locked row renders no selectable chips/tabs for its Price Options', rowAOptions?.querySelector('.cz-rate-sheet-tool__price-options-tab') == null);
 
 // Re-open and prove the persisted option round-trips with a real (mock-)minted
 // option_id, and that Cancel on a freshly-added SECOND option discards only

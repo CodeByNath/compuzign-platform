@@ -3120,6 +3120,50 @@ button.cz-station-status-pill {
   min-width: 72px;
 }
 
+/* A locked row's own read-only Price Options list — the same Unit Price cell,
+   no chips/tabs, nothing clickable. Deliberately its own class family, never
+   reusing `__price-options-tab*` (that grammar is interactive-only). */
+.cz-rate-sheet-tool__price-options-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.cz-rate-sheet-tool__price-options-summary-title {
+  margin: 0;
+  font-size: var(--station-text-xs);
+  font-weight: 600;
+  color: var(--station-text-muted);
+}
+
+.cz-rate-sheet-tool__price-options-summary-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cz-rate-sheet-tool__price-options-summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--station-text-sm);
+}
+
+.cz-rate-sheet-tool__price-options-summary-label {
+  color: var(--station-text-muted);
+}
+
+.cz-rate-sheet-tool__price-options-summary-value {
+  color: var(--station-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .cz-rate-sheet-tool__picker {
   display: flex;
   flex-direction: column;

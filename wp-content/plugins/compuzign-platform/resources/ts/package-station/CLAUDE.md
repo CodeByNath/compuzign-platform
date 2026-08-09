@@ -32,7 +32,12 @@ Sheet drawer's active-row editor, the Unit Price cell itself becomes a
 `[ Default Price ][ Option 1 ]…[+]` tab strip
 (`RateSheetUnitPriceOptionEditor` in `presentation/rate-sheet-tool/rateSheetParts.tsx`)
 riding the row's own existing Edit/Save/Cancel lock — no new drawer,
-endpoint, lock, or permanent grid column. Native mutations retain their
+endpoint, lock, or permanent grid column. That tab strip is Edit-only: a
+LOCKED row's Unit Price cell (`RateSheetRowReadCells`) stays read-only
+presentation — zero Price Options keeps the plain value unchanged, and
+one-or-more render a static `Price Options` list (Default plus each option,
+`RateSheetPriceOptionsSummary`) in the same cell, never the selectable
+chips/tabs. Native mutations retain their
 existing Package addresses. Tier Group and Tier use the shared supported-action
 footer with controller-supplied actions; no status label may invent an action.
 Tier Add-on remains the same occupant's boolean role and optional dormant
