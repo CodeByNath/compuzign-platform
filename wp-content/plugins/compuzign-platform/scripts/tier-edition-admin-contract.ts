@@ -483,13 +483,13 @@ check(
   'the obsolete loose lifecycle-status text (and its standalone derivation) is gone — the module pill and the pinned footer\'s own action label are the only lifecycle presentation, matching Package Family/Category',
 );
 
-// ── Edition Bin presentation (Edition lifecycle/Bin UX cleanup) — the large
-//    "Show/Hide Edition bin (n)" content button and its inline <ul> are
-//    gone from the switcher entirely, replaced by a dedicated compact list
-//    component (TierEditionBinList.tsx) rendered EXCLUSIVELY in place of
-//    the normal Overview/Inclusions cards, toggled by a fixed Bin icon on
-//    ChildChipStrip's own trailing seam — never a second bin store, never a
-//    change to moveToBin/restoreFromBin/trashBinEntry/deleteBinEntry,
+// ── Edition Bin presentation (Edition lifecycle/Bin UX correction) — the
+//    Edition Bin is its own focused drawer task (TierEditionBinFocusedView,
+//    built on the SAME FocusedTaskShell the Edition module editor already
+//    uses), mounted EXCLUSIVELY in place of BOTH the ChildChipStrip band
+//    and the normal module cards — never a second "Drawer Bin" secondary-
+//    nav row alongside it. Never a second bin store, never a change to
+//    moveToBin/restoreFromBin/trashBinEntry/deleteBinEntry,
 //    tier_edition_bin[] storage, or ordering. ──────────────────────────────
 
 check(
@@ -497,20 +497,49 @@ check(
   'the old large "Show/Hide Edition bin (n)" content button and its showBin state are completely gone from the switcher',
 );
 check(
-  panel.includes('TierEditionBinList') && panel.includes("from './TierEditionBinList'"),
-  'TierEditionDeclarationSwitcher renders the Edition Bin through the dedicated TierEditionBinList component, not an inline block',
+  panel.includes('TierEditionBinFocusedView') && panel.includes("from './TierEditionBinFocusedView'"),
+  'TierEditionDeclarationSwitcher renders the Edition Bin through the dedicated TierEditionBinFocusedView focused-task component, not an inline block and not TierEditionBinList directly',
 );
 check(
   panel.includes('binActive') && panel.includes('onBinActiveChange'),
   'the switcher receives binActive/onBinActiveChange as a controlled prop — the same controlled-prop pattern as selectedId/onSelect, for the identical remount-survival reason',
 );
 check(
-  /\{binActive \? \(\s*<TierEditionBinList/.test(panel),
-  'the Edition Bin renders EXCLUSIVELY in place of the normal empty state/module cards while binActive — never alongside them',
+  /if \(binActive\) \{\s*return <TierEditionBinFocusedView/.test(panel),
+  'the Edition Bin is an early, exclusive return — it replaces BOTH the ChildChipStrip band and the normal module cards, never renders alongside either, and there is only one visible Bin identity',
 );
 check(
   !panel.includes('.editionBin.') && !panel.includes('ctl.editionBin.map'),
-  'the switcher itself no longer iterates ctl.editionBin directly — TierEditionBinList owns that rendering now',
+  'the switcher itself no longer iterates ctl.editionBin directly — TierEditionBinList (rendered by TierEditionBinFocusedView) owns that rendering now',
+);
+
+const binFocusedView = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierEditionBinFocusedView.tsx',
+), 'utf8');
+check(
+  binFocusedView.includes('FocusedTaskShell') && binFocusedView.includes("from '@/drawer-kit/FocusedTaskShell'"),
+  'TierEditionBinFocusedView is built on the shared FocusedTaskShell — the same focused-task structure the Edition module editor (InlineEditorShell) already uses, not a second bespoke shell',
+);
+check(
+  binFocusedView.includes('title="Drawer Bin"'),
+  'the focused Bin task carries the title "Drawer Bin"',
+);
+check(
+  binFocusedView.includes('Bin Active') && binFocusedView.includes('cz-module-status-pill--draft') && !binFocusedView.includes('cz-module-status-pill--active'),
+  'the Bin\'s own state badge reads "Bin Active" in the neutral/muted pill tone, never the editor\'s green "Live Editor"/active tone — presentation state, not a lifecycle state',
+);
+check(
+  !/cz-admin-btn--danger|cz-admin-error|--inactive/.test(binFocusedView),
+  'the focused Bin task chrome (title/badge/Back/Close) carries no red/danger treatment — that tone stays reserved for TierEditionBinList\'s own explicit destructive row actions',
+);
+check(
+  binFocusedView.includes('onBack={onClose}') && binFocusedView.includes('onClick={onClose}'),
+  'both the shell\'s own Back control and the footer\'s Close button call the SAME onClose — no divergent behaviour between the two exit paths',
+);
+check(
+  !/\bapi\.|fetch\(|Endpoint|Command\(/.test(binFocusedView),
+  'TierEditionBinFocusedView calls no endpoint of its own — onClose is presentation-only (setEditionBinActive(false), owned by the caller), and TierEditionBinList remains the only thing in this tree that drives Restore/Trash/Delete',
 );
 
 const tierEditionBinList = readFileSync(resolve(
@@ -556,10 +585,19 @@ check(
 );
 
 // ── Edition Bin icon — ChildChipStrip's fixed trailing control ─────────────
+// The icon only ever renders in the non-Bin state now (the Edition Bin's
+// early return removes the whole ChildChipStrip band, icon included), so it
+// only ever activates the Bin (aria-pressed stays false here) — the Bin's
+// own focused-task badge, not a persistent pressed toggle, is what shows the
+// active state (see the "Bin Active" checks above).
 
 check(
-  panel.includes('trailing={') && panel.includes('cz-drawer-groups__bin-toggle') && panel.includes('aria-pressed={binActive}'),
-  'the switcher renders the Bin icon through ChildChipStrip\'s own trailing seam, with aria-pressed reflecting the exclusive-view state',
+  panel.includes('trailing={') && panel.includes('cz-drawer-groups__bin-toggle') && panel.includes('aria-pressed={false}'),
+  'the switcher renders the Bin icon through ChildChipStrip\'s own trailing seam — since it only exists in the non-Bin state, it is never itself the pressed-state indicator',
+);
+check(
+  panel.includes('onClick={toggleBin}') && panel.includes('const toggleBin = () => onBinActiveChange(true)'),
+  'clicking the icon only ever activates the Bin — the icon does not exist anymore once binActive is true, so there is no toggle-off click path through it (Close/Back own that instead)',
 );
 check(
   !panel.includes("id: 'bin'") && !/chips=.*bin/.test(panel),

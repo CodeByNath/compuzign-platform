@@ -541,17 +541,24 @@ function setInputValue(selector, value) {
 function declarationTab(text) {
   return [...container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]')].find((b) => b.textContent.trim() === text);
 }
-// Edition Bin exclusive view (Edition lifecycle/Bin UX cleanup) — the fixed
-// trailing control on the shared chip strip, found by aria-label like the
-// view toggle above; TierEditionBinList's own icon-only row actions are
-// likewise found by their aria-label (which always carries the real verb,
-// e.g. "Move to Trash — Annual Plan"), so clickButtonWithLabel covers both
+// Edition Bin (Edition lifecycle/Bin UX correction) — the fixed trailing
+// control on the shared chip strip, found by aria-label like the view
+// toggle above; it exists ONLY in the non-Bin state (activating the Bin
+// unmounts the whole chip strip it lives on, per TierEditionDeclarationSwitcher's
+// own exclusive early return), so it is never itself the pressed-state
+// indicator. Whether the Bin is actually focused is read from the focused
+// task shell's own title instead — the same shell/title element the inline
+// editor renders through (FocusedTaskShell, drawer-kit) — since that is the
+// one thing guaranteed to exist while, and only while, the Bin is active.
+// TierEditionBinList's own icon-only row actions are found by their
+// aria-label (which always carries the real verb, e.g.
+// "Move to Trash — Annual Plan"), so clickButtonWithLabel covers both
 // without any new DOM-query technique.
 function binToggle() {
   return container.querySelector('[aria-label="Edition Bin"]');
 }
 function binActiveNow() {
-  return binToggle()?.getAttribute('aria-pressed') === 'true';
+  return container.querySelector('.cz-ies__title')?.textContent === 'Drawer Bin';
 }
 function binTableRow(title) {
   return [...container.querySelectorAll('.cz-tier-edition-bin-table tbody tr')]
@@ -934,17 +941,83 @@ selectGroup('Options');
 await sleep(20);
 check('no Edition remains selectable in the normal chip strip — Annual Plan left tier_editions[] entirely', declarationTab('Annual Plan') === undefined);
 
-console.log('  8c) The Edition Bin icon is a fixed control on the shared chip strip, not an Edition/CZTE chip; activating it swaps to an EXCLUSIVE bin view');
-check('the Bin icon exists and starts inactive', binToggle() !== null && !binActiveNow());
-check('the Bin icon is never one of the chip-strip\'s own [role="tab"] chips — it is nav chrome, not an Edition/CZTE chip', binToggle()?.getAttribute('role') !== 'tab' && container.querySelector('.cz-drawer-groups__chip-strip-trailing')?.contains(binToggle()));
+console.log('  8c) Activating the Edition Bin icon swaps to the SAME focused-task shell the inline editor uses — one visible Bin identity, header/chrome/chip-strip/footer all suppressed together, zero backend calls');
+check('the Bin icon exists, starts inactive, and is nav chrome, not an Edition/CZTE chip', binToggle() !== null && !binActiveNow() && binToggle()?.getAttribute('role') !== 'tab' && container.querySelector('.cz-drawer-groups__chip-strip-trailing')?.contains(binToggle()));
+check('resting state before opening the Bin: header-hidden is false, no --editing class, the pinned footer is present', lastHeaderHidden === false && editingClassApplied() === false && lastFooter !== null);
+const callsBeforeBinOpen = {
+  moveToBinCommandCalls, restoreFromBinCalls, trashBinEntryCalls, deleteBinEntryCalls,
+  statusCalls, saveDraftCalls, settleCalls, restoreCalls, deleteCalls, czteMints,
+};
 clickButtonWithLabel('Edition Bin');
 await sleep(20);
-check('the Bin icon now reports pressed/active', binActiveNow());
-check('the normal empty-state copy is gone while the Bin is active — the two views are mutually exclusive', !container.textContent.includes('No additional Editions yet'));
-check('Annual Plan appears as a compact bin row, Archived', binTableRow('Annual Plan')?.textContent.includes('Archived'));
+check('the chip strip (chips + Bin icon) is gone entirely once the Bin is focused — no second "Drawer Bin" row left showing above/below it', container.querySelector('.cz-drawer-groups__chip-strip') === null);
+check('header-hidden signal reports true for the focused Bin view too', lastHeaderHidden === true, lastHeaderHidden);
+check('the --editing class (shared focused-chrome suppression) is applied for the Bin view too', editingClassApplied() === true, editingClassApplied());
+check('the pinned lifecycle footer is hidden — the Bin\'s own focused footer replaces it', lastFooter === null, lastFooter);
+check('the focused Bin task reads "Drawer Bin" as its title, the same place the editor shows its own title', container.querySelector('.cz-ies__title')?.textContent === 'Drawer Bin', container.querySelector('.cz-ies__title')?.textContent);
+check('the state badge reads "Bin Active" in the neutral/muted tone, never the editor\'s green "Live Editor" pill', container.querySelector('.cz-ies__live-badge')?.textContent.includes('Bin Active') && container.querySelector('.cz-ies__live-badge .cz-module-status-pill--active') === null);
+check('the focused Bin footer carries exactly one action, Close, right-aligned after the spacer — no lifecycle/publish split', container.querySelector('.cz-ies__footer')?.textContent.trim() === 'Close');
+check('Annual Plan appears as a compact bin row, Archived, inside the focused shell body', binTableRow('Annual Plan')?.textContent.includes('Archived'));
 check('Annual Plan\'s CZTE is shown in the bin row', binTableRow('Annual Plan')?.textContent.includes(`CZTE${CZTE_SUFFIXES[0]}`), binTableRow('Annual Plan')?.textContent);
+check(
+  'opening the Bin fired no endpoint and mutated nothing',
+  moveToBinCommandCalls === callsBeforeBinOpen.moveToBinCommandCalls
+    && restoreFromBinCalls === callsBeforeBinOpen.restoreFromBinCalls
+    && trashBinEntryCalls === callsBeforeBinOpen.trashBinEntryCalls
+    && deleteBinEntryCalls === callsBeforeBinOpen.deleteBinEntryCalls
+    && statusCalls === callsBeforeBinOpen.statusCalls
+    && saveDraftCalls === callsBeforeBinOpen.saveDraftCalls
+    && settleCalls === callsBeforeBinOpen.settleCalls
+    && restoreCalls === callsBeforeBinOpen.restoreCalls
+    && deleteCalls === callsBeforeBinOpen.deleteCalls
+    && czteMints === callsBeforeBinOpen.czteMints,
+  { moveToBinCommandCalls, restoreFromBinCalls, trashBinEntryCalls, deleteBinEntryCalls, statusCalls, saveDraftCalls, settleCalls, restoreCalls, deleteCalls, czteMints },
+);
 
-console.log('  8d) Archived bin row -> trash icon means Move to Trash (still reversible); Trashed bin row -> the SAME-looking icon instead means Delete permanently');
+console.log('  8d) Footer Close returns to the same Options/Edition context — presentation only, zero backend calls — and reopening the Bin via the icon is equally inert');
+const selectedBeforeClose = declarationTab('Annual Plan')?.getAttribute('aria-selected');
+clickButtonWithText('Close', container.querySelector('.cz-ies') ?? container);
+await sleep(20);
+check('the Bin is no longer active — the normal chip strip is back', binActiveNow() === false && container.querySelector('.cz-drawer-groups__chip-strip') !== null);
+check('header-hidden signal is back to false after Close', lastHeaderHidden === false, lastHeaderHidden);
+check('the --editing class is gone after Close', editingClassApplied() === false, editingClassApplied());
+check('the pinned lifecycle footer is restored after Close', lastFooter !== null);
+check('the same Edition (Annual Plan) is still the one shown after Close — Close never touched selectedDeclarationId', declarationTab('Annual Plan')?.getAttribute('aria-selected') === selectedBeforeClose, declarationTab('Annual Plan')?.getAttribute('aria-selected'));
+check(
+  'Close fired no endpoint and mutated nothing either',
+  moveToBinCommandCalls === callsBeforeBinOpen.moveToBinCommandCalls
+    && restoreFromBinCalls === callsBeforeBinOpen.restoreFromBinCalls
+    && trashBinEntryCalls === callsBeforeBinOpen.trashBinEntryCalls
+    && deleteBinEntryCalls === callsBeforeBinOpen.deleteBinEntryCalls
+    && statusCalls === callsBeforeBinOpen.statusCalls,
+);
+clickButtonWithLabel('Edition Bin');
+await sleep(20);
+check('reopening the Bin via the icon works again and still fires nothing', binActiveNow() === true && container.querySelector('.cz-ies__title')?.textContent === 'Drawer Bin');
+check(
+  'the full open -> close -> reopen sequence fired zero backend requests throughout',
+  moveToBinCommandCalls === callsBeforeBinOpen.moveToBinCommandCalls
+    && restoreFromBinCalls === callsBeforeBinOpen.restoreFromBinCalls
+    && trashBinEntryCalls === callsBeforeBinOpen.trashBinEntryCalls
+    && deleteBinEntryCalls === callsBeforeBinOpen.deleteBinEntryCalls
+    && statusCalls === callsBeforeBinOpen.statusCalls
+    && saveDraftCalls === callsBeforeBinOpen.saveDraftCalls
+    && settleCalls === callsBeforeBinOpen.settleCalls
+    && restoreCalls === callsBeforeBinOpen.restoreCalls
+    && deleteCalls === callsBeforeBinOpen.deleteCalls
+    && czteMints === callsBeforeBinOpen.czteMints,
+);
+
+console.log('  8e) The task shell\'s own Back control (shared with the inline editor) is equivalent to footer Close — same presentation-only exit, same return to the same Edition');
+container.querySelector('.cz-action-shell__back')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(20);
+check('Back closed the Bin the same way Close does — no discard-confirm (the Bin carries no draft, unlike the editor\'s Back)', binActiveNow() === false && container.querySelector('.cz-drawer-groups__chip-strip') !== null && !container.textContent.includes('Discard unsaved changes?'));
+check('the same Edition is still selected after Back', declarationTab('Annual Plan')?.getAttribute('aria-selected') === selectedBeforeClose, declarationTab('Annual Plan')?.getAttribute('aria-selected'));
+check('header/footer are restored after Back too', lastHeaderHidden === false && lastFooter !== null);
+
+console.log('  8f) Archived bin row -> trash icon means Move to Trash (still reversible); Trashed bin row -> the SAME-looking icon instead means Delete permanently — Restore/Trash/Delete remain the ONLY row actions that call their own endpoint');
+clickButtonWithLabel('Edition Bin');
+await sleep(20);
 check('the Archived row\'s destructive icon is labelled "Move to Trash", never "Delete permanently"', container.querySelector('[aria-label="Move to Trash — Annual Plan"]') !== null && container.querySelector('[aria-label="Delete permanently — Annual Plan"]') === null);
 clickButtonWithLabel('Move to Trash — Annual Plan');
 await waitQuiet();
@@ -956,9 +1029,9 @@ await waitQuiet();
 check('deleteBinEntry was called exactly once — Permanent Delete is reachable ONLY from the Bin now', deleteBinEntryCalls === 1, deleteBinEntryCalls);
 check('the OLD guarded-delete endpoint (tier_editions[]-scoped) was never called by any of this — Permanent Delete moved to the bin-scoped endpoint entirely', deleteCalls === 0, deleteCalls);
 check('the bin is empty again', container.textContent.includes('The Edition Bin is empty.'));
-clickButtonWithLabel('Edition Bin');
+clickButtonWithText('Close', container.querySelector('.cz-ies') ?? container);
 await sleep(20);
-check('leaving the Bin view restores the normal empty state — no Edition remains anywhere', !binActiveNow() && container.textContent.includes('No additional Editions yet'));
+check('leaving the focused Bin task restores the normal empty state — no Edition remains anywhere', binActiveNow() === false && container.textContent.includes('No additional Editions yet'));
 check('the tab strip is gone again — no editions remain', container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length === 0);
 
 console.log('\n9) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
