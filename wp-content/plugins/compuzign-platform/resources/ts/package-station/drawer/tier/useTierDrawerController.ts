@@ -248,13 +248,23 @@ export function useTierDrawerController({
 
   // ── Derived models (pure builders) ──────────────────────────────────────────
   // The one whole-drawer edit-active signal: the parent Tier's own module
-  // editing OR the selected Edition's own module editing. Drives the pinned
-  // footer (buildTierFooterModel below) AND, in TierDrawerContent, the parent
-  // drawer header and the four-group Tabs/Accordion chrome — the same value,
-  // never two independently-drifting flags.
+  // editing OR the selected Edition's own module editing. Kept distinct from
+  // focusedTaskActive below — this is the ONLY signal the dirty-edit guards
+  // (selectTierTab/selectOverviewTab, the beforeunload/setCloseGuard effect
+  // above) key on, since the Edition Bin carries no draft and must never
+  // raise a "Discard unsaved changes?" confirm.
   const anyEditingActive = editingSection !== null || editionModuleEditing;
+  // Focused Drawer Task signal (Edition Bin UI correction): anyEditingActive
+  // OR the Edition Bin being active. Both are "a focused task shell owns the
+  // whole drawer body right now" — the parent drawer header, the four-group
+  // Tabs/Accordion chrome, and the pinned lifecycle footer all hide the same
+  // way for either one, driven by this ONE combined value (TierDrawerContent
+  // reuses cz-req-detail--editing/setHeaderHidden verbatim; buildTierFooterModel
+  // below reuses its existing 'none' footer mode). editionBinActive never
+  // feeds anyEditingActive itself — see the comment above.
+  const focusedTaskActive = anyEditingActive || editionBinActive;
   const { footerMode, footerEnabled, footerHasContent, footerHasBeenPublished } =
-    buildTierFooterModel(pkg, editingTierId, anyEditingActive);
+    buildTierFooterModel(pkg, editingTierId, focusedTaskActive);
 
   const tierDetail = buildTierDetail(pkg, editingTierId, {
     onEditSection:  openSection,
@@ -274,7 +284,7 @@ export function useTierDrawerController({
     tierDetail, openTierPanel, setOpenTierPanel,
     selectedDeclarationId, setSelectedDeclarationId,
     editionBinActive, setEditionBinActive,
-    editionModuleEditing, setEditionModuleEditing, anyEditingActive,
+    editionModuleEditing, setEditionModuleEditing, anyEditingActive, focusedTaskActive,
     // Options' own creation control (relocated off Overview's footer — see
     // handleAddEdition above).
     handleAddEdition, addingEdition,

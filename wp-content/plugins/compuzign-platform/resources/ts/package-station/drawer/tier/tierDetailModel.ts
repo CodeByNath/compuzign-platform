@@ -45,12 +45,14 @@ export interface TierFooterModel {
 export function buildTierFooterModel(
   pkg: PackageStation,
   editingTierId: string | null,
-  // Whole-drawer edit-active signal: the parent Tier's own module editing
-  // (editingSection) OR the selected Edition's own module editing (reported
-  // up from TierEditionDeclarationSwitcher — see useTierDrawerController's
-  // editionModuleEditing). Either one hides the pinned lifecycle footer;
-  // this function does not care which.
-  anyEditingActive: boolean,
+  // Focused Drawer Task signal (useTierDrawerController's focusedTaskActive):
+  // the parent Tier's own module editing, the selected Edition's own module
+  // editing (reported up from TierEditionDeclarationSwitcher), OR the
+  // Edition Bin being active. Any one of these means a focused task shell
+  // (InlineEditorShell or TierEditionBinFocusedView) owns the whole drawer
+  // body and carries its own footer — this function does not care which one
+  // is active, only that the pinned lifecycle footer must get out of the way.
+  focusedTaskActive: boolean,
 ): TierFooterModel {
   const station = pkg.station;
   const svc     = pkg.service;
@@ -65,7 +67,7 @@ export function buildTierFooterModel(
   );
   const footerMode: TierFooterModel['footerMode'] =
     (!pkg.detailLoaded || !station || !svc) ? 'close-only'
-    : anyEditingActive ? 'none'
+    : focusedTaskActive ? 'none'
     : !editingTierId ? 'close-only'
     : 'tier-actions';
   return { footerMode, footerEnabled, footerHasContent, footerHasBeenPublished };

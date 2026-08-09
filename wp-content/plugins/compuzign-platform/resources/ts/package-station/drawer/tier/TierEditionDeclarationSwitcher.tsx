@@ -51,17 +51,25 @@
 // are NOT rendered here (single-footer, scope-aware lifecycle command
 // model, Phase 4) — they moved to the ONE pinned TierDrawerFooter, scoped to
 // this selected Edition via buildTierLifecycleMenu (tierLifecycleMenu.ts).
-// This component renders the two read/edit module cards, the child-chip
-// strip, and — exclusively, in place of those cards, never alongside them
-// (Edition lifecycle/Bin UX cleanup) — the Edition Bin's own compact list
-// (TierEditionBinList.tsx) once the Bin icon (ChildChipStrip's fixed
-// trailing control) is active. Restore/Trash/Delete-permanently for a
-// binned entry live entirely inside that list; this component only decides
-// WHETHER it or the normal module cards render, via the binActive/
-// onBinActiveChange controlled prop below — the same controlled-prop
-// pattern selectedId/onSelect already use, and for the identical reason
-// (every Edition lifecycle mutation refetches and briefly unmounts this
-// subtree — see useTierDrawerController's own editionBinActive comment).
+// This component renders the child-chip strip and the two read/edit module
+// cards, OR — exclusively, never alongside either (Edition lifecycle/Bin UX
+// correction) — the Edition Bin, presented as its own focused drawer task
+// (TierEditionBinFocusedView.tsx, reusing the SAME FocusedTaskShell the
+// Edition module editor renders through) once the Bin icon (ChildChipStrip's
+// fixed trailing control, visible only in the normal, non-Bin state) is
+// activated. Activating the Bin therefore removes the ChildChipStrip band
+// (chips + Bin icon) outright, the same exclusive-render guard the Edition
+// module editor already applies to itself via `!editingModule` — there is
+// only ONE visible Bin identity at a time, the focused task shell itself,
+// never a second secondary-nav row sitting above it. Restore/Trash/
+// Delete-permanently for a binned entry live entirely inside
+// TierEditionBinList (rendered by TierEditionBinFocusedView); this
+// component only decides WHICH of the three exclusive views renders, via
+// the binActive/onBinActiveChange controlled prop below — the same
+// controlled-prop pattern selectedId/onSelect already use, and for the
+// identical reason (every Edition lifecycle mutation refetches and briefly
+// unmounts this subtree — see useTierDrawerController's own
+// editionBinActive comment).
 
 import { useEffect, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
@@ -75,7 +83,7 @@ import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
 import { buildTierEditionDetail } from './tierEditionDetailModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
 import { draftFromTierEdition } from './tierEditionModel';
-import { TierEditionBinList } from './TierEditionBinList';
+import { TierEditionBinFocusedView } from './TierEditionBinFocusedView';
 
 interface Props {
   // Single-footer lifecycle command model, Phase 2: the controller is built
@@ -179,17 +187,27 @@ export function TierEditionDeclarationSwitcher({
   const togglePanel = (module: 'overview' | 'inclusions') => () =>
     setOpenPanel((p) => (p === module ? null : module));
 
-  const toggleBin = () => onBinActiveChange(!binActive);
+  const toggleBin = () => onBinActiveChange(true);
+
+  // Bin mode is its own exclusive focused drawer task (Edition lifecycle/Bin
+  // UX correction) — mounted in place of BOTH the child chip strip and the
+  // module cards, never alongside either. There is no longer a second
+  // "Drawer Bin" row living above/alongside it; TierEditionBinFocusedView
+  // carries its own title/state/Back/Close, the same focused-task structure
+  // the Edition module editor below already uses.
+  if (binActive) {
+    return <TierEditionBinFocusedView ctl={ctl} onClose={() => onBinActiveChange(false)} />;
+  }
 
   return (
     <div class="cz-shell-section">
       {/* Everything in this block is the Edition-browsing UI — the child
-          nav (chips + Bin icon) and, exclusively, either the empty state or
-          the Edition Bin. All of it is redundant chrome once an Edition's
-          own module editor is open (the PlacedShell below already carries
-          its own title/back/status/Save/Cancel), so it disappears as one
-          unit while editingModule is set, leaving only the active editor —
-          no separate guard per element. */}
+          nav (chips + Bin icon) and, if there are no Editions yet, the empty
+          state. All of it is redundant chrome once an Edition's own module
+          editor is open (the PlacedShell below already carries its own
+          title/back/status/Save/Cancel), so it disappears as one unit while
+          editingModule is set, leaving only the active editor — no separate
+          guard per element. */}
       {!editingModule && (
         <>
           {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
@@ -198,13 +216,13 @@ export function TierEditionDeclarationSwitcher({
             chips={ctl.editions.map((edition) => ({ id: edition.id, label: edition.title }))}
             activeId={selectedId}
             ariaLabel="Editions"
-            onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); onBinActiveChange(false); }}
+            onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); }}
             scrollContainer={scrollContainer}
             trailing={
               <button
                 type="button"
                 class="cz-station-iconbtn cz-drawer-groups__bin-toggle"
-                aria-pressed={binActive}
+                aria-pressed={false}
                 aria-label="Edition Bin"
                 title="Edition Bin"
                 onClick={toggleBin}
@@ -214,23 +232,15 @@ export function TierEditionDeclarationSwitcher({
             }
           />
 
-          {/* Bin mode is exclusive: the normal Edition-browsing empty state
-              and the Edition Bin never render together — activating the
-              Bin icon swaps which one appears below the shared chip strip,
-              without touching selectedId. */}
-          {binActive ? (
-            <TierEditionBinList ctl={ctl} />
-          ) : (
-            ctl.editions.length === 0 && (
-              <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
-                <p>No additional Editions yet. Use "+ Edition" to add one.</p>
-              </div>
-            )
+          {ctl.editions.length === 0 && (
+            <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
+              <p>No additional Editions yet. Use "+ Edition" to add one.</p>
+            </div>
           )}
         </>
       )}
 
-      {!binActive && selected && detail && (
+      {selected && detail && (
         editingModule ? (
           <PlacedShell
             entity={TIER_EDITION_ENTITY}

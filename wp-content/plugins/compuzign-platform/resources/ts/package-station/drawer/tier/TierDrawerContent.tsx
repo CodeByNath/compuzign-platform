@@ -152,16 +152,20 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     selectedEdition?.previous_platform_status, selectedEditionCanPublish, selectedEditionHasBeenPublished,
   ]);
 
-  // Ask the host to hide its own header while ANY inline editor is open —
-  // the parent Tier's own module editor (editingSection) or the selected
-  // Edition's own module editor (editionModuleEditing, reported up from
-  // TierEditionDeclarationSwitcher). The cleanup resets to false on unmount
-  // as a second line of defense alongside AdminStationDrawer's own
-  // content-identity reset — this drawer never relies on only one of them.
+  // Ask the host to hide its own header while ANY focused drawer task owns
+  // the body — the parent Tier's own module editor (editingSection), the
+  // selected Edition's own module editor (editionModuleEditing, reported up
+  // from TierEditionDeclarationSwitcher), or the Edition Bin
+  // (editionBinActive). c.focusedTaskActive combines all three into the one
+  // signal this effect and the --editing class below both key on — never a
+  // fourth independently-drifting flag for the Bin's own chrome suppression.
+  // The cleanup resets to false on unmount as a second line of defense
+  // alongside AdminStationDrawer's own content-identity reset — this drawer
+  // never relies on only one of them.
   useEffect(() => {
-    bridge.setHeaderHidden?.(c.anyEditingActive);
+    bridge.setHeaderHidden?.(c.focusedTaskActive);
     return () => bridge.setHeaderHidden?.(false);
-  }, [bridge, c.anyEditingActive]);
+  }, [bridge, c.focusedTaskActive]);
 
   if (!c.pkg.detailLoaded) return <AsyncLoading label="Loading tiers…" />;
 
@@ -591,22 +595,28 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
 
   return (
     <div
-      class={`cz-req-detail${c.anyEditingActive ? ' cz-req-detail--editing' : ''}`}
+      class={`cz-req-detail${c.focusedTaskActive ? ' cz-req-detail--editing' : ''}`}
       key={c.initialOccupantId ?? detail.occupant_id ?? c.editingTierId}
       ref={setRootEl}
     >
-      {/* While any inline editor is open (parent Tier module or selected
-          Edition module — c.anyEditingActive), the four-group Tabs/Accordion
-          chrome (including the view toggle and "+ Edition" carried in
-          `trailing`) is redundant above an editor that already has its own
-          title/back/status/Cancel/Save. This deliberately does NOT swap which
-          renderer mounts — DrawerGroupTabs/DrawerGroupAccordion and every
-          group's content stay mounted at the exact same tree position
-          whether editing or not, so an active inline editor's own local
-          state (e.g. TierEditionDeclarationSwitcher's editingTab/draft) is
-          never wiped by a reparenting remount the instant editing starts.
+      {/* While any focused drawer task owns the body (parent Tier module
+          edit, selected Edition module edit, or the Edition Bin —
+          c.focusedTaskActive), the four-group Tabs/Accordion chrome
+          (including the view toggle and "+ Edition" carried in `trailing`)
+          is redundant above a task that already has its own
+          title/back/status/footer (FocusedTaskShell — drawer-kit). This
+          deliberately does NOT swap which renderer mounts —
+          DrawerGroupTabs/DrawerGroupAccordion and every group's content stay
+          mounted at the exact same tree position whether a task is focused
+          or not, so its own local state (e.g.
+          TierEditionDeclarationSwitcher's editingTab/draft) is never wiped
+          by a reparenting remount the instant it starts.
           `.cz-req-detail--editing` (drawer-kit.css) hides the chrome purely
-          in CSS instead. */}
+          in CSS instead. The Edition Bin additionally removes its own
+          ChildChipStrip band outright (TierEditionDeclarationSwitcher's own
+          `!editingModule && !binActive` guard) rather than relying on CSS
+          alone — there must be only one visible Bin identity, the focused
+          task shell itself, not a second secondary-nav row underneath it. */}
       {c.tierGroupView === 'accordion' ? (
         <DrawerGroupAccordion groups={tierGroups} activeId={c.tierTab} onSelect={c.selectTierTab} trailing={trailing} />
       ) : (
