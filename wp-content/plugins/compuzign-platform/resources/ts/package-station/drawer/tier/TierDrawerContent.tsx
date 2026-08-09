@@ -111,10 +111,12 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     // Independent of the Tier's own cascading "Archive Tier" — this
     // archives ONLY the selected Edition, never the parent occupant.
     onArchive:      () => editionCtl.archive(selectedEdition.id),
-    onTrash:        () => editionCtl.trash(selectedEdition.id),
-    onDelete:       () => editionCtl.remove(selectedEdition.id),
     onRestore:      () => editionCtl.restore(selectedEdition.id),
-    // Same clear-selection-on-success behavior the standalone "Move to bin"
+    // The one action that leaves the active workspace, from ANY status —
+    // editionCtl.moveToBin now drives the atomic server-composed command
+    // (moveTierEditionToBinCommand), so this is correct unconditionally,
+    // with no frontend branching on the Edition's current status. Same
+    // clear-selection-on-success behavior the standalone "Move to bin"
     // button used before this correction — the moved Edition leaves
     // tier_editions[], so the prior selection would otherwise name nothing.
     onMoveToBin:    async () => { const ok = await editionCtl.moveToBin(selectedEdition.id); if (ok) c.setSelectedDeclarationId(null); },
@@ -487,6 +489,8 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
             selectedId={c.selectedDeclarationId}
             onSelect={c.setSelectedDeclarationId}
             scrollContainer={scrollContainer}
+            binActive={c.editionBinActive}
+            onBinActiveChange={c.setEditionBinActive}
             onEditingActiveChange={c.setEditionModuleEditing}
           />
         )

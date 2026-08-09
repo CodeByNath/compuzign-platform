@@ -29,8 +29,23 @@
 // `{ id, label }[]` shape carry no Tier/Edition vocabulary — but only Tier
 // Edition adopts it today; migrating other groups' own child sections onto
 // this primitive is a separate, future decision.
+//
+// Edition lifecycle/Bin UX cleanup added the optional `trailing` seam below,
+// mirroring the fixed-trailing-control structure DrawerGroupTabs' own
+// tablist already established one level up
+// (.cz-drawer-groups__tablist/-tabs/-trailing): the outer element stays the
+// one sticky/hide-reveal surface, an inner child carries the
+// horizontally-scrolling chips, and `trailing` — when supplied — renders as
+// a fixed sibling that never scrolls away with the chip labels and shares
+// the outer element's own hide/reveal transform (there is no separate hide
+// state for it). Omitting `trailing` (every caller before Tier Options'
+// Edition Bin icon) renders byte-identical markup to before this addition.
+// This is a navigation-chrome seam only — `trailing` is never a ChildChip
+// itself, never included in `chips`, and never participates in
+// activeId/onSelect selection.
 
 import { useEffect, useRef } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { useScrollHide } from './useScrollHide';
 
 export interface ChildChip<Id extends string = string> {
@@ -46,10 +61,14 @@ export interface ChildChipStripProps<Id extends string = string> {
   // Optional and additive — omitting it (or passing null) simply disables
   // hide-on-scroll, leaving a plain always-visible sticky bar.
   scrollContainer?: HTMLElement | null;
+  // Optional and additive — a fixed control (e.g. the Edition Bin icon)
+  // rendered outside the scrollable chip region but inside the same sticky/
+  // hide-reveal row. See this file's own header comment.
+  trailing?: ComponentChildren;
 }
 
 export function ChildChipStrip<Id extends string>({
-  chips, activeId, onSelect, ariaLabel, scrollContainer = null,
+  chips, activeId, onSelect, ariaLabel, scrollContainer = null, trailing,
 }: ChildChipStripProps<Id>) {
   const hidden = useScrollHide(scrollContainer);
   const activeRef = useRef<HTMLButtonElement>(null);
@@ -62,24 +81,23 @@ export function ChildChipStrip<Id extends string>({
   }, [activeId]);
 
   return (
-    <div
-      class={`cz-drawer-groups__chip-strip${hidden ? ' cz-drawer-groups__chip-strip--hidden' : ''}`}
-      role="tablist"
-      aria-label={ariaLabel}
-    >
-      {chips.map((chip) => (
-        <button
-          key={chip.id}
-          type="button"
-          role="tab"
-          ref={activeId === chip.id ? activeRef : undefined}
-          aria-selected={activeId === chip.id}
-          class={`cz-drawer-groups__chip${activeId === chip.id ? ' cz-drawer-groups__chip--active' : ''}`}
-          onClick={() => onSelect(chip.id)}
-        >
-          {chip.label}
-        </button>
-      ))}
+    <div class={`cz-drawer-groups__chip-strip${hidden ? ' cz-drawer-groups__chip-strip--hidden' : ''}`}>
+      <div class="cz-drawer-groups__chip-strip-scroll" role="tablist" aria-label={ariaLabel}>
+        {chips.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            role="tab"
+            ref={activeId === chip.id ? activeRef : undefined}
+            aria-selected={activeId === chip.id}
+            class={`cz-drawer-groups__chip${activeId === chip.id ? ' cz-drawer-groups__chip--active' : ''}`}
+            onClick={() => onSelect(chip.id)}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+      {trailing && <div class="cz-drawer-groups__chip-strip-trailing">{trailing}</div>}
     </div>
   );
 }

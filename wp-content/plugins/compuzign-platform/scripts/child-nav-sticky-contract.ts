@@ -11,6 +11,21 @@
 // therefore gets sticky positioning with no hide/reveal, with no mode
 // branch anywhere inside the generic primitives.
 //
+// Locked behavior after the Edition lifecycle/Bin UX cleanup added the
+// fixed trailing Bin icon (approved correction, not a re-decision):
+//
+//   Tabs      — chips + Bin icon hide/reveal together as ONE unit.
+//   Accordion — chips + Bin icon remain sticky/always visible together,
+//               with NO hide/reveal behavior at all.
+//
+// This falls out of the existing architecture with no new code: the Bin
+// icon (ChildChipStrip's `trailing` prop) renders inside the SAME outer
+// element that already carries the Tabs-only `--hidden` class
+// (.cz-drawer-groups__chip-strip) — never a second hidden state, never a
+// mode branch of its own. The chips' own horizontal scrolling is isolated
+// to a distinct inner child (.cz-drawer-groups__chip-strip-scroll) so the
+// trailing control never scrolls away with the labels in either mode.
+//
 // This reads composition and CSS text. It does not execute Preact, so it
 // asserts no rendered pixel and no browser behaviour — the same convention
 // station-tabset-contract.ts documents for the one other "mounted-sounding"
@@ -80,6 +95,15 @@ check(
   'ChildChipStrip accepts an explicit scrollContainer prop and drives its hide state through the shared useScrollHide primitive — it carries no Tabs/Accordion mode check of its own',
 );
 check(
+  childChipStrip.includes('trailing?: ComponentChildren') && childChipStrip.includes('cz-drawer-groups__chip-strip-trailing'),
+  'ChildChipStrip carries an optional, additive trailing seam (Edition lifecycle/Bin UX cleanup) for a fixed control like the Edition Bin icon',
+);
+check(
+  /<div class=\{`cz-drawer-groups__chip-strip\$\{hidden[\s\S]*?<\/div>\s*\);\s*\}/.test(childChipStrip)
+    && /class="cz-drawer-groups__chip-strip-scroll"[\s\S]*?\{trailing && <div class="cz-drawer-groups__chip-strip-trailing">/.test(childChipStrip),
+  'the trailing control is nested INSIDE the same outer hidden-toggled element as the scrollable chip region — a sibling, never rendered outside it — so both share the ONE hidden transform with no separate hide state (locked Tabs-vs-Accordion behavior)',
+);
+check(
   childChipStrip.includes("inline: 'nearest'") && childChipStrip.includes("block: 'nearest'"),
   'selecting/creating an Edition scrolls it into view horizontally only — block: "nearest" guards against any unwanted vertical repositioning',
 );
@@ -130,9 +154,29 @@ check(
   'the active chip carries no underline (base rule or admin-station override) — the pill background alone marks it active',
 );
 check(
-  /\.cz-drawer-groups__chip-strip\s*\{[^}]*scrollbar-width:\s*none/.test(drawerKitCss)
-    && drawerKitCss.includes('.cz-drawer-groups__chip-strip::-webkit-scrollbar'),
-  'horizontal scrolling remains available with the scrollbar hidden cross-browser',
+  /\.cz-drawer-groups__chip-strip-scroll\s*\{[^}]*scrollbar-width:\s*none/.test(drawerKitCss)
+    && drawerKitCss.includes('.cz-drawer-groups__chip-strip-scroll::-webkit-scrollbar'),
+  'horizontal scrolling remains available, scrollbar hidden cross-browser, scoped to the inner scroll region only — not the outer sticky/hide-reveal row',
+);
+check(
+  !/\.cz-drawer-groups__chip-strip\s*\{[^}]*overflow-x/.test(drawerKitCss),
+  'the outer .cz-drawer-groups__chip-strip no longer carries overflow-x itself — only its inner -scroll child scrolls, so a fixed trailing control never scrolls away with the chip labels',
+);
+
+// ── Bin icon trailing seam: fixed inside the SAME hide/reveal element,
+//    never a second hidden state, never scrolled by the chip region ────────
+
+check(
+  /\.cz-drawer-groups__chip-strip-trailing\s*\{[^}]*flex:\s*0 0 auto/.test(drawerKitCss),
+  'the trailing seam never shrinks/grows with the scrollable chip region — it stays a fixed-size sibling',
+);
+check(
+  !drawerKitCss.includes('.cz-drawer-groups__chip-strip-trailing--hidden'),
+  'the trailing control has no hidden-state class of its own — it hides/reveals ONLY via the outer .cz-drawer-groups__chip-strip--hidden it shares with the chips, so Tabs mode moves both together as one unit',
+);
+check(
+  drawerKitCss.includes('.cz-drawer-groups__bin-toggle'),
+  'the Bin icon has its own compact sizing class, matching the existing view-toggle convention',
 );
 check(
   /\.cz-admin-station \.cz-drawer-groups__content \.cz-drawer-groups__chip-strip\s*\{[^}]*margin-top:\s*-24px/.test(drawerKitCss),

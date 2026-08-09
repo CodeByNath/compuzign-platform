@@ -414,9 +414,19 @@ check(
 );
 check(
   drawerContent.includes('selectedEditionLifecycle') && drawerContent.includes('editionCtl.publish(') && drawerContent.includes('editionCtl.disable(')
-    && drawerContent.includes('editionCtl.enable(') && drawerContent.includes('editionCtl.archive(') && drawerContent.includes('editionCtl.trash(') && drawerContent.includes('editionCtl.restore(')
-    && drawerContent.includes('editionCtl.remove(') && drawerContent.includes('editionCtl.moveToBin('),
+    && drawerContent.includes('editionCtl.enable(') && drawerContent.includes('editionCtl.archive(') && drawerContent.includes('editionCtl.restore(')
+    && drawerContent.includes('editionCtl.moveToBin('),
   'TierDrawerContent derives the selected Edition\'s scoped lifecycle handlers from the SAME lifted useTierEditions controller (editionCtl), and hands them to the pinned footer',
+);
+// Edition lifecycle/Bin UX cleanup: editionCtl.trash/editionCtl.remove no
+// longer feed the pinned footer at all — Trash is folded into the atomic
+// moveToBin command, and Permanent Delete moved exclusively into the
+// Edition Bin. The underlying hook actions still exist (see the "hook
+// exposes trash/remove" check above, unchanged) — only this footer's own
+// wiring dropped them.
+check(
+  !drawerContent.includes('onTrash:') && !drawerContent.includes('onDelete:'),
+  'TierDrawerContent no longer wires onTrash/onDelete into selectedEditionLifecycle — see tier-edition-move-to-bin-contract.ts for the atomic replacement',
 );
 check(
   !drawerContent.includes('SupportedActionFooter') && !drawerContent.includes('CanonicalEntityFooter'),
@@ -473,18 +483,58 @@ check(
   'the obsolete loose lifecycle-status text (and its standalone derivation) is gone — the module pill and the pinned footer\'s own action label are the only lifecycle presentation, matching Package Family/Category',
 );
 
-// ── Edition bin presentation (drawer refinement blueprint, Phase 7) — the
-//    SAME travel-status pill the occupant's own bin already uses, not a
-//    second copy. No change to moveToBin/restoreFromBin/trashBinEntry/
-//    deleteBinEntry, tier_edition_bin[] storage, or ordering. ──────────────
+// ── Edition Bin presentation (Edition lifecycle/Bin UX cleanup) — the large
+//    "Show/Hide Edition bin (n)" content button and its inline <ul> are
+//    gone from the switcher entirely, replaced by a dedicated compact list
+//    component (TierEditionBinList.tsx) rendered EXCLUSIVELY in place of
+//    the normal Overview/Inclusions cards, toggled by a fixed Bin icon on
+//    ChildChipStrip's own trailing seam — never a second bin store, never a
+//    change to moveToBin/restoreFromBin/trashBinEntry/deleteBinEntry,
+//    tier_edition_bin[] storage, or ordering. ──────────────────────────────
 
 check(
-  panel.includes('TravelStatusPill') && panel.includes("from '@/drawer-kit/ui/TravelStatusPill'"),
-  'the Edition bin list renders status through the shared TravelStatusPill, not raw "Archived"/"Trashed" text',
+  !panel.includes('Show') && !panel.includes('Hide') && !panel.includes('showBin') && !panel.includes('setShowBin'),
+  'the old large "Show/Hide Edition bin (n)" content button and its showBin state are completely gone from the switcher',
 );
 check(
-  !panel.includes('function binPill'),
-  'the Edition bin list declares no local pill function of its own — TravelStatusPill is the one implementation',
+  panel.includes('TierEditionBinList') && panel.includes("from './TierEditionBinList'"),
+  'TierEditionDeclarationSwitcher renders the Edition Bin through the dedicated TierEditionBinList component, not an inline block',
+);
+check(
+  panel.includes('binActive') && panel.includes('onBinActiveChange'),
+  'the switcher receives binActive/onBinActiveChange as a controlled prop — the same controlled-prop pattern as selectedId/onSelect, for the identical remount-survival reason',
+);
+check(
+  /\{binActive \? \(\s*<TierEditionBinList/.test(panel),
+  'the Edition Bin renders EXCLUSIVELY in place of the normal empty state/module cards while binActive — never alongside them',
+);
+check(
+  !panel.includes('.editionBin.') && !panel.includes('ctl.editionBin.map'),
+  'the switcher itself no longer iterates ctl.editionBin directly — TierEditionBinList owns that rendering now',
+);
+
+const tierEditionBinList = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierEditionBinList.tsx',
+), 'utf8');
+check(
+  tierEditionBinList.includes('TravelStatusPill') && tierEditionBinList.includes("from '@/drawer-kit/ui/TravelStatusPill'"),
+  'TierEditionBinList renders status through the shared TravelStatusPill, not raw "Archived"/"Trashed" text',
+);
+check(
+  !tierEditionBinList.includes('function binPill'),
+  'TierEditionBinList declares no local pill function of its own — TravelStatusPill is the one implementation',
+);
+for (const action of ['restoreFromBin', 'trashBinEntry', 'deleteBinEntry']) {
+  check(tierEditionBinList.includes(`ctl.${action}(`), `TierEditionBinList still drives ${action} through the hook's own action — unchanged behavior, only the rendering moved`);
+}
+check(
+  tierEditionBinList.includes("entry.status === 'archived'") && tierEditionBinList.includes('trashBinEntry') && tierEditionBinList.includes('deleteBinEntry'),
+  'TierEditionBinList maps its destructive icon to the correct operation per row status — Archived -> trashBinEntry, Trashed -> deleteBinEntry — never guessed',
+);
+check(
+  tierEditionBinList.includes('TrashIcon') && tierEditionBinList.includes('RestoreIcon') && !/>Restore</.test(tierEditionBinList) && !/>Delete/.test(tierEditionBinList),
+  'TierEditionBinList uses icon-only row actions (TrashIcon/RestoreIcon), never large text buttons, with the real operation carried in aria-label/title instead of visible text',
 );
 
 const tierBinList = readFileSync(resolve(
@@ -493,18 +543,27 @@ const tierBinList = readFileSync(resolve(
 ), 'utf8');
 check(
   tierBinList.includes('TravelStatusPill') && !tierBinList.includes('function binPill'),
-  'the occupant\'s own bin (TierBinList.tsx) was migrated onto the SAME shared TravelStatusPill too — one implementation, not two copies of identical logic',
+  'the occupant\'s own bin (TierBinList.tsx) still uses the SAME shared TravelStatusPill too — one implementation, not two copies of identical logic',
 );
 
-for (const action of ['restoreFromBin', 'trashBinEntry', 'deleteBinEntry']) {
-  check(panel.includes(`ctl.${action}(`), `the Edition bin list still drives ${action} through the hook's own action — Phase 7 changed no behavior`);
-}
-// Move Edition to Bin is reachable from the pinned footer's scoped menu now
-// (correction plan) — same handler (editionCtl.moveToBin), only its call
-// site moved from the switcher's own standalone button to TierDrawerContent.
+// Move Edition to Bin is reachable from the pinned footer's scoped menu —
+// same handler (editionCtl.moveToBin), now driving the atomic command (see
+// tier-edition-move-to-bin-contract.ts) rather than the narrow endpoint,
+// but still the SAME call site in TierDrawerContent.
 check(
   drawerContent.includes('editionCtl.moveToBin('),
-  'Move Edition to Bin drives through TierDrawerContent\'s lifted controller — the physical Edition-bin panel/list itself is untouched',
+  'Move Edition to Bin drives through TierDrawerContent\'s lifted controller — the Edition Bin list itself is untouched by which endpoint moveToBin calls underneath',
+);
+
+// ── Edition Bin icon — ChildChipStrip's fixed trailing control ─────────────
+
+check(
+  panel.includes('trailing={') && panel.includes('cz-drawer-groups__bin-toggle') && panel.includes('aria-pressed={binActive}'),
+  'the switcher renders the Bin icon through ChildChipStrip\'s own trailing seam, with aria-pressed reflecting the exclusive-view state',
+);
+check(
+  !panel.includes("id: 'bin'") && !/chips=.*bin/.test(panel),
+  'the Bin icon is never appended to the chips array — it is not an Edition/CZTE child chip, it is nav chrome',
 );
 
 // ── Terminology cleanup (drawer refinement blueprint, Phase 8) — no visible
@@ -532,6 +591,14 @@ const childChipStrip = readFileSync(resolve(
 check(
   childChipStrip.includes('export function ChildChipStrip'),
   'ChildChipStrip is a generic, exported drawer-kit primitive',
+);
+check(
+  childChipStrip.includes('trailing?: ComponentChildren') && childChipStrip.includes('cz-drawer-groups__chip-strip-trailing'),
+  'ChildChipStrip carries the additive, optional trailing seam (Edition lifecycle/Bin UX cleanup) — generic, not Tier/Edition-shaped',
+);
+check(
+  childChipStrip.includes('cz-drawer-groups__chip-strip-scroll'),
+  'ChildChipStrip\'s horizontally-scrolling chip region is a distinct inner element from the outer sticky/hide-reveal row, so a fixed trailing control never scrolls away with the chip labels',
 );
 check(
   panel.includes('ChildChipStrip') && panel.includes("from '@/drawer-kit/ui/ChildChipStrip'"),

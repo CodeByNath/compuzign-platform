@@ -79,6 +79,18 @@ export function useTierDrawerController({
   // click. This hook's own state survives that remount, the same reason
   // editingSection/openTierPanel already live here rather than in a child.
   const [selectedDeclarationId, setSelectedDeclarationId] = useState<string | null>(null);
+  // Edition Bin exclusive-view toggle (Edition lifecycle/Bin UX cleanup) —
+  // presentation/navigation state only, deliberately NOT persisted to
+  // backend/localStorage, and deliberately separate from
+  // selectedDeclarationId above: activating the Bin never changes, clears,
+  // or repurposes which Edition is selected — it only swaps which content
+  // TierEditionDeclarationSwitcher renders below the shared chip strip.
+  // Lives here for the exact same remount-survival reason
+  // selectedDeclarationId does (see its own comment above): every Edition
+  // lifecycle mutation (including a Bin action — Restore/Trash/Delete)
+  // refetches through pkg and briefly unmounts the child tree that would
+  // otherwise hold this as local state.
+  const [editionBinActive, setEditionBinActive] = useState(false);
   // Reported, not owned: TierEditionDeclarationSwitcher's own local
   // `editingTab` remains the sole authority for whether the selected
   // Edition's own module editor is open — this is only what that component
@@ -100,7 +112,9 @@ export function useTierDrawerController({
 
   // Leaving one Tier for another starts back on that Tier's own Default —
   // a stale Edition selection must never silently carry across occupants.
-  useEffect(() => { setSelectedDeclarationId(null); }, [editingTierId]);
+  // The Bin view is likewise scoped to the Tier being viewed — never left
+  // active behind the scenes when the admin moves to a different occupant.
+  useEffect(() => { setSelectedDeclarationId(null); setEditionBinActive(false); }, [editingTierId]);
 
   // Re-resolve the stable occupant id after loading so stale card content can
   // never address lifecycle mutations to the wrong shell.
@@ -259,6 +273,7 @@ export function useTierDrawerController({
     // individual tier
     tierDetail, openTierPanel, setOpenTierPanel,
     selectedDeclarationId, setSelectedDeclarationId,
+    editionBinActive, setEditionBinActive,
     editionModuleEditing, setEditionModuleEditing, anyEditingActive,
     // Options' own creation control (relocated off Overview's footer — see
     // handleAddEdition above).

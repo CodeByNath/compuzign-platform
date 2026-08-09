@@ -580,6 +580,79 @@
   font-size: var(--admin-fs-s-label);
 }
 
+/* Edition Bin compact list (Edition lifecycle/Bin UX cleanup) — a plain
+   admin table, same wrap/header/row tokens as .cz-sp-tier-table above
+   (Title | Platform ID | Status | Actions), replacing the former ad hoc
+   inline-styled <ul> block. Icon-only row actions, never large text
+   buttons — see TierEditionBinList.tsx. */
+.cz-tier-edition-bin-table-wrap {
+  border: 1px solid var(--station-border);
+  border-radius: var(--admin-radius);
+  overflow: hidden;
+}
+
+.cz-tier-edition-bin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--admin-fs-label);
+}
+
+.cz-tier-edition-bin-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: var(--admin-fs-s-label);
+  font-weight: var(--admin-fw-strong);
+  line-height: var(--admin-lh-s-label);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--station-text-muted);
+  background: var(--admin-accent-a12);
+  border-bottom: 1px solid var(--station-border);
+  white-space: nowrap;
+}
+
+.cz-tier-edition-bin-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--station-border);
+  color: var(--station-text);
+  vertical-align: middle;
+}
+
+.cz-tier-edition-bin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cz-tier-edition-bin-table tr:hover td {
+  background: var(--admin-accent-a12);
+}
+
+.cz-tier-edition-bin-table__platform-id {
+  color: var(--station-text-muted);
+  font-size: var(--admin-fs-s-label);
+}
+
+.cz-tier-edition-bin-table__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cz-space-1);
+}
+
+.cz-tier-edition-bin-table__icon-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.cz-tier-edition-bin-table__icon-btn .cz-station-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Same danger foreground token .cz-admin-btn--danger already uses for its
+   own text color — no new color introduced. */
+.cz-tier-edition-bin-table__icon-btn--danger {
+  color: var(--station-status-inactive-fg);
+}
+
 /* ── The Admin drawer field system ────────────────────────────────────────────
  *
  * One wrapper, one label, one hint, one error, one control base. The eight
@@ -1179,6 +1252,22 @@
   height: 16px;
 }
 
+/* Edition Bin toggle — ChildChipStrip's own fixed trailing control (see
+   .cz-drawer-groups__chip-strip-trailing above), sized identically to the
+   view-mode toggle above it since both are compact secondary icon controls
+   living in this drawer's nav chrome. aria-pressed carries the active/bin
+   state through the SAME persistent-state styling .cz-station-iconbtn
+   already gives the theme toggle — no bespoke "active" modifier class. */
+.cz-drawer-groups__bin-toggle {
+  width: 28px;
+  height: 28px;
+}
+
+.cz-drawer-groups__bin-toggle .cz-station-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .cz-drawer-groups__tab {
   position: relative;
   padding: var(--cz-space-2) var(--cz-space-2);
@@ -1245,7 +1334,17 @@
    never applied in Accordion mode — no mode check lives in this CSS.
    Horizontally scrollable with the scrollbar hidden cross-browser;
    touch/trackpad/mouse scrolling remains fully functional — only the
-   visible scrollbar track is suppressed. */
+   visible scrollbar track is suppressed.
+
+   Edition lifecycle/Bin UX cleanup: this outer element is now the fixed
+   sticky/hide-reveal row only — mirrors DrawerGroupTabs' own
+   .cz-drawer-groups__tablist/-tabs/-trailing split one level down. The
+   horizontally-scrolling chips live in the -scroll child; ChildChipStrip's
+   optional fixed trailing control (e.g. the Edition Bin icon) lives in the
+   -trailing child, a flex:0 0 auto sibling that never scrolls away with the
+   chip labels and hides/reveals together with them as one unit on vertical
+   scroll direction (both children share the one --hidden transform on this
+   outer element — there is no separate hide state for the trailing child). */
 .cz-drawer-groups__chip-strip {
   position: sticky;
   top: var(--cz-drawer-group-chrome-h, 0px);
@@ -1253,11 +1352,6 @@
   display: flex;
   align-items: center;
   gap: var(--cz-space-3);
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   margin: 0 calc(-1 * var(--cz-space-6)) var(--cz-space-5);
   padding: var(--cz-space-2) var(--cz-space-6);
   background: var(--station-surface);
@@ -1269,8 +1363,27 @@
   transform: translateY(-100%);
 }
 
-.cz-drawer-groups__chip-strip::-webkit-scrollbar {
+.cz-drawer-groups__chip-strip-scroll {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cz-drawer-groups__chip-strip-scroll::-webkit-scrollbar {
   display: none;
+}
+
+.cz-drawer-groups__chip-strip-trailing {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
 }
 
 .cz-drawer-groups__chip {

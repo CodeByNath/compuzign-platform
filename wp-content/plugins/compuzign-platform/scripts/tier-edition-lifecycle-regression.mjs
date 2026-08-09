@@ -87,6 +87,7 @@ const OCCUPANT = {
 };
 
 let editions = [];
+let editionBin = [];
 
 // Two selectable Rate Sheet rows — ITEM_ID is the one the regression
 // actually selects onto the Edition (step 3b); UNSELECTED_ITEM_ID never gets
@@ -132,7 +133,7 @@ function emptySlotDetail() {
 
 function detailFor(tierId) {
   if (tierId !== TIER_ID) return emptySlotDetail();
-  return { ...OCCUPANT, tier_editions: editions };
+  return { ...OCCUPANT, tier_editions: editions, tier_edition_bin: editionBin };
 }
 
 function stationTiers() {
@@ -190,6 +191,18 @@ let settleCalls = 0;
 let statusCalls = 0;
 let restoreCalls = 0;
 let deleteCalls = 0;
+// Edition lifecycle/Bin UX cleanup — the ONE admin-facing "Move Edition to
+// Bin" action, and the bin's own row-level operations. moveToBinCommandCalls
+// mirrors the NEW atomic endpoint (PackageStationController::
+// moveTierEditionToBinCommand); deleteCalls above stays wired to the OLD
+// guarded-delete route (still valid backend-side, just no longer reachable
+// from this UI — see tier-edition-move-to-bin-contract.ts) so it is
+// deliberately never incremented by any click in this file any more.
+let moveToBinCommandCalls = 0;
+let restoreFromBinCalls = 0;
+let trashBinEntryCalls = 0;
+let deleteBinEntryCalls = 0;
+let binIdCounter = 0;
 
 globalThis.fetch = (url, init = {}) => {
   const path = String(url);
@@ -325,6 +338,63 @@ globalThis.fetch = (url, init = {}) => {
     }
     editions = editions.filter((e) => e.id !== edition.id);
     return jsonResponse(envelope({ success: true, tier_id: m[1], edition_id: edition.id }));
+  }
+
+  // Edition lifecycle/Bin UX cleanup — the ONE atomic admin command. Mirrors
+  // PackageStationController::moveTierEditionToBinCommand exactly: trash (via
+  // the SAME permissive applyStatusPermissive helper the /status route above
+  // already uses) only when not already binnable, then relocate — both
+  // before a single response, never two separate round trips.
+  if ((m = path.match(new RegExp(`${TIER_BASE}/([a-z]+)/editions/([a-z0-9_]+)/move-to-bin$`))) && method === 'POST') {
+    moveToBinCommandCalls += 1;
+    const edition = findEdition(m[2]);
+    if (!edition) return jsonResponse({ success: false, code: 'unknown_edition', message: 'Tier Edition not found.' });
+    if (!BIN.has(edition.platform_status)) {
+      const change = applyStatusPermissive(edition.platform_status, 'trashed', edition.previous_platform_status);
+      edition.platform_status = change.status;
+      edition.previous_platform_status = change.previous_status;
+    }
+    editions = editions.filter((e) => e.id !== edition.id);
+    const binEntry = { bin_id: `bin_${(++binIdCounter).toString(16).padStart(6, '0')}`, edition, status: edition.platform_status, displaced_at: '2026-08-09 00:00:00' };
+    editionBin = [...editionBin, binEntry];
+    return jsonResponse(envelope({
+      success: true, tier_id: m[1], edition_id: edition.id, bin_entry: binEntry,
+      tier_editions: editions, tier_edition_bin: editionBin,
+    }));
+  }
+
+  // The occupant-owned Edition bin's own row-level operations (Phase 6,
+  // unchanged by this cleanup) — now actually exercised by a real click
+  // through TierEditionBinList, not just the PackageSchema-level PHP test.
+  if ((m = path.match(new RegExp(`${TIER_BASE}/([a-z]+)/edition-bin/([a-z0-9_]+)/restore$`))) && method === 'POST') {
+    restoreFromBinCalls += 1;
+    const idx = editionBin.findIndex((e) => e.bin_id === m[2]);
+    if (idx === -1) return jsonResponse({ success: false, code: 'unknown_bin_entry' });
+    const entry = editionBin[idx];
+    if (!BIN.has(entry.status)) return jsonResponse({ success: false, code: 'restore_illegal' });
+    editionBin = editionBin.filter((e) => e.bin_id !== m[2]);
+    editions = [...editions, { ...entry.edition, platform_status: 'disabled', previous_platform_status: null }];
+    return jsonResponse(envelope({ success: true, tier_id: m[1], bin_id: m[2], tier_editions: editions, tier_edition_bin: editionBin }));
+  }
+  if ((m = path.match(new RegExp(`${TIER_BASE}/([a-z]+)/edition-bin/([a-z0-9_]+)/trash$`))) && method === 'POST') {
+    trashBinEntryCalls += 1;
+    const idx = editionBin.findIndex((e) => e.bin_id === m[2]);
+    if (idx === -1) return jsonResponse({ success: false, code: 'unknown_bin_entry' });
+    const entry = editionBin[idx];
+    if (entry.status !== 'archived') return jsonResponse({ success: false, code: 'trash_illegal' });
+    const next = { ...entry, status: 'trashed', edition: { ...entry.edition, platform_status: 'trashed' } };
+    editionBin = editionBin.slice();
+    editionBin[idx] = next;
+    return jsonResponse(envelope({ success: true, tier_id: m[1], bin_id: m[2], tier_edition_bin: editionBin }));
+  }
+  if ((m = path.match(new RegExp(`${TIER_BASE}/([a-z]+)/edition-bin/([a-z0-9_]+)$`))) && method === 'DELETE') {
+    deleteBinEntryCalls += 1;
+    const idx = editionBin.findIndex((e) => e.bin_id === m[2]);
+    if (idx === -1) return jsonResponse({ success: false, code: 'unknown_bin_entry' });
+    const entry = editionBin[idx];
+    if (entry.status !== 'trashed') return jsonResponse({ success: false, code: 'delete_illegal' });
+    editionBin = editionBin.filter((e) => e.bin_id !== m[2]);
+    return jsonResponse(envelope({ success: true, tier_id: m[1], bin_id: m[2], tier_edition_bin: editionBin }));
   }
 
   return Promise.reject(new Error(`Unexpected fetch in regression harness: ${method} ${path}`));
@@ -470,6 +540,22 @@ function setInputValue(selector, value) {
 // Details, never as a row of this strip.
 function declarationTab(text) {
   return [...container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]')].find((b) => b.textContent.trim() === text);
+}
+// Edition Bin exclusive view (Edition lifecycle/Bin UX cleanup) — the fixed
+// trailing control on the shared chip strip, found by aria-label like the
+// view toggle above; TierEditionBinList's own icon-only row actions are
+// likewise found by their aria-label (which always carries the real verb,
+// e.g. "Move to Trash — Annual Plan"), so clickButtonWithLabel covers both
+// without any new DOM-query technique.
+function binToggle() {
+  return container.querySelector('[aria-label="Edition Bin"]');
+}
+function binActiveNow() {
+  return binToggle()?.getAttribute('aria-pressed') === 'true';
+}
+function binTableRow(title) {
+  return [...container.querySelectorAll('.cz-tier-edition-bin-table tbody tr')]
+    .find((tr) => tr.firstElementChild?.textContent.trim() === title);
 }
 // The individual-tier drawer's own four-group nav (Details/Options/
 // Connections/Support) — Editions live under Options, Overview's own
@@ -690,11 +776,12 @@ check(
 check('no loose lifecycle-status text renders — the module pill is the only status presentation', looseStatusTextAbsent());
 
 console.log('  2a) Edition context changes the menu: the split label follows the newly-selected (Pending, incomplete) Edition, and its rows precede the Tier\'s own');
-// A brand-new, never-published Edition's top label is "Move to Trash" —
-// the same never-published fallback the Tier itself uses — not "Publish";
-// Publish Edition is an independently-gated row (canPublish alone), never
-// the top verb until the Edition has genuinely been live at least once.
-check('the split label follows the selected Edition\'s never-published fallback — Move to Trash', splitLabel() === 'Move to Trash', splitLabel());
+// A brand-new, never-published Edition's top label is "Move to Bin" (Edition
+// lifecycle/Bin UX cleanup: its one live transition always was headed
+// there, never really "Trash" as a destination) — not "Publish"; Publish
+// Edition is an independently-gated row (canPublish alone), never the top
+// verb until the Edition has genuinely been live at least once.
+check('the split label follows the selected Edition\'s never-published fallback — Move to Bin', splitLabel() === 'Move to Bin', splitLabel());
 menuLabels = await lifecycleMenuLabels();
 pubLabels = await publishMenuLabels();
 check('no ghost "Publish Edition" row yet in the publish menu — this Edition has no price/Rate Sheet, so it is not actually publishable', pubLabels.every((l) => !l.includes('Publish Edition')), pubLabels);
@@ -828,29 +915,51 @@ check('the parent Tier occupant was NOT displaced — Overview\'s own Editions c
 selectGroup('Options');
 await sleep(20);
 
-console.log('  8a) Move Edition to Bin — only valid once Archived/Trashed, rises near the top, distinct from Trash');
+console.log('  8a) Move Edition to Bin — the ONE action for any status, always last in the menu, after the Tier\'s own rows');
 menuLabels = await lifecycleMenuLabels();
-check('Move Edition to Bin is now offered — the Edition is Archived', menuLabels.includes('Move Edition to Bin'), menuLabels);
-check('Restore leads, then Move Edition to Bin, ahead of the Tier\'s own rows', menuLabels.indexOf('Move Edition to Bin') === 1, menuLabels);
-check('Archived offers "Move Edition to Trash — Annual Plan" as the separated destructive row', menuLabels.includes('Move Edition to Trash — Annual Plan'), menuLabels);
+check('Move Edition to Bin — Annual Plan is offered while Archived', menuLabels.includes('Move Edition to Bin — Annual Plan'), menuLabels);
+check('it is the LAST row — Restore leads, Tier rows in the middle, Move to Bin always trails', menuLabels.indexOf('Move Edition to Bin — Annual Plan') === menuLabels.length - 1, menuLabels);
+check('there is no separate "Move Edition to Trash" row anywhere — that verb no longer exists in this menu', !menuLabels.some((l) => l.includes('Move Edition to Trash')), menuLabels);
 
-console.log('  8b) Trash, then guarded permanent delete — succeeds as soon as the Edition is trashed, with no "default Edition" concept to block it');
-await clickLifecycleMenuItem('Move Edition to Trash — Annual Plan');
+console.log('  8b) Move Edition to Bin, from Archived, relocates DIRECTLY (already binnable) — one atomic request, never a separate trash step');
+const moveToBinCallsBefore = moveToBinCommandCalls;
+await clickLifecycleMenuItem('Move Edition to Bin — Annual Plan');
 await waitQuiet();
-check('the Edition reads Trashed — Restore is still the split\'s own top-level label', splitLabel() === 'Restore', splitLabel());
-menuLabels = await lifecycleMenuLabels();
-check('Trashed offers Permanently Delete Edition as the separated destructive row', menuLabels.includes('Permanently Delete Edition — Annual Plan'), menuLabels);
-check('Move Edition to Bin is still offered while Trashed', menuLabels.includes('Move Edition to Bin'), menuLabels);
-await clickLifecycleMenuItem('Permanently Delete Edition — Annual Plan');
-await waitQuiet();
-check('the delete endpoint was called', deleteCalls === 1, deleteCalls);
+check('the atomic move-to-bin endpoint was called exactly once', moveToBinCommandCalls === moveToBinCallsBefore + 1, moveToBinCommandCalls);
+check('no separate /status trash call was made — Archived was already binnable, so only relocation happened', statusCalls === statusCallsBeforeArchive + 1, statusCalls);
 selectGroup('Details');
 await sleep(20);
-check('Overview\'s own Editions count dropped back to 1 — the derived count, not a separately stored one', overviewEditionsCountText() === '1', overviewEditionsCountText());
+check('Overview\'s own Editions count dropped back to 1 the instant it left tier_editions[] — the derived count, not a separately stored one', overviewEditionsCountText() === '1', overviewEditionsCountText());
 selectGroup('Options');
 await sleep(20);
+check('no Edition remains selectable in the normal chip strip — Annual Plan left tier_editions[] entirely', declarationTab('Annual Plan') === undefined);
+
+console.log('  8c) The Edition Bin icon is a fixed control on the shared chip strip, not an Edition/CZTE chip; activating it swaps to an EXCLUSIVE bin view');
+check('the Bin icon exists and starts inactive', binToggle() !== null && !binActiveNow());
+check('the Bin icon is never one of the chip-strip\'s own [role="tab"] chips — it is nav chrome, not an Edition/CZTE chip', binToggle()?.getAttribute('role') !== 'tab' && container.querySelector('.cz-drawer-groups__chip-strip-trailing')?.contains(binToggle()));
+clickButtonWithLabel('Edition Bin');
+await sleep(20);
+check('the Bin icon now reports pressed/active', binActiveNow());
+check('the normal empty-state copy is gone while the Bin is active — the two views are mutually exclusive', !container.textContent.includes('No additional Editions yet'));
+check('Annual Plan appears as a compact bin row, Archived', binTableRow('Annual Plan')?.textContent.includes('Archived'));
+check('Annual Plan\'s CZTE is shown in the bin row', binTableRow('Annual Plan')?.textContent.includes(`CZTE${CZTE_SUFFIXES[0]}`), binTableRow('Annual Plan')?.textContent);
+
+console.log('  8d) Archived bin row -> trash icon means Move to Trash (still reversible); Trashed bin row -> the SAME-looking icon instead means Delete permanently');
+check('the Archived row\'s destructive icon is labelled "Move to Trash", never "Delete permanently"', container.querySelector('[aria-label="Move to Trash — Annual Plan"]') !== null && container.querySelector('[aria-label="Delete permanently — Annual Plan"]') === null);
+clickButtonWithLabel('Move to Trash — Annual Plan');
+await waitQuiet();
+check('trashBinEntry was called exactly once', trashBinEntryCalls === 1, trashBinEntryCalls);
+check('the SAME row now reads Trashed', binTableRow('Annual Plan')?.textContent.includes('Trashed'), binTableRow('Annual Plan')?.textContent);
+check('the row\'s destructive icon now means Delete permanently instead — same icon glyph, different real operation, never guessed', container.querySelector('[aria-label="Delete permanently — Annual Plan"]') !== null && container.querySelector('[aria-label="Move to Trash — Annual Plan"]') === null);
+clickButtonWithLabel('Delete permanently — Annual Plan');
+await waitQuiet();
+check('deleteBinEntry was called exactly once — Permanent Delete is reachable ONLY from the Bin now', deleteBinEntryCalls === 1, deleteBinEntryCalls);
+check('the OLD guarded-delete endpoint (tier_editions[]-scoped) was never called by any of this — Permanent Delete moved to the bin-scoped endpoint entirely', deleteCalls === 0, deleteCalls);
+check('the bin is empty again', container.textContent.includes('The Edition Bin is empty.'));
+clickButtonWithLabel('Edition Bin');
+await sleep(20);
+check('leaving the Bin view restores the normal empty state — no Edition remains anywhere', !binActiveNow() && container.textContent.includes('No additional Editions yet'));
 check('the tab strip is gone again — no editions remain', container.querySelectorAll('.cz-drawer-groups__chip-strip [role="tab"]').length === 0);
-check('the empty state is back — never a Default fallback', container.textContent.includes('No additional Editions yet'));
 
 console.log('\n9) Registering + configuring + publishing a second Edition, "Monthly Plan", proves the position-numbering is re-derived, not a permanent sequence');
 clickButtonWithText('+ Edition');
@@ -886,17 +995,26 @@ check('the module pill and the footer action agree after Restore', pillAndAction
 check('no loose lifecycle-status text renders anywhere in this flow', looseStatusTextAbsent());
 check('it kept its own CZTE through Archive/Restore (identity is permanent once assigned)', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[1]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
 
-console.log('\n11) Ordering invariant: with an Edition selected, its own scoped rows precede every Tier row, in EACH of the two independent splits');
+console.log('\n11) Ordering invariant: with an Edition selected, its own scoped rows precede every Tier row, EXCEPT the trailing Move-to-Bin row, which is always last of all — in EACH of the two independent splits');
 menuLabels = await lifecycleMenuLabels();
 pubLabels = await publishMenuLabels();
-const lastEditionIdx = menuLabels.reduce((acc, l, i) => (l.includes('Edition') ? i : acc), -1);
+// Edition lifecycle/Bin UX cleanup: Move Edition to Bin is deliberately the
+// ONE exception to "Edition rows precede Tier rows" — it is the single
+// admin-facing action that leaves the workspace from ANY status, and it is
+// always last, after the Tier's own rows, matching the ordering this file's
+// own tierLifecycleMenu.ts documents (destructive/travel-terminal action
+// last). Every OTHER Edition-scoped row still precedes every Tier row.
+check('the trailing Move Edition to Bin row is the very last entry in the lifecycle menu', menuLabels.at(-1) === 'Move Edition to Bin — Monthly Plan', menuLabels);
+const editionRowsExceptMoveToBin = menuLabels.slice(0, -1).map((l, i) => (l.includes('Edition') ? i : -1)).filter((i) => i !== -1);
+const lastEditionIdx = editionRowsExceptMoveToBin.length ? Math.max(...editionRowsExceptMoveToBin) : -1;
 const firstTierIdx = menuLabels.findIndex((l) => l.includes('Tier'));
-check('lifecycle menu: every Edition-scoped row appears before every Tier-scoped row', firstTierIdx === -1 || lastEditionIdx < firstTierIdx, menuLabels);
+check('every OTHER Edition-scoped row still appears before every Tier-scoped row', firstTierIdx === -1 || lastEditionIdx < firstTierIdx, menuLabels);
 const lastEditionIdxPub = pubLabels.reduce((acc, l, i) => (l.includes('Edition') ? i : acc), -1);
 const firstTierIdxPub = pubLabels.findIndex((l) => l.includes('Tier'));
 check('publish menu: Publish Edition precedes Publish Tier, the same scope priority as the lifecycle menu', firstTierIdxPub === -1 || lastEditionIdxPub < firstTierIdxPub, pubLabels);
 check('the lifecycle menu never carries a Publish row — it lives only in the publish menu', menuLabels.every((l) => !l.includes('Publish')), menuLabels);
 check('the publish menu never carries a lifecycle verb (Disable/Enable/Archive/Trash/Restore/Bin)', pubLabels.every((l) => !/\b(Disable|Enable|Archive|Trash|Restore|Bin)\b/.test(l)), pubLabels);
+check('the lifecycle menu never carries a Permanently Delete row — that action lives exclusively in the Edition Bin now', menuLabels.every((l) => !l.includes('Permanently Delete')), menuLabels);
 
 console.log('\n12) No fabricated "All" action ever renders in the real mounted footer, in either split');
 check(
@@ -973,6 +1091,9 @@ check('the strip is visible at rest in Accordion mode', chipStripHidden() === fa
 fireScroll(200);
 await sleep(20);
 check('a large downward scroll in Accordion mode does not hide the strip — no scroll container was ever wired up', chipStripHidden() === false, chipStripHidden());
+// Locked behavior: Accordion mode gets no hide/reveal AT ALL, for the strip
+// or the Bin icon riding inside it — both stay sticky/always visible.
+check('the Bin icon is present and its hidden-class ancestor never toggled in Accordion mode', binToggle() !== null && chipStripHidden() === false);
 fireScroll(0);
 await sleep(20);
 
@@ -1005,6 +1126,14 @@ check('a small 5px downward movement (below the hysteresis threshold) does not h
 fireScroll(40);
 await sleep(20);
 check('a deliberate downward scroll past the threshold hides the strip', chipStripHidden() === true, chipStripHidden());
+// Locked behavior (Edition lifecycle/Bin UX cleanup correction): in Tabs
+// mode the Bin icon hides/reveals TOGETHER with the chips, as one unit —
+// proven structurally, since the icon lives inside the SAME element
+// chipStripHidden() reads the --hidden class from, not a separate one.
+check(
+  'the Bin icon shares the exact same hidden-class ancestor as the chips — Tabs mode moves both together, never a separate hide state for the icon',
+  binToggle()?.closest('.cz-drawer-groups__chip-strip') === container.querySelector('.cz-drawer-groups__chip-strip'),
+);
 
 fireScroll(35);
 await sleep(20);

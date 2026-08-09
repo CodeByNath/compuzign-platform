@@ -47,19 +47,26 @@
 // is no Default to fall back to inside Options, and a real Edition should
 // never sit unreachable behind a blank selection.
 //
-// Lifecycle actions (Publish/Disable/Enable/Archive/Restore/Trash/Move to
-// Bin) are NOT rendered here (single-footer, scope-aware lifecycle command
+// Lifecycle actions (Publish/Disable/Enable/Archive/Restore/Move to Bin)
+// are NOT rendered here (single-footer, scope-aware lifecycle command
 // model, Phase 4) — they moved to the ONE pinned TierDrawerFooter, scoped to
 // this selected Edition via buildTierLifecycleMenu (tierLifecycleMenu.ts).
-// This component renders only the two read/edit module cards, the tab
-// strip, and the Edition bin's own restore/trash/delete row actions (a
-// separate, occupant-owned physical list, deliberately untouched by this
-// correction — see tierLifecycleMenu.ts's own header comment).
+// This component renders the two read/edit module cards, the child-chip
+// strip, and — exclusively, in place of those cards, never alongside them
+// (Edition lifecycle/Bin UX cleanup) — the Edition Bin's own compact list
+// (TierEditionBinList.tsx) once the Bin icon (ChildChipStrip's fixed
+// trailing control) is active. Restore/Trash/Delete-permanently for a
+// binned entry live entirely inside that list; this component only decides
+// WHETHER it or the normal module cards render, via the binActive/
+// onBinActiveChange controlled prop below — the same controlled-prop
+// pattern selectedId/onSelect already use, and for the identical reason
+// (every Edition lifecycle mutation refetches and briefly unmounts this
+// subtree — see useTierDrawerController's own editionBinActive comment).
 
 import { useEffect, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
 import { ChildChipStrip } from '@/drawer-kit/ui/ChildChipStrip';
-import { TravelStatusPill } from '@/drawer-kit/ui/TravelStatusPill';
+import { TrashIcon } from '@/admin-station/shell/icons';
 import type { EntityDrawerEditingModule } from '@/drawer-kit/EntityDrawer';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft } from '../../types';
@@ -68,6 +75,7 @@ import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
 import { buildTierEditionDetail } from './tierEditionDetailModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
 import { draftFromTierEdition } from './tierEditionModel';
+import { TierEditionBinList } from './TierEditionBinList';
 
 interface Props {
   // Single-footer lifecycle command model, Phase 2: the controller is built
@@ -87,6 +95,13 @@ interface Props {
   // Accordion mode), which already knows the drawer's DOM shape and the
   // active view mode. Not a Tier/Edition concept.
   scrollContainer?: HTMLElement | null;
+  // Edition Bin exclusive-view toggle — a CONTROLLED prop sourced from
+  // useTierDrawerController, the same reason selectedId/onSelect are
+  // controlled rather than local state (see this file's own header
+  // comment). Presentation/navigation state only: activating the Bin never
+  // changes, clears, or repurposes selectedId.
+  binActive:        boolean;
+  onBinActiveChange: (active: boolean) => void;
   // Reports whether THIS component's own editingTab is non-null, so
   // TierDrawerContent can hide the parent drawer header/group chrome while
   // an Edition editor is open — editingTab below remains the sole authority
@@ -97,11 +112,11 @@ interface Props {
 
 export function TierEditionDeclarationSwitcher({
   ctl, rateSheetOptions, svc, selectedId, onSelect, scrollContainer, onEditingActiveChange,
+  binActive, onBinActiveChange,
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
   const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
-  const [showBin, setShowBin] = useState(false);
 
   // Mirrors editingTab on every change (covers open via Edit, close via
   // Save/Cancel/Back). A SEPARATE cleanup-only effect below guarantees a
@@ -164,14 +179,17 @@ export function TierEditionDeclarationSwitcher({
   const togglePanel = (module: 'overview' | 'inclusions') => () =>
     setOpenPanel((p) => (p === module ? null : module));
 
+  const toggleBin = () => onBinActiveChange(!binActive);
+
   return (
     <div class="cz-shell-section">
-      {/* Everything in this block is the Edition-browsing UI — the child nav,
-          the empty state, and the occupant's own Edition bin. All of it is
-          redundant chrome once an Edition's own module editor is open (the
-          PlacedShell below already carries its own title/back/status/Save/
-          Cancel), so it disappears as one unit while editingModule is set,
-          leaving only the active editor — no separate guard per element. */}
+      {/* Everything in this block is the Edition-browsing UI — the child
+          nav (chips + Bin icon) and, exclusively, either the empty state or
+          the Edition Bin. All of it is redundant chrome once an Edition's
+          own module editor is open (the PlacedShell below already carries
+          its own title/back/status/Save/Cancel), so it disappears as one
+          unit while editingModule is set, leaving only the active editor —
+          no separate guard per element. */}
       {!editingModule && (
         <>
           {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
@@ -180,58 +198,39 @@ export function TierEditionDeclarationSwitcher({
             chips={ctl.editions.map((edition) => ({ id: edition.id, label: edition.title }))}
             activeId={selectedId}
             ariaLabel="Editions"
-            onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); }}
+            onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); onBinActiveChange(false); }}
             scrollContainer={scrollContainer}
+            trailing={
+              <button
+                type="button"
+                class="cz-station-iconbtn cz-drawer-groups__bin-toggle"
+                aria-pressed={binActive}
+                aria-label="Edition Bin"
+                title="Edition Bin"
+                onClick={toggleBin}
+              >
+                <TrashIcon />
+              </button>
+            }
           />
 
-          {ctl.editions.length === 0 && (
-            <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
-              <p>No additional Editions yet. Use "+ Edition" to add one.</p>
-            </div>
-          )}
-
-          {/* Minimal functional access to the occupant's own Edition bin:
-              identify, restore, and trash/delete where lifecycle rules permit —
-              the SAME travel-status pill (TravelStatusPill/TRAVEL_PILL) the
-              occupant's own bin (TierBinList.tsx) already uses for Archived/
-              Trashed, instead of raw text (UI refinement, Phase 7). Presentation
-              only — no change to moveToBin/restoreFromBin/trashBinEntry/
-              deleteBinEntry, tier_edition_bin[] storage, or ordering. */}
-          {ctl.editionBin.length > 0 && (
-            <div style="margin-top: var(--cz-space-2)">
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => setShowBin((v) => !v)}>
-                {showBin ? 'Hide' : 'Show'} Edition bin ({ctl.editionBin.length})
-              </button>
-              {showBin && (
-                <ul class="cz-tier-edition-bin" style="margin-top: var(--cz-space-1); list-style:none; padding:0; display:flex; flex-direction:column; gap: var(--cz-space-2)">
-                  {ctl.editionBin.map((entry) => (
-                    <li key={entry.bin_id} class="cz-tier-edition-bin__row" style="display:flex; flex-direction:column; gap: var(--cz-space-1)">
-                      <div style="display:flex; justify-content:space-between; align-items:center; gap: var(--cz-space-1)">
-                        <span class="drawerModule__value">
-                          {entry.edition.title || '(untitled)'}
-                          {entry.edition.edition_platform_id ? ` · ${entry.edition.edition_platform_id}` : ''}
-                        </span>
-                        <TravelStatusPill status={entry.status} />
-                      </div>
-                      <span style="display:flex; gap: var(--cz-space-1); flex-wrap:wrap">
-                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.restoreFromBin(entry.bin_id)}>Restore</button>
-                        {entry.status === 'archived' && (
-                          <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.trashBinEntry(entry.bin_id)}>Move to Trash</button>
-                        )}
-                        {entry.status === 'trashed' && (
-                          <button type="button" class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm" disabled={ctl.saving} onClick={() => ctl.deleteBinEntry(entry.bin_id)}>Delete permanently</button>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          {/* Bin mode is exclusive: the normal Edition-browsing empty state
+              and the Edition Bin never render together — activating the
+              Bin icon swaps which one appears below the shared chip strip,
+              without touching selectedId. */}
+          {binActive ? (
+            <TierEditionBinList ctl={ctl} />
+          ) : (
+            ctl.editions.length === 0 && (
+              <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
+                <p>No additional Editions yet. Use "+ Edition" to add one.</p>
+              </div>
+            )
           )}
         </>
       )}
 
-      {selected && detail && (
+      {!binActive && selected && detail && (
         editingModule ? (
           <PlacedShell
             entity={TIER_EDITION_ENTITY}
