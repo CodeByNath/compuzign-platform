@@ -29,7 +29,7 @@ import {
   updateTierEditionStatus,
   restoreTierEdition,
   deleteTierEdition,
-  moveTierEditionToBin,
+  moveTierEditionToBinCommand,
   restoreTierEditionFromBin,
   trashTierEditionBinEntry,
   deleteTierEditionBinEntry,
@@ -199,10 +199,18 @@ export function useTierEditions(
   // tier_editions[]/tier_edition_bin[] pair (not one patched row), so local
   // state replaces both arrays wholesale, the same full-row-replace contract
   // every action above already uses for a single Edition.
+  //
+  // Edition lifecycle/Bin UX cleanup — moveToBin now drives the atomic
+  // admin-intent command (moveTierEditionToBinCommand), not the narrow
+  // "already archived/trashed only" endpoint: the server composes the trash
+  // transition and the bin relocation into one request/one persist when the
+  // Edition isn't binnable yet, so this is the ONE action the footer needs
+  // regardless of the Edition's current status — no frontend branching, no
+  // two-request sequence, no partial-failure boundary left exposed here.
   const moveToBin = useCallback((editionId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => moveTierEditionToBin(serviceId, tierInstanceId, tierId, editionId),
+      () => moveTierEditionToBinCommand(serviceId, tierInstanceId, tierId, editionId),
       (res) => {
         if (res.success && res.tier_editions && res.tier_edition_bin) {
           setLocalEditions(res.tier_editions);

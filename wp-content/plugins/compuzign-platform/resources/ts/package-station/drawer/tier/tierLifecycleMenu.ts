@@ -9,7 +9,7 @@
 // Two menus, two footer splits:
 //
 //   buildTierLifecycleMenu — backward/travel actions only (Disable/Enable/
-//     Archive/Trash/Restore/Move to Bin). Mounted on the footer's LEFT split.
+//     Archive/Restore/Move to Bin). Mounted on the footer's LEFT split.
 //   buildTierPublishMenu   — forward/publication actions only (Publish
 //     Edition, Publish Tier). Mounted on the footer's RIGHT split
 //     (`splitForward`).
@@ -20,12 +20,11 @@
 // approved for the Tier drawer's pinned footer (§E of the audit, resolved
 // per option (b)):
 //
-//   1. selected Edition's immediate valid transition
+//   1. selected Edition's immediate valid transition (Enable/Disable, or
+//      Restore once Archived/Trashed)
 //   2. selected Edition's next valid travel action — its own independent
 //      Archive while Active/Disabled (ctl.archive, NOT the Tier cascade —
-//      archiving only this Edition never touches the Tier), or Move
-//      Edition to Bin once already Archived/Trashed (never a disabled
-//      ghost row either way)
+//      archiving only this Edition never touches the Tier)
 //   3. Tier's own currently-valid action, even when its verb differs from
 //      the split's own top-level label
 //   4. Tier's genuine cascade/travel action (Archive Tier — archiving the
@@ -36,8 +35,24 @@
 //      Edition: one archives only the Edition, the other archives the
 //      Tier — and displaces it into occupant_bin[] — plus every live
 //      Edition with it.)
-//   5. destructive actions, separated last (Edition's own Trash/Permanently
-//      delete once archived/trashed)
+//   5. Move Edition to Bin, always last, always danger-toned — the ONE
+//      action that leaves the active workspace, from ANY Edition status
+//      (Pending/Active/Disabled/Archived/Trashed alike). Edition lifecycle/
+//      Bin UX cleanup: this replaces what were three separate, confusing
+//      rows in earlier revisions of this menu ("Move Edition to Trash" for
+//      a live/pending Edition, "Move Edition to Bin" for an
+//      already-archived/trashed one, and "Permanently Delete Edition" once
+//      trashed) with the single visible admin intent the audit approved.
+//      The backend (PackageStationController::moveTierEditionToBinCommand)
+//      composes the trash-if-needed transition and the bin relocation into
+//      one request with one persist, so there is no visible intermediate
+//      "Trashed but still in the workspace" state to represent here at
+//      all — this menu needed no branching of its own to collapse the
+//      three rows into one; the single onMoveToBin handler is simply
+//      correct unconditionally. Permanent delete is no longer reachable
+//      from this menu at all — it lives exclusively in the Edition Bin
+//      (TierEditionBinList.tsx) now, alongside Restore and Move to Trash
+//      for an already-binned entry, neither of which this menu represents.
 //
 // No Publish All / Enable All / Disable All / Restore All / Trash All row
 // is ever produced — none of those exist as an established backend
@@ -55,10 +70,9 @@
 // archiving a live Edition — but that cascade ALSO archives and displaces
 // the whole parent Tier occupant, which is not an acceptable substitute for
 // archiving just the Edition. Removing the independent row would have
-// silently deleted real, previously-tested capability (reaching Trashed →
-// guarded permanent delete for one Edition without touching its Tier), so
-// it is restored here — see this module's own contract
-// (tier-lifecycle-menu-contract.ts) for worked examples and reasoning.
+// silently deleted real, previously-tested capability, so it is restored
+// here — see this module's own contract (tier-lifecycle-menu-contract.ts)
+// for worked examples and reasoning.
 
 import type { TierEdition } from '../../types';
 
@@ -109,9 +123,12 @@ export interface SelectedEditionLifecycleInputs {
   onDisable:      () => void;
   onEnable:       () => void;
   onArchive:      () => void;
-  onTrash:        () => void;
-  onDelete:       () => void;
   onRestore:      () => void;
+  // The one action that leaves the active workspace, from ANY status — see
+  // this module's own header comment. onTrash/onDelete no longer exist as
+  // separate lifecycle-menu inputs: Trash is folded into this handler
+  // (server-composed, see useTierEditions.moveToBin), and Permanent Delete
+  // moved exclusively into the Edition Bin (TierEditionBinList.tsx).
   onMoveToBin:    () => void;
 }
 
@@ -120,18 +137,22 @@ function tierTopVerb(tier: TierLifecycleInputs): { label: string; tone: TierLife
   return tier.enabled ? { label: 'Disable', tone: 'danger' } : { label: 'Enable', tone: 'secondary' };
 }
 
-// Mirrors CanonicalEntityFooter's own prior non-binned formula EXACTLY:
-// `isNewNeverPublished ? 'Move to Trash' : disabledMasked ? 'Enable' :
-// 'Disable'` — deliberately never branches on platformStatus === 'active'
-// directly (an earlier draft did, and got this wrong: after Enable,
-// platform_status stays 'disabled' with previous_platform_status cleared to
-// null — genuinely "Pending" per tierEditionDisabledMasked, not "Active" —
-// so branching on raw platformStatus instead of hasBeenPublished/
-// disabledMasked disagreed with the established, previously-verified label).
+// Mirrors CanonicalEntityFooter's own prior non-binned formula, with one
+// deliberate change from the pre-cleanup version: the never-published
+// fallback now reads "Move to Bin", not "Move to Trash" — a never-published
+// Edition's one live transition still goes straight to the bin (via the
+// same server-composed onMoveToBin below), but Trash was never the real
+// destination; the Bin always was. Otherwise unchanged: never branches on
+// platformStatus === 'active' directly (an earlier draft did, and got this
+// wrong: after Enable, platform_status stays 'disabled' with
+// previous_platform_status cleared to null — genuinely "Pending" per
+// tierEditionDisabledMasked, not "Active" — so branching on raw
+// platformStatus instead of hasBeenPublished/disabledMasked disagreed with
+// the established, previously-verified label).
 function editionTopVerb(edition: SelectedEditionLifecycleInputs): { label: string; tone: TierLifecycleTone } {
   const ps = edition.platformStatus;
   if (ps === 'archived' || ps === 'trashed') return { label: 'Restore', tone: 'secondary' };
-  if (!edition.hasBeenPublished) return { label: 'Move to Trash', tone: 'danger' };
+  if (!edition.hasBeenPublished) return { label: 'Move to Bin', tone: 'danger' };
   return edition.disabledMasked ? { label: 'Enable', tone: 'secondary' } : { label: 'Disable', tone: 'danger' };
 }
 
@@ -153,49 +174,41 @@ function tierEntries(tier: TierLifecycleInputs): TierLifecycleMenuEntry[] {
   return entries;
 }
 
-function editionEntries(edition: SelectedEditionLifecycleInputs): {
-  primary: TierLifecycleMenuEntry[];
-  destructive: TierLifecycleMenuEntry[];
-} {
+// Non-destructive Edition rows only (its own immediate transition and its
+// own independent travel action) — Move to Bin is always appended
+// separately, last, by buildTierLifecycleMenu below, regardless of status.
+function editionEntries(edition: SelectedEditionLifecycleInputs): TierLifecycleMenuEntry[] {
   const name = edition.title.trim() || '(untitled)';
   const ps = edition.platformStatus;
 
   if (ps === 'archived' || ps === 'trashed') {
-    return {
-      primary: [
-        { id: 'edition-restore', label: `Restore Edition — ${name}`, onSelect: edition.onRestore },
-        // Rises near the top of the Edition entries whenever it becomes
-        // valid (§F) — distinct from Archive, never conflated with it.
-        { id: 'edition-move-to-bin', label: 'Move Edition to Bin', onSelect: edition.onMoveToBin },
-      ],
-      destructive: ps === 'archived'
-        ? [{ id: 'edition-trash', label: `Move Edition to Trash — ${name}`, onSelect: edition.onTrash, danger: true }]
-        : [{ id: 'edition-delete', label: `Permanently Delete Edition — ${name}`, onSelect: edition.onDelete, danger: true }],
-    };
+    return [{ id: 'edition-restore', label: `Restore Edition — ${name}`, onSelect: edition.onRestore }];
   }
 
   // Backward/travel entries only — Publish moved to buildTierPublishMenu's
   // own editionPublishEntries below (UI refinement, Phase 1).
-  const primary: TierLifecycleMenuEntry[] = [];
-
   if (!edition.hasBeenPublished) {
-    // Mirrors CanonicalEntityFooter's own isNewNeverPublished branch: the
-    // one live transition a never-published Edition offers goes straight to
-    // Trashed (ctl.trash targets 'trashed' directly) — there is no Archived
-    // stop for a record that was never live.
-    primary.push({ id: 'edition-trash-never-published', label: `Move Edition to Trash — ${name}`, onSelect: edition.onTrash, danger: true });
-    return { primary, destructive: [] };
+    // A never-published Edition has no Enable/Disable/Archive of its own —
+    // its only live transition is Move to Bin, appended below.
+    return [];
   }
 
-  primary.push(
+  return [
     edition.disabledMasked
       ? { id: 'edition-enable', label: `Enable Edition — ${name}`, onSelect: edition.onEnable }
       : { id: 'edition-disable', label: `Disable Edition — ${name}`, onSelect: edition.onDisable },
     // Independent of the Tier's own cascading "Archive Tier" — archives
     // only this Edition.
     { id: 'edition-archive', label: `Archive Edition — ${name}`, onSelect: edition.onArchive },
-  );
-  return { primary, destructive: [] };
+  ];
+}
+
+// Always the last entry, always danger-toned, always present — the single
+// admin-intent action that leaves the active workspace from ANY status. See
+// this module's own header comment for why this replaced three prior rows.
+function editionMoveToBinEntry(edition: SelectedEditionLifecycleInputs): TierLifecycleMenuEntry {
+  const name = edition.title.trim() || '(untitled)';
+  return { id: 'edition-move-to-bin', label: `Move Edition to Bin — ${name}`, onSelect: edition.onMoveToBin, danger: true };
 }
 
 export function buildTierLifecycleMenu(
@@ -208,11 +221,10 @@ export function buildTierLifecycleMenu(
     return { splitLabel, splitTone, entries: tierEntries(tier) };
   }
 
-  const { primary, destructive } = editionEntries(selectedEdition);
   return {
     splitLabel,
     splitTone,
-    entries: [...primary, ...tierEntries(tier), ...destructive],
+    entries: [...editionEntries(selectedEdition), ...tierEntries(tier), editionMoveToBinEntry(selectedEdition)],
   };
 }
 

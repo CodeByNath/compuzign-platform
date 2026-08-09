@@ -420,6 +420,27 @@ export function moveTierEditionToBin(
   );
 }
 
+// Admin-intent "Move Edition to Bin" — a SEPARATE, additive command from
+// moveTierEditionToBin above (which still means exactly what it always
+// meant: relocate an ALREADY archived/trashed Edition; kept for callers that
+// deliberately require that narrower precondition). This is the ONE action
+// the Edition footer exposes regardless of current status: the server
+// composes the existing trash transition and the existing bin relocation
+// into a single request with a single persist, so there is never a
+// persisted state where an Edition is Trashed but still sitting in
+// tier_editions[]. See PackageStationController::moveTierEditionToBinCommand.
+export function moveTierEditionToBinCommand(
+  serviceId: number,
+  tierInstanceId: string,
+  tierId: string,
+  editionId: string,
+): Promise<TierEditionBinResponse> {
+  return apiClient.post<TierEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/move-to-bin`,
+    {},
+  );
+}
+
 export function restoreTierEditionFromBin(
   serviceId: number,
   tierInstanceId: string,

@@ -27,7 +27,7 @@ function edition(overrides: Partial<SelectedEditionLifecycleInputs> = {}): Selec
   return {
     id: 'edt_1', title: 'Nath', platformStatus: 'active', disabledMasked: false,
     hasBeenPublished: true, canPublish: true,
-    onPublish: noop, onDisable: noop, onEnable: noop, onArchive: noop, onTrash: noop, onDelete: noop, onRestore: noop, onMoveToBin: noop,
+    onPublish: noop, onDisable: noop, onEnable: noop, onArchive: noop, onRestore: noop, onMoveToBin: noop,
     ...overrides,
   };
 }
@@ -70,6 +70,19 @@ console.log('Tier lifecycle + publish menu contracts (single-footer, scope-aware
 // that, destructive last) — a principle each menu now applies independently
 // within its own scope (lifecycle rows in one menu, publish rows in the
 // other).
+//
+// Edition lifecycle/Bin UX cleanup (superseding the three-row destructive
+// tail this file originally proved): "Move Edition to Trash" (live/pending),
+// "Move Edition to Bin" (already archived/trashed), and "Permanently Delete
+// Edition" (trashed) are gone from this menu. In their place, exactly ONE
+// danger-toned "Move Edition to Bin — {name}" row is always last, for every
+// Edition status, driven by the server-composed atomic command
+// (PackageStationController::moveTierEditionToBinCommand /
+// useTierEditions.moveToBin) — there is no longer a visible intermediate
+// Trashed-but-unrelocated state for this menu to represent, so it needed no
+// per-status branching of its own to collapse the three rows into one.
+// Permanent delete now lives exclusively in the Edition Bin
+// (TierEditionBinList.tsx / tier-edition-bin-list-contract.ts), never here.
 
 console.log('1) Approved worked example — Edition Active + Tier Disabled');
 {
@@ -78,9 +91,10 @@ console.log('1) Approved worked example — Edition Active + Tier Disabled');
   const lifecycle = buildTierLifecycleMenu(t, e);
   const publish = buildTierPublishMenu(t, e);
   check('lifecycle top-level label is Disable (Edition\'s own immediate transition)', lifecycle.splitLabel === 'Disable', lifecycle.splitLabel);
-  check('lifecycle: Disable/Archive Edition lead; Enable Tier/Archive Tier follow — Tier\'s own valid actions are never hidden', JSON.stringify(labels(lifecycle)) === JSON.stringify([
-    'Disable Edition — Nath', 'Archive Edition — Nath', 'Enable Tier', 'Archive Tier',
+  check('lifecycle: Disable/Archive Edition lead; Enable Tier/Archive Tier follow; Move Edition to Bin is always last', JSON.stringify(labels(lifecycle)) === JSON.stringify([
+    'Disable Edition — Nath', 'Archive Edition — Nath', 'Enable Tier', 'Archive Tier', 'Move Edition to Bin — Nath',
   ]), labels(lifecycle));
+  check('the trailing Move Edition to Bin row is danger-toned', lifecycle.entries.at(-1)?.danger === true);
   check('publish: Edition not publishable, Tier has content — only Publish Tier offered', JSON.stringify(labels(publish)) === JSON.stringify(['Publish Tier']), labels(publish));
 }
 
@@ -91,8 +105,8 @@ console.log('\n2) Approved worked example — Edition Disabled + Tier Active');
   const lifecycle = buildTierLifecycleMenu(t, e);
   const publish = buildTierPublishMenu(t, e);
   check('lifecycle top-level label is Enable (Edition\'s own immediate transition)', lifecycle.splitLabel === 'Enable', lifecycle.splitLabel);
-  check('lifecycle: Enable/Archive Edition lead; Disable Tier/Archive Tier follow', JSON.stringify(labels(lifecycle)) === JSON.stringify([
-    'Enable Edition — Nath', 'Archive Edition — Nath', 'Disable Tier', 'Archive Tier',
+  check('lifecycle: Enable/Archive Edition lead; Disable Tier/Archive Tier follow; Move Edition to Bin is always last', JSON.stringify(labels(lifecycle)) === JSON.stringify([
+    'Enable Edition — Nath', 'Archive Edition — Nath', 'Disable Tier', 'Archive Tier', 'Move Edition to Bin — Nath',
   ]), labels(lifecycle));
   check('publish: only Publish Tier offered', JSON.stringify(labels(publish)) === JSON.stringify(['Publish Tier']), labels(publish));
 }
@@ -135,30 +149,31 @@ console.log('\n3) No Edition selected — both menus behave like the normal Tier
   check('a published Tier can lack Publish Tier if it genuinely has no content', !labels(p5).includes('Publish Tier'), labels(p5));
 }
 
-// Mirrors CanonicalEntityFooter's own prior isNewNeverPublished branch
-// exactly: a never-published Edition's top label is "Move to Trash" (the
-// same never-published fallback the Tier itself uses), NOT "Publish" —
-// Publish Edition is an independently-gated PUBLISH-menu row (canPublish
-// alone), exactly like the old primary Publish button's
-// `disabled: !canPublish` was unconditional on hasBeenPublished.
+// Mirrors CanonicalEntityFooter's own prior isNewNeverPublished branch, with
+// the Edition lifecycle/Bin UX cleanup's one deliberate change: a
+// never-published Edition's top label is "Move to Bin" (its one live
+// transition always was headed there, never really "Trash" as a
+// destination), NOT "Publish" — Publish Edition is an independently-gated
+// PUBLISH-menu row (canPublish alone), exactly like the old primary Publish
+// button's `disabled: !canPublish` was unconditional on hasBeenPublished.
 console.log('\n4) Selected Edition, Pending (never published)');
 {
   const t = tier();
   const canPublish = edition({ platformStatus: 'disabled', disabledMasked: false, hasBeenPublished: false, canPublish: true });
   const lCanPublish = buildTierLifecycleMenu(t, canPublish);
   const pCanPublish = buildTierPublishMenu(t, canPublish);
-  check('top label is Move to Trash — the never-published fallback, not Publish', lCanPublish.splitLabel === 'Move to Trash', lCanPublish.splitLabel);
-  check('lifecycle: only the never-published travel row, then Tier\'s own rows — Publish Edition is not a lifecycle row', JSON.stringify(labels(lCanPublish)) === JSON.stringify([
-    'Move Edition to Trash — Nath', 'Disable Tier', 'Archive Tier',
+  check('top label is Move to Bin — the never-published fallback, not Publish', lCanPublish.splitLabel === 'Move to Bin', lCanPublish.splitLabel);
+  check('lifecycle: Tier\'s own rows, then Move Edition to Bin last — Publish Edition is not a lifecycle row', JSON.stringify(labels(lCanPublish)) === JSON.stringify([
+    'Disable Tier', 'Archive Tier', 'Move Edition to Bin — Nath',
   ]), labels(lCanPublish));
   check('publish: Edition\'s own Publish leads, then Tier\'s', JSON.stringify(labels(pCanPublish)) === JSON.stringify(['Publish Edition — Nath', 'Publish Tier']), labels(pCanPublish));
 
   const cannotPublish = edition({ platformStatus: 'disabled', disabledMasked: false, hasBeenPublished: false, canPublish: false });
   const lCannot = buildTierLifecycleMenu(t, cannotPublish);
   const pCannot = buildTierPublishMenu(t, cannotPublish);
-  check('top label is still Move to Trash even when not yet publishable', lCannot.splitLabel === 'Move to Trash');
-  check('lifecycle: the never-published travel row and Tier\'s own valid action are never hidden', JSON.stringify(labels(lCannot)) === JSON.stringify([
-    'Move Edition to Trash — Nath', 'Disable Tier', 'Archive Tier',
+  check('top label is still Move to Bin even when not yet publishable', lCannot.splitLabel === 'Move to Bin');
+  check('lifecycle: Tier\'s own valid action and the trailing Move to Bin row are never hidden', JSON.stringify(labels(lCannot)) === JSON.stringify([
+    'Disable Tier', 'Archive Tier', 'Move Edition to Bin — Nath',
   ]), labels(lCannot));
   check('publish: no ghost Publish Edition row when the Edition is not actually publishable', !labels(pCannot).includes('Publish Edition — Nath') && labels(pCannot).includes('Publish Tier'), labels(pCannot));
 
@@ -171,31 +186,31 @@ console.log('\n4) Selected Edition, Pending (never published)');
   const lRepublish = buildTierLifecycleMenu(t, republish);
   const pRepublish = buildTierPublishMenu(t, republish);
   check('an already-Active Edition with a new pending draft still offers Publish Edition in the publish menu, alongside Publish Tier', JSON.stringify(labels(pRepublish)) === JSON.stringify(['Publish Edition — Nath', 'Publish Tier']), labels(pRepublish));
-  check('the SAME Edition\'s lifecycle menu independently offers Disable/Archive, never Publish', JSON.stringify(labels(lRepublish)) === JSON.stringify(['Disable Edition — Nath', 'Archive Edition — Nath', 'Disable Tier', 'Archive Tier']), labels(lRepublish));
+  check('the SAME Edition\'s lifecycle menu independently offers Disable/Archive, then Tier\'s rows, then Move Edition to Bin last — never Publish', JSON.stringify(labels(lRepublish)) === JSON.stringify(['Disable Edition — Nath', 'Archive Edition — Nath', 'Disable Tier', 'Archive Tier', 'Move Edition to Bin — Nath']), labels(lRepublish));
   check('the lifecycle top label still follows the Edition\'s real live state (Disable), not Publish, once it has been published', lRepublish.splitLabel === 'Disable', lRepublish.splitLabel);
 }
 
-console.log('\n5) Selected Edition, Archived/Trashed — Move Edition to Bin rises near the top, distinct from Archive; no Publish transition exists');
+console.log('\n5) Selected Edition, Archived/Trashed — Restore leads, Move Edition to Bin always trails; no Publish transition exists; no Permanent Delete here at all');
 {
   const t = tier();
   const archived = edition({ platformStatus: 'archived' });
   const lArchived = buildTierLifecycleMenu(t, archived);
   const pArchived = buildTierPublishMenu(t, archived);
   check('top label is Restore', lArchived.splitLabel === 'Restore');
-  check('lifecycle: Restore, then Move Edition to Bin, then Tier rows, then the destructive row last', JSON.stringify(labels(lArchived)) === JSON.stringify([
-    'Restore Edition — Nath', 'Move Edition to Bin', 'Disable Tier', 'Archive Tier', 'Move Edition to Trash — Nath',
+  check('lifecycle: Restore leads, then Tier rows, then Move Edition to Bin last — the SAME single row an Active/Disabled Edition also gets', JSON.stringify(labels(lArchived)) === JSON.stringify([
+    'Restore Edition — Nath', 'Disable Tier', 'Archive Tier', 'Move Edition to Bin — Nath',
   ]), labels(lArchived));
-  check('the destructive Edition row is flagged danger and sits last', lArchived.entries.at(-1)?.danger === true);
-  check('Move Edition to Bin and Move Edition to Trash are distinct rows, never conflated', new Set(labels(lArchived)).size === labels(lArchived).length);
+  check('the trailing Move Edition to Bin row is flagged danger and sits last', lArchived.entries.at(-1)?.danger === true);
   check('an Archived Edition has no Publish transition — publish menu carries only the Tier\'s own', JSON.stringify(labels(pArchived)) === JSON.stringify(['Publish Tier']), labels(pArchived));
 
   const trashed = edition({ platformStatus: 'trashed' });
   const lTrashed = buildTierLifecycleMenu(t, trashed);
   const pTrashed = buildTierPublishMenu(t, trashed);
-  check('trashed: Restore, then Move Edition to Bin, then Tier rows, then Permanently Delete last', JSON.stringify(labels(lTrashed)) === JSON.stringify([
-    'Restore Edition — Nath', 'Move Edition to Bin', 'Disable Tier', 'Archive Tier', 'Permanently Delete Edition — Nath',
+  check('trashed: identical shape to archived — Restore, Tier rows, Move Edition to Bin last; no Permanently Delete row anywhere in this menu', JSON.stringify(labels(lTrashed)) === JSON.stringify([
+    'Restore Edition — Nath', 'Disable Tier', 'Archive Tier', 'Move Edition to Bin — Nath',
   ]), labels(lTrashed));
   check('a Trashed Edition likewise has no Publish transition', JSON.stringify(labels(pTrashed)) === JSON.stringify(['Publish Tier']), labels(pTrashed));
+  check('Permanently Delete never appears in this menu, for any status — it lives exclusively in the Edition Bin now', [...labels(lArchived), ...labels(lTrashed)].every((l) => !l.includes('Delete')));
 }
 
 console.log('\n6) Archive Edition is independent of Archive Tier for an Active/Disabled selected Edition');
